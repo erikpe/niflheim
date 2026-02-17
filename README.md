@@ -9,6 +9,7 @@ Key design docs:
 - [ROADMAP_v0.1.md](ROADMAP_v0.1.md)
 - [ABI_NOTES.md](ABI_NOTES.md)
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md)
+- [docs/GRAMMAR_EBNF.md](docs/GRAMMAR_EBNF.md)
 - [docs/REPO_STRUCTURE.md](docs/REPO_STRUCTURE.md)
 
 ## Repository Areas

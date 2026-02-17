@@ -217,6 +217,7 @@ Minimal C runtime provides:
 
 - [ ] Freeze lexical grammar (tokens, literals, comments).
 - [ ] Freeze parser grammar (expressions, statements, declarations, modules).
+- [ ] Keep canonical EBNF in `compiler/grammar/niflheim_v0_1.ebnf`.
 - [ ] Freeze type rules (nullability, casts, equality semantics).
 - [ ] Freeze runtime ABI boundary (compiler <-> C runtime).
 

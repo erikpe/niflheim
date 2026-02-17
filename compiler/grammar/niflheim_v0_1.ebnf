@@ -1,0 +1,158 @@
+(* Niflheim Grammar v0.1 (canonical parser grammar)
+   Notes:
+   - This is a concrete syntax grammar for stage-0 parser implementation.
+   - Semantic constraints (types, visibility, cast validity) are enforced by later passes.
+*)
+
+program            = module EOF ;
+
+module             = { module_item } ;
+
+module_item        = import_decl
+                   | export_import_decl
+                   | exportable_decl
+                   ;
+
+import_decl        = "import" module_path ";" ;
+
+export_import_decl = "export" "import" module_path ";" ;
+
+exportable_decl    = [ "export" ] ( class_decl | fn_decl ) ;
+
+module_path        = IDENT { "." IDENT } ;
+
+class_decl         = "class" IDENT "{" { class_member } "}" ;
+
+class_member       = field_decl
+                   | method_decl
+                   ;
+
+field_decl         = IDENT ":" type ";" ;
+
+method_decl        = "fn" IDENT "(" [ param_list ] ")" "->" type block ;
+
+fn_decl            = "fn" IDENT "(" [ param_list ] ")" "->" type block ;
+
+param_list         = param { "," param } ;
+
+param              = IDENT ":" type ;
+
+block              = "{" { statement } "}" ;
+
+statement          = var_decl_stmt
+                   | if_stmt
+                   | while_stmt
+                   | return_stmt
+                   | assign_stmt ";"
+                   | expr_stmt ";"
+                   | block
+                   ;
+
+var_decl_stmt      = "var" IDENT ":" type [ "=" expression ] ";" ;
+
+if_stmt            = "if" expression block [ "else" ( if_stmt | block ) ] ;
+
+while_stmt         = "while" expression block ;
+
+return_stmt        = "return" [ expression ] ";" ;
+
+assign_stmt        = lvalue "=" expression ;
+
+expr_stmt          = expression ;
+
+lvalue             = IDENT
+                   | postfix "." IDENT
+                   | postfix "[" expression "]"
+                   ;
+
+expression         = logical_or ;
+
+logical_or         = logical_and { "||" logical_and } ;
+
+logical_and        = equality { "&&" equality } ;
+
+equality           = comparison { ( "==" | "!=" ) comparison } ;
+
+comparison         = additive { ( "<" | "<=" | ">" | ">=" ) additive } ;
+
+additive           = multiplicative { ( "+" | "-" ) multiplicative } ;
+
+multiplicative     = unary { ( "*" | "/" | "%" ) unary } ;
+
+unary              = ( "!" | "-" ) unary
+                   | cast
+                   | postfix
+                   ;
+
+cast               = "(" type ")" unary ;
+
+postfix            = primary { postfix_op } ;
+
+postfix_op         = "(" [ argument_list ] ")"
+                   | "." IDENT
+                   | "[" expression "]"
+                   ;
+
+argument_list      = argument { "," argument } ;
+
+argument           = [ IDENT ":" ] expression ;
+
+primary            = literal
+                   | IDENT
+                   | "null"
+                   | "(" expression ")"
+                   ;
+
+literal            = INT_LIT
+                   | FLOAT_LIT
+                   | STRING_LIT
+                   | "true"
+                   | "false"
+                   ;
+
+type               = primitive_type
+                   | named_type
+                   ;
+
+primitive_type     = "i64"
+                   | "u64"
+                   | "u8"
+                   | "bool"
+                   | "double"
+                   | "unit"
+                   ;
+
+named_type         = "Obj"
+                   | "Str"
+                   | "Vec"
+                   | "Map"
+                   | "BoxI64"
+                   | "BoxU64"
+                   | "BoxU8"
+                   | "BoxBool"
+                   | "BoxDouble"
+                   | IDENT
+                   ;
+
+(* Lexer-level tokens and trivia (reference) *)
+
+IDENT              = letter { letter | digit | "_" } ;
+INT_LIT            = digit { digit } ;
+FLOAT_LIT          = digit { digit } "." digit { digit } ;
+STRING_LIT         = '"' { string_char } '"' ;
+
+letter             = "A" | ... | "Z" | "a" | ... | "z" | "_" ;
+digit              = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+string_char        = ? any char except unescaped quote/newline ? ;
+
+(* Keywords
+   import export class fn var if else while return
+   i64 u64 u8 bool double unit
+   Obj Str Vec Map BoxI64 BoxU64 BoxU8 BoxBool BoxDouble
+   true false null
+*)
+
+(* Trivia
+   whitespace and line comments are skipped by lexer.
+   line_comment = "//" { ? any char except newline ? } ;
+*)

@@ -26,6 +26,7 @@ Current scaffold:
 - `resolver.py` - module/symbol resolution placeholder.
 - `typecheck.py` - type checker placeholder.
 - `codegen.py` - x86-64 emitter placeholder.
+- `grammar/niflheim_v0_1.ebnf` - canonical MVP v0.1 syntax grammar.
 
 ## `runtime/`
 
@@ -71,6 +72,7 @@ Repository-oriented supporting documentation.
 
 Current scaffold:
 - `REPO_STRUCTURE.md` - this document.
+- `GRAMMAR_EBNF.md` - grammar conventions and parser-facing notes.
 
 ## Intended Evolution Path
 

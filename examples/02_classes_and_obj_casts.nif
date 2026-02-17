@@ -1,0 +1,34 @@
+// classes, nullable references, Obj up/down casts
+
+class Person {
+    name: Str;
+    age: i64;
+
+    fn birthday(self: Person) -> unit {
+        self.age = self.age + 1;
+    }
+}
+
+export fn make_person(name: Str, age: i64) -> Person {
+    var p: Person = Person(name: name, age: age);
+    return p;
+}
+
+export fn main() -> unit {
+    var maybe_person: Person = null; // references default to null
+
+    var alice: Person = make_person("Alice", 19);
+    alice.birthday();
+
+    // all references are upcastable to Obj
+    var as_obj: Obj = (Obj)alice;
+
+    // checked downcast from Obj
+    var back_to_person: Person = (Person)as_obj;
+
+    if maybe_person == null {
+        maybe_person = back_to_person;
+    }
+
+    var _sink: i64 = maybe_person.age;
+}

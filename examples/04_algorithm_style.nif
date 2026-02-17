@@ -1,0 +1,40 @@
+// coding-competition style pattern: frequency counting
+
+class Pair {
+    key: Obj;
+    count: i64;
+}
+
+// counts occurrences of boxed i64 values using identity map keys
+export fn count_freq(values: Vec) -> Vec {
+    var freq: Map = Map();
+    var out: Vec = Vec();
+
+    var i: i64 = 0;
+    while i < (i64)values.len() {
+        var key: Obj = values.get(i);
+        if freq.contains(key) {
+            var c_obj: Obj = freq.get(key);
+            var c_box: BoxI64 = (BoxI64)c_obj;
+            var next: i64 = c_box.value + 1;
+            freq.put(key, (Obj)BoxI64(next));
+        } else {
+            freq.put(key, (Obj)BoxI64(1));
+        }
+        i = i + 1;
+    }
+
+    // convert map to Vec<Pair> represented as Vec of Obj for MVP
+    // pseudo-iteration placeholder until map iteration API is finalized.
+    return out;
+}
+
+export fn main() -> unit {
+    var input: Vec = Vec();
+    input.push((Obj)BoxI64(7));
+    input.push((Obj)BoxI64(1));
+    input.push((Obj)BoxI64(7));
+
+    var result: Vec = count_freq(input);
+    var _sink: i64 = (i64)result.len();
+}

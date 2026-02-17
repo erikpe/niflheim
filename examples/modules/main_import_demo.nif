@@ -1,0 +1,12 @@
+import math_utils;
+
+export fn main() -> unit {
+    var a: i64 = 84;
+    var b: i64 = 18;
+
+    var g: i64 = math_utils.gcd(a, b);
+    var m: i64 = math_utils.max_i64(a, b);
+
+    var _sink1: i64 = g;
+    var _sink2: i64 = m;
+}

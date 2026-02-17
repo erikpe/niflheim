@@ -1,0 +1,42 @@
+// primitives, explicit casts, control flow
+
+export fn abs_diff(a: i64, b: i64) -> i64 {
+    if a >= b {
+        return a - b;
+    }
+    return b - a;
+}
+
+export fn sum_to(n: i64) -> i64 {
+    var i: i64 = 0;
+    var total: i64 = 0;
+
+    while i <= n {
+        total = total + i;
+        i = i + 1;
+    }
+
+    return total;
+}
+
+export fn main() -> unit {
+    var x: i64 = 42;
+    var y: i64 = 13;
+
+    var d: i64 = abs_diff(x, y);
+    var s: i64 = sum_to(100);
+
+    var b: u8 = 255;
+    var w: u64 = (u64)b;      // explicit primitive cast
+    var z: double = (double)d;
+
+    if s > d {
+        // placeholder side effect once std io is finalized
+    }
+
+    // suppress "unused" style warnings in future compiler versions
+    var _sink1: u64 = w;
+    var _sink2: double = z;
+    var _sink3: i64 = s;
+    var _sink4: i64 = d;
+}

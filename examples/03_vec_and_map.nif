@@ -1,0 +1,26 @@
+// Vec (Obj elements) and Map (Obj -> Obj identity keys)
+
+export fn main() -> unit {
+    var nums: Vec = Vec();
+    nums.push((Obj)BoxI64(10));
+    nums.push((Obj)BoxI64(10));
+    nums.push((Obj)BoxI64(42));
+
+    var m: Map = Map();
+
+    // identity key behavior: two distinct BoxI64(10) objects are different keys
+    var k1: Obj = nums.get(0);
+    var k2: Obj = nums.get(1);
+    var v1: Obj = (Obj)"first ten";
+    var v2: Obj = (Obj)"second ten";
+
+    m.put(k1, v1);
+    m.put(k2, v2);
+
+    var contains_k1: bool = m.contains(k1);
+    var contains_k2: bool = m.contains(k2);
+
+    var _sink1: bool = contains_k1;
+    var _sink2: bool = contains_k2;
+    var _sink3: i64 = (i64)nums.len();
+}
