@@ -1,0 +1,3 @@
+// Placeholder Niflheim source for bring-up
+// Expected future entrypoint pattern:
+// export fn main() -> unit { ... }

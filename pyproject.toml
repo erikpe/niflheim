@@ -1,0 +1,9 @@
+[project]
+name = "niflheim-compiler"
+version = "0.1.0"
+description = "Stage-0 compiler for Niflheim MVP v0.1"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
