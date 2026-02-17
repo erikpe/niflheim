@@ -116,9 +116,11 @@ Compiler rules:
 - Every live reference at a safepoint must be present in a root slot.
 
 Safepoints in v0.1:
-- Before/around any call that may allocate.
-- Before explicit runtime allocation calls.
-- Optional: treat every runtime call as a safepoint for simplicity.
+- Every runtime call is a safepoint (frozen policy for v0.1).
+- Before each runtime call, all live reference values must be present in root slots.
+- GC is therefore permitted to run at any runtime call boundary.
+- Ordinary language function calls are not GC entry points by themselves.
+- However, because a callee may execute runtime calls, v0.1 codegen must spill caller live references to root slots before ordinary calls too (unless the callee is proven non-GC).
 
 ---
 

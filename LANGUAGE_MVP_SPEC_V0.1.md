@@ -142,6 +142,9 @@ These are specialization/performance features and should not change core semanti
 ## 6) Modules and Visibility
 
 - Module system supports `import` and `export`.
+- Frozen v0.1 module import syntax forms:
+  - `import a.b;`
+  - `export import a.b;` (re-export)
 - Symbols are private by default to defining module.
 - `export` makes symbol visible to importing module.
 - Re-export of imported symbols/modules is allowed.
@@ -172,6 +175,9 @@ Minimal C runtime provides:
   - Globals
   - Compiler-managed shadow stack for function locals/temporaries of reference type
 - No conservative native stack scanning.
+- Frozen v0.1 safepoint policy: every runtime call is a safepoint.
+- Compiler requirement: before each runtime call, spill all live references into root slots.
+- Ordinary language calls are not direct GC entry points, but for v0.1 codegen treat them as safepoint-adjacent and spill caller live references before the call unless callee is proven non-GC.
 
 ### 7.4 Trigger Policy
 
@@ -218,6 +224,7 @@ Minimal C runtime provides:
 - [ ] Freeze lexical grammar (tokens, literals, comments).
 - [ ] Freeze parser grammar (expressions, statements, declarations, modules).
 - [ ] Keep canonical EBNF in `compiler/grammar/niflheim_v0_1.ebnf`.
+- [ ] Freeze call syntax to positional arguments only in v0.1.
 - [ ] Freeze type rules (nullability, casts, equality semantics).
 - [ ] Freeze runtime ABI boundary (compiler <-> C runtime).
 

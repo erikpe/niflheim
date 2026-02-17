@@ -95,7 +95,7 @@ postfix_op         = "(" [ argument_list ] ")"
 
 argument_list      = argument { "," argument } ;
 
-argument           = [ IDENT ":" ] expression ;
+argument           = expression ;
 
 primary            = literal
                    | IDENT

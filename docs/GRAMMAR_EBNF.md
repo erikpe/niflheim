@@ -37,7 +37,7 @@ Grammar permits forms that are filtered later by semantic analysis.
 
 Examples:
 - Cast syntax parses as `(Type)expr`, but cast validity is type-checked later.
-- `argument` allows optional named arguments; constructor/function rules are validated later.
+- Call arguments are positional-only in v0.1.
 - `named_type` includes `IDENT` for user classes; actual type resolution is done in resolver/type checker.
 - `lvalue` shape is syntactic; mutability/nullability checks are semantic.
 
@@ -46,6 +46,8 @@ Examples:
 - `import foo.bar;`
 - `export import foo.bar;` (re-export)
 - `export` can prefix `class` and `fn` declarations.
+
+These import/re-export forms are frozen for MVP v0.1.
 
 ## Lexer Expectations
 

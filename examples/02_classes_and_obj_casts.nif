@@ -10,7 +10,7 @@ class Person {
 }
 
 export fn make_person(name: Str, age: i64) -> Person {
-    var p: Person = Person(name: name, age: age);
+    var p: Person = Person(name, age);
     return p;
 }
 
