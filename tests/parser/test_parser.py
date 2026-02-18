@@ -1,7 +1,8 @@
 import pytest
 
+from compiler.ast_nodes import ClassDecl, FunctionDecl, ImportDecl
 from compiler.lexer import lex
-from compiler.parser import ParserError, TokenStream
+from compiler.parser import ParserError, TokenStream, parse
 from compiler.tokens import TokenKind
 
 
@@ -53,3 +54,65 @@ def test_token_stream_previous_and_end_behavior() -> None:
     eof2 = stream.advance()
     assert eof1.kind == TokenKind.EOF
     assert eof2.kind == TokenKind.EOF
+
+
+def test_parse_module_level_declarations() -> None:
+    source = """
+import a.b;
+export import std.io;
+
+class Point {
+    x: i64;
+    y: i64;
+
+    fn reset() -> unit {
+        return;
+    }
+}
+
+export fn main() -> unit {
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/module.nif"))
+
+    assert len(module.imports) == 2
+    assert all(isinstance(item, ImportDecl) for item in module.imports)
+    assert module.imports[0].module_path == ["a", "b"]
+    assert module.imports[0].is_export is False
+    assert module.imports[1].module_path == ["std", "io"]
+    assert module.imports[1].is_export is True
+
+    assert len(module.classes) == 1
+    cls = module.classes[0]
+    assert isinstance(cls, ClassDecl)
+    assert cls.name == "Point"
+    assert cls.is_export is False
+    assert [field.name for field in cls.fields] == ["x", "y"]
+    assert len(cls.methods) == 1
+    assert cls.methods[0].name == "reset"
+
+    assert len(module.functions) == 1
+    fn = module.functions[0]
+    assert isinstance(fn, FunctionDecl)
+    assert fn.name == "main"
+    assert fn.is_export is True
+    assert fn.return_type.name == "unit"
+
+
+def test_parse_export_requires_import_class_or_fn() -> None:
+    source = "export return;"
+    with pytest.raises(ParserError) as error:
+        parse(lex(source, source_path="examples/bad_export.nif"))
+
+    assert "Expected 'import', 'class', or 'fn' after 'export'" in str(error.value)
+    assert "examples/bad_export.nif" in str(error.value)
+
+
+def test_parse_unterminated_block_raises_parser_error() -> None:
+    source = "fn main() -> unit {"
+    with pytest.raises(ParserError) as error:
+        parse(lex(source, source_path="examples/bad_block.nif"))
+
+    assert "Unterminated block" in str(error.value)
+    assert "examples/bad_block.nif" in str(error.value)

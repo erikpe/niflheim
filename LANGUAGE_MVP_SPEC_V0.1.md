@@ -221,18 +221,18 @@ Minimal C runtime provides:
 
 ## A. Spec Freeze
 
-- [ ] Freeze lexical grammar (tokens, literals, comments).
-- [ ] Freeze parser grammar (expressions, statements, declarations, modules).
-- [ ] Keep canonical EBNF in `compiler/grammar/niflheim_v0_1.ebnf`.
-- [ ] Freeze call syntax to positional arguments only in v0.1.
-- [ ] Freeze type rules (nullability, casts, equality semantics).
-- [ ] Freeze runtime ABI boundary (compiler <-> C runtime).
+- [x] Freeze lexical grammar (tokens, literals, comments).
+- [x] Freeze parser grammar (expressions, statements, declarations, modules).
+- [x] Keep canonical EBNF in `compiler/grammar/niflheim_v0_1.ebnf`.
+- [x] Freeze call syntax to positional arguments only in v0.1.
+- [x] Freeze type rules (nullability, casts, equality semantics).
+- [x] Freeze runtime ABI boundary (compiler <-> C runtime).
 
 ## B. Frontend
 
-- [ ] Implement lexer with source spans.
-- [ ] Add lexer golden tests and error tests.
-- [ ] Implement parser into AST.
+- [x] Implement lexer with source spans.
+- [x] Add lexer golden tests and error tests.
+- [x] Implement parser TokenStream + module-level AST parsing (`import`, `export import`, `class`, `fn`).
 - [ ] Add parser precedence and invalid-syntax tests.
 - [ ] Implement symbol tables and module import/export resolution.
 - [ ] Add multi-module visibility tests.
