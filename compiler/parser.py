@@ -88,549 +88,513 @@ class TokenStream:
         raise ParserError(message, self.peek().span)
 
 
-def parse(tokens: list[Token]):
-    stream = TokenStream(tokens)
-    imports: list[ImportDecl] = []
-    classes: list[ClassDecl] = []
-    functions: list[FunctionDecl] = []
+class Parser:
+    def __init__(self, tokens: list[Token]):
+        self.stream = TokenStream(tokens)
 
-    start = stream.peek().span.start
+    def parse_module(self) -> ModuleAst:
+        imports: list[ImportDecl] = []
+        classes: list[ClassDecl] = []
+        functions: list[FunctionDecl] = []
 
-    while not stream.is_at_end():
-        if stream.match(TokenKind.IMPORT):
-            imports.append(_parse_import_decl(stream, is_export=False, import_token=stream.previous()))
-            continue
+        start = self.stream.peek().span.start
 
-        if stream.match(TokenKind.EXPORT):
-            export_token = stream.previous()
-            if stream.match(TokenKind.IMPORT):
-                imports.append(_parse_import_decl(stream, is_export=True, import_token=stream.previous(), export_token=export_token))
+        while not self.stream.is_at_end():
+            if self.stream.match(TokenKind.IMPORT):
+                imports.append(self._parse_import_decl(is_export=False, import_token=self.stream.previous()))
                 continue
 
-            if stream.match(TokenKind.CLASS):
-                classes.append(_parse_class_decl(stream, is_export=True, class_token=stream.previous(), export_token=export_token))
+            if self.stream.match(TokenKind.EXPORT):
+                export_token = self.stream.previous()
+                if self.stream.match(TokenKind.IMPORT):
+                    imports.append(self._parse_import_decl(is_export=True, import_token=self.stream.previous(), export_token=export_token))
+                    continue
+
+                if self.stream.match(TokenKind.CLASS):
+                    classes.append(self._parse_class_decl(is_export=True, class_token=self.stream.previous(), export_token=export_token))
+                    continue
+
+                if self.stream.match(TokenKind.FN):
+                    functions.append(self._parse_function_decl(is_export=True, fn_token=self.stream.previous(), export_token=export_token))
+                    continue
+
+                raise ParserError("Expected 'import', 'class', or 'fn' after 'export'", self.stream.peek().span)
+
+            if self.stream.match(TokenKind.CLASS):
+                classes.append(self._parse_class_decl(is_export=False, class_token=self.stream.previous()))
                 continue
 
-            if stream.match(TokenKind.FN):
-                functions.append(_parse_function_decl(stream, is_export=True, fn_token=stream.previous(), export_token=export_token))
+            if self.stream.match(TokenKind.FN):
+                functions.append(self._parse_function_decl(is_export=False, fn_token=self.stream.previous()))
                 continue
 
-            raise ParserError("Expected 'import', 'class', or 'fn' after 'export'", stream.peek().span)
+            raise ParserError("Unexpected token at module scope", self.stream.peek().span)
 
-        if stream.match(TokenKind.CLASS):
-            classes.append(_parse_class_decl(stream, is_export=False, class_token=stream.previous()))
-            continue
+        end = self.stream.peek().span.end
+        return ModuleAst(
+            imports=imports,
+            classes=classes,
+            functions=functions,
+            span=SourceSpan(start=start, end=end),
+        )
 
-        if stream.match(TokenKind.FN):
-            functions.append(_parse_function_decl(stream, is_export=False, fn_token=stream.previous()))
-            continue
+    def parse_expression_root(self) -> Expression:
+        expr = self._parse_expression()
+        self.stream.expect(TokenKind.EOF, "Expected end of expression")
+        return expr
 
-        raise ParserError("Unexpected token at module scope", stream.peek().span)
+    def _parse_import_decl(
+        self,
+        *,
+        is_export: bool,
+        import_token: Token,
+        export_token: Token | None = None,
+    ) -> ImportDecl:
+        parts: list[str] = []
+        first = self.stream.expect(TokenKind.IDENT, "Expected module path after import")
+        parts.append(first.lexeme)
 
-    end = stream.peek().span.end
-    return ModuleAst(
-        imports=imports,
-        classes=classes,
-        functions=functions,
-        span=SourceSpan(start=start, end=end),
-    )
+        while self.stream.match(TokenKind.DOT):
+            part = self.stream.expect(TokenKind.IDENT, "Expected identifier after '.' in module path")
+            parts.append(part.lexeme)
+
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after import declaration")
+        start_pos = export_token.span.start if export_token is not None else import_token.span.start
+        span = SourceSpan(start=start_pos, end=semicolon.span.end)
+        return ImportDecl(module_path=parts, is_export=is_export, span=span)
+
+    def _parse_class_decl(
+        self,
+        *,
+        is_export: bool,
+        class_token: Token,
+        export_token: Token | None = None,
+    ) -> ClassDecl:
+        name_token = self.stream.expect(TokenKind.IDENT, "Expected class name")
+        self.stream.expect(TokenKind.LBRACE, "Expected '{' after class name")
+
+        fields: list[FieldDecl] = []
+        methods: list[MethodDecl] = []
+
+        while not self.stream.check(TokenKind.RBRACE):
+            if self.stream.is_at_end():
+                raise ParserError("Unterminated class body", class_token.span)
+
+            if self.stream.match(TokenKind.FN):
+                methods.append(self._parse_method_decl(fn_token=self.stream.previous()))
+                continue
+
+            if self.stream.check(TokenKind.IDENT) and self.stream.peek(1).kind == TokenKind.COLON:
+                fields.append(self._parse_field_decl())
+                continue
+
+            raise ParserError("Expected field or method declaration in class body", self.stream.peek().span)
+
+        rbrace = self.stream.expect(TokenKind.RBRACE, "Expected '}' after class body")
+        start_pos = export_token.span.start if export_token is not None else class_token.span.start
+        span = SourceSpan(start=start_pos, end=rbrace.span.end)
+        return ClassDecl(
+            name=name_token.lexeme,
+            fields=fields,
+            methods=methods,
+            is_export=is_export,
+            span=span,
+        )
+
+    def _parse_field_decl(self) -> FieldDecl:
+        name = self.stream.expect(TokenKind.IDENT, "Expected field name")
+        self.stream.expect(TokenKind.COLON, "Expected ':' after field name")
+        type_ref = self._parse_type_ref()
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after field declaration")
+        return FieldDecl(
+            name=name.lexeme,
+            type_ref=type_ref,
+            span=SourceSpan(start=name.span.start, end=semicolon.span.end),
+        )
+
+    def _parse_method_decl(self, *, fn_token: Token) -> MethodDecl:
+        name, params, return_type = self._parse_callable_signature()
+        body = self._parse_block_stmt()
+        return MethodDecl(
+            name=name,
+            params=params,
+            return_type=return_type,
+            body=body,
+            span=SourceSpan(start=fn_token.span.start, end=body.span.end),
+        )
+
+    def _parse_function_decl(
+        self,
+        *,
+        is_export: bool,
+        fn_token: Token,
+        export_token: Token | None = None,
+    ) -> FunctionDecl:
+        name, params, return_type = self._parse_callable_signature()
+        body = self._parse_block_stmt()
+        start_pos = export_token.span.start if export_token is not None else fn_token.span.start
+        return FunctionDecl(
+            name=name,
+            params=params,
+            return_type=return_type,
+            body=body,
+            is_export=is_export,
+            span=SourceSpan(start=start_pos, end=body.span.end),
+        )
+
+    def _parse_callable_signature(self) -> tuple[str, list[ParamDecl], TypeRef]:
+        name = self.stream.expect(TokenKind.IDENT, "Expected function name")
+        self.stream.expect(TokenKind.LPAREN, "Expected '(' after function name")
+
+        params: list[ParamDecl] = []
+        if not self.stream.check(TokenKind.RPAREN):
+            while True:
+                params.append(self._parse_param())
+                if not self.stream.match(TokenKind.COMMA):
+                    break
+
+        self.stream.expect(TokenKind.RPAREN, "Expected ')' after parameters")
+        self.stream.expect(TokenKind.ARROW, "Expected '->' after parameter list")
+        return_type = self._parse_type_ref()
+        return name.lexeme, params, return_type
+
+    def _parse_param(self) -> ParamDecl:
+        name = self.stream.expect(TokenKind.IDENT, "Expected parameter name")
+        self.stream.expect(TokenKind.COLON, "Expected ':' after parameter name")
+        type_ref = self._parse_type_ref()
+        return ParamDecl(
+            name=name.lexeme,
+            type_ref=type_ref,
+            span=SourceSpan(start=name.span.start, end=type_ref.span.end),
+        )
+
+    def _parse_type_ref(self) -> TypeRef:
+        token = self.stream.peek()
+        if token.kind not in self._type_tokens():
+            raise ParserError("Expected type name", token.span)
+        self.stream.advance()
+        return TypeRef(name=token.lexeme, span=token.span)
+
+    def _parse_block_stmt(self) -> BlockStmt:
+        lbrace = self.stream.expect(TokenKind.LBRACE, "Expected '{' to start block")
+        statements: list[Statement] = []
+
+        while not self.stream.check(TokenKind.RBRACE):
+            if self.stream.is_at_end():
+                raise ParserError("Unterminated block", self.stream.peek().span)
+            statements.append(self._parse_statement())
+
+        rbrace = self.stream.expect(TokenKind.RBRACE, "Expected '}' after block")
+        return BlockStmt(statements=statements, span=SourceSpan(start=lbrace.span.start, end=rbrace.span.end))
+
+    def _parse_statement(self) -> Statement:
+        if self.stream.match(TokenKind.VAR):
+            return self._parse_var_decl_stmt(var_token=self.stream.previous())
+
+        if self.stream.match(TokenKind.IF):
+            return self._parse_if_stmt(if_token=self.stream.previous())
+
+        if self.stream.match(TokenKind.WHILE):
+            return self._parse_while_stmt(while_token=self.stream.previous())
+
+        if self.stream.match(TokenKind.RETURN):
+            return self._parse_return_stmt(return_token=self.stream.previous())
+
+        if self.stream.check(TokenKind.LBRACE):
+            return self._parse_block_stmt()
+
+        return self._parse_expr_or_assign_stmt()
+
+    def _parse_var_decl_stmt(self, *, var_token: Token) -> VarDeclStmt:
+        name = self.stream.expect(TokenKind.IDENT, "Expected variable name after 'var'")
+        self.stream.expect(TokenKind.COLON, "Expected ':' after variable name")
+        type_ref = self._parse_type_ref()
+        initializer: Expression | None = None
+
+        if self.stream.match(TokenKind.ASSIGN):
+            initializer = self._parse_expression()
+
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after variable declaration")
+        return VarDeclStmt(
+            name=name.lexeme,
+            type_ref=type_ref,
+            initializer=initializer,
+            span=SourceSpan(start=var_token.span.start, end=semicolon.span.end),
+        )
+
+    def _parse_if_stmt(self, *, if_token: Token) -> IfStmt:
+        condition = self._parse_expression()
+        then_branch = self._parse_block_stmt()
+        else_branch: BlockStmt | IfStmt | None = None
+
+        if self.stream.match(TokenKind.ELSE):
+            if self.stream.match(TokenKind.IF):
+                else_branch = self._parse_if_stmt(if_token=self.stream.previous())
+            elif self.stream.check(TokenKind.LBRACE):
+                else_branch = self._parse_block_stmt()
+            else:
+                raise ParserError("Expected 'if' or '{' after 'else'", self.stream.peek().span)
+
+        end_pos = else_branch.span.end if else_branch is not None else then_branch.span.end
+        return IfStmt(
+            condition=condition,
+            then_branch=then_branch,
+            else_branch=else_branch,
+            span=SourceSpan(start=if_token.span.start, end=end_pos),
+        )
+
+    def _parse_while_stmt(self, *, while_token: Token) -> WhileStmt:
+        condition = self._parse_expression()
+        body = self._parse_block_stmt()
+        return WhileStmt(
+            condition=condition,
+            body=body,
+            span=SourceSpan(start=while_token.span.start, end=body.span.end),
+        )
+
+    def _parse_return_stmt(self, *, return_token: Token) -> ReturnStmt:
+        value: Expression | None = None
+        if not self.stream.check(TokenKind.SEMICOLON):
+            value = self._parse_expression()
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after return statement")
+        return ReturnStmt(value=value, span=SourceSpan(start=return_token.span.start, end=semicolon.span.end))
+
+    def _parse_expr_or_assign_stmt(self) -> Statement:
+        expr = self._parse_expression()
+        if self.stream.match(TokenKind.ASSIGN):
+            if not self._is_assignable_target(expr):
+                raise ParserError("Invalid assignment target", expr.span)
+            value = self._parse_expression()
+            semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after assignment")
+            return AssignStmt(
+                target=expr,
+                value=value,
+                span=SourceSpan(start=expr.span.start, end=semicolon.span.end),
+            )
+
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after expression statement")
+        return ExprStmt(expression=expr, span=SourceSpan(start=expr.span.start, end=semicolon.span.end))
+
+    @staticmethod
+    def _is_assignable_target(expr: Expression) -> bool:
+        return isinstance(expr, (IdentifierExpr, FieldAccessExpr, IndexExpr))
+
+    def _parse_expression(self) -> Expression:
+        return self._parse_logical_or()
+
+    def _parse_logical_or(self) -> Expression:
+        expr = self._parse_logical_and()
+        while self.stream.match(TokenKind.OROR):
+            op = self.stream.previous()
+            right = self._parse_logical_and()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_logical_and(self) -> Expression:
+        expr = self._parse_equality()
+        while self.stream.match(TokenKind.ANDAND):
+            op = self.stream.previous()
+            right = self._parse_equality()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_equality(self) -> Expression:
+        expr = self._parse_comparison()
+        while self.stream.match(TokenKind.EQEQ, TokenKind.NEQ):
+            op = self.stream.previous()
+            right = self._parse_comparison()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_comparison(self) -> Expression:
+        expr = self._parse_additive()
+        while self.stream.match(TokenKind.LT, TokenKind.LTE, TokenKind.GT, TokenKind.GTE):
+            op = self.stream.previous()
+            right = self._parse_additive()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_additive(self) -> Expression:
+        expr = self._parse_multiplicative()
+        while self.stream.match(TokenKind.PLUS, TokenKind.MINUS):
+            op = self.stream.previous()
+            right = self._parse_multiplicative()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_multiplicative(self) -> Expression:
+        expr = self._parse_unary()
+        while self.stream.match(TokenKind.STAR, TokenKind.SLASH, TokenKind.PERCENT):
+            op = self.stream.previous()
+            right = self._parse_unary()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_unary(self) -> Expression:
+        if self.stream.match(TokenKind.BANG, TokenKind.MINUS):
+            op = self.stream.previous()
+            operand = self._parse_unary()
+            return UnaryExpr(
+                operator=op.lexeme,
+                operand=operand,
+                span=SourceSpan(start=op.span.start, end=operand.span.end),
+            )
+
+        if self._is_cast_start():
+            lparen = self.stream.expect(TokenKind.LPAREN, "Expected '(' to start cast")
+            type_ref = self._parse_type_ref()
+            self.stream.expect(TokenKind.RPAREN, "Expected ')' after cast type")
+            operand = self._parse_unary()
+            return CastExpr(
+                type_ref=type_ref,
+                operand=operand,
+                span=SourceSpan(start=lparen.span.start, end=operand.span.end),
+            )
+
+        return self._parse_postfix()
+
+    def _parse_postfix(self) -> Expression:
+        expr = self._parse_primary()
+
+        while True:
+            if self.stream.match(TokenKind.LPAREN):
+                args: list[Expression] = []
+                if not self.stream.check(TokenKind.RPAREN):
+                    while True:
+                        args.append(self._parse_expression())
+                        if not self.stream.match(TokenKind.COMMA):
+                            break
+
+                rparen = self.stream.expect(TokenKind.RPAREN, "Expected ')' after arguments")
+                expr = CallExpr(
+                    callee=expr,
+                    arguments=args,
+                    span=SourceSpan(start=expr.span.start, end=rparen.span.end),
+                )
+                continue
+
+            if self.stream.match(TokenKind.DOT):
+                field = self.stream.expect(TokenKind.IDENT, "Expected field name after '.'")
+                expr = FieldAccessExpr(
+                    object_expr=expr,
+                    field_name=field.lexeme,
+                    span=SourceSpan(start=expr.span.start, end=field.span.end),
+                )
+                continue
+
+            if self.stream.match(TokenKind.LBRACKET):
+                index_expr = self._parse_expression()
+                rbracket = self.stream.expect(TokenKind.RBRACKET, "Expected ']' after index expression")
+                expr = IndexExpr(
+                    object_expr=expr,
+                    index_expr=index_expr,
+                    span=SourceSpan(start=expr.span.start, end=rbracket.span.end),
+                )
+                continue
+
+            return expr
+
+    def _parse_primary(self) -> Expression:
+        if self.stream.match(TokenKind.INT_LIT, TokenKind.FLOAT_LIT, TokenKind.STRING_LIT, TokenKind.TRUE, TokenKind.FALSE):
+            token = self.stream.previous()
+            return LiteralExpr(value=token.lexeme, span=token.span)
+
+        if self.stream.match(TokenKind.NULL):
+            return NullExpr(span=self.stream.previous().span)
+
+        if self.stream.match(TokenKind.IDENT):
+            token = self.stream.previous()
+            return IdentifierExpr(name=token.lexeme, span=token.span)
+
+        if self.stream.match(TokenKind.LPAREN):
+            expr = self._parse_expression()
+            self.stream.expect(TokenKind.RPAREN, "Expected ')' after expression")
+            return expr
+
+        raise ParserError("Expected expression", self.stream.peek().span)
+
+    def _is_cast_start(self) -> bool:
+        if self.stream.peek().kind != TokenKind.LPAREN:
+            return False
+
+        if self.stream.peek(1).kind not in self._type_tokens():
+            return False
+
+        if self.stream.peek(2).kind != TokenKind.RPAREN:
+            return False
+
+        return self.stream.peek(3).kind in self._unary_start_tokens()
+
+    @staticmethod
+    def _type_tokens() -> set[TokenKind]:
+        return {
+            TokenKind.IDENT,
+            TokenKind.I64,
+            TokenKind.U64,
+            TokenKind.U8,
+            TokenKind.BOOL,
+            TokenKind.DOUBLE,
+            TokenKind.UNIT,
+            TokenKind.OBJ,
+            TokenKind.STR,
+            TokenKind.VEC,
+            TokenKind.MAP,
+            TokenKind.BOXI64,
+            TokenKind.BOXU64,
+            TokenKind.BOXU8,
+            TokenKind.BOXBOOL,
+            TokenKind.BOXDOUBLE,
+        }
+
+    @staticmethod
+    def _unary_start_tokens() -> set[TokenKind]:
+        return {
+            TokenKind.BANG,
+            TokenKind.MINUS,
+            TokenKind.LPAREN,
+            TokenKind.IDENT,
+            TokenKind.INT_LIT,
+            TokenKind.FLOAT_LIT,
+            TokenKind.STRING_LIT,
+            TokenKind.TRUE,
+            TokenKind.FALSE,
+            TokenKind.NULL,
+        }
+
+
+def parse(tokens: list[Token]) -> ModuleAst:
+    return Parser(tokens).parse_module()
 
 
 def parse_expression(tokens: list[Token]) -> Expression:
-    stream = TokenStream(tokens)
-    expr = _parse_expression(stream)
-    stream.expect(TokenKind.EOF, "Expected end of expression")
-    return expr
-
-
-def _parse_import_decl(
-    stream: TokenStream,
-    *,
-    is_export: bool,
-    import_token: Token,
-    export_token: Token | None = None,
-) -> ImportDecl:
-    parts: list[str] = []
-    first = stream.expect(TokenKind.IDENT, "Expected module path after import")
-    parts.append(first.lexeme)
-
-    while stream.match(TokenKind.DOT):
-        part = stream.expect(TokenKind.IDENT, "Expected identifier after '.' in module path")
-        parts.append(part.lexeme)
-
-    semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after import declaration")
-    start_pos = export_token.span.start if export_token is not None else import_token.span.start
-    span = SourceSpan(start=start_pos, end=semicolon.span.end)
-    return ImportDecl(module_path=parts, is_export=is_export, span=span)
-
-
-def _parse_class_decl(
-    stream: TokenStream,
-    *,
-    is_export: bool,
-    class_token: Token,
-    export_token: Token | None = None,
-) -> ClassDecl:
-    name_token = stream.expect(TokenKind.IDENT, "Expected class name")
-    stream.expect(TokenKind.LBRACE, "Expected '{' after class name")
-
-    fields: list[FieldDecl] = []
-    methods: list[MethodDecl] = []
-
-    while not stream.check(TokenKind.RBRACE):
-        if stream.is_at_end():
-            raise ParserError("Unterminated class body", class_token.span)
-
-        if stream.match(TokenKind.FN):
-            methods.append(_parse_method_decl(stream, fn_token=stream.previous()))
-            continue
-
-        if stream.check(TokenKind.IDENT) and stream.peek(1).kind == TokenKind.COLON:
-            fields.append(_parse_field_decl(stream))
-            continue
-
-        raise ParserError("Expected field or method declaration in class body", stream.peek().span)
-
-    rbrace = stream.expect(TokenKind.RBRACE, "Expected '}' after class body")
-    start_pos = export_token.span.start if export_token is not None else class_token.span.start
-    span = SourceSpan(start=start_pos, end=rbrace.span.end)
-    return ClassDecl(
-        name=name_token.lexeme,
-        fields=fields,
-        methods=methods,
-        is_export=is_export,
-        span=span,
-    )
-
-
-def _parse_field_decl(stream: TokenStream) -> FieldDecl:
-    name = stream.expect(TokenKind.IDENT, "Expected field name")
-    stream.expect(TokenKind.COLON, "Expected ':' after field name")
-    type_ref = _parse_type_ref(stream)
-    semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after field declaration")
-    return FieldDecl(
-        name=name.lexeme,
-        type_ref=type_ref,
-        span=SourceSpan(start=name.span.start, end=semicolon.span.end),
-    )
-
-
-def _parse_method_decl(stream: TokenStream, *, fn_token: Token) -> MethodDecl:
-    name, params, return_type = _parse_callable_signature(stream)
-    body = _parse_block_stmt(stream)
-    return MethodDecl(
-        name=name,
-        params=params,
-        return_type=return_type,
-        body=body,
-        span=SourceSpan(start=fn_token.span.start, end=body.span.end),
-    )
-
-
-def _parse_function_decl(
-    stream: TokenStream,
-    *,
-    is_export: bool,
-    fn_token: Token,
-    export_token: Token | None = None,
-) -> FunctionDecl:
-    name, params, return_type = _parse_callable_signature(stream)
-    body = _parse_block_stmt(stream)
-    start_pos = export_token.span.start if export_token is not None else fn_token.span.start
-    return FunctionDecl(
-        name=name,
-        params=params,
-        return_type=return_type,
-        body=body,
-        is_export=is_export,
-        span=SourceSpan(start=start_pos, end=body.span.end),
-    )
-
-
-def _parse_callable_signature(stream: TokenStream) -> tuple[str, list[ParamDecl], TypeRef]:
-    name = stream.expect(TokenKind.IDENT, "Expected function name")
-    stream.expect(TokenKind.LPAREN, "Expected '(' after function name")
-
-    params: list[ParamDecl] = []
-    if not stream.check(TokenKind.RPAREN):
-        while True:
-            params.append(_parse_param(stream))
-            if not stream.match(TokenKind.COMMA):
-                break
-
-    stream.expect(TokenKind.RPAREN, "Expected ')' after parameters")
-    stream.expect(TokenKind.ARROW, "Expected '->' after parameter list")
-    return_type = _parse_type_ref(stream)
-    return name.lexeme, params, return_type
-
-
-def _parse_param(stream: TokenStream) -> ParamDecl:
-    name = stream.expect(TokenKind.IDENT, "Expected parameter name")
-    stream.expect(TokenKind.COLON, "Expected ':' after parameter name")
-    type_ref = _parse_type_ref(stream)
-    return ParamDecl(
-        name=name.lexeme,
-        type_ref=type_ref,
-        span=SourceSpan(start=name.span.start, end=type_ref.span.end),
-    )
-
-
-def _parse_type_ref(stream: TokenStream) -> TypeRef:
-    allowed = {
-        TokenKind.IDENT,
-        TokenKind.I64,
-        TokenKind.U64,
-        TokenKind.U8,
-        TokenKind.BOOL,
-        TokenKind.DOUBLE,
-        TokenKind.UNIT,
-        TokenKind.OBJ,
-        TokenKind.STR,
-        TokenKind.VEC,
-        TokenKind.MAP,
-        TokenKind.BOXI64,
-        TokenKind.BOXU64,
-        TokenKind.BOXU8,
-        TokenKind.BOXBOOL,
-        TokenKind.BOXDOUBLE,
-    }
-    token = stream.peek()
-    if token.kind not in allowed:
-        raise ParserError("Expected type name", token.span)
-    stream.advance()
-    return TypeRef(name=token.lexeme, span=token.span)
-
-
-def _parse_block_stmt(stream: TokenStream) -> BlockStmt:
-    lbrace = stream.expect(TokenKind.LBRACE, "Expected '{' to start block")
-    statements: list[Statement] = []
-
-    while not stream.check(TokenKind.RBRACE):
-        if stream.is_at_end():
-            raise ParserError("Unterminated block", stream.peek().span)
-        statements.append(_parse_statement(stream))
-
-    rbrace = stream.expect(TokenKind.RBRACE, "Expected '}' after block")
-    return BlockStmt(statements=statements, span=SourceSpan(start=lbrace.span.start, end=rbrace.span.end))
-
-
-def _parse_statement(stream: TokenStream) -> Statement:
-    if stream.match(TokenKind.VAR):
-        return _parse_var_decl_stmt(stream, var_token=stream.previous())
-
-    if stream.match(TokenKind.IF):
-        return _parse_if_stmt(stream, if_token=stream.previous())
-
-    if stream.match(TokenKind.WHILE):
-        return _parse_while_stmt(stream, while_token=stream.previous())
-
-    if stream.match(TokenKind.RETURN):
-        return _parse_return_stmt(stream, return_token=stream.previous())
-
-    if stream.check(TokenKind.LBRACE):
-        return _parse_block_stmt(stream)
-
-    return _parse_expr_or_assign_stmt(stream)
-
-
-def _parse_var_decl_stmt(stream: TokenStream, *, var_token: Token) -> VarDeclStmt:
-    name = stream.expect(TokenKind.IDENT, "Expected variable name after 'var'")
-    stream.expect(TokenKind.COLON, "Expected ':' after variable name")
-    type_ref = _parse_type_ref(stream)
-    initializer: Expression | None = None
-
-    if stream.match(TokenKind.ASSIGN):
-        initializer = _parse_expression(stream)
-
-    semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after variable declaration")
-    return VarDeclStmt(
-        name=name.lexeme,
-        type_ref=type_ref,
-        initializer=initializer,
-        span=SourceSpan(start=var_token.span.start, end=semicolon.span.end),
-    )
-
-
-def _parse_if_stmt(stream: TokenStream, *, if_token: Token) -> IfStmt:
-    condition = _parse_expression(stream)
-    then_branch = _parse_block_stmt(stream)
-    else_branch: BlockStmt | IfStmt | None = None
-
-    if stream.match(TokenKind.ELSE):
-        if stream.match(TokenKind.IF):
-            else_branch = _parse_if_stmt(stream, if_token=stream.previous())
-        elif stream.check(TokenKind.LBRACE):
-            else_branch = _parse_block_stmt(stream)
-        else:
-            raise ParserError("Expected 'if' or '{' after 'else'", stream.peek().span)
-
-    end_pos = else_branch.span.end if else_branch is not None else then_branch.span.end
-    return IfStmt(
-        condition=condition,
-        then_branch=then_branch,
-        else_branch=else_branch,
-        span=SourceSpan(start=if_token.span.start, end=end_pos),
-    )
-
-
-def _parse_while_stmt(stream: TokenStream, *, while_token: Token) -> WhileStmt:
-    condition = _parse_expression(stream)
-    body = _parse_block_stmt(stream)
-    return WhileStmt(
-        condition=condition,
-        body=body,
-        span=SourceSpan(start=while_token.span.start, end=body.span.end),
-    )
-
-
-def _parse_return_stmt(stream: TokenStream, *, return_token: Token) -> ReturnStmt:
-    value: Expression | None = None
-    if not stream.check(TokenKind.SEMICOLON):
-        value = _parse_expression(stream)
-    semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after return statement")
-    return ReturnStmt(value=value, span=SourceSpan(start=return_token.span.start, end=semicolon.span.end))
-
-
-def _parse_expr_or_assign_stmt(stream: TokenStream) -> Statement:
-    expr = _parse_expression(stream)
-    if stream.match(TokenKind.ASSIGN):
-        if not _is_assignable_target(expr):
-            raise ParserError("Invalid assignment target", expr.span)
-        value = _parse_expression(stream)
-        semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after assignment")
-        return AssignStmt(
-            target=expr,
-            value=value,
-            span=SourceSpan(start=expr.span.start, end=semicolon.span.end),
-        )
-
-    semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after expression statement")
-    return ExprStmt(expression=expr, span=SourceSpan(start=expr.span.start, end=semicolon.span.end))
-
-
-def _is_assignable_target(expr: Expression) -> bool:
-    return isinstance(expr, (IdentifierExpr, FieldAccessExpr, IndexExpr))
-
-
-def _parse_expression(stream: TokenStream) -> Expression:
-    return _parse_logical_or(stream)
-
-
-def _parse_logical_or(stream: TokenStream) -> Expression:
-    expr = _parse_logical_and(stream)
-    while stream.match(TokenKind.OROR):
-        op = stream.previous()
-        right = _parse_logical_and(stream)
-        expr = BinaryExpr(
-            left=expr,
-            operator=op.lexeme,
-            right=right,
-            span=SourceSpan(start=expr.span.start, end=right.span.end),
-        )
-    return expr
-
-
-def _parse_logical_and(stream: TokenStream) -> Expression:
-    expr = _parse_equality(stream)
-    while stream.match(TokenKind.ANDAND):
-        op = stream.previous()
-        right = _parse_equality(stream)
-        expr = BinaryExpr(
-            left=expr,
-            operator=op.lexeme,
-            right=right,
-            span=SourceSpan(start=expr.span.start, end=right.span.end),
-        )
-    return expr
-
-
-def _parse_equality(stream: TokenStream) -> Expression:
-    expr = _parse_comparison(stream)
-    while stream.match(TokenKind.EQEQ, TokenKind.NEQ):
-        op = stream.previous()
-        right = _parse_comparison(stream)
-        expr = BinaryExpr(
-            left=expr,
-            operator=op.lexeme,
-            right=right,
-            span=SourceSpan(start=expr.span.start, end=right.span.end),
-        )
-    return expr
-
-
-def _parse_comparison(stream: TokenStream) -> Expression:
-    expr = _parse_additive(stream)
-    while stream.match(TokenKind.LT, TokenKind.LTE, TokenKind.GT, TokenKind.GTE):
-        op = stream.previous()
-        right = _parse_additive(stream)
-        expr = BinaryExpr(
-            left=expr,
-            operator=op.lexeme,
-            right=right,
-            span=SourceSpan(start=expr.span.start, end=right.span.end),
-        )
-    return expr
-
-
-def _parse_additive(stream: TokenStream) -> Expression:
-    expr = _parse_multiplicative(stream)
-    while stream.match(TokenKind.PLUS, TokenKind.MINUS):
-        op = stream.previous()
-        right = _parse_multiplicative(stream)
-        expr = BinaryExpr(
-            left=expr,
-            operator=op.lexeme,
-            right=right,
-            span=SourceSpan(start=expr.span.start, end=right.span.end),
-        )
-    return expr
-
-
-def _parse_multiplicative(stream: TokenStream) -> Expression:
-    expr = _parse_unary(stream)
-    while stream.match(TokenKind.STAR, TokenKind.SLASH, TokenKind.PERCENT):
-        op = stream.previous()
-        right = _parse_unary(stream)
-        expr = BinaryExpr(
-            left=expr,
-            operator=op.lexeme,
-            right=right,
-            span=SourceSpan(start=expr.span.start, end=right.span.end),
-        )
-    return expr
-
-
-def _parse_unary(stream: TokenStream) -> Expression:
-    if stream.match(TokenKind.BANG, TokenKind.MINUS):
-        op = stream.previous()
-        operand = _parse_unary(stream)
-        return UnaryExpr(
-            operator=op.lexeme,
-            operand=operand,
-            span=SourceSpan(start=op.span.start, end=operand.span.end),
-        )
-
-    if _is_cast_start(stream):
-        lparen = stream.expect(TokenKind.LPAREN, "Expected '(' to start cast")
-        type_ref = _parse_type_ref(stream)
-        stream.expect(TokenKind.RPAREN, "Expected ')' after cast type")
-        operand = _parse_unary(stream)
-        return CastExpr(
-            type_ref=type_ref,
-            operand=operand,
-            span=SourceSpan(start=lparen.span.start, end=operand.span.end),
-        )
-
-    return _parse_postfix(stream)
-
-
-def _parse_postfix(stream: TokenStream) -> Expression:
-    expr = _parse_primary(stream)
-
-    while True:
-        if stream.match(TokenKind.LPAREN):
-            lparen = stream.previous()
-            args: list[Expression] = []
-            if not stream.check(TokenKind.RPAREN):
-                while True:
-                    args.append(_parse_expression(stream))
-                    if not stream.match(TokenKind.COMMA):
-                        break
-
-            rparen = stream.expect(TokenKind.RPAREN, "Expected ')' after arguments")
-            expr = CallExpr(
-                callee=expr,
-                arguments=args,
-                span=SourceSpan(start=expr.span.start, end=rparen.span.end),
-            )
-            continue
-
-        if stream.match(TokenKind.DOT):
-            field = stream.expect(TokenKind.IDENT, "Expected field name after '.'")
-            expr = FieldAccessExpr(
-                object_expr=expr,
-                field_name=field.lexeme,
-                span=SourceSpan(start=expr.span.start, end=field.span.end),
-            )
-            continue
-
-        if stream.match(TokenKind.LBRACKET):
-            index_expr = _parse_expression(stream)
-            rbracket = stream.expect(TokenKind.RBRACKET, "Expected ']' after index expression")
-            expr = IndexExpr(
-                object_expr=expr,
-                index_expr=index_expr,
-                span=SourceSpan(start=expr.span.start, end=rbracket.span.end),
-            )
-            continue
-
-        return expr
-
-
-def _parse_primary(stream: TokenStream) -> Expression:
-    if stream.match(TokenKind.INT_LIT, TokenKind.FLOAT_LIT, TokenKind.STRING_LIT, TokenKind.TRUE, TokenKind.FALSE):
-        token = stream.previous()
-        return LiteralExpr(value=token.lexeme, span=token.span)
-
-    if stream.match(TokenKind.NULL):
-        return NullExpr(span=stream.previous().span)
-
-    if stream.match(TokenKind.IDENT):
-        token = stream.previous()
-        return IdentifierExpr(name=token.lexeme, span=token.span)
-
-    if stream.match(TokenKind.LPAREN):
-        expr = _parse_expression(stream)
-        stream.expect(TokenKind.RPAREN, "Expected ')' after expression")
-        return expr
-
-    raise ParserError("Expected expression", stream.peek().span)
-
-
-def _is_cast_start(stream: TokenStream) -> bool:
-    if stream.peek().kind != TokenKind.LPAREN:
-        return False
-
-    if not _is_type_token(stream.peek(1).kind):
-        return False
-
-    if stream.peek(2).kind != TokenKind.RPAREN:
-        return False
-
-    return _can_start_unary(stream.peek(3).kind)
-
-
-def _is_type_token(kind: TokenKind) -> bool:
-    return kind in {
-        TokenKind.IDENT,
-        TokenKind.I64,
-        TokenKind.U64,
-        TokenKind.U8,
-        TokenKind.BOOL,
-        TokenKind.DOUBLE,
-        TokenKind.UNIT,
-        TokenKind.OBJ,
-        TokenKind.STR,
-        TokenKind.VEC,
-        TokenKind.MAP,
-        TokenKind.BOXI64,
-        TokenKind.BOXU64,
-        TokenKind.BOXU8,
-        TokenKind.BOXBOOL,
-        TokenKind.BOXDOUBLE,
-    }
-
-
-def _can_start_unary(kind: TokenKind) -> bool:
-    return kind in {
-        TokenKind.BANG,
-        TokenKind.MINUS,
-        TokenKind.LPAREN,
-        TokenKind.IDENT,
-        TokenKind.INT_LIT,
-        TokenKind.FLOAT_LIT,
-        TokenKind.STRING_LIT,
-        TokenKind.TRUE,
-        TokenKind.FALSE,
-        TokenKind.NULL,
-    }
+    return Parser(tokens).parse_expression_root()
