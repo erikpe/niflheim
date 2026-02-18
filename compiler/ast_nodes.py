@@ -37,7 +37,7 @@ class MethodDecl:
     name: str
     params: list[ParamDecl]
     return_type: TypeRef
-    body_span: SourceSpan
+    body: "BlockStmt"
     span: SourceSpan
 
 
@@ -46,7 +46,7 @@ class FunctionDecl:
     name: str
     params: list[ParamDecl]
     return_type: TypeRef
-    body_span: SourceSpan
+    body: "BlockStmt"
     is_export: bool
     span: SourceSpan
 
@@ -138,4 +138,63 @@ Expression = (
     | CallExpr
     | FieldAccessExpr
     | IndexExpr
+)
+
+
+@dataclass(frozen=True)
+class BlockStmt:
+    statements: list["Statement"]
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class VarDeclStmt:
+    name: str
+    type_ref: TypeRef
+    initializer: Expression | None
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class IfStmt:
+    condition: Expression
+    then_branch: BlockStmt
+    else_branch: "BlockStmt | IfStmt | None"
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class WhileStmt:
+    condition: Expression
+    body: BlockStmt
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class ReturnStmt:
+    value: Expression | None
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class AssignStmt:
+    target: Expression
+    value: Expression
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class ExprStmt:
+    expression: Expression
+    span: SourceSpan
+
+
+Statement = (
+    BlockStmt
+    | VarDeclStmt
+    | IfStmt
+    | WhileStmt
+    | ReturnStmt
+    | AssignStmt
+    | ExprStmt
 )

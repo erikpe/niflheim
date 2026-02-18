@@ -1,15 +1,22 @@
 import pytest
 
 from compiler.ast_nodes import (
+    AssignStmt,
     BinaryExpr,
+    BlockStmt,
     CallExpr,
     CastExpr,
     ClassDecl,
+    ExprStmt,
     FieldAccessExpr,
     FunctionDecl,
     IdentifierExpr,
+    IfStmt,
     ImportDecl,
     IndexExpr,
+    ReturnStmt,
+    VarDeclStmt,
+    WhileStmt,
 )
 from compiler.lexer import lex
 from compiler.parser import ParserError, TokenStream, parse, parse_expression
@@ -101,6 +108,9 @@ export fn main() -> unit {
     assert [field.name for field in cls.fields] == ["x", "y"]
     assert len(cls.methods) == 1
     assert cls.methods[0].name == "reset"
+    assert isinstance(cls.methods[0].body, BlockStmt)
+    assert len(cls.methods[0].body.statements) == 1
+    assert isinstance(cls.methods[0].body.statements[0], ReturnStmt)
 
     assert len(module.functions) == 1
     fn = module.functions[0]
@@ -108,6 +118,36 @@ export fn main() -> unit {
     assert fn.name == "main"
     assert fn.is_export is True
     assert fn.return_type.name == "unit"
+    assert isinstance(fn.body, BlockStmt)
+    assert len(fn.body.statements) == 1
+    assert isinstance(fn.body.statements[0], ReturnStmt)
+
+
+def test_parse_function_body_statements_and_assignments() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = 1;
+    x = x + 2;
+    foo(x);
+    while x < 10 {
+        x = x + 1;
+    }
+    if x > 2 {
+        return;
+    } else {
+        return;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/body_parse.nif"))
+    fn = module.functions[0]
+    statements = fn.body.statements
+
+    assert isinstance(statements[0], VarDeclStmt)
+    assert isinstance(statements[1], AssignStmt)
+    assert isinstance(statements[2], ExprStmt)
+    assert isinstance(statements[3], WhileStmt)
+    assert isinstance(statements[4], IfStmt)
 
 
 def test_parse_export_requires_import_class_or_fn() -> None:
@@ -126,6 +166,15 @@ def test_parse_unterminated_block_raises_parser_error() -> None:
 
     assert "Unterminated block" in str(error.value)
     assert "examples/bad_block.nif" in str(error.value)
+
+
+def test_parse_invalid_assignment_target_raises_parser_error() -> None:
+    source = "fn main() -> unit { 1 = 2; }"
+    with pytest.raises(ParserError) as error:
+        parse(lex(source, source_path="examples/bad_assign.nif"))
+
+    assert "Invalid assignment target" in str(error.value)
+    assert "examples/bad_assign.nif" in str(error.value)
 
 
 def test_parse_expression_precedence_multiplicative_over_additive() -> None:

@@ -3,15 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.ast_nodes import (
+    AssignStmt,
     BinaryExpr,
+    BlockStmt,
     CallExpr,
     CastExpr,
     ClassDecl,
+    ExprStmt,
     Expression,
     FieldDecl,
     FieldAccessExpr,
     FunctionDecl,
     IdentifierExpr,
+    IfStmt,
     IndexExpr,
     ImportDecl,
     LiteralExpr,
@@ -19,8 +23,12 @@ from compiler.ast_nodes import (
     ModuleAst,
     NullExpr,
     ParamDecl,
+    ReturnStmt,
+    Statement,
     TypeRef,
     UnaryExpr,
+    VarDeclStmt,
+    WhileStmt,
 )
 from compiler.lexer import SourceSpan, Token
 from compiler.tokens import TokenKind
@@ -209,13 +217,13 @@ def _parse_field_decl(stream: TokenStream) -> FieldDecl:
 
 def _parse_method_decl(stream: TokenStream, *, fn_token: Token) -> MethodDecl:
     name, params, return_type = _parse_callable_signature(stream)
-    body_span = _consume_block_span(stream)
+    body = _parse_block_stmt(stream)
     return MethodDecl(
         name=name,
         params=params,
         return_type=return_type,
-        body_span=body_span,
-        span=SourceSpan(start=fn_token.span.start, end=body_span.end),
+        body=body,
+        span=SourceSpan(start=fn_token.span.start, end=body.span.end),
     )
 
 
@@ -227,15 +235,15 @@ def _parse_function_decl(
     export_token: Token | None = None,
 ) -> FunctionDecl:
     name, params, return_type = _parse_callable_signature(stream)
-    body_span = _consume_block_span(stream)
+    body = _parse_block_stmt(stream)
     start_pos = export_token.span.start if export_token is not None else fn_token.span.start
     return FunctionDecl(
         name=name,
         params=params,
         return_type=return_type,
-        body_span=body_span,
+        body=body,
         is_export=is_export,
-        span=SourceSpan(start=start_pos, end=body_span.end),
+        span=SourceSpan(start=start_pos, end=body.span.end),
     )
 
 
@@ -293,26 +301,115 @@ def _parse_type_ref(stream: TokenStream) -> TypeRef:
     return TypeRef(name=token.lexeme, span=token.span)
 
 
-def _consume_block_span(stream: TokenStream) -> SourceSpan:
+def _parse_block_stmt(stream: TokenStream) -> BlockStmt:
     lbrace = stream.expect(TokenKind.LBRACE, "Expected '{' to start block")
-    depth = 1
-    last = lbrace
+    statements: list[Statement] = []
 
-    while depth > 0:
-        token = stream.advance()
-        last = token
+    while not stream.check(TokenKind.RBRACE):
+        if stream.is_at_end():
+            raise ParserError("Unterminated block", stream.peek().span)
+        statements.append(_parse_statement(stream))
 
-        if token.kind == TokenKind.EOF:
-            raise ParserError("Unterminated block", token.span)
+    rbrace = stream.expect(TokenKind.RBRACE, "Expected '}' after block")
+    return BlockStmt(statements=statements, span=SourceSpan(start=lbrace.span.start, end=rbrace.span.end))
 
-        if token.kind == TokenKind.LBRACE:
-            depth += 1
-            continue
 
-        if token.kind == TokenKind.RBRACE:
-            depth -= 1
+def _parse_statement(stream: TokenStream) -> Statement:
+    if stream.match(TokenKind.VAR):
+        return _parse_var_decl_stmt(stream, var_token=stream.previous())
 
-    return SourceSpan(start=lbrace.span.start, end=last.span.end)
+    if stream.match(TokenKind.IF):
+        return _parse_if_stmt(stream, if_token=stream.previous())
+
+    if stream.match(TokenKind.WHILE):
+        return _parse_while_stmt(stream, while_token=stream.previous())
+
+    if stream.match(TokenKind.RETURN):
+        return _parse_return_stmt(stream, return_token=stream.previous())
+
+    if stream.check(TokenKind.LBRACE):
+        return _parse_block_stmt(stream)
+
+    return _parse_expr_or_assign_stmt(stream)
+
+
+def _parse_var_decl_stmt(stream: TokenStream, *, var_token: Token) -> VarDeclStmt:
+    name = stream.expect(TokenKind.IDENT, "Expected variable name after 'var'")
+    stream.expect(TokenKind.COLON, "Expected ':' after variable name")
+    type_ref = _parse_type_ref(stream)
+    initializer: Expression | None = None
+
+    if stream.match(TokenKind.ASSIGN):
+        initializer = _parse_expression(stream)
+
+    semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after variable declaration")
+    return VarDeclStmt(
+        name=name.lexeme,
+        type_ref=type_ref,
+        initializer=initializer,
+        span=SourceSpan(start=var_token.span.start, end=semicolon.span.end),
+    )
+
+
+def _parse_if_stmt(stream: TokenStream, *, if_token: Token) -> IfStmt:
+    condition = _parse_expression(stream)
+    then_branch = _parse_block_stmt(stream)
+    else_branch: BlockStmt | IfStmt | None = None
+
+    if stream.match(TokenKind.ELSE):
+        if stream.match(TokenKind.IF):
+            else_branch = _parse_if_stmt(stream, if_token=stream.previous())
+        elif stream.check(TokenKind.LBRACE):
+            else_branch = _parse_block_stmt(stream)
+        else:
+            raise ParserError("Expected 'if' or '{' after 'else'", stream.peek().span)
+
+    end_pos = else_branch.span.end if else_branch is not None else then_branch.span.end
+    return IfStmt(
+        condition=condition,
+        then_branch=then_branch,
+        else_branch=else_branch,
+        span=SourceSpan(start=if_token.span.start, end=end_pos),
+    )
+
+
+def _parse_while_stmt(stream: TokenStream, *, while_token: Token) -> WhileStmt:
+    condition = _parse_expression(stream)
+    body = _parse_block_stmt(stream)
+    return WhileStmt(
+        condition=condition,
+        body=body,
+        span=SourceSpan(start=while_token.span.start, end=body.span.end),
+    )
+
+
+def _parse_return_stmt(stream: TokenStream, *, return_token: Token) -> ReturnStmt:
+    value: Expression | None = None
+    if not stream.check(TokenKind.SEMICOLON):
+        value = _parse_expression(stream)
+    semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after return statement")
+    return ReturnStmt(value=value, span=SourceSpan(start=return_token.span.start, end=semicolon.span.end))
+
+
+def _parse_expr_or_assign_stmt(stream: TokenStream) -> Statement:
+    expr = _parse_expression(stream)
+    if stream.match(TokenKind.ASSIGN):
+        if not _is_assignable_target(expr):
+            raise ParserError("Invalid assignment target", expr.span)
+        value = _parse_expression(stream)
+        semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after assignment")
+        return AssignStmt(
+            target=expr,
+            value=value,
+            span=SourceSpan(start=expr.span.start, end=semicolon.span.end),
+        )
+
+    semicolon = stream.expect(TokenKind.SEMICOLON, "Expected ';' after expression statement")
+    return ExprStmt(expression=expr, span=SourceSpan(start=expr.span.start, end=semicolon.span.end))
+
+
+def _is_assignable_target(expr: Expression) -> bool:
+    return isinstance(expr, (IdentifierExpr, FieldAccessExpr, IndexExpr))
 
 
 def _parse_expression(stream: TokenStream) -> Expression:
