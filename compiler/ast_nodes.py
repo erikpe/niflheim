@@ -66,3 +66,76 @@ class ModuleAst:
     classes: list[ClassDecl]
     functions: list[FunctionDecl]
     span: SourceSpan
+
+
+@dataclass(frozen=True)
+class IdentifierExpr:
+    name: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class LiteralExpr:
+    value: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class NullExpr:
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class UnaryExpr:
+    operator: str
+    operand: "Expression"
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class BinaryExpr:
+    left: "Expression"
+    operator: str
+    right: "Expression"
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class CastExpr:
+    type_ref: TypeRef
+    operand: "Expression"
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class CallExpr:
+    callee: "Expression"
+    arguments: list["Expression"]
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class FieldAccessExpr:
+    object_expr: "Expression"
+    field_name: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class IndexExpr:
+    object_expr: "Expression"
+    index_expr: "Expression"
+    span: SourceSpan
+
+
+Expression = (
+    IdentifierExpr
+    | LiteralExpr
+    | NullExpr
+    | UnaryExpr
+    | BinaryExpr
+    | CastExpr
+    | CallExpr
+    | FieldAccessExpr
+    | IndexExpr
+)

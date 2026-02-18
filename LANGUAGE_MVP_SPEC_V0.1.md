@@ -233,7 +233,7 @@ Minimal C runtime provides:
 - [x] Implement lexer with source spans.
 - [x] Add lexer golden tests and error tests.
 - [x] Implement parser TokenStream + module-level AST parsing (`import`, `export import`, `class`, `fn`).
-- [ ] Add parser precedence and invalid-syntax tests.
+- [x] Add parser precedence and invalid-syntax tests.
 - [ ] Implement symbol tables and module import/export resolution.
 - [ ] Add multi-module visibility tests.
 

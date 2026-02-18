@@ -1,8 +1,18 @@
 import pytest
 
-from compiler.ast_nodes import ClassDecl, FunctionDecl, ImportDecl
+from compiler.ast_nodes import (
+    BinaryExpr,
+    CallExpr,
+    CastExpr,
+    ClassDecl,
+    FieldAccessExpr,
+    FunctionDecl,
+    IdentifierExpr,
+    ImportDecl,
+    IndexExpr,
+)
 from compiler.lexer import lex
-from compiler.parser import ParserError, TokenStream, parse
+from compiler.parser import ParserError, TokenStream, parse, parse_expression
 from compiler.tokens import TokenKind
 
 
@@ -116,3 +126,55 @@ def test_parse_unterminated_block_raises_parser_error() -> None:
 
     assert "Unterminated block" in str(error.value)
     assert "examples/bad_block.nif" in str(error.value)
+
+
+def test_parse_expression_precedence_multiplicative_over_additive() -> None:
+    expr = parse_expression(lex("1 + 2 * 3", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, BinaryExpr)
+    assert expr.operator == "+"
+    assert isinstance(expr.right, BinaryExpr)
+    assert expr.right.operator == "*"
+
+
+def test_parse_expression_precedence_logical_and_over_or() -> None:
+    expr = parse_expression(lex("a || b && c", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, BinaryExpr)
+    assert expr.operator == "||"
+    assert isinstance(expr.left, IdentifierExpr)
+    assert isinstance(expr.right, BinaryExpr)
+    assert expr.right.operator == "&&"
+
+
+def test_parse_expression_postfix_binding_order() -> None:
+    expr = parse_expression(lex("obj.field(1, 2)[0]", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, IndexExpr)
+    assert isinstance(expr.object_expr, CallExpr)
+    assert isinstance(expr.object_expr.callee, FieldAccessExpr)
+    assert expr.object_expr.callee.field_name == "field"
+    assert len(expr.object_expr.arguments) == 2
+
+
+def test_parse_expression_cast_then_unary_operand() -> None:
+    expr = parse_expression(lex("(i64)-x", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, CastExpr)
+    assert expr.type_ref.name == "i64"
+
+
+def test_parse_expression_invalid_missing_rhs() -> None:
+    with pytest.raises(ParserError) as error:
+        parse_expression(lex("1 +", source_path="examples/bad_expr.nif"))
+
+    assert "Expected expression" in str(error.value)
+    assert "examples/bad_expr.nif" in str(error.value)
+
+
+def test_parse_expression_invalid_unclosed_group() -> None:
+    with pytest.raises(ParserError) as error:
+        parse_expression(lex("(1 + 2", source_path="examples/bad_expr.nif"))
+
+    assert "Expected ')' after expression" in str(error.value)
+    assert "examples/bad_expr.nif" in str(error.value)
