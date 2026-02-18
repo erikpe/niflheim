@@ -63,3 +63,10 @@ def test_lex_raises_on_unterminated_string() -> None:
         lex('var s: Str = "unterminated')
 
     assert "Unterminated string literal" in str(error.value)
+
+
+def test_lex_error_includes_path_row_col() -> None:
+    with pytest.raises(LexerError) as error:
+        lex('"unterminated', source_path="examples/bad.nif")
+
+    assert "examples/bad.nif:1:1" in str(error.value)

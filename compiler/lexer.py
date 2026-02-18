@@ -11,6 +11,7 @@ from compiler.tokens import (
 
 @dataclass(frozen=True)
 class SourcePos:
+    path: str
     offset: int
     line: int
     column: int
@@ -31,14 +32,15 @@ class Token:
 
 class LexerError(ValueError):
     def __init__(self, message: str, span: SourceSpan):
-        super().__init__(f"{message} at line {span.start.line}, column {span.start.column}")
+        super().__init__(f"{message} at {span.start.path}:{span.start.line}:{span.start.column}")
         self.message = message
         self.span = span
 
 
 class Lexer:
-    def __init__(self, source: str):
+    def __init__(self, source: str, source_path: str = "<memory>"):
         self.source = source
+        self.source_path = source_path
         self.length = len(source)
         self.index = 0
         self.line = 1
@@ -178,7 +180,7 @@ class Lexer:
         return ch
 
     def _pos(self) -> SourcePos:
-        return SourcePos(offset=self.index, line=self.line, column=self.column)
+        return SourcePos(path=self.source_path, offset=self.index, line=self.line, column=self.column)
 
     @staticmethod
     def _is_ident_start(ch: str) -> bool:
@@ -189,5 +191,5 @@ class Lexer:
         return ch.isalnum() or ch == "_"
 
 
-def lex(source: str) -> list[Token]:
-    return Lexer(source).lex()
+def lex(source: str, source_path: str = "<memory>") -> list[Token]:
+    return Lexer(source, source_path=source_path).lex()
