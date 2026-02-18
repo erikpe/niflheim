@@ -237,7 +237,7 @@ Minimal C runtime provides:
 - [x] Parse function/method bodies into statement/expression AST (replace block-span placeholders).
 - [ ] Add parser error recovery + synchronization so one parse error does not abort all diagnostics.
   - Done when: parser reports at least 2 independent syntax errors from the same file in one run using synchronization points (`;`, `}`, and top-level declaration starters).
-- [ ] Ensure source spans exist on all AST node types used by parser/type checker diagnostics.
+- [x] Ensure source spans exist on all AST node types used by parser/type checker diagnostics.
   - Done when: every parser-produced AST node carries a valid span, and diagnostics can point to `path:line:col` for representative parser + type-check errors.
 - [ ] Add AST debug-dump/serialization golden tests to detect parser shape regressions.
   - Done when: AST dump format is stable, golden tests cover precedence and declaration forms, and intentional parser changes require explicit golden updates.

@@ -1,3 +1,5 @@
+from dataclasses import fields, is_dataclass
+
 import pytest
 
 from compiler.ast_nodes import (
@@ -18,9 +20,42 @@ from compiler.ast_nodes import (
     VarDeclStmt,
     WhileStmt,
 )
-from compiler.lexer import lex
+from compiler.lexer import SourceSpan, lex
 from compiler.parser import ParserError, TokenStream, parse, parse_expression
 from compiler.tokens import TokenKind
+
+
+def _assert_ast_nodes_have_spans(node: object) -> None:
+    if node is None:
+        return
+
+    if isinstance(node, (str, int, float, bool)):
+        return
+
+    if isinstance(node, list):
+        for item in node:
+            _assert_ast_nodes_have_spans(item)
+        return
+
+    if isinstance(node, tuple):
+        for item in node:
+            _assert_ast_nodes_have_spans(item)
+        return
+
+    if isinstance(node, dict):
+        for key, value in node.items():
+            _assert_ast_nodes_have_spans(key)
+            _assert_ast_nodes_have_spans(value)
+        return
+
+    if is_dataclass(node):
+        if type(node).__module__ == "compiler.ast_nodes":
+            assert hasattr(node, "span"), f"{type(node).__name__} is missing span"
+            span = getattr(node, "span")
+            assert isinstance(span, SourceSpan), f"{type(node).__name__}.span must be SourceSpan"
+
+        for field in fields(node):
+            _assert_ast_nodes_have_spans(getattr(node, field.name))
 
 
 def test_token_stream_peek_and_advance() -> None:
@@ -227,3 +262,38 @@ def test_parse_expression_invalid_unclosed_group() -> None:
 
     assert "Expected ')' after expression" in str(error.value)
     assert "examples/bad_expr.nif" in str(error.value)
+
+
+def test_parse_module_ast_nodes_have_spans_recursively() -> None:
+    source = """
+import a.b;
+
+class Point {
+    x: i64;
+    y: i64;
+
+    fn move(dx: i64, dy: i64) -> unit {
+        var nx: i64 = dx + 1;
+        if nx > 0 {
+            return;
+        } else {
+            return;
+        }
+    }
+}
+
+fn main() -> unit {
+    var i: i64 = 0;
+    while i < 3 {
+        i = i + 1;
+    }
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/span_check_module.nif"))
+    _assert_ast_nodes_have_spans(module)
+
+
+def test_parse_expression_ast_nodes_have_spans_recursively() -> None:
+    expr = parse_expression(lex("(i64)foo(1 + 2).bar[3]", source_path="examples/span_check_expr.nif"))
+    _assert_ast_nodes_have_spans(expr)
