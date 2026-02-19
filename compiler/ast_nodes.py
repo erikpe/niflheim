@@ -5,6 +5,36 @@ from dataclasses import dataclass
 from compiler.lexer import SourceSpan
 
 
+__all__ = [
+    "TypeRef",
+    "ParamDecl",
+    "ImportDecl",
+    "FieldDecl",
+    "MethodDecl",
+    "FunctionDecl",
+    "ClassDecl",
+    "ModuleAst",
+    "IdentifierExpr",
+    "LiteralExpr",
+    "NullExpr",
+    "UnaryExpr",
+    "BinaryExpr",
+    "CastExpr",
+    "CallExpr",
+    "FieldAccessExpr",
+    "IndexExpr",
+    "Expression",
+    "BlockStmt",
+    "VarDeclStmt",
+    "IfStmt",
+    "WhileStmt",
+    "ReturnStmt",
+    "AssignStmt",
+    "ExprStmt",
+    "Statement",
+]
+
+
 @dataclass(frozen=True)
 class TypeRef:
     name: str

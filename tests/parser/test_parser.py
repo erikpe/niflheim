@@ -3,24 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from compiler.ast_nodes import (
-    AssignStmt,
-    BinaryExpr,
-    BlockStmt,
-    CallExpr,
-    CastExpr,
-    ClassDecl,
-    ExprStmt,
-    FieldAccessExpr,
-    FunctionDecl,
-    IdentifierExpr,
-    IfStmt,
-    ImportDecl,
-    IndexExpr,
-    ReturnStmt,
-    VarDeclStmt,
-    WhileStmt,
-)
+from compiler.ast_nodes import *
 from compiler.ast_dump import ast_to_debug_json
 from compiler.lexer import SourceSpan, lex
 from compiler.parser import ParserError, TokenStream, parse, parse_expression

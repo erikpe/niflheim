@@ -241,8 +241,8 @@ Minimal C runtime provides:
   - Done when: every parser-produced AST node carries a valid span, and diagnostics can point to `path:line:col` for representative parser + type-check errors.
 - [x] Add AST debug-dump/serialization golden tests to detect parser shape regressions.
   - Done when: AST dump format is stable, golden tests cover precedence and declaration forms, and intentional parser changes require explicit golden updates.
-- [ ] Implement symbol tables and module import/export resolution.
-- [ ] Add multi-module visibility tests.
+- [x] Implement symbol tables and module import/export resolution.
+- [x] Add multi-module visibility tests.
 
 ## C. Type Checking
 

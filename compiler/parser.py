@@ -2,34 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.ast_nodes import (
-    AssignStmt,
-    BinaryExpr,
-    BlockStmt,
-    CallExpr,
-    CastExpr,
-    ClassDecl,
-    ExprStmt,
-    Expression,
-    FieldDecl,
-    FieldAccessExpr,
-    FunctionDecl,
-    IdentifierExpr,
-    IfStmt,
-    IndexExpr,
-    ImportDecl,
-    LiteralExpr,
-    MethodDecl,
-    ModuleAst,
-    NullExpr,
-    ParamDecl,
-    ReturnStmt,
-    Statement,
-    TypeRef,
-    UnaryExpr,
-    VarDeclStmt,
-    WhileStmt,
-)
+from compiler.ast_nodes import *
 from compiler.lexer import SourceSpan, Token
 from compiler.tokens import TokenKind
 
