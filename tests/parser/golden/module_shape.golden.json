@@ -1,0 +1,204 @@
+{
+  "classes": [
+    {
+      "fields": [
+        {
+          "name": "x",
+          "node": "FieldDecl",
+          "type_ref": {
+            "name": "i64",
+            "node": "TypeRef"
+          }
+        },
+        {
+          "name": "y",
+          "node": "FieldDecl",
+          "type_ref": {
+            "name": "i64",
+            "node": "TypeRef"
+          }
+        }
+      ],
+      "is_export": false,
+      "methods": [
+        {
+          "body": {
+            "node": "BlockStmt",
+            "statements": [
+              {
+                "initializer": {
+                  "left": {
+                    "name": "dx",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "BinaryExpr",
+                  "operator": "+",
+                  "right": {
+                    "node": "LiteralExpr",
+                    "value": "1"
+                  }
+                },
+                "name": "nx",
+                "node": "VarDeclStmt",
+                "type_ref": {
+                  "name": "i64",
+                  "node": "TypeRef"
+                }
+              },
+              {
+                "condition": {
+                  "left": {
+                    "name": "nx",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "BinaryExpr",
+                  "operator": ">",
+                  "right": {
+                    "node": "LiteralExpr",
+                    "value": "0"
+                  }
+                },
+                "else_branch": {
+                  "node": "BlockStmt",
+                  "statements": [
+                    {
+                      "node": "ReturnStmt",
+                      "value": null
+                    }
+                  ]
+                },
+                "node": "IfStmt",
+                "then_branch": {
+                  "node": "BlockStmt",
+                  "statements": [
+                    {
+                      "node": "ReturnStmt",
+                      "value": null
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "name": "move",
+          "node": "MethodDecl",
+          "params": [
+            {
+              "name": "dx",
+              "node": "ParamDecl",
+              "type_ref": {
+                "name": "i64",
+                "node": "TypeRef"
+              }
+            },
+            {
+              "name": "dy",
+              "node": "ParamDecl",
+              "type_ref": {
+                "name": "i64",
+                "node": "TypeRef"
+              }
+            }
+          ],
+          "return_type": {
+            "name": "unit",
+            "node": "TypeRef"
+          }
+        }
+      ],
+      "name": "Point",
+      "node": "ClassDecl"
+    }
+  ],
+  "functions": [
+    {
+      "body": {
+        "node": "BlockStmt",
+        "statements": [
+          {
+            "initializer": {
+              "node": "LiteralExpr",
+              "value": "0"
+            },
+            "name": "i",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "i64",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "body": {
+              "node": "BlockStmt",
+              "statements": [
+                {
+                  "node": "AssignStmt",
+                  "target": {
+                    "name": "i",
+                    "node": "IdentifierExpr"
+                  },
+                  "value": {
+                    "left": {
+                      "name": "i",
+                      "node": "IdentifierExpr"
+                    },
+                    "node": "BinaryExpr",
+                    "operator": "+",
+                    "right": {
+                      "node": "LiteralExpr",
+                      "value": "1"
+                    }
+                  }
+                }
+              ]
+            },
+            "condition": {
+              "left": {
+                "name": "i",
+                "node": "IdentifierExpr"
+              },
+              "node": "BinaryExpr",
+              "operator": "<",
+              "right": {
+                "node": "LiteralExpr",
+                "value": "3"
+              }
+            },
+            "node": "WhileStmt"
+          },
+          {
+            "node": "ReturnStmt",
+            "value": null
+          }
+        ]
+      },
+      "is_export": true,
+      "name": "main",
+      "node": "FunctionDecl",
+      "params": [],
+      "return_type": {
+        "name": "unit",
+        "node": "TypeRef"
+      }
+    }
+  ],
+  "imports": [
+    {
+      "is_export": false,
+      "module_path": [
+        "a",
+        "b"
+      ],
+      "node": "ImportDecl"
+    },
+    {
+      "is_export": true,
+      "module_path": [
+        "std",
+        "io"
+      ],
+      "node": "ImportDecl"
+    }
+  ],
+  "node": "ModuleAst"
+}

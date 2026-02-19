@@ -1,0 +1,39 @@
+{
+  "node": "CastExpr",
+  "operand": {
+    "index_expr": {
+      "node": "LiteralExpr",
+      "value": "3"
+    },
+    "node": "IndexExpr",
+    "object_expr": {
+      "field_name": "bar",
+      "node": "FieldAccessExpr",
+      "object_expr": {
+        "arguments": [
+          {
+            "left": {
+              "node": "LiteralExpr",
+              "value": "1"
+            },
+            "node": "BinaryExpr",
+            "operator": "+",
+            "right": {
+              "node": "LiteralExpr",
+              "value": "2"
+            }
+          }
+        ],
+        "callee": {
+          "name": "foo",
+          "node": "IdentifierExpr"
+        },
+        "node": "CallExpr"
+      }
+    }
+  },
+  "type_ref": {
+    "name": "i64",
+    "node": "TypeRef"
+  }
+}

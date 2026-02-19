@@ -239,7 +239,7 @@ Minimal C runtime provides:
   - Done when: parser reports at least 2 independent syntax errors from the same file in one run using synchronization points (`;`, `}`, and top-level declaration starters).
 - [x] Ensure source spans exist on all AST node types used by parser/type checker diagnostics.
   - Done when: every parser-produced AST node carries a valid span, and diagnostics can point to `path:line:col` for representative parser + type-check errors.
-- [ ] Add AST debug-dump/serialization golden tests to detect parser shape regressions.
+- [x] Add AST debug-dump/serialization golden tests to detect parser shape regressions.
   - Done when: AST dump format is stable, golden tests cover precedence and declaration forms, and intentional parser changes require explicit golden updates.
 - [ ] Implement symbol tables and module import/export resolution.
 - [ ] Add multi-module visibility tests.
