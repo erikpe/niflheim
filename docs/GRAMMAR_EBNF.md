@@ -39,7 +39,7 @@ Examples:
 - Cast syntax parses as `(Type)expr`, but cast validity is type-checked later.
 - Call arguments are positional-only in v0.1.
 - `named_type` includes `IDENT` for user classes; actual type resolution is done in resolver/type checker.
-- `lvalue` shape is syntactic; mutability/nullability checks are semantic.
+- `lvalue` shape is syntactic; mutability checks are semantic, while null-dereference checks are runtime-only in v0.1.
 
 ## Module and Export Model in Grammar
 

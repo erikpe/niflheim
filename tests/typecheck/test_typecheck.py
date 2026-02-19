@@ -178,3 +178,37 @@ fn main() -> unit {
 """
     with pytest.raises(TypeCheckError, match="Casts involving 'unit' are not allowed"):
         _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_provably_null_field_and_method_deref_at_compile_time() -> None:
+    source = """
+class Person {
+    age: i64;
+
+    fn birthday(years: i64) -> i64 {
+        return years;
+    }
+}
+
+fn main() -> unit {
+    var p: Person = null;
+    var age: i64 = p.age;
+    var next: i64 = p.birthday(1);
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_provably_null_index_deref_at_compile_time() -> None:
+    source = """
+fn main() -> unit {
+    var v: Vec = null;
+    var x: Obj = v[0];
+
+    var m: Map = null;
+    var y: Obj = m[0];
+    return;
+}
+"""
+    _parse_and_typecheck(source)

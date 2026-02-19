@@ -96,6 +96,7 @@ Defaults:
 
 - References are nullable.
 - `null` dereference panics and aborts.
+- v0.1 does not perform compile-time static null-dereference analysis; null-dereference checks are runtime-only.
 
 ### 4.4 Equality
 
@@ -246,7 +247,7 @@ Minimal C runtime provides:
 - [x] Implement primitive/reference typing rules.
 - [x] Implement explicit primitive cast checks.
 - [x] Implement `Obj` upcast + checked downcast.
-- [ ] Enforce nullability/dereference checks.
+- [x] Freeze policy: null-dereference checks are runtime-only in v0.1 (no compile-time static analysis).
 - [x] Add positive and negative type test suite.
 
 ## D. Runtime ABI + GC Foundation

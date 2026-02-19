@@ -16,7 +16,7 @@ This roadmap operationalizes [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.
 
 1. **M0 Spec Freeze** — lock language and runtime boundaries.
 2. **M1 Frontend Core** — lexer, parser, module resolution.
-3. **M2 Type System** — static typing and cast/nullability rules.
+3. **M2 Type System** — static typing and cast rules, with runtime-only null-dereference checks in MVP.
 4. **M3 Runtime + GC** — C runtime ABI and mark-sweep GC.
 5. **M4 Codegen Core** — executable assembly output.
 6. **M5 Built-ins** — `Str`, `Vec`, `Map`, box types.
@@ -98,12 +98,13 @@ This roadmap operationalizes [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.
 ## Week 4 — M2 Type Checker Core
 
 ### Goals
-- Enforce primitive/reference types and nullability.
+- Enforce primitive/reference typing rules.
 - Enforce explicit primitive casts.
+- Freeze runtime-only null-dereference policy (no compile-time static null analysis in v0.1).
 
 ### Deliverables
 - Type checker pass over AST.
-- Rules for default initialization and null checks.
+- Rules for default initialization and runtime null-dereference behavior.
 - Positive/negative type test suite.
 
 ### Exit Criteria
@@ -130,7 +131,7 @@ This roadmap operationalizes [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.
 
 ### Exit Criteria
 - `Obj` conversion semantics are deterministic and tested.
-- Null dereference and invalid cast paths are surfaced correctly.
+- Null dereference and invalid cast runtime panic paths are surfaced correctly.
 
 ### Risks
 - Ambiguous behavior for `null` + cast combinations.

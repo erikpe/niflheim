@@ -136,7 +136,7 @@ Recommended CI split:
 
 ### Must Cover
 - Primitive type checking.
-- Reference nullability defaults and dereference checks.
+- Reference nullability defaults and runtime null-dereference behavior.
 - Explicit primitive cast enforcement.
 - `Obj` upcast and checked downcast typing rules.
 - Assignment/call/return compatibility.
@@ -145,7 +145,7 @@ Recommended CI split:
 - Implicit primitive cast attempt (must fail).
 - Valid upcast to `Obj`.
 - Invalid downcast path (compile-time when statically impossible; runtime when dynamic).
-- Null dereference path flagged where required by semantics.
+- Null dereference path panics deterministically at runtime (no compile-time static null analysis in v0.1).
 
 ### Exit Criteria
 - Positive suite passes; negative suite fails with expected diagnostics.
