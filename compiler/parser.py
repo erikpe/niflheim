@@ -246,7 +246,21 @@ class Parser:
         if token.kind not in self._type_tokens():
             raise ParserError("Expected type name", token.span)
         self.stream.advance()
-        return TypeRef(name=token.lexeme, span=token.span)
+
+        if token.kind != TokenKind.IDENT:
+            return TypeRef(name=token.lexeme, span=token.span)
+
+        parts = [token.lexeme]
+        end = token.span.end
+        while self.stream.match(TokenKind.DOT):
+            segment = self.stream.expect(TokenKind.IDENT, "Expected type name after '.' in qualified type")
+            parts.append(segment.lexeme)
+            end = segment.span.end
+
+        return TypeRef(
+            name=".".join(parts),
+            span=SourceSpan(start=token.span.start, end=end),
+        )
 
     def _parse_block_stmt(self) -> BlockStmt:
         lbrace = self.stream.expect(TokenKind.LBRACE, "Expected '{' to start block")
@@ -520,13 +534,23 @@ class Parser:
         if self.stream.peek().kind != TokenKind.LPAREN:
             return False
 
-        if self.stream.peek(1).kind not in self._type_tokens():
+        lookahead = 1
+        if self.stream.peek(lookahead).kind not in self._type_tokens():
             return False
+        first_type = self.stream.peek(lookahead)
+        lookahead += 1
 
-        if self.stream.peek(2).kind != TokenKind.RPAREN:
+        if first_type.kind == TokenKind.IDENT:
+            while self.stream.peek(lookahead).kind == TokenKind.DOT:
+                if self.stream.peek(lookahead + 1).kind != TokenKind.IDENT:
+                    return False
+                lookahead += 2
+
+        if self.stream.peek(lookahead).kind != TokenKind.RPAREN:
             return False
+        lookahead += 1
 
-        return self.stream.peek(3).kind in self._unary_start_tokens()
+        return self.stream.peek(lookahead).kind in self._unary_start_tokens()
 
     @staticmethod
     def _type_tokens() -> set[TokenKind]:

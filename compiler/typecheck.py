@@ -368,6 +368,18 @@ class TypeChecker:
                 self._check_call_arguments(ctor_params, expr.arguments, expr.span)
                 return TypeInfo(name=class_info.name, kind="reference")
 
+            imported_class_type = self._resolve_imported_class_type(name, expr.callee.span)
+            if imported_class_type is not None:
+                imported_class_info = self._lookup_class_by_type_name(imported_class_type.name)
+                if imported_class_info is None:
+                    raise TypeCheckError(f"Unknown type '{imported_class_type.name}'", expr.callee.span)
+                ctor_params = [
+                    imported_class_info.fields[field_name]
+                    for field_name in imported_class_info.field_order
+                ]
+                self._check_call_arguments(ctor_params, expr.arguments, expr.span)
+                return imported_class_type
+
         if isinstance(expr.callee, FieldAccessExpr):
             module_member = self._resolve_module_member(expr.callee)
             if module_member is not None:
@@ -414,6 +426,11 @@ class TypeChecker:
         if name in PRIMITIVE_TYPE_NAMES:
             return TypeInfo(name=name, kind="primitive")
 
+        if "." in name:
+            qualified = self._resolve_qualified_imported_class_type(name, type_ref.span)
+            if qualified is not None:
+                return qualified
+
         if name in REFERENCE_BUILTIN_TYPE_NAMES or name in self.classes:
             return TypeInfo(name=name, kind="reference")
 
@@ -424,6 +441,24 @@ class TypeChecker:
         raise TypeCheckError(f"Unknown type '{name}'", type_ref.span)
 
     def _resolve_imported_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
+        matched_module = self._resolve_unique_imported_class_module(
+            class_name,
+            span,
+            ambiguity_label="type",
+        )
+        if matched_module is None:
+            return None
+
+        owner_dotted = ".".join(matched_module)
+        return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
+
+    def _resolve_unique_imported_class_module(
+        self,
+        class_name: str,
+        span: SourceSpan,
+        *,
+        ambiguity_label: str,
+    ) -> ModulePath | None:
         current_module = self._current_module_info()
         if (
             current_module is None
@@ -435,10 +470,9 @@ class TypeChecker:
         matches: list[ModulePath] = []
         for import_info in current_module.imports.values():
             module_path = import_info.module_path
-            module_classes = self.module_class_infos.get(module_path)
-            if module_classes is None:
-                continue
-            if class_name in module_classes:
+            module_info = self.modules[module_path]
+            symbol = module_info.exported_symbols.get(class_name)
+            if symbol is not None and symbol.kind == "class":
                 matches.append(module_path)
 
         if not matches:
@@ -447,11 +481,53 @@ class TypeChecker:
         if len(matches) > 1:
             candidates = ", ".join(sorted(".".join(path) for path in matches))
             raise TypeCheckError(
-                f"Ambiguous imported type '{class_name}' (matches: {candidates})",
+                f"Ambiguous imported {ambiguity_label} '{class_name}' (matches: {candidates})",
                 span,
             )
 
-        owner_dotted = ".".join(matches[0])
+        return matches[0]
+
+    def _resolve_qualified_imported_class_type(self, qualified_name: str, span: SourceSpan) -> TypeInfo | None:
+        current_module = self._current_module_info()
+        if (
+            current_module is None
+            or self.modules is None
+            or self.module_class_infos is None
+        ):
+            return None
+
+        parts = qualified_name.split(".")
+        if len(parts) < 2:
+            return None
+
+        import_alias = parts[0]
+        import_info = current_module.imports.get(import_alias)
+        if import_info is None:
+            return None
+
+        module_path = import_info.module_path
+        for segment in parts[1:-1]:
+            module_info = self.modules[module_path]
+            next_module = module_info.exported_modules.get(segment)
+            if next_module is None:
+                dotted = ".".join(module_path)
+                raise TypeCheckError(
+                    f"Module '{dotted}' has no exported module '{segment}'",
+                    span,
+                )
+            module_path = next_module
+
+        class_name = parts[-1]
+        module_info = self.modules[module_path]
+        symbol = module_info.exported_symbols.get(class_name)
+        if symbol is None or symbol.kind != "class":
+            dotted = ".".join(module_path)
+            raise TypeCheckError(
+                f"Module '{dotted}' has no exported class '{class_name}'",
+                span,
+            )
+
+        owner_dotted = ".".join(module_path)
         return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
 
     def _declare_variable(self, name: str, var_type: TypeInfo, span: SourceSpan) -> None:
@@ -559,12 +635,24 @@ class TypeChecker:
                     return ("module", module_path, segment)
                 continue
 
-            if self.module_function_sigs is not None and segment in self.module_function_sigs[module_path]:
+            exported_symbol = module_info.exported_symbols.get(segment)
+
+            if (
+                self.module_function_sigs is not None
+                and segment in self.module_function_sigs[module_path]
+                and exported_symbol is not None
+                and exported_symbol.kind == "function"
+            ):
                 if is_last:
                     return ("function", module_path, segment)
                 return None
 
-            if self.module_class_infos is not None and segment in self.module_class_infos[module_path]:
+            if (
+                self.module_class_infos is not None
+                and segment in self.module_class_infos[module_path]
+                and exported_symbol is not None
+                and exported_symbol.kind == "class"
+            ):
                 if is_last:
                     return ("class", module_path, segment)
                 return None

@@ -264,8 +264,8 @@ Minimal C runtime provides:
 - [x] Enforce strict assignment target lvalue rules (`ident`, `field`, `index` only).
 - [x] Add positive and negative type test suite.
 - [x] Allow unqualified imported exported class names in type annotations when unique (local names shadow imports).
-- [ ] Support module-qualified type annotations (for example `util.Counter`) to disambiguate imported class name collisions.
-- [ ] Support unqualified imported constructor calls when unique, with local-first shadowing and ambiguity diagnostics.
+- [x] Support module-qualified type annotations (for example `util.Counter`) to disambiguate imported class name collisions.
+- [x] Support unqualified imported constructor calls when unique, with local-first shadowing and ambiguity diagnostics.
 
 ## D. Runtime ABI + GC Foundation
 

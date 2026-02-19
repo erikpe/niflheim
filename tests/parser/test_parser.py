@@ -236,6 +236,29 @@ def test_parse_expression_cast_then_unary_operand() -> None:
     assert expr.type_ref.name == "i64"
 
 
+def test_parse_expression_cast_with_qualified_type() -> None:
+    expr = parse_expression(lex("(util.Counter)x", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, CastExpr)
+    assert expr.type_ref.name == "util.Counter"
+
+
+def test_parse_function_signature_and_var_decl_with_qualified_types() -> None:
+    source = """
+fn build(c: util.Counter) -> util.Counter {
+    var out: util.Counter = c;
+    return out;
+}
+"""
+    module = parse(lex(source, source_path="examples/qualified_types.nif"))
+    fn = module.functions[0]
+
+    assert fn.params[0].type_ref.name == "util.Counter"
+    assert fn.return_type.name == "util.Counter"
+    assert isinstance(fn.body.statements[0], VarDeclStmt)
+    assert fn.body.statements[0].type_ref.name == "util.Counter"
+
+
 def test_parse_expression_invalid_missing_rhs() -> None:
     with pytest.raises(ParserError) as error:
         parse_expression(lex("1 +", source_path="examples/bad_expr.nif"))

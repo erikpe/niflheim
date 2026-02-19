@@ -46,7 +46,7 @@ Design decision (MVP): constructor and type-name resolution are symmetric across
 - Qualified names are explicit (for example `util.Counter(...)` and `util.Counter` in type positions).
 - Unqualified imported class names must be unique or produce ambiguity diagnostics.
 
-Implementation status note: unqualified imported class names in type annotations are supported by type checking; parser/type grammar support for qualified type annotations is planned.
+Implementation status note: unqualified and module-qualified imported class names in type annotations are supported, and unqualified imported constructor-call fallback follows the same local-first + ambiguity rules.
 
 ## Module and Export Model in Grammar
 
