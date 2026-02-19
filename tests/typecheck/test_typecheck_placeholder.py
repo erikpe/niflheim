@@ -105,7 +105,7 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
-def test_typecheck_rejects_reference_cast_for_now() -> None:
+def test_typecheck_allows_obj_upcast_and_explicit_downcast() -> None:
     source = """
 class Person {
     age: i64;
@@ -113,12 +113,13 @@ class Person {
 
 fn main() -> unit {
     var p: Person = Person(1);
+    var o0: Obj = p;
     var o: Obj = (Obj)p;
+    var p2: Person = (Person)o;
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Invalid cast from 'Person' to 'Obj'"):
-        _parse_and_typecheck(source)
+    _parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_null_cast_to_reference() -> None:
@@ -133,6 +134,38 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Invalid cast from 'null' to 'Person'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_obj_assignment_without_downcast() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var o: Obj = Person(1);
+    var p: Person = o;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Cannot assign 'Obj' to 'Person'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_unrelated_reference_cast() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var p: Person = Person(1);
+    var s: Str = (Str)p;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Invalid cast from 'Person' to 'Str'"):
         _parse_and_typecheck(source)
 
 

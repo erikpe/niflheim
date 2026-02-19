@@ -354,6 +354,8 @@ class TypeChecker:
             return
         if target.kind == "reference" and value.kind == "null":
             return
+        if target.name == "Obj" and value.kind == "reference":
+            return
         raise TypeCheckError(f"Cannot assign '{value.name}' to '{target.name}'", span)
 
     def _is_comparable(self, left: TypeInfo, right: TypeInfo) -> bool:
@@ -372,6 +374,12 @@ class TypeChecker:
         if source.kind == "primitive" and target.kind == "primitive":
             if source.name == "unit" or target.name == "unit":
                 raise TypeCheckError("Casts involving 'unit' are not allowed", span)
+            return
+
+        if source.kind == "reference" and target.name == "Obj":
+            return
+
+        if source.name == "Obj" and target.kind == "reference" and target.name != "Obj":
             return
 
         raise TypeCheckError(
