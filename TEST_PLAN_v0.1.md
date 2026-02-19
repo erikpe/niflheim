@@ -140,12 +140,16 @@ Recommended CI split:
 - Explicit primitive cast enforcement.
 - `Obj` upcast and checked downcast typing rules.
 - Assignment/call/return compatibility.
+- Non-`unit` return-path completeness across control flow.
+- Strict assignment lvalue target enforcement (`ident`, `field`, `index`).
 
 ### Example Cases
 - Implicit primitive cast attempt (must fail).
 - Valid upcast to `Obj`.
 - Invalid downcast path (compile-time when statically impossible; runtime when dynamic).
 - Null dereference path panics deterministically at runtime (no compile-time static null analysis in v0.1).
+- Non-`unit` function missing an `else` return path (must fail).
+- Assignment to function symbol/expression target (must fail).
 
 ### Exit Criteria
 - Positive suite passes; negative suite fails with expected diagnostics.

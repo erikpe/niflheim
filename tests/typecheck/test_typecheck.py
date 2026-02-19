@@ -212,3 +212,43 @@ fn main() -> unit {
 }
 """
     _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_non_unit_function_missing_return_path() -> None:
+    source = """
+fn f(x: i64) -> i64 {
+    if x > 0 {
+        return 1;
+    }
+}
+"""
+    with pytest.raises(TypeCheckError, match="Non-unit function must return on all paths"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_non_unit_function_when_if_else_both_return() -> None:
+    source = """
+fn f(x: i64) -> i64 {
+    if x > 0 {
+        return 1;
+    } else {
+        return 2;
+    }
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_assignment_to_function_symbol() -> None:
+    source = """
+fn f() -> i64 {
+    return 1;
+}
+
+fn main() -> unit {
+    f = 2;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Invalid assignment target"):
+        _parse_and_typecheck(source)

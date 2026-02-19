@@ -248,6 +248,8 @@ Minimal C runtime provides:
 - [x] Implement explicit primitive cast checks.
 - [x] Implement `Obj` upcast + checked downcast.
 - [x] Freeze policy: null-dereference checks are runtime-only in v0.1 (no compile-time static analysis).
+- [x] Enforce non-`unit` return-path completeness (return required on all control-flow paths).
+- [x] Enforce strict assignment target lvalue rules (`ident`, `field`, `index` only).
 - [x] Add positive and negative type test suite.
 
 ## D. Runtime ABI + GC Foundation

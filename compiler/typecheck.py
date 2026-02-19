@@ -116,6 +116,10 @@ class TypeChecker:
             self._declare_variable(param.name, param_type, param.span)
 
         self._check_block(body, return_type)
+
+        if return_type.name != "unit" and not self._block_guarantees_return(body):
+            raise TypeCheckError("Non-unit function must return on all paths", body.span)
+
         self._pop_scope()
 
     def _check_block(self, block: BlockStmt, return_type: TypeInfo) -> None:
@@ -163,6 +167,7 @@ class TypeChecker:
             return
 
         if isinstance(stmt, AssignStmt):
+            self._ensure_assignable_target(stmt.target)
             target_type = self._infer_expression_type(stmt.target)
             value_type = self._infer_expression_type(stmt.value)
             self._require_assignable(target_type, value_type, stmt.value.span)
@@ -170,6 +175,39 @@ class TypeChecker:
 
         if isinstance(stmt, ExprStmt):
             self._infer_expression_type(stmt.expression)
+
+    def _block_guarantees_return(self, block: BlockStmt) -> bool:
+        for stmt in block.statements:
+            if self._statement_guarantees_return(stmt):
+                return True
+        return False
+
+    def _statement_guarantees_return(self, stmt: Statement) -> bool:
+        if isinstance(stmt, ReturnStmt):
+            return True
+
+        if isinstance(stmt, BlockStmt):
+            return self._block_guarantees_return(stmt)
+
+        if isinstance(stmt, IfStmt):
+            if stmt.else_branch is None:
+                return False
+            then_returns = self._block_guarantees_return(stmt.then_branch)
+            else_returns = self._statement_guarantees_return(stmt.else_branch)
+            return then_returns and else_returns
+
+        return False
+
+    def _ensure_assignable_target(self, expr: Expression) -> None:
+        if isinstance(expr, IdentifierExpr):
+            if self._lookup_variable(expr.name) is None:
+                raise TypeCheckError("Invalid assignment target", expr.span)
+            return
+
+        if isinstance(expr, (FieldAccessExpr, IndexExpr)):
+            return
+
+        raise TypeCheckError("Invalid assignment target", expr.span)
 
     def _infer_expression_type(self, expr: Expression) -> TypeInfo:
         if isinstance(expr, IdentifierExpr):
