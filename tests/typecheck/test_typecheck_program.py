@@ -98,3 +98,68 @@ def test_typecheck_program_rejects_bad_imported_constructor_argument_type(tmp_pa
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
     with pytest.raises(TypeCheckError, match="Cannot assign 'bool' to 'i64'"):
         typecheck_program(program)
+
+
+def test_typecheck_program_allows_unqualified_imported_exported_class_as_type(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class Counter {
+            value: i64;
+
+            fn inc(delta: i64) -> i64 {
+                return delta;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var c: Counter = util.Counter(1);
+            var x: i64 = c.inc(2);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_rejects_ambiguous_unqualified_imported_type(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "model.nif",
+        """
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+        import model;
+
+        fn main() -> unit {
+            var c: Counter = util.Counter(1);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    with pytest.raises(TypeCheckError, match="Ambiguous imported type 'Counter'"):
+        typecheck_program(program)

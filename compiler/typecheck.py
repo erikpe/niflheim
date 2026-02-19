@@ -417,7 +417,42 @@ class TypeChecker:
         if name in REFERENCE_BUILTIN_TYPE_NAMES or name in self.classes:
             return TypeInfo(name=name, kind="reference")
 
+        imported_class_type = self._resolve_imported_class_type(name, type_ref.span)
+        if imported_class_type is not None:
+            return imported_class_type
+
         raise TypeCheckError(f"Unknown type '{name}'", type_ref.span)
+
+    def _resolve_imported_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
+        current_module = self._current_module_info()
+        if (
+            current_module is None
+            or self.modules is None
+            or self.module_class_infos is None
+        ):
+            return None
+
+        matches: list[ModulePath] = []
+        for import_info in current_module.imports.values():
+            module_path = import_info.module_path
+            module_classes = self.module_class_infos.get(module_path)
+            if module_classes is None:
+                continue
+            if class_name in module_classes:
+                matches.append(module_path)
+
+        if not matches:
+            return None
+
+        if len(matches) > 1:
+            candidates = ", ".join(sorted(".".join(path) for path in matches))
+            raise TypeCheckError(
+                f"Ambiguous imported type '{class_name}' (matches: {candidates})",
+                span,
+            )
+
+        owner_dotted = ".".join(matches[0])
+        return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
 
     def _declare_variable(self, name: str, var_type: TypeInfo, span: SourceSpan) -> None:
         scope = self.scope_stack[-1]
