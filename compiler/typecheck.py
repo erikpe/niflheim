@@ -364,21 +364,24 @@ class TypeChecker:
 
             class_info = self.classes.get(name)
             if class_info is not None:
-                ctor_params = [class_info.fields[field_name] for field_name in class_info.field_order]
-                self._check_call_arguments(ctor_params, expr.arguments, expr.span)
-                return TypeInfo(name=class_info.name, kind="reference")
+                return self._infer_constructor_call_type(
+                    class_info,
+                    expr.arguments,
+                    expr.span,
+                    TypeInfo(name=class_info.name, kind="reference"),
+                )
 
             imported_class_type = self._resolve_imported_class_type(name, expr.callee.span)
             if imported_class_type is not None:
                 imported_class_info = self._lookup_class_by_type_name(imported_class_type.name)
                 if imported_class_info is None:
                     raise TypeCheckError(f"Unknown type '{imported_class_type.name}'", expr.callee.span)
-                ctor_params = [
-                    imported_class_info.fields[field_name]
-                    for field_name in imported_class_info.field_order
-                ]
-                self._check_call_arguments(ctor_params, expr.arguments, expr.span)
-                return imported_class_type
+                return self._infer_constructor_call_type(
+                    imported_class_info,
+                    expr.arguments,
+                    expr.span,
+                    imported_class_type,
+                )
 
         if isinstance(expr.callee, FieldAccessExpr):
             module_member = self._resolve_module_member(expr.callee)
@@ -391,10 +394,13 @@ class TypeChecker:
 
                 if kind == "class":
                     class_info = self.module_class_infos[owner_module][member_name]
-                    ctor_params = [class_info.fields[field_name] for field_name in class_info.field_order]
-                    self._check_call_arguments(ctor_params, expr.arguments, expr.span)
                     owner_dotted = ".".join(owner_module)
-                    return TypeInfo(name=f"{owner_dotted}::{class_info.name}", kind="reference")
+                    return self._infer_constructor_call_type(
+                        class_info,
+                        expr.arguments,
+                        expr.span,
+                        TypeInfo(name=f"{owner_dotted}::{class_info.name}", kind="reference"),
+                    )
 
                 raise TypeCheckError("Module values are not callable", expr.callee.span)
 
@@ -420,6 +426,17 @@ class TypeChecker:
         for param_type, arg_expr in zip(params, args):
             arg_type = self._infer_expression_type(arg_expr)
             self._require_assignable(param_type, arg_type, arg_expr.span)
+
+    def _infer_constructor_call_type(
+        self,
+        class_info: ClassInfo,
+        args: list[Expression],
+        span: SourceSpan,
+        result_type: TypeInfo,
+    ) -> TypeInfo:
+        ctor_params = [class_info.fields[field_name] for field_name in class_info.field_order]
+        self._check_call_arguments(ctor_params, args, span)
+        return result_type
 
     def _resolve_type_ref(self, type_ref: TypeRef) -> TypeInfo:
         name = type_ref.name

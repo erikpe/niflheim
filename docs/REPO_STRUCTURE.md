@@ -1,82 +1,63 @@
 # Repository Structure
 
-This document describes the minimal repository layout for MVP v0.1.
+This document summarizes the current repository layout for MVP v0.1 work.
 
 ## Top-Level Files
 
-- `LANGUAGE_MVP_SPEC_V0.1.md` - Language requirements and implementation checklist.
-- `ROADMAP_v0.1.md` - Milestone and week-by-week delivery plan.
-- `ABI_NOTES.md` - Compiler/runtime ABI contract.
-- `TEST_PLAN_v0.1.md` - Test strategy and release gates.
-- `README.md` - Project entry point and references.
-- `pyproject.toml` - Python project and test configuration for stage-0 compiler.
-
-## Directories
+- `LANGUAGE_MVP_SPEC_V0.1.md` - canonical language and implementation checklist.
+- `ROADMAP_v0.1.md` - milestone/iteration plan.
+- `ABI_NOTES.md` - compiler/runtime ABI notes.
+- `TEST_PLAN_v0.1.md` - testing strategy and release gate criteria.
+- `README.md` - project overview and policy highlights.
+- `pyproject.toml` - Python tooling/test configuration.
 
 ## `compiler/`
 
 Stage-0 compiler implementation in Python.
 
-Current scaffold:
-- `main.py` - executable entry point.
-- `cli.py` - phase-oriented CLI (`lex`, `parse`, `check`, `codegen`).
-- `lexer.py` - lexer placeholder.
-- `parser.py` - parser placeholder.
-- `ast.py` - AST placeholder.
-- `resolver.py` - module/symbol resolution placeholder.
-- `typecheck.py` - type checker placeholder.
-- `codegen.py` - x86-64 emitter placeholder.
-- `grammar/niflheim_v0_1.ebnf` - canonical MVP v0.1 syntax grammar.
+- `tokens.py` - token kinds and lexer token tables.
+- `lexer.py` - lexical analysis with source spans and diagnostics.
+- `ast_nodes.py` - canonical AST dataclasses.
+- `ast.py` - compatibility re-export of `ast_nodes` symbols.
+- `parser.py` - recursive-descent parser for modules/statements/expressions.
+- `ast_dump.py` - deterministic AST debug serialization used by golden tests.
+- `resolver.py` - module graph loading and import/export visibility resolution.
+- `typecheck.py` - type checking (single-module and program-level).
+- `codegen.py` - codegen placeholder.
+- `cli.py` - minimal phase-oriented CLI scaffold.
+- `main.py` - package entry point.
+- `grammar/niflheim_v0_1.ebnf` - canonical grammar source.
 
 ## `runtime/`
 
-Minimal C runtime linked with generated programs.
+Minimal C runtime skeleton for upcoming backend/GC work.
 
-Current scaffold:
 - `include/runtime.h` - runtime ABI declarations.
-- `src/runtime.c` - runtime state, roots push/pop, allocation, panic stubs.
-- `src/gc.c` - GC placeholder implementation unit.
-- `Makefile` - builds `libruntime.a`.
+- `src/runtime.c` - runtime bring-up stubs.
+- `src/gc.c` - GC implementation unit (pending full implementation).
+- `Makefile` - runtime static library build.
 
 ## `tests/`
 
-Tests organized by compiler/runtime stage.
+Current active suites:
 
-Current scaffold includes:
-- `lexer/`
-- `parser/`
-- `typecheck/`
-- `integration/`
-- `README.md` with target layout
-
-Additional planned directories (per test plan):
-- `resolver/`, `codegen/`, `runtime/`, `gc/`, `stress/`
+- `lexer/` - tokenization and lexer diagnostics.
+- `parser/` - parser behavior, precedence, spans, golden AST shape tests.
+- `resolver/` - module graph and visibility enforcement tests.
+- `typecheck/` - type-checking behavior across single-module and multi-module flows.
+- `integration/` - end-to-end placeholder suite.
 
 ## `examples/`
 
-Language example programs.
-
-Current scaffold:
-- `hello.nif` - placeholder source sample.
+Small `.nif` source programs used for language bring-up and experimentation.
 
 ## `scripts/`
 
-Small helper scripts.
-
-Current scaffold:
-- `build_runtime.sh` - convenience wrapper for runtime build on Linux.
+Utility scripts for repository workflows (for example golden refresh/build helpers).
 
 ## `docs/`
 
-Repository-oriented supporting documentation.
+Supporting documentation:
 
-Current scaffold:
-- `REPO_STRUCTURE.md` - this document.
+- `REPO_STRUCTURE.md` - this file.
 - `GRAMMAR_EBNF.md` - grammar conventions and parser-facing notes.
-
-## Intended Evolution Path
-
-1. Flesh out `compiler/` passes in roadmap order.
-2. Implement mark-sweep GC in `runtime/src/gc.c`.
-3. Expand `tests/` to match full layout in test plan.
-4. Add specialized containers and new docs after v0.1 stabilizes.

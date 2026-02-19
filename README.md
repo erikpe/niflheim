@@ -22,7 +22,13 @@ Key design docs:
 
 ## Current Status
 
-Scaffolded structure for MVP v0.1 implementation.
+Frontend for MVP v0.1 is largely implemented:
+
+- Lexer, parser, resolver, and type checker are in place with test coverage.
+- Program-level module import/export visibility checks are implemented.
+- Type checking includes explicit casts, `Obj` up/downcast typing rules, return-path checks, and module-aware type resolution.
+
+Backend/codegen, runtime GC implementation details, and full CLI workflow are still in progress.
 
 ## Policy Decisions (MVP)
 
