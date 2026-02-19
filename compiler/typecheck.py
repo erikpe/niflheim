@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from compiler.ast_nodes import *
 from compiler.lexer import SourceSpan
+from compiler.resolver import ModuleInfo, ModulePath, ProgramInfo
 
 
 PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
@@ -50,14 +51,35 @@ class TypeCheckError(ValueError):
 
 
 class TypeChecker:
-    def __init__(self, module_ast: ModuleAst):
+    def __init__(
+        self,
+        module_ast: ModuleAst,
+        *,
+        module_path: ModulePath | None = None,
+        modules: dict[ModulePath, ModuleInfo] | None = None,
+        module_function_sigs: dict[ModulePath, dict[str, FunctionSig]] | None = None,
+        module_class_infos: dict[ModulePath, dict[str, ClassInfo]] | None = None,
+        pre_collected: bool = False,
+    ):
         self.module_ast = module_ast
-        self.functions: dict[str, FunctionSig] = {}
-        self.classes: dict[str, ClassInfo] = {}
+        self.module_path = module_path
+        self.modules = modules
+        self.module_function_sigs = module_function_sigs
+        self.module_class_infos = module_class_infos
+        self.pre_collected = pre_collected
+
+        if module_path is not None and module_function_sigs is not None and module_class_infos is not None:
+            self.functions = module_function_sigs[module_path]
+            self.classes = module_class_infos[module_path]
+        else:
+            self.functions: dict[str, FunctionSig] = {}
+            self.classes: dict[str, ClassInfo] = {}
+
         self.scope_stack: list[dict[str, TypeInfo]] = []
 
     def check(self) -> None:
-        self._collect_declarations()
+        if not self.pre_collected:
+            self._collect_declarations()
 
         for fn_decl in self.module_ast.functions:
             fn_sig = self.functions[fn_decl.name]
@@ -221,6 +243,9 @@ class TypeChecker:
             if expr.name in self.classes:
                 return TypeInfo(name=f"__class__:{expr.name}", kind="callable")
 
+            if self._current_module_info() is not None and expr.name in self._current_module_info().imports:
+                return TypeInfo(name=f"__module__:{expr.name}", kind="module")
+
             raise TypeCheckError(f"Unknown identifier '{expr.name}'", expr.span)
 
         if isinstance(expr, LiteralExpr):
@@ -289,8 +314,20 @@ class TypeChecker:
             return self._infer_call_type(expr)
 
         if isinstance(expr, FieldAccessExpr):
+            module_member = self._resolve_module_member(expr)
+            if module_member is not None:
+                kind, owner_module, member_name = module_member
+                if kind == "function":
+                    dotted = ".".join(owner_module)
+                    return TypeInfo(name=f"__fn__:{dotted}:{member_name}", kind="callable")
+                if kind == "class":
+                    dotted = ".".join(owner_module)
+                    return TypeInfo(name=f"__class__:{dotted}:{member_name}", kind="callable")
+                dotted = ".".join(owner_module)
+                return TypeInfo(name=f"__module__:{dotted}", kind="module")
+
             object_type = self._infer_expression_type(expr.object_expr)
-            class_info = self.classes.get(object_type.name)
+            class_info = self._lookup_class_by_type_name(object_type.name)
             if class_info is None:
                 raise TypeCheckError(f"Type '{object_type.name}' has no fields/methods", expr.span)
 
@@ -332,8 +369,25 @@ class TypeChecker:
                 return TypeInfo(name=class_info.name, kind="reference")
 
         if isinstance(expr.callee, FieldAccessExpr):
+            module_member = self._resolve_module_member(expr.callee)
+            if module_member is not None:
+                kind, owner_module, member_name = module_member
+                if kind == "function":
+                    fn_sig = self.module_function_sigs[owner_module][member_name]
+                    self._check_call_arguments(fn_sig.params, expr.arguments, expr.span)
+                    return fn_sig.return_type
+
+                if kind == "class":
+                    class_info = self.module_class_infos[owner_module][member_name]
+                    ctor_params = [class_info.fields[field_name] for field_name in class_info.field_order]
+                    self._check_call_arguments(ctor_params, expr.arguments, expr.span)
+                    owner_dotted = ".".join(owner_module)
+                    return TypeInfo(name=f"{owner_dotted}::{class_info.name}", kind="reference")
+
+                raise TypeCheckError("Module values are not callable", expr.callee.span)
+
             object_type = self._infer_expression_type(expr.callee.object_expr)
-            class_info = self.classes.get(object_type.name)
+            class_info = self._lookup_class_by_type_name(object_type.name)
             if class_info is None:
                 raise TypeCheckError(f"Type '{object_type.name}' has no callable members", expr.span)
 
@@ -424,6 +478,99 @@ class TypeChecker:
             f"Invalid cast from '{source.name}' to '{target.name}'",
             span,
         )
+
+    def _current_module_info(self) -> ModuleInfo | None:
+        if self.modules is None or self.module_path is None:
+            return None
+        return self.modules[self.module_path]
+
+    def _lookup_class_by_type_name(self, type_name: str) -> ClassInfo | None:
+        local = self.classes.get(type_name)
+        if local is not None:
+            return local
+
+        if "::" not in type_name or self.module_class_infos is None:
+            return None
+
+        owner_dotted, class_name = type_name.split("::", 1)
+        owner_module = tuple(owner_dotted.split("."))
+        owner_classes = self.module_class_infos.get(owner_module)
+        if owner_classes is None:
+            return None
+        return owner_classes.get(class_name)
+
+    def _resolve_module_member(self, expr: FieldAccessExpr) -> tuple[str, ModulePath, str] | None:
+        if self.modules is None or self.module_path is None:
+            return None
+
+        chain = self._flatten_field_chain(expr)
+        if chain is None or len(chain) < 2:
+            return None
+
+        current_module = self.modules[self.module_path]
+        import_info = current_module.imports.get(chain[0])
+        if import_info is None:
+            return None
+
+        module_path = import_info.module_path
+        for index, segment in enumerate(chain[1:]):
+            module_info = self.modules[module_path]
+            is_last = index == len(chain[1:]) - 1
+
+            reexported = module_info.exported_modules.get(segment)
+            if reexported is not None:
+                module_path = reexported
+                if is_last:
+                    return ("module", module_path, segment)
+                continue
+
+            if self.module_function_sigs is not None and segment in self.module_function_sigs[module_path]:
+                if is_last:
+                    return ("function", module_path, segment)
+                return None
+
+            if self.module_class_infos is not None and segment in self.module_class_infos[module_path]:
+                if is_last:
+                    return ("class", module_path, segment)
+                return None
+
+            return None
+
+        return None
+
+    def _flatten_field_chain(self, expr: Expression) -> list[str] | None:
+        if isinstance(expr, IdentifierExpr):
+            return [expr.name]
+
+        if isinstance(expr, FieldAccessExpr):
+            left = self._flatten_field_chain(expr.object_expr)
+            if left is None:
+                return None
+            return [*left, expr.field_name]
+
+        return None
+
+
+def typecheck_program(program: ProgramInfo) -> None:
+    module_function_sigs: dict[ModulePath, dict[str, FunctionSig]] = {}
+    module_class_infos: dict[ModulePath, dict[str, ClassInfo]] = {}
+
+    for module_path, module_info in program.modules.items():
+        checker = TypeChecker(module_info.ast)
+        checker._collect_declarations()
+        module_function_sigs[module_path] = checker.functions
+        module_class_infos[module_path] = checker.classes
+
+    for module_path, module_info in program.modules.items():
+        checker = TypeChecker(
+            module_info.ast,
+            module_path=module_path,
+            modules=program.modules,
+            module_function_sigs=module_function_sigs,
+            module_class_infos=module_class_infos,
+            pre_collected=True,
+        )
+        checker.check()
 
 
 def typecheck(module_ast: ModuleAst) -> None:
