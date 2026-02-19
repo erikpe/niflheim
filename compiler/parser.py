@@ -4,7 +4,21 @@ from dataclasses import dataclass
 
 from compiler.ast_nodes import *
 from compiler.lexer import SourceSpan, Token
-from compiler.tokens import TokenKind
+from compiler.tokens import TYPE_NAME_TOKENS, TokenKind
+
+
+UNARY_START_TOKENS: set[TokenKind] = {
+    TokenKind.BANG,
+    TokenKind.MINUS,
+    TokenKind.LPAREN,
+    TokenKind.IDENT,
+    TokenKind.INT_LIT,
+    TokenKind.FLOAT_LIT,
+    TokenKind.STRING_LIT,
+    TokenKind.TRUE,
+    TokenKind.FALSE,
+    TokenKind.NULL,
+}
 
 
 class ParserError(ValueError):
@@ -243,7 +257,7 @@ class Parser:
 
     def _parse_type_ref(self) -> TypeRef:
         token = self.stream.peek()
-        if token.kind not in self._type_tokens():
+        if token.kind not in TYPE_NAME_TOKENS:
             raise ParserError("Expected type name", token.span)
         self.stream.advance()
 
@@ -535,7 +549,7 @@ class Parser:
             return False
 
         lookahead = 1
-        if self.stream.peek(lookahead).kind not in self._type_tokens():
+        if self.stream.peek(lookahead).kind not in TYPE_NAME_TOKENS:
             return False
         first_type = self.stream.peek(lookahead)
         lookahead += 1
@@ -550,43 +564,7 @@ class Parser:
             return False
         lookahead += 1
 
-        return self.stream.peek(lookahead).kind in self._unary_start_tokens()
-
-    @staticmethod
-    def _type_tokens() -> set[TokenKind]:
-        return {
-            TokenKind.IDENT,
-            TokenKind.I64,
-            TokenKind.U64,
-            TokenKind.U8,
-            TokenKind.BOOL,
-            TokenKind.DOUBLE,
-            TokenKind.UNIT,
-            TokenKind.OBJ,
-            TokenKind.STR,
-            TokenKind.VEC,
-            TokenKind.MAP,
-            TokenKind.BOXI64,
-            TokenKind.BOXU64,
-            TokenKind.BOXU8,
-            TokenKind.BOXBOOL,
-            TokenKind.BOXDOUBLE,
-        }
-
-    @staticmethod
-    def _unary_start_tokens() -> set[TokenKind]:
-        return {
-            TokenKind.BANG,
-            TokenKind.MINUS,
-            TokenKind.LPAREN,
-            TokenKind.IDENT,
-            TokenKind.INT_LIT,
-            TokenKind.FLOAT_LIT,
-            TokenKind.STRING_LIT,
-            TokenKind.TRUE,
-            TokenKind.FALSE,
-            TokenKind.NULL,
-        }
+        return self.stream.peek(lookahead).kind in UNARY_START_TOKENS
 
 
 def parse(tokens: list[Token]) -> ModuleAst:

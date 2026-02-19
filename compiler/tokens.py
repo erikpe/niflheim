@@ -135,3 +135,23 @@ ONE_CHAR_TOKENS: dict[str, TokenKind] = {
     "<": TokenKind.LT,
     ">": TokenKind.GT,
 }
+
+
+TYPE_NAME_TOKENS: set[TokenKind] = {
+    TokenKind.IDENT,
+    TokenKind.I64,
+    TokenKind.U64,
+    TokenKind.U8,
+    TokenKind.BOOL,
+    TokenKind.DOUBLE,
+    TokenKind.UNIT,
+    TokenKind.OBJ,
+    TokenKind.STR,
+    TokenKind.VEC,
+    TokenKind.MAP,
+    TokenKind.BOXI64,
+    TokenKind.BOXU64,
+    TokenKind.BOXU8,
+    TokenKind.BOXBOOL,
+    TokenKind.BOXDOUBLE,
+}
