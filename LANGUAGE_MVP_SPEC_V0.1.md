@@ -236,21 +236,18 @@ Minimal C runtime provides:
 - [x] Add parser precedence and invalid-syntax tests.
 - [x] Parse function/method bodies into statement/expression AST (replace block-span placeholders).
 - [ ] Add parser error recovery + synchronization so one parse error does not abort all diagnostics.
-  - Done when: parser reports at least 2 independent syntax errors from the same file in one run using synchronization points (`;`, `}`, and top-level declaration starters).
 - [x] Ensure source spans exist on all AST node types used by parser/type checker diagnostics.
-  - Done when: every parser-produced AST node carries a valid span, and diagnostics can point to `path:line:col` for representative parser + type-check errors.
 - [x] Add AST debug-dump/serialization golden tests to detect parser shape regressions.
-  - Done when: AST dump format is stable, golden tests cover precedence and declaration forms, and intentional parser changes require explicit golden updates.
 - [x] Implement symbol tables and module import/export resolution.
 - [x] Add multi-module visibility tests.
 
 ## C. Type Checking
 
-- [ ] Implement primitive/reference typing rules.
+- [x] Implement primitive/reference typing rules.
 - [ ] Implement explicit primitive cast checks.
 - [ ] Implement `Obj` upcast + checked downcast.
 - [ ] Enforce nullability/dereference checks.
-- [ ] Add positive and negative type test suite.
+- [x] Add positive and negative type test suite.
 
 ## D. Runtime ABI + GC Foundation
 
