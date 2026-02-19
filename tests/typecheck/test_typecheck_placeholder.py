@@ -90,3 +90,58 @@ fn f() -> i64 {
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'bool' to 'i64'"):
         _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_explicit_primitive_casts() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = 7;
+    var y: double = (double)x;
+    var z: u8 = (u8)x;
+    var b: bool = (bool)x;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_reference_cast_for_now() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var p: Person = Person(1);
+    var o: Obj = (Obj)p;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Invalid cast from 'Person' to 'Obj'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_null_cast_to_reference() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var p: Person = (Person)null;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Invalid cast from 'null' to 'Person'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_casts_involving_unit() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = (i64)(unit)0;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Casts involving 'unit' are not allowed"):
+        _parse_and_typecheck(source)

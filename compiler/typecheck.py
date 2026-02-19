@@ -242,8 +242,10 @@ class TypeChecker:
             raise TypeCheckError(f"Unknown binary operator '{op}'", expr.span)
 
         if isinstance(expr, CastExpr):
-            self._infer_expression_type(expr.operand)
-            return self._resolve_type_ref(expr.type_ref)
+            source_type = self._infer_expression_type(expr.operand)
+            target_type = self._resolve_type_ref(expr.type_ref)
+            self._check_explicit_cast(source_type, target_type, expr.span)
+            return target_type
 
         if isinstance(expr, CallExpr):
             return self._infer_call_type(expr)
@@ -362,6 +364,20 @@ class TypeChecker:
         if right.kind == "reference" and left.kind == "null":
             return True
         return False
+
+    def _check_explicit_cast(self, source: TypeInfo, target: TypeInfo, span: SourceSpan) -> None:
+        if source.name == target.name:
+            return
+
+        if source.kind == "primitive" and target.kind == "primitive":
+            if source.name == "unit" or target.name == "unit":
+                raise TypeCheckError("Casts involving 'unit' are not allowed", span)
+            return
+
+        raise TypeCheckError(
+            f"Invalid cast from '{source.name}' to '{target.name}'",
+            span,
+        )
 
 
 def typecheck(module_ast: ModuleAst) -> None:

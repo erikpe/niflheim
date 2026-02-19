@@ -244,7 +244,7 @@ Minimal C runtime provides:
 ## C. Type Checking
 
 - [x] Implement primitive/reference typing rules.
-- [ ] Implement explicit primitive cast checks.
+- [x] Implement explicit primitive cast checks.
 - [ ] Implement `Obj` upcast + checked downcast.
 - [ ] Enforce nullability/dereference checks.
 - [x] Add positive and negative type test suite.
