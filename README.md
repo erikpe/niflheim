@@ -27,4 +27,5 @@ Scaffolded structure for MVP v0.1 implementation.
 ## Policy Decisions (MVP)
 
 - Null-dereference checks are runtime-only in v0.1; compile-time static null-dereference analysis is intentionally out of scope.
+- Imported class name resolution is symmetric for constructor calls and type annotations: unqualified names are local-first, qualified names are explicit, and ambiguous unqualified imported names are compile-time errors.
 - See [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) for the canonical language/runtime policy details.

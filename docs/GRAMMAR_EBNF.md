@@ -41,6 +41,13 @@ Examples:
 - `named_type` includes `IDENT` for user classes; actual type resolution is done in resolver/type checker.
 - `lvalue` shape is syntactic; mutability checks are semantic, while null-dereference checks are runtime-only in v0.1.
 
+Design decision (MVP): constructor and type-name resolution are symmetric across modules.
+- Unqualified names are local-first.
+- Qualified names are explicit (for example `util.Counter(...)` and `util.Counter` in type positions).
+- Unqualified imported class names must be unique or produce ambiguity diagnostics.
+
+Implementation status note: unqualified imported class names in type annotations are supported by type checking; parser/type grammar support for qualified type annotations is planned.
+
 ## Module and Export Model in Grammar
 
 - `import foo.bar;`

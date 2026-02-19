@@ -142,6 +142,7 @@ Recommended CI split:
 - Assignment/call/return compatibility.
 - Non-`unit` return-path completeness across control flow.
 - Strict assignment lvalue target enforcement (`ident`, `field`, `index`).
+- Symmetric imported class resolution for constructors and type annotations (local-first unqualified, explicit qualified, ambiguity errors).
 
 ### Example Cases
 - Implicit primitive cast attempt (must fail).
@@ -150,6 +151,9 @@ Recommended CI split:
 - Null dereference path panics deterministically at runtime (no compile-time static null analysis in v0.1).
 - Non-`unit` function missing an `else` return path (must fail).
 - Assignment to function symbol/expression target (must fail).
+- Local class shadows imported same-name class for unqualified constructor and unqualified type annotation.
+- Qualified imported class usage (`util.Counter(...)` and `util.Counter` type annotation) resolves to imported class.
+- Unqualified imported class usage with duplicate exported names across imports fails with deterministic ambiguity diagnostic.
 
 ### Exit Criteria
 - Positive suite passes; negative suite fails with expected diagnostics.

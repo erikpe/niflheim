@@ -151,6 +151,18 @@ These are specialization/performance features and should not change core semanti
 - Re-export of imported symbols/modules is allowed.
 - No namespace feature beyond module boundaries.
 
+### 6.1 Imported Class Name Resolution (Design Decision)
+
+- Resolution is symmetric between constructor calls and type annotations.
+- Unqualified class names are local-first:
+  - If a local class `Counter` exists, `Counter(...)` and `Counter` (type annotation) resolve to the local class.
+  - Imported classes with the same unqualified name do not override locals.
+- Qualified names are explicit and select imported modules:
+  - Constructor call: `util.Counter(...)`
+  - Type annotation: `util.Counter`
+- If no local class exists, unqualified imported class names may resolve from imports only when unique.
+- If multiple imported modules export the same unqualified class name and no local class shadows it, unqualified usage is a compile-time ambiguity error.
+
 ---
 
 ## 7) Runtime Model and Memory Management
@@ -251,6 +263,9 @@ Minimal C runtime provides:
 - [x] Enforce non-`unit` return-path completeness (return required on all control-flow paths).
 - [x] Enforce strict assignment target lvalue rules (`ident`, `field`, `index` only).
 - [x] Add positive and negative type test suite.
+- [x] Allow unqualified imported exported class names in type annotations when unique (local names shadow imports).
+- [ ] Support module-qualified type annotations (for example `util.Counter`) to disambiguate imported class name collisions.
+- [ ] Support unqualified imported constructor calls when unique, with local-first shadowing and ambiguity diagnostics.
 
 ## D. Runtime ABI + GC Foundation
 

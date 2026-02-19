@@ -101,6 +101,7 @@ This roadmap operationalizes [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.
 - Enforce primitive/reference typing rules.
 - Enforce explicit primitive casts.
 - Freeze runtime-only null-dereference policy (no compile-time static null analysis in v0.1).
+- Establish local-first imported class name resolution for unqualified type annotations.
 
 ### Deliverables
 - Type checker pass over AST.
@@ -124,10 +125,12 @@ This roadmap operationalizes [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.
 ### Goals
 - Implement `Obj` upcast/downcast rules.
 - Implement class field/method type validation.
+- Keep constructor and type-name resolution symmetric for local/imported classes.
 
 ### Deliverables
 - Checked downcast behavior (panic on failure at runtime boundary).
 - Class method/field access typing tests.
+- Ambiguity diagnostics for colliding imported class names in unqualified usage paths.
 
 ### Exit Criteria
 - `Obj` conversion semantics are deterministic and tested.
