@@ -1,3 +1,7 @@
 __pycache__/
 *.a
 *.o
+
+# Runtime test binaries (no extension in runtime/tests/)
+runtime/tests/test_*
+!runtime/tests/test_*.*

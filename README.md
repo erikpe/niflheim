@@ -35,3 +35,18 @@ Backend/codegen, runtime GC implementation details, and full CLI workflow are st
 - Null-dereference checks are runtime-only in v0.1; compile-time static null-dereference analysis is intentionally out of scope.
 - Imported class name resolution is symmetric for constructor calls and type annotations: unqualified names are local-first, qualified names are explicit, and ambiguous unqualified imported names are compile-time errors.
 - See [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) for the canonical language/runtime policy details.
+
+## Runtime / GC Tests
+
+Runtime test harnesses live under `runtime/tests/` and are built/run via `runtime/Makefile`.
+
+- `make -C runtime test` runs GC stress scenarios (`test_gc_stress`):
+	- no-root reclaim
+	- rooted chain survival + reclaim after root clear
+	- reachable and unreachable cycle behavior
+	- global root registration/unregistration behavior
+	- nested shadow-stack frame behavior
+	- threshold-trigger behavior under allocation pressure
+- `make -C runtime test-positive` runs root API happy-path checks (`test_roots_positive`).
+- `make -C runtime test-negative` runs root/global-root misuse checks that must fail (`test_roots_negative`).
+- `make -C runtime test-all` runs all runtime harnesses.

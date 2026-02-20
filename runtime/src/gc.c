@@ -22,6 +22,7 @@ static RtGlobalRoot* g_global_roots = NULL;
 static uint64_t g_allocated_bytes = 0;
 static uint64_t g_live_bytes = 0;
 static uint64_t g_next_gc_threshold = 64u * 1024u;
+static uint64_t g_tracked_object_count = 0;
 
 enum {
     RT_GC_MIN_THRESHOLD_BYTES = 64u * 1024u,
@@ -164,6 +165,9 @@ static uint64_t rt_sweep_unmarked(void) {
         if (obj == NULL) {
             *current = node->next;
             free(node);
+            if (g_tracked_object_count > 0) {
+                g_tracked_object_count--;
+            }
             continue;
         }
 
@@ -179,6 +183,9 @@ static uint64_t rt_sweep_unmarked(void) {
         *current = node->next;
         free(obj);
         free(node);
+        if (g_tracked_object_count > 0) {
+            g_tracked_object_count--;
+        }
     }
 
     return live_bytes;
@@ -208,6 +215,7 @@ void rt_gc_track_allocation(RtObjHeader* obj) {
     g_tracked_objects = node;
 
     g_allocated_bytes = rt_saturating_add_u64(g_allocated_bytes, obj->size_bytes);
+    g_tracked_object_count = rt_saturating_add_u64(g_tracked_object_count, 1);
 }
 
 
@@ -272,6 +280,17 @@ void rt_gc_reset_state(void) {
     g_allocated_bytes = 0;
     g_live_bytes = 0;
     g_next_gc_threshold = RT_GC_MIN_THRESHOLD_BYTES;
+    g_tracked_object_count = 0;
+}
+
+
+RtGcStats rt_gc_get_stats(void) {
+    RtGcStats stats;
+    stats.allocated_bytes = g_allocated_bytes;
+    stats.live_bytes = g_live_bytes;
+    stats.next_gc_threshold = g_next_gc_threshold;
+    stats.tracked_object_count = g_tracked_object_count;
+    return stats;
 }
 
 void rt_gc_collect(RtThreadState* ts) {

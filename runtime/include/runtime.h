@@ -54,6 +54,13 @@ struct RtThreadState {
     RtRootFrame* roots_top;
 };
 
+typedef struct RtGcStats {
+    uint64_t allocated_bytes;
+    uint64_t live_bytes;
+    uint64_t next_gc_threshold;
+    uint64_t tracked_object_count;
+} RtGcStats;
+
 void rt_init(void);
 void rt_shutdown(void);
 RtThreadState* rt_thread_state(void);
@@ -69,6 +76,7 @@ void rt_gc_register_global_root(void** slot);
 void rt_gc_unregister_global_root(void** slot);
 
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
+RtGcStats rt_gc_get_stats(void);
 void rt_gc_collect(RtThreadState* ts);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
 

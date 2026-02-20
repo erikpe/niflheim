@@ -274,7 +274,7 @@ Minimal C runtime provides:
 - [x] Define shadow stack frame and root slot ABI.
 - [x] Implement mark phase from globals + shadow stack roots.
 - [x] Implement sweep phase and threshold trigger policy.
-- [ ] Add GC stress tests (including cyclic references).
+- [x] Add GC stress tests (including cyclic references).
 
 ## E. Backend / Codegen
 
