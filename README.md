@@ -50,3 +50,16 @@ Runtime test harnesses live under `runtime/tests/` and are built/run via `runtim
 - `make -C runtime test-positive` runs root API happy-path checks (`test_roots_positive`).
 - `make -C runtime test-negative` runs root/global-root misuse checks that must fail (`test_roots_negative`).
 - `make -C runtime test-all` runs all runtime harnesses.
+
+## Build and Run Helpers
+
+For quick local workflows, use scripts under `scripts/`:
+
+- `scripts/build.sh <input.nif> <output-executable>`
+	- Compiles to assembly at `<output-executable>.s`
+	- Links the runtime and emits `<output-executable>`
+	- Example: `./scripts/build.sh samples/arithmetic_loop.nif build/loopy`
+- `scripts/run.sh <input.nif> [output-executable] [-- <program-args...>]`
+	- Builds via `build.sh`, then executes the produced binary
+	- If output path is omitted, defaults to `build/<input-basename>`
+	- Example: `./scripts/run.sh samples/arithmetic_loop.nif`

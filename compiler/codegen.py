@@ -568,4 +568,6 @@ def emit_asm(module_ast: ModuleAst) -> str:
         _emit_function(fn, lines)
 
     lines.append("")
+    lines.append('.section .note.GNU-stack,"",@progbits')
+    lines.append("")
     return "\n".join(lines)

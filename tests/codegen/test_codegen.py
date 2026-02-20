@@ -10,6 +10,7 @@ def test_emit_asm_emits_intel_text_header() -> None:
 
     assert ".intel_syntax noprefix" in asm
     assert ".text" in asm
+    assert '.section .note.GNU-stack,"",@progbits' in asm
 
 
 def test_emit_asm_emits_sysv_prologue_and_epilogue() -> None:
