@@ -42,10 +42,10 @@ All GC-managed heap objects begin with a common header.
 typedef struct RtType RtType;
 
 typedef struct RtObjHeader {
-    uint32_t type_id;      // Stable runtime type identifier
-    uint32_t gc_flags;     // Bit 0: mark bit, remaining bits reserved
-    uint64_t size_bytes;   // Total object size including header
     const RtType* type;    // Type metadata pointer (trace info, debug name)
+    uint64_t size_bytes;   // Total object size including header
+    uint32_t gc_flags;     // Bit flags (mark/pin), remaining bits reserved
+    uint32_t reserved0;    // Reserved for future use
 } RtObjHeader;
 ```
 
@@ -67,9 +67,15 @@ typedef void (*RtTraceFn)(void* obj, void (*mark_ref)(void** slot));
 
 typedef struct RtType {
     uint32_t type_id;
-    uint32_t flags;          // Reserved for future use
+    uint32_t flags;          // Type flags (`HAS_REFS`, `VARIABLE_SIZE`, `LEAF`)
+    uint32_t abi_version;    // Runtime ABI schema version for metadata
+    uint32_t align_bytes;    // Required object alignment in bytes
+    uint64_t fixed_size_bytes; // Full object size for fixed-size objects (0 if variable)
     const char* debug_name;  // Optional, may be NULL in release mode
     RtTraceFn trace_fn;      // Required for reference-containing objects
+    const uint32_t* pointer_offsets; // Optional pointer-slot offsets from object base
+    uint32_t pointer_offsets_count;  // Number of entries in pointer_offsets
+    uint32_t reserved0;
 } RtType;
 ```
 
@@ -78,6 +84,7 @@ Tracing contract:
 - `trace_fn` marks every pointer field owned by the object.
 - `mark_ref` expects address of a pointer slot (`void**`) so GC can read/update consistently.
 - For objects with no pointer fields, `trace_fn` may be a no-op.
+- `pointer_offsets` may be used for simple descriptor-based tracing; if both descriptor and `trace_fn` are present, runtime may prefer `trace_fn`.
 
 ---
 

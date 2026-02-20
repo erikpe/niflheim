@@ -1,5 +1,5 @@
-#ifndef TOY_RUNTIME_H
-#define TOY_RUNTIME_H
+#ifndef NIFLHEIM_RUNTIME_H
+#define NIFLHEIM_RUNTIME_H
 
 #include <stdint.h>
 
@@ -12,18 +12,35 @@ typedef struct RtObjHeader RtObjHeader;
 typedef struct RtRootFrame RtRootFrame;
 typedef struct RtThreadState RtThreadState;
 
+enum {
+    RT_GC_FLAG_MARKED = 1u << 0,
+    RT_GC_FLAG_PINNED = 1u << 1,
+};
+
+enum {
+    RT_TYPE_FLAG_HAS_REFS = 1u << 0,
+    RT_TYPE_FLAG_VARIABLE_SIZE = 1u << 1,
+    RT_TYPE_FLAG_LEAF = 1u << 2,
+};
+
 struct RtObjHeader {
-    uint32_t type_id;
-    uint32_t gc_flags;
-    uint64_t size_bytes;
     const RtType* type;
+    uint64_t size_bytes;
+    uint32_t gc_flags;
+    uint32_t reserved0;
 };
 
 struct RtType {
     uint32_t type_id;
     uint32_t flags;
+    uint32_t abi_version;
+    uint32_t align_bytes;
+    uint64_t fixed_size_bytes;
     const char* debug_name;
     void (*trace_fn)(void* obj, void (*mark_ref)(void** slot));
+    const uint32_t* pointer_offsets;
+    uint32_t pointer_offsets_count;
+    uint32_t reserved0;
 };
 
 struct RtRootFrame {

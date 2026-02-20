@@ -36,10 +36,10 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
         rt_panic("out of memory");
     }
 
-    obj->type_id = type ? type->type_id : 0;
-    obj->gc_flags = 0;
-    obj->size_bytes = total;
     obj->type = type;
+    obj->size_bytes = total;
+    obj->gc_flags = 0;
+    obj->reserved0 = 0;
     return (void*)obj;
 }
 
