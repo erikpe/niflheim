@@ -1,5 +1,6 @@
 #include "runtime.h"
 
+#include <limits.h>
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -18,6 +19,42 @@ typedef struct RtGlobalRoot {
 
 static RtTrackedObject* g_tracked_objects = NULL;
 static RtGlobalRoot* g_global_roots = NULL;
+static uint64_t g_allocated_bytes = 0;
+static uint64_t g_live_bytes = 0;
+static uint64_t g_next_gc_threshold = 64u * 1024u;
+
+enum {
+    RT_GC_MIN_THRESHOLD_BYTES = 64u * 1024u,
+    RT_GC_GROWTH_NUM = 2u,
+    RT_GC_GROWTH_DEN = 1u,
+};
+
+void rt_gc_collect(RtThreadState* ts);
+
+
+static uint64_t rt_saturating_add_u64(uint64_t a, uint64_t b) {
+    if (UINT64_MAX - a < b) {
+        return UINT64_MAX;
+    }
+    return a + b;
+}
+
+
+static uint64_t rt_scaled_live_bytes(uint64_t live_bytes) {
+    if (live_bytes > UINT64_MAX / RT_GC_GROWTH_NUM) {
+        return UINT64_MAX;
+    }
+    return (live_bytes * RT_GC_GROWTH_NUM) / RT_GC_GROWTH_DEN;
+}
+
+
+static void rt_update_threshold_from_live(uint64_t live_bytes) {
+    uint64_t next = rt_scaled_live_bytes(live_bytes);
+    if (next < RT_GC_MIN_THRESHOLD_BYTES) {
+        next = RT_GC_MIN_THRESHOLD_BYTES;
+    }
+    g_next_gc_threshold = next;
+}
 
 
 static int rt_is_tracked_object(const RtObjHeader* candidate) {
@@ -116,6 +153,50 @@ static void rt_mark_from_shadow_stack(RtThreadState* ts) {
 }
 
 
+static uint64_t rt_sweep_unmarked(void) {
+    uint64_t live_bytes = 0;
+    RtTrackedObject** current = &g_tracked_objects;
+
+    while (*current != NULL) {
+        RtTrackedObject* node = *current;
+        RtObjHeader* obj = node->obj;
+
+        if (obj == NULL) {
+            *current = node->next;
+            free(node);
+            continue;
+        }
+
+        const int marked = (obj->gc_flags & RT_GC_FLAG_MARKED) != 0u;
+        const int pinned = (obj->gc_flags & RT_GC_FLAG_PINNED) != 0u;
+        if (marked || pinned) {
+            obj->gc_flags &= ~RT_GC_FLAG_MARKED;
+            live_bytes = rt_saturating_add_u64(live_bytes, obj->size_bytes);
+            current = &node->next;
+            continue;
+        }
+
+        *current = node->next;
+        free(obj);
+        free(node);
+    }
+
+    return live_bytes;
+}
+
+
+void rt_gc_maybe_collect(RtThreadState* ts, uint64_t upcoming_bytes) {
+    if (ts == NULL) {
+        ts = rt_thread_state();
+    }
+
+    const uint64_t projected = rt_saturating_add_u64(g_allocated_bytes, upcoming_bytes);
+    if (projected >= g_next_gc_threshold) {
+        rt_gc_collect(ts);
+    }
+}
+
+
 void rt_gc_track_allocation(RtObjHeader* obj) {
     RtTrackedObject* node = (RtTrackedObject*)malloc(sizeof(RtTrackedObject));
     if (node == NULL) {
@@ -125,6 +206,8 @@ void rt_gc_track_allocation(RtObjHeader* obj) {
     node->obj = obj;
     node->next = g_tracked_objects;
     g_tracked_objects = node;
+
+    g_allocated_bytes = rt_saturating_add_u64(g_allocated_bytes, obj->size_bytes);
 }
 
 
@@ -185,12 +268,22 @@ void rt_gc_reset_state(void) {
         root_node = next;
     }
     g_global_roots = NULL;
+
+    g_allocated_bytes = 0;
+    g_live_bytes = 0;
+    g_next_gc_threshold = RT_GC_MIN_THRESHOLD_BYTES;
 }
 
-void rt_gc_collect(RtThreadState* ts);
-
 void rt_gc_collect(RtThreadState* ts) {
+    if (ts == NULL) {
+        ts = rt_thread_state();
+    }
+
     rt_clear_all_marks();
     rt_mark_from_global_roots();
     rt_mark_from_shadow_stack(ts);
+
+    g_live_bytes = rt_sweep_unmarked();
+    g_allocated_bytes = g_live_bytes;
+    rt_update_threshold_from_live(g_live_bytes);
 }

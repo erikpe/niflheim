@@ -6,6 +6,7 @@
 
 static RtThreadState g_thread_state = {0};
 
+void rt_gc_maybe_collect(RtThreadState* ts, uint64_t upcoming_bytes);
 void rt_gc_track_allocation(RtObjHeader* obj);
 void rt_gc_reset_state(void);
 
@@ -106,6 +107,8 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
     }
 
     const uint64_t total = rt_checked_total_size(payload_bytes);
+    rt_gc_maybe_collect(ts, total);
+
     RtObjHeader* obj = rt_try_alloc_zeroed(ts, total);
     if (!obj) {
         rt_panic_oom();

@@ -193,7 +193,9 @@ Minimal policy:
 
 Current implementation status:
 - Mark phase traces from both registered global roots and shadow-stack roots.
-- Sweep/threshold policy remains TODO in runtime implementation.
+- Sweep frees unmarked objects from the tracked object list.
+- Threshold trigger runs before allocation when projected bytes exceed threshold.
+- After each collection, next threshold is recomputed as `max(64 KiB, live_bytes * 2)`.
 
 This policy is intentionally simple and predictable.
 
