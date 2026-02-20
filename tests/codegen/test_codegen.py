@@ -57,3 +57,55 @@ fn privf() -> unit {
 
     assert ".globl pubf" in asm
     assert ".globl privf" not in asm
+
+
+def test_emit_asm_return_integer_literal() -> None:
+    module = parse(lex("fn answer() -> i64 { return 42; }", source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "answer:" in asm
+    assert "    mov rax, 42" in asm
+    assert "    jmp .Lanswer_epilogue" in asm
+
+
+def test_emit_asm_expression_with_params_and_local_slot() -> None:
+    source = """
+fn add(x: i64, y: i64) -> i64 {
+    var z: i64 = x + y;
+    return z;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov qword ptr [rbp - 8], rdi" in asm
+    assert "    mov qword ptr [rbp - 16], rsi" in asm
+    assert "    mov rax, qword ptr [rbp - 8]" in asm
+    assert "    add rax, rcx" in asm
+    assert "    mov qword ptr [rbp - 24], rax" in asm
+
+
+def test_emit_asm_null_reference_expression() -> None:
+    module = parse(lex("fn f() -> Obj { return null; }", source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "f:" in asm
+    assert "    mov rax, 0" in asm
+
+
+def test_emit_asm_logical_short_circuit() -> None:
+    source = """
+fn f(a: bool, b: bool) -> bool {
+    return a && b;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert ".Lf_logic_rhs_0:" in asm
+    assert ".Lf_logic_done_0:" in asm
+    assert "    cmp rax, 0" in asm
