@@ -6,6 +6,9 @@
 
 static RtThreadState g_thread_state = {0};
 
+void rt_gc_track_allocation(RtObjHeader* obj);
+void rt_gc_reset_state(void);
+
 static void rt_require(int condition, const char* message) {
     if (!condition) {
         rt_panic(message);
@@ -42,6 +45,7 @@ void rt_init(void) {
 }
 
 void rt_shutdown(void) {
+    rt_gc_reset_state();
 }
 
 RtThreadState* rt_thread_state(void) {
@@ -111,6 +115,7 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
     obj->size_bytes = total;
     obj->gc_flags = 0;
     obj->reserved0 = 0;
+    rt_gc_track_allocation(obj);
     return (void*)obj;
 }
 

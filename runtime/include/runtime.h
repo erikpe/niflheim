@@ -65,6 +65,9 @@ void* rt_root_slot_load(const RtRootFrame* frame, uint32_t slot_index);
 void rt_push_roots(RtThreadState* ts, RtRootFrame* frame);
 void rt_pop_roots(RtThreadState* ts);
 
+void rt_gc_register_global_root(void** slot);
+void rt_gc_unregister_global_root(void** slot);
+
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
 void rt_gc_collect(RtThreadState* ts);
 void* rt_checked_cast(void* obj, const RtType* expected_type);

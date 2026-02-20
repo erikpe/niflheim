@@ -112,6 +112,9 @@ typedef struct RtThreadState {
 Required runtime entry points:
 
 ```c
+void rt_gc_register_global_root(void** slot);
+void rt_gc_unregister_global_root(void** slot);
+
 void rt_root_frame_init(RtRootFrame* frame, void** slots, uint32_t slot_count);
 void rt_root_slot_store(RtRootFrame* frame, uint32_t slot_index, void* ref);
 void* rt_root_slot_load(const RtRootFrame* frame, uint32_t slot_index);
@@ -121,6 +124,7 @@ void rt_pop_roots(RtThreadState* ts);
 ```
 
 Root frame ABI contract:
+- Compiler registers/unregisters reference-typed globals with `rt_gc_register_global_root` / `rt_gc_unregister_global_root`.
 - Compiler allocates one `RtRootFrame` per function activation that owns reference slots.
 - Compiler allocates `void*` root slots in the same activation frame and calls `rt_root_frame_init` before pushing.
 - `rt_root_slot_store` updates slots at safepoints and before runtime calls; out-of-bounds indices are runtime errors.
@@ -128,6 +132,7 @@ Root frame ABI contract:
 - `rt_pop_roots` must run on every function exit path and enforces underflow safety.
 
 Compiler rules:
+- Register each global reference slot exactly once during runtime/module initialization.
 - Each function that can hold reference locals/temporaries allocates root slots in its stack frame.
 - Function prologue initializes `RtRootFrame` and pushes it.
 - Function epilogue pops it on all exits.
@@ -185,6 +190,10 @@ Minimal policy:
 - Trigger collection when `allocated_bytes >= next_gc_threshold`.
 - After sweep, compute `live_bytes`; set `next_gc_threshold = max(min_threshold, live_bytes * growth_factor)`.
 - Suggested `growth_factor`: 1.5 to 2.0.
+
+Current implementation status:
+- Mark phase traces from both registered global roots and shadow-stack roots.
+- Sweep/threshold policy remains TODO in runtime implementation.
 
 This policy is intentionally simple and predictable.
 
