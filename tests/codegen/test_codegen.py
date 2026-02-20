@@ -109,3 +109,65 @@ fn f(a: bool, b: bool) -> bool {
     assert ".Lf_logic_rhs_0:" in asm
     assert ".Lf_logic_done_0:" in asm
     assert "    cmp rax, 0" in asm
+
+
+def test_emit_asm_if_else_control_flow() -> None:
+    source = """
+fn choose(flag: bool) -> i64 {
+    if flag {
+        return 1;
+    } else {
+        return 2;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert ".Lchoose_if_else_" in asm
+    assert ".Lchoose_if_end_" in asm
+    assert "    je .Lchoose_if_else_" in asm
+
+
+def test_emit_asm_while_loop_control_flow() -> None:
+    source = """
+fn loop_to(limit: i64) -> i64 {
+    var i: i64 = 0;
+    while i < limit {
+        i = i + 1;
+    }
+    return i;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert ".Lloop_to_while_start_" in asm
+    assert ".Lloop_to_while_end_" in asm
+    assert "    je .Lloop_to_while_end_" in asm
+    assert "    jmp .Lloop_to_while_start_" in asm
+
+
+def test_emit_asm_else_if_chain_and_nested_locals() -> None:
+    source = """
+fn classify(x: i64) -> i64 {
+    if x < 0 {
+        var y: i64 = 10;
+        return y;
+    } else if x == 0 {
+        var z: i64 = 20;
+        return z;
+    } else {
+        return 30;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert asm.count("_if_else_") >= 2
+    assert "    mov qword ptr [rbp - 16], rax" in asm
+    assert "    mov qword ptr [rbp - 24], rax" in asm

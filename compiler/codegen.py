@@ -52,6 +52,15 @@ def _collect_locals(stmt: Statement, names: set[str]) -> None:
     if isinstance(stmt, BlockStmt):
         for nested in stmt.statements:
             _collect_locals(nested, names)
+        return
+    if isinstance(stmt, IfStmt):
+        _collect_locals(stmt.then_branch, names)
+        if stmt.else_branch is not None:
+            _collect_locals(stmt.else_branch, names)
+        return
+    if isinstance(stmt, WhileStmt):
+        _collect_locals(stmt.body, names)
+        return
 
 
 def _build_layout(fn: FunctionDecl) -> FunctionLayout:
@@ -84,6 +93,12 @@ def _emit_bool_normalize(out: list[str]) -> None:
     out.append("    cmp rax, 0")
     out.append("    setne al")
     out.append("    movzx rax, al")
+
+
+def _next_label(fn_name: str, prefix: str, label_counter: list[int]) -> str:
+    value = label_counter[0]
+    label_counter[0] += 1
+    return f".L{fn_name}_{prefix}_{value}"
 
 
 def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name: str, label_counter: list[int]) -> None:
@@ -239,8 +254,33 @@ def _emit_statement(
             _emit_statement(nested, epilogue_label, out, layout, fn_name, label_counter)
         return
 
-    if isinstance(stmt, (IfStmt, WhileStmt)):
-        raise NotImplementedError("control-flow codegen is not implemented yet")
+    if isinstance(stmt, IfStmt):
+        else_label = _next_label(fn_name, "if_else", label_counter)
+        end_label = _next_label(fn_name, "if_end", label_counter)
+
+        _emit_expr(stmt.condition, layout, out, fn_name, label_counter)
+        out.append("    cmp rax, 0")
+        out.append(f"    je {else_label}")
+        _emit_statement(stmt.then_branch, epilogue_label, out, layout, fn_name, label_counter)
+        out.append(f"    jmp {end_label}")
+        out.append(f"{else_label}:")
+        if stmt.else_branch is not None:
+            _emit_statement(stmt.else_branch, epilogue_label, out, layout, fn_name, label_counter)
+        out.append(f"{end_label}:")
+        return
+
+    if isinstance(stmt, WhileStmt):
+        start_label = _next_label(fn_name, "while_start", label_counter)
+        end_label = _next_label(fn_name, "while_end", label_counter)
+
+        out.append(f"{start_label}:")
+        _emit_expr(stmt.condition, layout, out, fn_name, label_counter)
+        out.append("    cmp rax, 0")
+        out.append(f"    je {end_label}")
+        _emit_statement(stmt.body, epilogue_label, out, layout, fn_name, label_counter)
+        out.append(f"    jmp {start_label}")
+        out.append(f"{end_label}:")
+        return
 
     raise NotImplementedError(f"statement codegen not implemented for {type(stmt).__name__}")
 

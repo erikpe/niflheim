@@ -280,7 +280,7 @@ Minimal C runtime provides:
 
 - [x] Implement SysV-compliant prologue/epilogue emission.
 - [x] Implement expression codegen for primitives and refs.
-- [ ] Implement control flow (`if`, loops, returns).
+- [x] Implement control flow (`if`, loops, returns).
 - [ ] Implement function calls and argument passing.
 - [ ] Emit root slot updates and safe points for allocations/calls.
 - [ ] Add end-to-end compile+run tests.
