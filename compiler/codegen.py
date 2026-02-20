@@ -6,6 +6,7 @@ from compiler.ast_nodes import (
     AssignStmt,
     BinaryExpr,
     BlockStmt,
+    CallExpr,
     CastExpr,
     ExprStmt,
     Expression,
@@ -101,6 +102,22 @@ def _next_label(fn_name: str, prefix: str, label_counter: list[int]) -> str:
     return f".L{fn_name}_{prefix}_{value}"
 
 
+def _is_runtime_call_name(name: str) -> bool:
+    return name.startswith("rt_")
+
+
+def _emit_runtime_call_hook(
+    *,
+    fn_name: str,
+    phase: str,
+    out: list[str],
+    label_counter: list[int],
+) -> None:
+    label = _next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
+    out.append(f"{label}:")
+    out.append("    # runtime safepoint hook")
+
+
 def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name: str, label_counter: list[int]) -> None:
     if isinstance(expr, LiteralExpr):
         if expr.value == "true":
@@ -126,6 +143,43 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
 
     if isinstance(expr, CastExpr):
         _emit_expr(expr.operand, layout, out, fn_name, label_counter)
+        return
+
+    if isinstance(expr, CallExpr):
+        if not isinstance(expr.callee, IdentifierExpr):
+            raise NotImplementedError("call codegen currently supports direct identifier callees only")
+
+        is_runtime_call = _is_runtime_call_name(expr.callee.name)
+        arg_count = len(expr.arguments)
+        if arg_count > len(PARAM_REGISTERS):
+            raise NotImplementedError("call codegen currently supports up to 6 positional arguments")
+
+        for arg in reversed(expr.arguments):
+            _emit_expr(arg, layout, out, fn_name, label_counter)
+            out.append("    push rax")
+
+        for index in range(arg_count):
+            out.append(f"    pop {PARAM_REGISTERS[index]}")
+
+        if is_runtime_call:
+            _emit_runtime_call_hook(
+                fn_name=fn_name,
+                phase="before",
+                out=out,
+                label_counter=label_counter,
+            )
+
+        out.append("    sub rsp, 8")
+        out.append(f"    call {expr.callee.name}")
+        out.append("    add rsp, 8")
+
+        if is_runtime_call:
+            _emit_runtime_call_hook(
+                fn_name=fn_name,
+                phase="after",
+                out=out,
+                label_counter=label_counter,
+            )
         return
 
     if isinstance(expr, UnaryExpr):

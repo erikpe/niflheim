@@ -171,3 +171,80 @@ fn classify(x: i64) -> i64 {
     assert asm.count("_if_else_") >= 2
     assert "    mov qword ptr [rbp - 16], rax" in asm
     assert "    mov qword ptr [rbp - 24], rax" in asm
+
+
+def test_emit_asm_direct_call_no_args() -> None:
+    source = """
+fn callee() -> i64 {
+    return 7;
+}
+
+fn caller() -> i64 {
+    return callee();
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call callee" in asm
+    assert "    sub rsp, 8" in asm
+    assert "    add rsp, 8" in asm
+
+
+def test_emit_asm_direct_call_argument_register_order() -> None:
+    source = """
+fn sum3(a: i64, b: i64, c: i64) -> i64 {
+    return a + b + c;
+}
+
+fn main() -> i64 {
+    return sum3(1, 2, 3);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov rax, 3" in asm
+    assert "    mov rax, 2" in asm
+    assert "    mov rax, 1" in asm
+    assert "    pop rdi" in asm
+    assert "    pop rsi" in asm
+    assert "    pop rdx" in asm
+    assert "    call sum3" in asm
+
+
+def test_emit_asm_runtime_call_has_safepoint_hooks() -> None:
+    source = """
+fn f(ts: Obj) -> unit {
+    rt_gc_collect(ts);
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert ".Lf_rt_safepoint_before_" in asm
+    assert ".Lf_rt_safepoint_after_" in asm
+    assert "    call rt_gc_collect" in asm
+
+
+def test_emit_asm_non_runtime_call_has_no_runtime_hooks() -> None:
+    source = """
+fn callee(x: i64) -> i64 {
+    return x;
+}
+
+fn f() -> i64 {
+    return callee(1);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call callee" in asm
+    assert "rt_safepoint_before" not in asm
+    assert "rt_safepoint_after" not in asm
