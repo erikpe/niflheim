@@ -399,3 +399,20 @@ fn f(x: i64) -> i64 {
     asm = emit_asm(module)
 
     assert "rt_checked_cast" not in asm
+
+
+def test_emit_asm_emits_type_metadata_symbols_for_reference_casts() -> None:
+    source = """
+fn f(o: Obj) -> Obj {
+    return (Obj)o;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert ".section .rodata" in asm
+    assert "__nif_type_name_Obj:" in asm
+    assert '.asciz "Obj"' in asm
+    assert ".data" in asm
+    assert "__nif_type_Obj:" in asm

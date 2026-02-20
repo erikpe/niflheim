@@ -146,6 +146,109 @@ def _mangle_type_symbol(type_name: str) -> str:
     return f"__nif_type_{safe}"
 
 
+def _mangle_type_name_symbol(type_name: str) -> str:
+    safe = type_name.replace(".", "_")
+    return f"__nif_type_name_{safe}"
+
+
+def _collect_reference_cast_types_from_expr(expr: Expression, out: set[str]) -> None:
+    if isinstance(expr, CastExpr):
+        if _is_reference_type_name(expr.type_ref.name):
+            out.add(expr.type_ref.name)
+        _collect_reference_cast_types_from_expr(expr.operand, out)
+        return
+
+    if isinstance(expr, BinaryExpr):
+        _collect_reference_cast_types_from_expr(expr.left, out)
+        _collect_reference_cast_types_from_expr(expr.right, out)
+        return
+
+    if isinstance(expr, UnaryExpr):
+        _collect_reference_cast_types_from_expr(expr.operand, out)
+        return
+
+    if isinstance(expr, CallExpr):
+        _collect_reference_cast_types_from_expr(expr.callee, out)
+        for arg in expr.arguments:
+            _collect_reference_cast_types_from_expr(arg, out)
+        return
+
+
+def _collect_reference_cast_types_from_stmt(stmt: Statement, out: set[str]) -> None:
+    if isinstance(stmt, VarDeclStmt):
+        if stmt.initializer is not None:
+            _collect_reference_cast_types_from_expr(stmt.initializer, out)
+        return
+
+    if isinstance(stmt, AssignStmt):
+        _collect_reference_cast_types_from_expr(stmt.value, out)
+        return
+
+    if isinstance(stmt, ExprStmt):
+        _collect_reference_cast_types_from_expr(stmt.expression, out)
+        return
+
+    if isinstance(stmt, ReturnStmt):
+        if stmt.value is not None:
+            _collect_reference_cast_types_from_expr(stmt.value, out)
+        return
+
+    if isinstance(stmt, BlockStmt):
+        for nested in stmt.statements:
+            _collect_reference_cast_types_from_stmt(nested, out)
+        return
+
+    if isinstance(stmt, IfStmt):
+        _collect_reference_cast_types_from_expr(stmt.condition, out)
+        _collect_reference_cast_types_from_stmt(stmt.then_branch, out)
+        if stmt.else_branch is not None:
+            _collect_reference_cast_types_from_stmt(stmt.else_branch, out)
+        return
+
+    if isinstance(stmt, WhileStmt):
+        _collect_reference_cast_types_from_expr(stmt.condition, out)
+        _collect_reference_cast_types_from_stmt(stmt.body, out)
+        return
+
+
+def _collect_reference_cast_types(module_ast: ModuleAst) -> list[str]:
+    names: set[str] = set()
+    for fn in module_ast.functions:
+        for stmt in fn.body.statements:
+            _collect_reference_cast_types_from_stmt(stmt, names)
+    return sorted(names)
+
+
+def _emit_type_metadata_section(module_ast: ModuleAst, out: list[str]) -> None:
+    type_names = _collect_reference_cast_types(module_ast)
+    if not type_names:
+        return
+
+    out.append("")
+    out.append(".section .rodata")
+    for type_name in type_names:
+        out.append(f"{_mangle_type_name_symbol(type_name)}:")
+        out.append(f'    .asciz "{type_name}"')
+
+    out.append("")
+    out.append(".data")
+    for type_name in type_names:
+        type_sym = _mangle_type_symbol(type_name)
+        name_sym = _mangle_type_name_symbol(type_name)
+        out.append("    .p2align 3")
+        out.append(f"{type_sym}:")
+        out.append("    .long 0")
+        out.append("    .long 0")
+        out.append("    .long 1")
+        out.append("    .long 8")
+        out.append("    .quad 0")
+        out.append(f"    .quad {name_sym}")
+        out.append("    .quad 0")
+        out.append("    .quad 0")
+        out.append("    .long 0")
+        out.append("    .long 0")
+
+
 def _emit_runtime_call_hook(
     *,
     fn_name: str,
@@ -451,10 +554,12 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
 
 
 def emit_asm(module_ast: ModuleAst) -> str:
-    lines: list[str] = [
-        ".intel_syntax noprefix",
-        ".text",
-    ]
+    lines: list[str] = [".intel_syntax noprefix"]
+
+    _emit_type_metadata_section(module_ast, lines)
+
+    lines.append("")
+    lines.append(".text")
 
     for fn in module_ast.functions:
         lines.append("")
