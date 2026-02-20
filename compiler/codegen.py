@@ -28,6 +28,8 @@ from compiler.ast_nodes import (
 class FunctionLayout:
     slot_names: list[str]
     slot_offsets: dict[str, int]
+    root_slot_names: list[str]
+    root_slot_indices: dict[str, int]
     root_slot_offsets: dict[str, int]
     thread_state_offset: int
     root_frame_offset: int
@@ -35,6 +37,7 @@ class FunctionLayout:
 
 
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
+PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
 
 
 def _epilogue_label(fn_name: str) -> str:
@@ -50,38 +53,43 @@ def _offset_operand(offset: int) -> str:
     return f"qword ptr [rbp {sign} {abs(offset)}]"
 
 
-def _collect_locals(stmt: Statement, names: set[str]) -> None:
+def _is_reference_type_name(type_name: str) -> bool:
+    return type_name not in PRIMITIVE_TYPE_NAMES
+
+
+def _collect_locals(stmt: Statement, types_by_name: dict[str, str]) -> None:
     if isinstance(stmt, VarDeclStmt):
-        names.add(stmt.name)
+        types_by_name.setdefault(stmt.name, stmt.type_ref.name)
         return
     if isinstance(stmt, BlockStmt):
         for nested in stmt.statements:
-            _collect_locals(nested, names)
+            _collect_locals(nested, types_by_name)
         return
     if isinstance(stmt, IfStmt):
-        _collect_locals(stmt.then_branch, names)
+        _collect_locals(stmt.then_branch, types_by_name)
         if stmt.else_branch is not None:
-            _collect_locals(stmt.else_branch, names)
+            _collect_locals(stmt.else_branch, types_by_name)
         return
     if isinstance(stmt, WhileStmt):
-        _collect_locals(stmt.body, names)
+        _collect_locals(stmt.body, types_by_name)
         return
 
 
 def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     ordered_names: list[str] = []
     seen: set[str] = set()
+    types_by_name: dict[str, str] = {}
 
     for param in fn.params:
         if param.name not in seen:
             seen.add(param.name)
             ordered_names.append(param.name)
+            types_by_name[param.name] = param.type_ref.name
 
-    local_names: set[str] = set()
     for stmt in fn.body.statements:
-        _collect_locals(stmt, local_names)
+        _collect_locals(stmt, types_by_name)
 
-    for name in sorted(local_names):
+    for name in sorted(types_by_name):
         if name not in seen:
             seen.add(name)
             ordered_names.append(name)
@@ -90,17 +98,26 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     for index, name in enumerate(ordered_names, start=1):
         slot_offsets[name] = -(8 * index)
 
+    root_slot_names = [name for name in ordered_names if _is_reference_type_name(types_by_name[name])]
+    root_slot_indices = {name: index for index, name in enumerate(root_slot_names)}
+
     root_slot_offsets: dict[str, int] = {}
-    for index, name in enumerate(ordered_names, start=1):
+    for index, name in enumerate(root_slot_names, start=1):
         root_slot_offsets[name] = -(8 * (len(ordered_names) + index))
 
-    bytes_for_slots = len(ordered_names) * 16
-    thread_state_offset = -(bytes_for_slots + 8)
-    root_frame_offset = -(bytes_for_slots + 8 + 24)
-    stack_size = _align16(bytes_for_slots + 8 + 24)
+    bytes_for_value_slots = len(ordered_names) * 8
+    bytes_for_root_slots = len(root_slot_names) * 8
+    bytes_for_shadow_stack_state = 32 if root_slot_names else 0
+
+    bytes_for_slots = bytes_for_value_slots + bytes_for_root_slots
+    thread_state_offset = -(bytes_for_slots + 8) if root_slot_names else 0
+    root_frame_offset = -(bytes_for_slots + 8 + 24) if root_slot_names else 0
+    stack_size = _align16(bytes_for_slots + bytes_for_shadow_stack_state)
     return FunctionLayout(
         slot_names=ordered_names,
         slot_offsets=slot_offsets,
+        root_slot_names=root_slot_names,
+        root_slot_indices=root_slot_indices,
         root_slot_offsets=root_slot_offsets,
         thread_state_offset=thread_state_offset,
         root_frame_offset=root_frame_offset,
@@ -137,15 +154,16 @@ def _emit_runtime_call_hook(
 
 
 def _emit_root_slot_updates(layout: FunctionLayout, out: list[str]) -> None:
-    if not layout.slot_names:
+    if not layout.root_slot_names:
         return
 
-    out.append("    # spill potential references to root slots")
+    out.append("    # spill reference-typed roots to root slots")
     out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-    for index, name in enumerate(layout.slot_names):
+    for name in layout.root_slot_names:
         value_offset = layout.slot_offsets[name]
+        slot_index = layout.root_slot_indices[name]
         out.append(f"    mov rdx, {_offset_operand(value_offset)}")
-        out.append(f"    mov esi, {index}")
+        out.append(f"    mov esi, {slot_index}")
         out.append("    call rt_root_slot_store")
 
 
@@ -385,6 +403,7 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
 
     for name in layout.slot_names:
         out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
+    for name in layout.root_slot_names:
         out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
 
     for index, param in enumerate(fn.params):
@@ -395,13 +414,13 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
             continue
         out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[index]}")
 
-    if layout.slot_names:
+    if layout.root_slot_names:
         out.append("    call rt_thread_state")
         out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
         out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        first_root_offset = layout.root_slot_offsets[layout.slot_names[0]]
+        first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
         out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
-        out.append(f"    mov edx, {len(layout.slot_names)}")
+        out.append(f"    mov edx, {len(layout.root_slot_names)}")
         out.append("    call rt_root_frame_init")
         out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
         out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
@@ -411,7 +430,7 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
         _emit_statement(stmt, epilogue, out, layout, fn.name, label_counter)
 
     out.append(f"{epilogue}:")
-    if layout.slot_names:
+    if layout.root_slot_names:
         out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
         out.append("    call rt_pop_roots")
     out.append("    mov rsp, rbp")

@@ -264,8 +264,8 @@ fn f(a: i64) -> i64 {
 
     assert "    mov qword ptr [rbp - 8], 0" in asm
     assert "    mov qword ptr [rbp - 16], 0" in asm
-    assert "    mov qword ptr [rbp - 24], 0" in asm
-    assert "    mov qword ptr [rbp - 32], 0" in asm
+    assert "    mov qword ptr [rbp - 24], 0" not in asm
+    assert "    mov qword ptr [rbp - 32], 0" not in asm
 
 
 def test_emit_asm_wires_shadow_stack_abi_calls_in_prologue_and_epilogue() -> None:
@@ -288,6 +288,42 @@ def test_emit_asm_omits_shadow_stack_abi_when_no_named_slots() -> None:
     source = """
 fn f() -> unit {
     return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "rt_root_frame_init" not in asm
+    assert "rt_push_roots" not in asm
+    assert "rt_pop_roots" not in asm
+
+
+def test_emit_asm_roots_only_reference_typed_bindings() -> None:
+    source = """
+fn f(ts: Obj, n: i64) -> unit {
+    var local_ref: Obj = ts;
+    var local_i: i64 = n;
+    rt_gc_collect(local_ref);
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov esi, 0" in asm
+    assert "    mov esi, 1" in asm
+    assert "    mov esi, 2" not in asm
+    assert "    mov edx, 2" in asm
+    assert asm.count("    call rt_root_slot_store") == 2
+
+
+def test_emit_asm_no_runtime_root_frame_for_primitive_only_function() -> None:
+    source = """
+fn sum(a: i64, b: i64) -> i64 {
+    var c: i64 = a + b;
+    return c;
 }
 """
     module = parse(lex(source, source_path="examples/codegen.nif"))
