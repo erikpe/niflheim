@@ -144,6 +144,7 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
 
 // GC
 void rt_gc_collect(RtThreadState* ts);
+void* rt_checked_cast(void* obj, const RtType* expected_type);
 
 // Panic / abort
 __attribute__((noreturn)) void rt_panic(const char* message);
@@ -159,9 +160,10 @@ int64_t rt_write(int64_t fd, const void* buf, uint64_t count);
 Allocation semantics:
 - `payload_bytes` excludes header size.
 - Runtime allocates `sizeof(RtObjHeader) + payload_bytes`.
+- Runtime validates that type metadata pointer is non-null.
 - Memory for object payload is zero-initialized in v0.1 to guarantee deterministic defaults.
 - If threshold exceeded, runtime may trigger GC before/after allocation.
-- On failed allocation after full GC, runtime panics with OOM.
+- On failed allocation after retrying post-GC, runtime panics with OOM.
 
 ---
 

@@ -61,8 +61,12 @@ void rt_push_roots(RtThreadState* ts, RtRootFrame* frame);
 void rt_pop_roots(RtThreadState* ts);
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
 void rt_gc_collect(RtThreadState* ts);
+void* rt_checked_cast(void* obj, const RtType* expected_type);
 
 __attribute__((noreturn)) void rt_panic(const char* message);
+__attribute__((noreturn)) void rt_panic_null_deref(void);
+__attribute__((noreturn)) void rt_panic_bad_cast(const char* from_type, const char* to_type);
+__attribute__((noreturn)) void rt_panic_oom(void);
 
 #ifdef __cplusplus
 }

@@ -270,7 +270,7 @@ Minimal C runtime provides:
 ## D. Runtime ABI + GC Foundation
 
 - [x] Define C structs for object header and type metadata.
-- [ ] Define allocation and panic entry points.
+- [x] Define allocation and panic entry points.
 - [ ] Define shadow stack frame and root slot ABI.
 - [ ] Implement mark phase from globals + shadow stack roots.
 - [ ] Implement sweep phase and threshold trigger policy.
