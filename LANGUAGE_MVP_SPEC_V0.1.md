@@ -278,7 +278,7 @@ Minimal C runtime provides:
 
 ## E. Backend / Codegen
 
-- [ ] Implement SysV-compliant prologue/epilogue emission.
+- [x] Implement SysV-compliant prologue/epilogue emission.
 - [ ] Implement expression codegen for primitives and refs.
 - [ ] Implement control flow (`if`, loops, returns).
 - [ ] Implement function calls and argument passing.
