@@ -29,6 +29,8 @@ class FunctionLayout:
     slot_names: list[str]
     slot_offsets: dict[str, int]
     root_slot_offsets: dict[str, int]
+    thread_state_offset: int
+    root_frame_offset: int
     stack_size: int
 
 
@@ -92,11 +94,16 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     for index, name in enumerate(ordered_names, start=1):
         root_slot_offsets[name] = -(8 * (len(ordered_names) + index))
 
-    stack_size = _align16(len(ordered_names) * 16)
+    bytes_for_slots = len(ordered_names) * 16
+    thread_state_offset = -(bytes_for_slots + 8)
+    root_frame_offset = -(bytes_for_slots + 8 + 24)
+    stack_size = _align16(bytes_for_slots + 8 + 24)
     return FunctionLayout(
         slot_names=ordered_names,
         slot_offsets=slot_offsets,
         root_slot_offsets=root_slot_offsets,
+        thread_state_offset=thread_state_offset,
+        root_frame_offset=root_frame_offset,
         stack_size=stack_size,
     )
 
@@ -134,11 +141,12 @@ def _emit_root_slot_updates(layout: FunctionLayout, out: list[str]) -> None:
         return
 
     out.append("    # spill potential references to root slots")
-    for name in layout.slot_names:
+    out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+    for index, name in enumerate(layout.slot_names):
         value_offset = layout.slot_offsets[name]
-        root_offset = layout.root_slot_offsets[name]
-        out.append(f"    mov r11, {_offset_operand(value_offset)}")
-        out.append(f"    mov {_offset_operand(root_offset)}, r11")
+        out.append(f"    mov rdx, {_offset_operand(value_offset)}")
+        out.append(f"    mov esi, {index}")
+        out.append("    call rt_root_slot_store")
 
 
 def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name: str, label_counter: list[int]) -> None:
@@ -177,13 +185,6 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
         if arg_count > len(PARAM_REGISTERS):
             raise NotImplementedError("call codegen currently supports up to 6 positional arguments")
 
-        for arg in reversed(expr.arguments):
-            _emit_expr(arg, layout, out, fn_name, label_counter)
-            out.append("    push rax")
-
-        for index in range(arg_count):
-            out.append(f"    pop {PARAM_REGISTERS[index]}")
-
         if is_runtime_call:
             _emit_runtime_call_hook(
                 fn_name=fn_name,
@@ -193,9 +194,14 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
             )
             _emit_root_slot_updates(layout, out)
 
-        out.append("    sub rsp, 8")
+        for arg in reversed(expr.arguments):
+            _emit_expr(arg, layout, out, fn_name, label_counter)
+            out.append("    push rax")
+
+        for index in range(arg_count):
+            out.append(f"    pop {PARAM_REGISTERS[index]}")
+
         out.append(f"    call {expr.callee.name}")
-        out.append("    add rsp, 8")
 
         if is_runtime_call:
             _emit_runtime_call_hook(
@@ -389,10 +395,25 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
             continue
         out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[index]}")
 
+    if layout.slot_names:
+        out.append("    call rt_thread_state")
+        out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
+        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+        first_root_offset = layout.root_slot_offsets[layout.slot_names[0]]
+        out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
+        out.append(f"    mov edx, {len(layout.slot_names)}")
+        out.append("    call rt_root_frame_init")
+        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+        out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
+        out.append("    call rt_push_roots")
+
     for stmt in fn.body.statements:
         _emit_statement(stmt, epilogue, out, layout, fn.name, label_counter)
 
     out.append(f"{epilogue}:")
+    if layout.slot_names:
+        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+        out.append("    call rt_pop_roots")
     out.append("    mov rsp, rbp")
     out.append("    pop rbp")
     out.append("    ret")

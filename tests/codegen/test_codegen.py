@@ -188,8 +188,8 @@ fn caller() -> i64 {
     asm = emit_asm(module)
 
     assert "    call callee" in asm
-    assert "    sub rsp, 8" in asm
-    assert "    add rsp, 8" in asm
+    assert "    sub rsp, 8" not in asm
+    assert "    add rsp, 8" not in asm
 
 
 def test_emit_asm_direct_call_argument_register_order() -> None:
@@ -245,10 +245,9 @@ fn f(ts: Obj) -> unit {
 
     assert "    mov qword ptr [rbp - 8], rdi" in asm
     assert "    mov qword ptr [rbp - 16], rax" in asm
-    assert "    mov r11, qword ptr [rbp - 8]" in asm
-    assert "    mov qword ptr [rbp - 24], r11" in asm
-    assert "    mov r11, qword ptr [rbp - 16]" in asm
-    assert "    mov qword ptr [rbp - 32], r11" in asm
+    assert "    call rt_root_slot_store" in asm
+    assert "    mov esi, 0" in asm
+    assert "    mov esi, 1" in asm
     assert "    call rt_gc_collect" in asm
 
 
@@ -267,6 +266,37 @@ fn f(a: i64) -> i64 {
     assert "    mov qword ptr [rbp - 16], 0" in asm
     assert "    mov qword ptr [rbp - 24], 0" in asm
     assert "    mov qword ptr [rbp - 32], 0" in asm
+
+
+def test_emit_asm_wires_shadow_stack_abi_calls_in_prologue_and_epilogue() -> None:
+    source = """
+fn f(x: Obj) -> Obj {
+    return x;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_thread_state" in asm
+    assert "    call rt_root_frame_init" in asm
+    assert "    call rt_push_roots" in asm
+    assert "    call rt_pop_roots" in asm
+
+
+def test_emit_asm_omits_shadow_stack_abi_when_no_named_slots() -> None:
+    source = """
+fn f() -> unit {
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "rt_root_frame_init" not in asm
+    assert "rt_push_roots" not in asm
+    assert "rt_pop_roots" not in asm
 
 
 def test_emit_asm_non_runtime_call_has_no_runtime_hooks() -> None:

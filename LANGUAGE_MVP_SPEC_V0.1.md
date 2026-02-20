@@ -284,6 +284,9 @@ Minimal C runtime provides:
 - [x] Implement function calls and argument passing.
 - [x] Add codegen safepoint hooks around runtime-call sites.
 - [x] Emit root slot updates at safepoints for allocations/runtime calls.
+- [x] Ensure SysV stack alignment at every call site.
+- [x] Wire full shadow-stack ABI calls (`rt_root_frame_init`, `rt_push_roots`, `rt_root_slot_store`, `rt_pop_roots`).
+- [ ] Restrict safepoint root-slot spills to exact reference-typed locals/temporaries.
 - [ ] Add end-to-end compile+run tests.
 
 ## F. Built-in Runtime Types
@@ -304,6 +307,10 @@ Minimal C runtime provides:
 
 - [ ] Add container specialization extension point.
 - [ ] Prototype one specialized container (`VecI64` or `MapStrObj`) without changing language core.
+- [ ] Extend call lowering to support >6 positional args (stack-passed args under SysV).
+- [ ] Add indirect/method/constructor callee lowering for call expressions.
+- [ ] Add floating-point call/return ABI lowering (`xmm0`-`xmm7` path).
+- [ ] Move local slot allocation from name-based to lexical-scope-aware slots (no shadow aliasing).
 
 ---
 
