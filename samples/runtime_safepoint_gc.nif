@@ -1,0 +1,23 @@
+fn bump(x: i64) -> i64 {
+    return x + 1;
+}
+
+fn pass_obj(v: Obj) -> Obj {
+    return v;
+}
+
+export fn entry() -> i64 {
+    var o: Obj = null;
+    var i: i64 = 0;
+
+    while i < 3 {
+        o = pass_obj(o);
+        i = bump(i);
+    }
+
+    if o == null {
+        return 9;
+    }
+
+    return 1;
+}

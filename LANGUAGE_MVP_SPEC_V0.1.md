@@ -287,7 +287,7 @@ Minimal C runtime provides:
 - [x] Ensure SysV stack alignment at every call site.
 - [x] Wire full shadow-stack ABI calls (`rt_root_frame_init`, `rt_push_roots`, `rt_root_slot_store`, `rt_pop_roots`).
 - [x] Restrict safepoint root-slot spills to exact reference-typed locals/temporaries.
-- [ ] Add end-to-end compile+run tests.
+- [x] Add end-to-end compile+run tests.
 
 ## F. Built-in Runtime Types
 

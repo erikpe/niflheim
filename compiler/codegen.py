@@ -546,8 +546,10 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
 
     out.append(f"{epilogue}:")
     if layout.root_slot_names:
+        out.append("    push rax")
         out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
         out.append("    call rt_pop_roots")
+        out.append("    pop rax")
     out.append("    mov rsp, rbp")
     out.append("    pop rbp")
     out.append("    ret")

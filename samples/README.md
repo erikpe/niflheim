@@ -1,0 +1,17 @@
+# Niflheim Samples
+
+Small sample `.nif` programs for the current stage-0 compiler backend.
+
+These samples intentionally stay within currently implemented codegen features:
+- integer/bool/null expressions
+- control flow (`if`, `while`, `return`)
+- direct function calls with positional args
+- reference casts via `Obj`
+
+Try with:
+- `python3 -m compiler.main samples/arithmetic_loop.nif`
+- `python3 -m compiler.main samples/function_calls.nif --print-ast`
+- `python3 -m compiler.main samples/null_and_cast.nif -o out.s`
+
+Additional debugging-oriented sample:
+- `samples/runtime_safepoint_gc.nif` (repeated function calls over `Obj` values to inspect safepoint/root-slot codegen)

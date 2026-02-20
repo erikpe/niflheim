@@ -335,6 +335,22 @@ fn sum(a: i64, b: i64) -> i64 {
     assert "rt_pop_roots" not in asm
 
 
+def test_emit_asm_preserves_rax_across_rt_pop_roots() -> None:
+    source = """
+fn f(x: Obj) -> Obj {
+    return x;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    push_i = asm.index("    push rax")
+    pop_call_i = asm.index("    call rt_pop_roots")
+    pop_i = asm.index("    pop rax")
+    assert push_i < pop_call_i < pop_i
+
+
 def test_emit_asm_non_runtime_call_has_no_runtime_hooks() -> None:
     source = """
 fn callee(x: i64) -> i64 {

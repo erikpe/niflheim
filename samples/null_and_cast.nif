@@ -1,0 +1,10 @@
+export fn entry() -> i64 {
+    var o: Obj = null;
+    var p: Obj = (Obj)o;
+
+    if p == null {
+        return 5;
+    }
+
+    return 1;
+}
