@@ -352,3 +352,50 @@ fn f() -> i64 {
     assert "    call callee" in asm
     assert "rt_safepoint_before" not in asm
     assert "rt_safepoint_after" not in asm
+
+
+def test_emit_asm_ordinary_call_still_spills_root_slots() -> None:
+    source = """
+fn callee(x: Obj) -> Obj {
+    return x;
+}
+
+fn caller(x: Obj) -> Obj {
+    var y: Obj = x;
+    return callee(y);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call callee" in asm
+    assert "    call rt_root_slot_store" in asm
+    assert "rt_safepoint_before" not in asm
+
+
+def test_emit_asm_reference_cast_calls_rt_checked_cast() -> None:
+    source = """
+fn f(o: Obj) -> Obj {
+    return (Obj)o;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_checked_cast" in asm
+    assert "    lea rsi, [rip + __nif_type_Obj]" in asm
+
+
+def test_emit_asm_primitive_cast_does_not_call_rt_checked_cast() -> None:
+    source = """
+fn f(x: i64) -> i64 {
+    return (i64)x;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "rt_checked_cast" not in asm

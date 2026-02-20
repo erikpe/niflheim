@@ -141,6 +141,11 @@ def _is_runtime_call_name(name: str) -> bool:
     return name.startswith("rt_")
 
 
+def _mangle_type_symbol(type_name: str) -> str:
+    safe = type_name.replace(".", "_")
+    return f"__nif_type_{safe}"
+
+
 def _emit_runtime_call_hook(
     *,
     fn_name: str,
@@ -192,6 +197,12 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
 
     if isinstance(expr, CastExpr):
         _emit_expr(expr.operand, layout, out, fn_name, label_counter)
+        target_type = expr.type_ref.name
+        if _is_reference_type_name(target_type):
+            type_symbol = _mangle_type_symbol(target_type)
+            out.append("    mov rdi, rax")
+            out.append(f"    lea rsi, [rip + {type_symbol}]")
+            out.append("    call rt_checked_cast")
         return
 
     if isinstance(expr, CallExpr):
@@ -210,11 +221,12 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
                 out=out,
                 label_counter=label_counter,
             )
-            _emit_root_slot_updates(layout, out)
 
         for arg in reversed(expr.arguments):
             _emit_expr(arg, layout, out, fn_name, label_counter)
             out.append("    push rax")
+
+        _emit_root_slot_updates(layout, out)
 
         for index in range(arg_count):
             out.append(f"    pop {PARAM_REGISTERS[index]}")
