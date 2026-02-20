@@ -231,6 +231,44 @@ fn f(ts: Obj) -> unit {
     assert "    call rt_gc_collect" in asm
 
 
+def test_emit_asm_runtime_call_spills_named_slots_to_root_slots() -> None:
+    source = """
+fn f(ts: Obj) -> unit {
+    var local: Obj = ts;
+    rt_gc_collect(local);
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov qword ptr [rbp - 8], rdi" in asm
+    assert "    mov qword ptr [rbp - 16], rax" in asm
+    assert "    mov r11, qword ptr [rbp - 8]" in asm
+    assert "    mov qword ptr [rbp - 24], r11" in asm
+    assert "    mov r11, qword ptr [rbp - 16]" in asm
+    assert "    mov qword ptr [rbp - 32], r11" in asm
+    assert "    call rt_gc_collect" in asm
+
+
+def test_emit_asm_initializes_value_and_root_slots_to_zero() -> None:
+    source = """
+fn f(a: i64) -> i64 {
+    var x: i64;
+    return a;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov qword ptr [rbp - 8], 0" in asm
+    assert "    mov qword ptr [rbp - 16], 0" in asm
+    assert "    mov qword ptr [rbp - 24], 0" in asm
+    assert "    mov qword ptr [rbp - 32], 0" in asm
+
+
 def test_emit_asm_non_runtime_call_has_no_runtime_hooks() -> None:
     source = """
 fn callee(x: i64) -> i64 {

@@ -26,7 +26,9 @@ from compiler.ast_nodes import (
 
 @dataclass
 class FunctionLayout:
+    slot_names: list[str]
     slot_offsets: dict[str, int]
+    root_slot_offsets: dict[str, int]
     stack_size: int
 
 
@@ -86,8 +88,17 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     for index, name in enumerate(ordered_names, start=1):
         slot_offsets[name] = -(8 * index)
 
-    stack_size = _align16(len(ordered_names) * 8)
-    return FunctionLayout(slot_offsets=slot_offsets, stack_size=stack_size)
+    root_slot_offsets: dict[str, int] = {}
+    for index, name in enumerate(ordered_names, start=1):
+        root_slot_offsets[name] = -(8 * (len(ordered_names) + index))
+
+    stack_size = _align16(len(ordered_names) * 16)
+    return FunctionLayout(
+        slot_names=ordered_names,
+        slot_offsets=slot_offsets,
+        root_slot_offsets=root_slot_offsets,
+        stack_size=stack_size,
+    )
 
 
 def _emit_bool_normalize(out: list[str]) -> None:
@@ -116,6 +127,18 @@ def _emit_runtime_call_hook(
     label = _next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
     out.append(f"{label}:")
     out.append("    # runtime safepoint hook")
+
+
+def _emit_root_slot_updates(layout: FunctionLayout, out: list[str]) -> None:
+    if not layout.slot_names:
+        return
+
+    out.append("    # spill potential references to root slots")
+    for name in layout.slot_names:
+        value_offset = layout.slot_offsets[name]
+        root_offset = layout.root_slot_offsets[name]
+        out.append(f"    mov r11, {_offset_operand(value_offset)}")
+        out.append(f"    mov {_offset_operand(root_offset)}, r11")
 
 
 def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name: str, label_counter: list[int]) -> None:
@@ -168,6 +191,7 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
                 out=out,
                 label_counter=label_counter,
             )
+            _emit_root_slot_updates(layout, out)
 
         out.append("    sub rsp, 8")
         out.append(f"    call {expr.callee.name}")
@@ -352,6 +376,10 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
     out.append("    mov rbp, rsp")
     if layout.stack_size > 0:
         out.append(f"    sub rsp, {layout.stack_size}")
+
+    for name in layout.slot_names:
+        out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
+        out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
 
     for index, param in enumerate(fn.params):
         if index >= len(PARAM_REGISTERS):

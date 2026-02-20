@@ -283,7 +283,7 @@ Minimal C runtime provides:
 - [x] Implement control flow (`if`, loops, returns).
 - [x] Implement function calls and argument passing.
 - [x] Add codegen safepoint hooks around runtime-call sites.
-- [ ] Emit root slot updates at safepoints for allocations/runtime calls.
+- [x] Emit root slot updates at safepoints for allocations/runtime calls.
 - [ ] Add end-to-end compile+run tests.
 
 ## F. Built-in Runtime Types
