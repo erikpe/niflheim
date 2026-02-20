@@ -6,6 +6,12 @@
 
 static RtThreadState g_thread_state = {0};
 
+static void rt_require(int condition, const char* message) {
+    if (!condition) {
+        rt_panic(message);
+    }
+}
+
 static const char* rt_type_name_or_unknown(const RtType* type) {
     if (type == NULL || type->debug_name == NULL) {
         return "<unknown>";
@@ -42,15 +48,48 @@ RtThreadState* rt_thread_state(void) {
     return &g_thread_state;
 }
 
+void rt_root_frame_init(RtRootFrame* frame, void** slots, uint32_t slot_count) {
+    rt_require(frame != NULL, "rt_root_frame_init: frame is NULL");
+    rt_require(slot_count == 0 || slots != NULL, "rt_root_frame_init: slots is NULL with non-zero slot_count");
+
+    frame->prev = NULL;
+    frame->slot_count = slot_count;
+    frame->reserved = 0;
+    frame->slots = slots;
+
+    for (uint32_t i = 0; i < slot_count; i++) {
+        frame->slots[i] = NULL;
+    }
+}
+
+void rt_root_slot_store(RtRootFrame* frame, uint32_t slot_index, void* ref) {
+    rt_require(frame != NULL, "rt_root_slot_store: frame is NULL");
+    rt_require(slot_index < frame->slot_count, "rt_root_slot_store: slot index out of bounds");
+    frame->slots[slot_index] = ref;
+}
+
+void* rt_root_slot_load(const RtRootFrame* frame, uint32_t slot_index) {
+    rt_require(frame != NULL, "rt_root_slot_load: frame is NULL");
+    rt_require(slot_index < frame->slot_count, "rt_root_slot_load: slot index out of bounds");
+    return frame->slots[slot_index];
+}
+
 void rt_push_roots(RtThreadState* ts, RtRootFrame* frame) {
+    rt_require(ts != NULL, "rt_push_roots: thread state is NULL");
+    rt_require(frame != NULL, "rt_push_roots: frame is NULL");
+    rt_require(frame->slot_count == 0 || frame->slots != NULL, "rt_push_roots: frame slots is NULL");
+
     frame->prev = ts->roots_top;
     ts->roots_top = frame;
 }
 
 void rt_pop_roots(RtThreadState* ts) {
-    if (ts->roots_top != NULL) {
-        ts->roots_top = ts->roots_top->prev;
-    }
+    rt_require(ts != NULL, "rt_pop_roots: thread state is NULL");
+    rt_require(ts->roots_top != NULL, "rt_pop_roots: shadow stack underflow");
+
+    RtRootFrame* top = ts->roots_top;
+    ts->roots_top = top->prev;
+    top->prev = NULL;
 }
 
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes) {

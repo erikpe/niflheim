@@ -112,9 +112,20 @@ typedef struct RtThreadState {
 Required runtime entry points:
 
 ```c
+void rt_root_frame_init(RtRootFrame* frame, void** slots, uint32_t slot_count);
+void rt_root_slot_store(RtRootFrame* frame, uint32_t slot_index, void* ref);
+void* rt_root_slot_load(const RtRootFrame* frame, uint32_t slot_index);
+
 void rt_push_roots(RtThreadState* ts, RtRootFrame* frame);
 void rt_pop_roots(RtThreadState* ts);
 ```
+
+Root frame ABI contract:
+- Compiler allocates one `RtRootFrame` per function activation that owns reference slots.
+- Compiler allocates `void*` root slots in the same activation frame and calls `rt_root_frame_init` before pushing.
+- `rt_root_slot_store` updates slots at safepoints and before runtime calls; out-of-bounds indices are runtime errors.
+- `rt_push_roots` links the frame into thread-local root stack in prologue.
+- `rt_pop_roots` must run on every function exit path and enforces underflow safety.
 
 Compiler rules:
 - Each function that can hold reference locals/temporaries allocates root slots in its stack frame.

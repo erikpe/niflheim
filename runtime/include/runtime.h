@@ -57,8 +57,14 @@ struct RtThreadState {
 void rt_init(void);
 void rt_shutdown(void);
 RtThreadState* rt_thread_state(void);
+
+void rt_root_frame_init(RtRootFrame* frame, void** slots, uint32_t slot_count);
+void rt_root_slot_store(RtRootFrame* frame, uint32_t slot_index, void* ref);
+void* rt_root_slot_load(const RtRootFrame* frame, uint32_t slot_index);
+
 void rt_push_roots(RtThreadState* ts, RtRootFrame* frame);
 void rt_pop_roots(RtThreadState* ts);
+
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
 void rt_gc_collect(RtThreadState* ts);
 void* rt_checked_cast(void* obj, const RtType* expected_type);

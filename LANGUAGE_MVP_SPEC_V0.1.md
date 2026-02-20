@@ -271,7 +271,7 @@ Minimal C runtime provides:
 
 - [x] Define C structs for object header and type metadata.
 - [x] Define allocation and panic entry points.
-- [ ] Define shadow stack frame and root slot ABI.
+- [x] Define shadow stack frame and root slot ABI.
 - [ ] Implement mark phase from globals + shadow stack roots.
 - [ ] Implement sweep phase and threshold trigger policy.
 - [ ] Add GC stress tests (including cyclic references).
