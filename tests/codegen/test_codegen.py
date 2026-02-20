@@ -59,6 +59,14 @@ fn privf() -> unit {
     assert ".globl privf" not in asm
 
 
+def test_emit_asm_marks_main_global_without_export() -> None:
+    module = parse(lex("fn main() -> i64 { return 0; }", source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert ".globl main" in asm
+
+
 def test_emit_asm_return_integer_literal() -> None:
     module = parse(lex("fn answer() -> i64 { return 42; }", source_path="examples/codegen.nif"))
 

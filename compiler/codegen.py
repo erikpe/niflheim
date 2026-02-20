@@ -508,7 +508,7 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
     layout = _build_layout(fn)
     label_counter = [0]
 
-    if fn.is_export:
+    if fn.is_export or fn.name == "main":
         out.append(f".globl {label}")
     out.append(f"{label}:")
     out.append("    push rbp")

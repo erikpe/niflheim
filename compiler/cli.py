@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from compiler.ast_dump import ast_to_debug_json
+from compiler.ast_nodes import ModuleAst
 from compiler.codegen import emit_asm
 from compiler.lexer import Token, lex
 from compiler.parser import parse
@@ -23,6 +24,16 @@ def _format_token(token: Token) -> str:
 def _print_tokens(tokens: list[Token]) -> None:
     for token in tokens:
         print(_format_token(token))
+
+
+def _require_main_function(module_ast: ModuleAst) -> None:
+    main_decl = next((fn for fn in module_ast.functions if fn.name == "main"), None)
+    if main_decl is None:
+        raise ValueError("Program entrypoint missing: expected 'fn main() -> i64'")
+    if main_decl.params:
+        raise ValueError("Invalid main signature: expected 'fn main() -> i64' (no parameters)")
+    if main_decl.return_type.name != "i64":
+        raise ValueError("Invalid main signature: expected return type 'i64'")
 
 
 def main() -> int:
@@ -65,13 +76,14 @@ def main() -> int:
         if not args.skip_check:
             program = resolve_program(input_path, project_root=args.project_root)
             typecheck_program(program)
+            codegen_module = program.modules[program.entry_module].ast
         if args.stop_after == "check":
             return 0
 
         if args.skip_check:
             codegen_module = module_ast
-        else:
-            codegen_module = program.modules[program.entry_module].ast
+
+        _require_main_function(codegen_module)
 
         asm = emit_asm(codegen_module)
         if args.output:

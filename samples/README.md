@@ -13,5 +13,8 @@ Try with:
 - `python3 -m compiler.main samples/function_calls.nif --print-ast`
 - `python3 -m compiler.main samples/null_and_cast.nif -o out.s`
 
+Entrypoint rule:
+- Valid programs are expected to define `fn main() -> i64`.
+
 Additional debugging-oriented sample:
 - `samples/runtime_safepoint_gc.nif` (repeated function calls over `Obj` values to inspect safepoint/root-slot codegen)

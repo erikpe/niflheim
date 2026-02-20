@@ -21,7 +21,7 @@ export class Box {
         """
 import util;
 
-export fn entry() -> i64 {
+fn main() -> i64 {
     return 0;
 }
 """,
@@ -42,7 +42,7 @@ def test_cli_reports_missing_import_module(tmp_path: Path, monkeypatch, capsys) 
         """
 import missing.mod;
 
-export fn entry() -> i64 {
+fn main() -> i64 {
     return 0;
 }
 """,
@@ -56,3 +56,22 @@ export fn entry() -> i64 {
 
     assert rc == 1
     assert "Module 'missing.mod' not found" in captured.err
+
+
+def test_cli_requires_main_i64_entrypoint(tmp_path: Path, monkeypatch, capsys) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+fn not_main() -> i64 {
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(sys, "argv", ["nifc", str(source)])
+    rc = main()
+    captured = capsys.readouterr()
+
+    assert rc == 1
+    assert "Program entrypoint missing" in captured.err

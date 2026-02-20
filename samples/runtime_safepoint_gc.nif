@@ -6,7 +6,7 @@ fn pass_obj(v: Obj) -> Obj {
     return v;
 }
 
-export fn entry() -> i64 {
+fn main() -> i64 {
     var o: Obj = null;
     var i: i64 = 0;
 

@@ -6,6 +6,6 @@ fn add3(a: i64, b: i64, c: i64) -> i64 {
     return add2(a, b) + c;
 }
 
-export fn entry() -> i64 {
+fn main() -> i64 {
     return add3(7, 8, 9);
 }
