@@ -12,9 +12,13 @@ Try with:
 - `python3 -m compiler.main samples/arithmetic_loop.nif`
 - `python3 -m compiler.main samples/function_calls.nif --print-ast`
 - `python3 -m compiler.main samples/null_and_cast.nif -o out.s`
+- `./scripts/run.sh samples/stdlib_io_println.nif`
 
 Entrypoint rule:
 - Valid programs are expected to define `fn main() -> i64`.
 
 Additional debugging-oriented sample:
 - `samples/runtime_safepoint_gc.nif` (uses `extern fn rt_gc_collect(...)` across multiple functions to inspect safepoint/root-slot codegen)
+
+Stdlib IO sample:
+- `samples/stdlib_io_println.nif` (`import std.io; println_i64(...)` without direct runtime calls)

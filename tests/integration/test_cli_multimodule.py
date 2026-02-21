@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -75,6 +77,73 @@ fn not_main() -> i64 {
 
     assert rc == 1
     assert "Program entrypoint missing" in captured.err
+
+
+def test_cli_std_io_println_i64_unqualified_call(tmp_path: Path, monkeypatch) -> None:
+    cc = shutil.which("cc")
+    if cc is None:
+        return
+
+    (tmp_path / "std").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "std" / "io.nif").write_text(
+        """
+extern fn rt_println_i64(value: i64) -> unit;
+export extern fn println_i64(value: i64) -> unit;
+""",
+        encoding="utf-8",
+    )
+
+    entry = tmp_path / "main.nif"
+    entry.write_text(
+        """
+import std.io;
+
+fn main() -> i64 {
+    var x: i64 = 23;
+    println_i64(x);
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+
+    out_asm = tmp_path / "out.s"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["nifc", str(entry), "--project-root", str(tmp_path), "-o", str(out_asm)],
+    )
+
+    rc = main()
+    assert rc == 0
+    assert out_asm.exists()
+
+    repo_root = Path(__file__).resolve().parents[2]
+    runtime_include = repo_root / "runtime" / "include"
+    runtime_c = repo_root / "runtime" / "src" / "runtime.c"
+    gc_c = repo_root / "runtime" / "src" / "gc.c"
+    exe_path = tmp_path / "program"
+
+    subprocess.run(
+        [
+            cc,
+            "-std=c11",
+            "-I",
+            str(runtime_include),
+            str(runtime_c),
+            str(gc_c),
+            str(out_asm),
+            "-o",
+            str(exe_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    run = subprocess.run([str(exe_path)], check=False, capture_output=True, text=True)
+    assert run.returncode == 0
+    assert run.stdout == "23\n"
 
 
 def test_cli_rejects_extern_main_entrypoint(tmp_path: Path, monkeypatch, capsys) -> None:

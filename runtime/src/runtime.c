@@ -1,5 +1,6 @@
 #include "runtime.h"
 
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -139,6 +140,10 @@ void* rt_checked_cast(void* obj, const RtType* expected_type) {
         rt_type_name_or_unknown(header->type),
         rt_type_name_or_unknown(expected_type)
     );
+}
+
+void rt_println_i64(int64_t value) {
+    printf("%" PRId64 "\n", value);
 }
 
 void rt_panic(const char* message) {

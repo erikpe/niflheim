@@ -31,7 +31,7 @@ mkdir -p "$output_dir"
 
 asm_out="${output}.s"
 
-python3 -m compiler.main "$input" -o "$asm_out"
+python3 -m compiler.main "$input" -o "$asm_out" --project-root "$repo_root"
 
 cc \
   -std=c11 \

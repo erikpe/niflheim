@@ -308,3 +308,63 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_constructor(tm
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
     with pytest.raises(TypeCheckError, match="Ambiguous imported type 'Counter'"):
         typecheck_program(program)
+
+
+def test_typecheck_program_allows_unqualified_imported_function_when_unique(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var x: i64 = add(20, 3);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_rejects_ambiguous_unqualified_imported_function(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a - b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+        import math;
+
+        fn main() -> unit {
+            var x: i64 = add(1, 2);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    with pytest.raises(TypeCheckError, match="Ambiguous imported function 'add'"):
+        typecheck_program(program)

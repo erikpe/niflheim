@@ -326,6 +326,11 @@ class TypeChecker:
                 self._check_call_arguments(fn_sig.params, expr.arguments, expr.span)
                 return fn_sig.return_type
 
+            imported_fn_sig = self._resolve_imported_function_sig(name, expr.callee.span)
+            if imported_fn_sig is not None:
+                self._check_call_arguments(imported_fn_sig.params, expr.arguments, expr.span)
+                return imported_fn_sig.return_type
+
             class_info = self.classes.get(name)
             if class_info is not None:
                 return self._infer_constructor_call_type(
@@ -382,6 +387,35 @@ class TypeChecker:
 
         callee_type = self._infer_expression_type(expr.callee)
         raise TypeCheckError(f"Expression of type '{callee_type.name}' is not callable", expr.callee.span)
+
+    def _resolve_imported_function_sig(self, fn_name: str, span: SourceSpan) -> FunctionSig | None:
+        current_module = self._current_module_info()
+        if (
+            current_module is None
+            or self.modules is None
+            or self.module_function_sigs is None
+        ):
+            return None
+
+        matches: list[ModulePath] = []
+        for import_info in current_module.imports.values():
+            module_path = import_info.module_path
+            module_info = self.modules[module_path]
+            symbol = module_info.exported_symbols.get(fn_name)
+            if symbol is not None and symbol.kind == "function":
+                matches.append(module_path)
+
+        if not matches:
+            return None
+
+        if len(matches) > 1:
+            candidates = ", ".join(sorted(".".join(path) for path in matches))
+            raise TypeCheckError(
+                f"Ambiguous imported function '{fn_name}' (matches: {candidates})",
+                span,
+            )
+
+        return self.module_function_sigs[matches[0]][fn_name]
 
     def _check_call_arguments(self, params: list[TypeInfo], args: list[Expression], span: SourceSpan) -> None:
         if len(params) != len(args):

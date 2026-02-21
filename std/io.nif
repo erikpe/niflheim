@@ -1,0 +1,5 @@
+extern fn rt_println_i64(value: i64) -> unit;
+
+export fn println_i64(value: i64) -> unit {
+    rt_println_i64(value);
+}
