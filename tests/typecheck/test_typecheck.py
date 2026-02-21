@@ -105,6 +105,28 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_u_suffix_integer_literal_is_u64() -> None:
+    source = """
+fn main() -> unit {
+    var x: u64 = 42u;
+    var y: u64 = x + 1u;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_assigning_u_suffix_literal_to_i64() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = 42u;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Cannot assign 'u64' to 'i64'"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_obj_upcast_and_explicit_downcast() -> None:
     source = """
 class Person {

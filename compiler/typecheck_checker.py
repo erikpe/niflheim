@@ -253,6 +253,8 @@ class TypeChecker:
                 return TypeInfo(name="bool", kind="primitive")
             if "." in expr.value:
                 return TypeInfo(name="double", kind="primitive")
+            if expr.value.endswith("u") and expr.value[:-1].isdigit():
+                return TypeInfo(name="u64", kind="primitive")
             return TypeInfo(name="i64", kind="primitive")
 
         if isinstance(expr, NullExpr):

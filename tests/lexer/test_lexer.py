@@ -68,6 +68,13 @@ def test_lex_numbers_and_string_literal() -> None:
     assert string_token.lexeme == '"hi\\n"'
 
 
+def test_lex_u64_suffixed_integer_literal() -> None:
+    source = "var x: u64 = 42u;"
+    tokens = lex(source)
+    int_token = next(t for t in tokens if t.kind == TokenKind.INT_LIT)
+    assert int_token.lexeme == "42u"
+
+
 def test_lex_string_literal_allows_hex_escape() -> None:
     source = 'var s: Str = "A\\x42\\0";'
     tokens = lex(source)

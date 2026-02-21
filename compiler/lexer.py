@@ -127,6 +127,9 @@ class Lexer:
             while not self._is_at_end() and self._peek().isdigit():
                 self._advance()
 
+        if not is_float and not self._is_at_end() and self._peek() == "u":
+            self._advance()
+
         lexeme = self.source[start.offset : self.index]
         kind = TokenKind.FLOAT_LIT if is_float else TokenKind.INT_LIT
         return Token(kind, lexeme, SourceSpan(start, self._pos()))

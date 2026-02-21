@@ -778,6 +778,9 @@ def _emit_expr(
         if expr.value.isdigit():
             out.append(f"    mov rax, {expr.value}")
             return
+        if expr.value.endswith("u") and expr.value[:-1].isdigit():
+            out.append(f"    mov rax, {expr.value[:-1]}")
+            return
         raise NotImplementedError(f"literal codegen not implemented for '{expr.value}'")
 
     if isinstance(expr, NullExpr):

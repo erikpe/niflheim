@@ -78,6 +78,16 @@ def test_emit_asm_return_integer_literal() -> None:
     assert "    jmp .Lanswer_epilogue" in asm
 
 
+def test_emit_asm_return_u64_suffixed_integer_literal() -> None:
+    module = parse(lex("fn answer() -> u64 { return 42u; }", source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "answer:" in asm
+    assert "    mov rax, 42" in asm
+    assert "42u" not in asm
+
+
 def test_emit_asm_expression_with_params_and_local_slot() -> None:
     source = """
 fn add(x: i64, y: i64) -> i64 {
