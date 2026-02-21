@@ -292,7 +292,7 @@ Minimal C runtime provides:
 - [x] Restrict safepoint root-slot spills to exact reference-typed locals/temporaries.
 - [x] Add end-to-end compile+run tests.
 - [x] Add method callee lowering for call expressions.
-- [ ] Add constructor callee lowering for call expressions.
+- [x] Add constructor callee lowering for call expressions.
 
 ## F. Built-in Runtime Types
 

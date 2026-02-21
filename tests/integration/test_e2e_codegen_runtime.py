@@ -121,3 +121,22 @@ fn main() -> i64 {
 
     exit_code = _compile_and_run(source)
     assert exit_code == 13
+
+
+def test_e2e_constructor_call_lowering_links_and_runs() -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(9);
+    if c == null {
+        return 1;
+    }
+    return 9;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 9

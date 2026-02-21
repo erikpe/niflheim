@@ -48,12 +48,26 @@ def _build_codegen_module(program: ProgramInfo) -> ModuleAst:
     ordered_module_paths.append(program.entry_module)
 
     merged_functions = []
+    merged_classes = []
     function_index_by_name: dict[str, int] = {}
     function_has_body: dict[str, bool] = {}
     function_owner_by_name: dict[str, tuple[str, ...]] = {}
+    class_owner_by_name: dict[str, tuple[str, ...]] = {}
 
     for module_path in ordered_module_paths:
         module_info = program.modules[module_path]
+        for class_decl in module_info.ast.classes:
+            existing_owner = class_owner_by_name.get(class_decl.name)
+            if existing_owner is not None:
+                first_owner = ".".join(existing_owner)
+                current_owner = ".".join(module_path)
+                raise ValueError(
+                    f"Duplicate class symbol '{class_decl.name}' across modules ({first_owner}, {current_owner})"
+                )
+
+            class_owner_by_name[class_decl.name] = module_path
+            merged_classes.append(class_decl)
+
         for fn_decl in module_info.ast.functions:
             existing_index = function_index_by_name.get(fn_decl.name)
             has_body = fn_decl.body is not None
@@ -79,7 +93,7 @@ def _build_codegen_module(program: ProgramInfo) -> ModuleAst:
 
     return ModuleAst(
         imports=entry_module.ast.imports,
-        classes=entry_module.ast.classes,
+        classes=merged_classes,
         functions=merged_functions,
         span=entry_module.ast.span,
     )

@@ -260,6 +260,29 @@ fn main() -> i64 {
     assert "    pop rsi" in asm
 
 
+def test_emit_asm_constructor_call_lowers_to_constructor_symbol() -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(7);
+    if c == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "__nif_ctor_Counter:" in asm
+    assert "    call __nif_ctor_Counter" in asm
+    assert "    call rt_alloc_obj" in asm
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks() -> None:
     source = """
 fn f(ts: Obj) -> unit {

@@ -48,6 +48,15 @@ class ResolvedCallTarget:
     receiver_expr: Expression | None
 
 
+@dataclass(frozen=True)
+class ConstructorLayout:
+    class_name: str
+    label: str
+    type_symbol: str
+    payload_bytes: int
+    field_names: list[str]
+
+
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
 
@@ -170,6 +179,11 @@ def _mangle_method_symbol(type_name: str, method_name: str) -> str:
     return f"__nif_method_{safe_type}_{safe_method}"
 
 
+def _mangle_constructor_symbol(type_name: str) -> str:
+    safe_type = type_name.replace(".", "_").replace(":", "_")
+    return f"__nif_ctor_{safe_type}"
+
+
 def _collect_reference_cast_types_from_expr(expr: Expression, out: set[str]) -> None:
     if isinstance(expr, CastExpr):
         if _is_reference_type_name(expr.type_ref.name):
@@ -232,6 +246,8 @@ def _collect_reference_cast_types_from_stmt(stmt: Statement, out: set[str]) -> N
 
 def _collect_reference_cast_types(module_ast: ModuleAst) -> list[str]:
     names: set[str] = set()
+    for cls in module_ast.classes:
+        names.add(cls.name)
     for fn in module_ast.functions:
         if fn.body is None:
             continue
@@ -341,8 +357,12 @@ def _resolve_call_target_name(
     callee: Expression,
     layout: FunctionLayout,
     method_labels: dict[tuple[str, str], str],
+    constructor_labels: dict[str, str],
 ) -> ResolvedCallTarget:
     if isinstance(callee, IdentifierExpr):
+        ctor_label = constructor_labels.get(callee.name)
+        if ctor_label is not None:
+            return ResolvedCallTarget(name=ctor_label, receiver_expr=None)
         return ResolvedCallTarget(name=callee.name, receiver_expr=None)
 
     if isinstance(callee, FieldAccessExpr):
@@ -351,6 +371,9 @@ def _resolve_call_target_name(
             raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
         if chain[0] in layout.slot_offsets:
             return _resolve_method_call_target(callee, layout, method_labels)
+        ctor_label = constructor_labels.get(chain[-1])
+        if ctor_label is not None:
+            return ResolvedCallTarget(name=ctor_label, receiver_expr=None)
         return ResolvedCallTarget(name=chain[-1], receiver_expr=None)
 
     raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
@@ -363,6 +386,7 @@ def _emit_expr(
     fn_name: str,
     label_counter: list[int],
     method_labels: dict[tuple[str, str], str],
+    constructor_labels: dict[str, str],
 ) -> None:
     if isinstance(expr, LiteralExpr):
         if expr.value == "true":
@@ -387,7 +411,7 @@ def _emit_expr(
         return
 
     if isinstance(expr, CastExpr):
-        _emit_expr(expr.operand, layout, out, fn_name, label_counter, method_labels)
+        _emit_expr(expr.operand, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         target_type = expr.type_ref.name
         if _is_reference_type_name(target_type):
             type_symbol = _mangle_type_symbol(target_type)
@@ -397,7 +421,7 @@ def _emit_expr(
         return
 
     if isinstance(expr, CallExpr):
-        resolved_target = _resolve_call_target_name(expr.callee, layout, method_labels)
+        resolved_target = _resolve_call_target_name(expr.callee, layout, method_labels, constructor_labels)
         target_name = resolved_target.name
 
         call_arguments = list(expr.arguments)
@@ -418,7 +442,7 @@ def _emit_expr(
             )
 
         for arg in reversed(call_arguments):
-            _emit_expr(arg, layout, out, fn_name, label_counter, method_labels)
+            _emit_expr(arg, layout, out, fn_name, label_counter, method_labels, constructor_labels)
             out.append("    push rax")
 
         _emit_root_slot_updates(layout, out)
@@ -438,7 +462,7 @@ def _emit_expr(
         return
 
     if isinstance(expr, UnaryExpr):
-        _emit_expr(expr.operand, layout, out, fn_name, label_counter, method_labels)
+        _emit_expr(expr.operand, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         if expr.operator == "-":
             out.append("    neg rax")
             return
@@ -455,7 +479,7 @@ def _emit_expr(
             rhs_label = f".L{fn_name}_logic_rhs_{branch_id}"
             done_label = f".L{fn_name}_logic_done_{branch_id}"
 
-            _emit_expr(expr.left, layout, out, fn_name, label_counter, method_labels)
+            _emit_expr(expr.left, layout, out, fn_name, label_counter, method_labels, constructor_labels)
             _emit_bool_normalize(out)
             out.append("    cmp rax, 0")
             if expr.operator == "&&":
@@ -466,14 +490,14 @@ def _emit_expr(
                 out.append("    mov rax, 1")
             out.append(f"    jmp {done_label}")
             out.append(f"{rhs_label}:")
-            _emit_expr(expr.right, layout, out, fn_name, label_counter, method_labels)
+            _emit_expr(expr.right, layout, out, fn_name, label_counter, method_labels, constructor_labels)
             _emit_bool_normalize(out)
             out.append(f"{done_label}:")
             return
 
-        _emit_expr(expr.left, layout, out, fn_name, label_counter, method_labels)
+        _emit_expr(expr.left, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         out.append("    push rax")
-        _emit_expr(expr.right, layout, out, fn_name, label_counter, method_labels)
+        _emit_expr(expr.right, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         out.append("    mov rcx, rax")
         out.append("    pop rax")
 
@@ -526,10 +550,11 @@ def _emit_statement(
     fn_name: str,
     label_counter: list[int],
     method_labels: dict[tuple[str, str], str],
+    constructor_labels: dict[str, str],
 ) -> None:
     if isinstance(stmt, ReturnStmt):
         if stmt.value is not None:
-            _emit_expr(stmt.value, layout, out, fn_name, label_counter, method_labels)
+            _emit_expr(stmt.value, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         out.append(f"    jmp {epilogue_label}")
         return
 
@@ -541,7 +566,7 @@ def _emit_statement(
         if stmt.initializer is None:
             out.append("    mov rax, 0")
         else:
-            _emit_expr(stmt.initializer, layout, out, fn_name, label_counter, method_labels)
+            _emit_expr(stmt.initializer, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         out.append(f"    mov {_offset_operand(offset)}, rax")
         return
 
@@ -551,31 +576,31 @@ def _emit_statement(
         offset = layout.slot_offsets.get(stmt.target.name)
         if offset is None:
             raise NotImplementedError(f"identifier '{stmt.target.name}' is not materialized in stack layout")
-        _emit_expr(stmt.value, layout, out, fn_name, label_counter, method_labels)
+        _emit_expr(stmt.value, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         out.append(f"    mov {_offset_operand(offset)}, rax")
         return
 
     if isinstance(stmt, ExprStmt):
-        _emit_expr(stmt.expression, layout, out, fn_name, label_counter, method_labels)
+        _emit_expr(stmt.expression, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         return
 
     if isinstance(stmt, BlockStmt):
         for nested in stmt.statements:
-            _emit_statement(nested, epilogue_label, out, layout, fn_name, label_counter, method_labels)
+            _emit_statement(nested, epilogue_label, out, layout, fn_name, label_counter, method_labels, constructor_labels)
         return
 
     if isinstance(stmt, IfStmt):
         else_label = _next_label(fn_name, "if_else", label_counter)
         end_label = _next_label(fn_name, "if_end", label_counter)
 
-        _emit_expr(stmt.condition, layout, out, fn_name, label_counter, method_labels)
+        _emit_expr(stmt.condition, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         out.append("    cmp rax, 0")
         out.append(f"    je {else_label}")
-        _emit_statement(stmt.then_branch, epilogue_label, out, layout, fn_name, label_counter, method_labels)
+        _emit_statement(stmt.then_branch, epilogue_label, out, layout, fn_name, label_counter, method_labels, constructor_labels)
         out.append(f"    jmp {end_label}")
         out.append(f"{else_label}:")
         if stmt.else_branch is not None:
-            _emit_statement(stmt.else_branch, epilogue_label, out, layout, fn_name, label_counter, method_labels)
+            _emit_statement(stmt.else_branch, epilogue_label, out, layout, fn_name, label_counter, method_labels, constructor_labels)
         out.append(f"{end_label}:")
         return
 
@@ -584,10 +609,10 @@ def _emit_statement(
         end_label = _next_label(fn_name, "while_end", label_counter)
 
         out.append(f"{start_label}:")
-        _emit_expr(stmt.condition, layout, out, fn_name, label_counter, method_labels)
+        _emit_expr(stmt.condition, layout, out, fn_name, label_counter, method_labels, constructor_labels)
         out.append("    cmp rax, 0")
         out.append(f"    je {end_label}")
-        _emit_statement(stmt.body, epilogue_label, out, layout, fn_name, label_counter, method_labels)
+        _emit_statement(stmt.body, epilogue_label, out, layout, fn_name, label_counter, method_labels, constructor_labels)
         out.append(f"    jmp {start_label}")
         out.append(f"{end_label}:")
         return
@@ -599,6 +624,7 @@ def _emit_function(
     fn: FunctionDecl,
     out: list[str],
     method_labels: dict[tuple[str, str], str],
+    constructor_labels: dict[str, str],
     *,
     label: str | None = None,
 ) -> None:
@@ -641,7 +667,16 @@ def _emit_function(
         out.append("    call rt_push_roots")
 
     for stmt in fn.body.statements:
-        _emit_statement(stmt, epilogue, out, layout, target_label, label_counter, method_labels)
+        _emit_statement(
+            stmt,
+            epilogue,
+            out,
+            layout,
+            target_label,
+            label_counter,
+            method_labels,
+            constructor_labels,
+        )
 
     out.append(f"{epilogue}:")
     if layout.root_slot_names:
@@ -671,6 +706,102 @@ def _method_function_decl(class_decl: ClassDecl, method_decl: MethodDecl, label:
     )
 
 
+def _constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDecl:
+    params = [
+        ParamDecl(name=field.name, type_ref=field.type_ref, span=field.span)
+        for field in class_decl.fields
+    ]
+    return FunctionDecl(
+        name=label,
+        params=params,
+        return_type=TypeRef(name=class_decl.name, span=class_decl.span),
+        body=BlockStmt(statements=[], span=class_decl.span),
+        is_export=False,
+        is_extern=False,
+        span=class_decl.span,
+    )
+
+
+def _emit_constructor_function(
+    class_decl: ClassDecl,
+    ctor_layout: ConstructorLayout,
+    out: list[str],
+) -> None:
+    ctor_fn = _constructor_function_decl(class_decl, ctor_layout.label)
+    target_label = ctor_layout.label
+    epilogue = _epilogue_label(target_label)
+    layout = _build_layout(ctor_fn)
+    label_counter = [0]
+
+    out.append(f"{target_label}:")
+    out.append("    push rbp")
+    out.append("    mov rbp, rsp")
+    if layout.stack_size > 0:
+        out.append(f"    sub rsp, {layout.stack_size}")
+
+    for name in layout.slot_names:
+        out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
+    for name in layout.root_slot_names:
+        out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
+
+    for index, param in enumerate(ctor_fn.params):
+        if index >= len(PARAM_REGISTERS):
+            raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
+        offset = layout.slot_offsets.get(param.name)
+        if offset is None:
+            continue
+        out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[index]}")
+
+    if layout.root_slot_names:
+        out.append("    call rt_thread_state")
+        out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
+        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+        first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
+        out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
+        out.append(f"    mov edx, {len(layout.root_slot_names)}")
+        out.append("    call rt_root_frame_init")
+        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+        out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
+        out.append("    call rt_push_roots")
+
+    _emit_runtime_call_hook(
+        fn_name=target_label,
+        phase="before",
+        out=out,
+        label_counter=label_counter,
+    )
+    _emit_root_slot_updates(layout, out)
+    out.append("    call rt_thread_state")
+    out.append("    mov rdi, rax")
+    out.append(f"    lea rsi, [rip + {ctor_layout.type_symbol}]")
+    out.append(f"    mov rdx, {ctor_layout.payload_bytes}")
+    out.append("    call rt_alloc_obj")
+    _emit_runtime_call_hook(
+        fn_name=target_label,
+        phase="after",
+        out=out,
+        label_counter=label_counter,
+    )
+
+    for field_index, field_name in enumerate(ctor_layout.field_names):
+        field_offset = 24 + (8 * field_index)
+        value_offset = layout.slot_offsets[field_name]
+        out.append(f"    mov rcx, {_offset_operand(value_offset)}")
+        out.append(f"    mov qword ptr [rax + {field_offset}], rcx")
+
+    out.append(f"    jmp {epilogue}")
+
+    out.append(f"{epilogue}:")
+    if layout.root_slot_names:
+        out.append("    push rax")
+        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+        out.append("    call rt_pop_roots")
+        out.append("    pop rax")
+    out.append("    mov rsp, rbp")
+    out.append("    pop rbp")
+    out.append("    ret")
+
+
 def emit_asm(module_ast: ModuleAst) -> str:
     lines: list[str] = [".intel_syntax noprefix"]
 
@@ -684,18 +815,40 @@ def emit_asm(module_ast: ModuleAst) -> str:
         for method in cls.methods:
             method_labels[(cls.name, method.name)] = _mangle_method_symbol(cls.name, method.name)
 
+    constructor_layouts: dict[str, ConstructorLayout] = {}
+    constructor_labels: dict[str, str] = {}
+    for cls in module_ast.classes:
+        ctor_label = _mangle_constructor_symbol(cls.name)
+        ctor_layout = ConstructorLayout(
+            class_name=cls.name,
+            label=ctor_label,
+            type_symbol=_mangle_type_symbol(cls.name),
+            payload_bytes=len(cls.fields) * 8,
+            field_names=[field.name for field in cls.fields],
+        )
+        constructor_layouts[cls.name] = ctor_layout
+        constructor_labels[cls.name] = ctor_label
+
     for fn in module_ast.functions:
         if fn.is_extern:
             continue
         lines.append("")
-        _emit_function(fn, lines, method_labels)
+        _emit_function(fn, lines, method_labels, constructor_labels)
 
     for cls in module_ast.classes:
         for method in cls.methods:
             lines.append("")
             method_label = method_labels[(cls.name, method.name)]
             method_fn = _method_function_decl(cls, method, method_label)
-            _emit_function(method_fn, lines, method_labels, label=method_label)
+            _emit_function(method_fn, lines, method_labels, constructor_labels, label=method_label)
+
+    for cls in module_ast.classes:
+        lines.append("")
+        _emit_constructor_function(
+            cls,
+            constructor_layouts[cls.name],
+            lines,
+        )
 
     lines.append("")
     lines.append('.section .note.GNU-stack,"",@progbits')

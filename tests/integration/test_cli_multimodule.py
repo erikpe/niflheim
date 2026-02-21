@@ -168,6 +168,45 @@ fn main() -> i64 {
     assert run.stdout == "23\n42\n255\ntrue\nfalse\n"
 
 
+def test_cli_multimodule_imported_constructor_call_lowers(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "util.nif").write_text(
+        """
+export class Box {
+    value: i64;
+}
+""",
+        encoding="utf-8",
+    )
+
+    entry = tmp_path / "main.nif"
+    entry.write_text(
+        """
+import util;
+
+fn main() -> i64 {
+    var b: util.Box = util.Box(7);
+    if b == null {
+        return 1;
+    }
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+
+    out_file = tmp_path / "out.s"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["nifc", str(entry), "--project-root", str(tmp_path), "-o", str(out_file)],
+    )
+
+    rc = main()
+    assert rc == 0
+    asm = out_file.read_text(encoding="utf-8")
+    assert "    call __nif_ctor_Box" in asm
+
+
 def test_cli_std_io_println_i64_qualified_call(tmp_path: Path, monkeypatch) -> None:
     cc = shutil.which("cc")
     if cc is None:
