@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import struct
 
 from compiler.ast_nodes import (
@@ -30,121 +29,23 @@ from compiler.ast_nodes import (
     WhileStmt,
 )
 
-
-@dataclass
-class FunctionLayout:
-    slot_names: list[str]
-    slot_offsets: dict[str, int]
-    slot_type_names: dict[str, str]
-    root_slot_names: list[str]
-    root_slot_indices: dict[str, int]
-    root_slot_offsets: dict[str, int]
-    temp_root_slot_offsets: list[int]
-    temp_root_slot_start_index: int
-    root_slot_count: int
-    thread_state_offset: int
-    root_frame_offset: int
-    stack_size: int
-
-
-@dataclass(frozen=True)
-class ResolvedCallTarget:
-    name: str
-    receiver_expr: Expression | None
-    return_type_name: str
-
-
-@dataclass(frozen=True)
-class ConstructorLayout:
-    class_name: str
-    label: str
-    type_symbol: str
-    payload_bytes: int
-    field_names: list[str]
-
-
-@dataclass
-class EmitContext:
-    layout: FunctionLayout
-    out: list[str]
-    fn_name: str
-    label_counter: list[int]
-    method_labels: dict[tuple[str, str], str]
-    method_return_types: dict[tuple[str, str], str]
-    constructor_labels: dict[str, str]
-    function_return_types: dict[str, str]
-    string_literal_labels: dict[str, tuple[str, int]]
-
-
-PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
-FLOAT_PARAM_REGISTERS = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"]
-PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
-BOX_CONSTRUCTOR_RUNTIME_CALLS = {
-    "BoxI64": "rt_box_i64_new",
-    "BoxU64": "rt_box_u64_new",
-    "BoxU8": "rt_box_u8_new",
-    "BoxBool": "rt_box_bool_new",
-    "BoxDouble": "rt_box_double_new",
-}
-BUILTIN_CONSTRUCTOR_RUNTIME_CALLS = {
-    "Vec": "rt_vec_new",
-    **BOX_CONSTRUCTOR_RUNTIME_CALLS,
-}
-BOX_VALUE_GETTER_RUNTIME_CALLS = {
-    "BoxI64": "rt_box_i64_get",
-    "BoxU64": "rt_box_u64_get",
-    "BoxU8": "rt_box_u8_get",
-    "BoxBool": "rt_box_bool_get",
-    "BoxDouble": "rt_box_double_get",
-}
-BUILTIN_METHOD_RUNTIME_CALLS = {
-    ("Vec", "len"): "rt_vec_len",
-    ("Vec", "push"): "rt_vec_push",
-    ("Vec", "get"): "rt_vec_get",
-    ("Vec", "set"): "rt_vec_set",
-}
-BUILTIN_METHOD_RETURN_TYPES: dict[tuple[str, str], str] = {
-    ("Vec", "len"): "i64",
-    ("Vec", "push"): "unit",
-    ("Vec", "get"): "Obj",
-    ("Vec", "set"): "unit",
-}
-TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
-RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
-    "rt_checked_cast": (0,),
-    "rt_box_i64_get": (0,),
-    "rt_box_u64_get": (0,),
-    "rt_box_u8_get": (0,),
-    "rt_box_bool_get": (0,),
-    "rt_box_double_get": (0,),
-    "rt_vec_len": (0,),
-    "rt_vec_get": (0,),
-    "rt_vec_push": (0, 1),
-    "rt_vec_set": (0, 2),
-    "rt_str_get_u8": (0,),
-}
-BUILTIN_RUNTIME_TYPE_SYMBOLS: dict[str, str] = {
-    "Str": "rt_type_str_desc",
-    "Vec": "rt_type_vec_desc",
-    "BoxI64": "rt_type_box_i64_desc",
-    "BoxU64": "rt_type_box_u64_desc",
-    "BoxU8": "rt_type_box_u8_desc",
-    "BoxBool": "rt_type_box_bool_desc",
-    "BoxDouble": "rt_type_box_double_desc",
-}
-RUNTIME_RETURN_TYPES: dict[str, str] = {
-    "rt_box_double_get": "double",
-    "rt_box_i64_get": "i64",
-    "rt_box_u64_get": "u64",
-    "rt_box_u8_get": "u8",
-    "rt_box_bool_get": "bool",
-    "rt_vec_len": "i64",
-    "rt_vec_get": "Obj",
-    "rt_vec_new": "Vec",
-    "rt_str_get_u8": "u8",
-    "rt_checked_cast": "Obj",
-    "rt_panic_str": "unit",
-}
+from compiler.codegen_model import (
+    BOX_VALUE_GETTER_RUNTIME_CALLS,
+    BUILTIN_CONSTRUCTOR_RUNTIME_CALLS,
+    BUILTIN_METHOD_RETURN_TYPES,
+    BUILTIN_METHOD_RUNTIME_CALLS,
+    BUILTIN_RUNTIME_TYPE_SYMBOLS,
+    ConstructorLayout,
+    EmitContext,
+    FLOAT_PARAM_REGISTERS,
+    FunctionLayout,
+    PARAM_REGISTERS,
+    PRIMITIVE_TYPE_NAMES,
+    RUNTIME_REF_ARG_INDICES,
+    RUNTIME_RETURN_TYPES,
+    ResolvedCallTarget,
+    TEMP_RUNTIME_ROOT_SLOT_COUNT,
+)
 
 
 def _epilogue_label(fn_name: str) -> str:
@@ -314,12 +215,6 @@ def _function_needs_temp_runtime_roots(fn: FunctionDecl) -> bool:
     return any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
 
 
-def _emit_bool_normalize(out: list[str]) -> None:
-    out.append("    cmp rax, 0")
-    out.append("    setne al")
-    out.append("    movzx rax, al")
-
-
 def _next_label(fn_name: str, prefix: str, label_counter: list[int]) -> str:
     value = label_counter[0]
     label_counter[0] += 1
@@ -356,27 +251,6 @@ def _mangle_constructor_symbol(type_name: str) -> str:
 
 def _escape_c_string(text: str) -> str:
     return text.replace("\\", "\\\\").replace('"', '\\"')
-
-
-def _emit_debug_symbol_literals(
-    *,
-    out: list[str],
-    target_label: str,
-    function_name: str,
-    file_path: str,
-) -> tuple[str, str]:
-    safe_target = target_label.replace(".", "_").replace(":", "_")
-    fn_label = f"__nif_dbg_fn_{safe_target}"
-    file_label = f"__nif_dbg_file_{safe_target}"
-    out.append("")
-    out.append(".section .rodata")
-    out.append(f"{fn_label}:")
-    out.append(f'    .asciz "{_escape_c_string(function_name)}"')
-    out.append(f"{file_label}:")
-    out.append(f'    .asciz "{_escape_c_string(file_path)}"')
-    out.append("")
-    out.append(".text")
-    return fn_label, file_label
 
 
 def _decode_string_literal(lexeme: str) -> bytes:
@@ -526,28 +400,6 @@ def _collect_string_literals(module_ast: ModuleAst) -> list[str]:
     return literals
 
 
-def _emit_string_literal_section(module_ast: ModuleAst, out: list[str]) -> dict[str, tuple[str, int]]:
-    string_literals = _collect_string_literals(module_ast)
-    labels: dict[str, tuple[str, int]] = {}
-    if not string_literals:
-        return labels
-
-    out.append("")
-    out.append(".section .rodata")
-    for index, literal in enumerate(string_literals):
-        label = f"__nif_str_lit_{index}"
-        data = _decode_string_literal(literal)
-        labels[literal] = (label, len(data))
-        out.append(f"{label}:")
-        if data:
-            data_bytes = ", ".join(str(byte) for byte in data)
-            out.append(f"    .byte {data_bytes}")
-        else:
-            out.append("    .byte 0")
-
-    return labels
-
-
 def _collect_reference_cast_types_from_expr(expr: Expression, out: set[str]) -> None:
     if isinstance(expr, CastExpr):
         if _is_reference_type_name(expr.type_ref.name):
@@ -624,34 +476,157 @@ def _collect_reference_cast_types(module_ast: ModuleAst) -> list[str]:
     return sorted(names)
 
 
-def _emit_type_metadata_section(module_ast: ModuleAst, out: list[str]) -> None:
-    type_names = _collect_reference_cast_types(module_ast)
-    if not type_names:
-        return
+def _flatten_field_chain(expr: Expression) -> list[str] | None:
+    if isinstance(expr, IdentifierExpr):
+        return [expr.name]
 
-    out.append("")
-    out.append(".section .rodata")
-    for type_name in type_names:
-        out.append(f"{_mangle_type_name_symbol(type_name)}:")
-        out.append(f'    .asciz "{type_name}"')
+    if isinstance(expr, FieldAccessExpr):
+        left = _flatten_field_chain(expr.object_expr)
+        if left is None:
+            return None
+        return [*left, expr.field_name]
 
-    out.append("")
-    out.append(".data")
-    for type_name in type_names:
-        type_sym = _mangle_type_symbol(type_name)
-        name_sym = _mangle_type_name_symbol(type_name)
-        out.append("    .p2align 3")
-        out.append(f"{type_sym}:")
-        out.append("    .long 0")
-        out.append("    .long 0")
-        out.append("    .long 1")
-        out.append("    .long 8")
-        out.append("    .quad 0")
-        out.append(f"    .quad {name_sym}")
-        out.append("    .quad 0")
-        out.append("    .quad 0")
-        out.append("    .long 0")
-        out.append("    .long 0")
+    return None
+
+
+def _resolve_method_call_target(
+    callee: FieldAccessExpr,
+    ctx: EmitContext,
+) -> ResolvedCallTarget:
+    receiver_expr = callee.object_expr
+    if not isinstance(receiver_expr, IdentifierExpr):
+        raise NotImplementedError("method-call codegen currently requires identifier receivers")
+
+    receiver_type_name = ctx.layout.slot_type_names.get(receiver_expr.name)
+    if receiver_type_name is None:
+        raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
+
+    method_name = callee.field_name
+
+    builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((receiver_type_name, method_name))
+    if builtin_method is not None:
+        return ResolvedCallTarget(
+            name=builtin_method,
+            receiver_expr=receiver_expr,
+            return_type_name=BUILTIN_METHOD_RETURN_TYPES[(receiver_type_name, method_name)],
+        )
+
+    method_label = ctx.method_labels.get((receiver_type_name, method_name))
+    if method_label is None and "::" in receiver_type_name:
+        unqualified_type_name = receiver_type_name.split("::", 1)[1]
+        method_label = ctx.method_labels.get((unqualified_type_name, method_name))
+    if method_label is None:
+        raise NotImplementedError(f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'")
+
+    return ResolvedCallTarget(
+        name=method_label,
+        receiver_expr=receiver_expr,
+        return_type_name=ctx.method_return_types.get((receiver_type_name, method_name), "i64"),
+    )
+
+
+def _resolve_call_target_name(
+    callee: Expression,
+    ctx: EmitContext,
+) -> ResolvedCallTarget:
+    if isinstance(callee, IdentifierExpr):
+        builtin_ctor_runtime = BUILTIN_CONSTRUCTOR_RUNTIME_CALLS.get(callee.name)
+        if builtin_ctor_runtime is not None:
+            return ResolvedCallTarget(name=builtin_ctor_runtime, receiver_expr=None, return_type_name=callee.name)
+        ctor_label = ctx.constructor_labels.get(callee.name)
+        if ctor_label is not None:
+            return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=callee.name)
+        return ResolvedCallTarget(
+            name=callee.name,
+            receiver_expr=None,
+            return_type_name=ctx.function_return_types.get(callee.name, RUNTIME_RETURN_TYPES.get(callee.name, "i64")),
+        )
+
+    if isinstance(callee, FieldAccessExpr):
+        chain = _flatten_field_chain(callee)
+        if chain is None or len(chain) < 2:
+            raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+        if chain[0] in ctx.layout.slot_offsets:
+            return _resolve_method_call_target(callee, ctx)
+        ctor_label = ctx.constructor_labels.get(chain[-1])
+        if ctor_label is not None:
+            return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=chain[-1])
+        return ResolvedCallTarget(
+            name=chain[-1],
+            receiver_expr=None,
+            return_type_name=ctx.function_return_types.get(chain[-1], RUNTIME_RETURN_TYPES.get(chain[-1], "i64")),
+        )
+
+    raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+
+
+def _infer_expression_type_name(
+    expr: Expression,
+    ctx: EmitContext,
+) -> str:
+    if isinstance(expr, LiteralExpr):
+        if expr.value.startswith('"'):
+            return "Str"
+        if expr.value in {"true", "false"}:
+            return "bool"
+        if _is_double_literal_text(expr.value):
+            return "double"
+        if expr.value.endswith("u") and expr.value[:-1].isdigit():
+            return "u64"
+        return "i64"
+
+    if isinstance(expr, NullExpr):
+        return "null"
+
+    if isinstance(expr, IdentifierExpr):
+        return ctx.layout.slot_type_names.get(expr.name, "i64")
+
+    if isinstance(expr, CastExpr):
+        return expr.type_ref.name
+
+    if isinstance(expr, FieldAccessExpr):
+        if expr.field_name == "value":
+            if isinstance(expr.object_expr, IdentifierExpr):
+                receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
+            elif isinstance(expr.object_expr, CastExpr):
+                receiver_type = expr.object_expr.type_ref.name
+            else:
+                receiver_type = "Obj"
+            if receiver_type == "BoxDouble":
+                return "double"
+            if receiver_type == "BoxU64":
+                return "u64"
+            if receiver_type == "BoxU8":
+                return "u8"
+            if receiver_type == "BoxBool":
+                return "bool"
+            return "i64"
+        return "i64"
+
+    if isinstance(expr, IndexExpr):
+        if isinstance(expr.object_expr, IdentifierExpr):
+            receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
+            if receiver_type == "Str":
+                return "u8"
+            if receiver_type == "Vec":
+                return "Obj"
+        return "i64"
+
+    if isinstance(expr, CallExpr):
+        resolved_target = _resolve_call_target_name(expr.callee, ctx)
+        return resolved_target.return_type_name
+
+    if isinstance(expr, UnaryExpr):
+        if expr.operator == "!":
+            return "bool"
+        return _infer_expression_type_name(expr.operand, ctx)
+
+    if isinstance(expr, BinaryExpr):
+        if expr.operator in {"==", "!=", "<", "<=", ">", ">=", "&&", "||"}:
+            return "bool"
+        return _infer_expression_type_name(expr.left, ctx)
+
+    return "i64"
 
 
 def _method_function_decl(class_decl: ClassDecl, method_decl: MethodDecl, label: str) -> FunctionDecl:
@@ -685,8 +660,6 @@ def _constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDec
         is_extern=False,
         span=class_decl.span,
     )
-
-
 
 
 class CodeGenerator:
@@ -816,11 +789,11 @@ class CodeGenerator:
         *,
         fn_name: str,
         phase: str,
-        out: list[str],
         label_counter: list[int],
         line: int | None = None,
         column: int | None = None,
     ) -> None:
+        out = self.lines
         label = _next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
         out.append(f"{label}:")
         out.append("    # runtime safepoint hook")
@@ -829,7 +802,8 @@ class CodeGenerator:
             out.append(f"    mov esi, {column}")
             out.append("    call rt_trace_set_location")
 
-    def _emit_root_slot_updates(self, layout: FunctionLayout, out: list[str]) -> None:
+    def _emit_root_slot_updates(self, layout: FunctionLayout) -> None:
+        out = self.lines
         if not layout.root_slot_names:
             return
 
@@ -847,8 +821,8 @@ class CodeGenerator:
         layout: FunctionLayout,
         target_name: str,
         arg_count: int,
-        out: list[str],
     ) -> int:
+        out = self.lines
         if layout.root_slot_count <= 0:
             return 0
         ref_indices = [index for index in RUNTIME_REF_ARG_INDICES.get(target_name, ()) if index < arg_count]
@@ -867,165 +841,20 @@ class CodeGenerator:
             out.append("    call rt_root_slot_store")
         return len(ref_indices)
 
-    def _emit_clear_runtime_call_arg_temp_roots(self, layout: FunctionLayout, rooted_count: int, out: list[str]) -> None:
+    def _emit_clear_runtime_call_arg_temp_roots(self, layout: FunctionLayout, rooted_count: int) -> None:
+        out = self.lines
         for temp_index in range(rooted_count):
             out.append(f"    mov {_offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
 
-    def _flatten_field_chain(self, expr: Expression) -> list[str] | None:
-        if isinstance(expr, IdentifierExpr):
-            return [expr.name]
-
-        if isinstance(expr, FieldAccessExpr):
-            left = self._flatten_field_chain(expr.object_expr)
-            if left is None:
-                return None
-            return [*left, expr.field_name]
-
-        return None
-
-    def _resolve_method_call_target(
-        self,
-        callee: FieldAccessExpr,
-        ctx: EmitContext,
-    ) -> ResolvedCallTarget:
-        receiver_expr = callee.object_expr
-        if not isinstance(receiver_expr, IdentifierExpr):
-            raise NotImplementedError("method-call codegen currently requires identifier receivers")
-
-        receiver_type_name = ctx.layout.slot_type_names.get(receiver_expr.name)
-        if receiver_type_name is None:
-            raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
-
-        method_name = callee.field_name
-
-        builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((receiver_type_name, method_name))
-        if builtin_method is not None:
-            return ResolvedCallTarget(
-                name=builtin_method,
-                receiver_expr=receiver_expr,
-                return_type_name=BUILTIN_METHOD_RETURN_TYPES[(receiver_type_name, method_name)],
-            )
-
-        method_label = ctx.method_labels.get((receiver_type_name, method_name))
-        if method_label is None and "::" in receiver_type_name:
-            unqualified_type_name = receiver_type_name.split("::", 1)[1]
-            method_label = ctx.method_labels.get((unqualified_type_name, method_name))
-        if method_label is None:
-            raise NotImplementedError(f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'")
-
-        return ResolvedCallTarget(
-            name=method_label,
-            receiver_expr=receiver_expr,
-            return_type_name=ctx.method_return_types.get((receiver_type_name, method_name), "i64"),
-        )
-
-    def _resolve_call_target_name(
-        self,
-        callee: Expression,
-        ctx: EmitContext,
-    ) -> ResolvedCallTarget:
-        if isinstance(callee, IdentifierExpr):
-            builtin_ctor_runtime = BUILTIN_CONSTRUCTOR_RUNTIME_CALLS.get(callee.name)
-            if builtin_ctor_runtime is not None:
-                return ResolvedCallTarget(name=builtin_ctor_runtime, receiver_expr=None, return_type_name=callee.name)
-            ctor_label = ctx.constructor_labels.get(callee.name)
-            if ctor_label is not None:
-                return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=callee.name)
-            return ResolvedCallTarget(
-                name=callee.name,
-                receiver_expr=None,
-                return_type_name=ctx.function_return_types.get(callee.name, RUNTIME_RETURN_TYPES.get(callee.name, "i64")),
-            )
-
-        if isinstance(callee, FieldAccessExpr):
-            chain = self._flatten_field_chain(callee)
-            if chain is None or len(chain) < 2:
-                raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
-            if chain[0] in ctx.layout.slot_offsets:
-                return self._resolve_method_call_target(callee, ctx)
-            ctor_label = ctx.constructor_labels.get(chain[-1])
-            if ctor_label is not None:
-                return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=chain[-1])
-            return ResolvedCallTarget(
-                name=chain[-1],
-                receiver_expr=None,
-                return_type_name=ctx.function_return_types.get(chain[-1], RUNTIME_RETURN_TYPES.get(chain[-1], "i64")),
-            )
-
-        raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
-
-    def _infer_expression_type_name(
-        self,
-        expr: Expression,
-        ctx: EmitContext,
-    ) -> str:
-        if isinstance(expr, LiteralExpr):
-            if expr.value.startswith('"'):
-                return "Str"
-            if expr.value in {"true", "false"}:
-                return "bool"
-            if _is_double_literal_text(expr.value):
-                return "double"
-            if expr.value.endswith("u") and expr.value[:-1].isdigit():
-                return "u64"
-            return "i64"
-
-        if isinstance(expr, NullExpr):
-            return "null"
-
-        if isinstance(expr, IdentifierExpr):
-            return ctx.layout.slot_type_names.get(expr.name, "i64")
-
-        if isinstance(expr, CastExpr):
-            return expr.type_ref.name
-
-        if isinstance(expr, FieldAccessExpr):
-            if expr.field_name == "value":
-                if isinstance(expr.object_expr, IdentifierExpr):
-                    receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
-                elif isinstance(expr.object_expr, CastExpr):
-                    receiver_type = expr.object_expr.type_ref.name
-                else:
-                    receiver_type = "Obj"
-                if receiver_type == "BoxDouble":
-                    return "double"
-                if receiver_type == "BoxU64":
-                    return "u64"
-                if receiver_type == "BoxU8":
-                    return "u8"
-                if receiver_type == "BoxBool":
-                    return "bool"
-                return "i64"
-            return "i64"
-
-        if isinstance(expr, IndexExpr):
-            if isinstance(expr.object_expr, IdentifierExpr):
-                receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
-                if receiver_type == "Str":
-                    return "u8"
-                if receiver_type == "Vec":
-                    return "Obj"
-            return "i64"
-
-        if isinstance(expr, CallExpr):
-            resolved_target = self._resolve_call_target_name(expr.callee, ctx)
-            return resolved_target.return_type_name
-
-        if isinstance(expr, UnaryExpr):
-            if expr.operator == "!":
-                return "bool"
-            return self._infer_expression_type_name(expr.operand, ctx)
-
-        if isinstance(expr, BinaryExpr):
-            if expr.operator in {"==", "!=", "<", "<=", ">", ">=", "&&", "||"}:
-                return "bool"
-            return self._infer_expression_type_name(expr.left, ctx)
-
-        return "i64"
+    def _emit_bool_normalize(self) -> None:
+        out = self.lines
+        out.append("    cmp rax, 0")
+        out.append("    setne al")
+        out.append("    movzx rax, al")
 
     def _emit_expr(self, expr: Expression, ctx: EmitContext) -> None:
         layout = ctx.layout
-        out = ctx.out
+        out = self.lines
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
         string_literal_labels = ctx.string_literal_labels
@@ -1039,12 +868,11 @@ class CodeGenerator:
                 self._emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="before",
-                    out=out,
                     label_counter=label_counter,
                     line=expr.span.start.line,
                     column=expr.span.start.column,
                 )
-                self._emit_root_slot_updates(layout, out)
+                self._emit_root_slot_updates(layout)
                 out.append("    call rt_thread_state")
                 out.append("    mov rdi, rax")
                 out.append(f"    lea rsi, [rip + {data_label}]")
@@ -1053,7 +881,6 @@ class CodeGenerator:
                 self._emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="after",
-                    out=out,
                     label_counter=label_counter,
                 )
                 return
@@ -1104,12 +931,11 @@ class CodeGenerator:
                     self._emit_runtime_call_hook(
                         fn_name=fn_name,
                         phase="before",
-                        out=out,
                         label_counter=label_counter,
                         line=expr.span.start.line,
                         column=expr.span.start.column,
                     )
-                    self._emit_root_slot_updates(layout, out)
+                    self._emit_root_slot_updates(layout)
                     out.append("    pop rdi")
                     out.append(f"    call {getter_name}")
                     if receiver_type_name == "BoxDouble":
@@ -1117,7 +943,6 @@ class CodeGenerator:
                     self._emit_runtime_call_hook(
                         fn_name=fn_name,
                         phase="after",
-                        out=out,
                         label_counter=label_counter,
                     )
                     return
@@ -1126,7 +951,7 @@ class CodeGenerator:
 
         if isinstance(expr, CastExpr):
             self._emit_expr(expr.operand, ctx)
-            source_type = self._infer_expression_type_name(expr.operand, ctx)
+            source_type = _infer_expression_type_name(expr.operand, ctx)
             target_type = expr.type_ref.name
             if _is_reference_type_name(target_type):
                 type_symbol = _mangle_type_symbol(target_type)
@@ -1134,7 +959,6 @@ class CodeGenerator:
                 self._emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="before",
-                    out=out,
                     label_counter=label_counter,
                     line=expr.span.start.line,
                     column=expr.span.start.column,
@@ -1146,7 +970,6 @@ class CodeGenerator:
                 self._emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="after",
-                    out=out,
                     label_counter=label_counter,
                 )
                 return
@@ -1165,7 +988,7 @@ class CodeGenerator:
                 if target_type == "u8":
                     out.append("    and rax, 255")
                 elif target_type == "bool":
-                    _emit_bool_normalize(out)
+                    self._emit_bool_normalize()
                 return
 
             if target_type == "u8":
@@ -1173,7 +996,7 @@ class CodeGenerator:
                 return
 
             if target_type == "bool":
-                _emit_bool_normalize(out)
+                self._emit_bool_normalize()
             return
 
         if isinstance(expr, IndexExpr):
@@ -1193,12 +1016,11 @@ class CodeGenerator:
             self._emit_runtime_call_hook(
                 fn_name=fn_name,
                 phase="before",
-                out=out,
                 label_counter=label_counter,
                 line=expr.span.start.line,
                 column=expr.span.start.column,
             )
-            self._emit_root_slot_updates(layout, out)
+            self._emit_root_slot_updates(layout)
             out.append("    pop rdi")
             out.append("    pop rsi")
 
@@ -1212,7 +1034,6 @@ class CodeGenerator:
             self._emit_runtime_call_hook(
                 fn_name=fn_name,
                 phase="after",
-                out=out,
                 label_counter=label_counter,
             )
             return
@@ -1233,11 +1054,11 @@ class CodeGenerator:
 
     def _emit_call_expr(self, expr: CallExpr, ctx: EmitContext) -> None:
         layout = ctx.layout
-        out = ctx.out
+        out = self.lines
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
 
-        resolved_target = self._resolve_call_target_name(expr.callee, ctx)
+        resolved_target = _resolve_call_target_name(expr.callee, ctx)
         target_name = resolved_target.name
 
         call_arguments = list(expr.arguments)
@@ -1246,7 +1067,7 @@ class CodeGenerator:
 
         is_runtime_call = _is_runtime_call_name(target_name)
         arg_count = len(call_arguments)
-        call_argument_type_names = [self._infer_expression_type_name(arg, ctx) for arg in call_arguments]
+        call_argument_type_names = [_infer_expression_type_name(arg, ctx) for arg in call_arguments]
         integer_arg_count = sum(1 for type_name in call_argument_type_names if type_name != "double")
         float_arg_count = sum(1 for type_name in call_argument_type_names if type_name == "double")
         if integer_arg_count > len(PARAM_REGISTERS):
@@ -1258,7 +1079,6 @@ class CodeGenerator:
             self._emit_runtime_call_hook(
                 fn_name=fn_name,
                 phase="before",
-                out=out,
                 label_counter=label_counter,
                 line=expr.span.start.line,
                 column=expr.span.start.column,
@@ -1268,10 +1088,10 @@ class CodeGenerator:
             self._emit_expr(arg, ctx)
             out.append("    push rax")
 
-        self._emit_root_slot_updates(layout, out)
+        self._emit_root_slot_updates(layout)
         rooted_runtime_arg_count = 0
         if is_runtime_call:
-            rooted_runtime_arg_count = self._emit_runtime_call_arg_temp_roots(layout, target_name, arg_count, out)
+            rooted_runtime_arg_count = self._emit_runtime_call_arg_temp_roots(layout, target_name, arg_count)
 
         integer_reg_index = 0
         float_reg_index = 0
@@ -1292,22 +1112,21 @@ class CodeGenerator:
             out.append("    mov rax, 0")
 
         if rooted_runtime_arg_count > 0:
-            self._emit_clear_runtime_call_arg_temp_roots(layout, rooted_runtime_arg_count, out)
+            self._emit_clear_runtime_call_arg_temp_roots(layout, rooted_runtime_arg_count)
 
         if is_runtime_call:
             self._emit_runtime_call_hook(
                 fn_name=fn_name,
                 phase="after",
-                out=out,
                 label_counter=label_counter,
             )
 
     def _emit_unary_expr(self, expr: UnaryExpr, ctx: EmitContext) -> None:
-        out = ctx.out
+        out = self.lines
 
         self._emit_expr(expr.operand, ctx)
         if expr.operator == "-":
-            operand_type_name = self._infer_expression_type_name(expr.operand, ctx)
+            operand_type_name = _infer_expression_type_name(expr.operand, ctx)
             if operand_type_name == "double":
                 out.append("    movq xmm0, rax")
                 out.append("    xorpd xmm1, xmm1")
@@ -1317,13 +1136,13 @@ class CodeGenerator:
             out.append("    neg rax")
             return
         if expr.operator == "!":
-            _emit_bool_normalize(out)
+            self._emit_bool_normalize()
             out.append("    xor rax, 1")
             return
         raise NotImplementedError(f"unary operator '{expr.operator}' is not supported")
 
     def _emit_binary_expr(self, expr: BinaryExpr, ctx: EmitContext) -> None:
-        out = ctx.out
+        out = self.lines
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
 
@@ -1334,7 +1153,7 @@ class CodeGenerator:
             done_label = f".L{fn_name}_logic_done_{branch_id}"
 
             self._emit_expr(expr.left, ctx)
-            _emit_bool_normalize(out)
+            self._emit_bool_normalize()
             out.append("    cmp rax, 0")
             if expr.operator == "&&":
                 out.append(f"    jne {rhs_label}")
@@ -1345,7 +1164,7 @@ class CodeGenerator:
             out.append(f"    jmp {done_label}")
             out.append(f"{rhs_label}:")
             self._emit_expr(expr.right, ctx)
-            _emit_bool_normalize(out)
+            self._emit_bool_normalize()
             out.append(f"{done_label}:")
             return
 
@@ -1355,8 +1174,8 @@ class CodeGenerator:
         out.append("    mov rcx, rax")
         out.append("    pop rax")
 
-        left_type_name = self._infer_expression_type_name(expr.left, ctx)
-        right_type_name = self._infer_expression_type_name(expr.right, ctx)
+        left_type_name = _infer_expression_type_name(expr.left, ctx)
+        right_type_name = _infer_expression_type_name(expr.right, ctx)
         is_double_op = left_type_name == "double" and right_type_name == "double"
 
         if is_double_op:
@@ -1455,7 +1274,7 @@ class CodeGenerator:
         function_return_type_name: str,
         ctx: EmitContext,
     ) -> None:
-        out = ctx.out
+        out = self.lines
         layout = ctx.layout
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
@@ -1529,14 +1348,34 @@ class CodeGenerator:
 
         raise NotImplementedError(f"statement codegen not implemented for {type(stmt).__name__}")
 
+    def _emit_debug_symbol_literals(
+        self,
+        *,
+        target_label: str,
+        function_name: str,
+        file_path: str,
+    ) -> tuple[str, str]:
+        out = self.lines
+        safe_target = target_label.replace(".", "_").replace(":", "_")
+        fn_label = f"__nif_dbg_fn_{safe_target}"
+        file_label = f"__nif_dbg_file_{safe_target}"
+        out.append("")
+        out.append(".section .rodata")
+        out.append(f"{fn_label}:")
+        out.append(f'    .asciz "{_escape_c_string(function_name)}"')
+        out.append(f"{file_label}:")
+        out.append(f'    .asciz "{_escape_c_string(file_path)}"')
+        out.append("")
+        out.append(".text")
+        return fn_label, file_label
+
     def _emit_function(self, fn: FunctionDecl, *, label: str | None = None) -> None:
         out = self.lines
         target_label = label if label is not None else fn.name
         epilogue = _epilogue_label(target_label)
         layout = _build_layout(fn)
         label_counter = [0]
-        fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
-            out=out,
+        fn_debug_name_label, fn_debug_file_label = self._emit_debug_symbol_literals(
             target_label=target_label,
             function_name=target_label,
             file_path=fn.span.start.path,
@@ -1560,7 +1399,6 @@ class CodeGenerator:
 
         emit_ctx = EmitContext(
             layout=layout,
-            out=out,
             fn_name=target_label,
             label_counter=label_counter,
             method_labels=self.method_labels,
@@ -1584,8 +1422,7 @@ class CodeGenerator:
         epilogue = _epilogue_label(target_label)
         layout = _build_layout(ctor_fn)
         label_counter = [0]
-        fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
-            out=out,
+        fn_debug_name_label, fn_debug_file_label = self._emit_debug_symbol_literals(
             target_label=target_label,
             function_name=target_label,
             file_path=cls.span.start.path,
@@ -1607,10 +1444,9 @@ class CodeGenerator:
         self._emit_runtime_call_hook(
             fn_name=target_label,
             phase="before",
-            out=out,
             label_counter=label_counter,
         )
-        self._emit_root_slot_updates(layout, out)
+        self._emit_root_slot_updates(layout)
         out.append("    call rt_thread_state")
         out.append("    mov rdi, rax")
         out.append(f"    lea rsi, [rip + {ctor_layout.type_symbol}]")
@@ -1619,7 +1455,6 @@ class CodeGenerator:
         self._emit_runtime_call_hook(
             fn_name=target_label,
             phase="after",
-            out=out,
             label_counter=label_counter,
         )
 
@@ -1634,9 +1469,61 @@ class CodeGenerator:
         out.append(f"{epilogue}:")
         self._emit_ref_epilogue(layout)
 
+    def _emit_string_literal_section(self) -> dict[str, tuple[str, int]]:
+        out = self.lines
+        string_literals = _collect_string_literals(self.module_ast)
+        labels: dict[str, tuple[str, int]] = {}
+        if not string_literals:
+            return labels
+
+        out.append("")
+        out.append(".section .rodata")
+        for index, literal in enumerate(string_literals):
+            label = f"__nif_str_lit_{index}"
+            data = _decode_string_literal(literal)
+            labels[literal] = (label, len(data))
+            out.append(f"{label}:")
+            if data:
+                data_bytes = ", ".join(str(byte) for byte in data)
+                out.append(f"    .byte {data_bytes}")
+            else:
+                out.append("    .byte 0")
+
+        return labels
+
+    def _emit_type_metadata_section(self) -> None:
+        out = self.lines
+        type_names = _collect_reference_cast_types(self.module_ast)
+        if not type_names:
+            return
+
+        out.append("")
+        out.append(".section .rodata")
+        for type_name in type_names:
+            out.append(f"{_mangle_type_name_symbol(type_name)}:")
+            out.append(f'    .asciz "{type_name}"')
+
+        out.append("")
+        out.append(".data")
+        for type_name in type_names:
+            type_sym = _mangle_type_symbol(type_name)
+            name_sym = _mangle_type_name_symbol(type_name)
+            out.append("    .p2align 3")
+            out.append(f"{type_sym}:")
+            out.append("    .long 0")
+            out.append("    .long 0")
+            out.append("    .long 1")
+            out.append("    .long 8")
+            out.append("    .quad 0")
+            out.append(f"    .quad {name_sym}")
+            out.append("    .quad 0")
+            out.append("    .quad 0")
+            out.append("    .long 0")
+            out.append("    .long 0")
+
     def generate(self) -> str:
-        _emit_type_metadata_section(self.module_ast, self.lines)
-        self.string_literal_labels = _emit_string_literal_section(self.module_ast, self.lines)
+        self._emit_type_metadata_section()
+        self.string_literal_labels = self._emit_string_literal_section()
 
         self.lines.append("")
         self.lines.append(".text")
