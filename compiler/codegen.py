@@ -101,6 +101,15 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_vec_set": (0, 2),
     "rt_str_get_u8": (0,),
 }
+BUILTIN_RUNTIME_TYPE_SYMBOLS: dict[str, str] = {
+    "Str": "rt_type_str_desc",
+    "Vec": "rt_type_vec_desc",
+    "BoxI64": "rt_type_box_i64_desc",
+    "BoxU64": "rt_type_box_u64_desc",
+    "BoxU8": "rt_type_box_u8_desc",
+    "BoxBool": "rt_type_box_bool_desc",
+    "BoxDouble": "rt_type_box_double_desc",
+}
 
 
 def _epilogue_label(fn_name: str) -> str:
@@ -297,6 +306,9 @@ def _is_runtime_call_name(name: str) -> bool:
 
 
 def _mangle_type_symbol(type_name: str) -> str:
+    builtin_symbol = BUILTIN_RUNTIME_TYPE_SYMBOLS.get(type_name)
+    if builtin_symbol is not None:
+        return builtin_symbol
     safe = type_name.replace(".", "_")
     return f"__nif_type_{safe}"
 
@@ -746,13 +758,16 @@ def _emit_expr(
         return
 
     if isinstance(expr, FieldAccessExpr):
-        if not isinstance(expr.object_expr, IdentifierExpr):
-            raise NotImplementedError("field access codegen currently requires identifier receivers")
-
-        receiver_name = expr.object_expr.name
-        receiver_type_name = layout.slot_type_names.get(receiver_name)
-        if receiver_type_name is None:
-            raise NotImplementedError(f"field receiver '{receiver_name}' is not materialized in stack layout")
+        receiver_type_name: str | None = None
+        if isinstance(expr.object_expr, IdentifierExpr):
+            receiver_name = expr.object_expr.name
+            receiver_type_name = layout.slot_type_names.get(receiver_name)
+            if receiver_type_name is None:
+                raise NotImplementedError(f"field receiver '{receiver_name}' is not materialized in stack layout")
+        elif isinstance(expr.object_expr, CastExpr):
+            receiver_type_name = expr.object_expr.type_ref.name
+        else:
+            raise NotImplementedError("field access codegen currently supports identifier or cast receivers")
 
         if expr.field_name == "value":
             getter_name = BOX_VALUE_GETTER_RUNTIME_CALLS.get(receiver_type_name)

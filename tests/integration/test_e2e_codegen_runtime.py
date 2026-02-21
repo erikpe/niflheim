@@ -260,3 +260,17 @@ fn main() -> i64 {
 
     exit_code = _compile_and_run(source)
     assert exit_code == 0
+
+
+def test_e2e_vec_cast_receiver_field_value_links_and_runs() -> None:
+    source = """
+fn main() -> i64 {
+    var v: Vec = Vec();
+    v.push(BoxI64(41));
+    v.push(BoxI64(1));
+    return ((BoxI64)v.get(0)).value + ((BoxI64)v.get(1)).value;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 42

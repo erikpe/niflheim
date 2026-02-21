@@ -21,20 +21,21 @@ fn is_prime(n: i64) -> bool {
 fn main() -> i64 {
     var primes: Vec = Vec();
 
-    var candidate: i64 = 2;
+    primes.push(BoxI64(2));
+    var candidate: i64 = 3;
     while candidate <= 1000000 {
         if is_prime(candidate) {
-            var boxed: BoxI64 = BoxI64(candidate);
-            primes.push(boxed);
+            primes.push(BoxI64(candidate));
         }
-        candidate = candidate + 1;
+        candidate = candidate + 2;
     }
 
     var i: i64 = 0;
     var n: i64 = primes.len();
     while i < n {
-        var value_obj: Obj = primes.get(i);
-        println_i64(rt_box_i64_get(value_obj));
+        //var value_obj: Obj = primes.get(i);
+        //println_i64(rt_box_i64_get(value_obj));
+        println_i64(((BoxI64)primes.get(i)).value);
         i = i + 1;
     }
 

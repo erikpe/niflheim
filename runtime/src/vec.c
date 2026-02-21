@@ -18,7 +18,7 @@ typedef struct RtVecObj {
 static void rt_vec_trace(void* obj, void (*mark_ref)(void** slot));
 static void rt_vec_storage_trace(void* obj, void (*mark_ref)(void** slot));
 
-static RtType g_rt_type_vec = {
+RtType rt_type_vec_desc = {
     .type_id = 0x56454331u,
     .flags = RT_TYPE_FLAG_HAS_REFS,
     .abi_version = 1u,
@@ -53,7 +53,7 @@ static void rt_require(int condition, const char* message) {
 static RtVecObj* rt_require_vec_obj(const void* vec_obj, const char* api_name) {
     rt_require(vec_obj != NULL, "Vec API called with null object");
     RtVecObj* vec = (RtVecObj*)vec_obj;
-    if (vec->header.type != &g_rt_type_vec) {
+    if (vec->header.type != &rt_type_vec_desc) {
         rt_panic(api_name);
     }
     return vec;
@@ -109,7 +109,7 @@ void* rt_vec_new(void) {
 
     RtVecObj* vec = (RtVecObj*)rt_alloc_obj(
         ts,
-        &g_rt_type_vec,
+        &rt_type_vec_desc,
         sizeof(uint64_t) + sizeof(void*)
     );
     vec->len = 0;

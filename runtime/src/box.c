@@ -28,7 +28,7 @@ typedef struct RtBoxDoubleObj {
     double value;
 } RtBoxDoubleObj;
 
-static RtType g_rt_type_box_i64 = {
+RtType rt_type_box_i64_desc = {
     .type_id = 0x42495831u,
     .flags = RT_TYPE_FLAG_LEAF,
     .abi_version = 1u,
@@ -41,7 +41,7 @@ static RtType g_rt_type_box_i64 = {
     .reserved0 = 0u,
 };
 
-static RtType g_rt_type_box_u64 = {
+RtType rt_type_box_u64_desc = {
     .type_id = 0x42555831u,
     .flags = RT_TYPE_FLAG_LEAF,
     .abi_version = 1u,
@@ -54,7 +54,7 @@ static RtType g_rt_type_box_u64 = {
     .reserved0 = 0u,
 };
 
-static RtType g_rt_type_box_u8 = {
+RtType rt_type_box_u8_desc = {
     .type_id = 0x42553831u,
     .flags = RT_TYPE_FLAG_LEAF,
     .abi_version = 1u,
@@ -67,7 +67,7 @@ static RtType g_rt_type_box_u8 = {
     .reserved0 = 0u,
 };
 
-static RtType g_rt_type_box_bool = {
+RtType rt_type_box_bool_desc = {
     .type_id = 0x42424F31u,
     .flags = RT_TYPE_FLAG_LEAF,
     .abi_version = 1u,
@@ -80,7 +80,7 @@ static RtType g_rt_type_box_bool = {
     .reserved0 = 0u,
 };
 
-static RtType g_rt_type_box_double = {
+RtType rt_type_box_double_desc = {
     .type_id = 0x42445831u,
     .flags = RT_TYPE_FLAG_LEAF,
     .abi_version = 1u,
@@ -102,7 +102,7 @@ static void rt_require(int condition, const char* message) {
 static RtBoxI64Obj* rt_require_box_i64_obj(const void* box_obj, const char* api_name) {
     rt_require(box_obj != NULL, "BoxI64 API called with null object");
     RtBoxI64Obj* box = (RtBoxI64Obj*)box_obj;
-    if (box->header.type != &g_rt_type_box_i64) {
+    if (box->header.type != &rt_type_box_i64_desc) {
         rt_panic(api_name);
     }
     return box;
@@ -111,7 +111,7 @@ static RtBoxI64Obj* rt_require_box_i64_obj(const void* box_obj, const char* api_
 static RtBoxU64Obj* rt_require_box_u64_obj(const void* box_obj, const char* api_name) {
     rt_require(box_obj != NULL, "BoxU64 API called with null object");
     RtBoxU64Obj* box = (RtBoxU64Obj*)box_obj;
-    if (box->header.type != &g_rt_type_box_u64) {
+    if (box->header.type != &rt_type_box_u64_desc) {
         rt_panic(api_name);
     }
     return box;
@@ -120,7 +120,7 @@ static RtBoxU64Obj* rt_require_box_u64_obj(const void* box_obj, const char* api_
 static RtBoxU8Obj* rt_require_box_u8_obj(const void* box_obj, const char* api_name) {
     rt_require(box_obj != NULL, "BoxU8 API called with null object");
     RtBoxU8Obj* box = (RtBoxU8Obj*)box_obj;
-    if (box->header.type != &g_rt_type_box_u8) {
+    if (box->header.type != &rt_type_box_u8_desc) {
         rt_panic(api_name);
     }
     return box;
@@ -129,7 +129,7 @@ static RtBoxU8Obj* rt_require_box_u8_obj(const void* box_obj, const char* api_na
 static RtBoxBoolObj* rt_require_box_bool_obj(const void* box_obj, const char* api_name) {
     rt_require(box_obj != NULL, "BoxBool API called with null object");
     RtBoxBoolObj* box = (RtBoxBoolObj*)box_obj;
-    if (box->header.type != &g_rt_type_box_bool) {
+    if (box->header.type != &rt_type_box_bool_desc) {
         rt_panic(api_name);
     }
     return box;
@@ -138,38 +138,38 @@ static RtBoxBoolObj* rt_require_box_bool_obj(const void* box_obj, const char* ap
 static RtBoxDoubleObj* rt_require_box_double_obj(const void* box_obj, const char* api_name) {
     rt_require(box_obj != NULL, "BoxDouble API called with null object");
     RtBoxDoubleObj* box = (RtBoxDoubleObj*)box_obj;
-    if (box->header.type != &g_rt_type_box_double) {
+    if (box->header.type != &rt_type_box_double_desc) {
         rt_panic(api_name);
     }
     return box;
 }
 
 void* rt_box_i64_new(int64_t value) {
-    RtBoxI64Obj* box = (RtBoxI64Obj*)rt_alloc_obj(rt_thread_state(), &g_rt_type_box_i64, sizeof(int64_t));
+    RtBoxI64Obj* box = (RtBoxI64Obj*)rt_alloc_obj(rt_thread_state(), &rt_type_box_i64_desc, sizeof(int64_t));
     box->value = value;
     return (void*)box;
 }
 
 void* rt_box_u64_new(uint64_t value) {
-    RtBoxU64Obj* box = (RtBoxU64Obj*)rt_alloc_obj(rt_thread_state(), &g_rt_type_box_u64, sizeof(uint64_t));
+    RtBoxU64Obj* box = (RtBoxU64Obj*)rt_alloc_obj(rt_thread_state(), &rt_type_box_u64_desc, sizeof(uint64_t));
     box->value = value;
     return (void*)box;
 }
 
 void* rt_box_u8_new(uint64_t value) {
-    RtBoxU8Obj* box = (RtBoxU8Obj*)rt_alloc_obj(rt_thread_state(), &g_rt_type_box_u8, sizeof(uint64_t));
+    RtBoxU8Obj* box = (RtBoxU8Obj*)rt_alloc_obj(rt_thread_state(), &rt_type_box_u8_desc, sizeof(uint64_t));
     box->value = (uint64_t)((uint8_t)value);
     return (void*)box;
 }
 
 void* rt_box_bool_new(int64_t value) {
-    RtBoxBoolObj* box = (RtBoxBoolObj*)rt_alloc_obj(rt_thread_state(), &g_rt_type_box_bool, sizeof(int64_t));
+    RtBoxBoolObj* box = (RtBoxBoolObj*)rt_alloc_obj(rt_thread_state(), &rt_type_box_bool_desc, sizeof(int64_t));
     box->value = value != 0 ? 1 : 0;
     return (void*)box;
 }
 
 void* rt_box_double_new(double value) {
-    RtBoxDoubleObj* box = (RtBoxDoubleObj*)rt_alloc_obj(rt_thread_state(), &g_rt_type_box_double, sizeof(double));
+    RtBoxDoubleObj* box = (RtBoxDoubleObj*)rt_alloc_obj(rt_thread_state(), &rt_type_box_double_desc, sizeof(double));
     box->value = value;
     return (void*)box;
 }

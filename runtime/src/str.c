@@ -10,7 +10,7 @@ typedef struct RtStrObj {
     uint8_t bytes[];
 } RtStrObj;
 
-static RtType g_rt_type_str = {
+RtType rt_type_str_desc = {
     .type_id = 0x53545201u,
     .flags = RT_TYPE_FLAG_LEAF | RT_TYPE_FLAG_VARIABLE_SIZE,
     .abi_version = 1u,
@@ -33,7 +33,7 @@ static RtStrObj* rt_require_str_obj(const void* str_obj, const char* api_name) {
     rt_require(str_obj != NULL, "Str API called with null object");
 
     RtStrObj* str = (RtStrObj*)str_obj;
-    if (str->header.type != &g_rt_type_str) {
+    if (str->header.type != &rt_type_str_desc) {
         rt_panic(api_name);
     }
     return str;
@@ -44,7 +44,7 @@ void* rt_str_from_bytes(RtThreadState* ts, const uint8_t* bytes, uint64_t len) {
         rt_panic("rt_str_from_bytes: bytes is NULL with non-zero length");
     }
 
-    RtStrObj* str = (RtStrObj*)rt_alloc_obj(ts, &g_rt_type_str, sizeof(uint64_t) + len);
+    RtStrObj* str = (RtStrObj*)rt_alloc_obj(ts, &rt_type_str_desc, sizeof(uint64_t) + len);
     str->len = len;
     if (len > 0) {
         memcpy(str->bytes, bytes, (size_t)len);
