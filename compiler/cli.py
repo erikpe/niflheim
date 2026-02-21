@@ -9,7 +9,7 @@ from compiler.ast_nodes import ModuleAst
 from compiler.codegen import emit_asm
 from compiler.lexer import Token, lex
 from compiler.parser import parse
-from compiler.resolver import resolve_program
+from compiler.resolver import ProgramInfo, resolve_program
 from compiler.typecheck import typecheck, typecheck_program
 
 
@@ -36,6 +36,53 @@ def _require_main_function(module_ast: ModuleAst) -> None:
         raise ValueError("Invalid main signature: expected 'fn main() -> i64' (no parameters)")
     if main_decl.return_type.name != "i64":
         raise ValueError("Invalid main signature: expected return type 'i64'")
+
+
+def _build_codegen_module(program: ProgramInfo) -> ModuleAst:
+    entry_module = program.modules[program.entry_module]
+    ordered_module_paths = [
+        module_path
+        for module_path in sorted(program.modules)
+        if module_path != program.entry_module
+    ]
+    ordered_module_paths.append(program.entry_module)
+
+    merged_functions = []
+    function_index_by_name: dict[str, int] = {}
+    function_has_body: dict[str, bool] = {}
+    function_owner_by_name: dict[str, tuple[str, ...]] = {}
+
+    for module_path in ordered_module_paths:
+        module_info = program.modules[module_path]
+        for fn_decl in module_info.ast.functions:
+            existing_index = function_index_by_name.get(fn_decl.name)
+            has_body = fn_decl.body is not None
+
+            if existing_index is None:
+                function_index_by_name[fn_decl.name] = len(merged_functions)
+                function_has_body[fn_decl.name] = has_body
+                function_owner_by_name[fn_decl.name] = module_path
+                merged_functions.append(fn_decl)
+                continue
+
+            if function_has_body[fn_decl.name] and has_body:
+                first_owner = ".".join(function_owner_by_name[fn_decl.name])
+                current_owner = ".".join(module_path)
+                raise ValueError(
+                    f"Duplicate function symbol '{fn_decl.name}' across modules ({first_owner}, {current_owner})"
+                )
+
+            if not function_has_body[fn_decl.name] and has_body:
+                merged_functions[existing_index] = fn_decl
+                function_has_body[fn_decl.name] = True
+                function_owner_by_name[fn_decl.name] = module_path
+
+    return ModuleAst(
+        imports=entry_module.ast.imports,
+        classes=entry_module.ast.classes,
+        functions=merged_functions,
+        span=entry_module.ast.span,
+    )
 
 
 def main() -> int:
@@ -78,7 +125,7 @@ def main() -> int:
         if not args.skip_check:
             program = resolve_program(input_path, project_root=args.project_root)
             typecheck_program(program)
-            codegen_module = program.modules[program.entry_module].ast
+            codegen_module = _build_codegen_module(program)
         if args.stop_after == "check":
             return 0
 

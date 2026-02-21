@@ -1,5 +1,20 @@
 extern fn rt_println_i64(value: i64) -> unit;
+extern fn rt_println_u64(value: u64) -> unit;
+extern fn rt_println_u8(value: u8) -> unit;
+extern fn rt_println_bool(value: bool) -> unit;
 
 export fn println_i64(value: i64) -> unit {
     rt_println_i64(value);
+}
+
+export fn println_u64(value: u64) -> unit {
+    rt_println_u64(value);
+}
+
+export fn println_u8(value: u8) -> unit {
+    rt_println_u8(value);
+}
+
+export fn println_bool(value: bool) -> unit {
+    rt_println_bool(value);
 }

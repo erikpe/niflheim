@@ -88,7 +88,25 @@ def test_cli_std_io_println_i64_unqualified_call(tmp_path: Path, monkeypatch) ->
     (tmp_path / "std" / "io.nif").write_text(
         """
 extern fn rt_println_i64(value: i64) -> unit;
-export extern fn println_i64(value: i64) -> unit;
+extern fn rt_println_u64(value: u64) -> unit;
+extern fn rt_println_u8(value: u8) -> unit;
+extern fn rt_println_bool(value: bool) -> unit;
+
+export fn println_i64(value: i64) -> unit {
+    rt_println_i64(value);
+}
+
+export fn println_u64(value: u64) -> unit {
+    rt_println_u64(value);
+}
+
+export fn println_u8(value: u8) -> unit {
+    rt_println_u8(value);
+}
+
+export fn println_bool(value: bool) -> unit {
+    rt_println_bool(value);
+}
 """,
         encoding="utf-8",
     )
@@ -101,6 +119,10 @@ import std.io;
 fn main() -> i64 {
     var x: i64 = 23;
     println_i64(x);
+    println_u64((u64)42);
+    println_u8((u8)255);
+    println_bool(true);
+    println_bool(false);
     return 0;
 }
 """,
@@ -143,7 +165,7 @@ fn main() -> i64 {
 
     run = subprocess.run([str(exe_path)], check=False, capture_output=True, text=True)
     assert run.returncode == 0
-    assert run.stdout == "23\n"
+    assert run.stdout == "23\n42\n255\ntrue\nfalse\n"
 
 
 def test_cli_std_io_println_i64_qualified_call(tmp_path: Path, monkeypatch) -> None:
@@ -155,7 +177,25 @@ def test_cli_std_io_println_i64_qualified_call(tmp_path: Path, monkeypatch) -> N
     (tmp_path / "std" / "io.nif").write_text(
         """
 extern fn rt_println_i64(value: i64) -> unit;
-export extern fn println_i64(value: i64) -> unit;
+extern fn rt_println_u64(value: u64) -> unit;
+extern fn rt_println_u8(value: u8) -> unit;
+extern fn rt_println_bool(value: bool) -> unit;
+
+export fn println_i64(value: i64) -> unit {
+    rt_println_i64(value);
+}
+
+export fn println_u64(value: u64) -> unit {
+    rt_println_u64(value);
+}
+
+export fn println_u8(value: u8) -> unit {
+    rt_println_u8(value);
+}
+
+export fn println_bool(value: bool) -> unit {
+    rt_println_bool(value);
+}
 """,
         encoding="utf-8",
     )
@@ -167,6 +207,10 @@ import std.io;
 
 fn main() -> i64 {
     io.println_i64(23);
+    io.println_u64((u64)42);
+    io.println_u8((u8)255);
+    io.println_bool(true);
+    io.println_bool(false);
     return 0;
 }
 """,
@@ -209,7 +253,7 @@ fn main() -> i64 {
 
     run = subprocess.run([str(exe_path)], check=False, capture_output=True, text=True)
     assert run.returncode == 0
-    assert run.stdout == "23\n"
+    assert run.stdout == "23\n42\n255\ntrue\nfalse\n"
 
 
 def test_cli_rejects_extern_main_entrypoint(tmp_path: Path, monkeypatch, capsys) -> None:
