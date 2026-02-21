@@ -1,6 +1,6 @@
 # Tests
 
-Test layout (aligned with TEST_PLAN_v0.1.md):
+Test layout (aligned with `docs/TEST_PLAN_v0.1.md`):
 
 - `lexer/`
 - `parser/`

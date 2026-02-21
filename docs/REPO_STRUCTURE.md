@@ -4,11 +4,7 @@ This document summarizes the current repository layout for MVP v0.1 work.
 
 ## Top-Level Files
 
-- `LANGUAGE_MVP_SPEC_V0.1.md` - canonical language and implementation checklist.
-- `ROADMAP_v0.1.md` - milestone/iteration plan.
-- `ABI_NOTES.md` - compiler/runtime ABI notes.
-- `TEST_PLAN_v0.1.md` - testing strategy and release gate criteria.
-- `README.md` - project overview and policy highlights.
+- [README.md](../README.md) - project overview and policy highlights.
 - `pyproject.toml` - Python tooling/test configuration.
 
 ## `compiler/`
@@ -61,5 +57,9 @@ Utility scripts for repository workflows (for example golden refresh/build helpe
 
 Supporting documentation:
 
-- `REPO_STRUCTURE.md` - this file.
-- `GRAMMAR_EBNF.md` - grammar conventions and parser-facing notes.
+- [REPO_STRUCTURE.md](REPO_STRUCTURE.md) - this file.
+- [GRAMMAR_EBNF.md](GRAMMAR_EBNF.md) - grammar conventions and parser-facing notes.
+- [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) - canonical language and implementation checklist.
+- [ROADMAP_v0.1.md](ROADMAP_v0.1.md) - milestone/iteration plan.
+- [ABI_NOTES.md](ABI_NOTES.md) - compiler/runtime ABI notes.
+- [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.

@@ -35,7 +35,7 @@ This roadmap operationalizes [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.
 
 ### Deliverables
 - Finalized spec sections in [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md).
-- A small `ABI_NOTES.md` (optional) describing object header and root frame contract.
+- A small [ABI_NOTES.md](ABI_NOTES.md) (optional) describing object header and root frame contract.
 
 ### Exit Criteria
 - No unresolved TODOs in spec.

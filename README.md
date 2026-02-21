@@ -5,10 +5,10 @@ This repository contains the stage-0 compiler and minimal C runtime for Niflheim
 Niflheim source files use the `.nif` extension.
 
 Key design docs:
-- [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md)
-- [ROADMAP_v0.1.md](ROADMAP_v0.1.md)
-- [ABI_NOTES.md](ABI_NOTES.md)
-- [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md)
+- [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md)
+- [docs/ROADMAP_v0.1.md](docs/ROADMAP_v0.1.md)
+- [docs/ABI_NOTES.md](docs/ABI_NOTES.md)
+- [docs/TEST_PLAN_v0.1.md](docs/TEST_PLAN_v0.1.md)
 - [docs/GRAMMAR_EBNF.md](docs/GRAMMAR_EBNF.md)
 - [docs/REPO_STRUCTURE.md](docs/REPO_STRUCTURE.md)
 
@@ -34,7 +34,7 @@ Backend/codegen, runtime GC implementation details, and full CLI workflow are st
 
 - Null-dereference checks are runtime-only in v0.1; compile-time static null-dereference analysis is intentionally out of scope.
 - Imported class name resolution is symmetric for constructor calls and type annotations: unqualified names are local-first, qualified names are explicit, and ambiguous unqualified imported names are compile-time errors.
-- See [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) for the canonical language/runtime policy details.
+- See [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md) for the canonical language/runtime policy details.
 
 ## Runtime / GC Tests
 
