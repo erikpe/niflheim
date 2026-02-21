@@ -2,6 +2,7 @@
 #include "str.h"
 
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef struct RtStrObj {
@@ -63,4 +64,25 @@ uint64_t rt_str_get_u8(const void* str_obj, uint64_t index) {
         rt_panic("rt_str_get_u8: index out of bounds");
     }
     return (uint64_t)str->bytes[index];
+}
+
+void rt_panic_str(const void* str_obj) {
+    const RtStrObj* str = rt_require_str_obj(str_obj, "rt_panic_str: object is not Str");
+
+    if (str->len > (uint64_t)(SIZE_MAX - 1)) {
+        rt_panic("rt_panic_str: message too large");
+    }
+
+    const size_t len = (size_t)str->len;
+    char* message = (char*)malloc(len + 1);
+    if (message == NULL) {
+        rt_panic("rt_panic_str: out of memory");
+    }
+
+    if (len > 0) {
+        memcpy(message, str->bytes, len);
+    }
+    message[len] = '\0';
+
+    rt_panic(message);
 }

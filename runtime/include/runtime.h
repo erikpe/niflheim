@@ -98,6 +98,7 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
 RtGcStats rt_gc_get_stats(void);
 void rt_gc_collect(RtThreadState* ts);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
+void rt_panic_str(const void* str_obj);
 
 __attribute__((noreturn)) void rt_panic(const char* message);
 __attribute__((noreturn)) void rt_panic_null_deref(void);

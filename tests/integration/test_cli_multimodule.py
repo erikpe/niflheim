@@ -326,3 +326,80 @@ extern fn main() -> i64;
 
     assert rc == 1
     assert "Invalid main signature: expected concrete definition 'fn main() -> i64'" in captured.err
+
+
+def test_cli_std_error_panic_unqualified_call(tmp_path: Path, monkeypatch) -> None:
+    cc = shutil.which("cc")
+    if cc is None:
+        return
+
+    (tmp_path / "std").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "std" / "error.nif").write_text(
+        """
+extern fn rt_panic_str(msg: Str) -> unit;
+
+export fn panic(msg: Str) -> unit {
+    rt_panic_str(msg);
+}
+""",
+        encoding="utf-8",
+    )
+
+    entry = tmp_path / "main.nif"
+    entry.write_text(
+        """
+import std.error;
+
+fn main() -> i64 {
+    panic("Panic at the disco!");
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+
+    out_asm = tmp_path / "out.s"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["nifc", str(entry), "--project-root", str(tmp_path), "-o", str(out_asm)],
+    )
+
+    rc = main()
+    assert rc == 0
+    assert out_asm.exists()
+
+    repo_root = Path(__file__).resolve().parents[2]
+    runtime_include = repo_root / "runtime" / "include"
+    runtime_c = repo_root / "runtime" / "src" / "runtime.c"
+    gc_c = repo_root / "runtime" / "src" / "gc.c"
+    io_c = repo_root / "runtime" / "src" / "io.c"
+    str_c = repo_root / "runtime" / "src" / "str.c"
+    box_c = repo_root / "runtime" / "src" / "box.c"
+    vec_c = repo_root / "runtime" / "src" / "vec.c"
+    exe_path = tmp_path / "program"
+
+    subprocess.run(
+        [
+            cc,
+            "-std=c11",
+            "-I",
+            str(runtime_include),
+            str(runtime_c),
+            str(gc_c),
+            str(io_c),
+            str(str_c),
+            str(box_c),
+            str(vec_c),
+            str(out_asm),
+            "-o",
+            str(exe_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    run = subprocess.run([str(exe_path)], check=False, capture_output=True, text=True)
+    assert run.returncode != 0
+    assert "panic: Panic at the disco!" in run.stderr
