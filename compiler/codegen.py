@@ -63,6 +63,19 @@ class ConstructorLayout:
     field_names: list[str]
 
 
+@dataclass
+class EmitContext:
+    layout: FunctionLayout
+    out: list[str]
+    fn_name: str
+    label_counter: list[int]
+    method_labels: dict[tuple[str, str], str]
+    method_return_types: dict[tuple[str, str], str]
+    constructor_labels: dict[str, str]
+    function_return_types: dict[str, str]
+    string_literal_labels: dict[str, tuple[str, int]]
+
+
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 FLOAT_PARAM_REGISTERS = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"]
 PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
@@ -166,48 +179,48 @@ def _double_literal_bits(text: str) -> int:
     return struct.unpack("<Q", packed)[0]
 
 
-def _collect_locals(stmt: Statement, types_by_name: dict[str, str]) -> None:
+def _collect_locals(stmt: Statement, local_types_by_name: dict[str, str]) -> None:
     if isinstance(stmt, VarDeclStmt):
-        types_by_name.setdefault(stmt.name, stmt.type_ref.name)
+        local_types_by_name.setdefault(stmt.name, stmt.type_ref.name)
         return
     if isinstance(stmt, BlockStmt):
         for nested in stmt.statements:
-            _collect_locals(nested, types_by_name)
+            _collect_locals(nested, local_types_by_name)
         return
     if isinstance(stmt, IfStmt):
-        _collect_locals(stmt.then_branch, types_by_name)
+        _collect_locals(stmt.then_branch, local_types_by_name)
         if stmt.else_branch is not None:
-            _collect_locals(stmt.else_branch, types_by_name)
+            _collect_locals(stmt.else_branch, local_types_by_name)
         return
     if isinstance(stmt, WhileStmt):
-        _collect_locals(stmt.body, types_by_name)
+        _collect_locals(stmt.body, local_types_by_name)
         return
 
 
 def _build_layout(fn: FunctionDecl) -> FunctionLayout:
-    ordered_names: list[str] = []
-    seen: set[str] = set()
-    types_by_name: dict[str, str] = {}
+    ordered_slot_names: list[str] = []
+    seen_names: set[str] = set()
+    local_types_by_name: dict[str, str] = {}
 
     for param in fn.params:
-        if param.name not in seen:
-            seen.add(param.name)
-            ordered_names.append(param.name)
-            types_by_name[param.name] = param.type_ref.name
+        if param.name not in seen_names:
+            seen_names.add(param.name)
+            ordered_slot_names.append(param.name)
+            local_types_by_name[param.name] = param.type_ref.name
 
     for stmt in fn.body.statements:
-        _collect_locals(stmt, types_by_name)
+        _collect_locals(stmt, local_types_by_name)
 
-    for name in sorted(types_by_name):
-        if name not in seen:
-            seen.add(name)
-            ordered_names.append(name)
+    for name in sorted(local_types_by_name):
+        if name not in seen_names:
+            seen_names.add(name)
+            ordered_slot_names.append(name)
 
     slot_offsets: dict[str, int] = {}
-    for index, name in enumerate(ordered_names, start=1):
+    for index, name in enumerate(ordered_slot_names, start=1):
         slot_offsets[name] = -(8 * index)
 
-    root_slot_names = [name for name in ordered_names if _is_reference_type_name(types_by_name[name])]
+    root_slot_names = [name for name in ordered_slot_names if _is_reference_type_name(local_types_by_name[name])]
     root_slot_indices = {name: index for index, name in enumerate(root_slot_names)}
 
     needs_temp_runtime_roots = _function_needs_temp_runtime_roots(fn)
@@ -216,7 +229,7 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     root_slot_count = len(root_slot_names) + temp_root_slot_count
 
     root_slot_offsets: dict[str, int] = {}
-    root_slots_base_offset = -(8 * (len(ordered_names) + root_slot_count)) if root_slot_count > 0 else 0
+    root_slots_base_offset = -(8 * (len(ordered_slot_names) + root_slot_count)) if root_slot_count > 0 else 0
     for index, name in enumerate(root_slot_names):
         root_slot_offsets[name] = root_slots_base_offset + (8 * index)
     temp_root_slot_offsets = [
@@ -224,7 +237,7 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
         for index in range(temp_root_slot_count)
     ]
 
-    bytes_for_value_slots = len(ordered_names) * 8
+    bytes_for_value_slots = len(ordered_slot_names) * 8
     bytes_for_root_slots = root_slot_count * 8
     bytes_for_shadow_stack_state = 32 if root_slot_count > 0 else 0
 
@@ -233,9 +246,9 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     root_frame_offset = -(bytes_for_slots + 8 + 24) if root_slot_count > 0 else 0
     stack_size = _align16(bytes_for_slots + bytes_for_shadow_stack_state)
     return FunctionLayout(
-        slot_names=ordered_names,
+        slot_names=ordered_slot_names,
         slot_offsets=slot_offsets,
-        slot_type_names=types_by_name,
+        slot_type_names=local_types_by_name,
         root_slot_names=root_slot_names,
         root_slot_indices=root_slot_indices,
         root_slot_offsets=root_slot_offsets,
@@ -299,31 +312,6 @@ def _stmt_needs_temp_runtime_roots(stmt: Statement) -> bool:
 
 def _function_needs_temp_runtime_roots(fn: FunctionDecl) -> bool:
     return any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
-
-
-def _emit_runtime_call_arg_temp_roots(layout: FunctionLayout, target_name: str, arg_count: int, out: list[str]) -> int:
-    if layout.root_slot_count <= 0:
-        return 0
-    ref_indices = [index for index in RUNTIME_REF_ARG_INDICES.get(target_name, ()) if index < arg_count]
-    if not ref_indices:
-        return 0
-    if len(ref_indices) > len(layout.temp_root_slot_offsets):
-        raise NotImplementedError("insufficient temporary root slots for runtime call argument rooting")
-
-    for temp_index, arg_index in enumerate(ref_indices):
-        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        if arg_index == 0:
-            out.append("    mov rdx, qword ptr [rsp]")
-        else:
-            out.append(f"    mov rdx, qword ptr [rsp + {arg_index * 8}]")
-        out.append(f"    mov esi, {layout.temp_root_slot_start_index + temp_index}")
-        out.append("    call rt_root_slot_store")
-    return len(ref_indices)
-
-
-def _emit_clear_runtime_call_arg_temp_roots(layout: FunctionLayout, rooted_count: int, out: list[str]) -> None:
-    for temp_index in range(rooted_count):
-        out.append(f"    mov {_offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
 
 
 def _emit_bool_normalize(out: list[str]) -> None:
@@ -666,317 +654,389 @@ def _emit_type_metadata_section(module_ast: ModuleAst, out: list[str]) -> None:
         out.append("    .long 0")
 
 
-def _emit_runtime_call_hook(
-    *,
-    fn_name: str,
-    phase: str,
-    out: list[str],
-    label_counter: list[int],
-    line: int | None = None,
-    column: int | None = None,
-) -> None:
-    label = _next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
-    out.append(f"{label}:")
-    out.append("    # runtime safepoint hook")
-    if phase == "before" and line is not None and column is not None:
-        out.append(f"    mov edi, {line}")
-        out.append(f"    mov esi, {column}")
-        out.append("    call rt_trace_set_location")
-
-
-def _emit_root_slot_updates(layout: FunctionLayout, out: list[str]) -> None:
-    if not layout.root_slot_names:
-        return
-
-    out.append("    # spill reference-typed roots to root slots")
-    for name in layout.root_slot_names:
-        value_offset = layout.slot_offsets[name]
-        slot_index = layout.root_slot_indices[name]
-        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        out.append(f"    mov rdx, {_offset_operand(value_offset)}")
-        out.append(f"    mov esi, {slot_index}")
-        out.append("    call rt_root_slot_store")
-
-
-def _flatten_field_chain(expr: Expression) -> list[str] | None:
-    if isinstance(expr, IdentifierExpr):
-        return [expr.name]
-
-    if isinstance(expr, FieldAccessExpr):
-        left = _flatten_field_chain(expr.object_expr)
-        if left is None:
-            return None
-        return [*left, expr.field_name]
-
-    return None
-
-
-def _resolve_method_call_target(
-    callee: FieldAccessExpr,
-    layout: FunctionLayout,
-    method_labels: dict[tuple[str, str], str],
-    method_return_types: dict[tuple[str, str], str],
-) -> ResolvedCallTarget:
-    receiver_expr = callee.object_expr
-    if not isinstance(receiver_expr, IdentifierExpr):
-        raise NotImplementedError("method-call codegen currently requires identifier receivers")
-
-    receiver_type_name = layout.slot_type_names.get(receiver_expr.name)
-    if receiver_type_name is None:
-        raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
-
-    method_name = callee.field_name
-
-    builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((receiver_type_name, method_name))
-    if builtin_method is not None:
-        return ResolvedCallTarget(
-            name=builtin_method,
-            receiver_expr=receiver_expr,
-            return_type_name=BUILTIN_METHOD_RETURN_TYPES[(receiver_type_name, method_name)],
-        )
-
-    method_label = method_labels.get((receiver_type_name, method_name))
-    if method_label is None and "::" in receiver_type_name:
-        unqualified_type_name = receiver_type_name.split("::", 1)[1]
-        method_label = method_labels.get((unqualified_type_name, method_name))
-    if method_label is None:
-        raise NotImplementedError(f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'")
-
-    return ResolvedCallTarget(
-        name=method_label,
-        receiver_expr=receiver_expr,
-        return_type_name=method_return_types.get((receiver_type_name, method_name), "i64"),
+def _method_function_decl(class_decl: ClassDecl, method_decl: MethodDecl, label: str) -> FunctionDecl:
+    receiver_param = ParamDecl(
+        name="__self",
+        type_ref=TypeRef(name=class_decl.name, span=method_decl.span),
+        span=method_decl.span,
+    )
+    return FunctionDecl(
+        name=label,
+        params=[receiver_param, *method_decl.params],
+        return_type=method_decl.return_type,
+        body=method_decl.body,
+        is_export=False,
+        is_extern=False,
+        span=method_decl.span,
     )
 
 
-def _resolve_call_target_name(
-    callee: Expression,
-    layout: FunctionLayout,
-    method_labels: dict[tuple[str, str], str],
-    method_return_types: dict[tuple[str, str], str],
-    constructor_labels: dict[str, str],
-    function_return_types: dict[str, str],
-) -> ResolvedCallTarget:
-    if isinstance(callee, IdentifierExpr):
-        builtin_ctor_runtime = BUILTIN_CONSTRUCTOR_RUNTIME_CALLS.get(callee.name)
-        if builtin_ctor_runtime is not None:
-            return ResolvedCallTarget(name=builtin_ctor_runtime, receiver_expr=None, return_type_name=callee.name)
-        ctor_label = constructor_labels.get(callee.name)
-        if ctor_label is not None:
-            return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=callee.name)
-        return ResolvedCallTarget(
-            name=callee.name,
-            receiver_expr=None,
-            return_type_name=function_return_types.get(callee.name, RUNTIME_RETURN_TYPES.get(callee.name, "i64")),
-        )
-
-    if isinstance(callee, FieldAccessExpr):
-        chain = _flatten_field_chain(callee)
-        if chain is None or len(chain) < 2:
-            raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
-        if chain[0] in layout.slot_offsets:
-            return _resolve_method_call_target(callee, layout, method_labels, method_return_types)
-        ctor_label = constructor_labels.get(chain[-1])
-        if ctor_label is not None:
-            return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=chain[-1])
-        return ResolvedCallTarget(
-            name=chain[-1],
-            receiver_expr=None,
-            return_type_name=function_return_types.get(chain[-1], RUNTIME_RETURN_TYPES.get(chain[-1], "i64")),
-        )
-
-    raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+def _constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDecl:
+    params = [
+        ParamDecl(name=field.name, type_ref=field.type_ref, span=field.span)
+        for field in class_decl.fields
+    ]
+    return FunctionDecl(
+        name=label,
+        params=params,
+        return_type=TypeRef(name=class_decl.name, span=class_decl.span),
+        body=BlockStmt(statements=[], span=class_decl.span),
+        is_export=False,
+        is_extern=False,
+        span=class_decl.span,
+    )
 
 
-def _infer_expression_type_name(
-    expr: Expression,
-    layout: FunctionLayout,
-    method_labels: dict[tuple[str, str], str],
-    method_return_types: dict[tuple[str, str], str],
-    constructor_labels: dict[str, str],
-    function_return_types: dict[str, str],
-) -> str:
-    if isinstance(expr, LiteralExpr):
-        if expr.value.startswith('"'):
-            return "Str"
-        if expr.value in {"true", "false"}:
-            return "bool"
-        if _is_double_literal_text(expr.value):
-            return "double"
-        if expr.value.endswith("u") and expr.value[:-1].isdigit():
-            return "u64"
-        return "i64"
 
-    if isinstance(expr, NullExpr):
-        return "null"
 
-    if isinstance(expr, IdentifierExpr):
-        return layout.slot_type_names.get(expr.name, "i64")
+class CodeGenerator:
+    def __init__(self, module_ast: ModuleAst) -> None:
+        self.module_ast = module_ast
+        self.lines: list[str] = [".intel_syntax noprefix"]
+        self.method_labels: dict[tuple[str, str], str] = {}
+        self.method_return_types: dict[tuple[str, str], str] = {}
+        self.function_return_types: dict[str, str] = {}
+        self.constructor_layouts: dict[str, ConstructorLayout] = {}
+        self.constructor_labels: dict[str, str] = {}
+        self.string_literal_labels: dict[str, tuple[str, int]] = {}
 
-    if isinstance(expr, CastExpr):
-        return expr.type_ref.name
+    def _build_symbol_tables(self) -> None:
+        for cls in self.module_ast.classes:
+            for method in cls.methods:
+                self.method_labels[(cls.name, method.name)] = _mangle_method_symbol(cls.name, method.name)
+                self.method_return_types[(cls.name, method.name)] = method.return_type.name
 
-    if isinstance(expr, FieldAccessExpr):
-        if expr.field_name == "value":
-            if isinstance(expr.object_expr, IdentifierExpr):
-                receiver_type = layout.slot_type_names.get(expr.object_expr.name, "Obj")
-            elif isinstance(expr.object_expr, CastExpr):
-                receiver_type = expr.object_expr.type_ref.name
+        for fn in self.module_ast.functions:
+            self.function_return_types[fn.name] = fn.return_type.name
+
+        for cls in self.module_ast.classes:
+            ctor_label = _mangle_constructor_symbol(cls.name)
+            ctor_layout = ConstructorLayout(
+                class_name=cls.name,
+                label=ctor_label,
+                type_symbol=_mangle_type_symbol(cls.name),
+                payload_bytes=len(cls.fields) * 8,
+                field_names=[field.name for field in cls.fields],
+            )
+            self.constructor_layouts[cls.name] = ctor_layout
+            self.constructor_labels[cls.name] = ctor_label
+
+    def _emit_frame_prologue(self, target_label: str, layout: FunctionLayout, *, global_symbol: bool) -> None:
+        out = self.lines
+        if global_symbol:
+            out.append(f".globl {target_label}")
+        out.append(f"{target_label}:")
+        out.append("    push rbp")
+        out.append("    mov rbp, rsp")
+        if layout.stack_size > 0:
+            out.append(f"    sub rsp, {layout.stack_size}")
+
+    def _emit_zero_slots(self, layout: FunctionLayout) -> None:
+        out = self.lines
+        for name in layout.slot_names:
+            out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
+        for name in layout.root_slot_names:
+            out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
+        for offset in layout.temp_root_slot_offsets:
+            out.append(f"    mov {_offset_operand(offset)}, 0")
+
+    def _emit_param_spills(self, params: list[ParamDecl], layout: FunctionLayout) -> None:
+        out = self.lines
+        integer_param_index = 0
+        float_param_index = 0
+        for param in params:
+            offset = layout.slot_offsets.get(param.name)
+            if offset is None:
+                continue
+            if param.type_ref.name == "double":
+                if float_param_index >= len(FLOAT_PARAM_REGISTERS):
+                    raise NotImplementedError("parameter codegen currently supports up to 8 floating-point params")
+                out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
+                float_param_index += 1
             else:
-                receiver_type = "Obj"
-            if receiver_type == "BoxDouble":
-                return "double"
-            if receiver_type == "BoxU64":
-                return "u64"
-            if receiver_type == "BoxU8":
-                return "u8"
-            if receiver_type == "BoxBool":
-                return "bool"
-            return "i64"
-        return "i64"
+                if integer_param_index >= len(PARAM_REGISTERS):
+                    raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
+                out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[integer_param_index]}")
+                integer_param_index += 1
 
-    if isinstance(expr, IndexExpr):
-        if isinstance(expr.object_expr, IdentifierExpr):
-            receiver_type = layout.slot_type_names.get(expr.object_expr.name, "Obj")
-            if receiver_type == "Str":
-                return "u8"
-            if receiver_type == "Vec":
-                return "Obj"
-        return "i64"
+    def _emit_trace_push(self, fn_debug_name_label: str, fn_debug_file_label: str, line: int, column: int) -> None:
+        out = self.lines
+        out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
+        out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
+        out.append(f"    mov edx, {line}")
+        out.append(f"    mov ecx, {column}")
+        out.append("    call rt_trace_push")
 
-    if isinstance(expr, CallExpr):
-        resolved_target = _resolve_call_target_name(
-            expr.callee,
-            layout,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-        )
-        return resolved_target.return_type_name
+    def _emit_root_frame_setup(self, layout: FunctionLayout, *, root_count: int, first_root_offset: int) -> None:
+        out = self.lines
+        out.append("    call rt_thread_state")
+        out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
+        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+        out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
+        out.append(f"    mov edx, {root_count}")
+        out.append("    call rt_root_frame_init")
+        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+        out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
+        out.append("    call rt_push_roots")
 
-    if isinstance(expr, UnaryExpr):
-        if expr.operator == "!":
-            return "bool"
-        return _infer_expression_type_name(
-            expr.operand,
-            layout,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-        )
-
-    if isinstance(expr, BinaryExpr):
-        if expr.operator in {"==", "!=", "<", "<=", ">", ">=", "&&", "||"}:
-            return "bool"
-        return _infer_expression_type_name(
-            expr.left,
-            layout,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-        )
-
-    return "i64"
-
-
-def _emit_expr(
-    expr: Expression,
-    layout: FunctionLayout,
-    out: list[str],
-    fn_name: str,
-    label_counter: list[int],
-    method_labels: dict[tuple[str, str], str],
-    method_return_types: dict[tuple[str, str], str],
-    constructor_labels: dict[str, str],
-    function_return_types: dict[str, str],
-    string_literal_labels: dict[str, tuple[str, int]],
-) -> None:
-    if isinstance(expr, LiteralExpr):
-        if expr.value.startswith('"'):
-            label_and_len = string_literal_labels.get(expr.value)
-            if label_and_len is None:
-                raise NotImplementedError("missing string literal lowering metadata")
-            data_label, data_len = label_and_len
-            _emit_runtime_call_hook(
-                fn_name=fn_name,
-                phase="before",
-                out=out,
-                label_counter=label_counter,
-                line=expr.span.start.line,
-                column=expr.span.start.column,
-            )
-            _emit_root_slot_updates(layout, out)
-            out.append("    call rt_thread_state")
-            out.append("    mov rdi, rax")
-            out.append(f"    lea rsi, [rip + {data_label}]")
-            out.append(f"    mov rdx, {data_len}")
-            out.append("    call rt_str_from_bytes")
-            _emit_runtime_call_hook(
-                fn_name=fn_name,
-                phase="after",
-                out=out,
-                label_counter=label_counter,
-            )
-            return
-        if expr.value == "true":
-            out.append("    mov rax, 1")
-            return
-        if expr.value == "false":
-            out.append("    mov rax, 0")
-            return
-        if _is_double_literal_text(expr.value):
-            out.append(f"    mov rax, 0x{_double_literal_bits(expr.value):016x}")
-            return
-        if expr.value.isdigit():
-            out.append(f"    mov rax, {expr.value}")
-            return
-        if expr.value.endswith("u") and expr.value[:-1].isdigit():
-            out.append(f"    mov rax, {expr.value[:-1]}")
-            return
-        raise NotImplementedError(f"literal codegen not implemented for '{expr.value}'")
-
-    if isinstance(expr, NullExpr):
-        out.append("    mov rax, 0")
-        return
-
-    if isinstance(expr, IdentifierExpr):
-        if expr.name not in layout.slot_offsets:
-            raise NotImplementedError(f"identifier '{expr.name}' is not materialized in stack layout")
-        out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[expr.name])}")
-        return
-
-    if isinstance(expr, FieldAccessExpr):
-        receiver_type_name: str | None = None
-        if isinstance(expr.object_expr, IdentifierExpr):
-            receiver_name = expr.object_expr.name
-            receiver_type_name = layout.slot_type_names.get(receiver_name)
-            if receiver_type_name is None:
-                raise NotImplementedError(f"field receiver '{receiver_name}' is not materialized in stack layout")
-        elif isinstance(expr.object_expr, CastExpr):
-            receiver_type_name = expr.object_expr.type_ref.name
+    def _emit_function_epilogue(self, layout: FunctionLayout, return_type_name: str) -> None:
+        out = self.lines
+        if return_type_name == "double":
+            out.append("    sub rsp, 8")
+            out.append("    movq qword ptr [rsp], xmm0")
         else:
-            raise NotImplementedError("field access codegen currently supports identifier or cast receivers")
+            out.append("    push rax")
+        if layout.root_slot_count > 0:
+            out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+            out.append("    call rt_pop_roots")
+        out.append("    call rt_trace_pop")
+        if return_type_name == "double":
+            out.append("    movq xmm0, qword ptr [rsp]")
+            out.append("    add rsp, 8")
+        else:
+            out.append("    pop rax")
+        out.append("    mov rsp, rbp")
+        out.append("    pop rbp")
+        out.append("    ret")
 
-        if expr.field_name == "value":
-            getter_name = BOX_VALUE_GETTER_RUNTIME_CALLS.get(receiver_type_name)
-            if getter_name is not None:
-                _emit_expr(
-                    expr.object_expr,
-                    layout,
-                    out,
-                    fn_name,
-                    label_counter,
-                    method_labels,
-                    method_return_types,
-                    constructor_labels,
-                    function_return_types,
-                    string_literal_labels,
-                )
-                out.append("    push rax")
-                _emit_runtime_call_hook(
+    def _emit_ref_epilogue(self, layout: FunctionLayout) -> None:
+        out = self.lines
+        out.append("    push rax")
+        if layout.root_slot_names:
+            out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+            out.append("    call rt_pop_roots")
+        out.append("    call rt_trace_pop")
+        out.append("    pop rax")
+        out.append("    mov rsp, rbp")
+        out.append("    pop rbp")
+        out.append("    ret")
+
+    def _emit_runtime_call_hook(
+        self,
+        *,
+        fn_name: str,
+        phase: str,
+        out: list[str],
+        label_counter: list[int],
+        line: int | None = None,
+        column: int | None = None,
+    ) -> None:
+        label = _next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
+        out.append(f"{label}:")
+        out.append("    # runtime safepoint hook")
+        if phase == "before" and line is not None and column is not None:
+            out.append(f"    mov edi, {line}")
+            out.append(f"    mov esi, {column}")
+            out.append("    call rt_trace_set_location")
+
+    def _emit_root_slot_updates(self, layout: FunctionLayout, out: list[str]) -> None:
+        if not layout.root_slot_names:
+            return
+
+        out.append("    # spill reference-typed roots to root slots")
+        for name in layout.root_slot_names:
+            value_offset = layout.slot_offsets[name]
+            slot_index = layout.root_slot_indices[name]
+            out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+            out.append(f"    mov rdx, {_offset_operand(value_offset)}")
+            out.append(f"    mov esi, {slot_index}")
+            out.append("    call rt_root_slot_store")
+
+    def _emit_runtime_call_arg_temp_roots(
+        self,
+        layout: FunctionLayout,
+        target_name: str,
+        arg_count: int,
+        out: list[str],
+    ) -> int:
+        if layout.root_slot_count <= 0:
+            return 0
+        ref_indices = [index for index in RUNTIME_REF_ARG_INDICES.get(target_name, ()) if index < arg_count]
+        if not ref_indices:
+            return 0
+        if len(ref_indices) > len(layout.temp_root_slot_offsets):
+            raise NotImplementedError("insufficient temporary root slots for runtime call argument rooting")
+
+        for temp_index, arg_index in enumerate(ref_indices):
+            out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+            if arg_index == 0:
+                out.append("    mov rdx, qword ptr [rsp]")
+            else:
+                out.append(f"    mov rdx, qword ptr [rsp + {arg_index * 8}]")
+            out.append(f"    mov esi, {layout.temp_root_slot_start_index + temp_index}")
+            out.append("    call rt_root_slot_store")
+        return len(ref_indices)
+
+    def _emit_clear_runtime_call_arg_temp_roots(self, layout: FunctionLayout, rooted_count: int, out: list[str]) -> None:
+        for temp_index in range(rooted_count):
+            out.append(f"    mov {_offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
+
+    def _flatten_field_chain(self, expr: Expression) -> list[str] | None:
+        if isinstance(expr, IdentifierExpr):
+            return [expr.name]
+
+        if isinstance(expr, FieldAccessExpr):
+            left = self._flatten_field_chain(expr.object_expr)
+            if left is None:
+                return None
+            return [*left, expr.field_name]
+
+        return None
+
+    def _resolve_method_call_target(
+        self,
+        callee: FieldAccessExpr,
+        ctx: EmitContext,
+    ) -> ResolvedCallTarget:
+        receiver_expr = callee.object_expr
+        if not isinstance(receiver_expr, IdentifierExpr):
+            raise NotImplementedError("method-call codegen currently requires identifier receivers")
+
+        receiver_type_name = ctx.layout.slot_type_names.get(receiver_expr.name)
+        if receiver_type_name is None:
+            raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
+
+        method_name = callee.field_name
+
+        builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((receiver_type_name, method_name))
+        if builtin_method is not None:
+            return ResolvedCallTarget(
+                name=builtin_method,
+                receiver_expr=receiver_expr,
+                return_type_name=BUILTIN_METHOD_RETURN_TYPES[(receiver_type_name, method_name)],
+            )
+
+        method_label = ctx.method_labels.get((receiver_type_name, method_name))
+        if method_label is None and "::" in receiver_type_name:
+            unqualified_type_name = receiver_type_name.split("::", 1)[1]
+            method_label = ctx.method_labels.get((unqualified_type_name, method_name))
+        if method_label is None:
+            raise NotImplementedError(f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'")
+
+        return ResolvedCallTarget(
+            name=method_label,
+            receiver_expr=receiver_expr,
+            return_type_name=ctx.method_return_types.get((receiver_type_name, method_name), "i64"),
+        )
+
+    def _resolve_call_target_name(
+        self,
+        callee: Expression,
+        ctx: EmitContext,
+    ) -> ResolvedCallTarget:
+        if isinstance(callee, IdentifierExpr):
+            builtin_ctor_runtime = BUILTIN_CONSTRUCTOR_RUNTIME_CALLS.get(callee.name)
+            if builtin_ctor_runtime is not None:
+                return ResolvedCallTarget(name=builtin_ctor_runtime, receiver_expr=None, return_type_name=callee.name)
+            ctor_label = ctx.constructor_labels.get(callee.name)
+            if ctor_label is not None:
+                return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=callee.name)
+            return ResolvedCallTarget(
+                name=callee.name,
+                receiver_expr=None,
+                return_type_name=ctx.function_return_types.get(callee.name, RUNTIME_RETURN_TYPES.get(callee.name, "i64")),
+            )
+
+        if isinstance(callee, FieldAccessExpr):
+            chain = self._flatten_field_chain(callee)
+            if chain is None or len(chain) < 2:
+                raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+            if chain[0] in ctx.layout.slot_offsets:
+                return self._resolve_method_call_target(callee, ctx)
+            ctor_label = ctx.constructor_labels.get(chain[-1])
+            if ctor_label is not None:
+                return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=chain[-1])
+            return ResolvedCallTarget(
+                name=chain[-1],
+                receiver_expr=None,
+                return_type_name=ctx.function_return_types.get(chain[-1], RUNTIME_RETURN_TYPES.get(chain[-1], "i64")),
+            )
+
+        raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+
+    def _infer_expression_type_name(
+        self,
+        expr: Expression,
+        ctx: EmitContext,
+    ) -> str:
+        if isinstance(expr, LiteralExpr):
+            if expr.value.startswith('"'):
+                return "Str"
+            if expr.value in {"true", "false"}:
+                return "bool"
+            if _is_double_literal_text(expr.value):
+                return "double"
+            if expr.value.endswith("u") and expr.value[:-1].isdigit():
+                return "u64"
+            return "i64"
+
+        if isinstance(expr, NullExpr):
+            return "null"
+
+        if isinstance(expr, IdentifierExpr):
+            return ctx.layout.slot_type_names.get(expr.name, "i64")
+
+        if isinstance(expr, CastExpr):
+            return expr.type_ref.name
+
+        if isinstance(expr, FieldAccessExpr):
+            if expr.field_name == "value":
+                if isinstance(expr.object_expr, IdentifierExpr):
+                    receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
+                elif isinstance(expr.object_expr, CastExpr):
+                    receiver_type = expr.object_expr.type_ref.name
+                else:
+                    receiver_type = "Obj"
+                if receiver_type == "BoxDouble":
+                    return "double"
+                if receiver_type == "BoxU64":
+                    return "u64"
+                if receiver_type == "BoxU8":
+                    return "u8"
+                if receiver_type == "BoxBool":
+                    return "bool"
+                return "i64"
+            return "i64"
+
+        if isinstance(expr, IndexExpr):
+            if isinstance(expr.object_expr, IdentifierExpr):
+                receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
+                if receiver_type == "Str":
+                    return "u8"
+                if receiver_type == "Vec":
+                    return "Obj"
+            return "i64"
+
+        if isinstance(expr, CallExpr):
+            resolved_target = self._resolve_call_target_name(expr.callee, ctx)
+            return resolved_target.return_type_name
+
+        if isinstance(expr, UnaryExpr):
+            if expr.operator == "!":
+                return "bool"
+            return self._infer_expression_type_name(expr.operand, ctx)
+
+        if isinstance(expr, BinaryExpr):
+            if expr.operator in {"==", "!=", "<", "<=", ">", ">=", "&&", "||"}:
+                return "bool"
+            return self._infer_expression_type_name(expr.left, ctx)
+
+        return "i64"
+
+    def _emit_expr(self, expr: Expression, ctx: EmitContext) -> None:
+        layout = ctx.layout
+        out = ctx.out
+        fn_name = ctx.fn_name
+        label_counter = ctx.label_counter
+        string_literal_labels = ctx.string_literal_labels
+
+        if isinstance(expr, LiteralExpr):
+            if expr.value.startswith('"'):
+                label_and_len = string_literal_labels.get(expr.value)
+                if label_and_len is None:
+                    raise NotImplementedError("missing string literal lowering metadata")
+                data_label, data_len = label_and_len
+                self._emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="before",
                     out=out,
@@ -984,12 +1044,106 @@ def _emit_expr(
                     line=expr.span.start.line,
                     column=expr.span.start.column,
                 )
-                _emit_root_slot_updates(layout, out)
-                out.append("    pop rdi")
-                out.append(f"    call {getter_name}")
-                if receiver_type_name == "BoxDouble":
-                    out.append("    movq rax, xmm0")
-                _emit_runtime_call_hook(
+                self._emit_root_slot_updates(layout, out)
+                out.append("    call rt_thread_state")
+                out.append("    mov rdi, rax")
+                out.append(f"    lea rsi, [rip + {data_label}]")
+                out.append(f"    mov rdx, {data_len}")
+                out.append("    call rt_str_from_bytes")
+                self._emit_runtime_call_hook(
+                    fn_name=fn_name,
+                    phase="after",
+                    out=out,
+                    label_counter=label_counter,
+                )
+                return
+            if expr.value == "true":
+                out.append("    mov rax, 1")
+                return
+            if expr.value == "false":
+                out.append("    mov rax, 0")
+                return
+            if _is_double_literal_text(expr.value):
+                out.append(f"    mov rax, 0x{_double_literal_bits(expr.value):016x}")
+                return
+            if expr.value.isdigit():
+                out.append(f"    mov rax, {expr.value}")
+                return
+            if expr.value.endswith("u") and expr.value[:-1].isdigit():
+                out.append(f"    mov rax, {expr.value[:-1]}")
+                return
+            raise NotImplementedError(f"literal codegen not implemented for '{expr.value}'")
+
+        if isinstance(expr, NullExpr):
+            out.append("    mov rax, 0")
+            return
+
+        if isinstance(expr, IdentifierExpr):
+            if expr.name not in layout.slot_offsets:
+                raise NotImplementedError(f"identifier '{expr.name}' is not materialized in stack layout")
+            out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[expr.name])}")
+            return
+
+        if isinstance(expr, FieldAccessExpr):
+            receiver_type_name: str | None = None
+            if isinstance(expr.object_expr, IdentifierExpr):
+                receiver_name = expr.object_expr.name
+                receiver_type_name = layout.slot_type_names.get(receiver_name)
+                if receiver_type_name is None:
+                    raise NotImplementedError(f"field receiver '{receiver_name}' is not materialized in stack layout")
+            elif isinstance(expr.object_expr, CastExpr):
+                receiver_type_name = expr.object_expr.type_ref.name
+            else:
+                raise NotImplementedError("field access codegen currently supports identifier or cast receivers")
+
+            if expr.field_name == "value":
+                getter_name = BOX_VALUE_GETTER_RUNTIME_CALLS.get(receiver_type_name)
+                if getter_name is not None:
+                    self._emit_expr(expr.object_expr, ctx)
+                    out.append("    push rax")
+                    self._emit_runtime_call_hook(
+                        fn_name=fn_name,
+                        phase="before",
+                        out=out,
+                        label_counter=label_counter,
+                        line=expr.span.start.line,
+                        column=expr.span.start.column,
+                    )
+                    self._emit_root_slot_updates(layout, out)
+                    out.append("    pop rdi")
+                    out.append(f"    call {getter_name}")
+                    if receiver_type_name == "BoxDouble":
+                        out.append("    movq rax, xmm0")
+                    self._emit_runtime_call_hook(
+                        fn_name=fn_name,
+                        phase="after",
+                        out=out,
+                        label_counter=label_counter,
+                    )
+                    return
+
+            raise NotImplementedError("field access codegen currently supports only Box*.value reads")
+
+        if isinstance(expr, CastExpr):
+            self._emit_expr(expr.operand, ctx)
+            source_type = self._infer_expression_type_name(expr.operand, ctx)
+            target_type = expr.type_ref.name
+            if _is_reference_type_name(target_type):
+                type_symbol = _mangle_type_symbol(target_type)
+                out.append("    push rax")
+                self._emit_runtime_call_hook(
+                    fn_name=fn_name,
+                    phase="before",
+                    out=out,
+                    label_counter=label_counter,
+                    line=expr.span.start.line,
+                    column=expr.span.start.column,
+                )
+                out.append("    pop rax")
+                out.append("    mov rdi, rax")
+                out.append(f"    lea rsi, [rip + {type_symbol}]")
+                out.append("    call rt_checked_cast")
+                self._emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="after",
                     out=out,
@@ -997,34 +1151,46 @@ def _emit_expr(
                 )
                 return
 
-        raise NotImplementedError("field access codegen currently supports only Box*.value reads")
+            if target_type == source_type:
+                return
 
-    if isinstance(expr, CastExpr):
-        _emit_expr(
-            expr.operand,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
-        source_type = _infer_expression_type_name(
-            expr.operand,
-            layout,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-        )
-        target_type = expr.type_ref.name
-        if _is_reference_type_name(target_type):
-            type_symbol = _mangle_type_symbol(target_type)
+            if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:
+                out.append("    cvtsi2sd xmm0, rax")
+                out.append("    movq rax, xmm0")
+                return
+
+            if source_type == "double" and target_type in {"i64", "u64", "u8", "bool"}:
+                out.append("    movq xmm0, rax")
+                out.append("    cvttsd2si rax, xmm0")
+                if target_type == "u8":
+                    out.append("    and rax, 255")
+                elif target_type == "bool":
+                    _emit_bool_normalize(out)
+                return
+
+            if target_type == "u8":
+                out.append("    and rax, 255")
+                return
+
+            if target_type == "bool":
+                _emit_bool_normalize(out)
+            return
+
+        if isinstance(expr, IndexExpr):
+            if not isinstance(expr.object_expr, IdentifierExpr):
+                raise NotImplementedError("index codegen currently requires identifier receivers")
+
+            receiver_name = expr.object_expr.name
+            receiver_type_name = layout.slot_type_names.get(receiver_name)
+            if receiver_type_name is None:
+                raise NotImplementedError(f"index receiver '{receiver_name}' is not materialized in stack layout")
+
+            self._emit_expr(expr.index_expr, ctx)
             out.append("    push rax")
-            _emit_runtime_call_hook(
+            self._emit_expr(expr.object_expr, ctx)
+            out.append("    push rax")
+
+            self._emit_runtime_call_hook(
                 fn_name=fn_name,
                 phase="before",
                 out=out,
@@ -1032,11 +1198,18 @@ def _emit_expr(
                 line=expr.span.start.line,
                 column=expr.span.start.column,
             )
-            out.append("    pop rax")
-            out.append("    mov rdi, rax")
-            out.append(f"    lea rsi, [rip + {type_symbol}]")
-            out.append("    call rt_checked_cast")
-            _emit_runtime_call_hook(
+            self._emit_root_slot_updates(layout, out)
+            out.append("    pop rdi")
+            out.append("    pop rsi")
+
+            if receiver_type_name == "Str":
+                out.append("    call rt_str_get_u8")
+            elif receiver_type_name == "Vec":
+                out.append("    call rt_vec_get")
+            else:
+                raise NotImplementedError("index codegen currently supports Str and Vec receivers")
+
+            self._emit_runtime_call_hook(
                 fn_name=fn_name,
                 phase="after",
                 out=out,
@@ -1044,103 +1217,27 @@ def _emit_expr(
             )
             return
 
-        if target_type == source_type:
+        if isinstance(expr, CallExpr):
+            self._emit_call_expr(expr, ctx)
             return
 
-        if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:
-            out.append("    cvtsi2sd xmm0, rax")
-            out.append("    movq rax, xmm0")
+        if isinstance(expr, UnaryExpr):
+            self._emit_unary_expr(expr, ctx)
             return
 
-        if source_type == "double" and target_type in {"i64", "u64", "u8", "bool"}:
-            out.append("    movq xmm0, rax")
-            out.append("    cvttsd2si rax, xmm0")
-            if target_type == "u8":
-                out.append("    and rax, 255")
-            elif target_type == "bool":
-                _emit_bool_normalize(out)
+        if isinstance(expr, BinaryExpr):
+            self._emit_binary_expr(expr, ctx)
             return
 
-        if target_type == "u8":
-            out.append("    and rax, 255")
-            return
+        raise NotImplementedError(f"expression codegen not implemented for {type(expr).__name__}")
 
-        if target_type == "bool":
-            _emit_bool_normalize(out)
-        return
+    def _emit_call_expr(self, expr: CallExpr, ctx: EmitContext) -> None:
+        layout = ctx.layout
+        out = ctx.out
+        fn_name = ctx.fn_name
+        label_counter = ctx.label_counter
 
-    if isinstance(expr, IndexExpr):
-        if not isinstance(expr.object_expr, IdentifierExpr):
-            raise NotImplementedError("index codegen currently requires identifier receivers")
-
-        receiver_name = expr.object_expr.name
-        receiver_type_name = layout.slot_type_names.get(receiver_name)
-        if receiver_type_name is None:
-            raise NotImplementedError(f"index receiver '{receiver_name}' is not materialized in stack layout")
-
-        _emit_expr(
-            expr.index_expr,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
-        out.append("    push rax")
-        _emit_expr(
-            expr.object_expr,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
-        out.append("    push rax")
-
-        _emit_runtime_call_hook(
-            fn_name=fn_name,
-            phase="before",
-            out=out,
-            label_counter=label_counter,
-            line=expr.span.start.line,
-            column=expr.span.start.column,
-        )
-        _emit_root_slot_updates(layout, out)
-        out.append("    pop rdi")
-        out.append("    pop rsi")
-
-        if receiver_type_name == "Str":
-            out.append("    call rt_str_get_u8")
-        elif receiver_type_name == "Vec":
-            out.append("    call rt_vec_get")
-        else:
-            raise NotImplementedError("index codegen currently supports Str and Vec receivers")
-
-        _emit_runtime_call_hook(
-            fn_name=fn_name,
-            phase="after",
-            out=out,
-            label_counter=label_counter,
-        )
-        return
-
-    if isinstance(expr, CallExpr):
-        resolved_target = _resolve_call_target_name(
-            expr.callee,
-            layout,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-        )
+        resolved_target = self._resolve_call_target_name(expr.callee, ctx)
         target_name = resolved_target.name
 
         call_arguments = list(expr.arguments)
@@ -1149,17 +1246,7 @@ def _emit_expr(
 
         is_runtime_call = _is_runtime_call_name(target_name)
         arg_count = len(call_arguments)
-        call_argument_type_names = [
-            _infer_expression_type_name(
-                arg,
-                layout,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-            )
-            for arg in call_arguments
-        ]
+        call_argument_type_names = [self._infer_expression_type_name(arg, ctx) for arg in call_arguments]
         integer_arg_count = sum(1 for type_name in call_argument_type_names if type_name != "double")
         float_arg_count = sum(1 for type_name in call_argument_type_names if type_name == "double")
         if integer_arg_count > len(PARAM_REGISTERS):
@@ -1168,7 +1255,7 @@ def _emit_expr(
             raise NotImplementedError("call codegen currently supports up to 8 floating-point positional arguments")
 
         if is_runtime_call:
-            _emit_runtime_call_hook(
+            self._emit_runtime_call_hook(
                 fn_name=fn_name,
                 phase="before",
                 out=out,
@@ -1178,24 +1265,13 @@ def _emit_expr(
             )
 
         for arg in reversed(call_arguments):
-            _emit_expr(
-                arg,
-                layout,
-                out,
-                fn_name,
-                label_counter,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-                string_literal_labels,
-            )
+            self._emit_expr(arg, ctx)
             out.append("    push rax")
 
-        _emit_root_slot_updates(layout, out)
+        self._emit_root_slot_updates(layout, out)
         rooted_runtime_arg_count = 0
         if is_runtime_call:
-            rooted_runtime_arg_count = _emit_runtime_call_arg_temp_roots(layout, target_name, arg_count, out)
+            rooted_runtime_arg_count = self._emit_runtime_call_arg_temp_roots(layout, target_name, arg_count, out)
 
         integer_reg_index = 0
         float_reg_index = 0
@@ -1216,39 +1292,22 @@ def _emit_expr(
             out.append("    mov rax, 0")
 
         if rooted_runtime_arg_count > 0:
-            _emit_clear_runtime_call_arg_temp_roots(layout, rooted_runtime_arg_count, out)
+            self._emit_clear_runtime_call_arg_temp_roots(layout, rooted_runtime_arg_count, out)
 
         if is_runtime_call:
-            _emit_runtime_call_hook(
+            self._emit_runtime_call_hook(
                 fn_name=fn_name,
                 phase="after",
                 out=out,
                 label_counter=label_counter,
             )
-        return
 
-    if isinstance(expr, UnaryExpr):
-        _emit_expr(
-            expr.operand,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
+    def _emit_unary_expr(self, expr: UnaryExpr, ctx: EmitContext) -> None:
+        out = ctx.out
+
+        self._emit_expr(expr.operand, ctx)
         if expr.operator == "-":
-            operand_type_name = _infer_expression_type_name(
-                expr.operand,
-                layout,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-            )
+            operand_type_name = self._infer_expression_type_name(expr.operand, ctx)
             if operand_type_name == "double":
                 out.append("    movq xmm0, rax")
                 out.append("    xorpd xmm1, xmm1")
@@ -1263,25 +1322,18 @@ def _emit_expr(
             return
         raise NotImplementedError(f"unary operator '{expr.operator}' is not supported")
 
-    if isinstance(expr, BinaryExpr):
+    def _emit_binary_expr(self, expr: BinaryExpr, ctx: EmitContext) -> None:
+        out = ctx.out
+        fn_name = ctx.fn_name
+        label_counter = ctx.label_counter
+
         if expr.operator in ("&&", "||"):
             branch_id = label_counter[0]
             label_counter[0] += 1
             rhs_label = f".L{fn_name}_logic_rhs_{branch_id}"
             done_label = f".L{fn_name}_logic_done_{branch_id}"
 
-            _emit_expr(
-                expr.left,
-                layout,
-                out,
-                fn_name,
-                label_counter,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-                string_literal_labels,
-            )
+            self._emit_expr(expr.left, ctx)
             _emit_bool_normalize(out)
             out.append("    cmp rax, 0")
             if expr.operator == "&&":
@@ -1292,66 +1344,19 @@ def _emit_expr(
                 out.append("    mov rax, 1")
             out.append(f"    jmp {done_label}")
             out.append(f"{rhs_label}:")
-            _emit_expr(
-                expr.right,
-                layout,
-                out,
-                fn_name,
-                label_counter,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-                string_literal_labels,
-            )
+            self._emit_expr(expr.right, ctx)
             _emit_bool_normalize(out)
             out.append(f"{done_label}:")
             return
 
-        _emit_expr(
-            expr.left,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
+        self._emit_expr(expr.left, ctx)
         out.append("    push rax")
-        _emit_expr(
-            expr.right,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
+        self._emit_expr(expr.right, ctx)
         out.append("    mov rcx, rax")
         out.append("    pop rax")
 
-        left_type_name = _infer_expression_type_name(
-            expr.left,
-            layout,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-        )
-        right_type_name = _infer_expression_type_name(
-            expr.right,
-            layout,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-        )
+        left_type_name = self._infer_expression_type_name(expr.left, ctx)
+        right_type_name = self._infer_expression_type_name(expr.right, ctx)
         is_double_op = left_type_name == "double" and right_type_name == "double"
 
         if is_double_op:
@@ -1443,531 +1448,223 @@ def _emit_expr(
 
         raise NotImplementedError(f"binary operator '{expr.operator}' is not supported")
 
-    raise NotImplementedError(f"expression codegen not implemented for {type(expr).__name__}")
+    def _emit_statement(
+        self,
+        stmt: Statement,
+        epilogue_label: str,
+        function_return_type_name: str,
+        ctx: EmitContext,
+    ) -> None:
+        out = ctx.out
+        layout = ctx.layout
+        fn_name = ctx.fn_name
+        label_counter = ctx.label_counter
 
+        if isinstance(stmt, ReturnStmt):
+            if stmt.value is not None:
+                self._emit_expr(stmt.value, ctx)
+            if function_return_type_name == "double":
+                out.append("    movq xmm0, rax")
+            out.append(f"    jmp {epilogue_label}")
+            return
 
-def _emit_statement(
-    stmt: Statement,
-    epilogue_label: str,
-    function_return_type_name: str,
-    out: list[str],
-    layout: FunctionLayout,
-    fn_name: str,
-    label_counter: list[int],
-    method_labels: dict[tuple[str, str], str],
-    method_return_types: dict[tuple[str, str], str],
-    constructor_labels: dict[str, str],
-    function_return_types: dict[str, str],
-    string_literal_labels: dict[str, tuple[str, int]],
-) -> None:
-    if isinstance(stmt, ReturnStmt):
-        if stmt.value is not None:
-            _emit_expr(
-                stmt.value,
-                layout,
-                out,
-                fn_name,
-                label_counter,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-                string_literal_labels,
-            )
-        if function_return_type_name == "double":
-            out.append("    movq xmm0, rax")
-        out.append(f"    jmp {epilogue_label}")
-        return
+        if isinstance(stmt, VarDeclStmt):
+            offset = layout.slot_offsets.get(stmt.name)
+            if offset is None:
+                raise NotImplementedError(f"variable '{stmt.name}' is not materialized in stack layout")
 
-    if isinstance(stmt, VarDeclStmt):
-        offset = layout.slot_offsets.get(stmt.name)
-        if offset is None:
-            raise NotImplementedError(f"variable '{stmt.name}' is not materialized in stack layout")
+            if stmt.initializer is None:
+                out.append("    mov rax, 0")
+            else:
+                self._emit_expr(stmt.initializer, ctx)
+            out.append(f"    mov {_offset_operand(offset)}, rax")
+            return
 
-        if stmt.initializer is None:
-            out.append("    mov rax, 0")
-        else:
-            _emit_expr(
-                stmt.initializer,
-                layout,
-                out,
-                fn_name,
-                label_counter,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-                string_literal_labels,
-            )
-        out.append(f"    mov {_offset_operand(offset)}, rax")
-        return
+        if isinstance(stmt, AssignStmt):
+            if not isinstance(stmt.target, IdentifierExpr):
+                raise NotImplementedError("assignment codegen currently supports identifier targets only")
+            offset = layout.slot_offsets.get(stmt.target.name)
+            if offset is None:
+                raise NotImplementedError(f"identifier '{stmt.target.name}' is not materialized in stack layout")
+            self._emit_expr(stmt.value, ctx)
+            out.append(f"    mov {_offset_operand(offset)}, rax")
+            return
 
-    if isinstance(stmt, AssignStmt):
-        if not isinstance(stmt.target, IdentifierExpr):
-            raise NotImplementedError("assignment codegen currently supports identifier targets only")
-        offset = layout.slot_offsets.get(stmt.target.name)
-        if offset is None:
-            raise NotImplementedError(f"identifier '{stmt.target.name}' is not materialized in stack layout")
-        _emit_expr(
-            stmt.value,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
+        if isinstance(stmt, ExprStmt):
+            self._emit_expr(stmt.expression, ctx)
+            return
+
+        if isinstance(stmt, BlockStmt):
+            for nested in stmt.statements:
+                self._emit_statement(nested, epilogue_label, function_return_type_name, ctx)
+            return
+
+        if isinstance(stmt, IfStmt):
+            else_label = _next_label(fn_name, "if_else", label_counter)
+            end_label = _next_label(fn_name, "if_end", label_counter)
+
+            self._emit_expr(stmt.condition, ctx)
+            out.append("    cmp rax, 0")
+            out.append(f"    je {else_label}")
+            self._emit_statement(stmt.then_branch, epilogue_label, function_return_type_name, ctx)
+            out.append(f"    jmp {end_label}")
+            out.append(f"{else_label}:")
+            if stmt.else_branch is not None:
+                self._emit_statement(stmt.else_branch, epilogue_label, function_return_type_name, ctx)
+            out.append(f"{end_label}:")
+            return
+
+        if isinstance(stmt, WhileStmt):
+            start_label = _next_label(fn_name, "while_start", label_counter)
+            end_label = _next_label(fn_name, "while_end", label_counter)
+
+            out.append(f"{start_label}:")
+            self._emit_expr(stmt.condition, ctx)
+            out.append("    cmp rax, 0")
+            out.append(f"    je {end_label}")
+            self._emit_statement(stmt.body, epilogue_label, function_return_type_name, ctx)
+            out.append(f"    jmp {start_label}")
+            out.append(f"{end_label}:")
+            return
+
+        raise NotImplementedError(f"statement codegen not implemented for {type(stmt).__name__}")
+
+    def _emit_function(self, fn: FunctionDecl, *, label: str | None = None) -> None:
+        out = self.lines
+        target_label = label if label is not None else fn.name
+        epilogue = _epilogue_label(target_label)
+        layout = _build_layout(fn)
+        label_counter = [0]
+        fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
+            out=out,
+            target_label=target_label,
+            function_name=target_label,
+            file_path=fn.span.start.path,
         )
-        out.append(f"    mov {_offset_operand(offset)}, rax")
-        return
 
-    if isinstance(stmt, ExprStmt):
-        _emit_expr(
-            stmt.expression,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
-        return
+        self._emit_frame_prologue(target_label, layout, global_symbol=label is None and (fn.is_export or fn.name == "main"))
+        self._emit_zero_slots(layout)
+        self._emit_param_spills(fn.params, layout)
+        self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
 
-    if isinstance(stmt, BlockStmt):
-        for nested in stmt.statements:
-            _emit_statement(
-                nested,
-                epilogue_label,
-                function_return_type_name,
-                out,
+        if layout.root_slot_count > 0:
+            if layout.root_slot_names:
+                first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
+            else:
+                first_root_offset = layout.temp_root_slot_offsets[0]
+            self._emit_root_frame_setup(
                 layout,
-                fn_name,
-                label_counter,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-                string_literal_labels,
+                root_count=layout.root_slot_count,
+                first_root_offset=first_root_offset,
             )
 
-        return
-
-    if isinstance(stmt, IfStmt):
-        else_label = _next_label(fn_name, "if_else", label_counter)
-        end_label = _next_label(fn_name, "if_end", label_counter)
-
-        _emit_expr(
-            stmt.condition,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
+        emit_ctx = EmitContext(
+            layout=layout,
+            out=out,
+            fn_name=target_label,
+            label_counter=label_counter,
+            method_labels=self.method_labels,
+            method_return_types=self.method_return_types,
+            constructor_labels=self.constructor_labels,
+            function_return_types=self.function_return_types,
+            string_literal_labels=self.string_literal_labels,
         )
-        out.append("    cmp rax, 0")
-        out.append(f"    je {else_label}")
-        _emit_statement(
-            stmt.then_branch,
-            epilogue_label,
-            function_return_type_name,
-            out,
-            layout,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
+
+        for stmt in fn.body.statements:
+            self._emit_statement(stmt, epilogue, fn.return_type.name, emit_ctx)
+
+        out.append(f"{epilogue}:")
+        self._emit_function_epilogue(layout, fn.return_type.name)
+
+    def _emit_constructor_function(self, cls: ClassDecl) -> None:
+        out = self.lines
+        ctor_layout = self.constructor_layouts[cls.name]
+        ctor_fn = _constructor_function_decl(cls, ctor_layout.label)
+        target_label = ctor_layout.label
+        epilogue = _epilogue_label(target_label)
+        layout = _build_layout(ctor_fn)
+        label_counter = [0]
+        fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
+            out=out,
+            target_label=target_label,
+            function_name=target_label,
+            file_path=cls.span.start.path,
         )
-        out.append(f"    jmp {end_label}")
-        out.append(f"{else_label}:")
-        if stmt.else_branch is not None:
-            _emit_statement(
-                stmt.else_branch,
-                epilogue_label,
-                function_return_type_name,
-                out,
-                layout,
-                fn_name,
-                label_counter,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-                string_literal_labels,
-            )
-        out.append(f"{end_label}:")
-        return
 
-    if isinstance(stmt, WhileStmt):
-        start_label = _next_label(fn_name, "while_start", label_counter)
-        end_label = _next_label(fn_name, "while_end", label_counter)
+        self._emit_frame_prologue(target_label, layout, global_symbol=False)
+        self._emit_zero_slots(layout)
+        self._emit_param_spills(ctor_fn.params, layout)
+        self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
 
-        out.append(f"{start_label}:")
-        _emit_expr(
-            stmt.condition,
-            layout,
-            out,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
-        out.append("    cmp rax, 0")
-        out.append(f"    je {end_label}")
-        _emit_statement(
-            stmt.body,
-            epilogue_label,
-            function_return_type_name,
-            out,
-            layout,
-            fn_name,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
-        out.append(f"    jmp {start_label}")
-        out.append(f"{end_label}:")
-        return
-
-    raise NotImplementedError(f"statement codegen not implemented for {type(stmt).__name__}")
-
-
-def _emit_function(
-    fn: FunctionDecl,
-    out: list[str],
-    method_labels: dict[tuple[str, str], str],
-    method_return_types: dict[tuple[str, str], str],
-    constructor_labels: dict[str, str],
-    function_return_types: dict[str, str],
-    string_literal_labels: dict[str, tuple[str, int]],
-    *,
-    label: str | None = None,
-) -> None:
-    target_label = label if label is not None else fn.name
-    epilogue = _epilogue_label(target_label)
-    layout = _build_layout(fn)
-    label_counter = [0]
-    fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
-        out=out,
-        target_label=target_label,
-        function_name=target_label,
-        file_path=fn.span.start.path,
-    )
-
-    if label is None and (fn.is_export or fn.name == "main"):
-        out.append(f".globl {target_label}")
-    out.append(f"{target_label}:")
-    out.append("    push rbp")
-    out.append("    mov rbp, rsp")
-    if layout.stack_size > 0:
-        out.append(f"    sub rsp, {layout.stack_size}")
-
-    for name in layout.slot_names:
-        out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
-    for name in layout.root_slot_names:
-        out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
-    for offset in layout.temp_root_slot_offsets:
-        out.append(f"    mov {_offset_operand(offset)}, 0")
-
-    integer_param_index = 0
-    float_param_index = 0
-    for param in fn.params:
-        offset = layout.slot_offsets.get(param.name)
-        if offset is None:
-            continue
-        if param.type_ref.name == "double":
-            if float_param_index >= len(FLOAT_PARAM_REGISTERS):
-                raise NotImplementedError("parameter codegen currently supports up to 8 floating-point params")
-            out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
-            float_param_index += 1
-        else:
-            if integer_param_index >= len(PARAM_REGISTERS):
-                raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
-            out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[integer_param_index]}")
-            integer_param_index += 1
-
-    out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
-    out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
-    out.append(f"    mov edx, {fn.span.start.line}")
-    out.append(f"    mov ecx, {fn.span.start.column}")
-    out.append("    call rt_trace_push")
-
-    if layout.root_slot_count > 0:
-        out.append("    call rt_thread_state")
-        out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
-        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
         if layout.root_slot_names:
             first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
-        else:
-            first_root_offset = layout.temp_root_slot_offsets[0]
-        out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
-        out.append(f"    mov edx, {layout.root_slot_count}")
-        out.append("    call rt_root_frame_init")
-        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-        out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
-        out.append("    call rt_push_roots")
+            self._emit_root_frame_setup(
+                layout,
+                root_count=len(layout.root_slot_names),
+                first_root_offset=first_root_offset,
+            )
 
-    for stmt in fn.body.statements:
-        _emit_statement(
-            stmt,
-            epilogue,
-            fn.return_type.name,
-            out,
-            layout,
-            target_label,
-            label_counter,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
+        self._emit_runtime_call_hook(
+            fn_name=target_label,
+            phase="before",
+            out=out,
+            label_counter=label_counter,
+        )
+        self._emit_root_slot_updates(layout, out)
+        out.append("    call rt_thread_state")
+        out.append("    mov rdi, rax")
+        out.append(f"    lea rsi, [rip + {ctor_layout.type_symbol}]")
+        out.append(f"    mov rdx, {ctor_layout.payload_bytes}")
+        out.append("    call rt_alloc_obj")
+        self._emit_runtime_call_hook(
+            fn_name=target_label,
+            phase="after",
+            out=out,
+            label_counter=label_counter,
         )
 
-    out.append(f"{epilogue}:")
-    if fn.return_type.name == "double":
-        out.append("    sub rsp, 8")
-        out.append("    movq qword ptr [rsp], xmm0")
-    else:
-        out.append("    push rax")
-    if layout.root_slot_count > 0:
-        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-        out.append("    call rt_pop_roots")
-    out.append("    call rt_trace_pop")
-    if fn.return_type.name == "double":
-        out.append("    movq xmm0, qword ptr [rsp]")
-        out.append("    add rsp, 8")
-    else:
-        out.append("    pop rax")
-    out.append("    mov rsp, rbp")
-    out.append("    pop rbp")
-    out.append("    ret")
+        for field_index, field_name in enumerate(ctor_layout.field_names):
+            field_offset = 24 + (8 * field_index)
+            value_offset = layout.slot_offsets[field_name]
+            out.append(f"    mov rcx, {_offset_operand(value_offset)}")
+            out.append(f"    mov qword ptr [rax + {field_offset}], rcx")
 
+        out.append(f"    jmp {epilogue}")
 
-def _method_function_decl(class_decl: ClassDecl, method_decl: MethodDecl, label: str) -> FunctionDecl:
-    receiver_param = ParamDecl(
-        name="__self",
-        type_ref=TypeRef(name=class_decl.name, span=method_decl.span),
-        span=method_decl.span,
-    )
-    return FunctionDecl(
-        name=label,
-        params=[receiver_param, *method_decl.params],
-        return_type=method_decl.return_type,
-        body=method_decl.body,
-        is_export=False,
-        is_extern=False,
-        span=method_decl.span,
-    )
+        out.append(f"{epilogue}:")
+        self._emit_ref_epilogue(layout)
 
+    def generate(self) -> str:
+        _emit_type_metadata_section(self.module_ast, self.lines)
+        self.string_literal_labels = _emit_string_literal_section(self.module_ast, self.lines)
 
-def _constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDecl:
-    params = [
-        ParamDecl(name=field.name, type_ref=field.type_ref, span=field.span)
-        for field in class_decl.fields
-    ]
-    return FunctionDecl(
-        name=label,
-        params=params,
-        return_type=TypeRef(name=class_decl.name, span=class_decl.span),
-        body=BlockStmt(statements=[], span=class_decl.span),
-        is_export=False,
-        is_extern=False,
-        span=class_decl.span,
-    )
+        self.lines.append("")
+        self.lines.append(".text")
 
+        self._build_symbol_tables()
 
-def _emit_constructor_function(
-    class_decl: ClassDecl,
-    ctor_layout: ConstructorLayout,
-    out: list[str],
-) -> None:
-    ctor_fn = _constructor_function_decl(class_decl, ctor_layout.label)
-    target_label = ctor_layout.label
-    epilogue = _epilogue_label(target_label)
-    layout = _build_layout(ctor_fn)
-    label_counter = [0]
-    fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
-        out=out,
-        target_label=target_label,
-        function_name=target_label,
-        file_path=class_decl.span.start.path,
-    )
+        for fn in self.module_ast.functions:
+            if fn.is_extern:
+                continue
+            self.lines.append("")
+            self._emit_function(fn)
 
-    out.append(f"{target_label}:")
-    out.append("    push rbp")
-    out.append("    mov rbp, rsp")
-    if layout.stack_size > 0:
-        out.append(f"    sub rsp, {layout.stack_size}")
+        for cls in self.module_ast.classes:
+            for method in cls.methods:
+                self.lines.append("")
+                method_label = self.method_labels[(cls.name, method.name)]
+                method_fn = _method_function_decl(cls, method, method_label)
+                self._emit_function(method_fn, label=method_label)
 
-    for name in layout.slot_names:
-        out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
-    for name in layout.root_slot_names:
-        out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
+        for cls in self.module_ast.classes:
+            self.lines.append("")
+            self._emit_constructor_function(cls)
 
-    integer_param_index = 0
-    float_param_index = 0
-    for param in ctor_fn.params:
-        offset = layout.slot_offsets.get(param.name)
-        if offset is None:
-            continue
-        if param.type_ref.name == "double":
-            if float_param_index >= len(FLOAT_PARAM_REGISTERS):
-                raise NotImplementedError("parameter codegen currently supports up to 8 floating-point params")
-            out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
-            float_param_index += 1
-        else:
-            if integer_param_index >= len(PARAM_REGISTERS):
-                raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
-            out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[integer_param_index]}")
-            integer_param_index += 1
-
-    out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
-    out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
-    out.append(f"    mov edx, {class_decl.span.start.line}")
-    out.append(f"    mov ecx, {class_decl.span.start.column}")
-    out.append("    call rt_trace_push")
-
-    if layout.root_slot_names:
-        out.append("    call rt_thread_state")
-        out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
-        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
-        out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
-        out.append(f"    mov edx, {len(layout.root_slot_names)}")
-        out.append("    call rt_root_frame_init")
-        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-        out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
-        out.append("    call rt_push_roots")
-
-    _emit_runtime_call_hook(
-        fn_name=target_label,
-        phase="before",
-        out=out,
-        label_counter=label_counter,
-    )
-    _emit_root_slot_updates(layout, out)
-    out.append("    call rt_thread_state")
-    out.append("    mov rdi, rax")
-    out.append(f"    lea rsi, [rip + {ctor_layout.type_symbol}]")
-    out.append(f"    mov rdx, {ctor_layout.payload_bytes}")
-    out.append("    call rt_alloc_obj")
-    _emit_runtime_call_hook(
-        fn_name=target_label,
-        phase="after",
-        out=out,
-        label_counter=label_counter,
-    )
-
-    for field_index, field_name in enumerate(ctor_layout.field_names):
-        field_offset = 24 + (8 * field_index)
-        value_offset = layout.slot_offsets[field_name]
-        out.append(f"    mov rcx, {_offset_operand(value_offset)}")
-        out.append(f"    mov qword ptr [rax + {field_offset}], rcx")
-
-    out.append(f"    jmp {epilogue}")
-
-    out.append(f"{epilogue}:")
-    out.append("    push rax")
-    if layout.root_slot_names:
-        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-        out.append("    call rt_pop_roots")
-    out.append("    call rt_trace_pop")
-    out.append("    pop rax")
-    out.append("    mov rsp, rbp")
-    out.append("    pop rbp")
-    out.append("    ret")
+        self.lines.append("")
+        self.lines.append('.section .note.GNU-stack,"",@progbits')
+        self.lines.append("")
+        return "\n".join(self.lines)
 
 
 def emit_asm(module_ast: ModuleAst) -> str:
-    lines: list[str] = [".intel_syntax noprefix"]
-
-    _emit_type_metadata_section(module_ast, lines)
-    string_literal_labels = _emit_string_literal_section(module_ast, lines)
-
-    lines.append("")
-    lines.append(".text")
-
-    method_labels: dict[tuple[str, str], str] = {}
-    method_return_types: dict[tuple[str, str], str] = {}
-    for cls in module_ast.classes:
-        for method in cls.methods:
-            method_labels[(cls.name, method.name)] = _mangle_method_symbol(cls.name, method.name)
-            method_return_types[(cls.name, method.name)] = method.return_type.name
-
-    function_return_types: dict[str, str] = {}
-    for fn in module_ast.functions:
-        function_return_types[fn.name] = fn.return_type.name
-
-    constructor_layouts: dict[str, ConstructorLayout] = {}
-    constructor_labels: dict[str, str] = {}
-    for cls in module_ast.classes:
-        ctor_label = _mangle_constructor_symbol(cls.name)
-        ctor_layout = ConstructorLayout(
-            class_name=cls.name,
-            label=ctor_label,
-            type_symbol=_mangle_type_symbol(cls.name),
-            payload_bytes=len(cls.fields) * 8,
-            field_names=[field.name for field in cls.fields],
-        )
-        constructor_layouts[cls.name] = ctor_layout
-        constructor_labels[cls.name] = ctor_label
-
-    for fn in module_ast.functions:
-        if fn.is_extern:
-            continue
-        lines.append("")
-        _emit_function(
-            fn,
-            lines,
-            method_labels,
-            method_return_types,
-            constructor_labels,
-            function_return_types,
-            string_literal_labels,
-        )
-
-    for cls in module_ast.classes:
-        for method in cls.methods:
-            lines.append("")
-            method_label = method_labels[(cls.name, method.name)]
-            method_fn = _method_function_decl(cls, method, method_label)
-            _emit_function(
-                method_fn,
-                lines,
-                method_labels,
-                method_return_types,
-                constructor_labels,
-                function_return_types,
-                string_literal_labels,
-                label=method_label,
-            )
-
-    for cls in module_ast.classes:
-        lines.append("")
-        _emit_constructor_function(
-            cls,
-            constructor_layouts[cls.name],
-            lines,
-        )
-
-    lines.append("")
-    lines.append('.section .note.GNU-stack,"",@progbits')
-    lines.append("")
-    return "\n".join(lines)
+    return CodeGenerator(module_ast).generate()
