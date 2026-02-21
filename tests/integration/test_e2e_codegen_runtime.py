@@ -276,3 +276,38 @@ fn main() -> i64 {
 
     exit_code = _compile_and_run(source)
     assert exit_code == 42
+
+
+def test_e2e_double_call_and_return_abi_links_and_runs() -> None:
+    source = """
+fn add(a: double, b: double) -> double {
+    return a + b;
+}
+
+fn main() -> i64 {
+    var x: double = add(1.25, 2.75);
+    if x > 3.5 {
+        return 0;
+    }
+    return 1;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 0
+
+
+def test_e2e_boxdouble_value_read_links_and_runs() -> None:
+    source = """
+fn main() -> i64 {
+    var b: BoxDouble = BoxDouble(5.5);
+    var d: double = b.value;
+    if d >= 5.5 {
+        return 0;
+    }
+    return 1;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 0

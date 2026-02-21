@@ -30,6 +30,11 @@ Frontend for MVP v0.1 is largely implemented:
 
 Backend/codegen, runtime GC implementation details, and full CLI workflow are still in progress.
 
+Recent backend/runtime updates:
+- Full `double` lowering is implemented in codegen, including literals, arithmetic/comparisons, casts, and mixed integer/floating call signatures.
+- SysV floating-point ABI paths are implemented for parameters/returns (`xmm0`-`xmm7`) in function calls, method calls, and constructors.
+- Runtime box parity includes `BoxDouble` construction/getters with end-to-end tests for value reads and ABI correctness.
+
 ## Policy Decisions (MVP)
 
 - Null-dereference checks are runtime-only in v0.1; compile-time static null-dereference analysis is intentionally out of scope.

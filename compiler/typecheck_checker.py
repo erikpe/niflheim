@@ -283,6 +283,8 @@ class TypeChecker:
                     raise TypeCheckError(f"Operator '{op}' requires numeric operands", expr.span)
                 if left_type.name != right_type.name:
                     raise TypeCheckError(f"Operator '{op}' requires matching operand types", expr.span)
+                if op == "%" and left_type.name == "double":
+                    raise TypeCheckError("Operator '%' is not supported for 'double'", expr.span)
                 return left_type
 
             if op in {"<", "<=", ">", ">="}:

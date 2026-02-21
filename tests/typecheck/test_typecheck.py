@@ -92,6 +92,19 @@ fn f() -> i64 {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_double_modulo_operator() -> None:
+    source = """
+fn main() -> unit {
+    var x: double = 7.5;
+    var y: double = 2.0;
+    var z: double = x % y;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Operator '%' is not supported for 'double'"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_explicit_primitive_casts() -> None:
     source = """
 fn main() -> unit {

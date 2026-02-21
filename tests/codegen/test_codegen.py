@@ -88,6 +88,34 @@ def test_emit_asm_return_u64_suffixed_integer_literal() -> None:
     assert "42u" not in asm
 
 
+def test_emit_asm_return_double_literal_bits() -> None:
+    module = parse(lex("fn answer() -> double { return 1.5; }", source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "answer:" in asm
+    assert "0x3ff8000000000000" in asm
+
+
+def test_emit_asm_double_call_uses_xmm_registers() -> None:
+    source = """
+fn add(a: double, b: double) -> double {
+    return a + b;
+}
+
+fn main() -> double {
+    return add(1.0, 2.0);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    movq xmm0, rax" in asm
+    assert "    movq xmm1, rax" in asm
+    assert "    addsd xmm0, xmm1" in asm
+
+
 def test_emit_asm_expression_with_params_and_local_slot() -> None:
     source = """
 fn add(x: i64, y: i64) -> i64 {
@@ -228,9 +256,9 @@ fn main() -> i64 {
     assert "    mov rax, 3" in asm
     assert "    mov rax, 2" in asm
     assert "    mov rax, 1" in asm
-    assert "    pop rdi" in asm
-    assert "    pop rsi" in asm
-    assert "    pop rdx" in asm
+    assert "    mov rdi, rax" in asm
+    assert "    mov rsi, rax" in asm
+    assert "    mov rdx, rax" in asm
     assert "    call sum3" in asm
 
 
@@ -355,8 +383,8 @@ fn main() -> i64 {
 
     assert "__nif_method_Counter_add:" in asm
     assert "    call __nif_method_Counter_add" in asm
-    assert "    pop rdi" in asm
-    assert "    pop rsi" in asm
+    assert "    mov rdi, rax" in asm
+    assert "    mov rsi, rax" in asm
 
 
 def test_emit_asm_constructor_call_lowers_to_constructor_symbol() -> None:

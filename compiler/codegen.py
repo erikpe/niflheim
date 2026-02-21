@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import struct
 
 from compiler.ast_nodes import (
     AssignStmt,
@@ -50,6 +51,7 @@ class FunctionLayout:
 class ResolvedCallTarget:
     name: str
     receiver_expr: Expression | None
+    return_type_name: str
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,7 @@ class ConstructorLayout:
 
 
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
+FLOAT_PARAM_REGISTERS = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"]
 PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
 BOX_CONSTRUCTOR_RUNTIME_CALLS = {
     "BoxI64": "rt_box_i64_new",
@@ -87,6 +90,12 @@ BUILTIN_METHOD_RUNTIME_CALLS = {
     ("Vec", "get"): "rt_vec_get",
     ("Vec", "set"): "rt_vec_set",
 }
+BUILTIN_METHOD_RETURN_TYPES: dict[tuple[str, str], str] = {
+    ("Vec", "len"): "i64",
+    ("Vec", "push"): "unit",
+    ("Vec", "get"): "Obj",
+    ("Vec", "set"): "unit",
+}
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_checked_cast": (0,),
@@ -110,6 +119,19 @@ BUILTIN_RUNTIME_TYPE_SYMBOLS: dict[str, str] = {
     "BoxBool": "rt_type_box_bool_desc",
     "BoxDouble": "rt_type_box_double_desc",
 }
+RUNTIME_RETURN_TYPES: dict[str, str] = {
+    "rt_box_double_get": "double",
+    "rt_box_i64_get": "i64",
+    "rt_box_u64_get": "u64",
+    "rt_box_u8_get": "u8",
+    "rt_box_bool_get": "bool",
+    "rt_vec_len": "i64",
+    "rt_vec_get": "Obj",
+    "rt_vec_new": "Vec",
+    "rt_str_get_u8": "u8",
+    "rt_checked_cast": "Obj",
+    "rt_panic_str": "unit",
+}
 
 
 def _epilogue_label(fn_name: str) -> str:
@@ -127,6 +149,21 @@ def _offset_operand(offset: int) -> str:
 
 def _is_reference_type_name(type_name: str) -> bool:
     return type_name not in PRIMITIVE_TYPE_NAMES
+
+
+def _is_double_literal_text(text: str) -> bool:
+    if "." not in text:
+        return False
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
+
+
+def _double_literal_bits(text: str) -> int:
+    packed = struct.pack("<d", float(text))
+    return struct.unpack("<Q", packed)[0]
 
 
 def _collect_locals(stmt: Statement, types_by_name: dict[str, str]) -> None:
@@ -678,6 +715,7 @@ def _resolve_method_call_target(
     callee: FieldAccessExpr,
     layout: FunctionLayout,
     method_labels: dict[tuple[str, str], str],
+    method_return_types: dict[tuple[str, str], str],
 ) -> ResolvedCallTarget:
     receiver_expr = callee.object_expr
     if not isinstance(receiver_expr, IdentifierExpr):
@@ -691,7 +729,11 @@ def _resolve_method_call_target(
 
     builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((receiver_type_name, method_name))
     if builtin_method is not None:
-        return ResolvedCallTarget(name=builtin_method, receiver_expr=receiver_expr)
+        return ResolvedCallTarget(
+            name=builtin_method,
+            receiver_expr=receiver_expr,
+            return_type_name=BUILTIN_METHOD_RETURN_TYPES[(receiver_type_name, method_name)],
+        )
 
     method_label = method_labels.get((receiver_type_name, method_name))
     if method_label is None and "::" in receiver_type_name:
@@ -700,36 +742,144 @@ def _resolve_method_call_target(
     if method_label is None:
         raise NotImplementedError(f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'")
 
-    return ResolvedCallTarget(name=method_label, receiver_expr=receiver_expr)
+    return ResolvedCallTarget(
+        name=method_label,
+        receiver_expr=receiver_expr,
+        return_type_name=method_return_types.get((receiver_type_name, method_name), "i64"),
+    )
 
 
 def _resolve_call_target_name(
     callee: Expression,
     layout: FunctionLayout,
     method_labels: dict[tuple[str, str], str],
+    method_return_types: dict[tuple[str, str], str],
     constructor_labels: dict[str, str],
+    function_return_types: dict[str, str],
 ) -> ResolvedCallTarget:
     if isinstance(callee, IdentifierExpr):
         builtin_ctor_runtime = BUILTIN_CONSTRUCTOR_RUNTIME_CALLS.get(callee.name)
         if builtin_ctor_runtime is not None:
-            return ResolvedCallTarget(name=builtin_ctor_runtime, receiver_expr=None)
+            return ResolvedCallTarget(name=builtin_ctor_runtime, receiver_expr=None, return_type_name=callee.name)
         ctor_label = constructor_labels.get(callee.name)
         if ctor_label is not None:
-            return ResolvedCallTarget(name=ctor_label, receiver_expr=None)
-        return ResolvedCallTarget(name=callee.name, receiver_expr=None)
+            return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=callee.name)
+        return ResolvedCallTarget(
+            name=callee.name,
+            receiver_expr=None,
+            return_type_name=function_return_types.get(callee.name, RUNTIME_RETURN_TYPES.get(callee.name, "i64")),
+        )
 
     if isinstance(callee, FieldAccessExpr):
         chain = _flatten_field_chain(callee)
         if chain is None or len(chain) < 2:
             raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
         if chain[0] in layout.slot_offsets:
-            return _resolve_method_call_target(callee, layout, method_labels)
+            return _resolve_method_call_target(callee, layout, method_labels, method_return_types)
         ctor_label = constructor_labels.get(chain[-1])
         if ctor_label is not None:
-            return ResolvedCallTarget(name=ctor_label, receiver_expr=None)
-        return ResolvedCallTarget(name=chain[-1], receiver_expr=None)
+            return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=chain[-1])
+        return ResolvedCallTarget(
+            name=chain[-1],
+            receiver_expr=None,
+            return_type_name=function_return_types.get(chain[-1], RUNTIME_RETURN_TYPES.get(chain[-1], "i64")),
+        )
 
     raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+
+
+def _infer_expression_type_name(
+    expr: Expression,
+    layout: FunctionLayout,
+    method_labels: dict[tuple[str, str], str],
+    method_return_types: dict[tuple[str, str], str],
+    constructor_labels: dict[str, str],
+    function_return_types: dict[str, str],
+) -> str:
+    if isinstance(expr, LiteralExpr):
+        if expr.value.startswith('"'):
+            return "Str"
+        if expr.value in {"true", "false"}:
+            return "bool"
+        if _is_double_literal_text(expr.value):
+            return "double"
+        if expr.value.endswith("u") and expr.value[:-1].isdigit():
+            return "u64"
+        return "i64"
+
+    if isinstance(expr, NullExpr):
+        return "null"
+
+    if isinstance(expr, IdentifierExpr):
+        return layout.slot_type_names.get(expr.name, "i64")
+
+    if isinstance(expr, CastExpr):
+        return expr.type_ref.name
+
+    if isinstance(expr, FieldAccessExpr):
+        if expr.field_name == "value":
+            if isinstance(expr.object_expr, IdentifierExpr):
+                receiver_type = layout.slot_type_names.get(expr.object_expr.name, "Obj")
+            elif isinstance(expr.object_expr, CastExpr):
+                receiver_type = expr.object_expr.type_ref.name
+            else:
+                receiver_type = "Obj"
+            if receiver_type == "BoxDouble":
+                return "double"
+            if receiver_type == "BoxU64":
+                return "u64"
+            if receiver_type == "BoxU8":
+                return "u8"
+            if receiver_type == "BoxBool":
+                return "bool"
+            return "i64"
+        return "i64"
+
+    if isinstance(expr, IndexExpr):
+        if isinstance(expr.object_expr, IdentifierExpr):
+            receiver_type = layout.slot_type_names.get(expr.object_expr.name, "Obj")
+            if receiver_type == "Str":
+                return "u8"
+            if receiver_type == "Vec":
+                return "Obj"
+        return "i64"
+
+    if isinstance(expr, CallExpr):
+        resolved_target = _resolve_call_target_name(
+            expr.callee,
+            layout,
+            method_labels,
+            method_return_types,
+            constructor_labels,
+            function_return_types,
+        )
+        return resolved_target.return_type_name
+
+    if isinstance(expr, UnaryExpr):
+        if expr.operator == "!":
+            return "bool"
+        return _infer_expression_type_name(
+            expr.operand,
+            layout,
+            method_labels,
+            method_return_types,
+            constructor_labels,
+            function_return_types,
+        )
+
+    if isinstance(expr, BinaryExpr):
+        if expr.operator in {"==", "!=", "<", "<=", ">", ">=", "&&", "||"}:
+            return "bool"
+        return _infer_expression_type_name(
+            expr.left,
+            layout,
+            method_labels,
+            method_return_types,
+            constructor_labels,
+            function_return_types,
+        )
+
+    return "i64"
 
 
 def _emit_expr(
@@ -739,7 +889,9 @@ def _emit_expr(
     fn_name: str,
     label_counter: list[int],
     method_labels: dict[tuple[str, str], str],
+    method_return_types: dict[tuple[str, str], str],
     constructor_labels: dict[str, str],
+    function_return_types: dict[str, str],
     string_literal_labels: dict[str, tuple[str, int]],
 ) -> None:
     if isinstance(expr, LiteralExpr):
@@ -774,6 +926,9 @@ def _emit_expr(
             return
         if expr.value == "false":
             out.append("    mov rax, 0")
+            return
+        if _is_double_literal_text(expr.value):
+            out.append(f"    mov rax, 0x{_double_literal_bits(expr.value):016x}")
             return
         if expr.value.isdigit():
             out.append(f"    mov rax, {expr.value}")
@@ -815,7 +970,9 @@ def _emit_expr(
                     fn_name,
                     label_counter,
                     method_labels,
+                    method_return_types,
                     constructor_labels,
+                    function_return_types,
                     string_literal_labels,
                 )
                 out.append("    push rax")
@@ -830,6 +987,8 @@ def _emit_expr(
                 _emit_root_slot_updates(layout, out)
                 out.append("    pop rdi")
                 out.append(f"    call {getter_name}")
+                if receiver_type_name == "BoxDouble":
+                    out.append("    movq rax, xmm0")
                 _emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="after",
@@ -848,8 +1007,18 @@ def _emit_expr(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
+        )
+        source_type = _infer_expression_type_name(
+            expr.operand,
+            layout,
+            method_labels,
+            method_return_types,
+            constructor_labels,
+            function_return_types,
         )
         target_type = expr.type_ref.name
         if _is_reference_type_name(target_type):
@@ -873,6 +1042,31 @@ def _emit_expr(
                 out=out,
                 label_counter=label_counter,
             )
+            return
+
+        if target_type == source_type:
+            return
+
+        if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:
+            out.append("    cvtsi2sd xmm0, rax")
+            out.append("    movq rax, xmm0")
+            return
+
+        if source_type == "double" and target_type in {"i64", "u64", "u8", "bool"}:
+            out.append("    movq xmm0, rax")
+            out.append("    cvttsd2si rax, xmm0")
+            if target_type == "u8":
+                out.append("    and rax, 255")
+            elif target_type == "bool":
+                _emit_bool_normalize(out)
+            return
+
+        if target_type == "u8":
+            out.append("    and rax, 255")
+            return
+
+        if target_type == "bool":
+            _emit_bool_normalize(out)
         return
 
     if isinstance(expr, IndexExpr):
@@ -891,7 +1085,9 @@ def _emit_expr(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         out.append("    push rax")
@@ -902,7 +1098,9 @@ def _emit_expr(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         out.append("    push rax")
@@ -935,7 +1133,14 @@ def _emit_expr(
         return
 
     if isinstance(expr, CallExpr):
-        resolved_target = _resolve_call_target_name(expr.callee, layout, method_labels, constructor_labels)
+        resolved_target = _resolve_call_target_name(
+            expr.callee,
+            layout,
+            method_labels,
+            method_return_types,
+            constructor_labels,
+            function_return_types,
+        )
         target_name = resolved_target.name
 
         call_arguments = list(expr.arguments)
@@ -944,8 +1149,23 @@ def _emit_expr(
 
         is_runtime_call = _is_runtime_call_name(target_name)
         arg_count = len(call_arguments)
-        if arg_count > len(PARAM_REGISTERS):
-            raise NotImplementedError("call codegen currently supports up to 6 positional arguments")
+        call_argument_type_names = [
+            _infer_expression_type_name(
+                arg,
+                layout,
+                method_labels,
+                method_return_types,
+                constructor_labels,
+                function_return_types,
+            )
+            for arg in call_arguments
+        ]
+        integer_arg_count = sum(1 for type_name in call_argument_type_names if type_name != "double")
+        float_arg_count = sum(1 for type_name in call_argument_type_names if type_name == "double")
+        if integer_arg_count > len(PARAM_REGISTERS):
+            raise NotImplementedError("call codegen currently supports up to 6 integer/pointer positional arguments")
+        if float_arg_count > len(FLOAT_PARAM_REGISTERS):
+            raise NotImplementedError("call codegen currently supports up to 8 floating-point positional arguments")
 
         if is_runtime_call:
             _emit_runtime_call_hook(
@@ -965,7 +1185,9 @@ def _emit_expr(
                 fn_name,
                 label_counter,
                 method_labels,
+                method_return_types,
                 constructor_labels,
+                function_return_types,
                 string_literal_labels,
             )
             out.append("    push rax")
@@ -975,10 +1197,23 @@ def _emit_expr(
         if is_runtime_call:
             rooted_runtime_arg_count = _emit_runtime_call_arg_temp_roots(layout, target_name, arg_count, out)
 
-        for index in range(arg_count):
-            out.append(f"    pop {PARAM_REGISTERS[index]}")
+        integer_reg_index = 0
+        float_reg_index = 0
+        for type_name in call_argument_type_names:
+            out.append("    pop rax")
+            if type_name == "double":
+                out.append(f"    movq {FLOAT_PARAM_REGISTERS[float_reg_index]}, rax")
+                float_reg_index += 1
+            else:
+                out.append(f"    mov {PARAM_REGISTERS[integer_reg_index]}, rax")
+                integer_reg_index += 1
 
         out.append(f"    call {target_name}")
+
+        if resolved_target.return_type_name == "double":
+            out.append("    movq rax, xmm0")
+        elif resolved_target.return_type_name == "unit":
+            out.append("    mov rax, 0")
 
         if rooted_runtime_arg_count > 0:
             _emit_clear_runtime_call_arg_temp_roots(layout, rooted_runtime_arg_count, out)
@@ -1000,10 +1235,26 @@ def _emit_expr(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         if expr.operator == "-":
+            operand_type_name = _infer_expression_type_name(
+                expr.operand,
+                layout,
+                method_labels,
+                method_return_types,
+                constructor_labels,
+                function_return_types,
+            )
+            if operand_type_name == "double":
+                out.append("    movq xmm0, rax")
+                out.append("    xorpd xmm1, xmm1")
+                out.append("    subsd xmm1, xmm0")
+                out.append("    movq rax, xmm1")
+                return
             out.append("    neg rax")
             return
         if expr.operator == "!":
@@ -1026,7 +1277,9 @@ def _emit_expr(
                 fn_name,
                 label_counter,
                 method_labels,
+                method_return_types,
                 constructor_labels,
+                function_return_types,
                 string_literal_labels,
             )
             _emit_bool_normalize(out)
@@ -1046,7 +1299,9 @@ def _emit_expr(
                 fn_name,
                 label_counter,
                 method_labels,
+                method_return_types,
                 constructor_labels,
+                function_return_types,
                 string_literal_labels,
             )
             _emit_bool_normalize(out)
@@ -1060,7 +1315,9 @@ def _emit_expr(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         out.append("    push rax")
@@ -1071,11 +1328,82 @@ def _emit_expr(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         out.append("    mov rcx, rax")
         out.append("    pop rax")
+
+        left_type_name = _infer_expression_type_name(
+            expr.left,
+            layout,
+            method_labels,
+            method_return_types,
+            constructor_labels,
+            function_return_types,
+        )
+        right_type_name = _infer_expression_type_name(
+            expr.right,
+            layout,
+            method_labels,
+            method_return_types,
+            constructor_labels,
+            function_return_types,
+        )
+        is_double_op = left_type_name == "double" and right_type_name == "double"
+
+        if is_double_op:
+            out.append("    movq xmm1, rcx")
+            out.append("    movq xmm0, rax")
+            if expr.operator == "+":
+                out.append("    addsd xmm0, xmm1")
+                out.append("    movq rax, xmm0")
+                return
+            if expr.operator == "-":
+                out.append("    subsd xmm0, xmm1")
+                out.append("    movq rax, xmm0")
+                return
+            if expr.operator == "*":
+                out.append("    mulsd xmm0, xmm1")
+                out.append("    movq rax, xmm0")
+                return
+            if expr.operator == "/":
+                out.append("    divsd xmm0, xmm1")
+                out.append("    movq rax, xmm0")
+                return
+
+            if expr.operator in ("==", "!=", "<", "<=", ">", ">="):
+                out.append("    ucomisd xmm0, xmm1")
+                if expr.operator == "==":
+                    out.append("    sete al")
+                    out.append("    setnp dl")
+                    out.append("    and al, dl")
+                elif expr.operator == "!=":
+                    out.append("    setne al")
+                    out.append("    setp dl")
+                    out.append("    or al, dl")
+                elif expr.operator == "<":
+                    out.append("    setb al")
+                    out.append("    setnp dl")
+                    out.append("    and al, dl")
+                elif expr.operator == "<=":
+                    out.append("    setbe al")
+                    out.append("    setnp dl")
+                    out.append("    and al, dl")
+                elif expr.operator == ">":
+                    out.append("    seta al")
+                    out.append("    setnp dl")
+                    out.append("    and al, dl")
+                else:
+                    out.append("    setae al")
+                    out.append("    setnp dl")
+                    out.append("    and al, dl")
+                out.append("    movzx rax, al")
+                return
+
+            raise NotImplementedError(f"binary operator '{expr.operator}' is not supported for double operands")
 
         if expr.operator == "+":
             out.append("    add rax, rcx")
@@ -1121,12 +1449,15 @@ def _emit_expr(
 def _emit_statement(
     stmt: Statement,
     epilogue_label: str,
+    function_return_type_name: str,
     out: list[str],
     layout: FunctionLayout,
     fn_name: str,
     label_counter: list[int],
     method_labels: dict[tuple[str, str], str],
+    method_return_types: dict[tuple[str, str], str],
     constructor_labels: dict[str, str],
+    function_return_types: dict[str, str],
     string_literal_labels: dict[str, tuple[str, int]],
 ) -> None:
     if isinstance(stmt, ReturnStmt):
@@ -1138,9 +1469,13 @@ def _emit_statement(
                 fn_name,
                 label_counter,
                 method_labels,
+                method_return_types,
                 constructor_labels,
+                function_return_types,
                 string_literal_labels,
             )
+        if function_return_type_name == "double":
+            out.append("    movq xmm0, rax")
         out.append(f"    jmp {epilogue_label}")
         return
 
@@ -1159,7 +1494,9 @@ def _emit_statement(
                 fn_name,
                 label_counter,
                 method_labels,
+                method_return_types,
                 constructor_labels,
+                function_return_types,
                 string_literal_labels,
             )
         out.append(f"    mov {_offset_operand(offset)}, rax")
@@ -1178,7 +1515,9 @@ def _emit_statement(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         out.append(f"    mov {_offset_operand(offset)}, rax")
@@ -1192,7 +1531,9 @@ def _emit_statement(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         return
@@ -1202,12 +1543,15 @@ def _emit_statement(
             _emit_statement(
                 nested,
                 epilogue_label,
+                function_return_type_name,
                 out,
                 layout,
                 fn_name,
                 label_counter,
                 method_labels,
+                method_return_types,
                 constructor_labels,
+                function_return_types,
                 string_literal_labels,
             )
 
@@ -1224,7 +1568,9 @@ def _emit_statement(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         out.append("    cmp rax, 0")
@@ -1232,12 +1578,15 @@ def _emit_statement(
         _emit_statement(
             stmt.then_branch,
             epilogue_label,
+            function_return_type_name,
             out,
             layout,
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         out.append(f"    jmp {end_label}")
@@ -1246,12 +1595,15 @@ def _emit_statement(
             _emit_statement(
                 stmt.else_branch,
                 epilogue_label,
+                function_return_type_name,
                 out,
                 layout,
                 fn_name,
                 label_counter,
                 method_labels,
+                method_return_types,
                 constructor_labels,
+                function_return_types,
                 string_literal_labels,
             )
         out.append(f"{end_label}:")
@@ -1269,7 +1621,9 @@ def _emit_statement(
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         out.append("    cmp rax, 0")
@@ -1277,12 +1631,15 @@ def _emit_statement(
         _emit_statement(
             stmt.body,
             epilogue_label,
+            function_return_type_name,
             out,
             layout,
             fn_name,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
         out.append(f"    jmp {start_label}")
@@ -1296,7 +1653,9 @@ def _emit_function(
     fn: FunctionDecl,
     out: list[str],
     method_labels: dict[tuple[str, str], str],
+    method_return_types: dict[tuple[str, str], str],
     constructor_labels: dict[str, str],
+    function_return_types: dict[str, str],
     string_literal_labels: dict[str, tuple[str, int]],
     *,
     label: str | None = None,
@@ -1327,13 +1686,22 @@ def _emit_function(
     for offset in layout.temp_root_slot_offsets:
         out.append(f"    mov {_offset_operand(offset)}, 0")
 
-    for index, param in enumerate(fn.params):
-        if index >= len(PARAM_REGISTERS):
-            raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
+    integer_param_index = 0
+    float_param_index = 0
+    for param in fn.params:
         offset = layout.slot_offsets.get(param.name)
         if offset is None:
             continue
-        out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[index]}")
+        if param.type_ref.name == "double":
+            if float_param_index >= len(FLOAT_PARAM_REGISTERS):
+                raise NotImplementedError("parameter codegen currently supports up to 8 floating-point params")
+            out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
+            float_param_index += 1
+        else:
+            if integer_param_index >= len(PARAM_REGISTERS):
+                raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
+            out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[integer_param_index]}")
+            integer_param_index += 1
 
     out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
     out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
@@ -1360,22 +1728,33 @@ def _emit_function(
         _emit_statement(
             stmt,
             epilogue,
+            fn.return_type.name,
             out,
             layout,
             target_label,
             label_counter,
             method_labels,
+            method_return_types,
             constructor_labels,
+            function_return_types,
             string_literal_labels,
         )
 
     out.append(f"{epilogue}:")
-    out.append("    push rax")
+    if fn.return_type.name == "double":
+        out.append("    sub rsp, 8")
+        out.append("    movq qword ptr [rsp], xmm0")
+    else:
+        out.append("    push rax")
     if layout.root_slot_count > 0:
         out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
         out.append("    call rt_pop_roots")
     out.append("    call rt_trace_pop")
-    out.append("    pop rax")
+    if fn.return_type.name == "double":
+        out.append("    movq xmm0, qword ptr [rsp]")
+        out.append("    add rsp, 8")
+    else:
+        out.append("    pop rax")
     out.append("    mov rsp, rbp")
     out.append("    pop rbp")
     out.append("    ret")
@@ -1442,13 +1821,22 @@ def _emit_constructor_function(
     for name in layout.root_slot_names:
         out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
 
-    for index, param in enumerate(ctor_fn.params):
-        if index >= len(PARAM_REGISTERS):
-            raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
+    integer_param_index = 0
+    float_param_index = 0
+    for param in ctor_fn.params:
         offset = layout.slot_offsets.get(param.name)
         if offset is None:
             continue
-        out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[index]}")
+        if param.type_ref.name == "double":
+            if float_param_index >= len(FLOAT_PARAM_REGISTERS):
+                raise NotImplementedError("parameter codegen currently supports up to 8 floating-point params")
+            out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
+            float_param_index += 1
+        else:
+            if integer_param_index >= len(PARAM_REGISTERS):
+                raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
+            out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[integer_param_index]}")
+            integer_param_index += 1
 
     out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
     out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
@@ -1517,9 +1905,15 @@ def emit_asm(module_ast: ModuleAst) -> str:
     lines.append(".text")
 
     method_labels: dict[tuple[str, str], str] = {}
+    method_return_types: dict[tuple[str, str], str] = {}
     for cls in module_ast.classes:
         for method in cls.methods:
             method_labels[(cls.name, method.name)] = _mangle_method_symbol(cls.name, method.name)
+            method_return_types[(cls.name, method.name)] = method.return_type.name
+
+    function_return_types: dict[str, str] = {}
+    for fn in module_ast.functions:
+        function_return_types[fn.name] = fn.return_type.name
 
     constructor_layouts: dict[str, ConstructorLayout] = {}
     constructor_labels: dict[str, str] = {}
@@ -1539,7 +1933,15 @@ def emit_asm(module_ast: ModuleAst) -> str:
         if fn.is_extern:
             continue
         lines.append("")
-        _emit_function(fn, lines, method_labels, constructor_labels, string_literal_labels)
+        _emit_function(
+            fn,
+            lines,
+            method_labels,
+            method_return_types,
+            constructor_labels,
+            function_return_types,
+            string_literal_labels,
+        )
 
     for cls in module_ast.classes:
         for method in cls.methods:
@@ -1550,7 +1952,9 @@ def emit_asm(module_ast: ModuleAst) -> str:
                 method_fn,
                 lines,
                 method_labels,
+                method_return_types,
                 constructor_labels,
+                function_return_types,
                 string_literal_labels,
                 label=method_label,
             )

@@ -316,7 +316,7 @@ Minimal C runtime provides:
 - [ ] Prototype one specialized container (`VecI64` or `MapStrObj`) without changing language core.
 - [ ] Extend call lowering to support >6 positional args (stack-passed args under SysV).
 - [ ] Add indirect callee lowering for call expressions.
-- [ ] Add floating-point call/return ABI lowering (`xmm0`-`xmm7` path).
+- [x] Add floating-point call/return ABI lowering (`xmm0`-`xmm7` path).
 - [ ] Move local slot allocation from name-based to lexical-scope-aware slots (no shadow aliasing).
 
 ---
