@@ -270,6 +270,21 @@ fn main() -> i64 {
     assert "    call rt_str_get_u8" in asm
 
 
+def test_emit_asm_box_i64_constructor_and_value_field_lower_to_runtime_calls() -> None:
+    source = """
+fn main() -> i64 {
+    var b: BoxI64 = BoxI64(7);
+    return b.value;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_box_i64_new" in asm
+    assert "    call rt_box_i64_get" in asm
+
+
 def test_emit_asm_method_call_lowers_to_method_symbol_with_receiver_arg0() -> None:
     source = """
 class Counter {

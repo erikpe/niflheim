@@ -130,6 +130,7 @@ Defaults:
 
 - `BoxI64`, `BoxU64`, `BoxU8`, `BoxBool`, `BoxDouble` are heap wrappers for primitive values.
 - Primary purpose: allow primitives in `Obj`-based containers.
+- Box instances are immutable in v0.1.
 
 ### 5.5 Planned Early Extensions
 
@@ -300,7 +301,7 @@ Minimal C runtime provides:
 - [x] Implement `Str` (immutable).
 - [ ] Implement `Vec` (`Obj` elements).
 - [ ] Implement `Map` (`Obj -> Obj`, identity key semantics).
-- [ ] Implement primitive box classes.
+- [x] Implement primitive box classes.
 - [ ] Add API and behavioral tests for nested containers.
 
 ## G. Tooling and Diagnostics

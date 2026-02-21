@@ -6,6 +6,15 @@ from compiler.resolver import ModuleInfo, ModulePath
 from compiler.typecheck_model import *
 
 
+BUILTIN_BOX_VALUE_TYPES: dict[str, TypeInfo] = {
+    "BoxI64": TypeInfo(name="i64", kind="primitive"),
+    "BoxU64": TypeInfo(name="u64", kind="primitive"),
+    "BoxU8": TypeInfo(name="u8", kind="primitive"),
+    "BoxBool": TypeInfo(name="bool", kind="primitive"),
+    "BoxDouble": TypeInfo(name="double", kind="primitive"),
+}
+
+
 class TypeChecker:
     def __init__(
         self,
@@ -191,6 +200,9 @@ class TypeChecker:
             return
 
         if isinstance(expr, FieldAccessExpr):
+            object_type = self._infer_expression_type(expr.object_expr)
+            if object_type.name in BUILTIN_BOX_VALUE_TYPES:
+                raise TypeCheckError("Cannot assign through Box value field: Box instances are immutable", expr.span)
             return
 
         if isinstance(expr, IndexExpr):
@@ -211,6 +223,9 @@ class TypeChecker:
                 return TypeInfo(name=f"__fn__:{expr.name}", kind="callable")
 
             if expr.name in self.classes:
+                return TypeInfo(name=f"__class__:{expr.name}", kind="callable")
+
+            if expr.name in BUILTIN_BOX_VALUE_TYPES:
                 return TypeInfo(name=f"__class__:{expr.name}", kind="callable")
 
             if self._current_module_info() is not None and expr.name in self._current_module_info().imports:
@@ -297,6 +312,13 @@ class TypeChecker:
                 return TypeInfo(name=f"__module__:{dotted}", kind="module")
 
             object_type = self._infer_expression_type(expr.object_expr)
+
+            box_value_type = BUILTIN_BOX_VALUE_TYPES.get(object_type.name)
+            if box_value_type is not None:
+                if expr.field_name != "value":
+                    raise TypeCheckError(f"Class '{object_type.name}' has no member '{expr.field_name}'", expr.span)
+                return box_value_type
+
             class_info = self._lookup_class_by_type_name(object_type.name)
             if class_info is None:
                 raise TypeCheckError(f"Type '{object_type.name}' has no fields/methods", expr.span)
@@ -339,6 +361,11 @@ class TypeChecker:
             if imported_fn_sig is not None:
                 self._check_call_arguments(imported_fn_sig.params, expr.arguments, expr.span)
                 return imported_fn_sig.return_type
+
+            builtin_box_value_type = BUILTIN_BOX_VALUE_TYPES.get(name)
+            if builtin_box_value_type is not None:
+                self._check_call_arguments([builtin_box_value_type], expr.arguments, expr.span)
+                return TypeInfo(name=name, kind="reference")
 
             class_info = self.classes.get(name)
             if class_info is not None:

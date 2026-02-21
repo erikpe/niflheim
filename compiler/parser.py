@@ -18,7 +18,21 @@ UNARY_START_TOKENS: set[TokenKind] = {
     TokenKind.TRUE,
     TokenKind.FALSE,
     TokenKind.NULL,
+    TokenKind.BOXI64,
+    TokenKind.BOXU64,
+    TokenKind.BOXU8,
+    TokenKind.BOXBOOL,
+    TokenKind.BOXDOUBLE,
 }
+
+
+BUILTIN_CALLABLE_TYPE_TOKENS: tuple[TokenKind, ...] = (
+    TokenKind.BOXI64,
+    TokenKind.BOXU64,
+    TokenKind.BOXU8,
+    TokenKind.BOXBOOL,
+    TokenKind.BOXDOUBLE,
+)
 
 
 class ParserError(ValueError):
@@ -583,7 +597,7 @@ class Parser:
         if self.stream.match(TokenKind.NULL):
             return NullExpr(span=self.stream.previous().span)
 
-        if self.stream.match(TokenKind.IDENT):
+        if self.stream.match(TokenKind.IDENT, *BUILTIN_CALLABLE_TYPE_TOKENS):
             token = self.stream.previous()
             return IdentifierExpr(name=token.lexeme, span=token.span)
 

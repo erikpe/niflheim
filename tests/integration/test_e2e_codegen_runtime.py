@@ -142,6 +142,19 @@ fn main() -> i64 {
     assert exit_code == 9
 
 
+def test_e2e_builtin_box_i64_constructor_and_value_read() -> None:
+    source = """
+fn main() -> i64 {
+    var b: BoxI64 = BoxI64(33);
+    var v: i64 = b.value;
+    return v;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 33
+
+
 def test_e2e_str_literal_and_indexing_links_and_runs() -> None:
     source = """
 fn main() -> i64 {

@@ -60,6 +60,20 @@ class ConstructorLayout:
 
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
+BOX_CONSTRUCTOR_RUNTIME_CALLS = {
+    "BoxI64": "rt_box_i64_new",
+    "BoxU64": "rt_box_u64_new",
+    "BoxU8": "rt_box_u8_new",
+    "BoxBool": "rt_box_bool_new",
+    "BoxDouble": "rt_box_double_new",
+}
+BOX_VALUE_GETTER_RUNTIME_CALLS = {
+    "BoxI64": "rt_box_i64_get",
+    "BoxU64": "rt_box_u64_get",
+    "BoxU8": "rt_box_u8_get",
+    "BoxBool": "rt_box_bool_get",
+    "BoxDouble": "rt_box_double_get",
+}
 
 
 def _epilogue_label(fn_name: str) -> str:
@@ -530,6 +544,9 @@ def _resolve_call_target_name(
     constructor_labels: dict[str, str],
 ) -> ResolvedCallTarget:
     if isinstance(callee, IdentifierExpr):
+        box_ctor_runtime = BOX_CONSTRUCTOR_RUNTIME_CALLS.get(callee.name)
+        if box_ctor_runtime is not None:
+            return ResolvedCallTarget(name=box_ctor_runtime, receiver_expr=None)
         ctor_label = constructor_labels.get(callee.name)
         if ctor_label is not None:
             return ResolvedCallTarget(name=ctor_label, receiver_expr=None)
@@ -604,6 +621,48 @@ def _emit_expr(
             raise NotImplementedError(f"identifier '{expr.name}' is not materialized in stack layout")
         out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[expr.name])}")
         return
+
+    if isinstance(expr, FieldAccessExpr):
+        if not isinstance(expr.object_expr, IdentifierExpr):
+            raise NotImplementedError("field access codegen currently requires identifier receivers")
+
+        receiver_name = expr.object_expr.name
+        receiver_type_name = layout.slot_type_names.get(receiver_name)
+        if receiver_type_name is None:
+            raise NotImplementedError(f"field receiver '{receiver_name}' is not materialized in stack layout")
+
+        if expr.field_name == "value":
+            getter_name = BOX_VALUE_GETTER_RUNTIME_CALLS.get(receiver_type_name)
+            if getter_name is not None:
+                _emit_expr(
+                    expr.object_expr,
+                    layout,
+                    out,
+                    fn_name,
+                    label_counter,
+                    method_labels,
+                    constructor_labels,
+                    string_literal_labels,
+                )
+                out.append("    push rax")
+                _emit_runtime_call_hook(
+                    fn_name=fn_name,
+                    phase="before",
+                    out=out,
+                    label_counter=label_counter,
+                )
+                _emit_root_slot_updates(layout, out)
+                out.append("    pop rdi")
+                out.append(f"    call {getter_name}")
+                _emit_runtime_call_hook(
+                    fn_name=fn_name,
+                    phase="after",
+                    out=out,
+                    label_counter=label_counter,
+                )
+                return
+
+        raise NotImplementedError("field access codegen currently supports only Box*.value reads")
 
     if isinstance(expr, CastExpr):
         _emit_expr(

@@ -249,6 +249,36 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_builtin_box_constructors_and_value_field_reads() -> None:
+    source = """
+fn main() -> unit {
+    var a: BoxI64 = BoxI64(7);
+    var b: BoxU64 = BoxU64((u64)9);
+    var c: BoxU8 = BoxU8((u8)255);
+    var d: BoxBool = BoxBool(true);
+
+    var av: i64 = a.value;
+    var bv: u64 = b.value;
+    var cv: u8 = c.value;
+    var dv: bool = d.value;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_assignment_through_box_value_field() -> None:
+    source = """
+fn main() -> unit {
+    var a: BoxI64 = BoxI64(7);
+    a.value = 9;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Box instances are immutable"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_non_unit_function_missing_return_path() -> None:
     source = """
 fn f(x: i64) -> i64 {
