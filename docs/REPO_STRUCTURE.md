@@ -31,8 +31,12 @@ Stage-0 compiler implementation in Python.
 Minimal C runtime skeleton for upcoming backend/GC work.
 
 - `include/runtime.h` - runtime ABI declarations.
-- `src/runtime.c` - runtime bring-up stubs.
-- `src/gc.c` - GC implementation unit (pending full implementation).
+- `include/str.h` - `Str` runtime API declarations.
+- `include/box.h` - primitive box runtime API declarations.
+- `src/runtime.c` - low-level runtime infrastructure (thread state, root frames, allocation, panic/print support).
+- `src/gc.c` - GC implementation unit.
+- `src/str.c` - `Str` object implementation.
+- `src/box.c` - primitive box object implementations.
 - `Makefile` - runtime static library build.
 
 ## `tests/`

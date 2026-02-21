@@ -144,6 +144,8 @@ fn main() -> i64 {
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
+    str_c = repo_root / "runtime" / "src" / "str.c"
+    box_c = repo_root / "runtime" / "src" / "box.c"
     exe_path = tmp_path / "program"
 
     subprocess.run(
@@ -154,6 +156,8 @@ fn main() -> i64 {
             str(runtime_include),
             str(runtime_c),
             str(gc_c),
+            str(str_c),
+            str(box_c),
             str(out_asm),
             "-o",
             str(exe_path),
@@ -271,6 +275,8 @@ fn main() -> i64 {
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
+    str_c = repo_root / "runtime" / "src" / "str.c"
+    box_c = repo_root / "runtime" / "src" / "box.c"
     exe_path = tmp_path / "program"
 
     subprocess.run(
@@ -281,6 +287,8 @@ fn main() -> i64 {
             str(runtime_include),
             str(runtime_c),
             str(gc_c),
+            str(str_c),
+            str(box_c),
             str(out_asm),
             "-o",
             str(exe_path),
