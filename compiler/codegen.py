@@ -8,6 +8,7 @@ from compiler.ast_nodes import (
     BlockStmt,
     CallExpr,
     CastExpr,
+    ClassDecl,
     ExprStmt,
     Expression,
     FieldAccessExpr,
@@ -15,10 +16,13 @@ from compiler.ast_nodes import (
     IdentifierExpr,
     IfStmt,
     LiteralExpr,
+    MethodDecl,
     ModuleAst,
     NullExpr,
+    ParamDecl,
     ReturnStmt,
     Statement,
+    TypeRef,
     UnaryExpr,
     VarDeclStmt,
     WhileStmt,
@@ -29,12 +33,19 @@ from compiler.ast_nodes import (
 class FunctionLayout:
     slot_names: list[str]
     slot_offsets: dict[str, int]
+    slot_type_names: dict[str, str]
     root_slot_names: list[str]
     root_slot_indices: dict[str, int]
     root_slot_offsets: dict[str, int]
     thread_state_offset: int
     root_frame_offset: int
     stack_size: int
+
+
+@dataclass(frozen=True)
+class ResolvedCallTarget:
+    name: str
+    receiver_expr: Expression | None
 
 
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
@@ -117,6 +128,7 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     return FunctionLayout(
         slot_names=ordered_names,
         slot_offsets=slot_offsets,
+        slot_type_names=types_by_name,
         root_slot_names=root_slot_names,
         root_slot_indices=root_slot_indices,
         root_slot_offsets=root_slot_offsets,
@@ -150,6 +162,12 @@ def _mangle_type_symbol(type_name: str) -> str:
 def _mangle_type_name_symbol(type_name: str) -> str:
     safe = type_name.replace(".", "_")
     return f"__nif_type_name_{safe}"
+
+
+def _mangle_method_symbol(type_name: str, method_name: str) -> str:
+    safe_type = type_name.replace(".", "_").replace(":", "_")
+    safe_method = method_name.replace(".", "_").replace(":", "_")
+    return f"__nif_method_{safe_type}_{safe_method}"
 
 
 def _collect_reference_cast_types_from_expr(expr: Expression, out: set[str]) -> None:
@@ -219,6 +237,10 @@ def _collect_reference_cast_types(module_ast: ModuleAst) -> list[str]:
             continue
         for stmt in fn.body.statements:
             _collect_reference_cast_types_from_stmt(stmt, names)
+    for cls in module_ast.classes:
+        for method in cls.methods:
+            for stmt in method.body.statements:
+                _collect_reference_cast_types_from_stmt(stmt, names)
     return sorted(names)
 
 
@@ -291,22 +313,57 @@ def _flatten_field_chain(expr: Expression) -> list[str] | None:
     return None
 
 
-def _resolve_call_target_name(callee: Expression, layout: FunctionLayout) -> str:
+def _resolve_method_call_target(
+    callee: FieldAccessExpr,
+    layout: FunctionLayout,
+    method_labels: dict[tuple[str, str], str],
+) -> ResolvedCallTarget:
+    receiver_expr = callee.object_expr
+    if not isinstance(receiver_expr, IdentifierExpr):
+        raise NotImplementedError("method-call codegen currently requires identifier receivers")
+
+    receiver_type_name = layout.slot_type_names.get(receiver_expr.name)
+    if receiver_type_name is None:
+        raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
+
+    method_name = callee.field_name
+    method_label = method_labels.get((receiver_type_name, method_name))
+    if method_label is None and "::" in receiver_type_name:
+        unqualified_type_name = receiver_type_name.split("::", 1)[1]
+        method_label = method_labels.get((unqualified_type_name, method_name))
+    if method_label is None:
+        raise NotImplementedError(f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'")
+
+    return ResolvedCallTarget(name=method_label, receiver_expr=receiver_expr)
+
+
+def _resolve_call_target_name(
+    callee: Expression,
+    layout: FunctionLayout,
+    method_labels: dict[tuple[str, str], str],
+) -> ResolvedCallTarget:
     if isinstance(callee, IdentifierExpr):
-        return callee.name
+        return ResolvedCallTarget(name=callee.name, receiver_expr=None)
 
     if isinstance(callee, FieldAccessExpr):
         chain = _flatten_field_chain(callee)
         if chain is None or len(chain) < 2:
             raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
         if chain[0] in layout.slot_offsets:
-            raise NotImplementedError("call codegen currently does not lower object/member method calls")
-        return chain[-1]
+            return _resolve_method_call_target(callee, layout, method_labels)
+        return ResolvedCallTarget(name=chain[-1], receiver_expr=None)
 
     raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
 
 
-def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name: str, label_counter: list[int]) -> None:
+def _emit_expr(
+    expr: Expression,
+    layout: FunctionLayout,
+    out: list[str],
+    fn_name: str,
+    label_counter: list[int],
+    method_labels: dict[tuple[str, str], str],
+) -> None:
     if isinstance(expr, LiteralExpr):
         if expr.value == "true":
             out.append("    mov rax, 1")
@@ -330,7 +387,7 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
         return
 
     if isinstance(expr, CastExpr):
-        _emit_expr(expr.operand, layout, out, fn_name, label_counter)
+        _emit_expr(expr.operand, layout, out, fn_name, label_counter, method_labels)
         target_type = expr.type_ref.name
         if _is_reference_type_name(target_type):
             type_symbol = _mangle_type_symbol(target_type)
@@ -340,10 +397,15 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
         return
 
     if isinstance(expr, CallExpr):
-        target_name = _resolve_call_target_name(expr.callee, layout)
+        resolved_target = _resolve_call_target_name(expr.callee, layout, method_labels)
+        target_name = resolved_target.name
+
+        call_arguments = list(expr.arguments)
+        if resolved_target.receiver_expr is not None:
+            call_arguments = [resolved_target.receiver_expr, *call_arguments]
 
         is_runtime_call = _is_runtime_call_name(target_name)
-        arg_count = len(expr.arguments)
+        arg_count = len(call_arguments)
         if arg_count > len(PARAM_REGISTERS):
             raise NotImplementedError("call codegen currently supports up to 6 positional arguments")
 
@@ -355,8 +417,8 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
                 label_counter=label_counter,
             )
 
-        for arg in reversed(expr.arguments):
-            _emit_expr(arg, layout, out, fn_name, label_counter)
+        for arg in reversed(call_arguments):
+            _emit_expr(arg, layout, out, fn_name, label_counter, method_labels)
             out.append("    push rax")
 
         _emit_root_slot_updates(layout, out)
@@ -376,7 +438,7 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
         return
 
     if isinstance(expr, UnaryExpr):
-        _emit_expr(expr.operand, layout, out, fn_name, label_counter)
+        _emit_expr(expr.operand, layout, out, fn_name, label_counter, method_labels)
         if expr.operator == "-":
             out.append("    neg rax")
             return
@@ -393,7 +455,7 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
             rhs_label = f".L{fn_name}_logic_rhs_{branch_id}"
             done_label = f".L{fn_name}_logic_done_{branch_id}"
 
-            _emit_expr(expr.left, layout, out, fn_name, label_counter)
+            _emit_expr(expr.left, layout, out, fn_name, label_counter, method_labels)
             _emit_bool_normalize(out)
             out.append("    cmp rax, 0")
             if expr.operator == "&&":
@@ -404,14 +466,14 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
                 out.append("    mov rax, 1")
             out.append(f"    jmp {done_label}")
             out.append(f"{rhs_label}:")
-            _emit_expr(expr.right, layout, out, fn_name, label_counter)
+            _emit_expr(expr.right, layout, out, fn_name, label_counter, method_labels)
             _emit_bool_normalize(out)
             out.append(f"{done_label}:")
             return
 
-        _emit_expr(expr.left, layout, out, fn_name, label_counter)
+        _emit_expr(expr.left, layout, out, fn_name, label_counter, method_labels)
         out.append("    push rax")
-        _emit_expr(expr.right, layout, out, fn_name, label_counter)
+        _emit_expr(expr.right, layout, out, fn_name, label_counter, method_labels)
         out.append("    mov rcx, rax")
         out.append("    pop rax")
 
@@ -463,10 +525,11 @@ def _emit_statement(
     layout: FunctionLayout,
     fn_name: str,
     label_counter: list[int],
+    method_labels: dict[tuple[str, str], str],
 ) -> None:
     if isinstance(stmt, ReturnStmt):
         if stmt.value is not None:
-            _emit_expr(stmt.value, layout, out, fn_name, label_counter)
+            _emit_expr(stmt.value, layout, out, fn_name, label_counter, method_labels)
         out.append(f"    jmp {epilogue_label}")
         return
 
@@ -478,7 +541,7 @@ def _emit_statement(
         if stmt.initializer is None:
             out.append("    mov rax, 0")
         else:
-            _emit_expr(stmt.initializer, layout, out, fn_name, label_counter)
+            _emit_expr(stmt.initializer, layout, out, fn_name, label_counter, method_labels)
         out.append(f"    mov {_offset_operand(offset)}, rax")
         return
 
@@ -488,31 +551,31 @@ def _emit_statement(
         offset = layout.slot_offsets.get(stmt.target.name)
         if offset is None:
             raise NotImplementedError(f"identifier '{stmt.target.name}' is not materialized in stack layout")
-        _emit_expr(stmt.value, layout, out, fn_name, label_counter)
+        _emit_expr(stmt.value, layout, out, fn_name, label_counter, method_labels)
         out.append(f"    mov {_offset_operand(offset)}, rax")
         return
 
     if isinstance(stmt, ExprStmt):
-        _emit_expr(stmt.expression, layout, out, fn_name, label_counter)
+        _emit_expr(stmt.expression, layout, out, fn_name, label_counter, method_labels)
         return
 
     if isinstance(stmt, BlockStmt):
         for nested in stmt.statements:
-            _emit_statement(nested, epilogue_label, out, layout, fn_name, label_counter)
+            _emit_statement(nested, epilogue_label, out, layout, fn_name, label_counter, method_labels)
         return
 
     if isinstance(stmt, IfStmt):
         else_label = _next_label(fn_name, "if_else", label_counter)
         end_label = _next_label(fn_name, "if_end", label_counter)
 
-        _emit_expr(stmt.condition, layout, out, fn_name, label_counter)
+        _emit_expr(stmt.condition, layout, out, fn_name, label_counter, method_labels)
         out.append("    cmp rax, 0")
         out.append(f"    je {else_label}")
-        _emit_statement(stmt.then_branch, epilogue_label, out, layout, fn_name, label_counter)
+        _emit_statement(stmt.then_branch, epilogue_label, out, layout, fn_name, label_counter, method_labels)
         out.append(f"    jmp {end_label}")
         out.append(f"{else_label}:")
         if stmt.else_branch is not None:
-            _emit_statement(stmt.else_branch, epilogue_label, out, layout, fn_name, label_counter)
+            _emit_statement(stmt.else_branch, epilogue_label, out, layout, fn_name, label_counter, method_labels)
         out.append(f"{end_label}:")
         return
 
@@ -521,10 +584,10 @@ def _emit_statement(
         end_label = _next_label(fn_name, "while_end", label_counter)
 
         out.append(f"{start_label}:")
-        _emit_expr(stmt.condition, layout, out, fn_name, label_counter)
+        _emit_expr(stmt.condition, layout, out, fn_name, label_counter, method_labels)
         out.append("    cmp rax, 0")
         out.append(f"    je {end_label}")
-        _emit_statement(stmt.body, epilogue_label, out, layout, fn_name, label_counter)
+        _emit_statement(stmt.body, epilogue_label, out, layout, fn_name, label_counter, method_labels)
         out.append(f"    jmp {start_label}")
         out.append(f"{end_label}:")
         return
@@ -532,15 +595,21 @@ def _emit_statement(
     raise NotImplementedError(f"statement codegen not implemented for {type(stmt).__name__}")
 
 
-def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
-    label = fn.name
-    epilogue = _epilogue_label(fn.name)
+def _emit_function(
+    fn: FunctionDecl,
+    out: list[str],
+    method_labels: dict[tuple[str, str], str],
+    *,
+    label: str | None = None,
+) -> None:
+    target_label = label if label is not None else fn.name
+    epilogue = _epilogue_label(target_label)
     layout = _build_layout(fn)
     label_counter = [0]
 
-    if fn.is_export or fn.name == "main":
-        out.append(f".globl {label}")
-    out.append(f"{label}:")
+    if label is None and (fn.is_export or fn.name == "main"):
+        out.append(f".globl {target_label}")
+    out.append(f"{target_label}:")
     out.append("    push rbp")
     out.append("    mov rbp, rsp")
     if layout.stack_size > 0:
@@ -572,7 +641,7 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
         out.append("    call rt_push_roots")
 
     for stmt in fn.body.statements:
-        _emit_statement(stmt, epilogue, out, layout, fn.name, label_counter)
+        _emit_statement(stmt, epilogue, out, layout, target_label, label_counter, method_labels)
 
     out.append(f"{epilogue}:")
     if layout.root_slot_names:
@@ -585,6 +654,23 @@ def _emit_function(fn: FunctionDecl, out: list[str]) -> None:
     out.append("    ret")
 
 
+def _method_function_decl(class_decl: ClassDecl, method_decl: MethodDecl, label: str) -> FunctionDecl:
+    receiver_param = ParamDecl(
+        name="__self",
+        type_ref=TypeRef(name=class_decl.name, span=method_decl.span),
+        span=method_decl.span,
+    )
+    return FunctionDecl(
+        name=label,
+        params=[receiver_param, *method_decl.params],
+        return_type=method_decl.return_type,
+        body=method_decl.body,
+        is_export=False,
+        is_extern=False,
+        span=method_decl.span,
+    )
+
+
 def emit_asm(module_ast: ModuleAst) -> str:
     lines: list[str] = [".intel_syntax noprefix"]
 
@@ -593,11 +679,23 @@ def emit_asm(module_ast: ModuleAst) -> str:
     lines.append("")
     lines.append(".text")
 
+    method_labels: dict[tuple[str, str], str] = {}
+    for cls in module_ast.classes:
+        for method in cls.methods:
+            method_labels[(cls.name, method.name)] = _mangle_method_symbol(cls.name, method.name)
+
     for fn in module_ast.functions:
         if fn.is_extern:
             continue
         lines.append("")
-        _emit_function(fn, lines)
+        _emit_function(fn, lines, method_labels)
+
+    for cls in module_ast.classes:
+        for method in cls.methods:
+            lines.append("")
+            method_label = method_labels[(cls.name, method.name)]
+            method_fn = _method_function_decl(cls, method, method_label)
+            _emit_function(method_fn, lines, method_labels, label=method_label)
 
     lines.append("")
     lines.append('.section .note.GNU-stack,"",@progbits')

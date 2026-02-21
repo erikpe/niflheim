@@ -103,3 +103,21 @@ fn main() -> i64 {
 
     exit_code = _compile_and_run(source)
     assert exit_code == 5
+
+
+def test_e2e_method_call_lowering_links_and_runs() -> None:
+    source = """
+class Counter {
+    fn id(delta: i64) -> i64 {
+        return delta;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = null;
+    return c.id(13);
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 13

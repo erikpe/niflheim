@@ -291,6 +291,8 @@ Minimal C runtime provides:
 - [x] Wire full shadow-stack ABI calls (`rt_root_frame_init`, `rt_push_roots`, `rt_root_slot_store`, `rt_pop_roots`).
 - [x] Restrict safepoint root-slot spills to exact reference-typed locals/temporaries.
 - [x] Add end-to-end compile+run tests.
+- [x] Add method callee lowering for call expressions.
+- [ ] Add constructor callee lowering for call expressions.
 
 ## F. Built-in Runtime Types
 
@@ -311,7 +313,7 @@ Minimal C runtime provides:
 - [ ] Add container specialization extension point.
 - [ ] Prototype one specialized container (`VecI64` or `MapStrObj`) without changing language core.
 - [ ] Extend call lowering to support >6 positional args (stack-passed args under SysV).
-- [ ] Add indirect/method/constructor callee lowering for call expressions.
+- [ ] Add indirect callee lowering for call expressions.
 - [ ] Add floating-point call/return ABI lowering (`xmm0`-`xmm7` path).
 - [ ] Move local slot allocation from name-based to lexical-scope-aware slots (no shadow aliasing).
 

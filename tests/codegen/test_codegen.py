@@ -237,6 +237,29 @@ fn main() -> i64 {
     assert "    call println_i64" in asm
 
 
+def test_emit_asm_method_call_lowers_to_method_symbol_with_receiver_arg0() -> None:
+    source = """
+class Counter {
+    fn add(delta: i64) -> i64 {
+        return delta;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = null;
+    return c.add(7);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "__nif_method_Counter_add:" in asm
+    assert "    call __nif_method_Counter_add" in asm
+    assert "    pop rdi" in asm
+    assert "    pop rsi" in asm
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks() -> None:
     source = """
 fn f(ts: Obj) -> unit {
