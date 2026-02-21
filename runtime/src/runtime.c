@@ -146,6 +146,10 @@ void rt_println_i64(int64_t value) {
     printf("%" PRId64 "\n", value);
 }
 
+void println_i64(int64_t value) {
+    rt_println_i64(value);
+}
+
 void rt_panic(const char* message) {
     fprintf(stderr, "panic: %s\n", message ? message : "unknown");
     abort();

@@ -10,6 +10,7 @@ from compiler.ast_nodes import (
     CastExpr,
     ExprStmt,
     Expression,
+    FieldAccessExpr,
     FunctionDecl,
     IdentifierExpr,
     IfStmt,
@@ -277,6 +278,34 @@ def _emit_root_slot_updates(layout: FunctionLayout, out: list[str]) -> None:
         out.append("    call rt_root_slot_store")
 
 
+def _flatten_field_chain(expr: Expression) -> list[str] | None:
+    if isinstance(expr, IdentifierExpr):
+        return [expr.name]
+
+    if isinstance(expr, FieldAccessExpr):
+        left = _flatten_field_chain(expr.object_expr)
+        if left is None:
+            return None
+        return [*left, expr.field_name]
+
+    return None
+
+
+def _resolve_call_target_name(callee: Expression, layout: FunctionLayout) -> str:
+    if isinstance(callee, IdentifierExpr):
+        return callee.name
+
+    if isinstance(callee, FieldAccessExpr):
+        chain = _flatten_field_chain(callee)
+        if chain is None or len(chain) < 2:
+            raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+        if chain[0] in layout.slot_offsets:
+            raise NotImplementedError("call codegen currently does not lower object/member method calls")
+        return chain[-1]
+
+    raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+
+
 def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name: str, label_counter: list[int]) -> None:
     if isinstance(expr, LiteralExpr):
         if expr.value == "true":
@@ -311,10 +340,9 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
         return
 
     if isinstance(expr, CallExpr):
-        if not isinstance(expr.callee, IdentifierExpr):
-            raise NotImplementedError("call codegen currently supports direct identifier callees only")
+        target_name = _resolve_call_target_name(expr.callee, layout)
 
-        is_runtime_call = _is_runtime_call_name(expr.callee.name)
+        is_runtime_call = _is_runtime_call_name(target_name)
         arg_count = len(expr.arguments)
         if arg_count > len(PARAM_REGISTERS):
             raise NotImplementedError("call codegen currently supports up to 6 positional arguments")
@@ -336,7 +364,7 @@ def _emit_expr(expr: Expression, layout: FunctionLayout, out: list[str], fn_name
         for index in range(arg_count):
             out.append(f"    pop {PARAM_REGISTERS[index]}")
 
-        out.append(f"    call {expr.callee.name}")
+        out.append(f"    call {target_name}")
 
         if is_runtime_call:
             _emit_runtime_call_hook(

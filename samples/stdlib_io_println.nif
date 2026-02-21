@@ -3,5 +3,6 @@ import std.io;
 fn main() -> i64 {
     var x: i64 = 23;
     println_i64(x);
+    io.println_i64(17+23);
     return 0;
 }

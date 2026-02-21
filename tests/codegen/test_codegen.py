@@ -224,6 +224,19 @@ fn main() -> i64 {
     assert "    call sum3" in asm
 
 
+def test_emit_asm_module_qualified_call_uses_member_symbol_name() -> None:
+    source = """
+fn main() -> i64 {
+    return std.io.println_i64(23);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call println_i64" in asm
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks() -> None:
     source = """
 fn f(ts: Obj) -> unit {
