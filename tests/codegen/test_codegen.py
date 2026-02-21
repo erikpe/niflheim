@@ -240,6 +240,24 @@ fn f(ts: Obj) -> unit {
     assert "    call rt_gc_collect" in asm
 
 
+def test_emit_asm_skips_extern_declaration_body_emission() -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn main() -> i64 {
+    var root: Obj = null;
+    rt_gc_collect(root);
+    return 0;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "rt_gc_collect:" not in asm
+    assert "    call rt_gc_collect" in asm
+
+
 def test_emit_asm_runtime_call_spills_named_slots_to_root_slots() -> None:
     source = """
 fn f(ts: Obj) -> unit {

@@ -76,8 +76,9 @@ class FunctionDecl:
     name: str
     params: list[ParamDecl]
     return_type: TypeRef
-    body: "BlockStmt"
+    body: "BlockStmt | None"
     is_export: bool
+    is_extern: bool
     span: SourceSpan
 
 

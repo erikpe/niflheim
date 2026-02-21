@@ -146,6 +146,9 @@ These are specialization/performance features and should not change core semanti
 - Frozen v0.1 module import syntax forms:
   - `import a.b;`
   - `export import a.b;` (re-export)
+- External function declaration forms:
+  - `extern fn name(args...) -> type;`
+  - `export extern fn name(args...) -> type;` (re-export)
 - Symbols are private by default to defining module.
 - `export` makes symbol visible to importing module.
 - Re-export of imported symbols/modules is allowed.

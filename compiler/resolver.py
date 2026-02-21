@@ -167,6 +167,8 @@ def _build_import_tables(module_ast: ModuleAst) -> tuple[dict[str, ImportInfo], 
 
 def _validate_module_visibility(module_info: ModuleInfo, modules: dict[ModulePath, ModuleInfo]) -> None:
     for fn_decl in module_info.ast.functions:
+        if fn_decl.body is None:
+            continue
         _validate_block(fn_decl.body, module_info, modules)
 
     for class_decl in module_info.ast.classes:

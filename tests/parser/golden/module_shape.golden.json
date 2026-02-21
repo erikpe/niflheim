@@ -173,6 +173,7 @@
         ]
       },
       "is_export": true,
+      "is_extern": false,
       "name": "main",
       "node": "FunctionDecl",
       "params": [],

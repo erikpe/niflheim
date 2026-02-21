@@ -22,6 +22,25 @@ def test_lex_basic_function_signature_and_keywords() -> None:
     ]
 
 
+def test_lex_extern_keyword() -> None:
+    source = "extern fn rt_gc_collect(ts: Obj) -> unit;"
+    kinds = [token.kind for token in lex(source)]
+    assert kinds == [
+        TokenKind.EXTERN,
+        TokenKind.FN,
+        TokenKind.IDENT,
+        TokenKind.LPAREN,
+        TokenKind.IDENT,
+        TokenKind.COLON,
+        TokenKind.OBJ,
+        TokenKind.RPAREN,
+        TokenKind.ARROW,
+        TokenKind.UNIT,
+        TokenKind.SEMICOLON,
+        TokenKind.EOF,
+    ]
+
+
 def test_lex_skips_whitespace_and_line_comments() -> None:
     source = "// first\nvar x: i64 = 1; // second\n"
     tokens = lex(source)

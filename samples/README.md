@@ -17,4 +17,4 @@ Entrypoint rule:
 - Valid programs are expected to define `fn main() -> i64`.
 
 Additional debugging-oriented sample:
-- `samples/runtime_safepoint_gc.nif` (repeated function calls over `Obj` values to inspect safepoint/root-slot codegen)
+- `samples/runtime_safepoint_gc.nif` (uses `extern fn rt_gc_collect(...)` across multiple functions to inspect safepoint/root-slot codegen)

@@ -38,7 +38,11 @@ class TypeChecker:
             self._collect_declarations()
 
         for fn_decl in self.module_ast.functions:
+            if fn_decl.is_extern:
+                continue
             fn_sig = self.functions[fn_decl.name]
+            if fn_decl.body is None:
+                raise TypeCheckError("Function declaration missing body", fn_decl.span)
             self._check_function_like(fn_decl.params, fn_decl.body, fn_sig.return_type)
 
         for class_decl in self.module_ast.classes:
@@ -75,6 +79,10 @@ class TypeChecker:
             )
 
         for fn_decl in self.module_ast.functions:
+            if fn_decl.is_extern and fn_decl.body is not None:
+                raise TypeCheckError("Extern function must not have a body", fn_decl.span)
+            if not fn_decl.is_extern and fn_decl.body is None:
+                raise TypeCheckError("Function declaration missing body", fn_decl.span)
             if fn_decl.name in self.functions or fn_decl.name in self.classes:
                 raise TypeCheckError(f"Duplicate declaration '{fn_decl.name}'", fn_decl.span)
             self.functions[fn_decl.name] = self._function_sig_from_decl(fn_decl)

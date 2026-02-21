@@ -75,3 +75,20 @@ fn not_main() -> i64 {
 
     assert rc == 1
     assert "Program entrypoint missing" in captured.err
+
+
+def test_cli_rejects_extern_main_entrypoint(tmp_path: Path, monkeypatch, capsys) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+extern fn main() -> i64;
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(sys, "argv", ["nifc", str(source)])
+    rc = main()
+    captured = capsys.readouterr()
+
+    assert rc == 1
+    assert "Invalid main signature: expected concrete definition 'fn main() -> i64'" in captured.err

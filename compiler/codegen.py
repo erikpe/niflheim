@@ -214,6 +214,8 @@ def _collect_reference_cast_types_from_stmt(stmt: Statement, out: set[str]) -> N
 def _collect_reference_cast_types(module_ast: ModuleAst) -> list[str]:
     names: set[str] = set()
     for fn in module_ast.functions:
+        if fn.body is None:
+            continue
         for stmt in fn.body.statements:
             _collect_reference_cast_types_from_stmt(stmt, names)
     return sorted(names)
@@ -564,6 +566,8 @@ def emit_asm(module_ast: ModuleAst) -> str:
     lines.append(".text")
 
     for fn in module_ast.functions:
+        if fn.is_extern:
+            continue
         lines.append("")
         _emit_function(fn, lines)
 

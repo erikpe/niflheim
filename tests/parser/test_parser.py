@@ -178,8 +178,32 @@ def test_parse_export_requires_import_class_or_fn() -> None:
     with pytest.raises(ParserError) as error:
         parse(lex(source, source_path="examples/bad_export.nif"))
 
-    assert "Expected 'import', 'class', or 'fn' after 'export'" in str(error.value)
+    assert "Expected 'import', 'class', 'fn', or 'extern fn' after 'export'" in str(error.value)
     assert "examples/bad_export.nif" in str(error.value)
+
+
+def test_parse_extern_and_export_extern_function_declarations() -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+export extern fn rt_panic(msg: Str) -> unit;
+"""
+    module = parse(lex(source, source_path="examples/extern.nif"))
+
+    assert len(module.functions) == 2
+
+    local = module.functions[0]
+    assert local.name == "rt_gc_collect"
+    assert local.is_export is False
+    assert local.is_extern is True
+    assert local.body is None
+    assert local.params[0].type_ref.name == "Obj"
+
+    exported = module.functions[1]
+    assert exported.name == "rt_panic"
+    assert exported.is_export is True
+    assert exported.is_extern is True
+    assert exported.body is None
+    assert exported.params[0].type_ref.name == "Str"
 
 
 def test_parse_unterminated_block_raises_parser_error() -> None:

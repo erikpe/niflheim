@@ -30,6 +30,8 @@ def _require_main_function(module_ast: ModuleAst) -> None:
     main_decl = next((fn for fn in module_ast.functions if fn.name == "main"), None)
     if main_decl is None:
         raise ValueError("Program entrypoint missing: expected 'fn main() -> i64'")
+    if main_decl.is_extern or main_decl.body is None:
+        raise ValueError("Invalid main signature: expected concrete definition 'fn main() -> i64'")
     if main_decl.params:
         raise ValueError("Invalid main signature: expected 'fn main() -> i64' (no parameters)")
     if main_decl.return_type.name != "i64":

@@ -13,6 +13,7 @@ class TokenKind(str, Enum):
 
     IMPORT = "IMPORT"
     EXPORT = "EXPORT"
+    EXTERN = "EXTERN"
     CLASS = "CLASS"
     FN = "FN"
     VAR = "VAR"
@@ -75,6 +76,7 @@ class TokenKind(str, Enum):
 KEYWORDS: dict[str, TokenKind] = {
     "import": TokenKind.IMPORT,
     "export": TokenKind.EXPORT,
+    "extern": TokenKind.EXTERN,
     "class": TokenKind.CLASS,
     "fn": TokenKind.FN,
     "var": TokenKind.VAR,

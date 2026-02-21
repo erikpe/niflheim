@@ -1,9 +1,19 @@
-fn bump(x: i64) -> i64 {
-    return x + 1;
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn safepoint_once(v: Obj) -> Obj {
+    var local: Obj = v;
+    rt_gc_collect(local);
+    return local;
 }
 
-fn pass_obj(v: Obj) -> Obj {
-    return v;
+fn safepoint_twice(v: Obj) -> Obj {
+    var step1: Obj = safepoint_once(v);
+    rt_gc_collect(step1);
+    return step1;
+}
+
+fn bump(x: i64) -> i64 {
+    return x + 1;
 }
 
 fn main() -> i64 {
@@ -11,13 +21,10 @@ fn main() -> i64 {
     var i: i64 = 0;
 
     while i < 3 {
-        o = pass_obj(o);
+        o = safepoint_twice(o);
         i = bump(i);
     }
 
-    if o == null {
-        return 9;
-    }
-
-    return 1;
+    rt_gc_collect(o);
+    return i;
 }

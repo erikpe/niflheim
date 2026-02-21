@@ -105,7 +105,32 @@ class Parser:
                     functions.append(self._parse_function_decl(is_export=True, fn_token=self.stream.previous(), export_token=export_token))
                     continue
 
-                raise ParserError("Expected 'import', 'class', or 'fn' after 'export'", self.stream.peek().span)
+                if self.stream.match(TokenKind.EXTERN):
+                    extern_token = self.stream.previous()
+                    fn_token = self.stream.expect(TokenKind.FN, "Expected 'fn' after 'extern'")
+                    functions.append(
+                        self._parse_extern_function_decl(
+                            is_export=True,
+                            fn_token=fn_token,
+                            extern_token=extern_token,
+                            export_token=export_token,
+                        )
+                    )
+                    continue
+
+                raise ParserError("Expected 'import', 'class', 'fn', or 'extern fn' after 'export'", self.stream.peek().span)
+
+            if self.stream.match(TokenKind.EXTERN):
+                extern_token = self.stream.previous()
+                fn_token = self.stream.expect(TokenKind.FN, "Expected 'fn' after 'extern'")
+                functions.append(
+                    self._parse_extern_function_decl(
+                        is_export=False,
+                        fn_token=fn_token,
+                        extern_token=extern_token,
+                    )
+                )
+                continue
 
             if self.stream.match(TokenKind.CLASS):
                 classes.append(self._parse_class_decl(is_export=False, class_token=self.stream.previous()))
@@ -226,7 +251,32 @@ class Parser:
             return_type=return_type,
             body=body,
             is_export=is_export,
+            is_extern=False,
             span=SourceSpan(start=start_pos, end=body.span.end),
+        )
+
+    def _parse_extern_function_decl(
+        self,
+        *,
+        is_export: bool,
+        fn_token: Token,
+        extern_token: Token,
+        export_token: Token | None = None,
+    ) -> FunctionDecl:
+        name, params, return_type = self._parse_callable_signature()
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after extern function declaration")
+        if export_token is not None:
+            start_pos = export_token.span.start
+        else:
+            start_pos = extern_token.span.start
+        return FunctionDecl(
+            name=name,
+            params=params,
+            return_type=return_type,
+            body=None,
+            is_export=is_export,
+            is_extern=True,
+            span=SourceSpan(start=start_pos, end=semicolon.span.end),
         )
 
     def _parse_callable_signature(self) -> tuple[str, list[ParamDecl], TypeRef]:
