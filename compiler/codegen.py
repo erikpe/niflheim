@@ -67,12 +67,22 @@ BOX_CONSTRUCTOR_RUNTIME_CALLS = {
     "BoxBool": "rt_box_bool_new",
     "BoxDouble": "rt_box_double_new",
 }
+BUILTIN_CONSTRUCTOR_RUNTIME_CALLS = {
+    "Vec": "rt_vec_new",
+    **BOX_CONSTRUCTOR_RUNTIME_CALLS,
+}
 BOX_VALUE_GETTER_RUNTIME_CALLS = {
     "BoxI64": "rt_box_i64_get",
     "BoxU64": "rt_box_u64_get",
     "BoxU8": "rt_box_u8_get",
     "BoxBool": "rt_box_bool_get",
     "BoxDouble": "rt_box_double_get",
+}
+BUILTIN_METHOD_RUNTIME_CALLS = {
+    ("Vec", "len"): "rt_vec_len",
+    ("Vec", "push"): "rt_vec_push",
+    ("Vec", "get"): "rt_vec_get",
+    ("Vec", "set"): "rt_vec_set",
 }
 
 
@@ -491,10 +501,10 @@ def _emit_root_slot_updates(layout: FunctionLayout, out: list[str]) -> None:
         return
 
     out.append("    # spill reference-typed roots to root slots")
-    out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
     for name in layout.root_slot_names:
         value_offset = layout.slot_offsets[name]
         slot_index = layout.root_slot_indices[name]
+        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
         out.append(f"    mov rdx, {_offset_operand(value_offset)}")
         out.append(f"    mov esi, {slot_index}")
         out.append("    call rt_root_slot_store")
@@ -527,6 +537,11 @@ def _resolve_method_call_target(
         raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
 
     method_name = callee.field_name
+
+    builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((receiver_type_name, method_name))
+    if builtin_method is not None:
+        return ResolvedCallTarget(name=builtin_method, receiver_expr=receiver_expr)
+
     method_label = method_labels.get((receiver_type_name, method_name))
     if method_label is None and "::" in receiver_type_name:
         unqualified_type_name = receiver_type_name.split("::", 1)[1]
@@ -544,9 +559,9 @@ def _resolve_call_target_name(
     constructor_labels: dict[str, str],
 ) -> ResolvedCallTarget:
     if isinstance(callee, IdentifierExpr):
-        box_ctor_runtime = BOX_CONSTRUCTOR_RUNTIME_CALLS.get(callee.name)
-        if box_ctor_runtime is not None:
-            return ResolvedCallTarget(name=box_ctor_runtime, receiver_expr=None)
+        builtin_ctor_runtime = BUILTIN_CONSTRUCTOR_RUNTIME_CALLS.get(callee.name)
+        if builtin_ctor_runtime is not None:
+            return ResolvedCallTarget(name=builtin_ctor_runtime, receiver_expr=None)
         ctor_label = constructor_labels.get(callee.name)
         if ctor_label is not None:
             return ResolvedCallTarget(name=ctor_label, receiver_expr=None)
@@ -684,6 +699,14 @@ def _emit_expr(
         return
 
     if isinstance(expr, IndexExpr):
+        if not isinstance(expr.object_expr, IdentifierExpr):
+            raise NotImplementedError("index codegen currently requires identifier receivers")
+
+        receiver_name = expr.object_expr.name
+        receiver_type_name = layout.slot_type_names.get(receiver_name)
+        if receiver_type_name is None:
+            raise NotImplementedError(f"index receiver '{receiver_name}' is not materialized in stack layout")
+
         _emit_expr(
             expr.index_expr,
             layout,
@@ -716,7 +739,14 @@ def _emit_expr(
         _emit_root_slot_updates(layout, out)
         out.append("    pop rdi")
         out.append("    pop rsi")
-        out.append("    call rt_str_get_u8")
+
+        if receiver_type_name == "Str":
+            out.append("    call rt_str_get_u8")
+        elif receiver_type_name == "Vec":
+            out.append("    call rt_vec_get")
+        else:
+            raise NotImplementedError("index codegen currently supports Str and Vec receivers")
+
         _emit_runtime_call_hook(
             fn_name=fn_name,
             phase="after",

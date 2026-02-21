@@ -27,6 +27,7 @@ def _compile_and_run(source: str) -> int:
     gc_c = root / "runtime" / "src" / "gc.c"
     str_c = root / "runtime" / "src" / "str.c"
     box_c = root / "runtime" / "src" / "box.c"
+    vec_c = root / "runtime" / "src" / "vec.c"
 
     module = parse(lex(source, source_path="tests/e2e_input.nif"))
     asm = emit_asm(module)
@@ -47,6 +48,7 @@ def _compile_and_run(source: str) -> int:
             str(gc_c),
             str(str_c),
             str(box_c),
+            str(vec_c),
             str(asm_path),
             "-o",
             str(exe_path),
@@ -183,3 +185,29 @@ fn main() -> i64 {
 
     exit_code = _compile_and_run(source)
     assert exit_code == 65
+
+
+def test_e2e_vec_baseline_ops_links_and_runs() -> None:
+    source = """
+fn main() -> i64 {
+    var v: Vec = Vec();
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
+    var first: Obj = v.get(0);
+    v.set(1, first);
+
+    var n: i64 = v.len();
+    if n != 2 {
+        return 1;
+    }
+
+    var via_index: Obj = v[1];
+    if via_index == null {
+        return 2;
+    }
+    return 0;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 0

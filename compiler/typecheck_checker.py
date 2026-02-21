@@ -14,6 +14,16 @@ BUILTIN_BOX_VALUE_TYPES: dict[str, TypeInfo] = {
     "BoxDouble": TypeInfo(name="double", kind="primitive"),
 }
 
+BUILTIN_VEC_METHOD_SPECS: dict[str, tuple[list[TypeInfo], TypeInfo]] = {
+    "len": ([], TypeInfo(name="i64", kind="primitive")),
+    "push": ([TypeInfo(name="Obj", kind="reference")], TypeInfo(name="unit", kind="primitive")),
+    "get": ([TypeInfo(name="i64", kind="primitive")], TypeInfo(name="Obj", kind="reference")),
+    "set": (
+        [TypeInfo(name="i64", kind="primitive"), TypeInfo(name="Obj", kind="reference")],
+        TypeInfo(name="unit", kind="primitive"),
+    ),
+}
+
 
 class TypeChecker:
     def __init__(
@@ -228,6 +238,9 @@ class TypeChecker:
             if expr.name in BUILTIN_BOX_VALUE_TYPES:
                 return TypeInfo(name=f"__class__:{expr.name}", kind="callable")
 
+            if expr.name == "Vec":
+                return TypeInfo(name="__class__:Vec", kind="callable")
+
             if self._current_module_info() is not None and expr.name in self._current_module_info().imports:
                 return TypeInfo(name=f"__module__:{expr.name}", kind="module")
 
@@ -319,6 +332,12 @@ class TypeChecker:
                     raise TypeCheckError(f"Class '{object_type.name}' has no member '{expr.field_name}'", expr.span)
                 return box_value_type
 
+            if object_type.name == "Vec":
+                method_spec = BUILTIN_VEC_METHOD_SPECS.get(expr.field_name)
+                if method_spec is None:
+                    raise TypeCheckError(f"Class 'Vec' has no member '{expr.field_name}'", expr.span)
+                return TypeInfo(name=f"__method__:Vec:{expr.field_name}", kind="callable")
+
             class_info = self._lookup_class_by_type_name(object_type.name)
             if class_info is None:
                 raise TypeCheckError(f"Type '{object_type.name}' has no fields/methods", expr.span)
@@ -367,6 +386,10 @@ class TypeChecker:
                 self._check_call_arguments([builtin_box_value_type], expr.arguments, expr.span)
                 return TypeInfo(name=name, kind="reference")
 
+            if name == "Vec":
+                self._check_call_arguments([], expr.arguments, expr.span)
+                return TypeInfo(name="Vec", kind="reference")
+
             class_info = self.classes.get(name)
             if class_info is not None:
                 return self._infer_constructor_call_type(
@@ -410,6 +433,15 @@ class TypeChecker:
                 raise TypeCheckError("Module values are not callable", expr.callee.span)
 
             object_type = self._infer_expression_type(expr.callee.object_expr)
+
+            if object_type.name == "Vec":
+                method_spec = BUILTIN_VEC_METHOD_SPECS.get(expr.callee.field_name)
+                if method_spec is None:
+                    raise TypeCheckError(f"Class 'Vec' has no method '{expr.callee.field_name}'", expr.span)
+                params, return_type = method_spec
+                self._check_call_arguments(params, expr.arguments, expr.span)
+                return return_type
+
             class_info = self._lookup_class_by_type_name(object_type.name)
             if class_info is None:
                 raise TypeCheckError(f"Type '{object_type.name}' has no callable members", expr.span)

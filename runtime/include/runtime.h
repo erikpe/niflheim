@@ -5,6 +5,7 @@
 
 #include "box.h"
 #include "str.h"
+#include "vec.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -299,7 +299,7 @@ Minimal C runtime provides:
 ## F. Built-in Runtime Types
 
 - [x] Implement `Str` (immutable).
-- [ ] Implement `Vec` (`Obj` elements).
+- [x] Implement `Vec` (`Obj` elements).
 - [ ] Implement `Map` (`Obj -> Obj`, identity key semantics).
 - [x] Implement primitive box classes.
 - [ ] Add API and behavioral tests for nested containers.
