@@ -211,3 +211,52 @@ fn main() -> i64 {
 
     exit_code = _compile_and_run(source)
     assert exit_code == 0
+
+
+def test_e2e_vec_inline_boxed_args_survive_runtime_gc_links_and_runs() -> None:
+    source = """
+extern fn rt_box_bool_get(box_obj: Obj) -> bool;
+
+fn main() -> i64 {
+    var max: i64 = 2000;
+    var flags: Vec = Vec();
+    var i: i64 = 0;
+
+    while i <= max {
+        flags.push(BoxBool(true));
+        i = i + 1;
+    }
+
+    flags.set(0, BoxBool(false));
+    flags.set(1, BoxBool(false));
+
+    var p: i64 = 2;
+    while p <= max / p {
+        if rt_box_bool_get(flags.get(p)) {
+            var m: i64 = p * p;
+            while m <= max {
+                flags.set(m, BoxBool(false));
+                m = m + p;
+            }
+        }
+        p = p + 1;
+    }
+
+    var primes: Vec = Vec();
+    var n: i64 = 2;
+    while n <= max {
+        if rt_box_bool_get(flags.get(n)) {
+            primes.push(BoxI64(n));
+        }
+        n = n + 1;
+    }
+
+    if primes.len() != 303 {
+        return 1;
+    }
+    return 0;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 0

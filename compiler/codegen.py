@@ -38,6 +38,9 @@ class FunctionLayout:
     root_slot_names: list[str]
     root_slot_indices: dict[str, int]
     root_slot_offsets: dict[str, int]
+    temp_root_slot_offsets: list[int]
+    temp_root_slot_start_index: int
+    root_slot_count: int
     thread_state_offset: int
     root_frame_offset: int
     stack_size: int
@@ -83,6 +86,20 @@ BUILTIN_METHOD_RUNTIME_CALLS = {
     ("Vec", "push"): "rt_vec_push",
     ("Vec", "get"): "rt_vec_get",
     ("Vec", "set"): "rt_vec_set",
+}
+TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
+RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
+    "rt_checked_cast": (0,),
+    "rt_box_i64_get": (0,),
+    "rt_box_u64_get": (0,),
+    "rt_box_u8_get": (0,),
+    "rt_box_bool_get": (0,),
+    "rt_box_double_get": (0,),
+    "rt_vec_len": (0,),
+    "rt_vec_get": (0,),
+    "rt_vec_push": (0, 1),
+    "rt_vec_set": (0, 2),
+    "rt_str_get_u8": (0,),
 }
 
 
@@ -147,17 +164,27 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     root_slot_names = [name for name in ordered_names if _is_reference_type_name(types_by_name[name])]
     root_slot_indices = {name: index for index, name in enumerate(root_slot_names)}
 
+    needs_temp_runtime_roots = _function_needs_temp_runtime_roots(fn)
+    temp_root_slot_count = TEMP_RUNTIME_ROOT_SLOT_COUNT if needs_temp_runtime_roots else 0
+    temp_root_slot_start_index = len(root_slot_names)
+    root_slot_count = len(root_slot_names) + temp_root_slot_count
+
     root_slot_offsets: dict[str, int] = {}
-    for index, name in enumerate(root_slot_names, start=1):
-        root_slot_offsets[name] = -(8 * (len(ordered_names) + index))
+    root_slots_base_offset = -(8 * (len(ordered_names) + root_slot_count)) if root_slot_count > 0 else 0
+    for index, name in enumerate(root_slot_names):
+        root_slot_offsets[name] = root_slots_base_offset + (8 * index)
+    temp_root_slot_offsets = [
+        root_slots_base_offset + (8 * (len(root_slot_names) + index))
+        for index in range(temp_root_slot_count)
+    ]
 
     bytes_for_value_slots = len(ordered_names) * 8
-    bytes_for_root_slots = len(root_slot_names) * 8
-    bytes_for_shadow_stack_state = 32 if root_slot_names else 0
+    bytes_for_root_slots = root_slot_count * 8
+    bytes_for_shadow_stack_state = 32 if root_slot_count > 0 else 0
 
     bytes_for_slots = bytes_for_value_slots + bytes_for_root_slots
-    thread_state_offset = -(bytes_for_slots + 8) if root_slot_names else 0
-    root_frame_offset = -(bytes_for_slots + 8 + 24) if root_slot_names else 0
+    thread_state_offset = -(bytes_for_slots + 8) if root_slot_count > 0 else 0
+    root_frame_offset = -(bytes_for_slots + 8 + 24) if root_slot_count > 0 else 0
     stack_size = _align16(bytes_for_slots + bytes_for_shadow_stack_state)
     return FunctionLayout(
         slot_names=ordered_names,
@@ -166,10 +193,91 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
         root_slot_names=root_slot_names,
         root_slot_indices=root_slot_indices,
         root_slot_offsets=root_slot_offsets,
+        temp_root_slot_offsets=temp_root_slot_offsets,
+        temp_root_slot_start_index=temp_root_slot_start_index,
+        root_slot_count=root_slot_count,
         thread_state_offset=thread_state_offset,
         root_frame_offset=root_frame_offset,
         stack_size=stack_size,
     )
+
+
+def _expr_needs_temp_runtime_roots(expr: Expression) -> bool:
+    if isinstance(expr, CallExpr):
+        if isinstance(expr.callee, IdentifierExpr) and expr.callee.name in RUNTIME_REF_ARG_INDICES:
+            return True
+        if isinstance(expr.callee, FieldAccessExpr) and expr.callee.field_name in {
+            "len",
+            "push",
+            "get",
+            "set",
+        }:
+            return True
+        if _expr_needs_temp_runtime_roots(expr.callee):
+            return True
+        return any(_expr_needs_temp_runtime_roots(arg) for arg in expr.arguments)
+
+    if isinstance(expr, CastExpr):
+        return _expr_needs_temp_runtime_roots(expr.operand)
+    if isinstance(expr, UnaryExpr):
+        return _expr_needs_temp_runtime_roots(expr.operand)
+    if isinstance(expr, BinaryExpr):
+        return _expr_needs_temp_runtime_roots(expr.left) or _expr_needs_temp_runtime_roots(expr.right)
+    if isinstance(expr, FieldAccessExpr):
+        return _expr_needs_temp_runtime_roots(expr.object_expr)
+    if isinstance(expr, IndexExpr):
+        return _expr_needs_temp_runtime_roots(expr.object_expr) or _expr_needs_temp_runtime_roots(expr.index_expr)
+    return False
+
+
+def _stmt_needs_temp_runtime_roots(stmt: Statement) -> bool:
+    if isinstance(stmt, VarDeclStmt):
+        return stmt.initializer is not None and _expr_needs_temp_runtime_roots(stmt.initializer)
+    if isinstance(stmt, AssignStmt):
+        return _expr_needs_temp_runtime_roots(stmt.value)
+    if isinstance(stmt, ExprStmt):
+        return _expr_needs_temp_runtime_roots(stmt.expression)
+    if isinstance(stmt, ReturnStmt):
+        return stmt.value is not None and _expr_needs_temp_runtime_roots(stmt.value)
+    if isinstance(stmt, BlockStmt):
+        return any(_stmt_needs_temp_runtime_roots(nested) for nested in stmt.statements)
+    if isinstance(stmt, IfStmt):
+        condition_has = _expr_needs_temp_runtime_roots(stmt.condition)
+        then_has = _stmt_needs_temp_runtime_roots(stmt.then_branch)
+        else_has = _stmt_needs_temp_runtime_roots(stmt.else_branch) if stmt.else_branch is not None else False
+        return condition_has or then_has or else_has
+    if isinstance(stmt, WhileStmt):
+        return _expr_needs_temp_runtime_roots(stmt.condition) or _stmt_needs_temp_runtime_roots(stmt.body)
+    return False
+
+
+def _function_needs_temp_runtime_roots(fn: FunctionDecl) -> bool:
+    return any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
+
+
+def _emit_runtime_call_arg_temp_roots(layout: FunctionLayout, target_name: str, arg_count: int, out: list[str]) -> int:
+    if layout.root_slot_count <= 0:
+        return 0
+    ref_indices = [index for index in RUNTIME_REF_ARG_INDICES.get(target_name, ()) if index < arg_count]
+    if not ref_indices:
+        return 0
+    if len(ref_indices) > len(layout.temp_root_slot_offsets):
+        raise NotImplementedError("insufficient temporary root slots for runtime call argument rooting")
+
+    for temp_index, arg_index in enumerate(ref_indices):
+        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+        if arg_index == 0:
+            out.append("    mov rdx, qword ptr [rsp]")
+        else:
+            out.append(f"    mov rdx, qword ptr [rsp + {arg_index * 8}]")
+        out.append(f"    mov esi, {layout.temp_root_slot_start_index + temp_index}")
+        out.append("    call rt_root_slot_store")
+    return len(ref_indices)
+
+
+def _emit_clear_runtime_call_arg_temp_roots(layout: FunctionLayout, rooted_count: int, out: list[str]) -> None:
+    for temp_index in range(rooted_count):
+        out.append(f"    mov {_offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
 
 
 def _emit_bool_normalize(out: list[str]) -> None:
@@ -790,11 +898,17 @@ def _emit_expr(
             out.append("    push rax")
 
         _emit_root_slot_updates(layout, out)
+        rooted_runtime_arg_count = 0
+        if is_runtime_call:
+            rooted_runtime_arg_count = _emit_runtime_call_arg_temp_roots(layout, target_name, arg_count, out)
 
         for index in range(arg_count):
             out.append(f"    pop {PARAM_REGISTERS[index]}")
 
         out.append(f"    call {target_name}")
+
+        if rooted_runtime_arg_count > 0:
+            _emit_clear_runtime_call_arg_temp_roots(layout, rooted_runtime_arg_count, out)
 
         if is_runtime_call:
             _emit_runtime_call_hook(
@@ -1131,6 +1245,8 @@ def _emit_function(
         out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
     for name in layout.root_slot_names:
         out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
+    for offset in layout.temp_root_slot_offsets:
+        out.append(f"    mov {_offset_operand(offset)}, 0")
 
     for index, param in enumerate(fn.params):
         if index >= len(PARAM_REGISTERS):
@@ -1140,13 +1256,16 @@ def _emit_function(
             continue
         out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[index]}")
 
-    if layout.root_slot_names:
+    if layout.root_slot_count > 0:
         out.append("    call rt_thread_state")
         out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
         out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
+        if layout.root_slot_names:
+            first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
+        else:
+            first_root_offset = layout.temp_root_slot_offsets[0]
         out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
-        out.append(f"    mov edx, {len(layout.root_slot_names)}")
+        out.append(f"    mov edx, {layout.root_slot_count}")
         out.append("    call rt_root_frame_init")
         out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
         out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
@@ -1166,7 +1285,7 @@ def _emit_function(
         )
 
     out.append(f"{epilogue}:")
-    if layout.root_slot_names:
+    if layout.root_slot_count > 0:
         out.append("    push rax")
         out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
         out.append("    call rt_pop_roots")
