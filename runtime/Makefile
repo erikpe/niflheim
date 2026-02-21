@@ -1,7 +1,7 @@
 CC := cc
 CFLAGS := -std=c11 -Wall -Wextra -Werror -Iinclude
 
-RUNTIME_SRC := src/runtime.c src/gc.c src/str.c src/box.c src/vec.c
+RUNTIME_SRC := src/runtime.c src/gc.c src/io.c src/str.c src/box.c src/vec.c
 RUNTIME_OBJ := $(RUNTIME_SRC:.c=.o)
 TEST_DIR := tests
 GC_STRESS_BIN := $(TEST_DIR)/test_gc_stress

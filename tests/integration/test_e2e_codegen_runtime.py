@@ -25,6 +25,7 @@ def _compile_and_run(source: str) -> int:
     runtime_include = root / "runtime" / "include"
     runtime_c = root / "runtime" / "src" / "runtime.c"
     gc_c = root / "runtime" / "src" / "gc.c"
+    io_c = root / "runtime" / "src" / "io.c"
     str_c = root / "runtime" / "src" / "str.c"
     box_c = root / "runtime" / "src" / "box.c"
     vec_c = root / "runtime" / "src" / "vec.c"
@@ -46,6 +47,7 @@ def _compile_and_run(source: str) -> int:
             str(runtime_include),
             str(runtime_c),
             str(gc_c),
+            str(io_c),
             str(str_c),
             str(box_c),
             str(vec_c),

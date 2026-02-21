@@ -38,6 +38,7 @@ cc \
   -I "$repo_root/runtime/include" \
   "$repo_root/runtime/src/runtime.c" \
   "$repo_root/runtime/src/gc.c" \
+  "$repo_root/runtime/src/io.c" \
   "$repo_root/runtime/src/str.c" \
   "$repo_root/runtime/src/box.c" \
   "$repo_root/runtime/src/vec.c" \

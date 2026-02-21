@@ -14,7 +14,6 @@ Try with:
 - `python3 -m compiler.main samples/null_and_cast.nif -o out.s`
 - `./scripts/run.sh samples/stdlib_io_println.nif`
 - `./scripts/run.sh samples/vec_primes_2_to_1000000.nif`
-- `./scripts/run.sh samples/vec_primes_sieve_2_to_1000000.nif`
 
 Entrypoint rule:
 - Valid programs are expected to define `fn main() -> i64`.

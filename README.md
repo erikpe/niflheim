@@ -41,8 +41,9 @@ Backend/codegen, runtime GC implementation details, and full CLI workflow are st
 Runtime test harnesses live under `runtime/tests/` and are built/run via `runtime/Makefile`.
 
 Runtime sources are split by responsibility:
-- `runtime/src/runtime.c` - low-level runtime infrastructure (thread state, roots, allocation, panic/print support)
+- `runtime/src/runtime.c` - low-level runtime infrastructure (thread state, roots, allocation, panic support)
 - `runtime/src/gc.c` - GC implementation
+- `runtime/src/io.c` - runtime IO/println implementation
 - `runtime/src/str.c` - `Str` implementation
 - `runtime/src/box.c` - primitive box implementations
 - `runtime/src/vec.c` - `Vec` implementation

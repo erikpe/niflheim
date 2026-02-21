@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "box.h"
+#include "io.h"
 #include "str.h"
 #include "vec.h"
 
@@ -82,10 +83,6 @@ void rt_gc_unregister_global_root(void** slot);
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
 RtGcStats rt_gc_get_stats(void);
 void rt_gc_collect(RtThreadState* ts);
-void rt_println_i64(int64_t value);
-void rt_println_u64(uint64_t value);
-void rt_println_u8(uint64_t value);
-void rt_println_bool(int64_t value);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
 
 __attribute__((noreturn)) void rt_panic(const char* message);

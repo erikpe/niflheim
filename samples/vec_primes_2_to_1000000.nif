@@ -1,13 +1,14 @@
 import std.io;
 
-extern fn rt_box_i64_get(box_obj: Obj) -> i64;
-
 fn is_prime(n: i64) -> bool {
     if n < 2 {
         return false;
     }
+    else if n == 2 {
+        return true;
+    }
 
-    var d: i64 = 2;
+    var d: i64 = 3;
     while d * d <= n {
         if n % d == 0 {
             return false;
@@ -32,12 +33,12 @@ fn main() -> i64 {
 
     var i: i64 = 0;
     var n: i64 = primes.len();
+    var sum: i64;
     while i < n {
-        //var value_obj: Obj = primes.get(i);
-        //println_i64(rt_box_i64_get(value_obj));
-        println_i64(((BoxI64)primes.get(i)).value);
+        sum = sum + ((BoxI64)primes[i]).value;
         i = i + 1;
     }
+    println_i64(sum);
 
     return 0;
 }

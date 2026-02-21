@@ -144,6 +144,7 @@ fn main() -> i64 {
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
+    io_c = repo_root / "runtime" / "src" / "io.c"
     str_c = repo_root / "runtime" / "src" / "str.c"
     box_c = repo_root / "runtime" / "src" / "box.c"
     vec_c = repo_root / "runtime" / "src" / "vec.c"
@@ -157,6 +158,7 @@ fn main() -> i64 {
             str(runtime_include),
             str(runtime_c),
             str(gc_c),
+            str(io_c),
             str(str_c),
             str(box_c),
             str(vec_c),
@@ -277,6 +279,7 @@ fn main() -> i64 {
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
+    io_c = repo_root / "runtime" / "src" / "io.c"
     str_c = repo_root / "runtime" / "src" / "str.c"
     box_c = repo_root / "runtime" / "src" / "box.c"
     vec_c = repo_root / "runtime" / "src" / "vec.c"
@@ -290,6 +293,7 @@ fn main() -> i64 {
             str(runtime_include),
             str(runtime_c),
             str(gc_c),
+            str(io_c),
             str(str_c),
             str(box_c),
             str(vec_c),
