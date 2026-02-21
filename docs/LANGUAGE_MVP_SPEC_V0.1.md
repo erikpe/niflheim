@@ -111,8 +111,9 @@ Defaults:
 ### 5.1 Str
 
 - `Str` is immutable.
-- Recommended encoding: UTF-8 bytes.
-- Immutability simplifies hashing and sharing.
+- `Str` stores raw `u8` bytes only (no encoding semantics in v0.1).
+- String literals produce `Str` instances and support C-style escapes (`\"`, `\\`, `\n`, `\r`, `\t`, `\0`, `\xHH`).
+- `Str` is indexable via `[]` with `i64` index and returns `u8`.
 
 ### 5.2 Vec
 
@@ -296,7 +297,7 @@ Minimal C runtime provides:
 
 ## F. Built-in Runtime Types
 
-- [ ] Implement `Str` (immutable).
+- [x] Implement `Str` (immutable).
 - [ ] Implement `Vec` (`Obj` elements).
 - [ ] Implement `Map` (`Obj -> Obj`, identity key semantics).
 - [ ] Implement primitive box classes.

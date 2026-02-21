@@ -14,6 +14,7 @@ from compiler.ast_nodes import (
     FieldAccessExpr,
     FunctionDecl,
     IdentifierExpr,
+    IndexExpr,
     IfStmt,
     LiteralExpr,
     MethodDecl,
@@ -182,6 +183,175 @@ def _mangle_method_symbol(type_name: str, method_name: str) -> str:
 def _mangle_constructor_symbol(type_name: str) -> str:
     safe_type = type_name.replace(".", "_").replace(":", "_")
     return f"__nif_ctor_{safe_type}"
+
+
+def _decode_string_literal(lexeme: str) -> bytes:
+    if len(lexeme) < 2 or not lexeme.startswith('"') or not lexeme.endswith('"'):
+        raise ValueError(f"invalid string literal lexeme: {lexeme!r}")
+
+    payload = lexeme[1:-1]
+    out = bytearray()
+    index = 0
+    while index < len(payload):
+        ch = payload[index]
+        if ch != "\\":
+            out.append(ord(ch))
+            index += 1
+            continue
+
+        index += 1
+        if index >= len(payload):
+            raise ValueError("invalid trailing backslash in string literal")
+
+        esc = payload[index]
+        if esc == '"':
+            out.append(ord('"'))
+            index += 1
+            continue
+        if esc == "\\":
+            out.append(ord("\\"))
+            index += 1
+            continue
+        if esc == "n":
+            out.append(0x0A)
+            index += 1
+            continue
+        if esc == "r":
+            out.append(0x0D)
+            index += 1
+            continue
+        if esc == "t":
+            out.append(0x09)
+            index += 1
+            continue
+        if esc == "0":
+            out.append(0x00)
+            index += 1
+            continue
+        if esc == "x":
+            if index + 2 >= len(payload):
+                raise ValueError("invalid \\x escape in string literal")
+            hex_text = payload[index + 1 : index + 3]
+            out.append(int(hex_text, 16))
+            index += 3
+            continue
+
+        raise ValueError(f"unsupported string escape \\{esc}")
+
+    return bytes(out)
+
+
+def _collect_string_literals_from_expr(expr: Expression, out: list[str], seen: set[str]) -> None:
+    if isinstance(expr, LiteralExpr):
+        if expr.value.startswith('"'):
+            if expr.value not in seen:
+                seen.add(expr.value)
+                out.append(expr.value)
+        return
+
+    if isinstance(expr, CastExpr):
+        _collect_string_literals_from_expr(expr.operand, out, seen)
+        return
+
+    if isinstance(expr, UnaryExpr):
+        _collect_string_literals_from_expr(expr.operand, out, seen)
+        return
+
+    if isinstance(expr, BinaryExpr):
+        _collect_string_literals_from_expr(expr.left, out, seen)
+        _collect_string_literals_from_expr(expr.right, out, seen)
+        return
+
+    if isinstance(expr, CallExpr):
+        _collect_string_literals_from_expr(expr.callee, out, seen)
+        for arg in expr.arguments:
+            _collect_string_literals_from_expr(arg, out, seen)
+        return
+
+    if isinstance(expr, FieldAccessExpr):
+        _collect_string_literals_from_expr(expr.object_expr, out, seen)
+        return
+
+    if isinstance(expr, IndexExpr):
+        _collect_string_literals_from_expr(expr.object_expr, out, seen)
+        _collect_string_literals_from_expr(expr.index_expr, out, seen)
+
+
+def _collect_string_literals_from_stmt(stmt: Statement, out: list[str], seen: set[str]) -> None:
+    if isinstance(stmt, VarDeclStmt):
+        if stmt.initializer is not None:
+            _collect_string_literals_from_expr(stmt.initializer, out, seen)
+        return
+
+    if isinstance(stmt, AssignStmt):
+        _collect_string_literals_from_expr(stmt.target, out, seen)
+        _collect_string_literals_from_expr(stmt.value, out, seen)
+        return
+
+    if isinstance(stmt, ExprStmt):
+        _collect_string_literals_from_expr(stmt.expression, out, seen)
+        return
+
+    if isinstance(stmt, ReturnStmt):
+        if stmt.value is not None:
+            _collect_string_literals_from_expr(stmt.value, out, seen)
+        return
+
+    if isinstance(stmt, BlockStmt):
+        for nested in stmt.statements:
+            _collect_string_literals_from_stmt(nested, out, seen)
+        return
+
+    if isinstance(stmt, IfStmt):
+        _collect_string_literals_from_expr(stmt.condition, out, seen)
+        _collect_string_literals_from_stmt(stmt.then_branch, out, seen)
+        if stmt.else_branch is not None:
+            _collect_string_literals_from_stmt(stmt.else_branch, out, seen)
+        return
+
+    if isinstance(stmt, WhileStmt):
+        _collect_string_literals_from_expr(stmt.condition, out, seen)
+        _collect_string_literals_from_stmt(stmt.body, out, seen)
+
+
+def _collect_string_literals(module_ast: ModuleAst) -> list[str]:
+    literals: list[str] = []
+    seen: set[str] = set()
+
+    for fn in module_ast.functions:
+        if fn.body is None:
+            continue
+        for stmt in fn.body.statements:
+            _collect_string_literals_from_stmt(stmt, literals, seen)
+
+    for cls in module_ast.classes:
+        for method in cls.methods:
+            for stmt in method.body.statements:
+                _collect_string_literals_from_stmt(stmt, literals, seen)
+
+    return literals
+
+
+def _emit_string_literal_section(module_ast: ModuleAst, out: list[str]) -> dict[str, tuple[str, int]]:
+    string_literals = _collect_string_literals(module_ast)
+    labels: dict[str, tuple[str, int]] = {}
+    if not string_literals:
+        return labels
+
+    out.append("")
+    out.append(".section .rodata")
+    for index, literal in enumerate(string_literals):
+        label = f"__nif_str_lit_{index}"
+        data = _decode_string_literal(literal)
+        labels[literal] = (label, len(data))
+        out.append(f"{label}:")
+        if data:
+            data_bytes = ", ".join(str(byte) for byte in data)
+            out.append(f"    .byte {data_bytes}")
+        else:
+            out.append("    .byte 0")
+
+    return labels
 
 
 def _collect_reference_cast_types_from_expr(expr: Expression, out: set[str]) -> None:
@@ -387,8 +557,33 @@ def _emit_expr(
     label_counter: list[int],
     method_labels: dict[tuple[str, str], str],
     constructor_labels: dict[str, str],
+    string_literal_labels: dict[str, tuple[str, int]],
 ) -> None:
     if isinstance(expr, LiteralExpr):
+        if expr.value.startswith('"'):
+            label_and_len = string_literal_labels.get(expr.value)
+            if label_and_len is None:
+                raise NotImplementedError("missing string literal lowering metadata")
+            data_label, data_len = label_and_len
+            _emit_runtime_call_hook(
+                fn_name=fn_name,
+                phase="before",
+                out=out,
+                label_counter=label_counter,
+            )
+            _emit_root_slot_updates(layout, out)
+            out.append("    call rt_thread_state")
+            out.append("    mov rdi, rax")
+            out.append(f"    lea rsi, [rip + {data_label}]")
+            out.append(f"    mov rdx, {data_len}")
+            out.append("    call rt_str_from_bytes")
+            _emit_runtime_call_hook(
+                fn_name=fn_name,
+                phase="after",
+                out=out,
+                label_counter=label_counter,
+            )
+            return
         if expr.value == "true":
             out.append("    mov rax, 1")
             return
@@ -411,13 +606,64 @@ def _emit_expr(
         return
 
     if isinstance(expr, CastExpr):
-        _emit_expr(expr.operand, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_expr(
+            expr.operand,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         target_type = expr.type_ref.name
         if _is_reference_type_name(target_type):
             type_symbol = _mangle_type_symbol(target_type)
             out.append("    mov rdi, rax")
             out.append(f"    lea rsi, [rip + {type_symbol}]")
             out.append("    call rt_checked_cast")
+        return
+
+    if isinstance(expr, IndexExpr):
+        _emit_expr(
+            expr.index_expr,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
+        out.append("    push rax")
+        _emit_expr(
+            expr.object_expr,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
+        out.append("    push rax")
+
+        _emit_runtime_call_hook(
+            fn_name=fn_name,
+            phase="before",
+            out=out,
+            label_counter=label_counter,
+        )
+        _emit_root_slot_updates(layout, out)
+        out.append("    pop rdi")
+        out.append("    pop rsi")
+        out.append("    call rt_str_get_u8")
+        _emit_runtime_call_hook(
+            fn_name=fn_name,
+            phase="after",
+            out=out,
+            label_counter=label_counter,
+        )
         return
 
     if isinstance(expr, CallExpr):
@@ -442,7 +688,16 @@ def _emit_expr(
             )
 
         for arg in reversed(call_arguments):
-            _emit_expr(arg, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+            _emit_expr(
+                arg,
+                layout,
+                out,
+                fn_name,
+                label_counter,
+                method_labels,
+                constructor_labels,
+                string_literal_labels,
+            )
             out.append("    push rax")
 
         _emit_root_slot_updates(layout, out)
@@ -462,7 +717,16 @@ def _emit_expr(
         return
 
     if isinstance(expr, UnaryExpr):
-        _emit_expr(expr.operand, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_expr(
+            expr.operand,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         if expr.operator == "-":
             out.append("    neg rax")
             return
@@ -479,7 +743,16 @@ def _emit_expr(
             rhs_label = f".L{fn_name}_logic_rhs_{branch_id}"
             done_label = f".L{fn_name}_logic_done_{branch_id}"
 
-            _emit_expr(expr.left, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+            _emit_expr(
+                expr.left,
+                layout,
+                out,
+                fn_name,
+                label_counter,
+                method_labels,
+                constructor_labels,
+                string_literal_labels,
+            )
             _emit_bool_normalize(out)
             out.append("    cmp rax, 0")
             if expr.operator == "&&":
@@ -490,14 +763,41 @@ def _emit_expr(
                 out.append("    mov rax, 1")
             out.append(f"    jmp {done_label}")
             out.append(f"{rhs_label}:")
-            _emit_expr(expr.right, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+            _emit_expr(
+                expr.right,
+                layout,
+                out,
+                fn_name,
+                label_counter,
+                method_labels,
+                constructor_labels,
+                string_literal_labels,
+            )
             _emit_bool_normalize(out)
             out.append(f"{done_label}:")
             return
 
-        _emit_expr(expr.left, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_expr(
+            expr.left,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         out.append("    push rax")
-        _emit_expr(expr.right, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_expr(
+            expr.right,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         out.append("    mov rcx, rax")
         out.append("    pop rax")
 
@@ -551,10 +851,20 @@ def _emit_statement(
     label_counter: list[int],
     method_labels: dict[tuple[str, str], str],
     constructor_labels: dict[str, str],
+    string_literal_labels: dict[str, tuple[str, int]],
 ) -> None:
     if isinstance(stmt, ReturnStmt):
         if stmt.value is not None:
-            _emit_expr(stmt.value, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+            _emit_expr(
+                stmt.value,
+                layout,
+                out,
+                fn_name,
+                label_counter,
+                method_labels,
+                constructor_labels,
+                string_literal_labels,
+            )
         out.append(f"    jmp {epilogue_label}")
         return
 
@@ -566,7 +876,16 @@ def _emit_statement(
         if stmt.initializer is None:
             out.append("    mov rax, 0")
         else:
-            _emit_expr(stmt.initializer, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+            _emit_expr(
+                stmt.initializer,
+                layout,
+                out,
+                fn_name,
+                label_counter,
+                method_labels,
+                constructor_labels,
+                string_literal_labels,
+            )
         out.append(f"    mov {_offset_operand(offset)}, rax")
         return
 
@@ -576,31 +895,89 @@ def _emit_statement(
         offset = layout.slot_offsets.get(stmt.target.name)
         if offset is None:
             raise NotImplementedError(f"identifier '{stmt.target.name}' is not materialized in stack layout")
-        _emit_expr(stmt.value, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_expr(
+            stmt.value,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         out.append(f"    mov {_offset_operand(offset)}, rax")
         return
 
     if isinstance(stmt, ExprStmt):
-        _emit_expr(stmt.expression, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_expr(
+            stmt.expression,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         return
 
     if isinstance(stmt, BlockStmt):
         for nested in stmt.statements:
-            _emit_statement(nested, epilogue_label, out, layout, fn_name, label_counter, method_labels, constructor_labels)
+            _emit_statement(
+                nested,
+                epilogue_label,
+                out,
+                layout,
+                fn_name,
+                label_counter,
+                method_labels,
+                constructor_labels,
+                string_literal_labels,
+            )
+
         return
 
     if isinstance(stmt, IfStmt):
         else_label = _next_label(fn_name, "if_else", label_counter)
         end_label = _next_label(fn_name, "if_end", label_counter)
 
-        _emit_expr(stmt.condition, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_expr(
+            stmt.condition,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         out.append("    cmp rax, 0")
         out.append(f"    je {else_label}")
-        _emit_statement(stmt.then_branch, epilogue_label, out, layout, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_statement(
+            stmt.then_branch,
+            epilogue_label,
+            out,
+            layout,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         out.append(f"    jmp {end_label}")
         out.append(f"{else_label}:")
         if stmt.else_branch is not None:
-            _emit_statement(stmt.else_branch, epilogue_label, out, layout, fn_name, label_counter, method_labels, constructor_labels)
+            _emit_statement(
+                stmt.else_branch,
+                epilogue_label,
+                out,
+                layout,
+                fn_name,
+                label_counter,
+                method_labels,
+                constructor_labels,
+                string_literal_labels,
+            )
         out.append(f"{end_label}:")
         return
 
@@ -609,10 +986,29 @@ def _emit_statement(
         end_label = _next_label(fn_name, "while_end", label_counter)
 
         out.append(f"{start_label}:")
-        _emit_expr(stmt.condition, layout, out, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_expr(
+            stmt.condition,
+            layout,
+            out,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         out.append("    cmp rax, 0")
         out.append(f"    je {end_label}")
-        _emit_statement(stmt.body, epilogue_label, out, layout, fn_name, label_counter, method_labels, constructor_labels)
+        _emit_statement(
+            stmt.body,
+            epilogue_label,
+            out,
+            layout,
+            fn_name,
+            label_counter,
+            method_labels,
+            constructor_labels,
+            string_literal_labels,
+        )
         out.append(f"    jmp {start_label}")
         out.append(f"{end_label}:")
         return
@@ -625,6 +1021,7 @@ def _emit_function(
     out: list[str],
     method_labels: dict[tuple[str, str], str],
     constructor_labels: dict[str, str],
+    string_literal_labels: dict[str, tuple[str, int]],
     *,
     label: str | None = None,
 ) -> None:
@@ -676,6 +1073,7 @@ def _emit_function(
             label_counter,
             method_labels,
             constructor_labels,
+            string_literal_labels,
         )
 
     out.append(f"{epilogue}:")
@@ -806,6 +1204,7 @@ def emit_asm(module_ast: ModuleAst) -> str:
     lines: list[str] = [".intel_syntax noprefix"]
 
     _emit_type_metadata_section(module_ast, lines)
+    string_literal_labels = _emit_string_literal_section(module_ast, lines)
 
     lines.append("")
     lines.append(".text")
@@ -833,14 +1232,21 @@ def emit_asm(module_ast: ModuleAst) -> str:
         if fn.is_extern:
             continue
         lines.append("")
-        _emit_function(fn, lines, method_labels, constructor_labels)
+        _emit_function(fn, lines, method_labels, constructor_labels, string_literal_labels)
 
     for cls in module_ast.classes:
         for method in cls.methods:
             lines.append("")
             method_label = method_labels[(cls.name, method.name)]
             method_fn = _method_function_decl(cls, method, method_label)
-            _emit_function(method_fn, lines, method_labels, constructor_labels, label=method_label)
+            _emit_function(
+                method_fn,
+                lines,
+                method_labels,
+                constructor_labels,
+                string_literal_labels,
+                label=method_label,
+            )
 
     for cls in module_ast.classes:
         lines.append("")

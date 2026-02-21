@@ -214,6 +214,41 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_str_index_returns_u8() -> None:
+    source = """
+fn main() -> unit {
+    var s: Str = "A";
+    var b: u8 = s[0];
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_non_i64_str_index() -> None:
+    source = """
+fn main() -> unit {
+    var s: Str = "A";
+    var b: u8 = s[true];
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 'i64', got 'bool'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_assignment_through_str_index() -> None:
+    source = """
+fn main() -> unit {
+    var s: Str = "A";
+    s[0] = (u8)66;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Str is immutable"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_non_unit_function_missing_return_path() -> None:
     source = """
 fn f(x: i64) -> i64 {

@@ -237,6 +237,39 @@ fn main() -> i64 {
     assert "    call println_i64" in asm
 
 
+def test_emit_asm_string_literal_lowers_via_rt_str_from_bytes() -> None:
+    source = """
+fn main() -> i64 {
+    var s: Str = "A\\x42\\n";
+    if s == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "__nif_str_lit_0:" in asm
+    assert "    call rt_str_from_bytes" in asm
+
+
+def test_emit_asm_str_index_lowers_via_rt_str_get_u8() -> None:
+    source = """
+fn main() -> i64 {
+    var s: Str = "ABC";
+    var b: u8 = s[1];
+    return (i64)b;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_str_get_u8" in asm
+
+
 def test_emit_asm_method_call_lowers_to_method_symbol_with_receiver_arg0() -> None:
     source = """
 class Counter {

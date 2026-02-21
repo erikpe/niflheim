@@ -68,6 +68,13 @@ def test_lex_numbers_and_string_literal() -> None:
     assert string_token.lexeme == '"hi\\n"'
 
 
+def test_lex_string_literal_allows_hex_escape() -> None:
+    source = 'var s: Str = "A\\x42\\0";'
+    tokens = lex(source)
+    string_token = next(t for t in tokens if t.kind == TokenKind.STRING_LIT)
+    assert string_token.lexeme == '"A\\x42\\0"'
+
+
 def test_lex_token_span_line_and_column() -> None:
     source = "\n\n  fn id(x: i64) -> i64 { return x; }"
     tokens = lex(source)
@@ -82,6 +89,16 @@ def test_lex_raises_on_unterminated_string() -> None:
         lex('var s: Str = "unterminated')
 
     assert "Unterminated string literal" in str(error.value)
+
+
+def test_lex_raises_on_invalid_string_escape() -> None:
+    with pytest.raises(LexerError, match="Invalid string escape sequence"):
+        lex('var s: Str = "bad\\q";')
+
+
+def test_lex_raises_on_invalid_hex_escape() -> None:
+    with pytest.raises(LexerError, match="Invalid string escape sequence"):
+        lex('var s: Str = "bad\\xG1";')
 
 
 def test_lex_error_includes_path_row_col() -> None:

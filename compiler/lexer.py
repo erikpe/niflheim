@@ -133,21 +133,35 @@ class Lexer:
 
     def _read_string(self, start: SourcePos) -> Token:
         self._advance()
-        escaped = False
 
         while not self._is_at_end():
             ch = self._peek()
             if ch == "\n":
                 raise LexerError("Unterminated string literal", SourceSpan(start, self._pos()))
 
-            if escaped:
-                escaped = False
-                self._advance()
-                continue
-
             if ch == "\\":
-                escaped = True
                 self._advance()
+
+                if self._is_at_end():
+                    raise LexerError("Unterminated string literal", SourceSpan(start, self._pos()))
+
+                esc = self._peek()
+                if esc in {'"', "\\", "n", "r", "t", "0"}:
+                    self._advance()
+                    continue
+
+                if esc == "x":
+                    self._advance()
+                    first = self._peek()
+                    second = self._peek_next()
+                    if not self._is_hex_digit(first) or not self._is_hex_digit(second):
+                        raise LexerError("Invalid string escape sequence", SourceSpan(start, self._pos()))
+                    self._advance()
+                    self._advance()
+                    continue
+
+                raise LexerError("Invalid string escape sequence", SourceSpan(start, self._pos()))
+
                 continue
 
             if ch == '"':
@@ -189,6 +203,10 @@ class Lexer:
     @staticmethod
     def _is_ident_part(ch: str) -> bool:
         return ch.isalnum() or ch == "_"
+
+    @staticmethod
+    def _is_hex_digit(ch: str) -> bool:
+        return ch.isdigit() or ("a" <= ch <= "f") or ("A" <= ch <= "F")
 
 
 def lex(source: str, source_path: str = "<memory>") -> list[Token]:

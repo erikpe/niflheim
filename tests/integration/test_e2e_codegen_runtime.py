@@ -140,3 +140,29 @@ fn main() -> i64 {
 
     exit_code = _compile_and_run(source)
     assert exit_code == 9
+
+
+def test_e2e_str_literal_and_indexing_links_and_runs() -> None:
+    source = """
+fn main() -> i64 {
+    var s: Str = "AB\\n";
+    var b: u8 = s[1];
+    return (i64)b;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 66
+
+
+def test_e2e_str_hex_escape_links_and_runs() -> None:
+    source = """
+fn main() -> i64 {
+    var s: Str = "\\x41\\x42";
+    var b: u8 = s[0];
+    return (i64)b;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 65

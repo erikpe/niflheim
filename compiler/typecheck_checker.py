@@ -190,7 +190,13 @@ class TypeChecker:
                 raise TypeCheckError("Invalid assignment target", expr.span)
             return
 
-        if isinstance(expr, (FieldAccessExpr, IndexExpr)):
+        if isinstance(expr, FieldAccessExpr):
+            return
+
+        if isinstance(expr, IndexExpr):
+            object_type = self._infer_expression_type(expr.object_expr)
+            if object_type.name == "Str":
+                raise TypeCheckError("Cannot assign through Str index: Str is immutable", expr.span)
             return
 
         raise TypeCheckError("Invalid assignment target", expr.span)
@@ -308,6 +314,9 @@ class TypeChecker:
         if isinstance(expr, IndexExpr):
             obj_type = self._infer_expression_type(expr.object_expr)
             index_type = self._infer_expression_type(expr.index_expr)
+            if obj_type.name == "Str":
+                self._require_type_name(index_type, "i64", expr.index_expr.span)
+                return TypeInfo(name="u8", kind="primitive")
             if obj_type.name == "Vec":
                 self._require_type_name(index_type, "i64", expr.index_expr.span)
                 return TypeInfo(name="Obj", kind="reference")
