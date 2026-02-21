@@ -1,7 +1,7 @@
 from compiler.ast_nodes import ModuleAst
 from compiler.resolver import ProgramInfo, ModulePath
 from compiler.typecheck_checker import TypeChecker
-from compiler.typecheck_model import *
+from compiler.typecheck_model import ClassInfo, FunctionSig
 
 
 def typecheck_program(program: ProgramInfo) -> None:

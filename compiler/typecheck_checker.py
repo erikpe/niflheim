@@ -3,7 +3,7 @@ from __future__ import annotations
 from compiler.ast_nodes import *
 from compiler.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
-from compiler.typecheck_model import *
+from compiler.typecheck_model import TypeInfo, FunctionSig, ClassInfo, TypeCheckError, NUMERIC_TYPE_NAMES, PRIMITIVE_TYPE_NAMES, REFERENCE_BUILTIN_TYPE_NAMES
 
 
 BUILTIN_BOX_VALUE_TYPES: dict[str, TypeInfo] = {
