@@ -665,7 +665,7 @@ def _constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDec
 class CodeGenerator:
     def __init__(self, module_ast: ModuleAst) -> None:
         self.module_ast = module_ast
-        self.lines: list[str] = [".intel_syntax noprefix"]
+        self.out: list[str] = [".intel_syntax noprefix"]
         self.method_labels: dict[tuple[str, str], str] = {}
         self.method_return_types: dict[tuple[str, str], str] = {}
         self.function_return_types: dict[str, str] = {}
@@ -695,26 +695,23 @@ class CodeGenerator:
             self.constructor_labels[cls.name] = ctor_label
 
     def _emit_frame_prologue(self, target_label: str, layout: FunctionLayout, *, global_symbol: bool) -> None:
-        out = self.lines
         if global_symbol:
-            out.append(f".globl {target_label}")
-        out.append(f"{target_label}:")
-        out.append("    push rbp")
-        out.append("    mov rbp, rsp")
+            self.out.append(f".globl {target_label}")
+        self.out.append(f"{target_label}:")
+        self.out.append("    push rbp")
+        self.out.append("    mov rbp, rsp")
         if layout.stack_size > 0:
-            out.append(f"    sub rsp, {layout.stack_size}")
+            self.out.append(f"    sub rsp, {layout.stack_size}")
 
     def _emit_zero_slots(self, layout: FunctionLayout) -> None:
-        out = self.lines
         for name in layout.slot_names:
-            out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
+            self.out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
         for name in layout.root_slot_names:
-            out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
+            self.out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
         for offset in layout.temp_root_slot_offsets:
-            out.append(f"    mov {_offset_operand(offset)}, 0")
+            self.out.append(f"    mov {_offset_operand(offset)}, 0")
 
     def _emit_param_spills(self, params: list[ParamDecl], layout: FunctionLayout) -> None:
-        out = self.lines
         integer_param_index = 0
         float_param_index = 0
         for param in params:
@@ -724,65 +721,61 @@ class CodeGenerator:
             if param.type_ref.name == "double":
                 if float_param_index >= len(FLOAT_PARAM_REGISTERS):
                     raise NotImplementedError("parameter codegen currently supports up to 8 floating-point params")
-                out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
+                self.out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
                 float_param_index += 1
             else:
                 if integer_param_index >= len(PARAM_REGISTERS):
                     raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
-                out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[integer_param_index]}")
+                self.out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[integer_param_index]}")
                 integer_param_index += 1
 
     def _emit_trace_push(self, fn_debug_name_label: str, fn_debug_file_label: str, line: int, column: int) -> None:
-        out = self.lines
-        out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
-        out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
-        out.append(f"    mov edx, {line}")
-        out.append(f"    mov ecx, {column}")
-        out.append("    call rt_trace_push")
+        self.out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
+        self.out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
+        self.out.append(f"    mov edx, {line}")
+        self.out.append(f"    mov ecx, {column}")
+        self.out.append("    call rt_trace_push")
 
     def _emit_root_frame_setup(self, layout: FunctionLayout, *, root_count: int, first_root_offset: int) -> None:
-        out = self.lines
-        out.append("    call rt_thread_state")
-        out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
-        out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
-        out.append(f"    mov edx, {root_count}")
-        out.append("    call rt_root_frame_init")
-        out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-        out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
-        out.append("    call rt_push_roots")
+        self.out.append("    call rt_thread_state")
+        self.out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
+        self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+        self.out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
+        self.out.append(f"    mov edx, {root_count}")
+        self.out.append("    call rt_root_frame_init")
+        self.out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+        self.out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
+        self.out.append("    call rt_push_roots")
 
     def _emit_function_epilogue(self, layout: FunctionLayout, return_type_name: str) -> None:
-        out = self.lines
         if return_type_name == "double":
-            out.append("    sub rsp, 8")
-            out.append("    movq qword ptr [rsp], xmm0")
+            self.out.append("    sub rsp, 8")
+            self.out.append("    movq qword ptr [rsp], xmm0")
         else:
-            out.append("    push rax")
+            self.out.append("    push rax")
         if layout.root_slot_count > 0:
-            out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-            out.append("    call rt_pop_roots")
-        out.append("    call rt_trace_pop")
+            self.out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+            self.out.append("    call rt_pop_roots")
+        self.out.append("    call rt_trace_pop")
         if return_type_name == "double":
-            out.append("    movq xmm0, qword ptr [rsp]")
-            out.append("    add rsp, 8")
+            self.out.append("    movq xmm0, qword ptr [rsp]")
+            self.out.append("    add rsp, 8")
         else:
-            out.append("    pop rax")
-        out.append("    mov rsp, rbp")
-        out.append("    pop rbp")
-        out.append("    ret")
+            self.out.append("    pop rax")
+        self.out.append("    mov rsp, rbp")
+        self.out.append("    pop rbp")
+        self.out.append("    ret")
 
     def _emit_ref_epilogue(self, layout: FunctionLayout) -> None:
-        out = self.lines
-        out.append("    push rax")
+        self.out.append("    push rax")
         if layout.root_slot_names:
-            out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-            out.append("    call rt_pop_roots")
-        out.append("    call rt_trace_pop")
-        out.append("    pop rax")
-        out.append("    mov rsp, rbp")
-        out.append("    pop rbp")
-        out.append("    ret")
+            self.out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
+            self.out.append("    call rt_pop_roots")
+        self.out.append("    call rt_trace_pop")
+        self.out.append("    pop rax")
+        self.out.append("    mov rsp, rbp")
+        self.out.append("    pop rbp")
+        self.out.append("    ret")
 
     def _emit_runtime_call_hook(
         self,
@@ -793,28 +786,26 @@ class CodeGenerator:
         line: int | None = None,
         column: int | None = None,
     ) -> None:
-        out = self.lines
         label = _next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
-        out.append(f"{label}:")
-        out.append("    # runtime safepoint hook")
+        self.out.append(f"{label}:")
+        self.out.append("    # runtime safepoint hook")
         if phase == "before" and line is not None and column is not None:
-            out.append(f"    mov edi, {line}")
-            out.append(f"    mov esi, {column}")
-            out.append("    call rt_trace_set_location")
+            self.out.append(f"    mov edi, {line}")
+            self.out.append(f"    mov esi, {column}")
+            self.out.append("    call rt_trace_set_location")
 
     def _emit_root_slot_updates(self, layout: FunctionLayout) -> None:
-        out = self.lines
         if not layout.root_slot_names:
             return
 
-        out.append("    # spill reference-typed roots to root slots")
+        self.out.append("    # spill reference-typed roots to root slots")
         for name in layout.root_slot_names:
             value_offset = layout.slot_offsets[name]
             slot_index = layout.root_slot_indices[name]
-            out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-            out.append(f"    mov rdx, {_offset_operand(value_offset)}")
-            out.append(f"    mov esi, {slot_index}")
-            out.append("    call rt_root_slot_store")
+            self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+            self.out.append(f"    mov rdx, {_offset_operand(value_offset)}")
+            self.out.append(f"    mov esi, {slot_index}")
+            self.out.append("    call rt_root_slot_store")
 
     def _emit_runtime_call_arg_temp_roots(
         self,
@@ -822,7 +813,6 @@ class CodeGenerator:
         target_name: str,
         arg_count: int,
     ) -> int:
-        out = self.lines
         if layout.root_slot_count <= 0:
             return 0
         ref_indices = [index for index in RUNTIME_REF_ARG_INDICES.get(target_name, ()) if index < arg_count]
@@ -832,29 +822,26 @@ class CodeGenerator:
             raise NotImplementedError("insufficient temporary root slots for runtime call argument rooting")
 
         for temp_index, arg_index in enumerate(ref_indices):
-            out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+            self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
             if arg_index == 0:
-                out.append("    mov rdx, qword ptr [rsp]")
+                self.out.append("    mov rdx, qword ptr [rsp]")
             else:
-                out.append(f"    mov rdx, qword ptr [rsp + {arg_index * 8}]")
-            out.append(f"    mov esi, {layout.temp_root_slot_start_index + temp_index}")
-            out.append("    call rt_root_slot_store")
+                self.out.append(f"    mov rdx, qword ptr [rsp + {arg_index * 8}]")
+            self.out.append(f"    mov esi, {layout.temp_root_slot_start_index + temp_index}")
+            self.out.append("    call rt_root_slot_store")
         return len(ref_indices)
 
     def _emit_clear_runtime_call_arg_temp_roots(self, layout: FunctionLayout, rooted_count: int) -> None:
-        out = self.lines
         for temp_index in range(rooted_count):
-            out.append(f"    mov {_offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
+            self.out.append(f"    mov {_offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
 
     def _emit_bool_normalize(self) -> None:
-        out = self.lines
-        out.append("    cmp rax, 0")
-        out.append("    setne al")
-        out.append("    movzx rax, al")
+        self.out.append("    cmp rax, 0")
+        self.out.append("    setne al")
+        self.out.append("    movzx rax, al")
 
     def _emit_expr(self, expr: Expression, ctx: EmitContext) -> None:
         layout = ctx.layout
-        out = self.lines
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
         string_literal_labels = ctx.string_literal_labels
@@ -873,11 +860,11 @@ class CodeGenerator:
                     column=expr.span.start.column,
                 )
                 self._emit_root_slot_updates(layout)
-                out.append("    call rt_thread_state")
-                out.append("    mov rdi, rax")
-                out.append(f"    lea rsi, [rip + {data_label}]")
-                out.append(f"    mov rdx, {data_len}")
-                out.append("    call rt_str_from_bytes")
+                self.out.append("    call rt_thread_state")
+                self.out.append("    mov rdi, rax")
+                self.out.append(f"    lea rsi, [rip + {data_label}]")
+                self.out.append(f"    mov rdx, {data_len}")
+                self.out.append("    call rt_str_from_bytes")
                 self._emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="after",
@@ -885,30 +872,30 @@ class CodeGenerator:
                 )
                 return
             if expr.value == "true":
-                out.append("    mov rax, 1")
+                self.out.append("    mov rax, 1")
                 return
             if expr.value == "false":
-                out.append("    mov rax, 0")
+                self.out.append("    mov rax, 0")
                 return
             if _is_double_literal_text(expr.value):
-                out.append(f"    mov rax, 0x{_double_literal_bits(expr.value):016x}")
+                self.out.append(f"    mov rax, 0x{_double_literal_bits(expr.value):016x}")
                 return
             if expr.value.isdigit():
-                out.append(f"    mov rax, {expr.value}")
+                self.out.append(f"    mov rax, {expr.value}")
                 return
             if expr.value.endswith("u") and expr.value[:-1].isdigit():
-                out.append(f"    mov rax, {expr.value[:-1]}")
+                self.out.append(f"    mov rax, {expr.value[:-1]}")
                 return
             raise NotImplementedError(f"literal codegen not implemented for '{expr.value}'")
 
         if isinstance(expr, NullExpr):
-            out.append("    mov rax, 0")
+            self.out.append("    mov rax, 0")
             return
 
         if isinstance(expr, IdentifierExpr):
             if expr.name not in layout.slot_offsets:
                 raise NotImplementedError(f"identifier '{expr.name}' is not materialized in stack layout")
-            out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[expr.name])}")
+            self.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[expr.name])}")
             return
 
         if isinstance(expr, FieldAccessExpr):
@@ -927,7 +914,7 @@ class CodeGenerator:
                 getter_name = BOX_VALUE_GETTER_RUNTIME_CALLS.get(receiver_type_name)
                 if getter_name is not None:
                     self._emit_expr(expr.object_expr, ctx)
-                    out.append("    push rax")
+                    self.out.append("    push rax")
                     self._emit_runtime_call_hook(
                         fn_name=fn_name,
                         phase="before",
@@ -936,10 +923,10 @@ class CodeGenerator:
                         column=expr.span.start.column,
                     )
                     self._emit_root_slot_updates(layout)
-                    out.append("    pop rdi")
-                    out.append(f"    call {getter_name}")
+                    self.out.append("    pop rdi")
+                    self.out.append(f"    call {getter_name}")
                     if receiver_type_name == "BoxDouble":
-                        out.append("    movq rax, xmm0")
+                        self.out.append("    movq rax, xmm0")
                     self._emit_runtime_call_hook(
                         fn_name=fn_name,
                         phase="after",
@@ -955,7 +942,7 @@ class CodeGenerator:
             target_type = expr.type_ref.name
             if _is_reference_type_name(target_type):
                 type_symbol = _mangle_type_symbol(target_type)
-                out.append("    push rax")
+                self.out.append("    push rax")
                 self._emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="before",
@@ -963,10 +950,10 @@ class CodeGenerator:
                     line=expr.span.start.line,
                     column=expr.span.start.column,
                 )
-                out.append("    pop rax")
-                out.append("    mov rdi, rax")
-                out.append(f"    lea rsi, [rip + {type_symbol}]")
-                out.append("    call rt_checked_cast")
+                self.out.append("    pop rax")
+                self.out.append("    mov rdi, rax")
+                self.out.append(f"    lea rsi, [rip + {type_symbol}]")
+                self.out.append("    call rt_checked_cast")
                 self._emit_runtime_call_hook(
                     fn_name=fn_name,
                     phase="after",
@@ -978,21 +965,21 @@ class CodeGenerator:
                 return
 
             if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:
-                out.append("    cvtsi2sd xmm0, rax")
-                out.append("    movq rax, xmm0")
+                self.out.append("    cvtsi2sd xmm0, rax")
+                self.out.append("    movq rax, xmm0")
                 return
 
             if source_type == "double" and target_type in {"i64", "u64", "u8", "bool"}:
-                out.append("    movq xmm0, rax")
-                out.append("    cvttsd2si rax, xmm0")
+                self.out.append("    movq xmm0, rax")
+                self.out.append("    cvttsd2si rax, xmm0")
                 if target_type == "u8":
-                    out.append("    and rax, 255")
+                    self.out.append("    and rax, 255")
                 elif target_type == "bool":
                     self._emit_bool_normalize()
                 return
 
             if target_type == "u8":
-                out.append("    and rax, 255")
+                self.out.append("    and rax, 255")
                 return
 
             if target_type == "bool":
@@ -1009,9 +996,9 @@ class CodeGenerator:
                 raise NotImplementedError(f"index receiver '{receiver_name}' is not materialized in stack layout")
 
             self._emit_expr(expr.index_expr, ctx)
-            out.append("    push rax")
+            self.out.append("    push rax")
             self._emit_expr(expr.object_expr, ctx)
-            out.append("    push rax")
+            self.out.append("    push rax")
 
             self._emit_runtime_call_hook(
                 fn_name=fn_name,
@@ -1021,13 +1008,13 @@ class CodeGenerator:
                 column=expr.span.start.column,
             )
             self._emit_root_slot_updates(layout)
-            out.append("    pop rdi")
-            out.append("    pop rsi")
+            self.out.append("    pop rdi")
+            self.out.append("    pop rsi")
 
             if receiver_type_name == "Str":
-                out.append("    call rt_str_get_u8")
+                self.out.append("    call rt_str_get_u8")
             elif receiver_type_name == "Vec":
-                out.append("    call rt_vec_get")
+                self.out.append("    call rt_vec_get")
             else:
                 raise NotImplementedError("index codegen currently supports Str and Vec receivers")
 
@@ -1054,7 +1041,6 @@ class CodeGenerator:
 
     def _emit_call_expr(self, expr: CallExpr, ctx: EmitContext) -> None:
         layout = ctx.layout
-        out = self.lines
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
 
@@ -1086,7 +1072,7 @@ class CodeGenerator:
 
         for arg in reversed(call_arguments):
             self._emit_expr(arg, ctx)
-            out.append("    push rax")
+            self.out.append("    push rax")
 
         self._emit_root_slot_updates(layout)
         rooted_runtime_arg_count = 0
@@ -1096,20 +1082,20 @@ class CodeGenerator:
         integer_reg_index = 0
         float_reg_index = 0
         for type_name in call_argument_type_names:
-            out.append("    pop rax")
+            self.out.append("    pop rax")
             if type_name == "double":
-                out.append(f"    movq {FLOAT_PARAM_REGISTERS[float_reg_index]}, rax")
+                self.out.append(f"    movq {FLOAT_PARAM_REGISTERS[float_reg_index]}, rax")
                 float_reg_index += 1
             else:
-                out.append(f"    mov {PARAM_REGISTERS[integer_reg_index]}, rax")
+                self.out.append(f"    mov {PARAM_REGISTERS[integer_reg_index]}, rax")
                 integer_reg_index += 1
 
-        out.append(f"    call {target_name}")
+        self.out.append(f"    call {target_name}")
 
         if resolved_target.return_type_name == "double":
-            out.append("    movq rax, xmm0")
+            self.out.append("    movq rax, xmm0")
         elif resolved_target.return_type_name == "unit":
-            out.append("    mov rax, 0")
+            self.out.append("    mov rax, 0")
 
         if rooted_runtime_arg_count > 0:
             self._emit_clear_runtime_call_arg_temp_roots(layout, rooted_runtime_arg_count)
@@ -1122,27 +1108,24 @@ class CodeGenerator:
             )
 
     def _emit_unary_expr(self, expr: UnaryExpr, ctx: EmitContext) -> None:
-        out = self.lines
-
         self._emit_expr(expr.operand, ctx)
         if expr.operator == "-":
             operand_type_name = _infer_expression_type_name(expr.operand, ctx)
             if operand_type_name == "double":
-                out.append("    movq xmm0, rax")
-                out.append("    xorpd xmm1, xmm1")
-                out.append("    subsd xmm1, xmm0")
-                out.append("    movq rax, xmm1")
+                self.out.append("    movq xmm0, rax")
+                self.out.append("    xorpd xmm1, xmm1")
+                self.out.append("    subsd xmm1, xmm0")
+                self.out.append("    movq rax, xmm1")
                 return
-            out.append("    neg rax")
+            self.out.append("    neg rax")
             return
         if expr.operator == "!":
             self._emit_bool_normalize()
-            out.append("    xor rax, 1")
+            self.out.append("    xor rax, 1")
             return
         raise NotImplementedError(f"unary operator '{expr.operator}' is not supported")
 
     def _emit_binary_expr(self, expr: BinaryExpr, ctx: EmitContext) -> None:
-        out = self.lines
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
 
@@ -1154,115 +1137,115 @@ class CodeGenerator:
 
             self._emit_expr(expr.left, ctx)
             self._emit_bool_normalize()
-            out.append("    cmp rax, 0")
+            self.out.append("    cmp rax, 0")
             if expr.operator == "&&":
-                out.append(f"    jne {rhs_label}")
-                out.append("    mov rax, 0")
+                self.out.append(f"    jne {rhs_label}")
+                self.out.append("    mov rax, 0")
             else:
-                out.append(f"    je {rhs_label}")
-                out.append("    mov rax, 1")
-            out.append(f"    jmp {done_label}")
-            out.append(f"{rhs_label}:")
+                self.out.append(f"    je {rhs_label}")
+                self.out.append("    mov rax, 1")
+            self.out.append(f"    jmp {done_label}")
+            self.out.append(f"{rhs_label}:")
             self._emit_expr(expr.right, ctx)
             self._emit_bool_normalize()
-            out.append(f"{done_label}:")
+            self.out.append(f"{done_label}:")
             return
 
         self._emit_expr(expr.left, ctx)
-        out.append("    push rax")
+        self.out.append("    push rax")
         self._emit_expr(expr.right, ctx)
-        out.append("    mov rcx, rax")
-        out.append("    pop rax")
+        self.out.append("    mov rcx, rax")
+        self.out.append("    pop rax")
 
         left_type_name = _infer_expression_type_name(expr.left, ctx)
         right_type_name = _infer_expression_type_name(expr.right, ctx)
         is_double_op = left_type_name == "double" and right_type_name == "double"
 
         if is_double_op:
-            out.append("    movq xmm1, rcx")
-            out.append("    movq xmm0, rax")
+            self.out.append("    movq xmm1, rcx")
+            self.out.append("    movq xmm0, rax")
             if expr.operator == "+":
-                out.append("    addsd xmm0, xmm1")
-                out.append("    movq rax, xmm0")
+                self.out.append("    addsd xmm0, xmm1")
+                self.out.append("    movq rax, xmm0")
                 return
             if expr.operator == "-":
-                out.append("    subsd xmm0, xmm1")
-                out.append("    movq rax, xmm0")
+                self.out.append("    subsd xmm0, xmm1")
+                self.out.append("    movq rax, xmm0")
                 return
             if expr.operator == "*":
-                out.append("    mulsd xmm0, xmm1")
-                out.append("    movq rax, xmm0")
+                self.out.append("    mulsd xmm0, xmm1")
+                self.out.append("    movq rax, xmm0")
                 return
             if expr.operator == "/":
-                out.append("    divsd xmm0, xmm1")
-                out.append("    movq rax, xmm0")
+                self.out.append("    divsd xmm0, xmm1")
+                self.out.append("    movq rax, xmm0")
                 return
 
             if expr.operator in ("==", "!=", "<", "<=", ">", ">="):
-                out.append("    ucomisd xmm0, xmm1")
+                self.out.append("    ucomisd xmm0, xmm1")
                 if expr.operator == "==":
-                    out.append("    sete al")
-                    out.append("    setnp dl")
-                    out.append("    and al, dl")
+                    self.out.append("    sete al")
+                    self.out.append("    setnp dl")
+                    self.out.append("    and al, dl")
                 elif expr.operator == "!=":
-                    out.append("    setne al")
-                    out.append("    setp dl")
-                    out.append("    or al, dl")
+                    self.out.append("    setne al")
+                    self.out.append("    setp dl")
+                    self.out.append("    or al, dl")
                 elif expr.operator == "<":
-                    out.append("    setb al")
-                    out.append("    setnp dl")
-                    out.append("    and al, dl")
+                    self.out.append("    setb al")
+                    self.out.append("    setnp dl")
+                    self.out.append("    and al, dl")
                 elif expr.operator == "<=":
-                    out.append("    setbe al")
-                    out.append("    setnp dl")
-                    out.append("    and al, dl")
+                    self.out.append("    setbe al")
+                    self.out.append("    setnp dl")
+                    self.out.append("    and al, dl")
                 elif expr.operator == ">":
-                    out.append("    seta al")
-                    out.append("    setnp dl")
-                    out.append("    and al, dl")
+                    self.out.append("    seta al")
+                    self.out.append("    setnp dl")
+                    self.out.append("    and al, dl")
                 else:
-                    out.append("    setae al")
-                    out.append("    setnp dl")
-                    out.append("    and al, dl")
-                out.append("    movzx rax, al")
+                    self.out.append("    setae al")
+                    self.out.append("    setnp dl")
+                    self.out.append("    and al, dl")
+                self.out.append("    movzx rax, al")
                 return
 
             raise NotImplementedError(f"binary operator '{expr.operator}' is not supported for double operands")
 
         if expr.operator == "+":
-            out.append("    add rax, rcx")
+            self.out.append("    add rax, rcx")
             return
         if expr.operator == "-":
-            out.append("    sub rax, rcx")
+            self.out.append("    sub rax, rcx")
             return
         if expr.operator == "*":
-            out.append("    imul rax, rcx")
+            self.out.append("    imul rax, rcx")
             return
         if expr.operator == "/":
-            out.append("    cqo")
-            out.append("    idiv rcx")
+            self.out.append("    cqo")
+            self.out.append("    idiv rcx")
             return
         if expr.operator == "%":
-            out.append("    cqo")
-            out.append("    idiv rcx")
-            out.append("    mov rax, rdx")
+            self.out.append("    cqo")
+            self.out.append("    idiv rcx")
+            self.out.append("    mov rax, rdx")
             return
 
         if expr.operator in ("==", "!=", "<", "<=", ">", ">="):
-            out.append("    cmp rax, rcx")
+            self.out.append("    cmp rax, rcx")
             if expr.operator == "==":
-                out.append("    sete al")
+                self.out.append("    sete al")
             elif expr.operator == "!=":
-                out.append("    setne al")
+                self.out.append("    setne al")
             elif expr.operator == "<":
-                out.append("    setl al")
+                self.out.append("    setl al")
             elif expr.operator == "<=":
-                out.append("    setle al")
+                self.out.append("    setle al")
             elif expr.operator == ">":
-                out.append("    setg al")
+                self.out.append("    setg al")
             else:
-                out.append("    setge al")
-            out.append("    movzx rax, al")
+                self.out.append("    setge al")
+            self.out.append("    movzx rax, al")
             return
 
         raise NotImplementedError(f"binary operator '{expr.operator}' is not supported")
@@ -1274,7 +1257,6 @@ class CodeGenerator:
         function_return_type_name: str,
         ctx: EmitContext,
     ) -> None:
-        out = self.lines
         layout = ctx.layout
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
@@ -1283,8 +1265,8 @@ class CodeGenerator:
             if stmt.value is not None:
                 self._emit_expr(stmt.value, ctx)
             if function_return_type_name == "double":
-                out.append("    movq xmm0, rax")
-            out.append(f"    jmp {epilogue_label}")
+                self.out.append("    movq xmm0, rax")
+            self.out.append(f"    jmp {epilogue_label}")
             return
 
         if isinstance(stmt, VarDeclStmt):
@@ -1293,10 +1275,10 @@ class CodeGenerator:
                 raise NotImplementedError(f"variable '{stmt.name}' is not materialized in stack layout")
 
             if stmt.initializer is None:
-                out.append("    mov rax, 0")
+                self.out.append("    mov rax, 0")
             else:
                 self._emit_expr(stmt.initializer, ctx)
-            out.append(f"    mov {_offset_operand(offset)}, rax")
+            self.out.append(f"    mov {_offset_operand(offset)}, rax")
             return
 
         if isinstance(stmt, AssignStmt):
@@ -1306,7 +1288,7 @@ class CodeGenerator:
             if offset is None:
                 raise NotImplementedError(f"identifier '{stmt.target.name}' is not materialized in stack layout")
             self._emit_expr(stmt.value, ctx)
-            out.append(f"    mov {_offset_operand(offset)}, rax")
+            self.out.append(f"    mov {_offset_operand(offset)}, rax")
             return
 
         if isinstance(stmt, ExprStmt):
@@ -1323,27 +1305,27 @@ class CodeGenerator:
             end_label = _next_label(fn_name, "if_end", label_counter)
 
             self._emit_expr(stmt.condition, ctx)
-            out.append("    cmp rax, 0")
-            out.append(f"    je {else_label}")
+            self.out.append("    cmp rax, 0")
+            self.out.append(f"    je {else_label}")
             self._emit_statement(stmt.then_branch, epilogue_label, function_return_type_name, ctx)
-            out.append(f"    jmp {end_label}")
-            out.append(f"{else_label}:")
+            self.out.append(f"    jmp {end_label}")
+            self.out.append(f"{else_label}:")
             if stmt.else_branch is not None:
                 self._emit_statement(stmt.else_branch, epilogue_label, function_return_type_name, ctx)
-            out.append(f"{end_label}:")
+            self.out.append(f"{end_label}:")
             return
 
         if isinstance(stmt, WhileStmt):
             start_label = _next_label(fn_name, "while_start", label_counter)
             end_label = _next_label(fn_name, "while_end", label_counter)
 
-            out.append(f"{start_label}:")
+            self.out.append(f"{start_label}:")
             self._emit_expr(stmt.condition, ctx)
-            out.append("    cmp rax, 0")
-            out.append(f"    je {end_label}")
+            self.out.append("    cmp rax, 0")
+            self.out.append(f"    je {end_label}")
             self._emit_statement(stmt.body, epilogue_label, function_return_type_name, ctx)
-            out.append(f"    jmp {start_label}")
-            out.append(f"{end_label}:")
+            self.out.append(f"    jmp {start_label}")
+            self.out.append(f"{end_label}:")
             return
 
         raise NotImplementedError(f"statement codegen not implemented for {type(stmt).__name__}")
@@ -1355,22 +1337,20 @@ class CodeGenerator:
         function_name: str,
         file_path: str,
     ) -> tuple[str, str]:
-        out = self.lines
         safe_target = target_label.replace(".", "_").replace(":", "_")
         fn_label = f"__nif_dbg_fn_{safe_target}"
         file_label = f"__nif_dbg_file_{safe_target}"
-        out.append("")
-        out.append(".section .rodata")
-        out.append(f"{fn_label}:")
-        out.append(f'    .asciz "{_escape_c_string(function_name)}"')
-        out.append(f"{file_label}:")
-        out.append(f'    .asciz "{_escape_c_string(file_path)}"')
-        out.append("")
-        out.append(".text")
+        self.out.append("")
+        self.out.append(".section .rodata")
+        self.out.append(f"{fn_label}:")
+        self.out.append(f'    .asciz "{_escape_c_string(function_name)}"')
+        self.out.append(f"{file_label}:")
+        self.out.append(f'    .asciz "{_escape_c_string(file_path)}"')
+        self.out.append("")
+        self.out.append(".text")
         return fn_label, file_label
 
     def _emit_function(self, fn: FunctionDecl, *, label: str | None = None) -> None:
-        out = self.lines
         target_label = label if label is not None else fn.name
         epilogue = _epilogue_label(target_label)
         layout = _build_layout(fn)
@@ -1411,11 +1391,10 @@ class CodeGenerator:
         for stmt in fn.body.statements:
             self._emit_statement(stmt, epilogue, fn.return_type.name, emit_ctx)
 
-        out.append(f"{epilogue}:")
+        self.out.append(f"{epilogue}:")
         self._emit_function_epilogue(layout, fn.return_type.name)
 
     def _emit_constructor_function(self, cls: ClassDecl) -> None:
-        out = self.lines
         ctor_layout = self.constructor_layouts[cls.name]
         ctor_fn = _constructor_function_decl(cls, ctor_layout.label)
         target_label = ctor_layout.label
@@ -1447,11 +1426,11 @@ class CodeGenerator:
             label_counter=label_counter,
         )
         self._emit_root_slot_updates(layout)
-        out.append("    call rt_thread_state")
-        out.append("    mov rdi, rax")
-        out.append(f"    lea rsi, [rip + {ctor_layout.type_symbol}]")
-        out.append(f"    mov rdx, {ctor_layout.payload_bytes}")
-        out.append("    call rt_alloc_obj")
+        self.out.append("    call rt_thread_state")
+        self.out.append("    mov rdi, rax")
+        self.out.append(f"    lea rsi, [rip + {ctor_layout.type_symbol}]")
+        self.out.append(f"    mov rdx, {ctor_layout.payload_bytes}")
+        self.out.append("    call rt_alloc_obj")
         self._emit_runtime_call_hook(
             fn_name=target_label,
             phase="after",
@@ -1461,96 +1440,94 @@ class CodeGenerator:
         for field_index, field_name in enumerate(ctor_layout.field_names):
             field_offset = 24 + (8 * field_index)
             value_offset = layout.slot_offsets[field_name]
-            out.append(f"    mov rcx, {_offset_operand(value_offset)}")
-            out.append(f"    mov qword ptr [rax + {field_offset}], rcx")
+            self.out.append(f"    mov rcx, {_offset_operand(value_offset)}")
+            self.out.append(f"    mov qword ptr [rax + {field_offset}], rcx")
 
-        out.append(f"    jmp {epilogue}")
+        self.out.append(f"    jmp {epilogue}")
 
-        out.append(f"{epilogue}:")
+        self.out.append(f"{epilogue}:")
         self._emit_ref_epilogue(layout)
 
     def _emit_string_literal_section(self) -> dict[str, tuple[str, int]]:
-        out = self.lines
         string_literals = _collect_string_literals(self.module_ast)
         labels: dict[str, tuple[str, int]] = {}
         if not string_literals:
             return labels
 
-        out.append("")
-        out.append(".section .rodata")
+        self.out.append("")
+        self.out.append(".section .rodata")
         for index, literal in enumerate(string_literals):
             label = f"__nif_str_lit_{index}"
             data = _decode_string_literal(literal)
             labels[literal] = (label, len(data))
-            out.append(f"{label}:")
+            self.out.append(f"{label}:")
             if data:
                 data_bytes = ", ".join(str(byte) for byte in data)
-                out.append(f"    .byte {data_bytes}")
+                self.out.append(f"    .byte {data_bytes}")
             else:
-                out.append("    .byte 0")
+                self.out.append("    .byte 0")
 
         return labels
 
     def _emit_type_metadata_section(self) -> None:
-        out = self.lines
         type_names = _collect_reference_cast_types(self.module_ast)
         if not type_names:
             return
 
-        out.append("")
-        out.append(".section .rodata")
+        self.out.append("")
+        self.out.append(".section .rodata")
         for type_name in type_names:
-            out.append(f"{_mangle_type_name_symbol(type_name)}:")
-            out.append(f'    .asciz "{type_name}"')
+            self.out.append(f"{_mangle_type_name_symbol(type_name)}:")
+            self.out.append(f'    .asciz "{type_name}"')
 
-        out.append("")
-        out.append(".data")
+        self.out.append("")
+        self.out.append(".data")
         for type_name in type_names:
             type_sym = _mangle_type_symbol(type_name)
             name_sym = _mangle_type_name_symbol(type_name)
-            out.append("    .p2align 3")
-            out.append(f"{type_sym}:")
-            out.append("    .long 0")
-            out.append("    .long 0")
-            out.append("    .long 1")
-            out.append("    .long 8")
-            out.append("    .quad 0")
-            out.append(f"    .quad {name_sym}")
-            out.append("    .quad 0")
-            out.append("    .quad 0")
-            out.append("    .long 0")
-            out.append("    .long 0")
+            self.out.append("    .p2align 3")
+            self.out.append(f"{type_sym}:")
+            self.out.append("    .long 0")
+            self.out.append("    .long 0")
+            self.out.append("    .long 1")
+            self.out.append("    .long 8")
+            self.out.append("    .quad 0")
+            self.out.append(f"    .quad {name_sym}")
+            self.out.append("    .quad 0")
+            self.out.append("    .quad 0")
+            self.out.append("    .long 0")
+            self.out.append("    .long 0")
 
     def generate(self) -> str:
         self._emit_type_metadata_section()
         self.string_literal_labels = self._emit_string_literal_section()
 
-        self.lines.append("")
-        self.lines.append(".text")
+        self.out.append("")
+        self.out.append(".text")
 
         self._build_symbol_tables()
 
         for fn in self.module_ast.functions:
             if fn.is_extern:
                 continue
-            self.lines.append("")
+            self.out.append("")
             self._emit_function(fn)
 
         for cls in self.module_ast.classes:
             for method in cls.methods:
-                self.lines.append("")
+                self.out.append("")
                 method_label = self.method_labels[(cls.name, method.name)]
                 method_fn = _method_function_decl(cls, method, method_label)
                 self._emit_function(method_fn, label=method_label)
 
         for cls in self.module_ast.classes:
-            self.lines.append("")
+            self.out.append("")
             self._emit_constructor_function(cls)
 
-        self.lines.append("")
-        self.lines.append('.section .note.GNU-stack,"",@progbits')
-        self.lines.append("")
-        return "\n".join(self.lines)
+        self.out.append("")
+        self.out.append('.section .note.GNU-stack,"",@progbits')
+        self.out.append("")
+        return "\n".join(self.out)
 
 
 def emit_asm(module_ast: ModuleAst) -> str:
