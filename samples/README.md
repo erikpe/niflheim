@@ -13,6 +13,8 @@ Try with:
 - `python3 -m compiler.main samples/function_calls.nif --print-ast`
 - `python3 -m compiler.main samples/null_and_cast.nif -o out.s`
 - `./scripts/run.sh samples/stdlib_io_println.nif`
+- `./scripts/run.sh samples/vec_primes_2_to_1000000.nif`
+- `./scripts/run.sh samples/vec_primes_sieve_2_to_1000000.nif`
 
 Entrypoint rule:
 - Valid programs are expected to define `fn main() -> i64`.
@@ -22,3 +24,9 @@ Additional debugging-oriented sample:
 
 Stdlib IO sample:
 - `samples/stdlib_io_println.nif` (`import std.io; println_i64(...)` without direct runtime calls)
+
+Vec + BoxI64 prime sample:
+- `samples/vec_primes_2_to_1000000.nif` (collects primes from 2..1,000,000 into `Vec` of `BoxI64`, then prints each prime)
+
+Vec + BoxI64 sieve prime sample:
+- `samples/vec_primes_sieve_2_to_1000000.nif` (uses a sieve-backed `Vec` of `BoxBool`, collects primes into `Vec` of `BoxI64`, then prints each prime)
