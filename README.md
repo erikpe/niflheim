@@ -63,3 +63,10 @@ For quick local workflows, use scripts under `scripts/`:
 	- Builds via `build.sh`, then executes the produced binary
 	- If output path is omitted, defaults to `build/<input-basename>`
 	- Example: `./scripts/run.sh samples/arithmetic_loop.nif`
+
+## Test Helper
+
+- `scripts/test.sh`
+	- Runs the full Python test suite (`pytest -q`)
+	- Runs runtime C harnesses (`make -C runtime test-all`)
+	- Example: `./scripts/test.sh`
