@@ -1,0 +1,10 @@
+
+fn foobar(v: Vec) -> Obj {
+    return v[23];
+}
+
+fn main() -> i64 {
+    var v: Vec = Vec();
+    foobar(v);
+    return 0;
+}

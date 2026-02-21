@@ -16,6 +16,7 @@ typedef struct RtType RtType;
 typedef struct RtObjHeader RtObjHeader;
 typedef struct RtRootFrame RtRootFrame;
 typedef struct RtThreadState RtThreadState;
+typedef struct RtTraceFrame RtTraceFrame;
 
 enum {
     RT_GC_FLAG_MARKED = 1u << 0,
@@ -57,6 +58,15 @@ struct RtRootFrame {
 
 struct RtThreadState {
     RtRootFrame* roots_top;
+    RtTraceFrame* trace_top;
+};
+
+struct RtTraceFrame {
+    RtTraceFrame* prev;
+    const char* function_name;
+    const char* file_path;
+    uint32_t line;
+    uint32_t column;
 };
 
 typedef struct RtGcStats {
@@ -79,6 +89,10 @@ void rt_pop_roots(RtThreadState* ts);
 
 void rt_gc_register_global_root(void** slot);
 void rt_gc_unregister_global_root(void** slot);
+
+void rt_trace_push(const char* function_name, const char* file_path, uint32_t line, uint32_t column);
+void rt_trace_pop(void);
+void rt_trace_set_location(uint32_t line, uint32_t column);
 
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
 RtGcStats rt_gc_get_stats(void);

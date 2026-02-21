@@ -24,7 +24,7 @@ fn main() -> i64 {
 
     primes.push(BoxI64(2));
     var candidate: i64 = 3;
-    while candidate <= 1000000 {
+    while candidate <= 100000 {
         if is_prime(candidate) {
             primes.push(BoxI64(candidate));
         }

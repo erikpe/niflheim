@@ -329,6 +329,31 @@ def _mangle_constructor_symbol(type_name: str) -> str:
     return f"__nif_ctor_{safe_type}"
 
 
+def _escape_c_string(text: str) -> str:
+    return text.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _emit_debug_symbol_literals(
+    *,
+    out: list[str],
+    target_label: str,
+    function_name: str,
+    file_path: str,
+) -> tuple[str, str]:
+    safe_target = target_label.replace(".", "_").replace(":", "_")
+    fn_label = f"__nif_dbg_fn_{safe_target}"
+    file_label = f"__nif_dbg_file_{safe_target}"
+    out.append("")
+    out.append(".section .rodata")
+    out.append(f"{fn_label}:")
+    out.append(f'    .asciz "{_escape_c_string(function_name)}"')
+    out.append(f"{file_label}:")
+    out.append(f'    .asciz "{_escape_c_string(file_path)}"')
+    out.append("")
+    out.append(".text")
+    return fn_label, file_label
+
+
 def _decode_string_literal(lexeme: str) -> bytes:
     if len(lexeme) < 2 or not lexeme.startswith('"') or not lexeme.endswith('"'):
         raise ValueError(f"invalid string literal lexeme: {lexeme!r}")
@@ -610,10 +635,16 @@ def _emit_runtime_call_hook(
     phase: str,
     out: list[str],
     label_counter: list[int],
+    line: int | None = None,
+    column: int | None = None,
 ) -> None:
     label = _next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
     out.append(f"{label}:")
     out.append("    # runtime safepoint hook")
+    if phase == "before" and line is not None and column is not None:
+        out.append(f"    mov edi, {line}")
+        out.append(f"    mov esi, {column}")
+        out.append("    call rt_trace_set_location")
 
 
 def _emit_root_slot_updates(layout: FunctionLayout, out: list[str]) -> None:
@@ -722,6 +753,8 @@ def _emit_expr(
                 phase="before",
                 out=out,
                 label_counter=label_counter,
+                line=expr.span.start.line,
+                column=expr.span.start.column,
             )
             _emit_root_slot_updates(layout, out)
             out.append("    call rt_thread_state")
@@ -788,6 +821,8 @@ def _emit_expr(
                     phase="before",
                     out=out,
                     label_counter=label_counter,
+                    line=expr.span.start.line,
+                    column=expr.span.start.column,
                 )
                 _emit_root_slot_updates(layout, out)
                 out.append("    pop rdi")
@@ -816,9 +851,25 @@ def _emit_expr(
         target_type = expr.type_ref.name
         if _is_reference_type_name(target_type):
             type_symbol = _mangle_type_symbol(target_type)
+            out.append("    push rax")
+            _emit_runtime_call_hook(
+                fn_name=fn_name,
+                phase="before",
+                out=out,
+                label_counter=label_counter,
+                line=expr.span.start.line,
+                column=expr.span.start.column,
+            )
+            out.append("    pop rax")
             out.append("    mov rdi, rax")
             out.append(f"    lea rsi, [rip + {type_symbol}]")
             out.append("    call rt_checked_cast")
+            _emit_runtime_call_hook(
+                fn_name=fn_name,
+                phase="after",
+                out=out,
+                label_counter=label_counter,
+            )
         return
 
     if isinstance(expr, IndexExpr):
@@ -858,6 +909,8 @@ def _emit_expr(
             phase="before",
             out=out,
             label_counter=label_counter,
+            line=expr.span.start.line,
+            column=expr.span.start.column,
         )
         _emit_root_slot_updates(layout, out)
         out.append("    pop rdi")
@@ -897,6 +950,8 @@ def _emit_expr(
                 phase="before",
                 out=out,
                 label_counter=label_counter,
+                line=expr.span.start.line,
+                column=expr.span.start.column,
             )
 
         for arg in reversed(call_arguments):
@@ -1247,6 +1302,12 @@ def _emit_function(
     epilogue = _epilogue_label(target_label)
     layout = _build_layout(fn)
     label_counter = [0]
+    fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
+        out=out,
+        target_label=target_label,
+        function_name=target_label,
+        file_path=fn.span.start.path,
+    )
 
     if label is None and (fn.is_export or fn.name == "main"):
         out.append(f".globl {target_label}")
@@ -1270,6 +1331,12 @@ def _emit_function(
         if offset is None:
             continue
         out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[index]}")
+
+    out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
+    out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
+    out.append(f"    mov edx, {fn.span.start.line}")
+    out.append(f"    mov ecx, {fn.span.start.column}")
+    out.append("    call rt_trace_push")
 
     if layout.root_slot_count > 0:
         out.append("    call rt_thread_state")
@@ -1300,11 +1367,12 @@ def _emit_function(
         )
 
     out.append(f"{epilogue}:")
+    out.append("    push rax")
     if layout.root_slot_count > 0:
-        out.append("    push rax")
         out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
         out.append("    call rt_pop_roots")
-        out.append("    pop rax")
+    out.append("    call rt_trace_pop")
+    out.append("    pop rax")
     out.append("    mov rsp, rbp")
     out.append("    pop rbp")
     out.append("    ret")
@@ -1353,6 +1421,12 @@ def _emit_constructor_function(
     epilogue = _epilogue_label(target_label)
     layout = _build_layout(ctor_fn)
     label_counter = [0]
+    fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
+        out=out,
+        target_label=target_label,
+        function_name=target_label,
+        file_path=class_decl.span.start.path,
+    )
 
     out.append(f"{target_label}:")
     out.append("    push rbp")
@@ -1372,6 +1446,12 @@ def _emit_constructor_function(
         if offset is None:
             continue
         out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[index]}")
+
+    out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
+    out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
+    out.append(f"    mov edx, {class_decl.span.start.line}")
+    out.append(f"    mov ecx, {class_decl.span.start.column}")
+    out.append("    call rt_trace_push")
 
     if layout.root_slot_names:
         out.append("    call rt_thread_state")
@@ -1413,11 +1493,12 @@ def _emit_constructor_function(
     out.append(f"    jmp {epilogue}")
 
     out.append(f"{epilogue}:")
+    out.append("    push rax")
     if layout.root_slot_names:
-        out.append("    push rax")
         out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
         out.append("    call rt_pop_roots")
-        out.append("    pop rax")
+    out.append("    call rt_trace_pop")
+    out.append("    pop rax")
     out.append("    mov rsp, rbp")
     out.append("    pop rbp")
     out.append("    ret")
