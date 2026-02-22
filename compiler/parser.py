@@ -591,7 +591,34 @@ class Parser:
                 continue
 
             if self.stream.match(TokenKind.LBRACKET):
-                index_expr = self._parse_expression()
+                if self.stream.match(TokenKind.COLON):
+                    end_expr: Expression | None = None
+                    if not self.stream.check(TokenKind.RBRACKET):
+                        end_expr = self._parse_expression()
+                    rbracket = self.stream.expect(TokenKind.RBRACKET, "Expected ']' after slice expression")
+                    expr = self._build_slice_expr(
+                        object_expr=expr,
+                        begin_expr=None,
+                        end_expr=end_expr,
+                        end_span=rbracket.span.end,
+                    )
+                    continue
+
+                start_expr = self._parse_expression()
+                if self.stream.match(TokenKind.COLON):
+                    end_expr: Expression | None = None
+                    if not self.stream.check(TokenKind.RBRACKET):
+                        end_expr = self._parse_expression()
+                    rbracket = self.stream.expect(TokenKind.RBRACKET, "Expected ']' after slice expression")
+                    expr = self._build_slice_expr(
+                        object_expr=expr,
+                        begin_expr=start_expr,
+                        end_expr=end_expr,
+                        end_span=rbracket.span.end,
+                    )
+                    continue
+
+                index_expr = start_expr
                 rbracket = self.stream.expect(TokenKind.RBRACKET, "Expected ']' after index expression")
                 expr = IndexExpr(
                     object_expr=expr,
@@ -601,6 +628,45 @@ class Parser:
                 continue
 
             return expr
+
+    def _build_slice_expr(
+        self,
+        *,
+        object_expr: Expression,
+        begin_expr: Expression | None,
+        end_expr: Expression | None,
+        end_span,
+    ) -> Expression:
+        zero_literal = LiteralExpr(
+            value="0",
+            span=SourceSpan(start=object_expr.span.start, end=object_expr.span.start),
+        )
+        begin_arg = begin_expr if begin_expr is not None else zero_literal
+
+        if end_expr is None:
+            len_field = FieldAccessExpr(
+                object_expr=object_expr,
+                field_name="len",
+                span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
+            )
+            end_arg: Expression = CallExpr(
+                callee=len_field,
+                arguments=[],
+                span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
+            )
+        else:
+            end_arg = end_expr
+
+        slice_field = FieldAccessExpr(
+            object_expr=object_expr,
+            field_name="slice",
+            span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
+        )
+        return CallExpr(
+            callee=slice_field,
+            arguments=[begin_arg, end_arg],
+            span=SourceSpan(start=object_expr.span.start, end=end_span),
+        )
 
     def _parse_primary(self) -> Expression:
         if self.stream.match(TokenKind.INT_LIT, TokenKind.FLOAT_LIT, TokenKind.STRING_LIT, TokenKind.TRUE, TokenKind.FALSE):

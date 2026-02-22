@@ -261,6 +261,33 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_str_slice_syntax_desugars_and_typechecks() -> None:
+    source = """
+extern fn rt_str_len(value: Str) -> i64;
+extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
+
+class Str {
+    fn len() -> i64 {
+        return rt_str_len(__self);
+    }
+
+    fn slice(begin: i64, end: i64) -> Str {
+        return rt_str_slice(__self, begin, end);
+    }
+}
+
+fn main() -> unit {
+    var v: Str = "Hello world!";
+    var s1: Str = v[3:5];
+    var s2: Str = v[:7];
+    var s3: Str = v[4:];
+    var s4: Str = v[:];
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_implicit___self_in_method_body() -> None:
     source = """
 extern fn rt_str_get_u8(value: Str, index: i64) -> u8;

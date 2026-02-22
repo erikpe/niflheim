@@ -205,6 +205,44 @@ fn main() -> i64 {
     assert exit_code == 65
 
 
+def test_e2e_str_slice_syntax_links_and_runs() -> None:
+    source = """
+extern fn rt_str_len(value: Str) -> i64;
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
+
+class Str {
+    fn len() -> i64 {
+        return rt_str_len(__self);
+    }
+
+    fn get_u8(index: i64) -> u8 {
+        return rt_str_get_u8(__self, index);
+    }
+
+    fn slice(begin: i64, end: i64) -> Str {
+        return rt_str_slice(__self, begin, end);
+    }
+}
+
+fn main() -> i64 {
+    var v: Str = "Hello world!";
+    var s1: Str = v[3:5];
+    var s2: Str = v[:7];
+    var s3: Str = v[4:];
+    var s4: Str = v[:];
+    var c1: u8 = s1[0];
+    var c2: u8 = s2[6];
+    var c3: u8 = s3[0];
+    var c4: u8 = s4[11];
+    return (i64)c1 + (i64)c2 + (i64)c3 + (i64)c4;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == ((108 + 119 + 111 + 33) & 0xFF)
+
+
 def test_e2e_vec_baseline_ops_links_and_runs() -> None:
     source = """
 fn main() -> i64 {

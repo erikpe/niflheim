@@ -7,7 +7,7 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 cd "$repo_root"
 
 echo "[1/2] Running Python tests (pytest)..."
-pytest -q
+pytest
 
 echo "[2/2] Running runtime C harnesses..."
 make -C runtime test-all

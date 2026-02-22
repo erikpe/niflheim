@@ -253,6 +253,62 @@ def test_parse_expression_postfix_binding_order() -> None:
     assert len(expr.object_expr.arguments) == 2
 
 
+def test_parse_expression_slice_full_bounds_desugars_to_slice_call() -> None:
+    expr = parse_expression(lex("v[3:5]", source_path="examples/slice_expr.nif"))
+
+    assert isinstance(expr, CallExpr)
+    assert isinstance(expr.callee, FieldAccessExpr)
+    assert expr.callee.field_name == "slice"
+    assert isinstance(expr.callee.object_expr, IdentifierExpr)
+    assert expr.callee.object_expr.name == "v"
+    assert len(expr.arguments) == 2
+    assert isinstance(expr.arguments[0], LiteralExpr)
+    assert expr.arguments[0].value == "3"
+    assert isinstance(expr.arguments[1], LiteralExpr)
+    assert expr.arguments[1].value == "5"
+
+
+def test_parse_expression_slice_from_start_desugars_to_zero_begin() -> None:
+    expr = parse_expression(lex("v[:7]", source_path="examples/slice_expr.nif"))
+
+    assert isinstance(expr, CallExpr)
+    assert isinstance(expr.callee, FieldAccessExpr)
+    assert expr.callee.field_name == "slice"
+    assert len(expr.arguments) == 2
+    assert isinstance(expr.arguments[0], LiteralExpr)
+    assert expr.arguments[0].value == "0"
+    assert isinstance(expr.arguments[1], LiteralExpr)
+    assert expr.arguments[1].value == "7"
+
+
+def test_parse_expression_slice_to_end_desugars_to_len_call() -> None:
+    expr = parse_expression(lex("v[4:]", source_path="examples/slice_expr.nif"))
+
+    assert isinstance(expr, CallExpr)
+    assert isinstance(expr.callee, FieldAccessExpr)
+    assert expr.callee.field_name == "slice"
+    assert len(expr.arguments) == 2
+    assert isinstance(expr.arguments[0], LiteralExpr)
+    assert expr.arguments[0].value == "4"
+    assert isinstance(expr.arguments[1], CallExpr)
+    assert isinstance(expr.arguments[1].callee, FieldAccessExpr)
+    assert expr.arguments[1].callee.field_name == "len"
+
+
+def test_parse_expression_slice_full_omission_desugars_to_zero_and_len() -> None:
+    expr = parse_expression(lex("v[:]", source_path="examples/slice_expr.nif"))
+
+    assert isinstance(expr, CallExpr)
+    assert isinstance(expr.callee, FieldAccessExpr)
+    assert expr.callee.field_name == "slice"
+    assert len(expr.arguments) == 2
+    assert isinstance(expr.arguments[0], LiteralExpr)
+    assert expr.arguments[0].value == "0"
+    assert isinstance(expr.arguments[1], CallExpr)
+    assert isinstance(expr.arguments[1].callee, FieldAccessExpr)
+    assert expr.arguments[1].callee.field_name == "len"
+
+
 def test_parse_expression_cast_then_unary_operand() -> None:
     expr = parse_expression(lex("(i64)-x", source_path="examples/expr.nif"))
 

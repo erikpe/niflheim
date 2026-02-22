@@ -66,6 +66,18 @@ uint64_t rt_str_get_u8(const void* str_obj, uint64_t index) {
     return (uint64_t)str->bytes[index];
 }
 
+void* rt_str_slice(const void* str_obj, uint64_t begin, uint64_t end) {
+    const RtStrObj* str = rt_require_str_obj(str_obj, "rt_str_slice: object is not Str");
+    if (begin > end || end > str->len) {
+        rt_panic("rt_str_slice: invalid slice range");
+    }
+
+    const uint64_t slice_len = end - begin;
+    const uint8_t* slice_bytes = str->bytes + begin;
+    RtThreadState* ts = rt_thread_state();
+    return rt_str_from_bytes(ts, slice_bytes, slice_len);
+}
+
 void rt_panic_str(const void* str_obj) {
     const RtStrObj* str = rt_require_str_obj(str_obj, "rt_panic_str: object is not Str");
 
