@@ -20,7 +20,6 @@ __all__ = [
 PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
 REFERENCE_BUILTIN_TYPE_NAMES = {
     "Obj",
-    "Str",
     "Vec",
     "Map",
     "BoxI64",
@@ -31,7 +30,6 @@ REFERENCE_BUILTIN_TYPE_NAMES = {
 }
 NUMERIC_TYPE_NAMES = {"i64", "u64", "u8", "double"}
 BUILTIN_INDEX_RESULT_TYPE_NAMES = {
-    "Str": "u8",
     "Vec": "Obj",
 }
 

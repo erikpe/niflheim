@@ -57,6 +57,7 @@ from compiler.codegen_str_helper import (
     escape_asm_string_bytes,
     escape_c_string,
 )
+from compiler.str_type_utils import STR_CLASS_NAME, is_str_type_name
 
 
 def _epilogue_label(fn_name: str) -> str:
@@ -355,12 +356,15 @@ def _resolve_method_call_target(
     ctx: EmitContext,
 ) -> ResolvedCallTarget:
     receiver_expr = callee.object_expr
-    if not isinstance(receiver_expr, IdentifierExpr):
-        raise NotImplementedError("method-call codegen currently requires identifier receivers")
+    if isinstance(receiver_expr, IdentifierExpr):
+        receiver_type_name = ctx.layout.slot_type_names.get(receiver_expr.name)
+        if receiver_type_name is None:
+            raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
+    elif isinstance(receiver_expr, CastExpr):
+        receiver_type_name = receiver_expr.type_ref.name
+    else:
+        receiver_type_name = _infer_expression_type_name(receiver_expr, ctx)
 
-    receiver_type_name = ctx.layout.slot_type_names.get(receiver_expr.name)
-    if receiver_type_name is None:
-        raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
     method_owner_type_name = receiver_type_name
 
     method_name = callee.field_name
@@ -409,7 +413,9 @@ def _resolve_call_target_name(
 
     if isinstance(callee, FieldAccessExpr):
         chain = _flatten_field_chain(callee)
-        if chain is None or len(chain) < 2:
+        if chain is None:
+            return _resolve_method_call_target(callee, ctx)
+        if len(chain) < 2:
             raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
         if chain[0] in ctx.layout.slot_offsets:
             return _resolve_method_call_target(callee, ctx)
@@ -431,7 +437,7 @@ def _infer_expression_type_name(
 ) -> str:
     if isinstance(expr, LiteralExpr):
         if expr.value.startswith('"'):
-            return "Str"
+            return STR_CLASS_NAME
         if expr.value.startswith("'"):
             return "u8"
         if expr.value in {"true", "false"}:
@@ -475,7 +481,7 @@ def _infer_expression_type_name(
     if isinstance(expr, IndexExpr):
         if isinstance(expr.object_expr, IdentifierExpr):
             receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
-            if receiver_type == "Str":
+            if is_str_type_name(receiver_type):
                 return "u8"
             if receiver_type == "Vec":
                 return "Obj"
@@ -891,7 +897,7 @@ class CodeGenerator:
         if receiver_type_name is None:
             raise NotImplementedError(f"index receiver '{receiver_name}' is not materialized in stack layout")
 
-        if receiver_type_name == "Str":
+        if is_str_type_name(receiver_type_name):
             method_label = ctx.method_labels.get((receiver_type_name, "get_u8"))
             if method_label is None and "::" in receiver_type_name:
                 unqualified_type_name = receiver_type_name.split("::", 1)[1]

@@ -3,6 +3,7 @@ from __future__ import annotations
 from compiler.ast_nodes import *
 from compiler.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
+from compiler.str_type_utils import STR_CLASS_NAME, is_str_type_name
 from compiler.typecheck_model import (
     BUILTIN_INDEX_RESULT_TYPE_NAMES,
     ClassInfo,
@@ -89,7 +90,14 @@ class TypeChecker:
         for class_decl in self.module_ast.classes:
             if class_decl.name in self.classes or class_decl.name in self.functions:
                 raise TypeCheckError(f"Duplicate declaration '{class_decl.name}'", class_decl.span)
+            self.classes[class_decl.name] = ClassInfo(
+                name=class_decl.name,
+                fields={},
+                field_order=[],
+                methods={},
+            )
 
+        for class_decl in self.module_ast.classes:
             fields: dict[str, TypeInfo] = {}
             field_order: list[str] = []
             for field_decl in class_decl.fields:
@@ -253,7 +261,7 @@ class TypeChecker:
 
         if isinstance(expr, IndexExpr):
             object_type = self._infer_expression_type(expr.object_expr)
-            if object_type.name == "Str":
+            if is_str_type_name(object_type.name):
                 raise TypeCheckError("Cannot assign through Str index: Str is immutable", expr.span)
             return
 
@@ -284,7 +292,7 @@ class TypeChecker:
 
         if isinstance(expr, LiteralExpr):
             if expr.value.startswith('"'):
-                return TypeInfo(name="Str", kind="reference")
+                return self._resolve_string_type(expr.span)
             if expr.value.startswith("'"):
                 return TypeInfo(name="u8", kind="primitive")
             if expr.value in {"true", "false"}:
@@ -391,7 +399,7 @@ class TypeChecker:
 
             field_type = class_info.fields.get(expr.field_name)
             if field_type is not None:
-                return field_type
+                return self._qualify_member_type_for_owner(field_type, object_type.name)
 
             method_sig = class_info.methods.get(expr.field_name)
             if method_sig is not None:
@@ -402,6 +410,10 @@ class TypeChecker:
         if isinstance(expr, IndexExpr):
             obj_type = self._infer_expression_type(expr.object_expr)
             index_type = self._infer_expression_type(expr.index_expr)
+            if is_str_type_name(obj_type.name):
+                self._require_type_name(index_type, "i64", expr.index_expr.span)
+                return TypeInfo(name="u8", kind="primitive")
+
             builtin_index_result = BUILTIN_INDEX_RESULT_TYPE_NAMES.get(obj_type.name)
             if builtin_index_result is not None:
                 self._require_type_name(index_type, "i64", expr.index_expr.span)
@@ -496,8 +508,14 @@ class TypeChecker:
             if method_sig is None:
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
 
-            self._check_call_arguments(method_sig.params, expr.arguments, expr.span)
-            return method_sig.return_type
+            qualified_params = [
+                self._qualify_member_type_for_owner(param_type, object_type.name)
+                for param_type in method_sig.params
+            ]
+            qualified_return_type = self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
+
+            self._check_call_arguments(qualified_params, expr.arguments, expr.span)
+            return qualified_return_type
 
         callee_type = self._infer_expression_type(expr.callee)
         raise TypeCheckError(f"Expression of type '{callee_type.name}' is not callable", expr.callee.span)
@@ -560,14 +578,27 @@ class TypeChecker:
             if qualified is not None:
                 return qualified
 
-        if name in REFERENCE_BUILTIN_TYPE_NAMES or name in self.classes:
+        if name in self.classes:
             return TypeInfo(name=name, kind="reference")
 
         imported_class_type = self._resolve_imported_class_type(name, type_ref.span)
         if imported_class_type is not None:
             return imported_class_type
 
+        if name in REFERENCE_BUILTIN_TYPE_NAMES:
+            return TypeInfo(name=name, kind="reference")
+
         raise TypeCheckError(f"Unknown type '{name}'", type_ref.span)
+
+    def _resolve_string_type(self, span: SourceSpan) -> TypeInfo:
+        if STR_CLASS_NAME in self.classes:
+            return TypeInfo(name=STR_CLASS_NAME, kind="reference")
+
+        imported_class_type = self._resolve_imported_class_type(STR_CLASS_NAME, span)
+        if imported_class_type is not None:
+            return imported_class_type
+
+        raise TypeCheckError(f"Unknown type '{STR_CLASS_NAME}'", span)
 
     def _resolve_imported_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
         matched_module = self._resolve_unique_imported_class_module(
@@ -581,6 +612,20 @@ class TypeChecker:
         owner_dotted = ".".join(matched_module)
         return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
 
+    def _qualify_member_type_for_owner(self, member_type: TypeInfo, owner_type_name: str) -> TypeInfo:
+        if member_type.kind != "reference" or "::" in member_type.name:
+            return member_type
+        if "::" not in owner_type_name or self.module_class_infos is None:
+            return member_type
+
+        owner_dotted, _owner_class_name = owner_type_name.split("::", 1)
+        owner_module = tuple(owner_dotted.split("."))
+        owner_classes = self.module_class_infos.get(owner_module)
+        if owner_classes is None or member_type.name not in owner_classes:
+            return member_type
+
+        return TypeInfo(name=f"{owner_dotted}::{member_type.name}", kind="reference")
+
     def _resolve_unique_imported_class_module(
         self,
         class_name: str,
@@ -592,7 +637,6 @@ class TypeChecker:
         if (
             current_module is None
             or self.modules is None
-            or self.module_class_infos is None
         ):
             return None
 
@@ -621,7 +665,6 @@ class TypeChecker:
         if (
             current_module is None
             or self.modules is None
-            or self.module_class_infos is None
         ):
             return None
 

@@ -369,3 +369,31 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_function(tmp_p
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
     with pytest.raises(TypeCheckError, match="Ambiguous imported function 'add'"):
         typecheck_program(program)
+
+
+def test_typecheck_program_imported_std_str_methods_on_unqualified_str(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "std" / "str.nif",
+        """
+        export class Str {
+            fn strip() -> Str {
+                return __self;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import std.str;
+
+        fn main() -> unit {
+            var s: Str = "Hello world!";
+            var t: Str = s.strip();
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)

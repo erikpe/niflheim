@@ -29,5 +29,30 @@ export class Str
 
         return rt_str_slice(__self, resolved_begin, resolved_end);
     }
+
+    fn strip() -> Str {
+        var start: i64 = 0;
+        var stop: i64 = __self.len();
+
+        while start < stop {
+            var c: u8 = __self[start];
+            if (c == ' ' || c == '\n' || c == '\r' || c == '\t') {
+                start = start + 1;
+                continue;
+            }
+            break;
+        }
+
+        while start < stop {
+            var c: u8 = __self[stop - 1];
+            if (c == ' ' || c == '\n' || c == '\r' || c == '\t') {
+                stop = stop - 1;
+                continue;
+            }
+            break;
+        }
+
+        return __self[start:stop];
+    }
 }
 

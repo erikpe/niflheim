@@ -14,6 +14,9 @@ def _parse_and_typecheck(source: str) -> None:
 
 def test_typecheck_primitives_and_references_ok() -> None:
     source = """
+class Str {
+}
+
 class Person {
     name: Str;
     age: i64;
@@ -253,6 +256,9 @@ fn main() -> unit {
 
 def test_typecheck_rejects_unrelated_reference_cast() -> None:
     source = """
+class Str {
+}
+
 class Person {
     age: i64;
 }
@@ -314,6 +320,9 @@ fn main() -> unit {
 
 def test_typecheck_str_index_returns_u8() -> None:
     source = """
+class Str {
+}
+
 fn main() -> unit {
     var s: Str = "A";
     var b: u8 = s[0];
@@ -371,6 +380,9 @@ fn main() -> unit {
 
 def test_typecheck_rejects_non_i64_str_index() -> None:
     source = """
+class Str {
+}
+
 fn main() -> unit {
     var s: Str = "A";
     var b: u8 = s[true];
@@ -383,6 +395,9 @@ fn main() -> unit {
 
 def test_typecheck_rejects_assignment_through_str_index() -> None:
     source = """
+class Str {
+}
+
 fn main() -> unit {
     var s: Str = "A";
     s[0] = (u8)66;
