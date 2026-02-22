@@ -286,6 +286,13 @@ class TypeChecker:
             if expr.name == "Vec":
                 return TypeInfo(name="__class__:Vec", kind="callable")
 
+            imported_class_type = self._resolve_imported_class_type(expr.name, expr.span)
+            if imported_class_type is not None:
+                if "::" in imported_class_type.name:
+                    owner_dotted, class_name = imported_class_type.name.split("::", 1)
+                    return TypeInfo(name=f"__class__:{owner_dotted}:{class_name}", kind="callable")
+                return TypeInfo(name=f"__class__:{imported_class_type.name}", kind="callable")
+
             if self._current_module_info() is not None and expr.name in self._current_module_info().imports:
                 return TypeInfo(name=f"__module__:{expr.name}", kind="module")
 

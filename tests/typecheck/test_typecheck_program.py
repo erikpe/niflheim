@@ -128,6 +128,35 @@ def test_typecheck_program_allows_unqualified_imported_exported_class_as_type(tm
     typecheck_program(program)
 
 
+def test_typecheck_program_allows_unqualified_imported_class_static_method_call(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class Counter {
+            static fn from_i64(value: i64) -> Counter {
+                return Counter(value);
+            }
+
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var c: Counter = Counter.from_i64(7);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_rejects_ambiguous_unqualified_imported_type(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",
