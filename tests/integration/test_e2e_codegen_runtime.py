@@ -165,6 +165,14 @@ fn main() -> i64 {
 
 def test_e2e_str_literal_and_indexing_links_and_runs() -> None:
     source = """
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+
+class Str {
+    fn get_u8(index: i64) -> u8 {
+        return rt_str_get_u8(__self, index);
+    }
+}
+
 fn main() -> i64 {
     var s: Str = "AB\\n";
     var b: u8 = s[1];
@@ -178,6 +186,14 @@ fn main() -> i64 {
 
 def test_e2e_str_hex_escape_links_and_runs() -> None:
     source = """
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+
+class Str {
+    fn get_u8(index: i64) -> u8 {
+        return rt_str_get_u8(__self, index);
+    }
+}
+
 fn main() -> i64 {
     var s: Str = "\\x41\\x42";
     var b: u8 = s[0];

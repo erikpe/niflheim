@@ -261,6 +261,25 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_implicit___self_in_method_body() -> None:
+    source = """
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+
+class Str {
+    fn get_u8(index: i64) -> u8 {
+        return rt_str_get_u8(__self, index);
+    }
+}
+
+fn main() -> unit {
+    var s: Str = "A";
+    var b: u8 = s.get_u8(0);
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_non_i64_str_index() -> None:
     source = """
 fn main() -> unit {

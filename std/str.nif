@@ -4,11 +4,11 @@ extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
 export class Str
 {
     fn len() -> i64 {
-        return rt_str_len(__this);
+        return rt_str_len(__self);
     }
 
     fn get_u8(index: i64) -> u8 {
-        return rt_str_get_u8(__this, index);
+        return rt_str_get_u8(__self, index);
     }
 }
 

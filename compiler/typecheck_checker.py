@@ -77,7 +77,12 @@ class TypeChecker:
             class_info = self.classes[class_decl.name]
             for method_decl in class_decl.methods:
                 method_sig = class_info.methods[method_decl.name]
-                self._check_function_like(method_decl.params, method_decl.body, method_sig.return_type)
+                self._check_function_like(
+                    method_decl.params,
+                    method_decl.body,
+                    method_sig.return_type,
+                    receiver_type=TypeInfo(name=class_info.name, kind="reference"),
+                )
 
     def _collect_declarations(self) -> None:
         for class_decl in self.module_ast.classes:
@@ -123,8 +128,17 @@ class TypeChecker:
             return_type=self._resolve_type_ref(decl.return_type),
         )
 
-    def _check_function_like(self, params: list[ParamDecl], body: BlockStmt, return_type: TypeInfo) -> None:
+    def _check_function_like(
+        self,
+        params: list[ParamDecl],
+        body: BlockStmt,
+        return_type: TypeInfo,
+        *,
+        receiver_type: TypeInfo | None = None,
+    ) -> None:
         self._push_scope()
+        if receiver_type is not None:
+            self._declare_variable("__self", receiver_type, body.span)
         for param in params:
             param_type = self._resolve_type_ref(param.type_ref)
             self._declare_variable(param.name, param_type, param.span)

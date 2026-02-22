@@ -173,6 +173,7 @@ def _expr_needs_temp_runtime_roots(expr: Expression) -> bool:
             "push",
             "get",
             "set",
+            "get_u8",
         }:
             return True
         if _expr_needs_temp_runtime_roots(expr.callee):
@@ -502,15 +503,19 @@ def _resolve_method_call_target(
     receiver_type_name = ctx.layout.slot_type_names.get(receiver_expr.name)
     if receiver_type_name is None:
         raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
+    method_owner_type_name = receiver_type_name
 
     method_name = callee.field_name
 
-    builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((receiver_type_name, method_name))
+    builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((method_owner_type_name, method_name))
+    if builtin_method is None and "::" in method_owner_type_name:
+        method_owner_type_name = method_owner_type_name.split("::", 1)[1]
+        builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((method_owner_type_name, method_name))
     if builtin_method is not None:
         return ResolvedCallTarget(
             name=builtin_method,
             receiver_expr=receiver_expr,
-            return_type_name=BUILTIN_METHOD_RETURN_TYPES[(receiver_type_name, method_name)],
+            return_type_name=BUILTIN_METHOD_RETURN_TYPES[(method_owner_type_name, method_name)],
         )
 
     method_label = ctx.method_labels.get((receiver_type_name, method_name))
@@ -1017,6 +1022,27 @@ class CodeGenerator:
         receiver_type_name = layout.slot_type_names.get(receiver_name)
         if receiver_type_name is None:
             raise NotImplementedError(f"index receiver '{receiver_name}' is not materialized in stack layout")
+
+        if receiver_type_name == "Str":
+            method_label = ctx.method_labels.get((receiver_type_name, "get_u8"))
+            if method_label is None and "::" in receiver_type_name:
+                unqualified_type_name = receiver_type_name.split("::", 1)[1]
+                method_label = ctx.method_labels.get((unqualified_type_name, "get_u8"))
+            if method_label is None:
+                raise NotImplementedError("index codegen for Str requires Str.get_u8 method")
+
+            synthetic_callee = FieldAccessExpr(
+                object_expr=expr.object_expr,
+                field_name="get_u8",
+                span=expr.span,
+            )
+            synthetic_call = CallExpr(
+                callee=synthetic_callee,
+                arguments=[expr.index_expr],
+                span=expr.span,
+            )
+            self._emit_call_expr(synthetic_call, ctx)
+            return
 
         self._emit_expr(expr.index_expr, ctx)
         self.out.append("    push rax")

@@ -295,6 +295,14 @@ fn main() -> i64 {
 
 def test_emit_asm_str_index_lowers_via_rt_str_get_u8() -> None:
     source = """
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+
+class Str {
+    fn get_u8(index: i64) -> u8 {
+        return rt_str_get_u8(__self, index);
+    }
+}
+
 fn main() -> i64 {
     var s: Str = "ABC";
     var b: u8 = s[1];

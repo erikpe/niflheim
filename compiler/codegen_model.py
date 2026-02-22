@@ -83,13 +83,11 @@ BUILTIN_METHOD_RETURN_TYPES: dict[tuple[str, str], str] = {
     ("Vec", "set"): "unit",
 }
 BUILTIN_INDEX_RUNTIME_CALLS = {
-    "Str": "rt_str_get_u8",
     "Vec": "rt_vec_get",
 }
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_checked_cast": (0,),
-    "rt_str_len": (0,),
     "rt_box_i64_get": (0,),
     "rt_box_u64_get": (0,),
     "rt_box_u8_get": (0,),
@@ -99,10 +97,8 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_vec_get": (0,),
     "rt_vec_push": (0, 1),
     "rt_vec_set": (0, 2),
-    "rt_str_get_u8": (0,),
 }
 BUILTIN_RUNTIME_TYPE_SYMBOLS: dict[str, str] = {
-    "Str": "rt_type_str_desc",
     "Vec": "rt_type_vec_desc",
     "BoxI64": "rt_type_box_i64_desc",
     "BoxU64": "rt_type_box_u64_desc",
@@ -111,7 +107,6 @@ BUILTIN_RUNTIME_TYPE_SYMBOLS: dict[str, str] = {
     "BoxDouble": "rt_type_box_double_desc",
 }
 RUNTIME_RETURN_TYPES: dict[str, str] = {
-    "rt_str_len": "i64",
     "rt_box_double_get": "double",
     "rt_box_i64_get": "i64",
     "rt_box_u64_get": "u64",
@@ -120,7 +115,6 @@ RUNTIME_RETURN_TYPES: dict[str, str] = {
     "rt_vec_len": "i64",
     "rt_vec_get": "Obj",
     "rt_vec_new": "Vec",
-    "rt_str_get_u8": "u8",
     "rt_checked_cast": "Obj",
     "rt_panic_str": "unit",
 }

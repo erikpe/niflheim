@@ -1,0 +1,8 @@
+import std.str;
+
+fn main() -> i64
+{
+    var s: Str = "Hello world!";
+    var c: u8 = s[5];
+    return 0;
+}
