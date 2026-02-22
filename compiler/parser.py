@@ -27,6 +27,7 @@ UNARY_START_TOKENS: set[TokenKind] = {
 
 
 BUILTIN_CALLABLE_TYPE_TOKENS: tuple[TokenKind, ...] = (
+    TokenKind.STR,
     TokenKind.VEC,
     TokenKind.BOXI64,
     TokenKind.BOXU64,
@@ -170,6 +171,17 @@ class Parser:
         self.stream.expect(TokenKind.EOF, "Expected end of expression")
         return expr
 
+    @staticmethod
+    def _is_symbol_name_kind(kind: TokenKind) -> bool:
+        return kind in {TokenKind.IDENT, TokenKind.STR}
+
+    def _expect_symbol_name(self, message: str) -> Token:
+        token = self.stream.peek()
+        if self._is_symbol_name_kind(token.kind):
+            self.stream.advance()
+            return token
+        raise ParserError(message, token.span)
+
     def _parse_import_decl(
         self,
         *,
@@ -197,7 +209,7 @@ class Parser:
         class_token: Token,
         export_token: Token | None = None,
     ) -> ClassDecl:
-        name_token = self.stream.expect(TokenKind.IDENT, "Expected class name")
+        name_token = self._expect_symbol_name("Expected class name")
         self.stream.expect(TokenKind.LBRACE, "Expected '{' after class name")
 
         fields: list[FieldDecl] = []
@@ -332,7 +344,7 @@ class Parser:
         parts = [token.lexeme]
         end = token.span.end
         while self.stream.match(TokenKind.DOT):
-            segment = self.stream.expect(TokenKind.IDENT, "Expected type name after '.' in qualified type")
+            segment = self._expect_symbol_name("Expected type name after '.' in qualified type")
             parts.append(segment.lexeme)
             end = segment.span.end
 
@@ -570,7 +582,7 @@ class Parser:
                 continue
 
             if self.stream.match(TokenKind.DOT):
-                field = self.stream.expect(TokenKind.IDENT, "Expected field name after '.'")
+                field = self._expect_symbol_name("Expected field name after '.'")
                 expr = FieldAccessExpr(
                     object_expr=expr,
                     field_name=field.lexeme,
@@ -621,7 +633,7 @@ class Parser:
 
         if first_type.kind == TokenKind.IDENT:
             while self.stream.peek(lookahead).kind == TokenKind.DOT:
-                if self.stream.peek(lookahead + 1).kind != TokenKind.IDENT:
+                if not self._is_symbol_name_kind(self.stream.peek(lookahead + 1).kind):
                     return False
                 lookahead += 2
 

@@ -33,6 +33,7 @@ from compiler.ast_nodes import (
 from compiler.codegen_model import (
     BOX_VALUE_GETTER_RUNTIME_CALLS,
     BUILTIN_CONSTRUCTOR_RUNTIME_CALLS,
+    BUILTIN_INDEX_RUNTIME_CALLS,
     BUILTIN_METHOD_RETURN_TYPES,
     BUILTIN_METHOD_RUNTIME_CALLS,
     BUILTIN_RUNTIME_TYPE_SYMBOLS,
@@ -1033,12 +1034,10 @@ class CodeGenerator:
         self.out.append("    pop rdi")
         self.out.append("    pop rsi")
 
-        if receiver_type_name == "Str":
-            self.out.append("    call rt_str_get_u8")
-        elif receiver_type_name == "Vec":
-            self.out.append("    call rt_vec_get")
-        else:
+        runtime_call = BUILTIN_INDEX_RUNTIME_CALLS.get(receiver_type_name)
+        if runtime_call is None:
             raise NotImplementedError("index codegen currently supports Str and Vec receivers")
+        self.out.append(f"    call {runtime_call}")
 
         self._emit_runtime_call_hook(
             fn_name=ctx.fn_name,

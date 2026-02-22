@@ -9,6 +9,7 @@ __all__ = [
     "PRIMITIVE_TYPE_NAMES",
     "REFERENCE_BUILTIN_TYPE_NAMES",
     "NUMERIC_TYPE_NAMES",
+    "BUILTIN_INDEX_RESULT_TYPE_NAMES",
     "TypeInfo",
     "FunctionSig",
     "ClassInfo",
@@ -29,6 +30,10 @@ REFERENCE_BUILTIN_TYPE_NAMES = {
     "BoxDouble",
 }
 NUMERIC_TYPE_NAMES = {"i64", "u64", "u8", "double"}
+BUILTIN_INDEX_RESULT_TYPE_NAMES = {
+    "Str": "u8",
+    "Vec": "Obj",
+}
 
 
 @dataclass(frozen=True)

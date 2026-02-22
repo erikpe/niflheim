@@ -3,7 +3,16 @@ from __future__ import annotations
 from compiler.ast_nodes import *
 from compiler.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
-from compiler.typecheck_model import TypeInfo, FunctionSig, ClassInfo, TypeCheckError, NUMERIC_TYPE_NAMES, PRIMITIVE_TYPE_NAMES, REFERENCE_BUILTIN_TYPE_NAMES
+from compiler.typecheck_model import (
+    BUILTIN_INDEX_RESULT_TYPE_NAMES,
+    ClassInfo,
+    FunctionSig,
+    NUMERIC_TYPE_NAMES,
+    PRIMITIVE_TYPE_NAMES,
+    REFERENCE_BUILTIN_TYPE_NAMES,
+    TypeCheckError,
+    TypeInfo,
+)
 
 
 BUILTIN_BOX_VALUE_TYPES: dict[str, TypeInfo] = {
@@ -359,12 +368,11 @@ class TypeChecker:
         if isinstance(expr, IndexExpr):
             obj_type = self._infer_expression_type(expr.object_expr)
             index_type = self._infer_expression_type(expr.index_expr)
-            if obj_type.name == "Str":
+            builtin_index_result = BUILTIN_INDEX_RESULT_TYPE_NAMES.get(obj_type.name)
+            if builtin_index_result is not None:
                 self._require_type_name(index_type, "i64", expr.index_expr.span)
-                return TypeInfo(name="u8", kind="primitive")
-            if obj_type.name == "Vec":
-                self._require_type_name(index_type, "i64", expr.index_expr.span)
-                return TypeInfo(name="Obj", kind="reference")
+                result_kind = "primitive" if builtin_index_result in PRIMITIVE_TYPE_NAMES else "reference"
+                return TypeInfo(name=builtin_index_result, kind=result_kind)
             if obj_type.name == "Map":
                 return TypeInfo(name="Obj", kind="reference")
             raise TypeCheckError(f"Type '{obj_type.name}' is not indexable", expr.span)

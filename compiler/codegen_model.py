@@ -82,6 +82,10 @@ BUILTIN_METHOD_RETURN_TYPES: dict[tuple[str, str], str] = {
     ("Vec", "get"): "Obj",
     ("Vec", "set"): "unit",
 }
+BUILTIN_INDEX_RUNTIME_CALLS = {
+    "Str": "rt_str_get_u8",
+    "Vec": "rt_vec_get",
+}
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_checked_cast": (0,),
