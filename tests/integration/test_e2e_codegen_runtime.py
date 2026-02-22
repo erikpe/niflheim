@@ -243,6 +243,133 @@ fn main() -> i64 {
     assert exit_code == ((108 + 119 + 111 + 33) & 0xFF)
 
 
+def test_e2e_str_negative_index_and_slice_links_and_runs() -> None:
+    source = """
+extern fn rt_str_len(value: Str) -> i64;
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
+
+class Str {
+    fn len() -> i64 {
+        return rt_str_len(__self);
+    }
+
+    fn get_u8(index: i64) -> u8 {
+        var resolved: i64 = index;
+        if resolved < 0 {
+            resolved = __self.len() + resolved;
+        }
+        return rt_str_get_u8(__self, resolved);
+    }
+
+    fn slice(begin: i64, end: i64) -> Str {
+        var resolved_begin: i64 = begin;
+        if resolved_begin < 0 {
+            resolved_begin = __self.len() + resolved_begin;
+        }
+
+        var resolved_end: i64 = end;
+        if resolved_end < 0 {
+            resolved_end = __self.len() + resolved_end;
+        }
+
+        return rt_str_slice(__self, resolved_begin, resolved_end);
+    }
+}
+
+fn main() -> i64 {
+    var v: Str = "Hello world!";
+    var c1: u8 = v[-1];
+    var c2: u8 = v[-3];
+    var s1: Str = v[:-1];
+    var s2: Str = v[-8:8];
+    var c3: u8 = s1[-1];
+    var c4: u8 = s2[2];
+    return (i64)c1 + (i64)c2 + (i64)c3 + (i64)c4;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == ((33 + 108 + 100 + 119) & 0xFF)
+
+
+def test_e2e_str_negative_and_positive_oob_index_panics() -> None:
+    source = """
+extern fn rt_str_len(value: Str) -> i64;
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+
+class Str {
+    fn len() -> i64 {
+        return rt_str_len(__self);
+    }
+
+    fn get_u8(index: i64) -> u8 {
+        var resolved: i64 = index;
+        if resolved < 0 {
+            resolved = __self.len() + resolved;
+        }
+        return rt_str_get_u8(__self, resolved);
+    }
+}
+
+fn main() -> i64 {
+    var v: Str = "Hello world!";
+    var c1: u8 = v[-15];
+    var c2: u8 = v[15];
+    return (i64)c1 + (i64)c2;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code != 0
+
+
+def test_e2e_str_negative_and_positive_oob_slice_panics() -> None:
+    source = """
+extern fn rt_str_len(value: Str) -> i64;
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
+
+class Str {
+    fn len() -> i64 {
+        return rt_str_len(__self);
+    }
+
+    fn get_u8(index: i64) -> u8 {
+        var resolved: i64 = index;
+        if resolved < 0 {
+            resolved = __self.len() + resolved;
+        }
+        return rt_str_get_u8(__self, resolved);
+    }
+
+    fn slice(begin: i64, end: i64) -> Str {
+        var resolved_begin: i64 = begin;
+        if resolved_begin < 0 {
+            resolved_begin = __self.len() + resolved_begin;
+        }
+
+        var resolved_end: i64 = end;
+        if resolved_end < 0 {
+            resolved_end = __self.len() + resolved_end;
+        }
+
+        return rt_str_slice(__self, resolved_begin, resolved_end);
+    }
+}
+
+fn main() -> i64 {
+    var v: Str = "Hello world!";
+    var s1: Str = v[-15:5];
+    var s2: Str = v[15:20];
+    return (i64)s1[0] + (i64)s2[0];
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code != 0
+
+
 def test_e2e_vec_baseline_ops_links_and_runs() -> None:
     source = """
 fn main() -> i64 {
