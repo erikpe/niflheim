@@ -48,6 +48,12 @@ from compiler.codegen_model import (
     ResolvedCallTarget,
     TEMP_RUNTIME_ROOT_SLOT_COUNT,
 )
+from compiler.codegen_str_helper import (
+    collect_string_literals,
+    decode_string_literal,
+    escape_asm_string_bytes,
+    escape_c_string,
+)
 
 
 def _epilogue_label(fn_name: str) -> str:
@@ -250,177 +256,6 @@ def _mangle_method_symbol(type_name: str, method_name: str) -> str:
 def _mangle_constructor_symbol(type_name: str) -> str:
     safe_type = type_name.replace(".", "_").replace(":", "_")
     return f"__nif_ctor_{safe_type}"
-
-
-def _escape_c_string(text: str) -> str:
-    return text.replace("\\", "\\\\").replace('"', '\\"')
-
-
-def _decode_string_literal(lexeme: str) -> bytes:
-    if len(lexeme) < 2 or not lexeme.startswith('"') or not lexeme.endswith('"'):
-        raise ValueError(f"invalid string literal lexeme: {lexeme!r}")
-
-    payload = lexeme[1:-1]
-    out = bytearray()
-    index = 0
-    while index < len(payload):
-        ch = payload[index]
-        if ch != "\\":
-            out.append(ord(ch))
-            index += 1
-            continue
-
-        index += 1
-        if index >= len(payload):
-            raise ValueError("invalid trailing backslash in string literal")
-
-        esc = payload[index]
-        if esc == '"':
-            out.append(ord('"'))
-            index += 1
-            continue
-        if esc == "\\":
-            out.append(ord("\\"))
-            index += 1
-            continue
-        if esc == "n":
-            out.append(0x0A)
-            index += 1
-            continue
-        if esc == "r":
-            out.append(0x0D)
-            index += 1
-            continue
-        if esc == "t":
-            out.append(0x09)
-            index += 1
-            continue
-        if esc == "0":
-            out.append(0x00)
-            index += 1
-            continue
-        if esc == "x":
-            if index + 2 >= len(payload):
-                raise ValueError("invalid \\x escape in string literal")
-            hex_text = payload[index + 1 : index + 3]
-            out.append(int(hex_text, 16))
-            index += 3
-            continue
-
-        raise ValueError(f"unsupported string escape \\{esc}")
-
-    return bytes(out)
-
-
-def _escape_asm_string_bytes(data: bytes) -> str:
-    pieces: list[str] = []
-    for byte in data:
-        if byte == 0x22:
-            pieces.append('\\"')
-        elif byte == 0x5C:
-            pieces.append("\\\\")
-        elif byte == 0x0A:
-            pieces.append("\\n")
-        elif byte == 0x0D:
-            pieces.append("\\r")
-        elif byte == 0x09:
-            pieces.append("\\t")
-        elif 0x20 <= byte <= 0x7E:
-            pieces.append(chr(byte))
-        else:
-            pieces.append(f"\\{byte:03o}")
-    return "".join(pieces)
-
-
-def _collect_string_literals_from_expr(expr: Expression, out: list[str], seen: set[str]) -> None:
-    if isinstance(expr, LiteralExpr):
-        if expr.value.startswith('"'):
-            if expr.value not in seen:
-                seen.add(expr.value)
-                out.append(expr.value)
-        return
-
-    if isinstance(expr, CastExpr):
-        _collect_string_literals_from_expr(expr.operand, out, seen)
-        return
-
-    if isinstance(expr, UnaryExpr):
-        _collect_string_literals_from_expr(expr.operand, out, seen)
-        return
-
-    if isinstance(expr, BinaryExpr):
-        _collect_string_literals_from_expr(expr.left, out, seen)
-        _collect_string_literals_from_expr(expr.right, out, seen)
-        return
-
-    if isinstance(expr, CallExpr):
-        _collect_string_literals_from_expr(expr.callee, out, seen)
-        for arg in expr.arguments:
-            _collect_string_literals_from_expr(arg, out, seen)
-        return
-
-    if isinstance(expr, FieldAccessExpr):
-        _collect_string_literals_from_expr(expr.object_expr, out, seen)
-        return
-
-    if isinstance(expr, IndexExpr):
-        _collect_string_literals_from_expr(expr.object_expr, out, seen)
-        _collect_string_literals_from_expr(expr.index_expr, out, seen)
-
-
-def _collect_string_literals_from_stmt(stmt: Statement, out: list[str], seen: set[str]) -> None:
-    if isinstance(stmt, VarDeclStmt):
-        if stmt.initializer is not None:
-            _collect_string_literals_from_expr(stmt.initializer, out, seen)
-        return
-
-    if isinstance(stmt, AssignStmt):
-        _collect_string_literals_from_expr(stmt.target, out, seen)
-        _collect_string_literals_from_expr(stmt.value, out, seen)
-        return
-
-    if isinstance(stmt, ExprStmt):
-        _collect_string_literals_from_expr(stmt.expression, out, seen)
-        return
-
-    if isinstance(stmt, ReturnStmt):
-        if stmt.value is not None:
-            _collect_string_literals_from_expr(stmt.value, out, seen)
-        return
-
-    if isinstance(stmt, BlockStmt):
-        for nested in stmt.statements:
-            _collect_string_literals_from_stmt(nested, out, seen)
-        return
-
-    if isinstance(stmt, IfStmt):
-        _collect_string_literals_from_expr(stmt.condition, out, seen)
-        _collect_string_literals_from_stmt(stmt.then_branch, out, seen)
-        if stmt.else_branch is not None:
-            _collect_string_literals_from_stmt(stmt.else_branch, out, seen)
-        return
-
-    if isinstance(stmt, WhileStmt):
-        _collect_string_literals_from_expr(stmt.condition, out, seen)
-        _collect_string_literals_from_stmt(stmt.body, out, seen)
-
-
-def _collect_string_literals(module_ast: ModuleAst) -> list[str]:
-    literals: list[str] = []
-    seen: set[str] = set()
-
-    for fn in module_ast.functions:
-        if fn.body is None:
-            continue
-        for stmt in fn.body.statements:
-            _collect_string_literals_from_stmt(stmt, literals, seen)
-
-    for cls in module_ast.classes:
-        for method in cls.methods:
-            for stmt in method.body.statements:
-                _collect_string_literals_from_stmt(stmt, literals, seen)
-
-    return literals
 
 
 def _collect_reference_cast_types_from_expr(expr: Expression, out: set[str]) -> None:
@@ -1462,9 +1297,9 @@ class CodeGenerator:
         self.out.append("")
         self.out.append(".section .rodata")
         self.out.append(f"{fn_label}:")
-        self.out.append(f'    .asciz "{_escape_c_string(function_name)}"')
+        self.out.append(f'    .asciz "{escape_c_string(function_name)}"')
         self.out.append(f"{file_label}:")
-        self.out.append(f'    .asciz "{_escape_c_string(file_path)}"')
+        self.out.append(f'    .asciz "{escape_c_string(file_path)}"')
         self.out.append("")
         self.out.append(".text")
         return fn_label, file_label
@@ -1578,7 +1413,7 @@ class CodeGenerator:
         self._emit_ref_epilogue(layout)
 
     def _emit_string_literal_section(self) -> dict[str, tuple[str, int]]:
-        string_literals = _collect_string_literals(self.module_ast)
+        string_literals = collect_string_literals(self.module_ast)
         labels: dict[str, tuple[str, int]] = {}
         if not string_literals:
             return labels
@@ -1587,10 +1422,10 @@ class CodeGenerator:
         self.out.append(".section .rodata")
         for index, literal in enumerate(string_literals):
             label = f"__nif_str_lit_{index}"
-            data = _decode_string_literal(literal)
+            data = decode_string_literal(literal)
             labels[literal] = (label, len(data))
             self.out.append(f"{label}:")
-            self.out.append(f'    .asciz "{_escape_asm_string_bytes(data)}"')
+            self.out.append(f'    .asciz "{escape_asm_string_bytes(data)}"')
 
         return labels
 
