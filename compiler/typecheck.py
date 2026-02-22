@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from compiler.ast_nodes import ModuleAst
 from compiler.resolver import ProgramInfo, ModulePath
 from compiler.typecheck_checker import TypeChecker
