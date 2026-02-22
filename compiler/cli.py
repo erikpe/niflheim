@@ -9,8 +9,9 @@ from compiler.ast_nodes import ModuleAst
 from compiler.codegen import emit_asm
 from compiler.lexer import Token, lex
 from compiler.parser import parse
+from compiler.reachability import prune_unreachable
 from compiler.resolver import ProgramInfo, resolve_program
-from compiler.typecheck import typecheck, typecheck_program
+from compiler.typecheck import typecheck_program
 
 
 STOP_PHASES = ["lex", "parse", "check", "codegen"]
@@ -139,6 +140,7 @@ def main() -> int:
         if not args.skip_check:
             program = resolve_program(input_path, project_root=args.project_root)
             typecheck_program(program)
+            program = prune_unreachable(program)
             codegen_module = _build_codegen_module(program)
         if args.stop_after == "check":
             return 0
