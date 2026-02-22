@@ -52,6 +52,45 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_break_continue_inside_while() -> None:
+    source = """
+fn main() -> unit {
+    var i: i64 = 0;
+    while i < 10 {
+        i = i + 1;
+        if i == 3 {
+            continue;
+        }
+        if i == 7 {
+            break;
+        }
+    }
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_break_outside_while() -> None:
+    source = """
+fn main() -> unit {
+    break;
+}
+"""
+    with pytest.raises(TypeCheckError, match="'break' is only allowed inside while loops"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_continue_outside_while() -> None:
+    source = """
+fn main() -> unit {
+    continue;
+}
+"""
+    with pytest.raises(TypeCheckError, match="'continue' is only allowed inside while loops"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_reference_to_primitive_assignment() -> None:
     source = """
 class Person {

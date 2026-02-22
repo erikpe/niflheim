@@ -173,6 +173,26 @@ fn main() -> unit {
     assert isinstance(statements[4], IfStmt)
 
 
+def test_parse_break_and_continue_statements() -> None:
+    source = """
+fn main() -> unit {
+    while true {
+        if false {
+            break;
+        }
+        continue;
+    }
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/break_continue_parse.nif"))
+    loop_stmt = module.functions[0].body.statements[0]
+    assert isinstance(loop_stmt, WhileStmt)
+    assert isinstance(loop_stmt.body.statements[0], IfStmt)
+    assert isinstance(loop_stmt.body.statements[0].then_branch.statements[0], BreakStmt)
+    assert isinstance(loop_stmt.body.statements[1], ContinueStmt)
+
+
 def test_parse_export_requires_import_class_or_fn() -> None:
     source = "export return;"
     with pytest.raises(ParserError) as error:

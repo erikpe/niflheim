@@ -97,6 +97,29 @@ fn main() -> i64 {
     assert exit_code == 24
 
 
+def test_e2e_while_break_and_continue_links_and_runs() -> None:
+    source = """
+fn main() -> i64 {
+    var i: i64 = 0;
+    var sum: i64 = 0;
+    while i < 10 {
+        i = i + 1;
+        if i == 5 {
+            continue;
+        }
+        if i == 8 {
+            break;
+        }
+        sum = sum + i;
+    }
+    return sum;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 23
+
+
 def test_e2e_reference_cast_path_links_and_runs() -> None:
     source = """
 fn main() -> i64 {

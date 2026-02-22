@@ -178,6 +178,16 @@ class ReturnStmt:
 
 
 @dataclass(frozen=True)
+class BreakStmt:
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class ContinueStmt:
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class AssignStmt:
     target: Expression
     value: Expression
@@ -196,6 +206,8 @@ Statement = (
     | IfStmt
     | WhileStmt
     | ReturnStmt
+    | BreakStmt
+    | ContinueStmt
     | AssignStmt
     | ExprStmt
 )

@@ -60,6 +60,7 @@ class TypeChecker:
             self.classes: dict[str, ClassInfo] = {}
 
         self.scope_stack: list[dict[str, TypeInfo]] = []
+        self.loop_depth: int = 0
 
     def check(self) -> None:
         if not self.pre_collected:
@@ -182,7 +183,19 @@ class TypeChecker:
         if isinstance(stmt, WhileStmt):
             cond_type = self._infer_expression_type(stmt.condition)
             self._require_type_name(cond_type, "bool", stmt.condition.span)
+            self.loop_depth += 1
             self._check_block(stmt.body, return_type)
+            self.loop_depth -= 1
+            return
+
+        if isinstance(stmt, BreakStmt):
+            if self.loop_depth <= 0:
+                raise TypeCheckError("'break' is only allowed inside while loops", stmt.span)
+            return
+
+        if isinstance(stmt, ContinueStmt):
+            if self.loop_depth <= 0:
+                raise TypeCheckError("'continue' is only allowed inside while loops", stmt.span)
             return
 
         if isinstance(stmt, ReturnStmt):

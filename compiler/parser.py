@@ -378,6 +378,12 @@ class Parser:
         if self.stream.match(TokenKind.RETURN):
             return self._parse_return_stmt(return_token=self.stream.previous())
 
+        if self.stream.match(TokenKind.BREAK):
+            return self._parse_break_stmt(break_token=self.stream.previous())
+
+        if self.stream.match(TokenKind.CONTINUE):
+            return self._parse_continue_stmt(continue_token=self.stream.previous())
+
         if self.stream.check(TokenKind.LBRACE):
             return self._parse_block_stmt()
 
@@ -436,6 +442,14 @@ class Parser:
             value = self._parse_expression()
         semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after return statement")
         return ReturnStmt(value=value, span=SourceSpan(start=return_token.span.start, end=semicolon.span.end))
+
+    def _parse_break_stmt(self, *, break_token: Token) -> BreakStmt:
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after break statement")
+        return BreakStmt(span=SourceSpan(start=break_token.span.start, end=semicolon.span.end))
+
+    def _parse_continue_stmt(self, *, continue_token: Token) -> ContinueStmt:
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after continue statement")
+        return ContinueStmt(span=SourceSpan(start=continue_token.span.start, end=semicolon.span.end))
 
     def _parse_expr_or_assign_stmt(self) -> Statement:
         expr = self._parse_expression()

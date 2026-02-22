@@ -7,6 +7,7 @@ from compiler.ast_nodes import (
     AssignStmt,
     BinaryExpr,
     BlockStmt,
+    BreakStmt,
     CallExpr,
     CastExpr,
     ClassDecl,
@@ -22,6 +23,7 @@ from compiler.ast_nodes import (
     ModuleAst,
     NullExpr,
     ParamDecl,
+    ContinueStmt,
     ReturnStmt,
     Statement,
     TypeRef,
@@ -1204,6 +1206,7 @@ class CodeGenerator:
         epilogue_label: str,
         function_return_type_name: str,
         ctx: EmitContext,
+        loop_labels: list[tuple[str, str]],
     ) -> None:
         layout = ctx.layout
         fn_name = ctx.fn_name
@@ -1251,7 +1254,21 @@ class CodeGenerator:
 
         if isinstance(stmt, BlockStmt):
             for nested in stmt.statements:
-                self._emit_statement(nested, epilogue_label, function_return_type_name, ctx)
+                self._emit_statement(nested, epilogue_label, function_return_type_name, ctx, loop_labels)
+            return
+
+        if isinstance(stmt, BreakStmt):
+            if not loop_labels:
+                raise NotImplementedError("break codegen requires enclosing while loop")
+            _loop_continue_label, loop_end_label = loop_labels[-1]
+            self.out.append(f"    jmp {loop_end_label}")
+            return
+
+        if isinstance(stmt, ContinueStmt):
+            if not loop_labels:
+                raise NotImplementedError("continue codegen requires enclosing while loop")
+            loop_continue_label, _loop_end_label = loop_labels[-1]
+            self.out.append(f"    jmp {loop_continue_label}")
             return
 
         if isinstance(stmt, IfStmt):
@@ -1261,11 +1278,11 @@ class CodeGenerator:
             self._emit_expr(stmt.condition, ctx)
             self.out.append("    cmp rax, 0")
             self.out.append(f"    je {else_label}")
-            self._emit_statement(stmt.then_branch, epilogue_label, function_return_type_name, ctx)
+            self._emit_statement(stmt.then_branch, epilogue_label, function_return_type_name, ctx, loop_labels)
             self.out.append(f"    jmp {end_label}")
             self.out.append(f"{else_label}:")
             if stmt.else_branch is not None:
-                self._emit_statement(stmt.else_branch, epilogue_label, function_return_type_name, ctx)
+                self._emit_statement(stmt.else_branch, epilogue_label, function_return_type_name, ctx, loop_labels)
             self.out.append(f"{end_label}:")
             return
 
@@ -1277,7 +1294,9 @@ class CodeGenerator:
             self._emit_expr(stmt.condition, ctx)
             self.out.append("    cmp rax, 0")
             self.out.append(f"    je {end_label}")
-            self._emit_statement(stmt.body, epilogue_label, function_return_type_name, ctx)
+            loop_labels.append((start_label, end_label))
+            self._emit_statement(stmt.body, epilogue_label, function_return_type_name, ctx, loop_labels)
+            loop_labels.pop()
             self.out.append(f"    jmp {start_label}")
             self.out.append(f"{end_label}:")
             return
@@ -1348,7 +1367,7 @@ class CodeGenerator:
         )
 
         for stmt in fn.body.statements:
-            self._emit_statement(stmt, epilogue, fn.return_type.name, emit_ctx)
+            self._emit_statement(stmt, epilogue, fn.return_type.name, emit_ctx, loop_labels=[])
 
         self.out.append(f"{epilogue}:")
         self._emit_function_epilogue(layout, fn.return_type.name)

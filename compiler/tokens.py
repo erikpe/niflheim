@@ -20,6 +20,8 @@ class TokenKind(str, Enum):
     IF = "IF"
     ELSE = "ELSE"
     WHILE = "WHILE"
+    BREAK = "BREAK"
+    CONTINUE = "CONTINUE"
     RETURN = "RETURN"
 
     I64 = "I64"
@@ -83,6 +85,8 @@ KEYWORDS: dict[str, TokenKind] = {
     "if": TokenKind.IF,
     "else": TokenKind.ELSE,
     "while": TokenKind.WHILE,
+    "break": TokenKind.BREAK,
+    "continue": TokenKind.CONTINUE,
     "return": TokenKind.RETURN,
     "i64": TokenKind.I64,
     "u64": TokenKind.U64,
