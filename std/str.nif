@@ -1,0 +1,14 @@
+extern fn rt_str_len(value: Str) -> i64;
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+
+export class Str
+{
+    fn len() -> i64 {
+        return rt_str_len(__this);
+    }
+
+    fn get_u8(index: i64) -> u8 {
+        return rt_str_get_u8(__this, index);
+    }
+}
+

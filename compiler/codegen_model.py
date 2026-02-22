@@ -85,6 +85,7 @@ BUILTIN_METHOD_RETURN_TYPES: dict[tuple[str, str], str] = {
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_checked_cast": (0,),
+    "rt_str_len": (0,),
     "rt_box_i64_get": (0,),
     "rt_box_u64_get": (0,),
     "rt_box_u8_get": (0,),
@@ -106,6 +107,7 @@ BUILTIN_RUNTIME_TYPE_SYMBOLS: dict[str, str] = {
     "BoxDouble": "rt_type_box_double_desc",
 }
 RUNTIME_RETURN_TYPES: dict[str, str] = {
+    "rt_str_len": "i64",
     "rt_box_double_get": "double",
     "rt_box_i64_get": "i64",
     "rt_box_u64_get": "u64",
@@ -118,23 +120,3 @@ RUNTIME_RETURN_TYPES: dict[str, str] = {
     "rt_checked_cast": "Obj",
     "rt_panic_str": "unit",
 }
-
-
-__all__ = [
-    "BOX_CONSTRUCTOR_RUNTIME_CALLS",
-    "BOX_VALUE_GETTER_RUNTIME_CALLS",
-    "BUILTIN_CONSTRUCTOR_RUNTIME_CALLS",
-    "BUILTIN_METHOD_RETURN_TYPES",
-    "BUILTIN_METHOD_RUNTIME_CALLS",
-    "BUILTIN_RUNTIME_TYPE_SYMBOLS",
-    "ConstructorLayout",
-    "EmitContext",
-    "FLOAT_PARAM_REGISTERS",
-    "FunctionLayout",
-    "PARAM_REGISTERS",
-    "PRIMITIVE_TYPE_NAMES",
-    "RUNTIME_REF_ARG_INDICES",
-    "RUNTIME_RETURN_TYPES",
-    "ResolvedCallTarget",
-    "TEMP_RUNTIME_ROOT_SLOT_COUNT",
-]
