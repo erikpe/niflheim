@@ -193,6 +193,24 @@ fn main() -> unit {
     assert isinstance(loop_stmt.body.statements[1], ContinueStmt)
 
 
+def test_parse_static_method_in_class_body() -> None:
+    source = """
+class Counter {
+    static fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/static_method_parse.nif"))
+
+    assert len(module.classes) == 1
+    cls = module.classes[0]
+    assert len(cls.methods) == 1
+    method = cls.methods[0]
+    assert method.name == "add"
+    assert method.is_static is True
+
+
 def test_parse_export_requires_import_class_or_fn() -> None:
     source = "export return;"
     with pytest.raises(ParserError) as error:

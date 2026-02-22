@@ -38,6 +38,7 @@ class MethodDecl:
     params: list[ParamDecl]
     return_type: TypeRef
     body: "BlockStmt"
+    is_static: bool
     span: SourceSpan
 
 

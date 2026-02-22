@@ -414,6 +414,26 @@ fn main() -> i64 {
     assert "    mov rsi, rax" in asm
 
 
+def test_emit_asm_static_method_call_lowers_to_method_symbol_without_receiver_arg0() -> None:
+    source = """
+class Counter {
+    static fn add(delta: i64) -> i64 {
+        return delta;
+    }
+}
+
+fn main() -> i64 {
+    return Counter.add(7);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "__nif_method_Counter_add:" in asm
+    assert "    call __nif_method_Counter_add" in asm
+
+
 def test_emit_asm_constructor_call_lowers_to_constructor_symbol() -> None:
     source = """
 class Counter {

@@ -220,8 +220,14 @@ class Parser:
             if self.stream.is_at_end():
                 raise ParserError("Unterminated class body", class_token.span)
 
+            if self.stream.match(TokenKind.STATIC):
+                static_token = self.stream.previous()
+                fn_token = self.stream.expect(TokenKind.FN, "Expected 'fn' after 'static' in class body")
+                methods.append(self._parse_method_decl(fn_token=fn_token, is_static=True, start_token=static_token))
+                continue
+
             if self.stream.match(TokenKind.FN):
-                methods.append(self._parse_method_decl(fn_token=self.stream.previous()))
+                methods.append(self._parse_method_decl(fn_token=self.stream.previous(), is_static=False))
                 continue
 
             if self.stream.check(TokenKind.IDENT) and self.stream.peek(1).kind == TokenKind.COLON:
@@ -252,7 +258,7 @@ class Parser:
             span=SourceSpan(start=name.span.start, end=semicolon.span.end),
         )
 
-    def _parse_method_decl(self, *, fn_token: Token) -> MethodDecl:
+    def _parse_method_decl(self, *, fn_token: Token, is_static: bool, start_token: Token | None = None) -> MethodDecl:
         name, params, return_type = self._parse_callable_signature()
         body = self._parse_block_stmt()
         return MethodDecl(
@@ -260,7 +266,8 @@ class Parser:
             params=params,
             return_type=return_type,
             body=body,
-            span=SourceSpan(start=fn_token.span.start, end=body.span.end),
+            is_static=is_static,
+            span=SourceSpan(start=(start_token.span.start if start_token is not None else fn_token.span.start), end=body.span.end),
         )
 
     def _parse_function_decl(

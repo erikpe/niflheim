@@ -80,6 +80,7 @@
               }
             ]
           },
+          "is_static": false,
           "name": "move",
           "node": "MethodDecl",
           "params": [

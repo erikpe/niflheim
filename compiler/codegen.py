@@ -387,6 +387,13 @@ def _resolve_method_call_target(
     if method_label is None:
         raise NotImplementedError(f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'")
 
+    is_static = ctx.method_is_static.get((receiver_type_name, method_name))
+    if is_static is None and "::" in receiver_type_name:
+        unqualified_type_name = receiver_type_name.split("::", 1)[1]
+        is_static = ctx.method_is_static.get((unqualified_type_name, method_name))
+    if is_static:
+        raise NotImplementedError(f"static method '{receiver_type_name}.{method_name}' must be called on the class")
+
     return ResolvedCallTarget(
         name=method_label,
         receiver_expr=receiver_expr,
@@ -419,6 +426,15 @@ def _resolve_call_target_name(
             raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
         if chain[0] in ctx.layout.slot_offsets:
             return _resolve_method_call_target(callee, ctx)
+        static_owner = chain[-2]
+        static_name = chain[-1]
+        static_label = ctx.method_labels.get((static_owner, static_name))
+        if static_label is not None and ctx.method_is_static.get((static_owner, static_name), False):
+            return ResolvedCallTarget(
+                name=static_label,
+                receiver_expr=None,
+                return_type_name=ctx.method_return_types.get((static_owner, static_name), "i64"),
+            )
         ctor_label = ctx.constructor_labels.get(chain[-1])
         if ctor_label is not None:
             return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=chain[-1])
@@ -505,14 +521,18 @@ def _infer_expression_type_name(
 
 
 def _method_function_decl(class_decl: ClassDecl, method_decl: MethodDecl, label: str) -> FunctionDecl:
-    receiver_param = ParamDecl(
-        name="__self",
-        type_ref=TypeRef(name=class_decl.name, span=method_decl.span),
-        span=method_decl.span,
-    )
+    receiver_params: list[ParamDecl] = []
+    if not method_decl.is_static:
+        receiver_params.append(
+            ParamDecl(
+                name="__self",
+                type_ref=TypeRef(name=class_decl.name, span=method_decl.span),
+                span=method_decl.span,
+            )
+        )
     return FunctionDecl(
         name=label,
-        params=[receiver_param, *method_decl.params],
+        params=[*receiver_params, *method_decl.params],
         return_type=method_decl.return_type,
         body=method_decl.body,
         is_export=False,
@@ -543,6 +563,7 @@ class CodeGenerator:
         self.out: list[str] = [".intel_syntax noprefix"]
         self.method_labels: dict[tuple[str, str], str] = {}
         self.method_return_types: dict[tuple[str, str], str] = {}
+        self.method_is_static: dict[tuple[str, str], bool] = {}
         self.function_return_types: dict[str, str] = {}
         self.constructor_layouts: dict[str, ConstructorLayout] = {}
         self.constructor_labels: dict[str, str] = {}
@@ -577,6 +598,7 @@ class CodeGenerator:
             for method in cls.methods:
                 self.method_labels[(cls.name, method.name)] = _mangle_method_symbol(cls.name, method.name)
                 self.method_return_types[(cls.name, method.name)] = method.return_type.name
+                self.method_is_static[(cls.name, method.name)] = method.is_static
 
         for fn in self.module_ast.functions:
             self.function_return_types[fn.name] = fn.return_type.name
@@ -1378,6 +1400,7 @@ class CodeGenerator:
             label_counter=label_counter,
             method_labels=self.method_labels,
             method_return_types=self.method_return_types,
+            method_is_static=self.method_is_static,
             constructor_labels=self.constructor_labels,
             function_return_types=self.function_return_types,
             string_literal_labels=self.string_literal_labels,

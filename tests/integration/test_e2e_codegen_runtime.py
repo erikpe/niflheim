@@ -168,6 +168,23 @@ fn main() -> i64 {
     assert exit_code == 13
 
 
+def test_e2e_static_method_call_lowering_links_and_runs() -> None:
+    source = """
+class Counter {
+    static fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+}
+
+fn main() -> i64 {
+    return Counter.add(20, 3);
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 23
+
+
 def test_e2e_constructor_call_lowering_links_and_runs() -> None:
     source = """
 class Counter {

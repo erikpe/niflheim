@@ -84,6 +84,8 @@ Defaults:
 ### 4.1 Classes
 
 - Classes support fields and methods.
+- Methods are instance methods by default.
+- Static methods are declared explicitly with `static fn` and are called on the class name (`Counter.add(...)`).
 - No inheritance in v0.1.
 - No interfaces in v0.1 (may be added later).
 

@@ -83,7 +83,7 @@ class TypeChecker:
                     method_decl.params,
                     method_decl.body,
                     method_sig.return_type,
-                    receiver_type=TypeInfo(name=class_info.name, kind="reference"),
+                    receiver_type=None if method_sig.is_static else TypeInfo(name=class_info.name, kind="reference"),
                 )
 
     def _collect_declarations(self) -> None:
@@ -135,6 +135,7 @@ class TypeChecker:
             name=decl.name,
             params=params,
             return_type=self._resolve_type_ref(decl.return_type),
+            is_static=decl.is_static if isinstance(decl, MethodDecl) else False,
         )
 
     def _check_function_like(
@@ -492,6 +493,30 @@ class TypeChecker:
 
             object_type = self._infer_expression_type(expr.callee.object_expr)
 
+            if object_type.kind == "callable" and object_type.name.startswith("__class__:"):
+                class_type_name = self._class_type_name_from_callable(object_type.name)
+                class_info = self._lookup_class_by_type_name(class_type_name)
+                if class_info is None:
+                    raise TypeCheckError(f"Type '{class_type_name}' has no callable members", expr.span)
+
+                method_sig = class_info.methods.get(expr.callee.field_name)
+                if method_sig is None:
+                    raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
+                if not method_sig.is_static:
+                    raise TypeCheckError(
+                        f"Method '{class_info.name}.{expr.callee.field_name}' is not static",
+                        expr.span,
+                    )
+
+                qualified_params = [
+                    self._qualify_member_type_for_owner(param_type, class_type_name)
+                    for param_type in method_sig.params
+                ]
+                qualified_return_type = self._qualify_member_type_for_owner(method_sig.return_type, class_type_name)
+
+                self._check_call_arguments(qualified_params, expr.arguments, expr.span)
+                return qualified_return_type
+
             if object_type.name == "Vec":
                 method_spec = BUILTIN_VEC_METHOD_SPECS.get(expr.callee.field_name)
                 if method_spec is None:
@@ -507,6 +532,11 @@ class TypeChecker:
             method_sig = class_info.methods.get(expr.callee.field_name)
             if method_sig is None:
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
+            if method_sig.is_static:
+                raise TypeCheckError(
+                    f"Static method '{class_info.name}.{expr.callee.field_name}' must be called on the class",
+                    expr.span,
+                )
 
             qualified_params = [
                 self._qualify_member_type_for_owner(param_type, object_type.name)
@@ -519,6 +549,15 @@ class TypeChecker:
 
         callee_type = self._infer_expression_type(expr.callee)
         raise TypeCheckError(f"Expression of type '{callee_type.name}' is not callable", expr.callee.span)
+
+    def _class_type_name_from_callable(self, callable_name: str) -> str:
+        if not callable_name.startswith("__class__:"):
+            raise ValueError(f"invalid class callable name: {callable_name}")
+        payload = callable_name[len("__class__:") :]
+        if ":" not in payload:
+            return payload
+        owner_dotted, class_name = payload.rsplit(":", 1)
+        return f"{owner_dotted}::{class_name}"
 
     def _resolve_imported_function_sig(self, fn_name: str, span: SourceSpan) -> FunctionSig | None:
         current_module = self._current_module_info()

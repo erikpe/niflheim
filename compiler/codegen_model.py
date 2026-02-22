@@ -44,6 +44,7 @@ class EmitContext:
     label_counter: list[int]
     method_labels: dict[tuple[str, str], str]
     method_return_types: dict[tuple[str, str], str]
+    method_is_static: dict[tuple[str, str], bool]
     constructor_labels: dict[str, str]
     function_return_types: dict[str, str]
     string_literal_labels: dict[str, tuple[str, int]]

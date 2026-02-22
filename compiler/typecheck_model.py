@@ -45,6 +45,7 @@ class FunctionSig:
     name: str
     params: list[TypeInfo]
     return_type: TypeInfo
+    is_static: bool = False
 
 
 @dataclass(frozen=True)

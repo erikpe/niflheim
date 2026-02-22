@@ -41,6 +41,12 @@ def test_lex_extern_keyword() -> None:
     ]
 
 
+def test_lex_static_keyword() -> None:
+    source = "class C { static fn f() -> unit { return; } }"
+    kinds = [token.kind for token in lex(source)]
+    assert TokenKind.STATIC in kinds
+
+
 def test_lex_skips_whitespace_and_line_comments() -> None:
     source = "// first\nvar x: i64 = 1; // second\n"
     tokens = lex(source)

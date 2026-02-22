@@ -94,6 +94,54 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_static_method_class_call() -> None:
+    source = """
+class Counter {
+    static fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+}
+
+fn main() -> i64 {
+    return Counter.add(2, 3);
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_static_method_called_on_instance() -> None:
+    source = """
+class Counter {
+    static fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = null;
+    return c.add(2, 3);
+}
+"""
+    with pytest.raises(TypeCheckError, match="Static method 'Counter.add' must be called on the class"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_instance_method_called_on_class() -> None:
+    source = """
+class Counter {
+    fn add(delta: i64) -> i64 {
+        return delta;
+    }
+}
+
+fn main() -> i64 {
+    return Counter.add(3);
+}
+"""
+    with pytest.raises(TypeCheckError, match="Method 'Counter.add' is not static"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_reference_to_primitive_assignment() -> None:
     source = """
 class Person {
