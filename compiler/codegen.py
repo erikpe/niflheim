@@ -312,6 +312,26 @@ def _decode_string_literal(lexeme: str) -> bytes:
     return bytes(out)
 
 
+def _escape_asm_string_bytes(data: bytes) -> str:
+    pieces: list[str] = []
+    for byte in data:
+        if byte == 0x22:
+            pieces.append('\\"')
+        elif byte == 0x5C:
+            pieces.append("\\\\")
+        elif byte == 0x0A:
+            pieces.append("\\n")
+        elif byte == 0x0D:
+            pieces.append("\\r")
+        elif byte == 0x09:
+            pieces.append("\\t")
+        elif 0x20 <= byte <= 0x7E:
+            pieces.append(chr(byte))
+        else:
+            pieces.append(f"\\{byte:03o}")
+    return "".join(pieces)
+
+
 def _collect_string_literals_from_expr(expr: Expression, out: list[str], seen: set[str]) -> None:
     if isinstance(expr, LiteralExpr):
         if expr.value.startswith('"'):
@@ -1570,11 +1590,7 @@ class CodeGenerator:
             data = _decode_string_literal(literal)
             labels[literal] = (label, len(data))
             self.out.append(f"{label}:")
-            if data:
-                data_bytes = ", ".join(str(byte) for byte in data)
-                self.out.append(f"    .byte {data_bytes}")
-            else:
-                self.out.append("    .byte 0")
+            self.out.append(f'    .asciz "{_escape_asm_string_bytes(data)}"')
 
         return labels
 
