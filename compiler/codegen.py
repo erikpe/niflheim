@@ -840,53 +840,193 @@ class CodeGenerator:
         self.out.append("    setne al")
         self.out.append("    movzx rax, al")
 
-    def _emit_expr(self, expr: Expression, ctx: EmitContext) -> None:
+    def _emit_literal_expr(self, expr: LiteralExpr, ctx: EmitContext) -> None:
         layout = ctx.layout
-        fn_name = ctx.fn_name
         label_counter = ctx.label_counter
         string_literal_labels = ctx.string_literal_labels
 
-        if isinstance(expr, LiteralExpr):
-            if expr.value.startswith('"'):
-                label_and_len = string_literal_labels.get(expr.value)
-                if label_and_len is None:
-                    raise NotImplementedError("missing string literal lowering metadata")
-                data_label, data_len = label_and_len
+        if expr.value.startswith('"'):
+            label_and_len = string_literal_labels.get(expr.value)
+            if label_and_len is None:
+                raise NotImplementedError("missing string literal lowering metadata")
+            data_label, data_len = label_and_len
+            self._emit_runtime_call_hook(
+                fn_name=ctx.fn_name,
+                phase="before",
+                label_counter=label_counter,
+                line=expr.span.start.line,
+                column=expr.span.start.column,
+            )
+            self._emit_root_slot_updates(layout)
+            self.out.append("    call rt_thread_state")
+            self.out.append("    mov rdi, rax")
+            self.out.append(f"    lea rsi, [rip + {data_label}]")
+            self.out.append(f"    mov rdx, {data_len}")
+            self.out.append("    call rt_str_from_bytes")
+            self._emit_runtime_call_hook(
+                fn_name=ctx.fn_name,
+                phase="after",
+                label_counter=label_counter,
+            )
+            return
+
+        if expr.value == "true":
+            self.out.append("    mov rax, 1")
+            return
+        if expr.value == "false":
+            self.out.append("    mov rax, 0")
+            return
+        if _is_double_literal_text(expr.value):
+            self.out.append(f"    mov rax, 0x{_double_literal_bits(expr.value):016x}")
+            return
+        if expr.value.isdigit():
+            self.out.append(f"    mov rax, {expr.value}")
+            return
+        if expr.value.endswith("u") and expr.value[:-1].isdigit():
+            self.out.append(f"    mov rax, {expr.value[:-1]}")
+            return
+
+        raise NotImplementedError(f"literal codegen not implemented for '{expr.value}'")
+
+    def _emit_field_access_expr(self, expr: FieldAccessExpr, ctx: EmitContext) -> None:
+        layout = ctx.layout
+        label_counter = ctx.label_counter
+
+        receiver_type_name: str | None = None
+        if isinstance(expr.object_expr, IdentifierExpr):
+            receiver_name = expr.object_expr.name
+            receiver_type_name = layout.slot_type_names.get(receiver_name)
+            if receiver_type_name is None:
+                raise NotImplementedError(f"field receiver '{receiver_name}' is not materialized in stack layout")
+        elif isinstance(expr.object_expr, CastExpr):
+            receiver_type_name = expr.object_expr.type_ref.name
+        else:
+            raise NotImplementedError("field access codegen currently supports identifier or cast receivers")
+
+        if expr.field_name == "value":
+            getter_name = BOX_VALUE_GETTER_RUNTIME_CALLS.get(receiver_type_name)
+            if getter_name is not None:
+                self._emit_expr(expr.object_expr, ctx)
+                self.out.append("    push rax")
                 self._emit_runtime_call_hook(
-                    fn_name=fn_name,
+                    fn_name=ctx.fn_name,
                     phase="before",
                     label_counter=label_counter,
                     line=expr.span.start.line,
                     column=expr.span.start.column,
                 )
                 self._emit_root_slot_updates(layout)
-                self.out.append("    call rt_thread_state")
-                self.out.append("    mov rdi, rax")
-                self.out.append(f"    lea rsi, [rip + {data_label}]")
-                self.out.append(f"    mov rdx, {data_len}")
-                self.out.append("    call rt_str_from_bytes")
+                self.out.append("    pop rdi")
+                self.out.append(f"    call {getter_name}")
+                if receiver_type_name == "BoxDouble":
+                    self.out.append("    movq rax, xmm0")
                 self._emit_runtime_call_hook(
-                    fn_name=fn_name,
+                    fn_name=ctx.fn_name,
                     phase="after",
                     label_counter=label_counter,
                 )
                 return
-            if expr.value == "true":
-                self.out.append("    mov rax, 1")
-                return
-            if expr.value == "false":
-                self.out.append("    mov rax, 0")
-                return
-            if _is_double_literal_text(expr.value):
-                self.out.append(f"    mov rax, 0x{_double_literal_bits(expr.value):016x}")
-                return
-            if expr.value.isdigit():
-                self.out.append(f"    mov rax, {expr.value}")
-                return
-            if expr.value.endswith("u") and expr.value[:-1].isdigit():
-                self.out.append(f"    mov rax, {expr.value[:-1]}")
-                return
-            raise NotImplementedError(f"literal codegen not implemented for '{expr.value}'")
+
+        raise NotImplementedError("field access codegen currently supports only Box*.value reads")
+
+    def _emit_cast_expr(self, expr: CastExpr, ctx: EmitContext) -> None:
+        label_counter = ctx.label_counter
+
+        self._emit_expr(expr.operand, ctx)
+        source_type = _infer_expression_type_name(expr.operand, ctx)
+        target_type = expr.type_ref.name
+        if _is_reference_type_name(target_type):
+            type_symbol = _mangle_type_symbol(target_type)
+            self.out.append("    push rax")
+            self._emit_runtime_call_hook(
+                fn_name=ctx.fn_name,
+                phase="before",
+                label_counter=label_counter,
+                line=expr.span.start.line,
+                column=expr.span.start.column,
+            )
+            self.out.append("    pop rax")
+            self.out.append("    mov rdi, rax")
+            self.out.append(f"    lea rsi, [rip + {type_symbol}]")
+            self.out.append("    call rt_checked_cast")
+            self._emit_runtime_call_hook(
+                fn_name=ctx.fn_name,
+                phase="after",
+                label_counter=label_counter,
+            )
+            return
+
+        if target_type == source_type:
+            return
+
+        if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:
+            self.out.append("    cvtsi2sd xmm0, rax")
+            self.out.append("    movq rax, xmm0")
+            return
+
+        if source_type == "double" and target_type in {"i64", "u64", "u8", "bool"}:
+            self.out.append("    movq xmm0, rax")
+            self.out.append("    cvttsd2si rax, xmm0")
+            if target_type == "u8":
+                self.out.append("    and rax, 255")
+            elif target_type == "bool":
+                self._emit_bool_normalize()
+            return
+
+        if target_type == "u8":
+            self.out.append("    and rax, 255")
+            return
+
+        if target_type == "bool":
+            self._emit_bool_normalize()
+
+    def _emit_index_expr(self, expr: IndexExpr, ctx: EmitContext) -> None:
+        layout = ctx.layout
+        label_counter = ctx.label_counter
+
+        if not isinstance(expr.object_expr, IdentifierExpr):
+            raise NotImplementedError("index codegen currently requires identifier receivers")
+
+        receiver_name = expr.object_expr.name
+        receiver_type_name = layout.slot_type_names.get(receiver_name)
+        if receiver_type_name is None:
+            raise NotImplementedError(f"index receiver '{receiver_name}' is not materialized in stack layout")
+
+        self._emit_expr(expr.index_expr, ctx)
+        self.out.append("    push rax")
+        self._emit_expr(expr.object_expr, ctx)
+        self.out.append("    push rax")
+
+        self._emit_runtime_call_hook(
+            fn_name=ctx.fn_name,
+            phase="before",
+            label_counter=label_counter,
+            line=expr.span.start.line,
+            column=expr.span.start.column,
+        )
+        self._emit_root_slot_updates(layout)
+        self.out.append("    pop rdi")
+        self.out.append("    pop rsi")
+
+        if receiver_type_name == "Str":
+            self.out.append("    call rt_str_get_u8")
+        elif receiver_type_name == "Vec":
+            self.out.append("    call rt_vec_get")
+        else:
+            raise NotImplementedError("index codegen currently supports Str and Vec receivers")
+
+        self._emit_runtime_call_hook(
+            fn_name=ctx.fn_name,
+            phase="after",
+            label_counter=label_counter,
+        )
+
+    def _emit_expr(self, expr: Expression, ctx: EmitContext) -> None:
+        layout = ctx.layout
+
+        if isinstance(expr, LiteralExpr):
+            self._emit_literal_expr(expr, ctx)
+            return
 
         if isinstance(expr, NullExpr):
             self.out.append("    mov rax, 0")
@@ -899,130 +1039,15 @@ class CodeGenerator:
             return
 
         if isinstance(expr, FieldAccessExpr):
-            receiver_type_name: str | None = None
-            if isinstance(expr.object_expr, IdentifierExpr):
-                receiver_name = expr.object_expr.name
-                receiver_type_name = layout.slot_type_names.get(receiver_name)
-                if receiver_type_name is None:
-                    raise NotImplementedError(f"field receiver '{receiver_name}' is not materialized in stack layout")
-            elif isinstance(expr.object_expr, CastExpr):
-                receiver_type_name = expr.object_expr.type_ref.name
-            else:
-                raise NotImplementedError("field access codegen currently supports identifier or cast receivers")
-
-            if expr.field_name == "value":
-                getter_name = BOX_VALUE_GETTER_RUNTIME_CALLS.get(receiver_type_name)
-                if getter_name is not None:
-                    self._emit_expr(expr.object_expr, ctx)
-                    self.out.append("    push rax")
-                    self._emit_runtime_call_hook(
-                        fn_name=fn_name,
-                        phase="before",
-                        label_counter=label_counter,
-                        line=expr.span.start.line,
-                        column=expr.span.start.column,
-                    )
-                    self._emit_root_slot_updates(layout)
-                    self.out.append("    pop rdi")
-                    self.out.append(f"    call {getter_name}")
-                    if receiver_type_name == "BoxDouble":
-                        self.out.append("    movq rax, xmm0")
-                    self._emit_runtime_call_hook(
-                        fn_name=fn_name,
-                        phase="after",
-                        label_counter=label_counter,
-                    )
-                    return
-
-            raise NotImplementedError("field access codegen currently supports only Box*.value reads")
+            self._emit_field_access_expr(expr, ctx)
+            return
 
         if isinstance(expr, CastExpr):
-            self._emit_expr(expr.operand, ctx)
-            source_type = _infer_expression_type_name(expr.operand, ctx)
-            target_type = expr.type_ref.name
-            if _is_reference_type_name(target_type):
-                type_symbol = _mangle_type_symbol(target_type)
-                self.out.append("    push rax")
-                self._emit_runtime_call_hook(
-                    fn_name=fn_name,
-                    phase="before",
-                    label_counter=label_counter,
-                    line=expr.span.start.line,
-                    column=expr.span.start.column,
-                )
-                self.out.append("    pop rax")
-                self.out.append("    mov rdi, rax")
-                self.out.append(f"    lea rsi, [rip + {type_symbol}]")
-                self.out.append("    call rt_checked_cast")
-                self._emit_runtime_call_hook(
-                    fn_name=fn_name,
-                    phase="after",
-                    label_counter=label_counter,
-                )
-                return
-
-            if target_type == source_type:
-                return
-
-            if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:
-                self.out.append("    cvtsi2sd xmm0, rax")
-                self.out.append("    movq rax, xmm0")
-                return
-
-            if source_type == "double" and target_type in {"i64", "u64", "u8", "bool"}:
-                self.out.append("    movq xmm0, rax")
-                self.out.append("    cvttsd2si rax, xmm0")
-                if target_type == "u8":
-                    self.out.append("    and rax, 255")
-                elif target_type == "bool":
-                    self._emit_bool_normalize()
-                return
-
-            if target_type == "u8":
-                self.out.append("    and rax, 255")
-                return
-
-            if target_type == "bool":
-                self._emit_bool_normalize()
+            self._emit_cast_expr(expr, ctx)
             return
 
         if isinstance(expr, IndexExpr):
-            if not isinstance(expr.object_expr, IdentifierExpr):
-                raise NotImplementedError("index codegen currently requires identifier receivers")
-
-            receiver_name = expr.object_expr.name
-            receiver_type_name = layout.slot_type_names.get(receiver_name)
-            if receiver_type_name is None:
-                raise NotImplementedError(f"index receiver '{receiver_name}' is not materialized in stack layout")
-
-            self._emit_expr(expr.index_expr, ctx)
-            self.out.append("    push rax")
-            self._emit_expr(expr.object_expr, ctx)
-            self.out.append("    push rax")
-
-            self._emit_runtime_call_hook(
-                fn_name=fn_name,
-                phase="before",
-                label_counter=label_counter,
-                line=expr.span.start.line,
-                column=expr.span.start.column,
-            )
-            self._emit_root_slot_updates(layout)
-            self.out.append("    pop rdi")
-            self.out.append("    pop rsi")
-
-            if receiver_type_name == "Str":
-                self.out.append("    call rt_str_get_u8")
-            elif receiver_type_name == "Vec":
-                self.out.append("    call rt_vec_get")
-            else:
-                raise NotImplementedError("index codegen currently supports Str and Vec receivers")
-
-            self._emit_runtime_call_hook(
-                fn_name=fn_name,
-                phase="after",
-                label_counter=label_counter,
-            )
+            self._emit_index_expr(expr, ctx)
             return
 
         if isinstance(expr, CallExpr):
@@ -1125,30 +1150,124 @@ class CodeGenerator:
             return
         raise NotImplementedError(f"unary operator '{expr.operator}' is not supported")
 
+    def _emit_logical_binary_expr(self, expr: BinaryExpr, *, fn_name: str, label_counter: list[int], ctx: EmitContext) -> bool:
+        if expr.operator not in ("&&", "||"):
+            return False
+
+        branch_id = label_counter[0]
+        label_counter[0] += 1
+        rhs_label = f".L{fn_name}_logic_rhs_{branch_id}"
+        done_label = f".L{fn_name}_logic_done_{branch_id}"
+
+        self._emit_expr(expr.left, ctx)
+        self._emit_bool_normalize()
+        self.out.append("    cmp rax, 0")
+        if expr.operator == "&&":
+            self.out.append(f"    jne {rhs_label}")
+            self.out.append("    mov rax, 0")
+        else:
+            self.out.append(f"    je {rhs_label}")
+            self.out.append("    mov rax, 1")
+        self.out.append(f"    jmp {done_label}")
+        self.out.append(f"{rhs_label}:")
+        self._emit_expr(expr.right, ctx)
+        self._emit_bool_normalize()
+        self.out.append(f"{done_label}:")
+        return True
+
+    def _emit_double_binary_op(self, operator: str) -> bool:
+        if operator == "+":
+            self.out.append("    addsd xmm0, xmm1")
+            self.out.append("    movq rax, xmm0")
+            return True
+        if operator == "-":
+            self.out.append("    subsd xmm0, xmm1")
+            self.out.append("    movq rax, xmm0")
+            return True
+        if operator == "*":
+            self.out.append("    mulsd xmm0, xmm1")
+            self.out.append("    movq rax, xmm0")
+            return True
+        if operator == "/":
+            self.out.append("    divsd xmm0, xmm1")
+            self.out.append("    movq rax, xmm0")
+            return True
+
+        if operator in ("==", "!=", "<", "<=", ">", ">="):
+            self.out.append("    ucomisd xmm0, xmm1")
+            if operator == "==":
+                self.out.append("    sete al")
+                self.out.append("    setnp dl")
+                self.out.append("    and al, dl")
+            elif operator == "!=":
+                self.out.append("    setne al")
+                self.out.append("    setp dl")
+                self.out.append("    or al, dl")
+            elif operator == "<":
+                self.out.append("    setb al")
+                self.out.append("    setnp dl")
+                self.out.append("    and al, dl")
+            elif operator == "<=":
+                self.out.append("    setbe al")
+                self.out.append("    setnp dl")
+                self.out.append("    and al, dl")
+            elif operator == ">":
+                self.out.append("    seta al")
+                self.out.append("    setnp dl")
+                self.out.append("    and al, dl")
+            else:
+                self.out.append("    setae al")
+                self.out.append("    setnp dl")
+                self.out.append("    and al, dl")
+            self.out.append("    movzx rax, al")
+            return True
+
+        return False
+
+    def _emit_integer_binary_op(self, operator: str) -> bool:
+        if operator == "+":
+            self.out.append("    add rax, rcx")
+            return True
+        if operator == "-":
+            self.out.append("    sub rax, rcx")
+            return True
+        if operator == "*":
+            self.out.append("    imul rax, rcx")
+            return True
+        if operator == "/":
+            self.out.append("    cqo")
+            self.out.append("    idiv rcx")
+            return True
+        if operator == "%":
+            self.out.append("    cqo")
+            self.out.append("    idiv rcx")
+            self.out.append("    mov rax, rdx")
+            return True
+
+        if operator in ("==", "!=", "<", "<=", ">", ">="):
+            self.out.append("    cmp rax, rcx")
+            if operator == "==":
+                self.out.append("    sete al")
+            elif operator == "!=":
+                self.out.append("    setne al")
+            elif operator == "<":
+                self.out.append("    setl al")
+            elif operator == "<=":
+                self.out.append("    setle al")
+            elif operator == ">":
+                self.out.append("    setg al")
+            else:
+                self.out.append("    setge al")
+            self.out.append("    movzx rax, al")
+            return True
+
+        return False
+
     def _emit_binary_expr(self, expr: BinaryExpr, ctx: EmitContext) -> None:
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
 
-        if expr.operator in ("&&", "||"):
-            branch_id = label_counter[0]
-            label_counter[0] += 1
-            rhs_label = f".L{fn_name}_logic_rhs_{branch_id}"
-            done_label = f".L{fn_name}_logic_done_{branch_id}"
-
-            self._emit_expr(expr.left, ctx)
-            self._emit_bool_normalize()
-            self.out.append("    cmp rax, 0")
-            if expr.operator == "&&":
-                self.out.append(f"    jne {rhs_label}")
-                self.out.append("    mov rax, 0")
-            else:
-                self.out.append(f"    je {rhs_label}")
-                self.out.append("    mov rax, 1")
-            self.out.append(f"    jmp {done_label}")
-            self.out.append(f"{rhs_label}:")
-            self._emit_expr(expr.right, ctx)
-            self._emit_bool_normalize()
-            self.out.append(f"{done_label}:")
+        if self._emit_logical_binary_expr(expr, fn_name=fn_name, label_counter=label_counter, ctx=ctx):
             return
 
         self._emit_expr(expr.left, ctx)
@@ -1164,88 +1283,12 @@ class CodeGenerator:
         if is_double_op:
             self.out.append("    movq xmm1, rcx")
             self.out.append("    movq xmm0, rax")
-            if expr.operator == "+":
-                self.out.append("    addsd xmm0, xmm1")
-                self.out.append("    movq rax, xmm0")
-                return
-            if expr.operator == "-":
-                self.out.append("    subsd xmm0, xmm1")
-                self.out.append("    movq rax, xmm0")
-                return
-            if expr.operator == "*":
-                self.out.append("    mulsd xmm0, xmm1")
-                self.out.append("    movq rax, xmm0")
-                return
-            if expr.operator == "/":
-                self.out.append("    divsd xmm0, xmm1")
-                self.out.append("    movq rax, xmm0")
-                return
-
-            if expr.operator in ("==", "!=", "<", "<=", ">", ">="):
-                self.out.append("    ucomisd xmm0, xmm1")
-                if expr.operator == "==":
-                    self.out.append("    sete al")
-                    self.out.append("    setnp dl")
-                    self.out.append("    and al, dl")
-                elif expr.operator == "!=":
-                    self.out.append("    setne al")
-                    self.out.append("    setp dl")
-                    self.out.append("    or al, dl")
-                elif expr.operator == "<":
-                    self.out.append("    setb al")
-                    self.out.append("    setnp dl")
-                    self.out.append("    and al, dl")
-                elif expr.operator == "<=":
-                    self.out.append("    setbe al")
-                    self.out.append("    setnp dl")
-                    self.out.append("    and al, dl")
-                elif expr.operator == ">":
-                    self.out.append("    seta al")
-                    self.out.append("    setnp dl")
-                    self.out.append("    and al, dl")
-                else:
-                    self.out.append("    setae al")
-                    self.out.append("    setnp dl")
-                    self.out.append("    and al, dl")
-                self.out.append("    movzx rax, al")
+            if self._emit_double_binary_op(expr.operator):
                 return
 
             raise NotImplementedError(f"binary operator '{expr.operator}' is not supported for double operands")
 
-        if expr.operator == "+":
-            self.out.append("    add rax, rcx")
-            return
-        if expr.operator == "-":
-            self.out.append("    sub rax, rcx")
-            return
-        if expr.operator == "*":
-            self.out.append("    imul rax, rcx")
-            return
-        if expr.operator == "/":
-            self.out.append("    cqo")
-            self.out.append("    idiv rcx")
-            return
-        if expr.operator == "%":
-            self.out.append("    cqo")
-            self.out.append("    idiv rcx")
-            self.out.append("    mov rax, rdx")
-            return
-
-        if expr.operator in ("==", "!=", "<", "<=", ">", ">="):
-            self.out.append("    cmp rax, rcx")
-            if expr.operator == "==":
-                self.out.append("    sete al")
-            elif expr.operator == "!=":
-                self.out.append("    setne al")
-            elif expr.operator == "<":
-                self.out.append("    setl al")
-            elif expr.operator == "<=":
-                self.out.append("    setle al")
-            elif expr.operator == ">":
-                self.out.append("    setg al")
-            else:
-                self.out.append("    setge al")
-            self.out.append("    movzx rax, al")
+        if self._emit_integer_binary_op(expr.operator):
             return
 
         raise NotImplementedError(f"binary operator '{expr.operator}' is not supported")
