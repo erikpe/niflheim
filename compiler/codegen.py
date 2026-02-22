@@ -52,6 +52,7 @@ from compiler.codegen_model import (
 )
 from compiler.codegen_str_helper import (
     collect_string_literals,
+    decode_char_literal,
     decode_string_literal,
     escape_asm_string_bytes,
     escape_c_string,
@@ -431,10 +432,14 @@ def _infer_expression_type_name(
     if isinstance(expr, LiteralExpr):
         if expr.value.startswith('"'):
             return "Str"
+        if expr.value.startswith("'"):
+            return "u8"
         if expr.value in {"true", "false"}:
             return "bool"
         if _is_double_literal_text(expr.value):
             return "double"
+        if expr.value.endswith("u8") and expr.value[:-2].isdigit():
+            return "u8"
         if expr.value.endswith("u") and expr.value[:-1].isdigit():
             return "u64"
         return "i64"
@@ -767,8 +772,14 @@ class CodeGenerator:
         if _is_double_literal_text(expr.value):
             self.out.append(f"    mov rax, 0x{_double_literal_bits(expr.value):016x}")
             return
+        if expr.value.startswith("'"):
+            self.out.append(f"    mov rax, {decode_char_literal(expr.value)}")
+            return
         if expr.value.isdigit():
             self.out.append(f"    mov rax, {expr.value}")
+            return
+        if expr.value.endswith("u8") and expr.value[:-2].isdigit():
+            self.out.append(f"    mov rax, {expr.value[:-2]}")
             return
         if expr.value.endswith("u") and expr.value[:-1].isdigit():
             self.out.append(f"    mov rax, {expr.value[:-1]}")

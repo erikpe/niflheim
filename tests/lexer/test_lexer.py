@@ -75,6 +75,22 @@ def test_lex_u64_suffixed_integer_literal() -> None:
     assert int_token.lexeme == "42u"
 
 
+def test_lex_u8_suffixed_integer_literal() -> None:
+    source = "var x: u8 = 113u8;"
+    tokens = lex(source)
+    int_token = next(t for t in tokens if t.kind == TokenKind.INT_LIT)
+    assert int_token.lexeme == "113u8"
+
+
+def test_lex_char_literal_and_escape_literal() -> None:
+    source = "var a: u8 = 'q'; var b: u8 = '\\x71';"
+    tokens = lex(source)
+    char_tokens = [t for t in tokens if t.kind == TokenKind.CHAR_LIT]
+    assert len(char_tokens) == 2
+    assert char_tokens[0].lexeme == "'q'"
+    assert char_tokens[1].lexeme == "'\\x71'"
+
+
 def test_lex_string_literal_allows_hex_escape() -> None:
     source = 'var s: Str = "A\\x42\\0";'
     tokens = lex(source)
@@ -106,6 +122,16 @@ def test_lex_raises_on_invalid_string_escape() -> None:
 def test_lex_raises_on_invalid_hex_escape() -> None:
     with pytest.raises(LexerError, match="Invalid string escape sequence"):
         lex('var s: Str = "bad\\xG1";')
+
+
+def test_lex_raises_on_invalid_char_escape() -> None:
+    with pytest.raises(LexerError, match="Invalid character escape sequence"):
+        lex("var c: u8 = '\\q';")
+
+
+def test_lex_raises_on_multi_char_literal() -> None:
+    with pytest.raises(LexerError, match="Character literal must contain exactly one byte"):
+        lex("var c: u8 = 'ab';")
 
 
 def test_lex_error_includes_path_row_col() -> None:

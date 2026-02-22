@@ -169,6 +169,29 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_u8_suffix_and_char_literals_are_u8() -> None:
+    source = """
+fn main() -> unit {
+    var a: u8 = 113u8;
+    var b: u8 = 'q';
+    var c: u8 = '\\x71';
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_u8_literal_out_of_range() -> None:
+    source = """
+fn main() -> unit {
+    var x: u8 = 256u8;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="u8 literal out of range"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_assigning_u_suffix_literal_to_i64() -> None:
     source = """
 fn main() -> unit {

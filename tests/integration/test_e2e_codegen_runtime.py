@@ -97,6 +97,20 @@ fn main() -> i64 {
     assert exit_code == 24
 
 
+def test_e2e_u8_char_and_numeric_literals_link_and_run() -> None:
+    source = """
+fn main() -> i64 {
+    var c1: u8 = 'q';
+    var c2: u8 = 113u8;
+    var c3: u8 = '\\x71';
+    return (i64)c1 + (i64)c2 + (i64)c3;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == ((113 + 113 + 113) & 0xFF)
+
+
 def test_e2e_while_break_and_continue_links_and_runs() -> None:
     source = """
 fn main() -> i64 {

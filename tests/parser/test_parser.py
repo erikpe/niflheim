@@ -253,6 +253,20 @@ def test_parse_expression_precedence_multiplicative_over_additive() -> None:
     assert expr.right.operator == "*"
 
 
+def test_parse_expression_char_literal() -> None:
+    expr = parse_expression(lex("'q'", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, LiteralExpr)
+    assert expr.value == "'q'"
+
+
+def test_parse_expression_u8_suffixed_integer_literal() -> None:
+    expr = parse_expression(lex("113u8", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, LiteralExpr)
+    assert expr.value == "113u8"
+
+
 def test_parse_expression_precedence_logical_and_over_or() -> None:
     expr = parse_expression(lex("a || b && c", source_path="examples/expr.nif"))
 

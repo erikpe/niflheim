@@ -68,6 +68,10 @@ class Lexer:
                 tokens.append(self._read_string(start))
                 continue
 
+            if self._peek() == "'":
+                tokens.append(self._read_char(start))
+                continue
+
             two = self.source[self.index : self.index + 2]
             if two in TWO_CHAR_TOKENS:
                 self._advance()
@@ -129,6 +133,8 @@ class Lexer:
 
         if not is_float and not self._is_at_end() and self._peek() == "u":
             self._advance()
+            if not self._is_at_end() and self._peek() == "8":
+                self._advance()
 
         lexeme = self.source[start.offset : self.index]
         kind = TokenKind.FLOAT_LIT if is_float else TokenKind.INT_LIT
@@ -175,6 +181,43 @@ class Lexer:
             self._advance()
 
         raise LexerError("Unterminated string literal", SourceSpan(start, self._pos()))
+
+    def _read_char(self, start: SourcePos) -> Token:
+        self._advance()
+
+        if self._is_at_end() or self._peek() == "\n":
+            raise LexerError("Unterminated character literal", SourceSpan(start, self._pos()))
+
+        ch = self._peek()
+        if ch == "\\":
+            self._advance()
+            if self._is_at_end():
+                raise LexerError("Unterminated character literal", SourceSpan(start, self._pos()))
+
+            esc = self._peek()
+            if esc in {"'", '"', "\\", "n", "r", "t", "0"}:
+                self._advance()
+            elif esc == "x":
+                self._advance()
+                first = self._peek()
+                second = self._peek_next()
+                if not self._is_hex_digit(first) or not self._is_hex_digit(second):
+                    raise LexerError("Invalid character escape sequence", SourceSpan(start, self._pos()))
+                self._advance()
+                self._advance()
+            else:
+                raise LexerError("Invalid character escape sequence", SourceSpan(start, self._pos()))
+        else:
+            if ch == "'":
+                raise LexerError("Empty character literal", SourceSpan(start, self._pos()))
+            self._advance()
+
+        if self._is_at_end() or self._peek() != "'":
+            raise LexerError("Character literal must contain exactly one byte", SourceSpan(start, self._pos()))
+
+        self._advance()
+        lexeme = self.source[start.offset : self.index]
+        return Token(TokenKind.CHAR_LIT, lexeme, SourceSpan(start, self._pos()))
 
     def _is_at_end(self) -> bool:
         return self.index >= self.length

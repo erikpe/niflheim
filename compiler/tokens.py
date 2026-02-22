@@ -10,6 +10,7 @@ class TokenKind(str, Enum):
     INT_LIT = "INT_LIT"
     FLOAT_LIT = "FLOAT_LIT"
     STRING_LIT = "STRING_LIT"
+    CHAR_LIT = "CHAR_LIT"
 
     IMPORT = "IMPORT"
     EXPORT = "EXPORT"

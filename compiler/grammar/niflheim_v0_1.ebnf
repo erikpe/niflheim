@@ -106,6 +106,7 @@ primary            = literal
 literal            = INT_LIT
                    | FLOAT_LIT
                    | STRING_LIT
+                   | CHAR_LIT
                    | "true"
                    | "false"
                    ;
@@ -137,13 +138,15 @@ named_type         = "Obj"
 (* Lexer-level tokens and trivia (reference) *)
 
 IDENT              = letter { letter | digit | "_" } ;
-INT_LIT            = digit { digit } ;
+INT_LIT            = digit { digit } [ "u" | "u8" ] ;
 FLOAT_LIT          = digit { digit } "." digit { digit } ;
 STRING_LIT         = '"' { string_char } '"' ;
+CHAR_LIT           = "'" char_char "'" ;
 
 letter             = "A" | ... | "Z" | "a" | ... | "z" | "_" ;
 digit              = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 string_char        = ? any char except unescaped quote/newline ? ;
+char_char          = ? single byte char or supported escape ? ;
 
 (* Keywords
    import export class fn var if else while return

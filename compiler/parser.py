@@ -15,6 +15,7 @@ UNARY_START_TOKENS: set[TokenKind] = {
     TokenKind.INT_LIT,
     TokenKind.FLOAT_LIT,
     TokenKind.STRING_LIT,
+    TokenKind.CHAR_LIT,
     TokenKind.TRUE,
     TokenKind.FALSE,
     TokenKind.NULL,
@@ -683,7 +684,7 @@ class Parser:
         )
 
     def _parse_primary(self) -> Expression:
-        if self.stream.match(TokenKind.INT_LIT, TokenKind.FLOAT_LIT, TokenKind.STRING_LIT, TokenKind.TRUE, TokenKind.FALSE):
+        if self.stream.match(TokenKind.INT_LIT, TokenKind.FLOAT_LIT, TokenKind.STRING_LIT, TokenKind.CHAR_LIT, TokenKind.TRUE, TokenKind.FALSE):
             token = self.stream.previous()
             return LiteralExpr(value=token.lexeme, span=token.span)
 

@@ -88,6 +88,25 @@ def test_emit_asm_return_u64_suffixed_integer_literal() -> None:
     assert "42u" not in asm
 
 
+def test_emit_asm_return_u8_suffixed_integer_literal() -> None:
+    module = parse(lex("fn answer() -> u8 { return 113u8; }", source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "answer:" in asm
+    assert "    mov rax, 113" in asm
+    assert "113u8" not in asm
+
+
+def test_emit_asm_return_char_literal() -> None:
+    module = parse(lex("fn answer() -> u8 { return 'q'; }", source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "answer:" in asm
+    assert "    mov rax, 113" in asm
+
+
 def test_emit_asm_return_double_literal_bits() -> None:
     module = parse(lex("fn answer() -> double { return 1.5; }", source_path="examples/codegen.nif"))
 

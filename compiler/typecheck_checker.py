@@ -285,10 +285,17 @@ class TypeChecker:
         if isinstance(expr, LiteralExpr):
             if expr.value.startswith('"'):
                 return TypeInfo(name="Str", kind="reference")
+            if expr.value.startswith("'"):
+                return TypeInfo(name="u8", kind="primitive")
             if expr.value in {"true", "false"}:
                 return TypeInfo(name="bool", kind="primitive")
             if "." in expr.value:
                 return TypeInfo(name="double", kind="primitive")
+            if expr.value.endswith("u8") and expr.value[:-2].isdigit():
+                value = int(expr.value[:-2])
+                if value < 0 or value > 255:
+                    raise TypeCheckError("u8 literal out of range (expected 0..255)", expr.span)
+                return TypeInfo(name="u8", kind="primitive")
             if expr.value.endswith("u") and expr.value[:-1].isdigit():
                 return TypeInfo(name="u64", kind="primitive")
             return TypeInfo(name="i64", kind="primitive")

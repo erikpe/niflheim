@@ -101,6 +101,41 @@ def decode_string_literal(lexeme: str) -> bytes:
     return bytes(out)
 
 
+def decode_char_literal(lexeme: str) -> int:
+    if len(lexeme) < 3 or not lexeme.startswith("'") or not lexeme.endswith("'"):
+        raise ValueError(f"invalid char literal lexeme: {lexeme!r}")
+
+    payload = lexeme[1:-1]
+    if len(payload) == 1:
+        return ord(payload)
+
+    if not payload.startswith("\\"):
+        raise ValueError(f"invalid char literal payload: {lexeme!r}")
+
+    if len(payload) == 2:
+        esc = payload[1]
+        if esc == "n":
+            return 0x0A
+        if esc == "r":
+            return 0x0D
+        if esc == "t":
+            return 0x09
+        if esc == "0":
+            return 0x00
+        if esc == "\\":
+            return 0x5C
+        if esc == "'":
+            return 0x27
+        if esc == '"':
+            return 0x22
+        raise ValueError(f"unsupported char escape: {lexeme!r}")
+
+    if len(payload) == 4 and payload[1] == "x":
+        return int(payload[2:], 16)
+
+    raise ValueError(f"invalid char literal payload: {lexeme!r}")
+
+
 def collect_string_literals_from_expr(expr: Expression, out: list[str], seen: set[str]) -> None:
     if isinstance(expr, LiteralExpr):
         if expr.value.startswith('"'):
@@ -190,3 +225,14 @@ def collect_string_literals(module_ast: ModuleAst) -> list[str]:
                 collect_string_literals_from_stmt(stmt, literals, seen)
 
     return literals
+
+
+__all__ = [
+    "escape_asm_string_bytes",
+    "escape_c_string",
+    "decode_string_literal",
+    "decode_char_literal",
+    "collect_string_literals_from_expr",
+    "collect_string_literals_from_stmt",
+    "collect_string_literals",
+]
