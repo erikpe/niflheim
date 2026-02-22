@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import struct
+from pathlib import Path
 
 from compiler.ast_nodes import (
     AssignStmt,
@@ -672,6 +673,30 @@ class CodeGenerator:
         self.constructor_layouts: dict[str, ConstructorLayout] = {}
         self.constructor_labels: dict[str, str] = {}
         self.string_literal_labels: dict[str, tuple[str, int]] = {}
+        self.source_lines_by_path: dict[str, list[str] | None] = {}
+        self.last_emitted_comment_location: tuple[str, int] | None = None
+
+    def _source_line_text(self, file_path: str, line: int) -> str:
+        if line <= 0:
+            return ""
+        lines = self.source_lines_by_path.get(file_path)
+        if lines is None and file_path not in self.source_lines_by_path:
+            try:
+                lines = Path(file_path).read_text(encoding="utf-8", errors="replace").splitlines()
+            except OSError:
+                lines = None
+            self.source_lines_by_path[file_path] = lines
+        if lines is None or line > len(lines):
+            return ""
+        return lines[line - 1].strip()
+
+    def _emit_location_comment(self, *, file_path: str, line: int, column: int) -> None:
+        location_key = (file_path, line)
+        if self.last_emitted_comment_location == location_key:
+            return
+        source_line = self._source_line_text(file_path, line)
+        self.out.append(f"    # {file_path}:{line}:{column} | {source_line}")
+        self.last_emitted_comment_location = location_key
 
     def _build_symbol_tables(self) -> None:
         for cls in self.module_ast.classes:
@@ -1304,6 +1329,12 @@ class CodeGenerator:
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
 
+        self._emit_location_comment(
+            file_path=stmt.span.start.path,
+            line=stmt.span.start.line,
+            column=stmt.span.start.column,
+        )
+
         if isinstance(stmt, ReturnStmt):
             if stmt.value is not None:
                 self._emit_expr(stmt.value, ctx)
@@ -1405,6 +1436,11 @@ class CodeGenerator:
         )
 
         self._emit_frame_prologue(target_label, layout, global_symbol=label is None and (fn.is_export or fn.name == "main"))
+        self._emit_location_comment(
+            file_path=fn.span.start.path,
+            line=fn.span.start.line,
+            column=fn.span.start.column,
+        )
         self._emit_zero_slots(layout)
         self._emit_param_spills(fn.params, layout)
         self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
@@ -1451,6 +1487,11 @@ class CodeGenerator:
         )
 
         self._emit_frame_prologue(target_label, layout, global_symbol=False)
+        self._emit_location_comment(
+            file_path=cls.span.start.path,
+            line=cls.span.start.line,
+            column=cls.span.start.column,
+        )
         self._emit_zero_slots(layout)
         self._emit_param_spills(ctor_fn.params, layout)
         self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
