@@ -770,8 +770,23 @@ class TypeChecker:
         if actual.name != expected_name:
             raise TypeCheckError(f"Expected '{expected_name}', got '{actual.name}'", span)
 
+    def _canonicalize_reference_type_name(self, type_name: str) -> str:
+        if "::" in type_name:
+            return type_name
+        if self.module_path is None:
+            return type_name
+        if type_name not in self.classes:
+            return type_name
+        owner_dotted = ".".join(self.module_path)
+        return f"{owner_dotted}::{type_name}"
+
+    def _type_names_equal(self, left: str, right: str) -> bool:
+        if left == right:
+            return True
+        return self._canonicalize_reference_type_name(left) == self._canonicalize_reference_type_name(right)
+
     def _require_assignable(self, target: TypeInfo, value: TypeInfo, span: SourceSpan) -> None:
-        if target.name == value.name:
+        if self._type_names_equal(target.name, value.name):
             return
         if target.kind == "reference" and value.kind == "null":
             return
@@ -780,7 +795,7 @@ class TypeChecker:
         raise TypeCheckError(f"Cannot assign '{value.name}' to '{target.name}'", span)
 
     def _is_comparable(self, left: TypeInfo, right: TypeInfo) -> bool:
-        if left.name == right.name:
+        if self._type_names_equal(left.name, right.name):
             return True
         if left.kind == "reference" and right.kind == "null":
             return True
@@ -789,7 +804,7 @@ class TypeChecker:
         return False
 
     def _check_explicit_cast(self, source: TypeInfo, target: TypeInfo, span: SourceSpan) -> None:
-        if source.name == target.name:
+        if self._type_names_equal(source.name, target.name):
             return
 
         if source.kind == "primitive" and target.kind == "primitive":
