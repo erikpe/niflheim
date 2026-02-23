@@ -27,6 +27,7 @@ def _compile_and_run(source: str) -> int:
     gc_c = root / "runtime" / "src" / "gc.c"
     io_c = root / "runtime" / "src" / "io.c"
     str_c = root / "runtime" / "src" / "str.c"
+    strbuf_c = root / "runtime" / "src" / "strbuf.c"
     box_c = root / "runtime" / "src" / "box.c"
     vec_c = root / "runtime" / "src" / "vec.c"
 
@@ -49,6 +50,7 @@ def _compile_and_run(source: str) -> int:
             str(gc_c),
             str(io_c),
             str(str_c),
+            str(strbuf_c),
             str(box_c),
             str(vec_c),
             str(asm_path),
@@ -257,6 +259,57 @@ fn main() -> i64 {
 
     exit_code = _compile_and_run(source)
     assert exit_code == 65
+
+
+def test_e2e_strbuf_mutation_and_to_str_links_and_runs() -> None:
+    source = """
+extern fn rt_str_len(value: Str) -> i64;
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+extern fn rt_strbuf_from_str(value: Str) -> StrBuf;
+extern fn rt_strbuf_len(value: StrBuf) -> i64;
+extern fn rt_strbuf_set_u8(value: StrBuf, index: i64, byte: u8) -> unit;
+extern fn rt_strbuf_to_str(value: StrBuf) -> Str;
+
+class Str {
+    fn len() -> i64 {
+        return rt_str_len(__self);
+    }
+
+    fn get_u8(index: i64) -> u8 {
+        return rt_str_get_u8(__self, index);
+    }
+}
+
+class StrBuf {
+    static fn from_str(value: Str) -> StrBuf {
+        return rt_strbuf_from_str(value);
+    }
+
+    fn len() -> i64 {
+        return rt_strbuf_len(__self);
+    }
+
+    fn set_u8(index: i64, byte: u8) -> unit {
+        rt_strbuf_set_u8(__self, index, byte);
+    }
+
+    fn to_str() -> Str {
+        return rt_strbuf_to_str(__self);
+    }
+}
+
+fn main() -> i64 {
+    var s: Str = "abc";
+    var b: StrBuf = StrBuf.from_str(s);
+    b.set_u8(1, 'Z');
+    var out: Str = b.to_str();
+    var mid: u8 = out[1];
+    return (i64)mid;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 90
 
 
 def test_e2e_str_slice_syntax_links_and_runs() -> None:

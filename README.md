@@ -52,6 +52,7 @@ Runtime sources are split by responsibility:
 - `runtime/src/str.c` - `Str` implementation
 - `runtime/src/box.c` - primitive box implementations
 - `runtime/src/vec.c` - `Vec` implementation
+- `runtime/src/strbuf.c` - `StrBuf` implementation
 
 - `make -C runtime test` runs GC stress scenarios (`test_gc_stress`):
 	- no-root reclaim

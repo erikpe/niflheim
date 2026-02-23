@@ -116,6 +116,7 @@ Defaults:
 - `Str` stores raw `u8` bytes only (no encoding semantics in v0.1).
 - String literals produce `Str` instances and support C-style escapes (`\"`, `\\`, `\n`, `\r`, `\t`, `\0`, `\xHH`).
 - `Str` is indexable via `[]` with `i64` index and returns `u8`.
+- `std.str::StrBuf` is a mutable byte-buffer companion type with explicit methods (for example: `from_str`, `len`, `get_u8`, `set_u8`, `to_str`).
 
 ### 5.2 Vec
 

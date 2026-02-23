@@ -2,6 +2,13 @@ extern fn rt_str_len(value: Str) -> i64;
 extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
 extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
 
+extern fn rt_strbuf_new(len: i64) -> StrBuf;
+extern fn rt_strbuf_from_str(value: Str) -> StrBuf;
+extern fn rt_strbuf_len(value: StrBuf) -> i64;
+extern fn rt_strbuf_get_u8(value: StrBuf, index: i64) -> u8;
+extern fn rt_strbuf_set_u8(value: StrBuf, index: i64, byte: u8) -> unit;
+extern fn rt_strbuf_to_str(value: StrBuf) -> Str;
+
 export class Str
 {
     fn len() -> i64 {
@@ -53,6 +60,45 @@ export class Str
         }
 
         return __self[start:stop];
+    }
+
+    static fn from_i64(value: i64) -> Str {
+        return "123";  // dummy implementation for now
+    }
+}
+
+export class StrBuf
+{
+    static fn new(len: i64) -> StrBuf {
+        return rt_strbuf_new(len);
+    }
+
+    static fn from_str(value: Str) -> StrBuf {
+        return rt_strbuf_from_str(value);
+    }
+
+    fn len() -> i64 {
+        return rt_strbuf_len(__self);
+    }
+
+    fn get_u8(index: i64) -> u8 {
+        var resolved: i64 = index;
+        if resolved < 0 {
+            resolved = __self.len() + resolved;
+        }
+        return rt_strbuf_get_u8(__self, resolved);
+    }
+
+    fn set_u8(index: i64, byte: u8) -> unit {
+        var resolved: i64 = index;
+        if resolved < 0 {
+            resolved = __self.len() + resolved;
+        }
+        rt_strbuf_set_u8(__self, resolved, byte);
+    }
+
+    fn to_str() -> Str {
+        return rt_strbuf_to_str(__self);
     }
 }
 

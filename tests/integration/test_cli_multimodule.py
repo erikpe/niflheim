@@ -146,6 +146,7 @@ fn main() -> i64 {
     gc_c = repo_root / "runtime" / "src" / "gc.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
     str_c = repo_root / "runtime" / "src" / "str.c"
+    strbuf_c = repo_root / "runtime" / "src" / "strbuf.c"
     box_c = repo_root / "runtime" / "src" / "box.c"
     vec_c = repo_root / "runtime" / "src" / "vec.c"
     exe_path = tmp_path / "program"
@@ -160,6 +161,7 @@ fn main() -> i64 {
             str(gc_c),
             str(io_c),
             str(str_c),
+            str(strbuf_c),
             str(box_c),
             str(vec_c),
             str(out_asm),
@@ -281,6 +283,7 @@ fn main() -> i64 {
     gc_c = repo_root / "runtime" / "src" / "gc.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
     str_c = repo_root / "runtime" / "src" / "str.c"
+    strbuf_c = repo_root / "runtime" / "src" / "strbuf.c"
     box_c = repo_root / "runtime" / "src" / "box.c"
     vec_c = repo_root / "runtime" / "src" / "vec.c"
     exe_path = tmp_path / "program"
@@ -295,6 +298,7 @@ fn main() -> i64 {
             str(gc_c),
             str(io_c),
             str(str_c),
+            str(strbuf_c),
             str(box_c),
             str(vec_c),
             str(out_asm),
@@ -400,6 +404,7 @@ fn main() -> i64 {
     gc_c = repo_root / "runtime" / "src" / "gc.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
     str_c = repo_root / "runtime" / "src" / "str.c"
+    strbuf_c = repo_root / "runtime" / "src" / "strbuf.c"
     box_c = repo_root / "runtime" / "src" / "box.c"
     vec_c = repo_root / "runtime" / "src" / "vec.c"
     exe_path = tmp_path / "program"
@@ -414,6 +419,7 @@ fn main() -> i64 {
             str(gc_c),
             str(io_c),
             str(str_c),
+            str(strbuf_c),
             str(box_c),
             str(vec_c),
             str(out_asm),
