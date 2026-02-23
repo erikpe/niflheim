@@ -261,28 +261,49 @@ fn main() -> i64 {
     assert exit_code == 65
 
 
-def test_e2e_strbuf_mutation_and_to_str_links_and_runs() -> None:
+def test_e2e_str_from_char_links_and_runs() -> None:
     source = """
-extern fn rt_str_len(value: Str) -> i64;
 extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
-extern fn rt_strbuf_from_str(value: Str) -> StrBuf;
+extern fn rt_str_from_char(value: u8) -> Str;
+
+class Str {
+    fn get_u8(index: i64) -> u8 {
+        return rt_str_get_u8(__self, index);
+    }
+
+    static fn from_char(value: u8) -> Str {
+        return rt_str_from_char(value);
+    }
+}
+
+fn main() -> i64 {
+    var s: Str = Str.from_char('Z');
+    var c: u8 = s[0];
+    return (i64)c;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 90
+
+
+def test_e2e_strbuf_set_u8_outside_length_panics() -> None:
+    source = """
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+extern fn rt_strbuf_new(capacity: i64) -> StrBuf;
 extern fn rt_strbuf_len(value: StrBuf) -> i64;
 extern fn rt_strbuf_set_u8(value: StrBuf, index: i64, byte: u8) -> unit;
 extern fn rt_strbuf_to_str(value: StrBuf) -> Str;
 
 class Str {
-    fn len() -> i64 {
-        return rt_str_len(__self);
-    }
-
     fn get_u8(index: i64) -> u8 {
         return rt_str_get_u8(__self, index);
     }
 }
 
 class StrBuf {
-    static fn from_str(value: Str) -> StrBuf {
-        return rt_strbuf_from_str(value);
+    static fn new(capacity: i64) -> StrBuf {
+        return rt_strbuf_new(capacity);
     }
 
     fn len() -> i64 {
@@ -299,17 +320,40 @@ class StrBuf {
 }
 
 fn main() -> i64 {
-    var s: Str = "abc";
-    var b: StrBuf = StrBuf.from_str(s);
-    b.set_u8(1, 'Z');
-    var out: Str = b.to_str();
-    var mid: u8 = out[1];
-    return (i64)mid;
+    var b: StrBuf = StrBuf.new(4);
+    b.set_u8(0, 'A');
+    return 0;
 }
 """
 
     exit_code = _compile_and_run(source)
-    assert exit_code == 90
+    assert exit_code != 0
+
+
+def test_e2e_strbuf_reserve_growth_links_and_runs() -> None:
+    source = """
+extern fn rt_strbuf_new(capacity: i64) -> StrBuf;
+extern fn rt_strbuf_reserve(value: StrBuf, new_capacity: i64) -> unit;
+
+class StrBuf {
+    static fn new(capacity: i64) -> StrBuf {
+        return rt_strbuf_new(capacity);
+    }
+
+    fn reserve(new_capacity: i64) -> unit {
+        rt_strbuf_reserve(__self, new_capacity);
+    }
+}
+
+fn main() -> i64 {
+    var b: StrBuf = StrBuf.new(0);
+    b.reserve(16);
+    return 0;
+}
+"""
+
+    exit_code = _compile_and_run(source)
+    assert exit_code == 0
 
 
 def test_e2e_str_slice_syntax_links_and_runs() -> None:

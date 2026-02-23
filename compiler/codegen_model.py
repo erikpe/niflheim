@@ -98,6 +98,11 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_vec_get": (0,),
     "rt_vec_push": (0, 1),
     "rt_vec_set": (0, 2),
+    "rt_strbuf_reserve": (0,),
+    "rt_strbuf_len": (0,),
+    "rt_strbuf_get_u8": (0,),
+    "rt_strbuf_set_u8": (0,),
+    "rt_strbuf_to_str": (0,),
 }
 BUILTIN_RUNTIME_TYPE_SYMBOLS: dict[str, str] = {
     "Vec": "rt_type_vec_desc",

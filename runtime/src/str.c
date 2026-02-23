@@ -16,7 +16,7 @@ RtType rt_type_str_desc = {
     .flags = RT_TYPE_FLAG_LEAF | RT_TYPE_FLAG_VARIABLE_SIZE,
     .abi_version = 1u,
     .align_bytes = 8u,
-    .fixed_size_bytes = sizeof(RtObjHeader) + sizeof(uint64_t),
+    .fixed_size_bytes = sizeof(RtStrObj),
     .debug_name = "Str",
     .trace_fn = NULL,
     .pointer_offsets = NULL,
@@ -51,6 +51,11 @@ void* rt_str_from_bytes(RtThreadState* ts, const uint8_t* bytes, uint64_t len) {
         memcpy(str->bytes, bytes, (size_t)len);
     }
     return (void*)str;
+}
+
+void* rt_str_from_char(uint8_t value) {
+    RtThreadState* ts = rt_thread_state();
+    return rt_str_from_bytes(ts, &value, 1);
 }
 
 uint64_t rt_str_len(const void* str_obj) {

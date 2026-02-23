@@ -426,3 +426,30 @@ def test_typecheck_program_imported_std_str_methods_on_unqualified_str(tmp_path:
 
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
     typecheck_program(program)
+
+
+def test_typecheck_program_imported_std_str_from_char_static_call(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "std" / "str.nif",
+        """
+        export class Str {
+            static fn from_char(value: u8) -> Str {
+                return "A";
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import std.str;
+
+        fn main() -> unit {
+            var s: Str = Str.from_char('Z');
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)

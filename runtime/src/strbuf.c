@@ -3,26 +3,52 @@
 #include "strbuf.h"
 
 #include <stddef.h>
+#include <string.h>
+
+typedef struct RtStrBufStorageObj {
+    RtObjHeader header;
+    uint64_t capacity;
+    uint8_t bytes[];
+} RtStrBufStorageObj;
 
 typedef struct RtStrBufObj {
     RtObjHeader header;
     uint64_t len;
-    uint64_t capacity;
-    uint8_t bytes[];
+    RtStrBufStorageObj* storage;
 } RtStrBufObj;
+
+static void rt_strbuf_trace(void* obj, void (*mark_ref)(void** slot));
 
 RtType rt_type_strbuf_desc = {
     .type_id = 0x53424601u,
+    .flags = RT_TYPE_FLAG_HAS_REFS,
+    .abi_version = 1u,
+    .align_bytes = 8u,
+    .fixed_size_bytes = sizeof(RtStrBufObj),
+    .debug_name = "StrBuf",
+    .trace_fn = rt_strbuf_trace,
+    .pointer_offsets = NULL,
+    .pointer_offsets_count = 0u,
+    .reserved0 = 0u,
+};
+
+static RtType g_rt_type_strbuf_storage = {
+    .type_id = 0x53425331u,
     .flags = RT_TYPE_FLAG_LEAF | RT_TYPE_FLAG_VARIABLE_SIZE,
     .abi_version = 1u,
     .align_bytes = 8u,
-    .fixed_size_bytes = sizeof(RtObjHeader) + sizeof(uint64_t) + sizeof(uint64_t),
-    .debug_name = "StrBuf",
+    .fixed_size_bytes = sizeof(RtStrBufStorageObj),
+    .debug_name = "StrBufStorage",
     .trace_fn = NULL,
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
 };
+
+static void rt_strbuf_trace(void* obj, void (*mark_ref)(void** slot)) {
+    RtStrBufObj* strbuf = (RtStrBufObj*)obj;
+    mark_ref((void**)&strbuf->storage);
+}
 
 static void rt_require(int condition, const char* message) {
     if (!condition) {
@@ -40,40 +66,71 @@ static RtStrBufObj* rt_require_strbuf_obj(const void* strbuf_obj, const char* ap
     return strbuf;
 }
 
-void* rt_strbuf_new(int64_t capacity) {
-    if (capacity < 0) {
-        rt_panic("rt_strbuf_new: capacity must be non-negative");
-    }
-
-    const uint64_t ucapacity = (uint64_t)capacity;
+static RtStrBufStorageObj* rt_strbuf_storage_new(uint64_t capacity) {
     RtThreadState* ts = rt_thread_state();
-    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(uint64_t) + sizeof(uint64_t) + ucapacity);
-    strbuf->len = 0;
-    strbuf->capacity = ucapacity;
-    if (ucapacity > 0) {
-        for (uint64_t i = 0; i < ucapacity; i++) {
-            strbuf->bytes[i] = 0;
-        }
+    RtStrBufStorageObj* storage = (RtStrBufStorageObj*)rt_alloc_obj(
+        ts,
+        &g_rt_type_strbuf_storage,
+        offsetof(RtStrBufStorageObj, bytes) + capacity
+    );
+    storage->capacity = capacity;
+    if (capacity > 0) {
+        memset(storage->bytes, 0, (size_t)capacity);
     }
+    return storage;
+}
+
+void* rt_strbuf_new(uint64_t capacity) {
+    RtThreadState* ts = rt_thread_state();
+    RtRootFrame frame;
+    void* slots[1] = {NULL};
+    rt_root_frame_init(&frame, slots, 1);
+    rt_push_roots(ts, &frame);
+
+    RtStrBufStorageObj* storage = rt_strbuf_storage_new(capacity);
+    rt_root_slot_store(&frame, 0, storage);
+
+    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(RtStrBufObj) - sizeof(RtObjHeader));
+    strbuf->len = 0;
+    strbuf->storage = storage;
+
+    rt_pop_roots(ts);
     return (void*)strbuf;
 }
 
-void* rt_strbuf_from_str(const void* str_obj) {
-    const uint64_t len = rt_str_len(str_obj);
-    RtThreadState* ts = rt_thread_state();
-    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(uint64_t) + sizeof(uint64_t) + len);
-    strbuf->len = len;
-    strbuf->capacity = len;
-    for (uint64_t i = 0; i < len; i++) {
-        strbuf->bytes[i] = (uint8_t)rt_str_get_u8(str_obj, i);
+void rt_strbuf_reserve(void* strbuf_obj, uint64_t new_capacity) {
+    RtStrBufObj* strbuf = rt_require_strbuf_obj(strbuf_obj, "rt_strbuf_reserve: object is not StrBuf");
+
+    RtStrBufStorageObj* storage = strbuf->storage;
+    rt_require(storage != NULL, "rt_strbuf_reserve: internal storage is null");
+
+    if (new_capacity <= storage->capacity) {
+        return;
     }
-    return (void*)strbuf;
+
+    RtThreadState* ts = rt_thread_state();
+    RtRootFrame frame;
+    void* slots[1] = {NULL};
+    rt_root_frame_init(&frame, slots, 1);
+    rt_push_roots(ts, &frame);
+
+    RtStrBufStorageObj* grown = rt_strbuf_storage_new(new_capacity);
+    rt_root_slot_store(&frame, 0, grown);
+
+    if (strbuf->len > 0) {
+        memcpy(grown->bytes, storage->bytes, (size_t)strbuf->len);
+    }
+    strbuf->storage = grown;
+
+    rt_pop_roots(ts);
 }
 
 void* rt_strbuf_to_str(const void* strbuf_obj) {
     const RtStrBufObj* strbuf = rt_require_strbuf_obj(strbuf_obj, "rt_strbuf_to_str: object is not StrBuf");
+    const RtStrBufStorageObj* storage = strbuf->storage;
+    rt_require(storage != NULL, "rt_strbuf_to_str: internal storage is null");
     RtThreadState* ts = rt_thread_state();
-    return rt_str_from_bytes(ts, strbuf->bytes, strbuf->len);
+    return rt_str_from_bytes(ts, storage->bytes, strbuf->len);
 }
 
 uint64_t rt_strbuf_len(const void* strbuf_obj) {
@@ -81,21 +138,22 @@ uint64_t rt_strbuf_len(const void* strbuf_obj) {
     return strbuf->len;
 }
 
-uint64_t rt_strbuf_get_u8(const void* strbuf_obj, int64_t index) {
+uint8_t rt_strbuf_get_u8(const void* strbuf_obj, uint64_t index) {
     const RtStrBufObj* strbuf = rt_require_strbuf_obj(strbuf_obj, "rt_strbuf_get_u8: object is not StrBuf");
-    if (index < 0 || (uint64_t)index >= strbuf->len) {
+    const RtStrBufStorageObj* storage = strbuf->storage;
+    rt_require(storage != NULL, "rt_strbuf_get_u8: internal storage is null");
+    if (index >= strbuf->len) {
         rt_panic("rt_strbuf_get_u8: index out of bounds");
     }
-    return (uint64_t)strbuf->bytes[(uint64_t)index];
+    return storage->bytes[index];
 }
 
-void rt_strbuf_set_u8(void* strbuf_obj, int64_t index, uint64_t value) {
+void rt_strbuf_set_u8(void* strbuf_obj, uint64_t index, uint8_t value) {
     RtStrBufObj* strbuf = rt_require_strbuf_obj(strbuf_obj, "rt_strbuf_set_u8: object is not StrBuf");
-    if (index < 0 || (uint64_t)index >= strbuf->len) {
+    RtStrBufStorageObj* storage = strbuf->storage;
+    rt_require(storage != NULL, "rt_strbuf_set_u8: internal storage is null");
+    if (index >= strbuf->len) {
         rt_panic("rt_strbuf_set_u8: index out of bounds");
     }
-    if (value > 255u) {
-        rt_panic("rt_strbuf_set_u8: value out of range");
-    }
-    strbuf->bytes[(uint64_t)index] = (uint8_t)value;
+    storage->bytes[index] = value;
 }
