@@ -380,24 +380,35 @@ def _resolve_method_call_target(
             return_type_name=BUILTIN_METHOD_RETURN_TYPES[(method_owner_type_name, method_name)],
         )
 
-    method_label = ctx.method_labels.get((receiver_type_name, method_name))
-    if method_label is None and "::" in receiver_type_name:
-        unqualified_type_name = receiver_type_name.split("::", 1)[1]
-        method_label = ctx.method_labels.get((unqualified_type_name, method_name))
-    if method_label is None:
+    owner_candidates: list[str] = [receiver_type_name]
+    if "::" in receiver_type_name:
+        owner_candidates.append(receiver_type_name.split("::", 1)[1])
+    else:
+        owner_candidates.extend(
+            owner
+            for owner, name in ctx.method_labels
+            if name == method_name and owner.endswith(f"::{receiver_type_name}")
+        )
+
+    resolved_owner: str | None = None
+    method_label: str | None = None
+    for owner in owner_candidates:
+        method_label = ctx.method_labels.get((owner, method_name))
+        if method_label is not None:
+            resolved_owner = owner
+            break
+
+    if method_label is None or resolved_owner is None:
         raise NotImplementedError(f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'")
 
-    is_static = ctx.method_is_static.get((receiver_type_name, method_name))
-    if is_static is None and "::" in receiver_type_name:
-        unqualified_type_name = receiver_type_name.split("::", 1)[1]
-        is_static = ctx.method_is_static.get((unqualified_type_name, method_name))
+    is_static = ctx.method_is_static.get((resolved_owner, method_name))
     if is_static:
         raise NotImplementedError(f"static method '{receiver_type_name}.{method_name}' must be called on the class")
 
     return ResolvedCallTarget(
         name=method_label,
         receiver_expr=receiver_expr,
-        return_type_name=ctx.method_return_types.get((receiver_type_name, method_name), "i64"),
+        return_type_name=ctx.method_return_types.get((resolved_owner, method_name), "i64"),
     )
 
 
@@ -428,12 +439,25 @@ def _resolve_call_target_name(
             return _resolve_method_call_target(callee, ctx)
         static_owner = chain[-2]
         static_name = chain[-1]
-        static_label = ctx.method_labels.get((static_owner, static_name))
-        if static_label is not None and ctx.method_is_static.get((static_owner, static_name), False):
+        static_owner_candidates: list[str] = [static_owner]
+        static_owner_candidates.extend(
+            owner
+            for owner, name in ctx.method_labels
+            if name == static_name and owner.endswith(f"::{static_owner}")
+        )
+        resolved_static_owner: str | None = None
+        static_label: str | None = None
+        for owner in static_owner_candidates:
+            label = ctx.method_labels.get((owner, static_name))
+            if label is not None and ctx.method_is_static.get((owner, static_name), False):
+                static_label = label
+                resolved_static_owner = owner
+                break
+        if static_label is not None and resolved_static_owner is not None:
             return ResolvedCallTarget(
                 name=static_label,
                 receiver_expr=None,
-                return_type_name=ctx.method_return_types.get((static_owner, static_name), "i64"),
+                return_type_name=ctx.method_return_types.get((resolved_static_owner, static_name), "i64"),
             )
         ctor_label = ctx.constructor_labels.get(chain[-1])
         if ctor_label is not None:
@@ -924,6 +948,12 @@ class CodeGenerator:
             if method_label is None and "::" in receiver_type_name:
                 unqualified_type_name = receiver_type_name.split("::", 1)[1]
                 method_label = ctx.method_labels.get((unqualified_type_name, "get_u8"))
+            if method_label is None:
+                for owner, name in ctx.method_labels:
+                    if name == "get_u8" and owner.endswith(f"::{receiver_type_name}"):
+                        method_label = ctx.method_labels.get((owner, "get_u8"))
+                        if method_label is not None:
+                            break
             if method_label is None:
                 raise NotImplementedError("index codegen for Str requires Str.get_u8 method")
 

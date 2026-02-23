@@ -1,3 +1,5 @@
+import std.error;
+
 extern fn rt_str_len(value: Str) -> u64;
 extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
 extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
@@ -19,7 +21,7 @@ export class Str
     fn get_u8(index: i64) -> u8 {
         var resolved: i64 = index;
         if resolved < 0 {
-            resolved = __self.len() + resolved;
+            resolved = (i64)__self.len() + resolved;
         }
         return rt_str_get_u8(__self, resolved);
     }
@@ -27,12 +29,12 @@ export class Str
     fn slice(begin: i64, end: i64) -> Str {
         var resolved_begin: i64 = begin;
         if resolved_begin < 0 {
-            resolved_begin = __self.len() + resolved_begin;
+            resolved_begin = (i64)__self.len() + resolved_begin;
         }
 
         var resolved_end: i64 = end;
         if resolved_end < 0 {
-            resolved_end = __self.len() + resolved_end;
+            resolved_end = (i64)__self.len() + resolved_end;
         }
 
         return rt_str_slice(__self, resolved_begin, resolved_end);
@@ -40,7 +42,7 @@ export class Str
 
     fn strip() -> Str {
         var start: i64 = 0;
-        var stop: i64 = __self.len();
+        var stop: i64 = (i64)__self.len();
 
         while start < stop {
             var c: u8 = __self[start];
@@ -61,6 +63,28 @@ export class Str
         }
 
         return __self[start:stop];
+    }
+
+    fn to_u64() -> u64 {
+        var length: u64 = __self.len();
+        if length == 0u {
+            panic("Str.to_u64 on empty string");
+        }
+        var out: u64 = 0u;
+        var i: u64 = 0u;
+        while i < length {
+            var ch: u8 = __self[(i64)i];
+            if ch < '0' || ch > '9' {
+                panic("Str.to_u64 invalid digit");
+            }
+            var digit: u64 = (u64)(ch - '0');
+            if (out > 1844674407370955161u) || (out == 1844674407370955161u && digit > 5u) {
+                panic("Str.to_u64 overflow");
+            }
+            out = out * 10u + digit;
+            i = i + 1u;
+        }
+        return out;
     }
 
     static fn from_char(value: u8) -> Str {
@@ -91,7 +115,7 @@ export class StrBuf
 
     fn reserve(new_capacity: u64) -> StrBuf {
         rt_strbuf_reserve(__self, new_capacity);
-        return __this;
+        return __self;
     }
 
     fn to_str() -> Str {
@@ -101,7 +125,7 @@ export class StrBuf
     fn get_u8(index: i64) -> u8 {
         var resolved: i64 = index;
         if resolved < 0 {
-            resolved = __self.len() + resolved;
+            resolved = (i64)__self.len() + resolved;
         }
         return rt_strbuf_get_u8(__self, resolved);
     }
@@ -109,10 +133,10 @@ export class StrBuf
     fn set_u8(index: i64, byte: u8) -> StrBuf {
         var resolved: i64 = index;
         if resolved < 0 {
-            resolved = __self.len() + resolved;
+            resolved = (i64)__self.len() + resolved;
         }
         rt_strbuf_set_u8(__self, resolved, byte);
-        return __this;
+        return __self;
     }
 }
 

@@ -1,8 +1,9 @@
 import std.str;
+import std.io;
 
 fn main() -> i64
 {
-    var s: Str = "Hello world!";
-    var c: u8 = s[5];
+    var v: u64 = "   18446744073709551615 \t\n\r  "[2:-8].strip().to_u64();
+    println_u64(v);
     return 0;
 }

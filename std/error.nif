@@ -1,3 +1,5 @@
+import std.str;
+
 extern fn rt_panic_str(msg: Str) -> unit;
 
 export fn panic(msg: Str) -> unit {
