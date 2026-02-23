@@ -2,7 +2,7 @@ extern fn rt_str_len(value: Str) -> i64;
 extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
 extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
 
-extern fn rt_strbuf_new(len: i64) -> StrBuf;
+extern fn rt_strbuf_new(capacity: i64) -> StrBuf;
 extern fn rt_strbuf_from_str(value: Str) -> StrBuf;
 extern fn rt_strbuf_len(value: StrBuf) -> i64;
 extern fn rt_strbuf_get_u8(value: StrBuf, index: i64) -> u8;
@@ -65,12 +65,18 @@ export class Str
     static fn from_i64(value: i64) -> Str {
         return "123";  // dummy implementation for now
     }
+
+    static fn from_char(value: u8) -> Str {
+        var buf: StrBuf = StrBuf.from_str(" ");
+        buf.set_u8(0, value);
+        return buf.to_str();
+    }
 }
 
 export class StrBuf
 {
-    static fn new(len: i64) -> StrBuf {
-        return rt_strbuf_new(len);
+    static fn new(capacity: i64) -> StrBuf {
+        return rt_strbuf_new(capacity);
     }
 
     static fn from_str(value: Str) -> StrBuf {

@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void* rt_strbuf_new(int64_t len);
+void* rt_strbuf_new(int64_t capacity);
 void* rt_strbuf_from_str(const void* str_obj);
 uint64_t rt_strbuf_len(const void* strbuf_obj);
 uint64_t rt_strbuf_get_u8(const void* strbuf_obj, int64_t index);

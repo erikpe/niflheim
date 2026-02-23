@@ -7,6 +7,7 @@
 typedef struct RtStrBufObj {
     RtObjHeader header;
     uint64_t len;
+    uint64_t capacity;
     uint8_t bytes[];
 } RtStrBufObj;
 
@@ -15,7 +16,7 @@ RtType rt_type_strbuf_desc = {
     .flags = RT_TYPE_FLAG_LEAF | RT_TYPE_FLAG_VARIABLE_SIZE,
     .abi_version = 1u,
     .align_bytes = 8u,
-    .fixed_size_bytes = sizeof(RtObjHeader) + sizeof(uint64_t),
+    .fixed_size_bytes = sizeof(RtObjHeader) + sizeof(uint64_t) + sizeof(uint64_t),
     .debug_name = "StrBuf",
     .trace_fn = NULL,
     .pointer_offsets = NULL,
@@ -39,17 +40,18 @@ static RtStrBufObj* rt_require_strbuf_obj(const void* strbuf_obj, const char* ap
     return strbuf;
 }
 
-void* rt_strbuf_new(int64_t len) {
-    if (len < 0) {
-        rt_panic("rt_strbuf_new: length must be non-negative");
+void* rt_strbuf_new(int64_t capacity) {
+    if (capacity < 0) {
+        rt_panic("rt_strbuf_new: capacity must be non-negative");
     }
 
-    const uint64_t ulen = (uint64_t)len;
+    const uint64_t ucapacity = (uint64_t)capacity;
     RtThreadState* ts = rt_thread_state();
-    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(uint64_t) + ulen);
-    strbuf->len = ulen;
-    if (ulen > 0) {
-        for (uint64_t i = 0; i < ulen; i++) {
+    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(uint64_t) + sizeof(uint64_t) + ucapacity);
+    strbuf->len = 0;
+    strbuf->capacity = ucapacity;
+    if (ucapacity > 0) {
+        for (uint64_t i = 0; i < ucapacity; i++) {
             strbuf->bytes[i] = 0;
         }
     }
@@ -59,12 +61,19 @@ void* rt_strbuf_new(int64_t len) {
 void* rt_strbuf_from_str(const void* str_obj) {
     const uint64_t len = rt_str_len(str_obj);
     RtThreadState* ts = rt_thread_state();
-    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(uint64_t) + len);
+    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(uint64_t) + sizeof(uint64_t) + len);
     strbuf->len = len;
+    strbuf->capacity = len;
     for (uint64_t i = 0; i < len; i++) {
         strbuf->bytes[i] = (uint8_t)rt_str_get_u8(str_obj, i);
     }
     return (void*)strbuf;
+}
+
+void* rt_strbuf_to_str(const void* strbuf_obj) {
+    const RtStrBufObj* strbuf = rt_require_strbuf_obj(strbuf_obj, "rt_strbuf_to_str: object is not StrBuf");
+    RtThreadState* ts = rt_thread_state();
+    return rt_str_from_bytes(ts, strbuf->bytes, strbuf->len);
 }
 
 uint64_t rt_strbuf_len(const void* strbuf_obj) {
@@ -89,10 +98,4 @@ void rt_strbuf_set_u8(void* strbuf_obj, int64_t index, uint64_t value) {
         rt_panic("rt_strbuf_set_u8: value out of range");
     }
     strbuf->bytes[(uint64_t)index] = (uint8_t)value;
-}
-
-void* rt_strbuf_to_str(const void* strbuf_obj) {
-    const RtStrBufObj* strbuf = rt_require_strbuf_obj(strbuf_obj, "rt_strbuf_to_str: object is not StrBuf");
-    RtThreadState* ts = rt_thread_state();
-    return rt_str_from_bytes(ts, strbuf->bytes, strbuf->len);
 }
