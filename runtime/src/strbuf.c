@@ -80,24 +80,6 @@ static RtStrBufStorageObj* rt_strbuf_storage_new(uint64_t capacity) {
     return storage;
 }
 
-void* rt_strbuf_new(uint64_t capacity) {
-    RtThreadState* ts = rt_thread_state();
-    RtRootFrame frame;
-    void* slots[1] = {NULL};
-    rt_root_frame_init(&frame, slots, 1);
-    rt_push_roots(ts, &frame);
-
-    RtStrBufStorageObj* storage = rt_strbuf_storage_new(capacity);
-    rt_root_slot_store(&frame, 0, storage);
-
-    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(RtStrBufObj) - sizeof(RtObjHeader));
-    strbuf->len = 0;
-    strbuf->storage = storage;
-
-    rt_pop_roots(ts);
-    return (void*)strbuf;
-}
-
 void rt_strbuf_reserve(void* strbuf_obj, uint64_t new_capacity) {
     RtStrBufObj* strbuf = rt_require_strbuf_obj(strbuf_obj, "rt_strbuf_reserve: object is not StrBuf");
 
@@ -123,6 +105,39 @@ void rt_strbuf_reserve(void* strbuf_obj, uint64_t new_capacity) {
     strbuf->storage = grown;
 
     rt_pop_roots(ts);
+}
+
+void* rt_strbuf_new(uint64_t capacity) {
+    RtThreadState* ts = rt_thread_state();
+    RtRootFrame frame;
+    void* slots[1] = {NULL};
+    rt_root_frame_init(&frame, slots, 1);
+    rt_push_roots(ts, &frame);
+
+    RtStrBufStorageObj* storage = rt_strbuf_storage_new(capacity);
+    rt_root_slot_store(&frame, 0, storage);
+
+    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(RtStrBufObj) - sizeof(RtObjHeader));
+    strbuf->len = 0;
+    strbuf->storage = storage;
+
+    rt_pop_roots(ts);
+    return (void*)strbuf;
+}
+
+void* rt_strbuf_from_str(const void* str_obj) {
+    const uint64_t length = rt_str_len(str_obj);
+    RtStrBufObj* strbuf = (RtStrBufObj*)rt_strbuf_new(length);
+
+    RtStrBufStorageObj* storage = strbuf->storage;
+    rt_require(storage != NULL, "rt_strbuf_from_str: internal storage is null");
+
+    if (length > 0) {
+        const uint8_t* src = rt_str_data_ptr(str_obj);
+        memcpy(storage->bytes, src, (size_t)length);
+    }
+    strbuf->len = length;
+    return (void*)strbuf;
 }
 
 void* rt_strbuf_to_str(const void* strbuf_obj) {

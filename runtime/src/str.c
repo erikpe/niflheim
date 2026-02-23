@@ -63,17 +63,22 @@ uint64_t rt_str_len(const void* str_obj) {
     return str->len;
 }
 
-uint64_t rt_str_get_u8(const void* str_obj, uint64_t index) {
-    const RtStrObj* str = rt_require_str_obj(str_obj, "rt_str_get_u8: object is not Str");
-    if (index >= str->len) {
-        rt_panic("rt_str_get_u8: index out of bounds");
-    }
-    return (uint64_t)str->bytes[index];
+const uint8_t* rt_str_data_ptr(const void* str_obj) {
+    const RtStrObj* str = rt_require_str_obj(str_obj, "rt_str_data_ptr: object is not Str");
+    return str->bytes;
 }
 
-void* rt_str_slice(const void* str_obj, uint64_t begin, uint64_t end) {
+uint8_t rt_str_get_u8(const void* str_obj, int64_t index) {
+    const RtStrObj* str = rt_require_str_obj(str_obj, "rt_str_get_u8: object is not Str");
+    if (index < 0 || index >= (int64_t)str->len) {
+        rt_panic("rt_str_get_u8: index out of bounds");
+    }
+    return str->bytes[index];
+}
+
+void* rt_str_slice(const void* str_obj, int64_t begin, int64_t end) {
     const RtStrObj* str = rt_require_str_obj(str_obj, "rt_str_slice: object is not Str");
-    if (begin > end || end > str->len) {
+    if (begin < 0 || end < 0 || begin > end || end > (int64_t)str->len) {
         rt_panic("rt_str_slice: invalid slice range");
     }
 
