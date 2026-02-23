@@ -4,12 +4,6 @@
 
 #include <stddef.h>
 
-typedef struct RtStrObj {
-    RtObjHeader header;
-    uint64_t len;
-    uint8_t bytes[];
-} RtStrObj;
-
 typedef struct RtStrBufObj {
     RtObjHeader header;
     uint64_t len;
@@ -33,18 +27,6 @@ static void rt_require(int condition, const char* message) {
     if (!condition) {
         rt_panic(message);
     }
-}
-
-static RtStrObj* rt_require_str_obj(const void* str_obj, const char* api_name) {
-    extern RtType rt_type_str_desc;
-
-    rt_require(str_obj != NULL, "Str API called with null object");
-
-    RtStrObj* str = (RtStrObj*)str_obj;
-    if (str->header.type != &rt_type_str_desc) {
-        rt_panic(api_name);
-    }
-    return str;
 }
 
 static RtStrBufObj* rt_require_strbuf_obj(const void* strbuf_obj, const char* api_name) {
@@ -75,12 +57,12 @@ void* rt_strbuf_new(int64_t len) {
 }
 
 void* rt_strbuf_from_str(const void* str_obj) {
-    const RtStrObj* str = rt_require_str_obj(str_obj, "rt_strbuf_from_str: object is not Str");
+    const uint64_t len = rt_str_len(str_obj);
     RtThreadState* ts = rt_thread_state();
-    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(uint64_t) + str->len);
-    strbuf->len = str->len;
-    for (uint64_t i = 0; i < str->len; i++) {
-        strbuf->bytes[i] = str->bytes[i];
+    RtStrBufObj* strbuf = (RtStrBufObj*)rt_alloc_obj(ts, &rt_type_strbuf_desc, sizeof(uint64_t) + len);
+    strbuf->len = len;
+    for (uint64_t i = 0; i < len; i++) {
+        strbuf->bytes[i] = (uint8_t)rt_str_get_u8(str_obj, i);
     }
     return (void*)strbuf;
 }
