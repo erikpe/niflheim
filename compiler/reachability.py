@@ -17,7 +17,6 @@ from compiler.ast_nodes import (
     IdentifierExpr,
     IfStmt,
     IndexExpr,
-    LiteralExpr,
     ModuleAst,
     ReturnStmt,
     Statement,
@@ -78,10 +77,6 @@ class ReachabilityWalker:
         self.class_queue: deque[str] = deque()
 
     def _enqueue_class(self, type_name: str) -> None:
-        if "::" in type_name:
-            type_name = type_name.split("::", 1)[1]
-        elif "." in type_name:
-            type_name = type_name.rsplit(".", 1)[1]
         if type_name not in self.known_class_names or type_name in self.reachable_classes:
             return
         self.reachable_classes.add(type_name)
@@ -94,11 +89,6 @@ class ReachabilityWalker:
         self.function_queue.append(function_name)
 
     def _walk_expr(self, expr: Expression, *, ctx: WalkContext) -> None:
-        if isinstance(expr, LiteralExpr):
-            if expr.value.startswith('"') and "Str" in self.known_class_names:
-                ctx.found_classes.add("Str")
-            return
-
         if isinstance(expr, IdentifierExpr):
             return
 
