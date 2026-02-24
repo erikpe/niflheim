@@ -19,5 +19,10 @@ fn main() -> i64 {
   println_u64(u64_hi / 2u);
   println_u64(u64_hi / u64_three);
   println_u64(u64_hi % u64_three);
+
+  println_bool(u64_hi < 1u);
+  println_bool(u64_hi <= 1u);
+  println_bool(u64_hi > 1u);
+  println_bool(u64_hi >= 1u);
   return 0;
 }

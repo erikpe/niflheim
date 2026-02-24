@@ -159,19 +159,6 @@ fn test_u64() -> unit {
   println_u64(r_u64_42);
   println_u64(r_u64_43);
   println_u64(r_u64_44);
-
-  var u64_hi: u64 = 9223372036854775808u;
-  var u64_three: u64 = 3u;
-
-  println_u64(u64_max / u64_mid);
-  println_u64(u64_max / u64_big);
-  println_u64(u64_max / u64_three);
-  println_u64(u64_max % u64_mid);
-  println_u64(u64_max % u64_big);
-  println_u64(u64_max % u64_three);
-  println_u64(u64_hi / 2u);
-  println_u64(u64_hi / u64_three);
-  println_u64(u64_hi % u64_three);
 }
 
 fn test_u8() -> unit {

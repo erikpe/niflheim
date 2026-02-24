@@ -1,0 +1,5 @@
+runs:
+  - name: u64_highbit
+    expect:
+      exit_code: 0
+      stdout_file: "test_u64_highbit_expected.txt"

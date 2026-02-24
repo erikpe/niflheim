@@ -11,6 +11,7 @@ void rt_println_i64(int64_t value);
 void rt_println_u64(uint64_t value);
 void rt_println_u8(uint64_t value);
 void rt_println_bool(int64_t value);
+void rt_println_double(double value);
 
 #ifdef __cplusplus
 }

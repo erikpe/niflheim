@@ -229,9 +229,34 @@ fn test_u8() -> unit {
   println_u8(r_u8_44);
 }
 
+fn test_double() -> unit {
+  var d_neg: double = -1.5;
+  var d_zero: double = 0.0;
+  var d_one: double = 1.0;
+  var d_big: double = 1000000.25;
+  var d_small: double = 0.75;
+
+  var r_d_00: double = d_neg + d_neg;
+  var r_d_01: double = d_neg + d_one;
+  var r_d_02: double = d_one + d_small;
+  var r_d_03: double = d_big + d_small;
+  var r_d_04: double = d_big + d_neg;
+  var r_d_05: double = d_zero + d_small;
+  var r_d_06: double = 1.25 + 2.75;
+
+  println_double(r_d_00);
+  println_double(r_d_01);
+  println_double(r_d_02);
+  println_double(r_d_03);
+  println_double(r_d_04);
+  println_double(r_d_05);
+  println_double(r_d_06);
+}
+
 fn main() -> i64 {
   test_i64();
   test_u64();
   test_u8();
+  test_double();
   return 0;
 }
