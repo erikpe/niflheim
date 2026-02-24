@@ -143,6 +143,10 @@ class ReachabilityWalker:
                 ctx.found_classes.add(receiver_type)
                 return
 
+            if first in self.known_class_names:
+                ctx.found_classes.add(first)
+                return
+
             if last in self.known_class_names:
                 ctx.found_classes.add(last)
             elif last in self.known_function_names:
