@@ -6,10 +6,13 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 
 cd "$repo_root"
 
-echo "[1/2] Running Python tests (pytest)..."
+echo "[1/3] Running Python tests (pytest)..."
 pytest
 
-echo "[2/2] Running runtime C harnesses..."
+echo "[2/3] Running golden tests..."
+./scripts/golden.sh
+
+echo "[3/3] Running runtime C harnesses..."
 make -C runtime test-all
 
 echo "All tests passed."

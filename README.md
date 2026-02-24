@@ -82,5 +82,48 @@ For quick local workflows, use scripts under `scripts/`:
 
 - `scripts/test.sh`
 	- Runs the full Python test suite (`pytest -q`)
+	- Runs golden tests (`./scripts/golden.sh`)
 	- Runs runtime C harnesses (`make -C runtime test-all`)
 	- Example: `./scripts/test.sh`
+
+## Golden Tests
+
+Golden tests live under `tests/golden/`.
+
+- Every `tests/golden/**/test_*.nif` file is treated as a golden test source.
+- Each source must have a sibling spec file named `<stem>_spec.yaml`.
+	- Example source: `tests/golden/arithmetic/test_addition.nif`
+	- Example spec: `tests/golden/arithmetic/test_addition_spec.yaml`
+- Each source is compiled once via `scripts/build.sh` and output goes to `build/golden/...`.
+- The spec can define multiple runs against the compiled binary.
+
+Run the runner:
+
+- `./scripts/golden.sh`
+- `./scripts/golden.sh --jobs 8`
+- `./scripts/golden.sh --filter 'arithmetic/**'`
+
+Spec format:
+
+```yaml
+runs:
+	- name: case_name
+		input:
+			args: ["arg1", "arg2"]
+			stdin: "optional stdin text"
+			# stdin_file: "./input.txt"
+		expect:
+			exit_code: 0
+			stdout: "expected stdout"
+			# stdout_file: "./expected_stdout.txt"
+			stderr: ""
+			# stderr_file: "./expected_stderr.txt"
+			panic: "optional panic substring"
+```
+
+Notes:
+
+- `input.stdin` and `input.stdin_file` are mutually exclusive.
+- `expect.stderr` and `expect.stderr_file` are mutually exclusive.
+- Unspecified input fields are not provided.
+- Unspecified expectation fields are not validated.
