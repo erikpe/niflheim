@@ -1,0 +1,237 @@
+import std.io;
+
+fn test_i64() -> unit {
+  var i64_min: i64 = -9223372036854775808;
+  var i64_max: i64 = 9223372036854775807;
+  var i64_zero: i64 = 0;
+  var i64_one: i64 = 1;
+  var i64_neg1: i64 = -1;
+  var i64_mid: i64 = 123456789;
+
+  var r_i64_00: i64 = i64_min + i64_min;  // = 0 (wrap-around)
+  var r_i64_01: i64 = i64_min + i64_max;  // = -1
+  var r_i64_02: i64 = i64_min + i64_zero; // = -9223372036854775808
+  var r_i64_03: i64 = i64_min + i64_one;  // = -9223372036854775807
+  var r_i64_04: i64 = i64_min + i64_neg1; // = 9223372036854775807 (wrap-around)
+  var r_i64_05: i64 = i64_min + i64_mid;  // = -9223372036731319019
+
+  var r_i64_10: i64 = i64_max + i64_min;  // = -1
+  var r_i64_11: i64 = i64_max + i64_max;  // = -2 (wrap-around)
+  var r_i64_12: i64 = i64_max + i64_zero; // = 9223372036854775807
+  var r_i64_13: i64 = i64_max + i64_one;  // = -9223372036854775808 (wrap-around)
+  var r_i64_14: i64 = i64_max + i64_neg1; // = 9223372036854775806
+  var r_i64_15: i64 = i64_max + i64_mid;  // = -9223372036731319020 (wrap-around)
+
+  var r_i64_20: i64 = i64_zero + i64_min;  // = -9223372036854775808
+  var r_i64_21: i64 = i64_zero + i64_max;  // = 9223372036854775807
+  var r_i64_22: i64 = i64_zero + i64_zero; // = 0
+  var r_i64_23: i64 = i64_zero + i64_one;  // = 1
+  var r_i64_24: i64 = i64_zero + i64_neg1; // = -1
+  var r_i64_25: i64 = i64_zero + i64_mid;  // = 123456789
+
+  var r_i64_30: i64 = i64_one + i64_min;   // = -9223372036854775807
+  var r_i64_31: i64 = i64_one + i64_max;   // = -9223372036854775808 (wrap-around)
+  var r_i64_32: i64 = i64_one + i64_zero;  // = 1
+  var r_i64_33: i64 = i64_one + i64_one;   // = 2
+  var r_i64_34: i64 = i64_one + i64_neg1;  // = 0
+  var r_i64_35: i64 = i64_one + i64_mid;   // = 123456790
+
+  var r_i64_40: i64 = i64_neg1 + i64_min;  // = 9223372036854775807 (wrap-around)
+  var r_i64_41: i64 = i64_neg1 + i64_max;  // = 9223372036854775806
+  var r_i64_42: i64 = i64_neg1 + i64_zero; // = -1
+  var r_i64_43: i64 = i64_neg1 + i64_one;  // = 0
+  var r_i64_44: i64 = i64_neg1 + i64_neg1; // = -2
+  var r_i64_45: i64 = i64_neg1 + i64_mid;  // = 123456788
+
+  var r_i64_50: i64 = i64_mid + i64_min;   // = -9223372036731319019
+  var r_i64_51: i64 = i64_mid + i64_max;   // = -9223372036731319020 (wrap-around)
+  var r_i64_52: i64 = i64_mid + i64_zero;  // = 123456789
+  var r_i64_53: i64 = i64_mid + i64_one;   // = 123456790
+  var r_i64_54: i64 = i64_mid + i64_neg1;  // = 123456788
+  var r_i64_55: i64 = i64_mid + i64_mid;   // = 246913578
+
+  println_i64(r_i64_00);
+  println_i64(r_i64_01);
+  println_i64(r_i64_02);
+  println_i64(r_i64_03);
+  println_i64(r_i64_04);
+  println_i64(r_i64_05);
+
+  println_i64(r_i64_10);
+  println_i64(r_i64_11);
+  println_i64(r_i64_12);
+  println_i64(r_i64_13);
+  println_i64(r_i64_14);
+  println_i64(r_i64_15);
+
+  println_i64(r_i64_20);
+  println_i64(r_i64_21);
+  println_i64(r_i64_22);
+  println_i64(r_i64_23);
+  println_i64(r_i64_24);
+  println_i64(r_i64_25);
+
+  println_i64(r_i64_30);
+  println_i64(r_i64_31);
+  println_i64(r_i64_32);
+  println_i64(r_i64_33);
+  println_i64(r_i64_34);
+  println_i64(r_i64_35);
+
+  println_i64(r_i64_40);
+  println_i64(r_i64_41);
+  println_i64(r_i64_42);
+  println_i64(r_i64_43);
+  println_i64(r_i64_44);
+  println_i64(r_i64_45);
+
+  println_i64(r_i64_50);
+  println_i64(r_i64_51);
+  println_i64(r_i64_52);
+  println_i64(r_i64_53);
+  println_i64(r_i64_54);
+  println_i64(r_i64_55);
+}
+
+fn test_u64() -> unit {
+  var u64_zero: u64 = 0u;
+  var u64_one: u64 = 1u;
+  var u64_max: u64 = 18446744073709551615u;
+  var u64_mid: u64 = 1000000000u;
+  var u64_big: u64 = 4000000000000000000u;
+
+  var r_u64_00: u64 = u64_zero + u64_zero; // = 0
+  var r_u64_01: u64 = u64_zero + u64_one;  // = 1
+  var r_u64_02: u64 = u64_zero + u64_max;  // = 18446744073709551615
+  var r_u64_03: u64 = u64_zero + u64_mid;  // = 1000000000
+  var r_u64_04: u64 = u64_zero + u64_big;  // = 4000000000000000000
+
+  var r_u64_10: u64 = u64_one + u64_zero; // = 1
+  var r_u64_11: u64 = u64_one + u64_one;  // = 2
+  var r_u64_12: u64 = u64_one + u64_max;  // = 0 (wrap-around)
+  var r_u64_13: u64 = u64_one + u64_mid;  // = 1000000001
+  var r_u64_14: u64 = u64_one + u64_big;  // = 4000000000000000001
+
+  var r_u64_20: u64 = u64_max + u64_zero; // = 18446744073709551615
+  var r_u64_21: u64 = u64_max + u64_one;  // = 0 (wrap-around)
+  var r_u64_22: u64 = u64_max + u64_max;  // = 18446744073709551614 (wrap-around)
+  var r_u64_23: u64 = u64_max + u64_mid;  // = 999999999 (wrap-around)
+  var r_u64_24: u64 = u64_max + u64_big;  // = 3999999999999999999 (wrap-around)
+
+  var r_u64_30: u64 = u64_mid + u64_zero; // = 1000000000
+  var r_u64_31: u64 = u64_mid + u64_one;  // = 1000000001
+  var r_u64_32: u64 = u64_mid + u64_max;  // = 999999999 (wrap-around)
+  var r_u64_33: u64 = u64_mid + u64_mid;  // = 2000000000
+  var r_u64_34: u64 = u64_mid + u64_big;  // = 4000000001000000000
+
+  var r_u64_40: u64 = u64_big + u64_zero; // = 4000000000000000000
+  var r_u64_41: u64 = u64_big + u64_one;  // = 4000000000000000001
+  var r_u64_42: u64 = u64_big + u64_max;  // = 3999999999999999999 (wrap-around)
+  var r_u64_43: u64 = u64_big + u64_mid;  // = 4000000001000000000
+  var r_u64_44: u64 = u64_big + u64_big;  // = 8000000000000000000
+
+  println_u64(r_u64_00);
+  println_u64(r_u64_01);
+  println_u64(r_u64_02);
+  println_u64(r_u64_03);
+  println_u64(r_u64_04);
+
+  println_u64(r_u64_10);
+  println_u64(r_u64_11);
+  println_u64(r_u64_12);
+  println_u64(r_u64_13);
+  println_u64(r_u64_14);
+
+  println_u64(r_u64_20);
+  println_u64(r_u64_21);
+  println_u64(r_u64_22);
+  println_u64(r_u64_23);
+  println_u64(r_u64_24);
+
+  println_u64(r_u64_30);
+  println_u64(r_u64_31);
+  println_u64(r_u64_32);
+  println_u64(r_u64_33);
+  println_u64(r_u64_34);
+
+  println_u64(r_u64_40);
+  println_u64(r_u64_41);
+  println_u64(r_u64_42);
+  println_u64(r_u64_43);
+  println_u64(r_u64_44);
+}
+
+fn test_u8() -> unit {
+  var u8_zero: u8 = 0u8;
+  var u8_one: u8 = 1u8;
+  var u8_max: u8 = 255u8;
+  var u8_mid: u8 = 17u8;
+  var u8_big: u8 = 200u8;
+
+  var r_u8_00: u8 = u8_zero + u8_zero; // = 0
+  var r_u8_01: u8 = u8_zero + u8_one;  // = 1
+  var r_u8_02: u8 = u8_zero + u8_max;  // = 255
+  var r_u8_03: u8 = u8_zero + u8_mid;  // = 17
+  var r_u8_04: u8 = u8_zero + u8_big;  // = 200
+
+  var r_u8_10: u8 = u8_one + u8_zero; // = 1
+  var r_u8_11: u8 = u8_one + u8_one;  // = 2
+  var r_u8_12: u8 = u8_one + u8_max;  // = 0 (wrap-around)
+  var r_u8_13: u8 = u8_one + u8_mid;  // = 18
+  var r_u8_14: u8 = u8_one + u8_big;  // = 201
+
+  var r_u8_20: u8 = u8_max + u8_zero; // = 255
+  var r_u8_21: u8 = u8_max + u8_one;  // = 0 (wrap-around)
+  var r_u8_22: u8 = u8_max + u8_max;  // = 254 (wrap-around)
+  var r_u8_23: u8 = u8_max + u8_mid;  // = 16 (wrap-around)
+  var r_u8_24: u8 = u8_max + u8_big;  // = 199 (wrap-around)
+
+  var r_u8_30: u8 = u8_mid + u8_zero; // = 17
+  var r_u8_31: u8 = u8_mid + u8_one;  // = 18
+  var r_u8_32: u8 = u8_mid + u8_max;  // = 16 (wrap-around)
+  var r_u8_33: u8 = u8_mid + u8_mid;  // = 34
+  var r_u8_34: u8 = u8_mid + u8_big;  // = 217
+
+  var r_u8_40: u8 = u8_big + u8_zero; // = 200
+  var r_u8_41: u8 = u8_big + u8_one;  // = 201
+  var r_u8_42: u8 = u8_big + u8_max;  // = 199 (wrap-around)
+  var r_u8_43: u8 = u8_big + u8_mid;  // = 217
+  var r_u8_44: u8 = u8_big + u8_big;  // = 144 (wrap-around)
+
+  println_u8(r_u8_00);
+  println_u8(r_u8_01);
+  println_u8(r_u8_02);
+  println_u8(r_u8_03);
+  println_u8(r_u8_04);
+
+  println_u8(r_u8_10);
+  println_u8(r_u8_11);
+  println_u8(r_u8_12);
+  println_u8(r_u8_13);
+  println_u8(r_u8_14);
+
+  println_u8(r_u8_20);
+  println_u8(r_u8_21);
+  println_u8(r_u8_22);
+  println_u8(r_u8_23);
+  println_u8(r_u8_24);
+
+  println_u8(r_u8_30);
+  println_u8(r_u8_31);
+  println_u8(r_u8_32);
+  println_u8(r_u8_33);
+  println_u8(r_u8_34);
+
+  println_u8(r_u8_40);
+  println_u8(r_u8_41);
+  println_u8(r_u8_42);
+  println_u8(r_u8_43);
+  println_u8(r_u8_44);
+}
+
+fn main() -> i64 {
+  test_i64();
+  test_u64();
+  test_u8();
+  return 0;
+}

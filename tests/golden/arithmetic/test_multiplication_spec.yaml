@@ -1,0 +1,5 @@
+runs:
+  - name: multiplication
+    expect:
+      exit_code: 0
+      stdout_file: "test_multiplication_expected.txt"

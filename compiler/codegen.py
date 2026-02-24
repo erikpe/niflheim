@@ -1170,7 +1170,8 @@ class CodeGenerator:
 
         return False
 
-    def _emit_integer_binary_op(self, operator: str) -> bool:
+    def _emit_integer_binary_op(self, operator: str, operand_type_name: str) -> bool:
+        is_unsigned = operand_type_name in {"u64", "u8"}
         if operator == "+":
             self.out.append("    add rax, rcx")
             return True
@@ -1181,12 +1182,20 @@ class CodeGenerator:
             self.out.append("    imul rax, rcx")
             return True
         if operator == "/":
-            self.out.append("    cqo")
-            self.out.append("    idiv rcx")
+            if is_unsigned:
+                self.out.append("    xor rdx, rdx")
+                self.out.append("    div rcx")
+            else:
+                self.out.append("    cqo")
+                self.out.append("    idiv rcx")
             return True
         if operator == "%":
-            self.out.append("    cqo")
-            self.out.append("    idiv rcx")
+            if is_unsigned:
+                self.out.append("    xor rdx, rdx")
+                self.out.append("    div rcx")
+            else:
+                self.out.append("    cqo")
+                self.out.append("    idiv rcx")
             self.out.append("    mov rax, rdx")
             return True
 
@@ -1197,13 +1206,13 @@ class CodeGenerator:
             elif operator == "!=":
                 self.out.append("    setne al")
             elif operator == "<":
-                self.out.append("    setl al")
+                self.out.append("    setb al" if is_unsigned else "    setl al")
             elif operator == "<=":
-                self.out.append("    setle al")
+                self.out.append("    setbe al" if is_unsigned else "    setle al")
             elif operator == ">":
-                self.out.append("    setg al")
+                self.out.append("    seta al" if is_unsigned else "    setg al")
             else:
-                self.out.append("    setge al")
+                self.out.append("    setae al" if is_unsigned else "    setge al")
             self.out.append("    movzx rax, al")
             return True
 
@@ -1234,7 +1243,7 @@ class CodeGenerator:
 
             raise NotImplementedError(f"binary operator '{expr.operator}' is not supported for double operands")
 
-        if self._emit_integer_binary_op(expr.operator):
+        if self._emit_integer_binary_op(expr.operator, left_type_name):
             return
 
         raise NotImplementedError(f"binary operator '{expr.operator}' is not supported")

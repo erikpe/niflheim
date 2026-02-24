@@ -1,0 +1,7 @@
+import std.error;
+import std.str;
+
+fn main() -> i64 {
+    panic("Golden panic message");
+    return 0;
+}

@@ -1,0 +1,23 @@
+import std.io;
+
+fn main() -> i64 {
+  var u64_max: u64 = 18446744073709551615u;
+  var u64_hi: u64 = 9223372036854775808u;
+  var u64_billion: u64 = 1000000000u;
+  var u64_big: u64 = 4000000000000000000u;
+  var u64_three: u64 = 3u;
+
+  println_u64(u64_max / 1u);
+  println_u64(u64_max / u64_billion);
+  println_u64(u64_max / u64_big);
+  println_u64(u64_max / u64_three);
+
+  println_u64(u64_max % u64_billion);
+  println_u64(u64_max % u64_big);
+  println_u64(u64_max % u64_three);
+
+  println_u64(u64_hi / 2u);
+  println_u64(u64_hi / u64_three);
+  println_u64(u64_hi % u64_three);
+  return 0;
+}

@@ -1,0 +1,4 @@
+runs:
+  - name: panic_substring_match
+    expect:
+      panic: "panic: Golden panic message"

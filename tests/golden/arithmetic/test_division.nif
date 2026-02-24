@@ -1,0 +1,274 @@
+import std.io;
+
+fn test_i64() -> unit {
+  var i64_min: i64 = -9223372036854775808;
+  var i64_max: i64 = 9223372036854775807;
+  var i64_zero: i64 = 0;
+  var i64_one: i64 = 1;
+  var i64_neg1: i64 = -1;
+  var i64_mid: i64 = 123456789;
+
+  var d_i64_0: i64 = 1;
+  var d_i64_1: i64 = 2;
+  var d_i64_2: i64 = -2;
+  var d_i64_3: i64 = 9223372036854775807;
+  var d_i64_4: i64 = 123456789;
+  var d_i64_5: i64 = -3;
+
+  var r_i64_00: i64 = i64_min / d_i64_0;
+  var r_i64_01: i64 = i64_min / d_i64_1;
+  var r_i64_02: i64 = i64_min / d_i64_2;
+  var r_i64_03: i64 = i64_min / d_i64_3;
+  var r_i64_04: i64 = i64_min / d_i64_4;
+  var r_i64_05: i64 = i64_min / d_i64_5;
+
+  var r_i64_10: i64 = i64_max / d_i64_0;
+  var r_i64_11: i64 = i64_max / d_i64_1;
+  var r_i64_12: i64 = i64_max / d_i64_2;
+  var r_i64_13: i64 = i64_max / d_i64_3;
+  var r_i64_14: i64 = i64_max / d_i64_4;
+  var r_i64_15: i64 = i64_max / d_i64_5;
+
+  var r_i64_20: i64 = i64_zero / d_i64_0;
+  var r_i64_21: i64 = i64_zero / d_i64_1;
+  var r_i64_22: i64 = i64_zero / d_i64_2;
+  var r_i64_23: i64 = i64_zero / d_i64_3;
+  var r_i64_24: i64 = i64_zero / d_i64_4;
+  var r_i64_25: i64 = i64_zero / d_i64_5;
+
+  var r_i64_30: i64 = i64_one / d_i64_0;
+  var r_i64_31: i64 = i64_one / d_i64_1;
+  var r_i64_32: i64 = i64_one / d_i64_2;
+  var r_i64_33: i64 = i64_one / d_i64_3;
+  var r_i64_34: i64 = i64_one / d_i64_4;
+  var r_i64_35: i64 = i64_one / d_i64_5;
+
+  var r_i64_40: i64 = i64_neg1 / d_i64_0;
+  var r_i64_41: i64 = i64_neg1 / d_i64_1;
+  var r_i64_42: i64 = i64_neg1 / d_i64_2;
+  var r_i64_43: i64 = i64_neg1 / d_i64_3;
+  var r_i64_44: i64 = i64_neg1 / d_i64_4;
+  var r_i64_45: i64 = i64_neg1 / d_i64_5;
+
+  var r_i64_50: i64 = i64_mid / d_i64_0;
+  var r_i64_51: i64 = i64_mid / d_i64_1;
+  var r_i64_52: i64 = i64_mid / d_i64_2;
+  var r_i64_53: i64 = i64_mid / d_i64_3;
+  var r_i64_54: i64 = i64_mid / d_i64_4;
+  var r_i64_55: i64 = i64_mid / d_i64_5;
+
+  println_i64(r_i64_00);
+  println_i64(r_i64_01);
+  println_i64(r_i64_02);
+  println_i64(r_i64_03);
+  println_i64(r_i64_04);
+  println_i64(r_i64_05);
+
+  println_i64(r_i64_10);
+  println_i64(r_i64_11);
+  println_i64(r_i64_12);
+  println_i64(r_i64_13);
+  println_i64(r_i64_14);
+  println_i64(r_i64_15);
+
+  println_i64(r_i64_20);
+  println_i64(r_i64_21);
+  println_i64(r_i64_22);
+  println_i64(r_i64_23);
+  println_i64(r_i64_24);
+  println_i64(r_i64_25);
+
+  println_i64(r_i64_30);
+  println_i64(r_i64_31);
+  println_i64(r_i64_32);
+  println_i64(r_i64_33);
+  println_i64(r_i64_34);
+  println_i64(r_i64_35);
+
+  println_i64(r_i64_40);
+  println_i64(r_i64_41);
+  println_i64(r_i64_42);
+  println_i64(r_i64_43);
+  println_i64(r_i64_44);
+  println_i64(r_i64_45);
+
+  println_i64(r_i64_50);
+  println_i64(r_i64_51);
+  println_i64(r_i64_52);
+  println_i64(r_i64_53);
+  println_i64(r_i64_54);
+  println_i64(r_i64_55);
+}
+
+fn test_u64() -> unit {
+  var u64_zero: u64 = 0u;
+  var u64_one: u64 = 1u;
+  var u64_max: u64 = 18446744073709551615u;
+  var u64_mid: u64 = 1000000000u;
+  var u64_big: u64 = 4000000000000000000u;
+
+  var d_u64_0: u64 = 1u;
+  var d_u64_1: u64 = 18446744073709551615u;
+  var d_u64_2: u64 = 1000000000u;
+  var d_u64_3: u64 = 4000000000000000000u;
+  var d_u64_4: u64 = 3u;
+
+  var r_u64_00: u64 = u64_zero / d_u64_0;
+  var r_u64_01: u64 = u64_zero / d_u64_1;
+  var r_u64_02: u64 = u64_zero / d_u64_2;
+  var r_u64_03: u64 = u64_zero / d_u64_3;
+  var r_u64_04: u64 = u64_zero / d_u64_4;
+
+  var r_u64_10: u64 = u64_one / d_u64_0;
+  var r_u64_11: u64 = u64_one / d_u64_1;
+  var r_u64_12: u64 = u64_one / d_u64_2;
+  var r_u64_13: u64 = u64_one / d_u64_3;
+  var r_u64_14: u64 = u64_one / d_u64_4;
+
+  var r_u64_20: u64 = u64_max / d_u64_0;
+  var r_u64_21: u64 = u64_max / d_u64_1;
+  var r_u64_22: u64 = u64_max / d_u64_2;
+  var r_u64_23: u64 = u64_max / d_u64_3;
+  var r_u64_24: u64 = u64_max / d_u64_4;
+
+  var r_u64_30: u64 = u64_mid / d_u64_0;
+  var r_u64_31: u64 = u64_mid / d_u64_1;
+  var r_u64_32: u64 = u64_mid / d_u64_2;
+  var r_u64_33: u64 = u64_mid / d_u64_3;
+  var r_u64_34: u64 = u64_mid / d_u64_4;
+
+  var r_u64_40: u64 = u64_big / d_u64_0;
+  var r_u64_41: u64 = u64_big / d_u64_1;
+  var r_u64_42: u64 = u64_big / d_u64_2;
+  var r_u64_43: u64 = u64_big / d_u64_3;
+  var r_u64_44: u64 = u64_big / d_u64_4;
+
+  println_u64(r_u64_00);
+  println_u64(r_u64_01);
+  println_u64(r_u64_02);
+  println_u64(r_u64_03);
+  println_u64(r_u64_04);
+
+  println_u64(r_u64_10);
+  println_u64(r_u64_11);
+  println_u64(r_u64_12);
+  println_u64(r_u64_13);
+  println_u64(r_u64_14);
+
+  println_u64(r_u64_20);
+  println_u64(r_u64_21);
+  println_u64(r_u64_22);
+  println_u64(r_u64_23);
+  println_u64(r_u64_24);
+
+  println_u64(r_u64_30);
+  println_u64(r_u64_31);
+  println_u64(r_u64_32);
+  println_u64(r_u64_33);
+  println_u64(r_u64_34);
+
+  println_u64(r_u64_40);
+  println_u64(r_u64_41);
+  println_u64(r_u64_42);
+  println_u64(r_u64_43);
+  println_u64(r_u64_44);
+}
+
+fn test_u8() -> unit {
+  var u8_zero: u8 = 0u8;
+  var u8_one: u8 = 1u8;
+  var u8_max: u8 = 255u8;
+  var u8_mid: u8 = 17u8;
+  var u8_big: u8 = 200u8;
+
+  var d_u8_0: u8 = 1u8;
+  var d_u8_1: u8 = 255u8;
+  var d_u8_2: u8 = 17u8;
+  var d_u8_3: u8 = 200u8;
+  var d_u8_4: u8 = 3u8;
+
+  var r_u8_00: u8 = u8_zero / d_u8_0;
+  var r_u8_01: u8 = u8_zero / d_u8_1;
+  var r_u8_02: u8 = u8_zero / d_u8_2;
+  var r_u8_03: u8 = u8_zero / d_u8_3;
+  var r_u8_04: u8 = u8_zero / d_u8_4;
+
+  var r_u8_10: u8 = u8_one / d_u8_0;
+  var r_u8_11: u8 = u8_one / d_u8_1;
+  var r_u8_12: u8 = u8_one / d_u8_2;
+  var r_u8_13: u8 = u8_one / d_u8_3;
+  var r_u8_14: u8 = u8_one / d_u8_4;
+
+  var r_u8_20: u8 = u8_max / d_u8_0;
+  var r_u8_21: u8 = u8_max / d_u8_1;
+  var r_u8_22: u8 = u8_max / d_u8_2;
+  var r_u8_23: u8 = u8_max / d_u8_3;
+  var r_u8_24: u8 = u8_max / d_u8_4;
+
+  var r_u8_30: u8 = u8_mid / d_u8_0;
+  var r_u8_31: u8 = u8_mid / d_u8_1;
+  var r_u8_32: u8 = u8_mid / d_u8_2;
+  var r_u8_33: u8 = u8_mid / d_u8_3;
+  var r_u8_34: u8 = u8_mid / d_u8_4;
+
+  var r_u8_40: u8 = u8_big / d_u8_0;
+  var r_u8_41: u8 = u8_big / d_u8_1;
+  var r_u8_42: u8 = u8_big / d_u8_2;
+  var r_u8_43: u8 = u8_big / d_u8_3;
+  var r_u8_44: u8 = u8_big / d_u8_4;
+
+  println_u8(r_u8_00);
+  println_u8(r_u8_01);
+  println_u8(r_u8_02);
+  println_u8(r_u8_03);
+  println_u8(r_u8_04);
+
+  println_u8(r_u8_10);
+  println_u8(r_u8_11);
+  println_u8(r_u8_12);
+  println_u8(r_u8_13);
+  println_u8(r_u8_14);
+
+  println_u8(r_u8_20);
+  println_u8(r_u8_21);
+  println_u8(r_u8_22);
+  println_u8(r_u8_23);
+  println_u8(r_u8_24);
+
+  println_u8(r_u8_30);
+  println_u8(r_u8_31);
+  println_u8(r_u8_32);
+  println_u8(r_u8_33);
+  println_u8(r_u8_34);
+
+  println_u8(r_u8_40);
+  println_u8(r_u8_41);
+  println_u8(r_u8_42);
+  println_u8(r_u8_43);
+  println_u8(r_u8_44);
+}
+
+fn test_u64_highbit() -> i64 {
+  var u64_max: u64 = 18446744073709551615u;
+  var u64_hi: u64 = 9223372036854775808u;
+  var u64_billion: u64 = 1000000000u;
+  var u64_big: u64 = 4000000000000000000u;
+  var u64_three: u64 = 3u;
+
+  println_u64(u64_max / 1u);
+  println_u64(u64_max / u64_billion);
+  println_u64(u64_max / u64_big);
+  println_u64(u64_max / u64_three);
+
+  println_u64(u64_hi / 2u);
+  println_u64(u64_hi / u64_three);
+  return 0;
+}
+
+fn main() -> i64 {
+  test_i64();
+  test_u64();
+  test_u8();
+  test_u64_highbit();
+  return 0;
+}

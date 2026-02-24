@@ -1,0 +1,5 @@
+runs:
+  - name: division
+    expect:
+      exit_code: 0
+      stdout_file: "test_division_expected.txt"

@@ -1,0 +1,5 @@
+runs:
+  - name: subtraction
+    expect:
+      exit_code: 0
+      stdout_file: "test_subtraction_expected.txt"
