@@ -1,0 +1,38 @@
+extern fn rt_str_len(value: Str) -> i64;
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
+
+class Str {
+    fn len() -> i64 {
+        return rt_str_len(__self);
+    }
+
+    fn get_u8(index: i64) -> u8 {
+        var resolved: i64 = index;
+        if resolved < 0 {
+            resolved = __self.len() + resolved;
+        }
+        return rt_str_get_u8(__self, resolved);
+    }
+
+    fn slice(begin: i64, end: i64) -> Str {
+        var resolved_begin: i64 = begin;
+        if resolved_begin < 0 {
+            resolved_begin = __self.len() + resolved_begin;
+        }
+
+        var resolved_end: i64 = end;
+        if resolved_end < 0 {
+            resolved_end = __self.len() + resolved_end;
+        }
+
+        return rt_str_slice(__self, resolved_begin, resolved_end);
+    }
+}
+
+fn main() -> i64 {
+    var v: Str = "Hello world!";
+    var s1: Str = v[-15:5];
+    var s2: Str = v[15:20];
+    return (i64)s1[0] + (i64)s2[0];
+}

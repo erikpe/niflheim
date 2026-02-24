@@ -1,0 +1,11 @@
+class Counter {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(9);
+    if c == null {
+        return 1;
+    }
+    return 9;
+}

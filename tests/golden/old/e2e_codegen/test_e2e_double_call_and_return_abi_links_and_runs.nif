@@ -1,0 +1,11 @@
+fn add(a: double, b: double) -> double {
+    return a + b;
+}
+
+fn main() -> i64 {
+    var x: double = add(1.25, 2.75);
+    if x > 3.5 {
+        return 0;
+    }
+    return 1;
+}

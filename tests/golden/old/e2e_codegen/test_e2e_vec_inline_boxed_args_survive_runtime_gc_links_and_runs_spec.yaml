@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_vec_inline_boxed_args_survive_runtime_gc_links_and_runs
+    expect:
+      exit_code: 0

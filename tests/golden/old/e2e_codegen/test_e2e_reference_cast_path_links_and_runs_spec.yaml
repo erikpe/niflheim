@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_reference_cast_path_links_and_runs
+    expect:
+      exit_code: 5

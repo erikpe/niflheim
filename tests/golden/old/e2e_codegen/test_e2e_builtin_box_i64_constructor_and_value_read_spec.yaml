@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_builtin_box_i64_constructor_and_value_read
+    expect:
+      exit_code: 33

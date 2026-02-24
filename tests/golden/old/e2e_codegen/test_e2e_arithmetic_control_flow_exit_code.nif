@@ -1,0 +1,13 @@
+fn main() -> i64 {
+    var i: i64 = 0;
+    var acc: i64 = 0;
+    while i < 5 {
+        acc = acc + 3;
+        i = i + 1;
+    }
+    if acc == 15 {
+        return 15;
+    } else {
+        return 1;
+    }
+}

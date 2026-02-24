@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_u8_char_and_numeric_literals_link_and_run
+    expect:
+      exit_code: 83

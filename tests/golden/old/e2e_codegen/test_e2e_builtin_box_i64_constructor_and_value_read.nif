@@ -1,0 +1,5 @@
+fn main() -> i64 {
+    var b: BoxI64 = BoxI64(33);
+    var v: i64 = b.value;
+    return v;
+}

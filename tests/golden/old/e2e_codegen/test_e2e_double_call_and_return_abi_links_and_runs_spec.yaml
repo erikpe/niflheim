@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_double_call_and_return_abi_links_and_runs
+    expect:
+      exit_code: 0

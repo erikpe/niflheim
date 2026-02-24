@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_constructor_call_lowering_links_and_runs
+    expect:
+      exit_code: 9

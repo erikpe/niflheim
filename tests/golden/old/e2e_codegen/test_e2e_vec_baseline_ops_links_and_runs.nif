@@ -1,0 +1,18 @@
+fn main() -> i64 {
+    var v: Vec = Vec();
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
+    var first: Obj = v.get(0);
+    v.set(1, first);
+
+    var n: i64 = v.len();
+    if n != 2 {
+        return 1;
+    }
+
+    var via_index: Obj = v[1];
+    if via_index == null {
+        return 2;
+    }
+    return 0;
+}

@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_strbuf_reserve_growth_links_and_runs
+    expect:
+      exit_code: 0

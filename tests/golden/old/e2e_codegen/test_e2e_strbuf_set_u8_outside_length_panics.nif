@@ -1,0 +1,35 @@
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+extern fn rt_strbuf_new(capacity: i64) -> StrBuf;
+extern fn rt_strbuf_len(value: StrBuf) -> i64;
+extern fn rt_strbuf_set_u8(value: StrBuf, index: i64, byte: u8) -> unit;
+extern fn rt_strbuf_to_str(value: StrBuf) -> Str;
+
+class Str {
+    fn get_u8(index: i64) -> u8 {
+        return rt_str_get_u8(__self, index);
+    }
+}
+
+class StrBuf {
+    static fn new(capacity: i64) -> StrBuf {
+        return rt_strbuf_new(capacity);
+    }
+
+    fn len() -> i64 {
+        return rt_strbuf_len(__self);
+    }
+
+    fn set_u8(index: i64, byte: u8) -> unit {
+        rt_strbuf_set_u8(__self, index, byte);
+    }
+
+    fn to_str() -> Str {
+        return rt_strbuf_to_str(__self);
+    }
+}
+
+fn main() -> i64 {
+    var b: StrBuf = StrBuf.new(4);
+    b.set_u8(0, 'A');
+    return 0;
+}

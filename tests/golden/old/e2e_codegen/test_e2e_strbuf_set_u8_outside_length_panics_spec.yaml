@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_strbuf_set_u8_outside_length_panics
+    expect:
+      panic: "panic"

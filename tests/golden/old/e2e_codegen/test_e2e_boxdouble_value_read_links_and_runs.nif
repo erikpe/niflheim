@@ -1,0 +1,8 @@
+fn main() -> i64 {
+    var b: BoxDouble = BoxDouble(5.5);
+    var d: double = b.value;
+    if d >= 5.5 {
+        return 0;
+    }
+    return 1;
+}

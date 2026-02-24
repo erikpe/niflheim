@@ -1,0 +1,10 @@
+class Counter {
+    fn id(delta: i64) -> i64 {
+        return delta;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = null;
+    return c.id(13);
+}

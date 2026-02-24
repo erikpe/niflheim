@@ -1,0 +1,23 @@
+extern fn rt_str_len(value: Str) -> i64;
+extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+
+class Str {
+    fn len() -> i64 {
+        return rt_str_len(__self);
+    }
+
+    fn get_u8(index: i64) -> u8 {
+        var resolved: i64 = index;
+        if resolved < 0 {
+            resolved = __self.len() + resolved;
+        }
+        return rt_str_get_u8(__self, resolved);
+    }
+}
+
+fn main() -> i64 {
+    var v: Str = "Hello world!";
+    var c1: u8 = v[-15];
+    var c2: u8 = v[15];
+    return (i64)c1 + (i64)c2;
+}

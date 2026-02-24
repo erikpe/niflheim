@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_boxdouble_value_read_links_and_runs
+    expect:
+      exit_code: 0

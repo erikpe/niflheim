@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_function_calls_and_argument_passing
+    expect:
+      exit_code: 24

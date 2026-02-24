@@ -1,0 +1,4 @@
+runs:
+  - name: e2e_arithmetic_control_flow_exit_code
+    expect:
+      exit_code: 15
