@@ -17,6 +17,7 @@ from compiler.ast_nodes import (
     IdentifierExpr,
     IfStmt,
     IndexExpr,
+    LiteralExpr,
     ModuleAst,
     ReturnStmt,
     Statement,
@@ -108,6 +109,8 @@ class ReachabilityWalker:
             return
 
         if isinstance(expr, FieldAccessExpr):
+            if isinstance(expr.object_expr, LiteralExpr) and expr.object_expr.value.startswith('"'):
+                ctx.found_classes.add("Str")
             self._walk_expr(expr.object_expr, ctx=ctx)
             return
 
