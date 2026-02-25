@@ -231,6 +231,21 @@ def _compile_test(test: GoldenTest) -> tuple[bool, str | None, Path]:
     return True, None, output_path
 
 
+def _append_stderr_details(errors: list[str], stderr_text: str) -> None:
+    if stderr_text == "":
+        errors.append("captured stderr: <empty>")
+        return
+
+    max_chars = 8000
+    truncated = stderr_text
+    if len(truncated) > max_chars:
+        truncated = truncated[:max_chars] + "\n...<truncated>"
+
+    errors.append("captured stderr:")
+    for line in truncated.splitlines():
+        errors.append(f"stderr | {line}")
+
+
 def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
     cmd = [str(binary_path), *run.run_input.args]
     proc = subprocess.run(
@@ -259,6 +274,9 @@ def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
             errors.append("expected panic but process exited with code 0")
         if expect.panic not in proc.stderr:
             errors.append(f"panic mismatch: expected substring '{expect.panic}'")
+
+    if errors:
+        _append_stderr_details(errors, proc.stderr)
 
     return RunResult(name=run.name, ok=len(errors) == 0, details=errors)
 

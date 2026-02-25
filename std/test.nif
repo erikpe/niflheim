@@ -1,0 +1,9 @@
+import std.error;
+import std.str;
+
+export fn assert(condition: bool) -> unit
+{
+    if !condition {
+        panic("Assert failed!");
+    }
+}
