@@ -34,6 +34,10 @@ BUILTIN_VEC_METHOD_SPECS: dict[str, tuple[list[TypeInfo], TypeInfo]] = {
     ),
 }
 
+I64_MAX_LITERAL = 9223372036854775807
+I64_MIN_MAGNITUDE_LITERAL = 9223372036854775808
+U64_MAX_LITERAL = 18446744073709551615
+
 
 class TypeChecker:
     def __init__(
@@ -313,19 +317,35 @@ class TypeChecker:
                     raise TypeCheckError("u8 literal out of range (expected 0..255)", expr.span)
                 return TypeInfo(name="u8", kind="primitive")
             if expr.value.endswith("u") and expr.value[:-1].isdigit():
+                value = int(expr.value[:-1])
+                if value > U64_MAX_LITERAL:
+                    raise TypeCheckError("u64 literal out of range (expected 0..18446744073709551615)", expr.span)
                 return TypeInfo(name="u64", kind="primitive")
+            if expr.value.isdigit():
+                value = int(expr.value)
+                if value > I64_MAX_LITERAL:
+                    raise TypeCheckError(
+                        "i64 literal out of range (expected -9223372036854775808..9223372036854775807)",
+                        expr.span,
+                    )
             return TypeInfo(name="i64", kind="primitive")
 
         if isinstance(expr, NullExpr):
             return TypeInfo(name="null", kind="null")
 
         if isinstance(expr, UnaryExpr):
-            operand_type = self._infer_expression_type(expr.operand)
             if expr.operator == "!":
+                operand_type = self._infer_expression_type(expr.operand)
                 self._require_type_name(operand_type, "bool", expr.operand.span)
                 return TypeInfo(name="bool", kind="primitive")
 
             if expr.operator == "-":
+                if isinstance(expr.operand, LiteralExpr) and expr.operand.value.isdigit():
+                    value = int(expr.operand.value)
+                    if value == I64_MIN_MAGNITUDE_LITERAL:
+                        return TypeInfo(name="i64", kind="primitive")
+
+                operand_type = self._infer_expression_type(expr.operand)
                 if operand_type.name not in NUMERIC_TYPE_NAMES:
                     raise TypeCheckError("Unary '-' requires numeric operand", expr.span)
                 return operand_type

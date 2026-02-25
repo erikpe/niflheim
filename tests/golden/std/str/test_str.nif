@@ -1,5 +1,7 @@
 import std.test;
 import std.str;
+import std.io;
+
 
 fn test_to_u64() -> unit
 {
@@ -9,13 +11,85 @@ fn test_to_u64() -> unit
     assert("18446744073709551615".to_u64() == 18446744073709551615u);
 }
 
-fn test_to_u64() -> unit
+fn test_to_i64() -> unit
+{
+    assert("0".to_i64() == 0);
+    assert("1".to_i64() == 1);
+    assert("-1".to_i64() == -1);
+    assert("1000000".to_i64() == 1000000);
+    assert("-1000000".to_i64() == -1000000);
+    assert("9223372036854775807".to_i64() == 9223372036854775807);
+    assert("-9223372036854775808".to_i64() == -9223372036854775808);
+}
+
+fn test_to_u64_overflow1() -> unit
 {
     "18446744073709551616".to_u64();
 }
 
+fn test_to_u64_overflow2() -> unit
+{
+    "18446744073709551624".to_u64();
+}
+
+fn test_to_u64_invalid_digit() -> unit
+{
+    "123x123".to_u64();
+}
+
+fn test_to_u64_empty_string() -> unit
+{
+    "".to_u64();
+}
+
+fn test_to_i64_overflow1() -> unit
+{
+    "9223372036854775808".to_i64();
+}
+
+fn test_to_i64_overflow2() -> unit
+{
+    "9223372036854775811".to_i64();
+}
+
+fn test_to_i64_overflow3() -> unit
+{
+    "-9223372036854775809".to_i64();
+}
+
+fn test_to_i64_overflow4() -> unit
+{
+    "-9223372036854775811".to_i64();
+}
+
+fn test_to_i64_invalid_digit() -> unit
+{
+    "abcd".to_i64();
+}
+
+fn test_to_i64_empty_string() -> unit
+{
+    "".to_i64();
+}
+
 fn main() -> i64
 {
-    test_to_u64();
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u {
+        test_to_u64();
+        test_to_i64();
+    }
+    if select == 2u { test_to_u64_overflow1(); }
+    if select == 3u { test_to_u64_overflow2(); }
+    if select == 4u { test_to_u64_invalid_digit(); }
+    if select == 5u { test_to_u64_empty_string(); }
+    if select == 6u { test_to_i64_overflow1(); }
+    if select == 7u { test_to_i64_overflow2(); }
+    if select == 8u { test_to_i64_overflow3(); }
+    if select == 9u { test_to_i64_overflow4(); }
+    if select == 10u { test_to_i64_invalid_digit(); }
+    if select == 11u { test_to_i64_empty_string(); }
+
     return 0;
 }

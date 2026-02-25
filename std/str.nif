@@ -87,6 +87,50 @@ export class Str
         return out;
     }
 
+    fn to_i64() -> i64 {
+        var length: u64 = __self.len();
+        if length == 0u {
+            panic("Str.to_i64 on empty string");
+        }
+        var negative: bool = false;
+        var start: u64 = 0u;
+        if __self[0] == '-' {
+            negative = true;
+            start = 1u;
+            if length == 1u {
+                panic("Str.to_i64 invalid digit");
+            }
+        }
+        var out: u64 = 0u;
+        var i: u64 = start;
+        while i < length {
+            var ch: u8 = __self[(i64)i];
+            if ch < '0' || ch > '9' {
+                panic("Str.to_i64 invalid digit");
+            }
+            var digit: u64 = (u64)(ch - '0');
+            if out > 922337203685477580u {
+                panic("Str.to_i64 overflow");
+            }
+            else if negative && (out == 922337203685477580u && digit > 8u) {
+                panic("Str.to_i64 overflow");
+            }
+            else if !negative && (out == 922337203685477580u && digit > 7u) {
+                panic("Str.to_i64 overflow");
+            }
+
+            out = out * 10u + digit;
+            i = i + 1u;
+        }
+        if negative {
+            if out == 9223372036854775808u {
+                return -9223372036854775808;
+            }
+            return -((i64)out);
+        }
+        return (i64)out;
+    }
+
     static fn from_char(value: u8) -> Str {
         return rt_str_from_char(value);
     }

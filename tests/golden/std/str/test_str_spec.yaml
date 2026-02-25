@@ -1,4 +1,12 @@
 runs:
-  - name: test_str
-    expect:
-      exit_code: 0
+  - { name: to_u64, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: to_u64_overflow1, input: { stdin: "2" }, expect: { panic: "Str.to_u64 overflow" } }
+  - { name: to_u64_overflow2, input: { stdin: "3" }, expect: { panic: "Str.to_u64 overflow" } }
+  - { name: to_u64_invalid_digit, input: { stdin: "4" }, expect: { panic: "Str.to_u64 invalid digit" } }
+  - { name: to_u64_empty_string, input: { stdin: "5" }, expect: { panic: "Str.to_u64 on empty string" } }
+  - { name: to_i64_overflow1, input: { stdin: "6" }, expect: { panic: "Str.to_i64 overflow" } }
+  - { name: to_i64_overflow2, input: { stdin: "7" }, expect: { panic: "Str.to_i64 overflow" } }
+  - { name: to_i64_overflow3, input: { stdin: "8" }, expect: { panic: "Str.to_i64 overflow" } }
+  - { name: to_i64_overflow4, input: { stdin: "9" }, expect: { panic: "Str.to_i64 overflow" } }
+  - { name: to_i64_invalid_digit, input: { stdin: "10" }, expect: { panic: "Str.to_i64 invalid digit" } }
+  - { name: to_i64_empty_string, input: { stdin: "11" }, expect: { panic: "Str.to_i64 on empty string" } }

@@ -220,6 +220,27 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_u64_literal_out_of_range() -> None:
+    source = """
+fn main() -> unit {
+    var x: u64 = 18446744073709551616u;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="u64 literal out of range"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_u64_max_literal() -> None:
+    source = """
+fn main() -> unit {
+    var x: u64 = 18446744073709551615u;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
 def test_typecheck_u8_suffix_and_char_literals_are_u8() -> None:
     source = """
 fn main() -> unit {
@@ -252,6 +273,48 @@ fn main() -> unit {
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'u64' to 'i64'"):
         _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_i64_literal_out_of_range() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = 9223372036854775808;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="i64 literal out of range"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_i64_literal_out_of_range_negative() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = -9223372036854775809;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="i64 literal out of range"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_i64_max_literal() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = 9223372036854775807;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_i64_min_literal_via_unary_minus() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = -9223372036854775808;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
 
 
 def test_typecheck_allows_obj_upcast_and_explicit_downcast() -> None:
