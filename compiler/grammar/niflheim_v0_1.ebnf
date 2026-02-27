@@ -91,6 +91,7 @@ postfix            = primary { postfix_op } ;
 postfix_op         = "(" [ argument_list ] ")"
                    | "." IDENT
                    | "[" expression "]"
+                   | "[" [ expression ] ":" [ expression ] "]"
                    ;
 
 argument_list      = argument { "," argument } ;
@@ -98,9 +99,16 @@ argument_list      = argument { "," argument } ;
 argument           = expression ;
 
 primary            = literal
+                   | array_ctor
                    | IDENT
                    | "null"
                    | "(" expression ")"
+                   ;
+
+array_ctor         = ctor_type "[" "]" "(" expression ")" ;
+
+ctor_type          = primitive_type
+                   | named_type
                    ;
 
 literal            = INT_LIT
@@ -111,7 +119,9 @@ literal            = INT_LIT
                    | "false"
                    ;
 
-type               = primitive_type
+type               = base_type { "[" "]" } ;
+
+base_type          = primitive_type
                    | named_type
                    ;
 

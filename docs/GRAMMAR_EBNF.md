@@ -41,6 +41,12 @@ Examples:
 - `named_type` includes `IDENT` for user classes; actual type resolution is done in resolver/type checker.
 - `lvalue` shape is syntactic; mutability checks are semantic, while null-dereference checks are runtime-only in v0.1.
 
+Frozen array syntax (v0.1 extension track):
+- Array type: `T[]`
+- Array constructor expression: `T[](len)`
+- Index alias: `arr[index]`
+- Slice alias: `arr[start:end]`
+
 Design decision (MVP): constructor and type-name resolution are symmetric across modules.
 - Unqualified names are local-first.
 - Qualified names are explicit (for example `util.Counter(...)` and `util.Counter` in type positions).

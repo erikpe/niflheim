@@ -6,6 +6,7 @@ Niflheim source files use the `.nif` extension.
 
 Key design docs:
 - [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md)
+- [docs/ARRAY_IMPLEMENTATION_CHECKLIST.md](docs/ARRAY_IMPLEMENTATION_CHECKLIST.md)
 - [docs/ROADMAP_v0.1.md](docs/ROADMAP_v0.1.md)
 - [docs/ABI_NOTES.md](docs/ABI_NOTES.md)
 - [docs/TEST_PLAN_v0.1.md](docs/TEST_PLAN_v0.1.md)

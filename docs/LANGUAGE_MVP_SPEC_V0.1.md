@@ -57,6 +57,7 @@ Reference types are always:
 Built-in reference types for v0.1:
 - `Obj` (universal reference supertype)
 - `Str`
+- `T[]` (fixed-size array type constructor)
 - `Vec` (dynamic vector of `Obj`)
 - `Map` (hash map `Obj -> Obj`, identity hash/equality)
 - `BoxI64`, `BoxU64`, `BoxU8`, `BoxBool`, `BoxDouble`
@@ -142,6 +143,29 @@ Likely early additions after v0.1:
 - `MapStrObj`
 
 These are specialization/performance features and should not change core semantics.
+
+### 5.6 Arrays (Frozen Syntax and Semantics)
+
+- Type syntax: `T[]`
+  - Examples: `u8[]`, `i64[]`, `Person[]`.
+- Construction syntax: `T[](len)`
+  - Example: `var a: u8[] = u8[](23);`
+  - Example: `var people: Person[] = Person[](64);`
+- Size is fixed after construction.
+- Default element initialization:
+  - Primitive element type: zero value (`0`, `0u`, `0u8`, `false`, `0.0`).
+  - Reference/class element type: `null`.
+- Baseline operations:
+  - `arr.len() -> u64`
+  - `arr.get(index) -> T`, alias `arr[index]`
+  - `arr.set(index, value) -> unit`, alias `arr[index] = value`
+  - `arr.slice(start, end) -> T[]`, alias `arr[start:end]`
+- Bounds violations panic and abort.
+- `slice` semantics in v0.1: copying slice (new array allocation).
+- Array assignability policy in v0.1: invariant (`A[]` is assignable only to `A[]`, except `null` to reference arrays).
+- Nested arrays are deferred for now: `T[][]` and deeper are not part of the current MVP array rollout and should be rejected with a clear diagnostic.
+- Nested arrays may be added in a later follow-up milestone.
+- Although syntax is generic-like, `T[]` is a built-in type constructor, not user-defined generics.
 
 ---
 
