@@ -33,9 +33,9 @@ Use this as the execution reference while implementing parser, type checker, cod
 - [x] Add slice postfix form (`[ [expr] : [expr] ]`).
 
 ### 1.2 AST model
-- [ ] Add AST representation for array constructor expression.
-- [ ] Extend type AST to represent single-dimensional arrays (`T[]`) in MVP.
-- [ ] Ensure source spans are preserved for new nodes.
+- [x] Add AST representation for array constructor expression.
+- [x] Extend type AST to represent single-dimensional arrays (`T[]`) in MVP.
+- [x] Ensure source spans are preserved for new nodes.
 
 ---
 

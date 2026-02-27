@@ -12,9 +12,18 @@ class TypeRef:
 
 
 @dataclass(frozen=True)
+class ArrayTypeRef:
+    element_type: "TypeRefNode"
+    span: SourceSpan
+
+
+TypeRefNode = TypeRef | ArrayTypeRef
+
+
+@dataclass(frozen=True)
 class ParamDecl:
     name: str
-    type_ref: TypeRef
+    type_ref: TypeRefNode
     span: SourceSpan
 
 
@@ -28,7 +37,7 @@ class ImportDecl:
 @dataclass(frozen=True)
 class FieldDecl:
     name: str
-    type_ref: TypeRef
+    type_ref: TypeRefNode
     span: SourceSpan
 
 
@@ -36,7 +45,7 @@ class FieldDecl:
 class MethodDecl:
     name: str
     params: list[ParamDecl]
-    return_type: TypeRef
+    return_type: TypeRefNode
     body: "BlockStmt"
     is_static: bool
     span: SourceSpan
@@ -46,7 +55,7 @@ class MethodDecl:
 class FunctionDecl:
     name: str
     params: list[ParamDecl]
-    return_type: TypeRef
+    return_type: TypeRefNode
     body: "BlockStmt | None"
     is_export: bool
     is_extern: bool
@@ -104,7 +113,7 @@ class BinaryExpr:
 
 @dataclass(frozen=True)
 class CastExpr:
-    type_ref: TypeRef
+    type_ref: TypeRefNode
     operand: "Expression"
     span: SourceSpan
 
@@ -130,6 +139,13 @@ class IndexExpr:
     span: SourceSpan
 
 
+@dataclass(frozen=True)
+class ArrayCtorExpr:
+    element_type_ref: TypeRefNode
+    length_expr: "Expression"
+    span: SourceSpan
+
+
 Expression = (
     IdentifierExpr
     | LiteralExpr
@@ -140,6 +156,7 @@ Expression = (
     | CallExpr
     | FieldAccessExpr
     | IndexExpr
+    | ArrayCtorExpr
 )
 
 
@@ -152,7 +169,7 @@ class BlockStmt:
 @dataclass(frozen=True)
 class VarDeclStmt:
     name: str
-    type_ref: TypeRef
+    type_ref: TypeRefNode
     initializer: Expression | None
     span: SourceSpan
 
