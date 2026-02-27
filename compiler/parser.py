@@ -314,7 +314,7 @@ class Parser:
             span=SourceSpan(start=start_pos, end=semicolon.span.end),
         )
 
-    def _parse_callable_signature(self) -> tuple[str, list[ParamDecl], TypeRef]:
+    def _parse_callable_signature(self) -> tuple[str, list[ParamDecl], TypeRefNode]:
         name = self.stream.expect(TokenKind.IDENT, "Expected function name")
         self.stream.expect(TokenKind.LPAREN, "Expected '(' after function name")
 
@@ -340,26 +340,39 @@ class Parser:
             span=SourceSpan(start=name.span.start, end=type_ref.span.end),
         )
 
-    def _parse_type_ref(self) -> TypeRef:
+    def _parse_type_ref(self) -> TypeRefNode:
         token = self.stream.peek()
         if token.kind not in TYPE_NAME_TOKENS:
             raise ParserError("Expected type name", token.span)
         self.stream.advance()
 
+        base_ref: TypeRef
         if token.kind != TokenKind.IDENT:
-            return TypeRef(name=token.lexeme, span=token.span)
+            base_ref = TypeRef(name=token.lexeme, span=token.span)
+        else:
+            parts = [token.lexeme]
+            end = token.span.end
+            while self.stream.match(TokenKind.DOT):
+                segment = self._expect_symbol_name("Expected type name after '.' in qualified type")
+                parts.append(segment.lexeme)
+                end = segment.span.end
 
-        parts = [token.lexeme]
-        end = token.span.end
-        while self.stream.match(TokenKind.DOT):
-            segment = self._expect_symbol_name("Expected type name after '.' in qualified type")
-            parts.append(segment.lexeme)
-            end = segment.span.end
+            base_ref = TypeRef(
+                name=".".join(parts),
+                span=SourceSpan(start=token.span.start, end=end),
+            )
 
-        return TypeRef(
-            name=".".join(parts),
-            span=SourceSpan(start=token.span.start, end=end),
-        )
+        if self.stream.match(TokenKind.LBRACKET):
+            self.stream.expect(TokenKind.RBRACKET, "Expected ']' after '[' in array type")
+            array_ref = ArrayTypeRef(
+                element_type=base_ref,
+                span=SourceSpan(start=base_ref.span.start, end=self.stream.previous().span.end),
+            )
+            if self.stream.check(TokenKind.LBRACKET):
+                raise ParserError("Nested array syntax is not supported yet", self.stream.peek().span)
+            return array_ref
+
+        return base_ref
 
     def _parse_block_stmt(self) -> BlockStmt:
         lbrace = self.stream.expect(TokenKind.LBRACE, "Expected '{' to start block")
@@ -698,6 +711,9 @@ class Parser:
         if self.stream.match(TokenKind.NULL):
             return NullExpr(span=self.stream.previous().span)
 
+        if self._is_array_ctor_start():
+            return self._parse_array_ctor_expr()
+
         if self.stream.match(TokenKind.IDENT, *BUILTIN_CALLABLE_TYPE_TOKENS):
             token = self.stream.previous()
             return IdentifierExpr(name=token.lexeme, span=token.span)
@@ -708,6 +724,44 @@ class Parser:
             return expr
 
         raise ParserError("Expected expression", self.stream.peek().span)
+
+    def _is_array_ctor_start(self) -> bool:
+        if self.stream.peek().kind not in TYPE_NAME_TOKENS:
+            return False
+
+        lookahead = 1
+        first_type = self.stream.peek()
+        if first_type.kind == TokenKind.IDENT:
+            while self.stream.peek(lookahead).kind == TokenKind.DOT:
+                if not self._is_symbol_name_kind(self.stream.peek(lookahead + 1).kind):
+                    return False
+                lookahead += 2
+
+        if self.stream.peek(lookahead).kind != TokenKind.LBRACKET:
+            return False
+        if self.stream.peek(lookahead + 1).kind != TokenKind.RBRACKET:
+            return False
+        next_kind = self.stream.peek(lookahead + 2).kind
+        return next_kind in {TokenKind.LPAREN, TokenKind.LBRACKET}
+
+    def _parse_array_ctor_expr(self) -> ArrayCtorExpr:
+        element_type_ref = self._parse_type_ref()
+        if not isinstance(element_type_ref, ArrayTypeRef):
+            raise ParserError("Expected array constructor type suffix '[]'", self.stream.peek().span)
+        if isinstance(element_type_ref.element_type, ArrayTypeRef):
+            raise ParserError("Nested array syntax is not supported yet", element_type_ref.span)
+
+        lparen = self.stream.expect(TokenKind.LPAREN, "Expected '(' after array constructor type")
+        if self.stream.check(TokenKind.RPAREN):
+            raise ParserError("Expected array constructor length expression", self.stream.peek().span)
+        length_expr = self._parse_expression()
+        rparen = self.stream.expect(TokenKind.RPAREN, "Expected ')' after array constructor length")
+
+        return ArrayCtorExpr(
+            element_type_ref=element_type_ref,
+            length_expr=length_expr,
+            span=SourceSpan(start=element_type_ref.span.start, end=rparen.span.end),
+        )
 
     def _is_cast_start(self) -> bool:
         if self.stream.peek().kind != TokenKind.LPAREN:
@@ -724,6 +778,13 @@ class Parser:
                 if not self._is_symbol_name_kind(self.stream.peek(lookahead + 1).kind):
                     return False
                 lookahead += 2
+
+        if self.stream.peek(lookahead).kind == TokenKind.LBRACKET:
+            if self.stream.peek(lookahead + 1).kind != TokenKind.RBRACKET:
+                return False
+            lookahead += 2
+            if self.stream.peek(lookahead).kind == TokenKind.LBRACKET:
+                return False
 
         if self.stream.peek(lookahead).kind != TokenKind.RPAREN:
             return False

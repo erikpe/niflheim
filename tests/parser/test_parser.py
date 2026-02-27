@@ -375,6 +375,70 @@ def test_parse_expression_cast_with_qualified_type() -> None:
     assert expr.type_ref.name == "util.Counter"
 
 
+def test_parse_function_signature_and_var_decl_with_array_types() -> None:
+    source = """
+fn build(values: u8[]) -> Person[] {
+    var out: Person[] = Person[](3);
+    return out;
+}
+"""
+    module = parse(lex(source, source_path="examples/array_types.nif"))
+    fn = module.functions[0]
+
+    assert isinstance(fn.params[0].type_ref, ArrayTypeRef)
+    assert isinstance(fn.params[0].type_ref.element_type, TypeRef)
+    assert fn.params[0].type_ref.element_type.name == "u8"
+
+    assert isinstance(fn.return_type, ArrayTypeRef)
+    assert isinstance(fn.return_type.element_type, TypeRef)
+    assert fn.return_type.element_type.name == "Person"
+
+    stmt = fn.body.statements[0]
+    assert isinstance(stmt, VarDeclStmt)
+    assert isinstance(stmt.type_ref, ArrayTypeRef)
+    assert isinstance(stmt.type_ref.element_type, TypeRef)
+    assert stmt.type_ref.element_type.name == "Person"
+    assert isinstance(stmt.initializer, ArrayCtorExpr)
+
+
+def test_parse_expression_array_constructor() -> None:
+    expr = parse_expression(lex("u8[](23)", source_path="examples/array_ctor_expr.nif"))
+
+    assert isinstance(expr, ArrayCtorExpr)
+    assert isinstance(expr.element_type_ref, ArrayTypeRef)
+    assert isinstance(expr.element_type_ref.element_type, TypeRef)
+    assert expr.element_type_ref.element_type.name == "u8"
+    assert isinstance(expr.length_expr, LiteralExpr)
+    assert expr.length_expr.value == "23"
+
+
+def test_parse_expression_array_constructor_requires_length_expression() -> None:
+    with pytest.raises(ParserError) as error:
+        parse_expression(lex("u8[]()", source_path="examples/bad_array_ctor.nif"))
+
+    assert "Expected array constructor length expression" in str(error.value)
+
+
+def test_parse_rejects_nested_array_type() -> None:
+    source = """
+fn main() -> unit {
+    var x: u8[][] = null;
+    return;
+}
+"""
+    with pytest.raises(ParserError) as error:
+        parse(lex(source, source_path="examples/bad_nested_array_type.nif"))
+
+    assert "Nested array syntax is not supported yet" in str(error.value)
+
+
+def test_parse_rejects_nested_array_constructor() -> None:
+    with pytest.raises(ParserError) as error:
+        parse_expression(lex("u8[][](3)", source_path="examples/bad_nested_array_ctor.nif"))
+
+    assert "Nested array syntax is not supported yet" in str(error.value)
+
+
 def test_parse_function_signature_and_var_decl_with_qualified_types() -> None:
     source = """
 fn build(c: util.Counter) -> util.Counter {

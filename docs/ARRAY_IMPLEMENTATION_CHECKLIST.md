@@ -41,15 +41,15 @@ Use this as the execution reference while implementing parser, type checker, cod
 
 ## 2) Parser
 
-- [ ] Parse `T[]` in type positions (var declarations, params, returns, fields, casts).
-- [ ] Parse `T[](len)` in expression positions as array constructor.
-- [ ] Keep `expr[index]` and `expr[start:end]` behavior unchanged.
-- [ ] Reject nested array syntax (`T[][]`, `T[][](len)`) with a clear diagnostic (deferred feature).
-- [ ] Add parser diagnostics for malformed array syntax:
-  - [ ] missing `]`
-  - [ ] missing constructor `(...)`
-  - [ ] invalid empty constructor args
-  - [ ] invalid nested forms
+- [x] Parse `T[]` in type positions (var declarations, params, returns, fields, casts).
+- [x] Parse `T[](len)` in expression positions as array constructor.
+- [x] Keep `expr[index]` and `expr[start:end]` behavior unchanged.
+- [x] Reject nested array syntax (`T[][]`, `T[][](len)`) with a clear diagnostic (deferred feature).
+- [x] Add parser diagnostics for malformed array syntax:
+  - [x] missing `]`
+  - [x] missing constructor `(...)`
+  - [x] invalid empty constructor args
+  - [x] invalid nested forms
 
 ---
 
@@ -109,10 +109,10 @@ Use this as the execution reference while implementing parser, type checker, cod
 ## 7) Tests
 
 ### 7.1 Parser tests
-- [ ] Parse `u8[]` and `Person[]` types.
-- [ ] Reject nested `T[][]` with a clear deferred-feature diagnostic.
-- [ ] Parse constructor `T[](len)` in statements and expression contexts.
-- [ ] Parse index and slice with arrays without regressions.
+- [x] Parse `u8[]` and `Person[]` types.
+- [x] Reject nested `T[][]` with a clear deferred-feature diagnostic.
+- [x] Parse constructor `T[](len)` in statements and expression contexts.
+- [x] Parse index and slice with arrays without regressions.
 
 ### 7.2 Type checker tests
 - [ ] Positive: primitive arrays and class arrays construct/get/set/slice/len.
