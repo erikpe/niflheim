@@ -78,15 +78,15 @@ Use this as the execution reference while implementing parser, type checker, cod
 ## 4) Runtime API + Object Model
 
 ### 4.1 Runtime surface
-- [ ] Define runtime array object layout with `len` and element-kind metadata.
-- [ ] Add runtime constructors for primitive/reference array categories.
-- [ ] Add runtime APIs for `len/get/set/slice`.
-- [ ] Ensure bounds checks panic with stable error messages.
+- [x] Define runtime array object layout with `len` and element-kind metadata.
+- [x] Add runtime constructors for primitive/reference array categories.
+- [x] Add runtime APIs for `len/get/set/slice`.
+- [x] Ensure bounds checks panic with stable error messages.
 
 ### 4.2 GC behavior
-- [ ] Primitive arrays are leaf objects (no tracing of payload).
-- [ ] Reference arrays trace each element slot.
-- [ ] Slice allocation and copy preserve tracing correctness.
+- [x] Primitive arrays are leaf objects (no tracing of payload).
+- [x] Reference arrays trace each element slot.
+- [x] Slice allocation and copy preserve tracing correctness.
 
 ---
 

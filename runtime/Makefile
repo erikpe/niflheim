@@ -1,7 +1,7 @@
 CC := cc
 CFLAGS := -std=c11 -Wall -Wextra -Werror -Iinclude
 
-RUNTIME_SRC := src/runtime.c src/gc.c src/io.c src/str.c src/box.c src/vec.c
+RUNTIME_SRC := src/runtime.c src/gc.c src/io.c src/str.c src/box.c src/vec.c src/array.c
 RUNTIME_OBJ := $(RUNTIME_SRC:.c=.o)
 TEST_DIR := tests
 GC_STRESS_BIN := $(TEST_DIR)/test_gc_stress
@@ -10,6 +10,8 @@ ROOTS_POSITIVE_BIN := $(TEST_DIR)/test_roots_positive
 ROOTS_POSITIVE_SRC := $(TEST_DIR)/test_roots_positive.c
 ROOTS_NEGATIVE_BIN := $(TEST_DIR)/test_roots_negative
 ROOTS_NEGATIVE_SRC := $(TEST_DIR)/test_roots_negative.c
+ARRAY_RUNTIME_BIN := $(TEST_DIR)/test_array_runtime
+ARRAY_RUNTIME_SRC := $(TEST_DIR)/test_array_runtime.c
 
 all: libruntime.a
 
@@ -24,6 +26,9 @@ $(ROOTS_POSITIVE_BIN): $(ROOTS_POSITIVE_SRC) $(RUNTIME_SRC) include/runtime.h
 
 $(ROOTS_NEGATIVE_BIN): $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
 	$(CC) $(CFLAGS) -o $@ $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC)
+
+$(ARRAY_RUNTIME_BIN): $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC) include/runtime.h
+	$(CC) $(CFLAGS) -o $@ $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC)
 
 test: $(GC_STRESS_BIN)
 	./$(GC_STRESS_BIN)
@@ -41,7 +46,10 @@ test-negative: $(ROOTS_NEGATIVE_BIN)
 		fi; \
 	done
 
-test-all: test test-positive test-negative
+test-array: $(ARRAY_RUNTIME_BIN)
+	./$(ARRAY_RUNTIME_BIN)
+
+test-all: test test-positive test-negative test-array
 
 clean:
-	rm -f $(RUNTIME_OBJ) libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN)
+	rm -f $(RUNTIME_OBJ) libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN)

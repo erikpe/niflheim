@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#include "array.h"
 #include "box.h"
 #include "io.h"
 #include "str.h"
