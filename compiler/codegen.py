@@ -4,6 +4,8 @@ import struct
 from pathlib import Path
 
 from compiler.ast_nodes import (
+    ArrayCtorExpr,
+    ArrayTypeRef,
     AssignStmt,
     BinaryExpr,
     BlockStmt,
@@ -27,12 +29,17 @@ from compiler.ast_nodes import (
     ReturnStmt,
     Statement,
     TypeRef,
+    TypeRefNode,
     UnaryExpr,
     VarDeclStmt,
     WhileStmt,
 )
 
 from compiler.codegen_model import (
+    ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
+    ARRAY_GET_RUNTIME_CALLS,
+    ARRAY_SET_RUNTIME_CALLS,
+    ARRAY_SLICE_RUNTIME_CALLS,
     BOX_VALUE_GETTER_RUNTIME_CALLS,
     BUILTIN_CONSTRUCTOR_RUNTIME_CALLS,
     BUILTIN_INDEX_RUNTIME_CALLS,
@@ -77,6 +84,30 @@ def _is_reference_type_name(type_name: str) -> bool:
     return type_name not in PRIMITIVE_TYPE_NAMES
 
 
+def _is_array_type_name(type_name: str) -> bool:
+    return type_name.endswith("[]")
+
+
+def _array_element_type_name(array_type_name: str) -> str:
+    if not _is_array_type_name(array_type_name):
+        raise ValueError(f"not an array type name: {array_type_name}")
+    return array_type_name[:-2]
+
+
+def _array_element_runtime_kind(element_type_name: str) -> str:
+    if element_type_name in {"i64", "u64", "u8", "bool", "double"}:
+        return element_type_name
+    return "ref"
+
+
+def _type_ref_name(type_ref: TypeRefNode) -> str:
+    if isinstance(type_ref, TypeRef):
+        return type_ref.name
+    if isinstance(type_ref, ArrayTypeRef):
+        return f"{_type_ref_name(type_ref.element_type)}[]"
+    raise TypeError(f"unsupported type ref node: {type(type_ref).__name__}")
+
+
 def _is_double_literal_text(text: str) -> bool:
     if "." not in text:
         return False
@@ -94,7 +125,7 @@ def _double_literal_bits(text: str) -> int:
 
 def _collect_locals(stmt: Statement, local_types_by_name: dict[str, str]) -> None:
     if isinstance(stmt, VarDeclStmt):
-        local_types_by_name.setdefault(stmt.name, stmt.type_ref.name)
+        local_types_by_name.setdefault(stmt.name, _type_ref_name(stmt.type_ref))
         return
     if isinstance(stmt, BlockStmt):
         for nested in stmt.statements:
@@ -119,7 +150,7 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
         if param.name not in seen_names:
             seen_names.add(param.name)
             ordered_slot_names.append(param.name)
-            local_types_by_name[param.name] = param.type_ref.name
+            local_types_by_name[param.name] = _type_ref_name(param.type_ref)
 
     for stmt in fn.body.statements:
         _collect_locals(stmt, local_types_by_name)
@@ -183,6 +214,7 @@ def _expr_needs_temp_runtime_roots(expr: Expression) -> bool:
             "push",
             "get",
             "set",
+            "slice",
             "get_u8",
         }:
             return True
@@ -200,6 +232,8 @@ def _expr_needs_temp_runtime_roots(expr: Expression) -> bool:
         return _expr_needs_temp_runtime_roots(expr.object_expr)
     if isinstance(expr, IndexExpr):
         return _expr_needs_temp_runtime_roots(expr.object_expr) or _expr_needs_temp_runtime_roots(expr.index_expr)
+    if isinstance(expr, ArrayCtorExpr):
+        return _expr_needs_temp_runtime_roots(expr.length_expr)
     return False
 
 
@@ -207,6 +241,8 @@ def _stmt_needs_temp_runtime_roots(stmt: Statement) -> bool:
     if isinstance(stmt, VarDeclStmt):
         return stmt.initializer is not None and _expr_needs_temp_runtime_roots(stmt.initializer)
     if isinstance(stmt, AssignStmt):
+        if isinstance(stmt.target, IndexExpr):
+            return True
         return _expr_needs_temp_runtime_roots(stmt.value)
     if isinstance(stmt, ExprStmt):
         return _expr_needs_temp_runtime_roots(stmt.expression)
@@ -242,12 +278,12 @@ def _mangle_type_symbol(type_name: str) -> str:
     builtin_symbol = BUILTIN_RUNTIME_TYPE_SYMBOLS.get(type_name)
     if builtin_symbol is not None:
         return builtin_symbol
-    safe = type_name.replace(".", "_")
+    safe = type_name.replace(".", "_").replace(":", "_").replace("[", "_").replace("]", "_")
     return f"__nif_type_{safe}"
 
 
 def _mangle_type_name_symbol(type_name: str) -> str:
-    safe = type_name.replace(".", "_")
+    safe = type_name.replace(".", "_").replace(":", "_").replace("[", "_").replace("]", "_")
     return f"__nif_type_name_{safe}"
 
 
@@ -264,8 +300,9 @@ def _mangle_constructor_symbol(type_name: str) -> str:
 
 def _collect_reference_cast_types_from_expr(expr: Expression, out: set[str]) -> None:
     if isinstance(expr, CastExpr):
-        if _is_reference_type_name(expr.type_ref.name):
-            out.add(expr.type_ref.name)
+        target_type_name = _type_ref_name(expr.type_ref)
+        if _is_reference_type_name(target_type_name):
+            out.add(target_type_name)
         _collect_reference_cast_types_from_expr(expr.operand, out)
         return
 
@@ -361,13 +398,38 @@ def _resolve_method_call_target(
         if receiver_type_name is None:
             raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
     elif isinstance(receiver_expr, CastExpr):
-        receiver_type_name = receiver_expr.type_ref.name
+        receiver_type_name = _type_ref_name(receiver_expr.type_ref)
     else:
         receiver_type_name = _infer_expression_type_name(receiver_expr, ctx)
 
     method_owner_type_name = receiver_type_name
 
     method_name = callee.field_name
+
+    if _is_array_type_name(method_owner_type_name):
+        element_type_name = _array_element_type_name(method_owner_type_name)
+        kind = _array_element_runtime_kind(element_type_name)
+        if method_name == "len":
+            return ResolvedCallTarget(name="rt_array_len", receiver_expr=receiver_expr, return_type_name="u64")
+        if method_name == "get":
+            return ResolvedCallTarget(
+                name=ARRAY_GET_RUNTIME_CALLS[kind],
+                receiver_expr=receiver_expr,
+                return_type_name=element_type_name,
+            )
+        if method_name == "set":
+            return ResolvedCallTarget(
+                name=ARRAY_SET_RUNTIME_CALLS[kind],
+                receiver_expr=receiver_expr,
+                return_type_name="unit",
+            )
+        if method_name == "slice":
+            return ResolvedCallTarget(
+                name=ARRAY_SLICE_RUNTIME_CALLS[kind],
+                receiver_expr=receiver_expr,
+                return_type_name=method_owner_type_name,
+            )
+        raise NotImplementedError(f"array method-call codegen could not resolve '{method_owner_type_name}.{method_name}'")
 
     builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((method_owner_type_name, method_name))
     if builtin_method is None and "::" in method_owner_type_name:
@@ -473,14 +535,17 @@ def _infer_expression_type_name(
         return ctx.layout.slot_type_names.get(expr.name, "i64")
 
     if isinstance(expr, CastExpr):
-        return expr.type_ref.name
+        return _type_ref_name(expr.type_ref)
+
+    if isinstance(expr, ArrayCtorExpr):
+        return _type_ref_name(expr.element_type_ref)
 
     if isinstance(expr, FieldAccessExpr):
         if expr.field_name == "value":
             if isinstance(expr.object_expr, IdentifierExpr):
                 receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
             elif isinstance(expr.object_expr, CastExpr):
-                receiver_type = expr.object_expr.type_ref.name
+                receiver_type = _type_ref_name(expr.object_expr.type_ref)
             else:
                 receiver_type = "Obj"
             if receiver_type == "BoxDouble":
@@ -499,6 +564,8 @@ def _infer_expression_type_name(
             receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
             if is_str_type_name(receiver_type):
                 return "u8"
+            if _is_array_type_name(receiver_type):
+                return _array_element_type_name(receiver_type)
             if receiver_type == "Vec":
                 return "Obj"
         return "i64"
@@ -597,11 +664,11 @@ class CodeGenerator:
         for cls in self.module_ast.classes:
             for method in cls.methods:
                 self.method_labels[(cls.name, method.name)] = _mangle_method_symbol(cls.name, method.name)
-                self.method_return_types[(cls.name, method.name)] = method.return_type.name
+                self.method_return_types[(cls.name, method.name)] = _type_ref_name(method.return_type)
                 self.method_is_static[(cls.name, method.name)] = method.is_static
 
         for fn in self.module_ast.functions:
-            self.function_return_types[fn.name] = fn.return_type.name
+            self.function_return_types[fn.name] = _type_ref_name(fn.return_type)
 
         for cls in self.module_ast.classes:
             ctor_label = _mangle_constructor_symbol(cls.name)
@@ -639,7 +706,7 @@ class CodeGenerator:
             offset = layout.slot_offsets.get(param.name)
             if offset is None:
                 continue
-            if param.type_ref.name == "double":
+            if _type_ref_name(param.type_ref) == "double":
                 if float_param_index >= len(FLOAT_PARAM_REGISTERS):
                     raise NotImplementedError("parameter codegen currently supports up to 8 floating-point params")
                 self.out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
@@ -826,7 +893,7 @@ class CodeGenerator:
             if receiver_type_name is None:
                 raise NotImplementedError(f"field receiver '{receiver_name}' is not materialized in stack layout")
         elif isinstance(expr.object_expr, CastExpr):
-            receiver_type_name = expr.object_expr.type_ref.name
+            receiver_type_name = _type_ref_name(expr.object_expr.type_ref)
         else:
             raise NotImplementedError("field access codegen currently supports identifier or cast receivers")
 
@@ -861,7 +928,7 @@ class CodeGenerator:
 
         self._emit_expr(expr.operand, ctx)
         source_type = _infer_expression_type_name(expr.operand, ctx)
-        target_type = expr.type_ref.name
+        target_type = _type_ref_name(expr.type_ref)
         if _is_reference_type_name(target_type):
             type_symbol = _mangle_type_symbol(target_type)
             self.out.append("    push rax")
@@ -909,7 +976,6 @@ class CodeGenerator:
 
     def _emit_index_expr(self, expr: IndexExpr, ctx: EmitContext) -> None:
         layout = ctx.layout
-        label_counter = ctx.label_counter
 
         if not isinstance(expr.object_expr, IdentifierExpr):
             raise NotImplementedError("index codegen currently requires identifier receivers")
@@ -940,6 +1006,20 @@ class CodeGenerator:
             self._emit_call_expr(synthetic_call, ctx)
             return
 
+        if _is_array_type_name(receiver_type_name) or receiver_type_name == "Vec":
+            synthetic_callee = FieldAccessExpr(
+                object_expr=expr.object_expr,
+                field_name="get",
+                span=expr.span,
+            )
+            synthetic_call = CallExpr(
+                callee=synthetic_callee,
+                arguments=[expr.index_expr],
+                span=expr.span,
+            )
+            self._emit_call_expr(synthetic_call, ctx)
+            return
+
         self._emit_expr(expr.index_expr, ctx)
         self.out.append("    push rax")
         self._emit_expr(expr.object_expr, ctx)
@@ -948,7 +1028,7 @@ class CodeGenerator:
         self._emit_runtime_call_hook(
             fn_name=ctx.fn_name,
             phase="before",
-            label_counter=label_counter,
+            label_counter=ctx.label_counter,
             line=expr.span.start.line,
             column=expr.span.start.column,
         )
@@ -964,7 +1044,38 @@ class CodeGenerator:
         self._emit_runtime_call_hook(
             fn_name=ctx.fn_name,
             phase="after",
-            label_counter=label_counter,
+            label_counter=ctx.label_counter,
+        )
+
+    def _emit_array_ctor_expr(self, expr: ArrayCtorExpr, ctx: EmitContext) -> None:
+        array_type_name = _type_ref_name(expr.element_type_ref)
+        if not _is_array_type_name(array_type_name):
+            raise NotImplementedError("array constructor codegen requires array type")
+
+        element_type_name = _array_element_type_name(array_type_name)
+        runtime_kind = _array_element_runtime_kind(element_type_name)
+        runtime_ctor = ARRAY_CONSTRUCTOR_RUNTIME_CALLS[runtime_kind]
+
+        self._emit_expr(expr.length_expr, ctx)
+        self.out.append("    push rax")
+
+        self._emit_runtime_call_hook(
+            fn_name=ctx.fn_name,
+            phase="before",
+            label_counter=ctx.label_counter,
+            line=expr.span.start.line,
+            column=expr.span.start.column,
+        )
+        self._emit_root_slot_updates(ctx.layout)
+        rooted_runtime_arg_count = self._emit_runtime_call_arg_temp_roots(ctx.layout, runtime_ctor, 1)
+        self.out.append("    pop rdi")
+        self.out.append(f"    call {runtime_ctor}")
+        if rooted_runtime_arg_count > 0:
+            self._emit_clear_runtime_call_arg_temp_roots(ctx.layout, rooted_runtime_arg_count)
+        self._emit_runtime_call_hook(
+            fn_name=ctx.fn_name,
+            phase="after",
+            label_counter=ctx.label_counter,
         )
 
     def _emit_expr(self, expr: Expression, ctx: EmitContext) -> None:
@@ -994,6 +1105,10 @@ class CodeGenerator:
 
         if isinstance(expr, IndexExpr):
             self._emit_index_expr(expr, ctx)
+            return
+
+        if isinstance(expr, ArrayCtorExpr):
+            self._emit_array_ctor_expr(expr, ctx)
             return
 
         if isinstance(expr, CallExpr):
@@ -1287,8 +1402,24 @@ class CodeGenerator:
             return
 
         if isinstance(stmt, AssignStmt):
+            if isinstance(stmt.target, IndexExpr):
+                if not isinstance(stmt.target.object_expr, IdentifierExpr):
+                    raise NotImplementedError("index assignment codegen currently requires identifier receivers")
+                synthetic_callee = FieldAccessExpr(
+                    object_expr=stmt.target.object_expr,
+                    field_name="set",
+                    span=stmt.target.span,
+                )
+                synthetic_call = CallExpr(
+                    callee=synthetic_callee,
+                    arguments=[stmt.target.index_expr, stmt.value],
+                    span=stmt.span,
+                )
+                self._emit_call_expr(synthetic_call, ctx)
+                return
+
             if not isinstance(stmt.target, IdentifierExpr):
-                raise NotImplementedError("assignment codegen currently supports identifier targets only")
+                raise NotImplementedError("assignment codegen currently supports identifier or index targets only")
             offset = layout.slot_offsets.get(stmt.target.name)
             if offset is None:
                 raise NotImplementedError(f"identifier '{stmt.target.name}' is not materialized in stack layout")
@@ -1416,10 +1547,10 @@ class CodeGenerator:
         )
 
         for stmt in fn.body.statements:
-            self._emit_statement(stmt, epilogue, fn.return_type.name, emit_ctx, loop_labels=[])
+            self._emit_statement(stmt, epilogue, _type_ref_name(fn.return_type), emit_ctx, loop_labels=[])
 
         self.out.append(f"{epilogue}:")
-        self._emit_function_epilogue(layout, fn.return_type.name)
+        self._emit_function_epilogue(layout, _type_ref_name(fn.return_type))
 
     def _emit_constructor_function(self, cls: ClassDecl) -> None:
         ctor_layout = self.constructor_layouts[cls.name]

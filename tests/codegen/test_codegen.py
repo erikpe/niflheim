@@ -391,6 +391,179 @@ fn main() -> i64 {
     assert "    call rt_vec_get" in asm
 
 
+def test_emit_asm_array_constructor_lowers_to_runtime_symbol_by_element_kind() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var a: u8[] = u8[](4u);
+    var b: i64[] = i64[](2u);
+    var c: Person[] = Person[](3u);
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_new_u8" in asm
+    assert "    call rt_array_new_i64" in asm
+    assert "    call rt_array_new_ref" in asm
+
+
+def test_emit_asm_array_index_get_set_lowers_to_runtime_calls() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    nums[0u] = (u8)1;
+    var x: u8 = nums[0u];
+
+    var people: Person[] = Person[](1u);
+    people[0u] = Person(7);
+    var p: Person = people[0u];
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_set_u8" in asm
+    assert "    call rt_array_get_u8" in asm
+    assert "    call rt_array_set_ref" in asm
+    assert "    call rt_array_get_ref" in asm
+
+
+def test_emit_asm_array_len_and_slice_lower_to_runtime_calls() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var nums: u8[] = u8[](4u);
+    var n: u64 = nums.len();
+    var s: u8[] = nums[1u:3u];
+
+    var people: Person[] = Person[](2u);
+    var t: Person[] = people.slice(0u, 1u);
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_len" in asm
+    assert "    call rt_array_slice_u8" in asm
+    assert "    call rt_array_slice_ref" in asm
+
+
+def test_emit_asm_array_constructor_dispatch_covers_remaining_primitive_kinds() -> None:
+    source = """
+fn main() -> unit {
+    var a: u64[] = u64[](1u);
+    var b: bool[] = bool[](1u);
+    var c: double[] = double[](1u);
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_new_u64" in asm
+    assert "    call rt_array_new_bool" in asm
+    assert "    call rt_array_new_double" in asm
+
+
+def test_emit_asm_array_method_form_get_set_slice_lowers_to_runtime_calls() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u64[] = u64[](4u);
+    nums.set(1u, 42u);
+    var x: u64 = nums.get(1u);
+    var s: u64[] = nums.slice(0u, 2u);
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_set_u64" in asm
+    assert "    call rt_array_get_u64" in asm
+    assert "    call rt_array_slice_u64" in asm
+
+
+def test_emit_asm_array_reference_set_roots_reference_value_argument_for_runtime_call() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var people: Person[] = Person[](1u);
+    var p: Person = Person(7);
+    people.set(0u, p);
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_set_ref" in asm
+    assert "    mov esi, 2" in asm
+    assert asm.count("    call rt_root_slot_store") >= 3
+
+
+def test_emit_asm_array_index_assignment_roots_runtime_value_argument() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var people: Person[] = Person[](1u);
+    var p: Person = Person(7);
+    people[0u] = p;
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_set_ref" in asm
+    assert "    mov esi, 2" in asm
+
+
+def test_emit_asm_emits_array_type_metadata_symbols_for_reference_casts() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn f(value: Obj) -> Person[] {
+    return (Person[])value;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "__nif_type_name_Person__:" in asm
+    assert '.asciz "Person[]"' in asm
+    assert "__nif_type_Person__:" in asm
+
+
 def test_emit_asm_method_call_lowers_to_method_symbol_with_receiver_arg0() -> None:
     source = """
 class Counter {

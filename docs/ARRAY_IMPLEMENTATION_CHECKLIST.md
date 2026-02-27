@@ -92,10 +92,10 @@ Use this as the execution reference while implementing parser, type checker, cod
 
 ## 5) Codegen
 
-- [ ] Lower `T[](len)` to the correct runtime constructor.
-- [ ] Lower index get/set and slice to runtime API calls.
-- [ ] Select runtime path by element category (primitive kind vs reference kind).
-- [ ] Keep existing safepoint and root-slot spill correctness around calls.
+- [x] Lower `T[](len)` to the correct runtime constructor.
+- [x] Lower index get/set and slice to runtime API calls.
+- [x] Select runtime path by element category (primitive kind vs reference kind).
+- [x] Keep existing safepoint and root-slot spill correctness around calls.
 
 ---
 
@@ -121,9 +121,9 @@ Use this as the execution reference while implementing parser, type checker, cod
 - [x] Negative: invalid constructor length type.
 
 ### 7.3 Codegen/unit tests
-- [ ] Constructor lowering symbol selection.
-- [ ] Index get/set lowering shape.
-- [ ] Slice lowering shape and return type handling.
+- [x] Constructor lowering symbol selection.
+- [x] Index get/set lowering shape.
+- [x] Slice lowering shape and return type handling.
 
 ### 7.4 E2E + golden tests
 - [ ] Primitive array smoke cases (`u8[]`, `i64[]`).

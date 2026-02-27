@@ -86,6 +86,38 @@ BUILTIN_METHOD_RETURN_TYPES: dict[tuple[str, str], str] = {
 BUILTIN_INDEX_RUNTIME_CALLS = {
     "Vec": "rt_vec_get",
 }
+ARRAY_CONSTRUCTOR_RUNTIME_CALLS = {
+    "i64": "rt_array_new_i64",
+    "u64": "rt_array_new_u64",
+    "u8": "rt_array_new_u8",
+    "bool": "rt_array_new_bool",
+    "double": "rt_array_new_double",
+    "ref": "rt_array_new_ref",
+}
+ARRAY_GET_RUNTIME_CALLS = {
+    "i64": "rt_array_get_i64",
+    "u64": "rt_array_get_u64",
+    "u8": "rt_array_get_u8",
+    "bool": "rt_array_get_bool",
+    "double": "rt_array_get_double",
+    "ref": "rt_array_get_ref",
+}
+ARRAY_SET_RUNTIME_CALLS = {
+    "i64": "rt_array_set_i64",
+    "u64": "rt_array_set_u64",
+    "u8": "rt_array_set_u8",
+    "bool": "rt_array_set_bool",
+    "double": "rt_array_set_double",
+    "ref": "rt_array_set_ref",
+}
+ARRAY_SLICE_RUNTIME_CALLS = {
+    "i64": "rt_array_slice_i64",
+    "u64": "rt_array_slice_u64",
+    "u8": "rt_array_slice_u8",
+    "bool": "rt_array_slice_bool",
+    "double": "rt_array_slice_double",
+    "ref": "rt_array_slice_ref",
+}
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_checked_cast": (0,),
@@ -98,6 +130,25 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_vec_get": (0,),
     "rt_vec_push": (0, 1),
     "rt_vec_set": (0, 2),
+    "rt_array_len": (0,),
+    "rt_array_get_i64": (0,),
+    "rt_array_get_u64": (0,),
+    "rt_array_get_u8": (0,),
+    "rt_array_get_bool": (0,),
+    "rt_array_get_double": (0,),
+    "rt_array_get_ref": (0,),
+    "rt_array_set_i64": (0,),
+    "rt_array_set_u64": (0,),
+    "rt_array_set_u8": (0,),
+    "rt_array_set_bool": (0,),
+    "rt_array_set_double": (0,),
+    "rt_array_set_ref": (0, 2),
+    "rt_array_slice_i64": (0,),
+    "rt_array_slice_u64": (0,),
+    "rt_array_slice_u8": (0,),
+    "rt_array_slice_bool": (0,),
+    "rt_array_slice_double": (0,),
+    "rt_array_slice_ref": (0,),
     "rt_strbuf_reserve": (0,),
     "rt_strbuf_len": (0,),
     "rt_strbuf_get_u8": (0,),
@@ -121,6 +172,13 @@ RUNTIME_RETURN_TYPES: dict[str, str] = {
     "rt_vec_len": "i64",
     "rt_vec_get": "Obj",
     "rt_vec_new": "Vec",
+    "rt_array_len": "u64",
+    "rt_array_get_i64": "i64",
+    "rt_array_get_u64": "u64",
+    "rt_array_get_u8": "u8",
+    "rt_array_get_bool": "bool",
+    "rt_array_get_double": "double",
+    "rt_array_get_ref": "Obj",
     "rt_checked_cast": "Obj",
     "rt_panic_str": "unit",
 }
