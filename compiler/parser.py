@@ -684,10 +684,15 @@ class Parser:
                 field_name="len",
                 span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
             )
-            end_arg: Expression = CallExpr(
+            len_call = CallExpr(
                 callee=len_field,
                 arguments=[],
                 span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
+            )
+            end_arg: Expression = CastExpr(
+                type_ref=TypeRef(name="i64", span=len_call.span),
+                operand=len_call,
+                span=len_call.span,
             )
         else:
             end_arg = end_expr

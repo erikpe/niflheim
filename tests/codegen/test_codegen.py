@@ -421,12 +421,12 @@ class Person {
 
 fn main() -> unit {
     var nums: u8[] = u8[](2u);
-    nums[0u] = (u8)1;
-    var x: u8 = nums[0u];
+    nums[0] = (u8)1;
+    var x: u8 = nums[0];
 
     var people: Person[] = Person[](1u);
-    people[0u] = Person(7);
-    var p: Person = people[0u];
+    people[0] = Person(7);
+    var p: Person = people[0];
     return;
 }
 """
@@ -449,10 +449,10 @@ class Person {
 fn main() -> unit {
     var nums: u8[] = u8[](4u);
     var n: u64 = nums.len();
-    var s: u8[] = nums[1u:3u];
+    var s: u8[] = nums[1:3];
 
     var people: Person[] = Person[](2u);
-    var t: Person[] = people.slice(0u, 1u);
+    var t: Person[] = people.slice(0, 1);
     return;
 }
 """
@@ -487,9 +487,9 @@ def test_emit_asm_array_method_form_get_set_slice_lowers_to_runtime_calls() -> N
     source = """
 fn main() -> unit {
     var nums: u64[] = u64[](4u);
-    nums.set(1u, 42u);
-    var x: u64 = nums.get(1u);
-    var s: u64[] = nums.slice(0u, 2u);
+    nums.set(1, 42u);
+    var x: u64 = nums.get(1);
+    var s: u64[] = nums.slice(0, 2);
     return;
 }
 """
@@ -511,7 +511,7 @@ class Person {
 fn main() -> unit {
     var people: Person[] = Person[](1u);
     var p: Person = Person(7);
-    people.set(0u, p);
+    people.set(0, p);
     return;
 }
 """
@@ -533,7 +533,7 @@ class Person {
 fn main() -> unit {
     var people: Person[] = Person[](1u);
     var p: Person = Person(7);
-    people[0u] = p;
+    people[0] = p;
     return;
 }
 """

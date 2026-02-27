@@ -10,61 +10,67 @@ class Person {
 fn test_primitive_smoke() -> unit {
     var bytes: u8[] = u8[](3u);
     assert(bytes.len() == 3u);
-    assert(bytes[0u] == (u8)0);
-    bytes[1u] = (u8)17;
-    assert(bytes.get(1u) == (u8)17);
+    assert(bytes[0] == (u8)0);
+    bytes[1] = (u8)17;
+    assert(bytes.get(1) == (u8)17);
 
     var nums: i64[] = i64[](2u);
     assert(nums.len() == 2u);
-    assert(nums[0u] == 0);
-    nums.set(1u, -9);
-    assert(nums[1u] == -9);
+    assert(nums[0] == 0);
+    nums.set(1, -9);
+    assert(nums[1] == -9);
 }
 
 
 fn test_reference_default_null() -> unit {
     var people: Person[] = Person[](2u);
     assert(people.len() == 2u);
-    assert(people[0u] == null);
-    assert(people[1u] == null);
+    assert(people[0] == null);
+    assert(people[1] == null);
 
-    people[1u] = Person(7);
-    assert(people[1u] != null);
+    people[1] = Person(7);
+    assert(people[1] != null);
 }
 
 
 fn test_slice_copy_behavior() -> unit {
     var src: u8[] = u8[](4u);
-    src[0u] = (u8)10;
-    src[1u] = (u8)20;
-    src[2u] = (u8)30;
-    src[3u] = (u8)40;
+    src[0] = (u8)10;
+    src[1] = (u8)20;
+    src[2] = (u8)30;
+    src[3] = (u8)40;
 
-    var cut: u8[] = src[1u:3u];
+    var cut: u8[] = src[1:3];
     assert(cut.len() == 2u);
-    assert(cut[0u] == (u8)20);
-    assert(cut[1u] == (u8)30);
+    assert(cut[0] == (u8)20);
+    assert(cut[1] == (u8)30);
 
-    src[1u] = (u8)99;
-    assert(cut[0u] == (u8)20);
+    src[1] = (u8)99;
+    assert(cut[0] == (u8)20);
 }
 
 
 fn test_get_oob_panics() -> unit {
     var arr: u8[] = u8[](1u);
-    arr.get(1u);
+    arr.get(1);
 }
 
 
 fn test_set_oob_panics() -> unit {
     var arr: u8[] = u8[](1u);
-    arr.set(1u, (u8)1);
+    arr.set(1, (u8)1);
 }
 
 
 fn test_slice_oob_panics() -> unit {
     var arr: u8[] = u8[](1u);
-    arr.slice(0u, 2u);
+    arr.slice(0, 2);
+}
+
+
+fn test_negative_index_panics() -> unit {
+    var arr: u8[] = u8[](1u);
+    arr.get(-1);
 }
 
 
@@ -77,6 +83,7 @@ fn main() -> i64 {
     if select == 4u { test_get_oob_panics(); }
     if select == 5u { test_set_oob_panics(); }
     if select == 6u { test_slice_oob_panics(); }
+    if select == 7u { test_negative_index_panics(); }
 
     return 0;
 }

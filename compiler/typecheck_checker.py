@@ -854,9 +854,9 @@ class TypeChecker:
         raise TypeCheckError(f"Expected 'u64', got '{actual.name}'", span)
 
     def _require_array_index_type(self, actual: TypeInfo, span: SourceSpan) -> None:
-        if actual.name in {"u64", "i64"}:
+        if actual.name == "i64":
             return
-        raise TypeCheckError(f"Expected 'u64', got '{actual.name}'", span)
+        raise TypeCheckError(f"Expected 'i64', got '{actual.name}'", span)
 
     def _canonicalize_reference_type_name(self, type_name: str) -> str:
         if "::" in type_name:

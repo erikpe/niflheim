@@ -12,6 +12,8 @@ ROOTS_NEGATIVE_BIN := $(TEST_DIR)/test_roots_negative
 ROOTS_NEGATIVE_SRC := $(TEST_DIR)/test_roots_negative.c
 ARRAY_RUNTIME_BIN := $(TEST_DIR)/test_array_runtime
 ARRAY_RUNTIME_SRC := $(TEST_DIR)/test_array_runtime.c
+ARRAY_NEGATIVE_BIN := $(TEST_DIR)/test_array_negative
+ARRAY_NEGATIVE_SRC := $(TEST_DIR)/test_array_negative.c
 
 all: libruntime.a
 
@@ -29,6 +31,9 @@ $(ROOTS_NEGATIVE_BIN): $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
 
 $(ARRAY_RUNTIME_BIN): $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC) include/runtime.h
 	$(CC) $(CFLAGS) -o $@ $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC)
+
+$(ARRAY_NEGATIVE_BIN): $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
+	$(CC) $(CFLAGS) -o $@ $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC)
 
 test: $(GC_STRESS_BIN)
 	./$(GC_STRESS_BIN)
@@ -49,7 +54,33 @@ test-negative: $(ROOTS_NEGATIVE_BIN)
 test-array: $(ARRAY_RUNTIME_BIN)
 	./$(ARRAY_RUNTIME_BIN)
 
-test-all: test test-positive test-negative test-array
+test-array-negative: $(ARRAY_NEGATIVE_BIN)
+	@set +e; \
+	out=$$(./$(ARRAY_NEGATIVE_BIN) get_negative 2>&1 >/dev/null); rc=$$?; \
+	set -e; \
+	if [ $$rc -eq 0 ]; then \
+		echo "test_array_negative[get_negative]: expected failure but process exited successfully"; \
+		exit 1; \
+	fi; \
+	echo "$$out" | grep -q "panic: rt_array_get_u8: index out of bounds" || { \
+		echo "test_array_negative[get_negative]: expected panic message not found"; \
+		exit 1; \
+	}; \
+	echo "test_array_negative[get_negative]: ok (failed as expected)"; \
+	set +e; \
+	out=$$(./$(ARRAY_NEGATIVE_BIN) slice_negative 2>&1 >/dev/null); rc=$$?; \
+	set -e; \
+	if [ $$rc -eq 0 ]; then \
+		echo "test_array_negative[slice_negative]: expected failure but process exited successfully"; \
+		exit 1; \
+	fi; \
+	echo "$$out" | grep -q "panic: rt_array_slice_u8: invalid slice range" || { \
+		echo "test_array_negative[slice_negative]: expected panic message not found"; \
+		exit 1; \
+	}; \
+	echo "test_array_negative[slice_negative]: ok (failed as expected)"
+
+test-all: test test-positive test-negative test-array test-array-negative
 
 clean:
-	rm -f $(RUNTIME_OBJ) libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN)
+	rm -f $(RUNTIME_OBJ) libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN)

@@ -57,20 +57,20 @@ static LeafObj* alloc_leaf(uint64_t value) {
 static void test_u8_array_basics_and_slice_copy(void) {
     void* arr = rt_array_new_u8(4u);
     assert_u64_eq(rt_array_len(arr), 4u, "u8[] len should match constructor");
-    assert_u64_eq(rt_array_get_u8(arr, 0u), 0u, "u8[] should default initialize to zero");
+    assert_u64_eq(rt_array_get_u8(arr, 0), 0u, "u8[] should default initialize to zero");
 
-    rt_array_set_u8(arr, 0u, 9u);
-    rt_array_set_u8(arr, 1u, 7u);
-    assert_u64_eq(rt_array_get_u8(arr, 0u), 9u, "u8[] set/get should round-trip");
-    assert_u64_eq(rt_array_get_u8(arr, 1u), 7u, "u8[] second value should round-trip");
+    rt_array_set_u8(arr, 0, 9u);
+    rt_array_set_u8(arr, 1, 7u);
+    assert_u64_eq(rt_array_get_u8(arr, 0), 9u, "u8[] set/get should round-trip");
+    assert_u64_eq(rt_array_get_u8(arr, 1), 7u, "u8[] second value should round-trip");
 
-    void* slice = rt_array_slice_u8(arr, 0u, 2u);
+    void* slice = rt_array_slice_u8(arr, 0, 2);
     assert_u64_eq(rt_array_len(slice), 2u, "u8[] slice len should match range");
-    assert_u64_eq(rt_array_get_u8(slice, 0u), 9u, "u8[] slice should copy first element");
-    assert_u64_eq(rt_array_get_u8(slice, 1u), 7u, "u8[] slice should copy second element");
+    assert_u64_eq(rt_array_get_u8(slice, 0), 9u, "u8[] slice should copy first element");
+    assert_u64_eq(rt_array_get_u8(slice, 1), 7u, "u8[] slice should copy second element");
 
-    rt_array_set_u8(arr, 0u, 1u);
-    assert_u64_eq(rt_array_get_u8(slice, 0u), 9u, "u8[] slice must be independent copy");
+    rt_array_set_u8(arr, 0, 1u);
+    assert_u64_eq(rt_array_get_u8(slice, 0), 9u, "u8[] slice must be independent copy");
 }
 
 static void test_ref_array_gc_tracing(void) {
@@ -85,19 +85,19 @@ static void test_ref_array_gc_tracing(void) {
 
     LeafObj* a = alloc_leaf(1u);
     LeafObj* b = alloc_leaf(2u);
-    rt_array_set_ref(arr, 0u, a);
-    rt_array_set_ref(arr, 1u, b);
+    rt_array_set_ref(arr, 0, a);
+    rt_array_set_ref(arr, 1, b);
 
     rt_gc_collect(ts);
     RtGcStats alive = rt_gc_get_stats();
     assert_u64_eq(alive.tracked_object_count, 3u, "rooted ref array should keep element refs alive");
 
-    rt_array_set_ref(arr, 1u, NULL);
+    rt_array_set_ref(arr, 1, NULL);
     rt_gc_collect(ts);
     RtGcStats one_cleared = rt_gc_get_stats();
     assert_u64_eq(one_cleared.tracked_object_count, 2u, "clearing one ref slot should reclaim one element");
 
-    rt_array_set_ref(arr, 0u, NULL);
+    rt_array_set_ref(arr, 0, NULL);
     rt_gc_collect(ts);
     RtGcStats all_cleared = rt_gc_get_stats();
     assert_u64_eq(all_cleared.tracked_object_count, 1u, "clearing all ref slots should keep only array alive");
@@ -121,17 +121,17 @@ static void test_ref_slice_copy_independence(void) {
 
     LeafObj* a = alloc_leaf(10u);
     LeafObj* b = alloc_leaf(20u);
-    rt_array_set_ref(arr, 0u, a);
-    rt_array_set_ref(arr, 1u, b);
+    rt_array_set_ref(arr, 0, a);
+    rt_array_set_ref(arr, 1, b);
 
-    void* slice = rt_array_slice_ref(arr, 0u, 2u);
+    void* slice = rt_array_slice_ref(arr, 0, 2);
     rt_root_slot_store(&frame, 1, slice);
 
-    assert_true(rt_array_get_ref(slice, 0u) == (void*)a, "ref[] slice should copy slot 0");
-    assert_true(rt_array_get_ref(slice, 1u) == (void*)b, "ref[] slice should copy slot 1");
+    assert_true(rt_array_get_ref(slice, 0) == (void*)a, "ref[] slice should copy slot 0");
+    assert_true(rt_array_get_ref(slice, 1) == (void*)b, "ref[] slice should copy slot 1");
 
-    rt_array_set_ref(arr, 0u, NULL);
-    assert_true(rt_array_get_ref(slice, 0u) == (void*)a, "ref[] slice should not alias source slots");
+    rt_array_set_ref(arr, 0, NULL);
+    assert_true(rt_array_get_ref(slice, 0) == (void*)a, "ref[] slice should not alias source slots");
 
     rt_root_slot_store(&frame, 0, NULL);
     rt_root_slot_store(&frame, 1, NULL);

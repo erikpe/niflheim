@@ -651,17 +651,17 @@ class Person {
 fn main() -> unit {
     var nums: u8[] = u8[](4u);
     nums[0] = 1u8;
-    nums.set(1u, (u8)2);
-    var a: u8 = nums[0u];
+    nums.set(1, (u8)2);
+    var a: u8 = nums[0];
     var b: u8 = nums.get(1);
     var n: u64 = nums.len();
-    var part: u8[] = nums[0u:2u];
+    var part: u8[] = nums[0:2];
 
     var people: Person[] = Person[](2u);
-    people[0u] = Person(7);
+    people[0] = Person(7);
     people.set(1, null);
-    var p0: Person = people.get(0u);
-    var ps: Person[] = people.slice(0, 1u);
+    var p0: Person = people.get(0);
+    var ps: Person[] = people.slice(0, 1);
     return;
 }
 """
@@ -688,7 +688,7 @@ def test_typecheck_rejects_wrong_array_element_assignment_type() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](2u);
-    nums[0u] = 1;
+    nums[0] = 1;
     return;
 }
 """
@@ -707,7 +707,7 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
-def test_typecheck_rejects_non_u64_array_get_index() -> None:
+def test_typecheck_rejects_non_i64_array_get_index() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](2u);
@@ -715,11 +715,11 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Expected 'u64', got 'bool'"):
+    with pytest.raises(TypeCheckError, match="Expected 'i64', got 'bool'"):
         _parse_and_typecheck(source)
 
 
-def test_typecheck_rejects_non_u64_array_set_index() -> None:
+def test_typecheck_rejects_non_i64_array_set_index() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](2u);
@@ -727,19 +727,19 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Expected 'u64', got 'bool'"):
+    with pytest.raises(TypeCheckError, match="Expected 'i64', got 'bool'"):
         _parse_and_typecheck(source)
 
 
-def test_typecheck_rejects_non_u64_array_slice_end() -> None:
+def test_typecheck_rejects_non_i64_array_slice_end() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](2u);
-    var s: u8[] = nums.slice(0u, true);
+    var s: u8[] = nums.slice(0, true);
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Expected 'u64', got 'bool'"):
+    with pytest.raises(TypeCheckError, match="Expected 'i64', got 'bool'"):
         _parse_and_typecheck(source)
 
 
@@ -747,7 +747,7 @@ def test_typecheck_rejects_array_method_wrong_arity() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](3u);
-    var a: u64 = nums.len(1u);
+    var a: u64 = nums.len(1);
     return;
 }
 """
@@ -771,7 +771,7 @@ def test_typecheck_rejects_array_set_missing_value_argument() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](3u);
-    nums.set(0u);
+    nums.set(0);
     return;
 }
 """
@@ -783,7 +783,7 @@ def test_typecheck_rejects_array_slice_missing_end_argument() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](3u);
-    var s: u8[] = nums.slice(0u);
+    var s: u8[] = nums.slice(0);
     return;
 }
 """

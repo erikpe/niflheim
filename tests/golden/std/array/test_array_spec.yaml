@@ -5,3 +5,4 @@ runs:
   - { name: get_oob_panics, input: { stdin: "4" }, expect: { panic: "rt_array_get_u8: index out of bounds" } }
   - { name: set_oob_panics, input: { stdin: "5" }, expect: { panic: "rt_array_set_u8: index out of bounds" } }
   - { name: slice_oob_panics, input: { stdin: "6" }, expect: { panic: "rt_array_slice_u8: invalid slice range" } }
+  - { name: negative_index_panics, input: { stdin: "7" }, expect: { panic: "rt_array_get_u8: index out of bounds" } }

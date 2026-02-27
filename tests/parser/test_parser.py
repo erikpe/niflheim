@@ -333,7 +333,7 @@ def test_parse_expression_slice_from_start_desugars_to_zero_begin() -> None:
     assert expr.arguments[1].value == "7"
 
 
-def test_parse_expression_slice_to_end_desugars_to_len_call() -> None:
+def test_parse_expression_slice_to_end_desugars_to_casted_len_call() -> None:
     expr = parse_expression(lex("v[4:]", source_path="examples/slice_expr.nif"))
 
     assert isinstance(expr, CallExpr)
@@ -342,12 +342,14 @@ def test_parse_expression_slice_to_end_desugars_to_len_call() -> None:
     assert len(expr.arguments) == 2
     assert isinstance(expr.arguments[0], LiteralExpr)
     assert expr.arguments[0].value == "4"
-    assert isinstance(expr.arguments[1], CallExpr)
-    assert isinstance(expr.arguments[1].callee, FieldAccessExpr)
-    assert expr.arguments[1].callee.field_name == "len"
+    assert isinstance(expr.arguments[1], CastExpr)
+    assert expr.arguments[1].type_ref.name == "i64"
+    assert isinstance(expr.arguments[1].operand, CallExpr)
+    assert isinstance(expr.arguments[1].operand.callee, FieldAccessExpr)
+    assert expr.arguments[1].operand.callee.field_name == "len"
 
 
-def test_parse_expression_slice_full_omission_desugars_to_zero_and_len() -> None:
+def test_parse_expression_slice_full_omission_desugars_to_zero_and_casted_len() -> None:
     expr = parse_expression(lex("v[:]", source_path="examples/slice_expr.nif"))
 
     assert isinstance(expr, CallExpr)
@@ -356,9 +358,11 @@ def test_parse_expression_slice_full_omission_desugars_to_zero_and_len() -> None
     assert len(expr.arguments) == 2
     assert isinstance(expr.arguments[0], LiteralExpr)
     assert expr.arguments[0].value == "0"
-    assert isinstance(expr.arguments[1], CallExpr)
-    assert isinstance(expr.arguments[1].callee, FieldAccessExpr)
-    assert expr.arguments[1].callee.field_name == "len"
+    assert isinstance(expr.arguments[1], CastExpr)
+    assert expr.arguments[1].type_ref.name == "i64"
+    assert isinstance(expr.arguments[1].operand, CallExpr)
+    assert isinstance(expr.arguments[1].operand.callee, FieldAccessExpr)
+    assert expr.arguments[1].operand.callee.field_name == "len"
 
 
 def test_parse_expression_cast_then_unary_operand() -> None:

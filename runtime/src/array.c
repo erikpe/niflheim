@@ -98,14 +98,14 @@ static RtArrayObj* rt_require_array_kind(const void* array_obj, uint64_t expecte
     return array;
 }
 
-static void rt_require_index_in_bounds(const RtArrayObj* array, uint64_t index, const char* api_name) {
-    if (index >= array->len) {
+static void rt_require_index_in_bounds(const RtArrayObj* array, int64_t index, const char* api_name) {
+    if (index < 0 || (uint64_t)index >= array->len) {
         rt_panic(api_name);
     }
 }
 
-static void rt_require_slice_range(const RtArrayObj* array, uint64_t start, uint64_t end, const char* api_name) {
-    if (start > end || end > array->len) {
+static void rt_require_slice_range(const RtArrayObj* array, int64_t start, int64_t end, const char* api_name) {
+    if (start < 0 || end < 0 || start > end || (uint64_t)end > array->len) {
         rt_panic(api_name);
     }
 }
@@ -134,15 +134,17 @@ static void* rt_array_new(uint64_t len, uint64_t element_kind, uint64_t element_
     return (void*)array;
 }
 
-static void* rt_array_slice(const void* array_obj, uint64_t kind, uint64_t start, uint64_t end, const char* api_name) {
+static void* rt_array_slice(const void* array_obj, uint64_t kind, int64_t start, int64_t end, const char* api_name) {
     const RtArrayObj* source = rt_require_array_kind(array_obj, kind, api_name);
     rt_require_slice_range(source, start, end, api_name);
 
-    uint64_t slice_len = end - start;
+    uint64_t start_u = (uint64_t)start;
+    uint64_t end_u = (uint64_t)end;
+    uint64_t slice_len = end_u - start_u;
     const RtType* type = source->header.type;
     RtArrayObj* slice = (RtArrayObj*)rt_array_new(slice_len, source->element_kind, source->element_size, type);
 
-    uint64_t byte_offset = rt_mul_u64_checked(start, source->element_size);
+    uint64_t byte_offset = rt_mul_u64_checked(start_u, source->element_size);
     uint64_t copy_bytes = rt_mul_u64_checked(slice_len, source->element_size);
     if (copy_bytes > 0) {
         memcpy(slice->data, source->data + byte_offset, (size_t)copy_bytes);
@@ -179,98 +181,98 @@ uint64_t rt_array_len(const void* array_obj) {
     return rt_require_array_obj(array_obj, "rt_array_len: object is not array")->len;
 }
 
-int64_t rt_array_get_i64(const void* array_obj, uint64_t index) {
+int64_t rt_array_get_i64(const void* array_obj, int64_t index) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_I64, "rt_array_get_i64: object is not i64[]");
     rt_require_index_in_bounds(array, index, "rt_array_get_i64: index out of bounds");
-    return ((int64_t*)(void*)array->data)[index];
+    return ((int64_t*)(void*)array->data)[(uint64_t)index];
 }
 
-uint64_t rt_array_get_u64(const void* array_obj, uint64_t index) {
+uint64_t rt_array_get_u64(const void* array_obj, int64_t index) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_U64, "rt_array_get_u64: object is not u64[]");
     rt_require_index_in_bounds(array, index, "rt_array_get_u64: index out of bounds");
-    return ((uint64_t*)(void*)array->data)[index];
+    return ((uint64_t*)(void*)array->data)[(uint64_t)index];
 }
 
-uint64_t rt_array_get_u8(const void* array_obj, uint64_t index) {
+uint64_t rt_array_get_u8(const void* array_obj, int64_t index) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_U8, "rt_array_get_u8: object is not u8[]");
     rt_require_index_in_bounds(array, index, "rt_array_get_u8: index out of bounds");
-    return (uint64_t)((uint8_t*)(void*)array->data)[index];
+    return (uint64_t)((uint8_t*)(void*)array->data)[(uint64_t)index];
 }
 
-int64_t rt_array_get_bool(const void* array_obj, uint64_t index) {
+int64_t rt_array_get_bool(const void* array_obj, int64_t index) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_BOOL, "rt_array_get_bool: object is not bool[]");
     rt_require_index_in_bounds(array, index, "rt_array_get_bool: index out of bounds");
-    return ((int64_t*)(void*)array->data)[index];
+    return ((int64_t*)(void*)array->data)[(uint64_t)index];
 }
 
-double rt_array_get_double(const void* array_obj, uint64_t index) {
+double rt_array_get_double(const void* array_obj, int64_t index) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_DOUBLE, "rt_array_get_double: object is not double[]");
     rt_require_index_in_bounds(array, index, "rt_array_get_double: index out of bounds");
-    return ((double*)(void*)array->data)[index];
+    return ((double*)(void*)array->data)[(uint64_t)index];
 }
 
-void* rt_array_get_ref(const void* array_obj, uint64_t index) {
+void* rt_array_get_ref(const void* array_obj, int64_t index) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_REF, "rt_array_get_ref: object is not ref[]");
     rt_require_index_in_bounds(array, index, "rt_array_get_ref: index out of bounds");
-    return ((void**)(void*)array->data)[index];
+    return ((void**)(void*)array->data)[(uint64_t)index];
 }
 
-void rt_array_set_i64(void* array_obj, uint64_t index, int64_t value) {
+void rt_array_set_i64(void* array_obj, int64_t index, int64_t value) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_I64, "rt_array_set_i64: object is not i64[]");
     rt_require_index_in_bounds(array, index, "rt_array_set_i64: index out of bounds");
-    ((int64_t*)(void*)array->data)[index] = value;
+    ((int64_t*)(void*)array->data)[(uint64_t)index] = value;
 }
 
-void rt_array_set_u64(void* array_obj, uint64_t index, uint64_t value) {
+void rt_array_set_u64(void* array_obj, int64_t index, uint64_t value) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_U64, "rt_array_set_u64: object is not u64[]");
     rt_require_index_in_bounds(array, index, "rt_array_set_u64: index out of bounds");
-    ((uint64_t*)(void*)array->data)[index] = value;
+    ((uint64_t*)(void*)array->data)[(uint64_t)index] = value;
 }
 
-void rt_array_set_u8(void* array_obj, uint64_t index, uint64_t value) {
+void rt_array_set_u8(void* array_obj, int64_t index, uint64_t value) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_U8, "rt_array_set_u8: object is not u8[]");
     rt_require_index_in_bounds(array, index, "rt_array_set_u8: index out of bounds");
-    ((uint8_t*)(void*)array->data)[index] = (uint8_t)value;
+    ((uint8_t*)(void*)array->data)[(uint64_t)index] = (uint8_t)value;
 }
 
-void rt_array_set_bool(void* array_obj, uint64_t index, int64_t value) {
+void rt_array_set_bool(void* array_obj, int64_t index, int64_t value) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_BOOL, "rt_array_set_bool: object is not bool[]");
     rt_require_index_in_bounds(array, index, "rt_array_set_bool: index out of bounds");
-    ((int64_t*)(void*)array->data)[index] = value != 0 ? 1 : 0;
+    ((int64_t*)(void*)array->data)[(uint64_t)index] = value != 0 ? 1 : 0;
 }
 
-void rt_array_set_double(void* array_obj, uint64_t index, double value) {
+void rt_array_set_double(void* array_obj, int64_t index, double value) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_DOUBLE, "rt_array_set_double: object is not double[]");
     rt_require_index_in_bounds(array, index, "rt_array_set_double: index out of bounds");
-    ((double*)(void*)array->data)[index] = value;
+    ((double*)(void*)array->data)[(uint64_t)index] = value;
 }
 
-void rt_array_set_ref(void* array_obj, uint64_t index, void* value) {
+void rt_array_set_ref(void* array_obj, int64_t index, void* value) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_REF, "rt_array_set_ref: object is not ref[]");
     rt_require_index_in_bounds(array, index, "rt_array_set_ref: index out of bounds");
-    ((void**)(void*)array->data)[index] = value;
+    ((void**)(void*)array->data)[(uint64_t)index] = value;
 }
 
-void* rt_array_slice_i64(const void* array_obj, uint64_t start, uint64_t end) {
+void* rt_array_slice_i64(const void* array_obj, int64_t start, int64_t end) {
     return rt_array_slice(array_obj, RT_ARRAY_KIND_I64, start, end, "rt_array_slice_i64: invalid slice range");
 }
 
-void* rt_array_slice_u64(const void* array_obj, uint64_t start, uint64_t end) {
+void* rt_array_slice_u64(const void* array_obj, int64_t start, int64_t end) {
     return rt_array_slice(array_obj, RT_ARRAY_KIND_U64, start, end, "rt_array_slice_u64: invalid slice range");
 }
 
-void* rt_array_slice_u8(const void* array_obj, uint64_t start, uint64_t end) {
+void* rt_array_slice_u8(const void* array_obj, int64_t start, int64_t end) {
     return rt_array_slice(array_obj, RT_ARRAY_KIND_U8, start, end, "rt_array_slice_u8: invalid slice range");
 }
 
-void* rt_array_slice_bool(const void* array_obj, uint64_t start, uint64_t end) {
+void* rt_array_slice_bool(const void* array_obj, int64_t start, int64_t end) {
     return rt_array_slice(array_obj, RT_ARRAY_KIND_BOOL, start, end, "rt_array_slice_bool: invalid slice range");
 }
 
-void* rt_array_slice_double(const void* array_obj, uint64_t start, uint64_t end) {
+void* rt_array_slice_double(const void* array_obj, int64_t start, int64_t end) {
     return rt_array_slice(array_obj, RT_ARRAY_KIND_DOUBLE, start, end, "rt_array_slice_double: invalid slice range");
 }
 
-void* rt_array_slice_ref(const void* array_obj, uint64_t start, uint64_t end) {
+void* rt_array_slice_ref(const void* array_obj, int64_t start, int64_t end) {
     return rt_array_slice(array_obj, RT_ARRAY_KIND_REF, start, end, "rt_array_slice_ref: invalid slice range");
 }

@@ -357,7 +357,7 @@ def test_typecheck_program_allows_array_types_for_unqualified_and_qualified_impo
         fn main() -> unit {
             var a: Counter[] = Counter[](2u);
             var b: util.Counter[] = a;
-            b[0u] = util.Counter(1);
+            b[0] = util.Counter(1);
             var x: util.Counter = b.get(0);
             return;
         }
