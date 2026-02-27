@@ -56,22 +56,22 @@ Use this as the execution reference while implementing parser, type checker, cod
 ## 3) Type Checker
 
 ### 3.1 Core typing
-- [ ] Represent array types in `TypeInfo` with element type metadata.
-- [ ] Type-check constructor `T[](len)`:
-  - [ ] element type must resolve
-  - [ ] `len` must be `u64` (or agreed conversion policy)
-  - [ ] result type is `T[]`
+- [x] Represent array types in `TypeInfo` with element type metadata.
+- [x] Type-check constructor `T[](len)`:
+  - [x] element type must resolve
+  - [x] `len` must be `u64` (or agreed conversion policy)
+  - [x] result type is `T[]`
 
 ### 3.2 Operations
-- [ ] `arr[index]` and `arr.get(index)` return `T`.
-- [ ] `arr[index] = v` and `arr.set(index, v)` require `v` assignable to `T`.
-- [ ] `arr[start:end]` and `arr.slice(start,end)` return `T[]`.
-- [ ] `arr.len()` returns `u64`.
+- [x] `arr[index]` and `arr.get(index)` return `T`.
+- [x] `arr[index] = v` and `arr.set(index, v)` require `v` assignable to `T`.
+- [x] `arr[start:end]` and `arr.slice(start,end)` return `T[]`.
+- [x] `arr.len()` returns `u64`.
 
 ### 3.3 Assignment and compatibility
-- [ ] Enforce array invariance (`A[]` ≠ `B[]` unless exact match).
-- [ ] Keep nullability behavior consistent for reference elements.
-- [ ] Preserve local/imported class resolution symmetry for element type names.
+- [x] Enforce array invariance (`A[]` ≠ `B[]` unless exact match).
+- [x] Keep nullability behavior consistent for reference elements.
+- [x] Preserve local/imported class resolution symmetry for element type names.
 
 ---
 
@@ -115,10 +115,10 @@ Use this as the execution reference while implementing parser, type checker, cod
 - [x] Parse index and slice with arrays without regressions.
 
 ### 7.2 Type checker tests
-- [ ] Positive: primitive arrays and class arrays construct/get/set/slice/len.
-- [ ] Negative: invariance violations (`Person[]` assigned to `Obj[]`).
-- [ ] Negative: wrong element assignment type.
-- [ ] Negative: invalid constructor length type.
+- [x] Positive: primitive arrays and class arrays construct/get/set/slice/len.
+- [x] Negative: invariance violations (`Person[]` assigned to `Obj[]`).
+- [x] Negative: wrong element assignment type.
+- [x] Negative: invalid constructor length type.
 
 ### 7.3 Codegen/unit tests
 - [ ] Constructor lowering symbol selection.

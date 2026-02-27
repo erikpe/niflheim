@@ -340,6 +340,34 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_constructor(tm
         typecheck_program(program)
 
 
+def test_typecheck_program_allows_array_types_for_unqualified_and_qualified_imported_class(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var a: Counter[] = Counter[](2u);
+            var b: util.Counter[] = a;
+            b[0u] = util.Counter(1);
+            var x: util.Counter = b.get(0);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_allows_unqualified_imported_function_when_unique(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",
@@ -453,3 +481,31 @@ def test_typecheck_program_imported_std_str_from_char_static_call(tmp_path: Path
 
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
     typecheck_program(program)
+
+
+def test_typecheck_program_rejects_imported_array_equality_with_different_element_types(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var counters: util.Counter[] = util.Counter[](1u);
+            var objs: Obj[] = Obj[](1u);
+            var same: bool = counters == objs;
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    with pytest.raises(TypeCheckError, match="Operator '==' has incompatible operand types"):
+        typecheck_program(program)

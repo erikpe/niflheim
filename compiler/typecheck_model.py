@@ -38,6 +38,7 @@ BUILTIN_INDEX_RESULT_TYPE_NAMES = {
 class TypeInfo:
     name: str
     kind: str
+    element_type: "TypeInfo | None" = None
 
 
 @dataclass(frozen=True)

@@ -34,6 +34,8 @@ BUILTIN_VEC_METHOD_SPECS: dict[str, tuple[list[TypeInfo], TypeInfo]] = {
     ),
 }
 
+ARRAY_METHOD_NAMES = {"len", "get", "set", "slice"}
+
 I64_MAX_LITERAL = 9223372036854775807
 I64_MIN_MAGNITUDE_LITERAL = 9223372036854775808
 U64_MAX_LITERAL = 18446744073709551615
@@ -394,6 +396,14 @@ class TypeChecker:
         if isinstance(expr, CallExpr):
             return self._infer_call_type(expr)
 
+        if isinstance(expr, ArrayCtorExpr):
+            array_type = self._resolve_type_ref(expr.element_type_ref)
+            if array_type.element_type is None:
+                raise TypeCheckError("Array constructor requires array element type", expr.element_type_ref.span)
+            length_type = self._infer_expression_type(expr.length_expr)
+            self._require_array_size_type(length_type, expr.length_expr.span)
+            return array_type
+
         if isinstance(expr, FieldAccessExpr):
             module_member = self._resolve_module_member(expr)
             if module_member is not None:
@@ -421,6 +431,11 @@ class TypeChecker:
                     raise TypeCheckError(f"Class 'Vec' has no member '{expr.field_name}'", expr.span)
                 return TypeInfo(name=f"__method__:Vec:{expr.field_name}", kind="callable")
 
+            if object_type.element_type is not None:
+                if expr.field_name not in ARRAY_METHOD_NAMES:
+                    raise TypeCheckError(f"Array type '{object_type.name}' has no member '{expr.field_name}'", expr.span)
+                return TypeInfo(name=f"__array_method__:{expr.field_name}", kind="callable")
+
             class_info = self._lookup_class_by_type_name(object_type.name)
             if class_info is None:
                 raise TypeCheckError(f"Type '{object_type.name}' has no fields/methods", expr.span)
@@ -441,6 +456,10 @@ class TypeChecker:
             if is_str_type_name(obj_type.name):
                 self._require_type_name(index_type, "i64", expr.index_expr.span)
                 return TypeInfo(name="u8", kind="primitive")
+
+            if obj_type.element_type is not None:
+                self._require_array_index_type(index_type, expr.index_expr.span)
+                return obj_type.element_type
 
             builtin_index_result = BUILTIN_INDEX_RESULT_TYPE_NAMES.get(obj_type.name)
             if builtin_index_result is not None:
@@ -552,6 +571,35 @@ class TypeChecker:
                 self._check_call_arguments(params, expr.arguments, expr.span)
                 return return_type
 
+            if object_type.element_type is not None:
+                method_name = expr.callee.field_name
+                if method_name == "len":
+                    self._check_call_arguments([], expr.arguments, expr.span)
+                    return TypeInfo(name="u64", kind="primitive")
+                if method_name == "get":
+                    if len(expr.arguments) != 1:
+                        raise TypeCheckError(f"Expected 1 arguments, got {len(expr.arguments)}", expr.span)
+                    index_type = self._infer_expression_type(expr.arguments[0])
+                    self._require_array_index_type(index_type, expr.arguments[0].span)
+                    return object_type.element_type
+                if method_name == "set":
+                    if len(expr.arguments) != 2:
+                        raise TypeCheckError(f"Expected 2 arguments, got {len(expr.arguments)}", expr.span)
+                    index_type = self._infer_expression_type(expr.arguments[0])
+                    self._require_array_index_type(index_type, expr.arguments[0].span)
+                    value_type = self._infer_expression_type(expr.arguments[1])
+                    self._require_assignable(object_type.element_type, value_type, expr.arguments[1].span)
+                    return TypeInfo(name="unit", kind="primitive")
+                if method_name == "slice":
+                    if len(expr.arguments) != 2:
+                        raise TypeCheckError(f"Expected 2 arguments, got {len(expr.arguments)}", expr.span)
+                    start_type = self._infer_expression_type(expr.arguments[0])
+                    end_type = self._infer_expression_type(expr.arguments[1])
+                    self._require_array_index_type(start_type, expr.arguments[0].span)
+                    self._require_array_index_type(end_type, expr.arguments[1].span)
+                    return object_type
+                raise TypeCheckError(f"Array type '{object_type.name}' has no method '{method_name}'", expr.span)
+
             class_info = self._lookup_class_by_type_name(object_type.name)
             if class_info is None:
                 raise TypeCheckError(f"Type '{object_type.name}' has no callable members", expr.span)
@@ -634,7 +682,11 @@ class TypeChecker:
         self._check_call_arguments(ctor_params, args, span)
         return result_type
 
-    def _resolve_type_ref(self, type_ref: TypeRef) -> TypeInfo:
+    def _resolve_type_ref(self, type_ref: TypeRefNode) -> TypeInfo:
+        if isinstance(type_ref, ArrayTypeRef):
+            element_type = self._resolve_type_ref(type_ref.element_type)
+            return TypeInfo(name=f"{element_type.name}[]", kind="reference", element_type=element_type)
+
         name = type_ref.name
         if name in PRIMITIVE_TYPE_NAMES:
             return TypeInfo(name=name, kind="primitive")
@@ -679,6 +731,12 @@ class TypeChecker:
         return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
 
     def _qualify_member_type_for_owner(self, member_type: TypeInfo, owner_type_name: str) -> TypeInfo:
+        if member_type.element_type is not None:
+            qualified_element_type = self._qualify_member_type_for_owner(member_type.element_type, owner_type_name)
+            if qualified_element_type == member_type.element_type:
+                return member_type
+            return TypeInfo(name=f"{qualified_element_type.name}[]", kind="reference", element_type=qualified_element_type)
+
         if member_type.kind != "reference" or "::" in member_type.name:
             return member_type
         if "::" not in owner_type_name or self.module_class_infos is None:
@@ -790,6 +848,16 @@ class TypeChecker:
         if actual.name != expected_name:
             raise TypeCheckError(f"Expected '{expected_name}', got '{actual.name}'", span)
 
+    def _require_array_size_type(self, actual: TypeInfo, span: SourceSpan) -> None:
+        if actual.name in {"u64", "i64"}:
+            return
+        raise TypeCheckError(f"Expected 'u64', got '{actual.name}'", span)
+
+    def _require_array_index_type(self, actual: TypeInfo, span: SourceSpan) -> None:
+        if actual.name in {"u64", "i64"}:
+            return
+        raise TypeCheckError(f"Expected 'u64', got '{actual.name}'", span)
+
     def _canonicalize_reference_type_name(self, type_name: str) -> str:
         if "::" in type_name:
             return type_name
@@ -805,8 +873,15 @@ class TypeChecker:
             return True
         return self._canonicalize_reference_type_name(left) == self._canonicalize_reference_type_name(right)
 
+    def _type_infos_equal(self, left: TypeInfo, right: TypeInfo) -> bool:
+        if left.element_type is not None or right.element_type is not None:
+            if left.element_type is None or right.element_type is None:
+                return False
+            return self._type_infos_equal(left.element_type, right.element_type)
+        return self._type_names_equal(left.name, right.name)
+
     def _require_assignable(self, target: TypeInfo, value: TypeInfo, span: SourceSpan) -> None:
-        if self._type_names_equal(target.name, value.name):
+        if self._type_infos_equal(target, value):
             return
         if target.kind == "reference" and value.kind == "null":
             return
@@ -815,7 +890,7 @@ class TypeChecker:
         raise TypeCheckError(f"Cannot assign '{value.name}' to '{target.name}'", span)
 
     def _is_comparable(self, left: TypeInfo, right: TypeInfo) -> bool:
-        if self._type_names_equal(left.name, right.name):
+        if self._type_infos_equal(left, right):
             return True
         if left.kind == "reference" and right.kind == "null":
             return True
@@ -824,7 +899,7 @@ class TypeChecker:
         return False
 
     def _check_explicit_cast(self, source: TypeInfo, target: TypeInfo, span: SourceSpan) -> None:
-        if self._type_names_equal(source.name, target.name):
+        if self._type_infos_equal(source, target):
             return
 
         if source.kind == "primitive" and target.kind == "primitive":

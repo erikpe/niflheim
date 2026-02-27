@@ -640,3 +640,224 @@ fn main() -> unit {
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'i64' to 'Obj'"):
         _parse_and_typecheck(source)
+
+
+def test_typecheck_arrays_construct_get_set_slice_len_for_primitive_and_class_elements() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var nums: u8[] = u8[](4u);
+    nums[0] = 1u8;
+    nums.set(1u, (u8)2);
+    var a: u8 = nums[0u];
+    var b: u8 = nums.get(1);
+    var n: u64 = nums.len();
+    var part: u8[] = nums[0u:2u];
+
+    var people: Person[] = Person[](2u);
+    people[0u] = Person(7);
+    people.set(1, null);
+    var p0: Person = people.get(0u);
+    var ps: Person[] = people.slice(0, 1u);
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_arrays_are_invariant() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var people: Person[] = Person[](1u);
+    var objs: Obj[] = people;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Cannot assign 'Person\[\]' to 'Obj\[\]'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_wrong_array_element_assignment_type() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    nums[0u] = 1;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Cannot assign 'i64' to 'u8'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_non_u64_array_constructor_length() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](true);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 'u64', got 'bool'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_non_u64_array_get_index() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    var x: u8 = nums.get(true);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 'u64', got 'bool'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_non_u64_array_set_index() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    nums.set(true, (u8)1);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 'u64', got 'bool'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_non_u64_array_slice_end() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    var s: u8[] = nums.slice(0u, true);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 'u64', got 'bool'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_array_method_wrong_arity() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](3u);
+    var a: u64 = nums.len(1u);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 0 arguments, got 1"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_array_get_missing_index_argument() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](3u);
+    var x: u8 = nums.get();
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 1 arguments, got 0"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_array_set_missing_value_argument() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](3u);
+    nums.set(0u);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 2 arguments, got 1"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_array_slice_missing_end_argument() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](3u);
+    var s: u8[] = nums.slice(0u);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 2 arguments, got 1"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_unknown_array_member_access() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    var n: u64 = nums.foo();
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Array type 'u8\[\]' has no method 'foo'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_identity_cast_for_array_type() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    var same: u8[] = (u8[])nums;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_cross_element_array_cast() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var people: Person[] = Person[](1u);
+    var objs: Obj[] = (Obj[])people;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Invalid cast from 'Person\[\]' to 'Obj\[\]'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_array_equality_for_different_element_types() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var people: Person[] = Person[](1u);
+    var objs: Obj[] = Obj[](1u);
+    var same: bool = people == objs;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Operator '==' has incompatible operand types"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_array_equality_with_null() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var people: Person[] = Person[](1u);
+    var is_null: bool = people == null;
+    var not_null: bool = null != people;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
