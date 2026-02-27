@@ -101,8 +101,13 @@ Use this as the execution reference while implementing parser, type checker, cod
 
 ## 6) Standard Library Surface (if used)
 
-- [ ] Decide whether array methods are compiler-special-cased, stdlib methods, or mixed.
-- [ ] Keep user-visible API consistent with frozen aliases (`[]`, `[start:end]`) and method names.
+- [x] Decide whether array methods are compiler-special-cased, stdlib methods, or mixed.
+  - [x] Decision: **mixed, std-first** for MVP (minimize duplication without generics).
+  - [x] Compiler owns structural syntax/desugaring and element-category call routing.
+  - [x] Std/Nif owns user-facing API shape and semantics contract (Str-style surface).
+  - [x] Runtime C stays minimal: storage/layout, bounds/slice safety, and GC tracing.
+  - [x] Follow-up after generics: move more behavior from compiler routing into reusable std abstractions.
+- [x] Keep user-visible API consistent with frozen aliases (`[]`, `[start:end]`) and method names.
 
 ---
 
