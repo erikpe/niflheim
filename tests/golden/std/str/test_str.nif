@@ -80,6 +80,7 @@ fn main() -> i64
         test_to_u64();
         test_to_i64();
     }
+
     if select == 2u { test_to_u64_overflow1(); }
     if select == 3u { test_to_u64_overflow2(); }
     if select == 4u { test_to_u64_invalid_digit(); }

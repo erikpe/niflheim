@@ -171,6 +171,79 @@ These are specialization/performance features and should not change core semanti
 - If no local class exists, unqualified imported class names may resolve from imports only when unique.
 - If multiple imported modules export the same unqualified class name and no local class shadows it, unqualified usage is a compile-time ambiguity error.
 
+### 6.2 Unsafe Systems Layer (Proposed Extension)
+
+Goal: allow stdlib code to implement low-level runtime-adjacent logic (for example `Str`/`StrBuf`) in Nif while keeping normal user code safe by default.
+
+#### 6.2.1 Safety Boundary
+
+- Unsafe operations are only legal inside `unsafe { ... }` blocks or `unsafe fn` bodies.
+- Outside unsafe context, all pointer and raw-memory operations are compile-time errors.
+- Inside unsafe context, compiler restrictions are intentionally minimal: raw pointer operations, casts, arithmetic, and memory access are allowed.
+- Unsafe author contract: invariants required by safe code must be re-established at the unsafe boundary (end of block / function return).
+- Initial rollout policy: unsafe features are available to stdlib modules only.
+- Optional later policy: user modules may opt in via explicit compiler flag/feature gate.
+
+#### 6.2.2 C-style Pointer Model
+
+- Add raw pointer types:
+  - `*T` (all raw pointers are mutable in unsafe mode)
+  - `*u8` for byte buffers
+- There is no separate const/read-only raw pointer kind in MVP unsafe.
+- `null` is a valid pointer value.
+- Pointer equality is address equality.
+- No implicit dereference in expression typing.
+
+#### 6.2.3 C-style Pointer Operations
+
+- Address-of: `&x` (yields pointer to local/field as allowed by borrowability rules).
+- Dereference: `*p` (read/write requires non-null, properly aligned pointer).
+- Pointer arithmetic:
+  - `p + n`, `p - n` (scaled by `sizeof(T)`)
+  - `p2 - p1` returns element-distance (`i64`) when same base element type.
+- Explicit pointer casts only, for example `(*u8)p`.
+- Integer/pointer casts are explicit and unsafe-only.
+
+#### 6.2.4 Unsafe Intrinsics (Minimal Set)
+
+Expose through `std.unsafe` (or equivalent reserved std module):
+
+- Allocation:
+  - `malloc(size: u64) -> *u8`
+  - `free(ptr: *u8) -> unit`
+- Raw memory:
+  - `memcpy(dst: *u8, src: *u8, size: u64) -> unit`
+  - `memmove(dst: *u8, src: *u8, size: u64) -> unit`
+  - `memset(dst: *u8, byte: u8, size: u64) -> unit`
+  - `memcmp(a: *u8, b: *u8, size: u64) -> i64`
+
+Notes:
+- `malloc` panics on OOM in MVP policy (no null-return contract).
+- These APIs are intentionally low-level and unsafe-only.
+
+#### 6.2.5 GC and Safepoint Rules for Unsafe Code
+
+- Raw pointers to GC-managed object interiors are permitted in unsafe mode, but lifetime validity across safepoints is the unsafe author's responsibility.
+- If such pointers can survive across safepoints, pinning or equivalent discipline is required by contract (violation is undefined behavior).
+- Unsafe code may use `malloc` memory freely; GC does not trace it.
+- Any operation that may trigger GC remains a safepoint.
+- Compiler enforces existing root-spill policy before safepoints, including in unsafe code.
+- Optional extension: `nogc` block/function attribute for regions that must not safepoint; calling safepoint-capable functions in `nogc` is a compile-time error.
+
+#### 6.2.6 Operational Restrictions
+
+- Dereferencing null is undefined behavior at unsafe level (implementation may panic in debug runtime builds).
+- Out-of-bounds pointer arithmetic/dereference is undefined behavior.
+- Alignment violations are undefined behavior unless unaligned load/store intrinsics are explicitly added.
+- Double-free/use-after-free are undefined behavior.
+- Any failure to restore safe-language invariants at unsafe boundary is undefined behavior.
+
+#### 6.2.7 Intended Usage
+
+- Primary target: stdlib implementation code for core containers/byte operations.
+- Non-goal: replacing high-level safe APIs with pointer-first style in general user code.
+- Safe wrappers over unsafe internals are encouraged as the public API surface.
+
 ---
 
 ## 7) Runtime Model and Memory Management
@@ -217,7 +290,7 @@ Minimal C runtime provides:
   - Object size
 - 8-byte alignment for heap objects.
 - Per-type metadata includes pointer layout information for tracing.
-- Raw pointers are never exposed in source language.
+- Raw pointers are not exposed in safe language mode. They are only available through the proposed unsafe systems layer.
 
 ---
 
@@ -321,6 +394,10 @@ Minimal C runtime provides:
 - [ ] Add indirect callee lowering for call expressions.
 - [x] Add floating-point call/return ABI lowering (`xmm0`-`xmm7` path).
 - [ ] Move local slot allocation from name-based to lexical-scope-aware slots (no shadow aliasing).
+- [ ] Add unsafe systems layer (`unsafe` blocks/functions + stdlib-only gate).
+- [ ] Add C-style raw pointer types and pointer arithmetic.
+- [ ] Add minimal `std.unsafe` intrinsics (`malloc/free/memcpy/memmove/memset/memcmp`).
+- [ ] Define and enforce GC/safepoint restrictions for unsafe and optional `nogc` regions.
 
 ---
 
