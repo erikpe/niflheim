@@ -47,6 +47,10 @@ Frozen array syntax (v0.1 extension track):
 - Index alias: `arr[index]`
 - Slice alias: `arr[start:end]`
 
+Current implementation note:
+- This syntax/alias surface is active and tested.
+- Lowering and dispatch are currently compiler/runtime-driven for arrays; a stdlib-first array wrapper layer is planned follow-up work.
+
 Design decision (MVP): constructor and type-name resolution are symmetric across modules.
 - Unqualified names are local-first.
 - Qualified names are explicit (for example `util.Counter(...)` and `util.Counter` in type positions).

@@ -35,11 +35,13 @@ Recent backend/runtime updates:
 - Full `double` lowering is implemented in codegen, including literals, arithmetic/comparisons, casts, and mixed integer/floating call signatures.
 - SysV floating-point ABI paths are implemented for parameters/returns (`xmm0`-`xmm7`) in function calls, method calls, and constructors.
 - Runtime box parity includes `BoxDouble` construction/getters with end-to-end tests for value reads and ABI correctness.
+- Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
 
 ## Policy Decisions (MVP)
 
 - Null-dereference checks are runtime-only in v0.1; compile-time static null-dereference analysis is intentionally out of scope.
 - Imported class name resolution is symmetric for constructor calls and type annotations: unqualified names are local-first, qualified names are explicit, and ambiguous unqualified imported names are compile-time errors.
+- Arrays follow a mixed-ownership policy: current implementation is compiler+runtime-first; stdlib-first array wrappers/abstractions are a follow-up direction after MVP (and easier once generics exist).
 - See [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md) for the canonical language/runtime policy details.
 
 ## Runtime / GC Tests

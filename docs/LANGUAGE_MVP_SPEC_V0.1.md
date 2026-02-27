@@ -167,6 +167,13 @@ These are specialization/performance features and should not change core semanti
 - Nested arrays may be added in a later follow-up milestone.
 - Although syntax is generic-like, `T[]` is a built-in type constructor, not user-defined generics.
 
+Implementation status note (current tree):
+- Array features above are implemented and validated via parser/typecheck/codegen/runtime tests and golden tests.
+- Ownership is currently compiler+runtime-first for arrays:
+  - Compiler handles array syntax/desugaring and element-category runtime call routing.
+  - Runtime provides storage/layout + `len/get/set/slice` primitives + bounds/GC behavior.
+  - A stdlib-first array wrapper layer is a planned follow-up, not the current implementation state.
+
 ---
 
 ## 6) Modules and Visibility

@@ -140,9 +140,10 @@ Use this as the execution reference while implementing parser, type checker, cod
 
 ## 8) Documentation + Release Notes
 
-- [ ] Keep spec and grammar docs aligned with implementation behavior.
-- [ ] Add README usage examples for constructor, indexing, and slicing.
-- [ ] Add migration notes if any old syntax/prototype is removed.
+- [x] Keep spec and grammar docs aligned with implementation behavior.
+- [x] Add README usage examples for constructor, indexing, and slicing.
+- [x] Add migration notes if any old syntax/prototype is removed.
+  - [x] Migration note: no prior array syntax/prototype remains in-tree; no user migration step required for current repository state.
 
 ---
 
