@@ -4,6 +4,8 @@ from collections import deque
 from dataclasses import dataclass
 
 from compiler.ast_nodes import (
+    ArrayCtorExpr,
+    ArrayTypeRef,
     AssignStmt,
     BinaryExpr,
     BlockStmt,
@@ -21,6 +23,7 @@ from compiler.ast_nodes import (
     ModuleAst,
     ReturnStmt,
     Statement,
+    TypeRef,
     UnaryExpr,
     VarDeclStmt,
     WhileStmt,
@@ -44,6 +47,12 @@ class WalkContext:
 
 def _is_reference_type_name(type_name: str) -> bool:
     return type_name and type_name[0].isupper()
+
+
+def _type_ref_name(type_ref: TypeRef | ArrayTypeRef) -> str:
+    if isinstance(type_ref, TypeRef):
+        return type_ref.name
+    return f"{_type_ref_name(type_ref.element_type)}[]"
 
 
 def _flatten_field_chain(expr: Expression) -> list[str] | None:
@@ -94,9 +103,19 @@ class ReachabilityWalker:
             return
 
         if isinstance(expr, CastExpr):
-            if expr.type_ref.name in self.known_class_names or _is_reference_type_name(expr.type_ref.name):
-                ctx.found_classes.add(expr.type_ref.name)
+            cast_type_name = _type_ref_name(expr.type_ref)
+            if cast_type_name in self.known_class_names or _is_reference_type_name(cast_type_name):
+                ctx.found_classes.add(cast_type_name)
             self._walk_expr(expr.operand, ctx=ctx)
+            return
+
+        if isinstance(expr, ArrayCtorExpr):
+            array_type_name = _type_ref_name(expr.element_type_ref)
+            if array_type_name.endswith("[]"):
+                element_type_name = array_type_name[:-2]
+                if element_type_name in self.known_class_names or _is_reference_type_name(element_type_name):
+                    ctx.found_classes.add(element_type_name)
+            self._walk_expr(expr.length_expr, ctx=ctx)
             return
 
         if isinstance(expr, UnaryExpr):
@@ -154,9 +173,10 @@ class ReachabilityWalker:
 
     def _walk_stmt(self, stmt: Statement, *, ctx: WalkContext) -> None:
         if isinstance(stmt, VarDeclStmt):
-            ctx.local_types[stmt.name] = stmt.type_ref.name
-            if stmt.type_ref.name in self.known_class_names or _is_reference_type_name(stmt.type_ref.name):
-                ctx.found_classes.add(stmt.type_ref.name)
+            var_type_name = _type_ref_name(stmt.type_ref)
+            ctx.local_types[stmt.name] = var_type_name
+            if var_type_name in self.known_class_names or _is_reference_type_name(var_type_name):
+                ctx.found_classes.add(var_type_name)
             if stmt.initializer is not None:
                 self._walk_expr(stmt.initializer, ctx=ctx)
             return
@@ -198,14 +218,14 @@ class ReachabilityWalker:
 
     def _visit_function_decl(self, fn_decl: FunctionDecl) -> None:
         for param in fn_decl.params:
-            self._enqueue_class(param.type_ref.name)
-        self._enqueue_class(fn_decl.return_type.name)
+            self._enqueue_class(_type_ref_name(param.type_ref))
+        self._enqueue_class(_type_ref_name(fn_decl.return_type))
 
         if fn_decl.body is None:
             return
 
         walk_ctx = WalkContext(
-            local_types={param.name: param.type_ref.name for param in fn_decl.params},
+            local_types={param.name: _type_ref_name(param.type_ref) for param in fn_decl.params},
             found_functions=set(),
             found_classes=set(),
         )
@@ -218,15 +238,15 @@ class ReachabilityWalker:
 
     def _visit_class_decl(self, cls_decl: ClassDecl) -> None:
         for field in cls_decl.fields:
-            self._enqueue_class(field.type_ref.name)
+            self._enqueue_class(_type_ref_name(field.type_ref))
 
         for method in cls_decl.methods:
             for param in method.params:
-                self._enqueue_class(param.type_ref.name)
-            self._enqueue_class(method.return_type.name)
+                self._enqueue_class(_type_ref_name(param.type_ref))
+            self._enqueue_class(_type_ref_name(method.return_type))
 
             walk_ctx = WalkContext(
-                local_types={param.name: param.type_ref.name for param in method.params},
+                local_types={param.name: _type_ref_name(param.type_ref) for param in method.params},
                 found_functions=set(),
                 found_classes=set(),
             )

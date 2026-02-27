@@ -131,10 +131,10 @@ Use this as the execution reference while implementing parser, type checker, cod
 - [x] Slice lowering shape and return type handling.
 
 ### 7.4 E2E + golden tests
-- [ ] Primitive array smoke cases (`u8[]`, `i64[]`).
-- [ ] Reference array smoke case (`Person[]` with default `null`).
-- [ ] Slice copy behavior check (modifying source after slice does not mutate slice).
-- [ ] Bounds panic cases for get/set/slice.
+- [x] Primitive array smoke cases (`u8[]`, `i64[]`).
+- [x] Reference array smoke case (`Person[]` with default `null`).
+- [x] Slice copy behavior check (modifying source after slice does not mutate slice).
+- [x] Bounds panic cases for get/set/slice.
 
 ---
 

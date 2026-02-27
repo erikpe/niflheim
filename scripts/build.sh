@@ -43,6 +43,7 @@ cc \
   "$repo_root/runtime/src/strbuf.c" \
   "$repo_root/runtime/src/box.c" \
   "$repo_root/runtime/src/vec.c" \
+  "$repo_root/runtime/src/array.c" \
   "$asm_out" \
   -o "$output"
 

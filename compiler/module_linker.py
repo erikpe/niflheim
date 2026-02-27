@@ -1,7 +1,13 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import ModuleAst
+from compiler.ast_nodes import ArrayTypeRef, ModuleAst, TypeRef
 from compiler.resolver import ProgramInfo
+
+
+def _type_ref_name(type_ref: TypeRef | ArrayTypeRef) -> str:
+    if isinstance(type_ref, TypeRef):
+        return type_ref.name
+    return f"{_type_ref_name(type_ref.element_type)}[]"
 
 
 def require_main_function(module_ast: ModuleAst) -> None:
@@ -12,7 +18,7 @@ def require_main_function(module_ast: ModuleAst) -> None:
         raise ValueError("Invalid main signature: expected concrete definition 'fn main() -> i64'")
     if main_decl.params:
         raise ValueError("Invalid main signature: expected 'fn main() -> i64' (no parameters)")
-    if main_decl.return_type.name != "i64":
+    if _type_ref_name(main_decl.return_type) != "i64":
         raise ValueError("Invalid main signature: expected return type 'i64'")
 
 

@@ -1,0 +1,7 @@
+runs:
+  - { name: primitive_smoke_u8_i64, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: reference_defaults_null, input: { stdin: "2" }, expect: { exit_code: 0 } }
+  - { name: slice_copy_behavior, input: { stdin: "3" }, expect: { exit_code: 0 } }
+  - { name: get_oob_panics, input: { stdin: "4" }, expect: { panic: "rt_array_get_u8: index out of bounds" } }
+  - { name: set_oob_panics, input: { stdin: "5" }, expect: { panic: "rt_array_set_u8: index out of bounds" } }
+  - { name: slice_oob_panics, input: { stdin: "6" }, expect: { panic: "rt_array_slice_u8: invalid slice range" } }
