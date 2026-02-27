@@ -14,6 +14,7 @@ ARRAY_RUNTIME_BIN := $(TEST_DIR)/test_array_runtime
 ARRAY_RUNTIME_SRC := $(TEST_DIR)/test_array_runtime.c
 ARRAY_NEGATIVE_BIN := $(TEST_DIR)/test_array_negative
 ARRAY_NEGATIVE_SRC := $(TEST_DIR)/test_array_negative.c
+NEGATIVE_DRIVER := $(TEST_DIR)/run_negative_driver.sh
 
 all: libruntime.a
 
@@ -41,44 +42,21 @@ test: $(GC_STRESS_BIN)
 test-positive: $(ROOTS_POSITIVE_BIN)
 	./$(ROOTS_POSITIVE_BIN)
 
-test-negative: $(ROOTS_NEGATIVE_BIN)
-	@for c in pop_underflow slot_store_oob slot_load_oob register_global_null unregister_global_null; do \
-		if ./$(ROOTS_NEGATIVE_BIN) $$c >/dev/null 2>&1; then \
-			echo "test_roots_negative[$$c]: expected failure but process exited successfully"; \
-			exit 1; \
-		else \
-			echo "test_roots_negative[$$c]: ok (failed as expected)"; \
-		fi; \
-	done
+test-negative: $(ROOTS_NEGATIVE_BIN) $(NEGATIVE_DRIVER)
+	@$(NEGATIVE_DRIVER) test_roots_negative ./$(ROOTS_NEGATIVE_BIN) \
+		pop_underflow \
+		slot_store_oob \
+		slot_load_oob \
+		register_global_null \
+		unregister_global_null
 
 test-array: $(ARRAY_RUNTIME_BIN)
 	./$(ARRAY_RUNTIME_BIN)
 
-test-array-negative: $(ARRAY_NEGATIVE_BIN)
-	@set +e; \
-	out=$$(./$(ARRAY_NEGATIVE_BIN) get_negative 2>&1 >/dev/null); rc=$$?; \
-	set -e; \
-	if [ $$rc -eq 0 ]; then \
-		echo "test_array_negative[get_negative]: expected failure but process exited successfully"; \
-		exit 1; \
-	fi; \
-	echo "$$out" | grep -q "panic: rt_array_get_u8: index out of bounds" || { \
-		echo "test_array_negative[get_negative]: expected panic message not found"; \
-		exit 1; \
-	}; \
-	echo "test_array_negative[get_negative]: ok (failed as expected)"; \
-	set +e; \
-	out=$$(./$(ARRAY_NEGATIVE_BIN) slice_negative 2>&1 >/dev/null); rc=$$?; \
-	set -e; \
-	if [ $$rc -eq 0 ]; then \
-		echo "test_array_negative[slice_negative]: expected failure but process exited successfully"; \
-		exit 1; \
-	fi; \
-	echo "$$out" | grep -q "panic: rt_array_slice_u8: invalid slice range" || { \
-		echo "test_array_negative[slice_negative]: expected panic message not found"; \
-		exit 1; \
-	}; \
-	echo "test_array_negative[slice_negative]: ok (failed as expected)"
+test-array-negative: $(ARRAY_NEGATIVE_BIN) $(NEGATIVE_DRIVER)
+	@$(NEGATIVE_DRIVER) test_array_negative ./$(ARRAY_NEGATIVE_BIN) \
+		"get_negative::panic: rt_array_get_u8: index out of bounds" \
+		"slice_negative::panic: rt_array_slice_u8: invalid slice range"
 
 test-all: test test-positive test-negative test-array test-array-negative
 
