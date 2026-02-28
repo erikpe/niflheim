@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "array.h"
+#include "gc.h"
 #include "io.h"
 #include "panic.h"
 
@@ -68,13 +69,6 @@ struct RtTraceFrame {
     uint32_t column;
 };
 
-typedef struct RtGcStats {
-    uint64_t allocated_bytes;
-    uint64_t live_bytes;
-    uint64_t next_gc_threshold;
-    uint64_t tracked_object_count;
-} RtGcStats;
-
 void rt_init(void);
 void rt_shutdown(void);
 RtThreadState* rt_thread_state(void);
@@ -86,16 +80,11 @@ void* rt_root_slot_load(const RtRootFrame* frame, uint32_t slot_index);
 void rt_push_roots(RtThreadState* ts, RtRootFrame* frame);
 void rt_pop_roots(RtThreadState* ts);
 
-void rt_gc_register_global_root(void** slot);
-void rt_gc_unregister_global_root(void** slot);
-
 void rt_trace_push(const char* function_name, const char* file_path, uint32_t line, uint32_t column);
 void rt_trace_pop(void);
 void rt_trace_set_location(uint32_t line, uint32_t column);
 
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
-RtGcStats rt_gc_get_stats(void);
-void rt_gc_collect(RtThreadState* ts);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
 
 #ifdef __cplusplus

@@ -13,9 +13,11 @@ void* rt_array_new_u8(uint64_t len);
 void* rt_array_new_bool(uint64_t len);
 void* rt_array_new_double(uint64_t len);
 void* rt_array_new_ref(uint64_t len);
+
 void* rt_array_from_bytes_u8(const uint8_t* bytes, uint64_t len);
 
 uint64_t rt_array_len(const void* array_obj);
+
 const void* rt_array_data_ptr(const void* array_obj);
 
 int64_t rt_array_get_i64(const void* array_obj, int64_t index);
