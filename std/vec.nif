@@ -55,11 +55,10 @@ export class Vec
     }
 
     fn _normalize_index(index: i64) -> i64 {
-        var resolved: i64 = index;
-        if resolved < 0 {
-            resolved = __self._len + resolved;
+        if index < 0 {
+            index = __self._len + index;
         }
-        return resolved;
+        return index;
     }
 
     fn push(value: Obj) -> unit {
@@ -69,39 +68,32 @@ export class Vec
     }
 
     fn get(index: i64) -> Obj {
-        var resolved: i64 = __self._normalize_index(index);
-        if resolved < 0 || resolved >= __self._len {
+        index = __self._normalize_index(index);
+        if index < 0 || index >= __self._len {
             panic("Vec.get: index out of bounds");
         }
-        return __self._storage[resolved];
+        return __self._storage[index];
     }
 
     fn set(index: i64, value: Obj) -> unit {
-        var resolved: i64 = __self._normalize_index(index);
-        if resolved < 0 || resolved >= __self._len {
+        index = __self._normalize_index(index);
+        if index < 0 || index >= __self._len {
             panic("Vec.set: index out of bounds");
         }
-        __self._storage[resolved] = value;
+        __self._storage[index] = value;
     }
 
     fn slice(begin: i64, end: i64) -> Vec {
-        var resolved_begin: i64 = begin;
-        if resolved_begin < 0 {
-            resolved_begin = __self._len + resolved_begin;
-        }
+        begin = __self._normalize_index(begin);
+        end = __self._normalize_index(end);
 
-        var resolved_end: i64 = end;
-        if resolved_end < 0 {
-            resolved_end = __self._len + resolved_end;
-        }
-
-        if resolved_begin < 0 || resolved_end < resolved_begin || resolved_end > __self._len {
+        if begin < 0 || end < begin || end > __self._len {
             panic("Vec.slice: invalid slice range");
         }
 
-        var out: Vec = Vec.with_capacity(resolved_end - resolved_begin);
-        var i: i64 = resolved_begin;
-        while i < resolved_end {
+        var out: Vec = Vec.with_capacity(end - begin);
+        var i: i64 = begin;
+        while i < end {
             out.push(__self._storage[i]);
             i = i + 1;
         }
