@@ -53,9 +53,7 @@ Runtime sources are split by responsibility:
 - `runtime/src/runtime.c` - low-level runtime infrastructure (thread state, roots, allocation, panic support)
 - `runtime/src/gc.c` - GC implementation
 - `runtime/src/io.c` - runtime IO/println implementation
-- `runtime/src/str.c` - `Str` implementation
 - `runtime/src/vec.c` - `Vec` implementation
-- `runtime/src/strbuf.c` - `StrBuf` implementation
 
 - `make -C runtime test` runs GC stress scenarios (`test_gc_stress`):
 	- no-root reclaim

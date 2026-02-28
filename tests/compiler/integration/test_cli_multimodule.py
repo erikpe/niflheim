@@ -145,8 +145,6 @@ fn main() -> i64 {
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
-    str_c = repo_root / "runtime" / "src" / "str.c"
-    strbuf_c = repo_root / "runtime" / "src" / "strbuf.c"
     array_c = repo_root / "runtime" / "src" / "array.c"
     exe_path = tmp_path / "program"
 
@@ -159,8 +157,6 @@ fn main() -> i64 {
             str(runtime_c),
             str(gc_c),
             str(io_c),
-            str(str_c),
-            str(strbuf_c),
             str(array_c),
             str(out_asm),
             "-o",
@@ -280,8 +276,6 @@ fn main() -> i64 {
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
-    str_c = repo_root / "runtime" / "src" / "str.c"
-    strbuf_c = repo_root / "runtime" / "src" / "strbuf.c"
     array_c = repo_root / "runtime" / "src" / "array.c"
     exe_path = tmp_path / "program"
 
@@ -294,8 +288,6 @@ fn main() -> i64 {
             str(runtime_c),
             str(gc_c),
             str(io_c),
-            str(str_c),
-            str(strbuf_c),
             str(array_c),
             str(out_asm),
             "-o",
@@ -350,10 +342,21 @@ export class NewStr {
         """
 import std.newstr;
 
-extern fn rt_panic_newstr(msg: NewStr) -> unit;
+extern fn rt_panic_null_term_array(msg: u8[]) -> unit;
 
 export fn panic(msg: NewStr) -> unit {
-    rt_panic_newstr(msg);
+    var msg_bytes: u8[] = msg._bytes;
+    var length: i64 = (i64)msg_bytes.len();
+    var msg_arr: u8[] = u8[]((u64)length + 1u);
+
+    var i: i64 = 0;
+    while i < length {
+        msg_arr[i] = msg_bytes[i];
+        i = i + 1;
+    }
+    msg_arr[length] = 0u8;
+
+    rt_panic_null_term_array(msg_arr);
 }
 """,
         encoding="utf-8",
@@ -388,8 +391,6 @@ fn main() -> i64 {
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
-    str_c = repo_root / "runtime" / "src" / "str.c"
-    strbuf_c = repo_root / "runtime" / "src" / "strbuf.c"
     array_c = repo_root / "runtime" / "src" / "array.c"
     exe_path = tmp_path / "program"
 
@@ -402,8 +403,6 @@ fn main() -> i64 {
             str(runtime_c),
             str(gc_c),
             str(io_c),
-            str(str_c),
-            str(strbuf_c),
             str(array_c),
             str(out_asm),
             "-o",

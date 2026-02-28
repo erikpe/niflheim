@@ -221,6 +221,14 @@ void rt_panic_bad_cast(const char* from_type, const char* to_type) {
     rt_abort_with_message(message);
 }
 
+void rt_panic_null_term_array(const void* array_obj) {
+    rt_require(array_obj != NULL, "rt_panic_null_term_array: object is null");
+
+    const char* message = (const char*)rt_array_data_ptr(array_obj);
+    rt_require(message != NULL, "rt_panic_null_term_array: array data pointer is null");
+    rt_panic(message);
+}
+
 void rt_panic_oom(void) {
     rt_panic("out of memory");
 }

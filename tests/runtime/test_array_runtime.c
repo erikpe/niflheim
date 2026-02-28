@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 typedef struct LeafObj {
@@ -71,6 +72,15 @@ static void test_u8_array_basics_and_slice_copy(void) {
 
     rt_array_set_u8(arr, 0, 1u);
     assert_u64_eq(rt_array_get_u8(slice, 0), 9u, "u8[] slice must be independent copy");
+}
+
+static void test_u8_array_data_ptr_exposes_contiguous_bytes(void) {
+    uint8_t input[4] = {10u, 20u, 30u, 40u};
+    void* arr = rt_array_from_bytes_u8(input, 4u);
+    const uint8_t* data = (const uint8_t*)rt_array_data_ptr(arr);
+
+    assert_true(data != NULL, "u8[] data ptr should not be null");
+    assert_true(memcmp(data, input, sizeof(input)) == 0, "u8[] data ptr should match source bytes");
 }
 
 static void test_ref_array_gc_tracing(void) {
@@ -145,6 +155,7 @@ int main(void) {
     rt_init();
 
     test_u8_array_basics_and_slice_copy();
+    test_u8_array_data_ptr_exposes_contiguous_bytes();
     test_ref_array_gc_tracing();
     test_ref_slice_copy_independence();
 

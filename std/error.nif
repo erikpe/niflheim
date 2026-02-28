@@ -1,8 +1,18 @@
 import std.newstr;
 
-extern fn rt_panic_newstr(msg: NewStr) -> unit;
+extern fn rt_panic_null_term_array(msg: u8[]) -> unit;
 
 export fn panic(msg: NewStr) -> unit
 {
-    rt_panic_newstr(msg);
+    var length: i64 = (i64)msg.len();
+    var msg_arr: u8[] = u8[]((u64)length + 1u);
+
+    var i: i64 = 0;
+    while i < length {
+        msg_arr[i] = msg[i];
+        i = i + 1;
+    }
+    msg_arr[length] = 0u8;
+
+    rt_panic_null_term_array(msg_arr);
 }

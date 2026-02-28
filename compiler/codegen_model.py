@@ -113,7 +113,7 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_array_slice_bool": (0,),
     "rt_array_slice_double": (0,),
     "rt_array_slice_ref": (0,),
-    "rt_panic_newstr": (0,),
+    "rt_panic_null_term_array": (0,),
 }
 RUNTIME_RETURN_TYPES: dict[str, str] = {
     "rt_array_len": "u64",
@@ -124,5 +124,5 @@ RUNTIME_RETURN_TYPES: dict[str, str] = {
     "rt_array_get_double": "double",
     "rt_array_get_ref": "Obj",
     "rt_checked_cast": "Obj",
-    "rt_panic_newstr": "unit",
+    "rt_panic_null_term_array": "unit",
 }

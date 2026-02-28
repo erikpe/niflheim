@@ -193,6 +193,11 @@ uint64_t rt_array_len(const void* array_obj) {
     return rt_require_array_obj(array_obj, "rt_array_len: object is not array")->len;
 }
 
+const void* rt_array_data_ptr(const void* array_obj) {
+    const RtArrayObj* array = rt_require_array_obj(array_obj, "rt_array_data_ptr: object is not array");
+    return (const void*)array->data;
+}
+
 int64_t rt_array_get_i64(const void* array_obj, int64_t index) {
     RtArrayObj* array = rt_require_array_kind(array_obj, RT_ARRAY_KIND_I64, "rt_array_get_i64: object is not i64[]");
     rt_require_index_in_bounds(array, index, "rt_array_get_i64: index out of bounds");
