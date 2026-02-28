@@ -34,6 +34,36 @@ TARGETS: tuple[GoldenTarget, ...] = (
         golden_file="expression_shape.golden.json",
         parse_mode="expression",
     ),
+    GoldenTarget(
+        source_file="module_shape_private_arrays_control_flow.nif",
+        golden_file="module_shape_private_arrays_control_flow.golden.json",
+        parse_mode="module",
+    ),
+    GoldenTarget(
+        source_file="module_shape_qualified_calls_and_casts.nif",
+        golden_file="module_shape_qualified_calls_and_casts.golden.json",
+        parse_mode="module",
+    ),
+    GoldenTarget(
+        source_file="module_shape_structural_sugar.nif",
+        golden_file="module_shape_structural_sugar.golden.json",
+        parse_mode="module",
+    ),
+    GoldenTarget(
+        source_file="expression_shape_slice_chain.nif",
+        golden_file="expression_shape_slice_chain.golden.json",
+        parse_mode="expression",
+    ),
+    GoldenTarget(
+        source_file="expression_shape_qualified_casts.nif",
+        golden_file="expression_shape_qualified_casts.golden.json",
+        parse_mode="expression",
+    ),
+    GoldenTarget(
+        source_file="expression_shape_logical_and_compare.nif",
+        golden_file="expression_shape_logical_and_compare.golden.json",
+        parse_mode="expression",
+    ),
 )
 
 

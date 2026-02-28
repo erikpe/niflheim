@@ -1,0 +1,727 @@
+{
+  "classes": [
+    {
+      "fields": [
+        {
+          "is_private": true,
+          "name": "value",
+          "node": "FieldDecl",
+          "type_ref": {
+            "name": "i64",
+            "node": "TypeRef"
+          }
+        }
+      ],
+      "is_export": false,
+      "methods": [
+        {
+          "body": {
+            "node": "BlockStmt",
+            "statements": [
+              {
+                "node": "ReturnStmt",
+                "value": {
+                  "arguments": [
+                    {
+                      "name": "v",
+                      "node": "IdentifierExpr"
+                    }
+                  ],
+                  "callee": {
+                    "name": "Counter",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "CallExpr"
+                }
+              }
+            ]
+          },
+          "is_private": true,
+          "is_static": true,
+          "name": "from_i64",
+          "node": "MethodDecl",
+          "params": [
+            {
+              "name": "v",
+              "node": "ParamDecl",
+              "type_ref": {
+                "name": "i64",
+                "node": "TypeRef"
+              }
+            }
+          ],
+          "return_type": {
+            "name": "Counter",
+            "node": "TypeRef"
+          }
+        },
+        {
+          "body": {
+            "node": "BlockStmt",
+            "statements": [
+              {
+                "node": "AssignStmt",
+                "target": {
+                  "field_name": "value",
+                  "node": "FieldAccessExpr",
+                  "object_expr": {
+                    "name": "__self",
+                    "node": "IdentifierExpr"
+                  }
+                },
+                "value": {
+                  "left": {
+                    "field_name": "value",
+                    "node": "FieldAccessExpr",
+                    "object_expr": {
+                      "name": "__self",
+                      "node": "IdentifierExpr"
+                    }
+                  },
+                  "node": "BinaryExpr",
+                  "operator": "+",
+                  "right": {
+                    "node": "LiteralExpr",
+                    "value": "1"
+                  }
+                }
+              },
+              {
+                "node": "ReturnStmt",
+                "value": null
+              }
+            ]
+          },
+          "is_private": false,
+          "is_static": false,
+          "name": "inc",
+          "node": "MethodDecl",
+          "params": [],
+          "return_type": {
+            "name": "unit",
+            "node": "TypeRef"
+          }
+        },
+        {
+          "body": {
+            "node": "BlockStmt",
+            "statements": [
+              {
+                "node": "ReturnStmt",
+                "value": {
+                  "field_name": "value",
+                  "node": "FieldAccessExpr",
+                  "object_expr": {
+                    "name": "__self",
+                    "node": "IdentifierExpr"
+                  }
+                }
+              }
+            ]
+          },
+          "is_private": false,
+          "is_static": false,
+          "name": "read",
+          "node": "MethodDecl",
+          "params": [],
+          "return_type": {
+            "name": "i64",
+            "node": "TypeRef"
+          }
+        },
+        {
+          "body": {
+            "node": "BlockStmt",
+            "statements": [
+              {
+                "node": "ReturnStmt",
+                "value": {
+                  "left": {
+                    "name": "a",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "BinaryExpr",
+                  "operator": "+",
+                  "right": {
+                    "name": "b",
+                    "node": "IdentifierExpr"
+                  }
+                }
+              }
+            ]
+          },
+          "is_private": false,
+          "is_static": true,
+          "name": "sum",
+          "node": "MethodDecl",
+          "params": [
+            {
+              "name": "a",
+              "node": "ParamDecl",
+              "type_ref": {
+                "name": "i64",
+                "node": "TypeRef"
+              }
+            },
+            {
+              "name": "b",
+              "node": "ParamDecl",
+              "type_ref": {
+                "name": "i64",
+                "node": "TypeRef"
+              }
+            }
+          ],
+          "return_type": {
+            "name": "i64",
+            "node": "TypeRef"
+          }
+        }
+      ],
+      "name": "Counter",
+      "node": "ClassDecl"
+    }
+  ],
+  "functions": [
+    {
+      "body": null,
+      "is_export": false,
+      "is_extern": true,
+      "name": "rt_gc_collect",
+      "node": "FunctionDecl",
+      "params": [
+        {
+          "name": "ts",
+          "node": "ParamDecl",
+          "type_ref": {
+            "name": "Obj",
+            "node": "TypeRef"
+          }
+        }
+      ],
+      "return_type": {
+        "name": "unit",
+        "node": "TypeRef"
+      }
+    },
+    {
+      "body": null,
+      "is_export": true,
+      "is_extern": true,
+      "name": "rt_panic",
+      "node": "FunctionDecl",
+      "params": [
+        {
+          "name": "msg",
+          "node": "ParamDecl",
+          "type_ref": {
+            "name": "Str",
+            "node": "TypeRef"
+          }
+        }
+      ],
+      "return_type": {
+        "name": "unit",
+        "node": "TypeRef"
+      }
+    },
+    {
+      "body": {
+        "node": "BlockStmt",
+        "statements": [
+          {
+            "initializer": {
+              "node": "LiteralExpr",
+              "value": "0"
+            },
+            "name": "i",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "i64",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "initializer": {
+              "node": "LiteralExpr",
+              "value": "0"
+            },
+            "name": "total",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "i64",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "body": {
+              "node": "BlockStmt",
+              "statements": [
+                {
+                  "condition": {
+                    "left": {
+                      "name": "i",
+                      "node": "IdentifierExpr"
+                    },
+                    "node": "BinaryExpr",
+                    "operator": "==",
+                    "right": {
+                      "node": "LiteralExpr",
+                      "value": "2"
+                    }
+                  },
+                  "else_branch": null,
+                  "node": "IfStmt",
+                  "then_branch": {
+                    "node": "BlockStmt",
+                    "statements": [
+                      {
+                        "node": "AssignStmt",
+                        "target": {
+                          "name": "i",
+                          "node": "IdentifierExpr"
+                        },
+                        "value": {
+                          "left": {
+                            "name": "i",
+                            "node": "IdentifierExpr"
+                          },
+                          "node": "BinaryExpr",
+                          "operator": "+",
+                          "right": {
+                            "node": "LiteralExpr",
+                            "value": "1"
+                          }
+                        }
+                      },
+                      {
+                        "node": "ContinueStmt"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "node": "AssignStmt",
+                  "target": {
+                    "name": "total",
+                    "node": "IdentifierExpr"
+                  },
+                  "value": {
+                    "left": {
+                      "name": "total",
+                      "node": "IdentifierExpr"
+                    },
+                    "node": "BinaryExpr",
+                    "operator": "+",
+                    "right": {
+                      "index_expr": {
+                        "name": "i",
+                        "node": "IdentifierExpr"
+                      },
+                      "node": "IndexExpr",
+                      "object_expr": {
+                        "name": "items",
+                        "node": "IdentifierExpr"
+                      }
+                    }
+                  }
+                },
+                {
+                  "condition": {
+                    "left": {
+                      "name": "total",
+                      "node": "IdentifierExpr"
+                    },
+                    "node": "BinaryExpr",
+                    "operator": ">",
+                    "right": {
+                      "node": "LiteralExpr",
+                      "value": "50"
+                    }
+                  },
+                  "else_branch": null,
+                  "node": "IfStmt",
+                  "then_branch": {
+                    "node": "BlockStmt",
+                    "statements": [
+                      {
+                        "node": "BreakStmt"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "node": "AssignStmt",
+                  "target": {
+                    "name": "i",
+                    "node": "IdentifierExpr"
+                  },
+                  "value": {
+                    "left": {
+                      "name": "i",
+                      "node": "IdentifierExpr"
+                    },
+                    "node": "BinaryExpr",
+                    "operator": "+",
+                    "right": {
+                      "node": "LiteralExpr",
+                      "value": "1"
+                    }
+                  }
+                }
+              ]
+            },
+            "condition": {
+              "left": {
+                "name": "i",
+                "node": "IdentifierExpr"
+              },
+              "node": "BinaryExpr",
+              "operator": "<",
+              "right": {
+                "node": "CastExpr",
+                "operand": {
+                  "arguments": [],
+                  "callee": {
+                    "field_name": "len",
+                    "node": "FieldAccessExpr",
+                    "object_expr": {
+                      "name": "items",
+                      "node": "IdentifierExpr"
+                    }
+                  },
+                  "node": "CallExpr"
+                },
+                "type_ref": {
+                  "name": "i64",
+                  "node": "TypeRef"
+                }
+              }
+            },
+            "node": "WhileStmt"
+          },
+          {
+            "node": "ReturnStmt",
+            "value": {
+              "name": "total",
+              "node": "IdentifierExpr"
+            }
+          }
+        ]
+      },
+      "is_export": false,
+      "is_extern": false,
+      "name": "helper",
+      "node": "FunctionDecl",
+      "params": [
+        {
+          "name": "items",
+          "node": "ParamDecl",
+          "type_ref": {
+            "element_type": {
+              "name": "i64",
+              "node": "TypeRef"
+            },
+            "node": "ArrayTypeRef"
+          }
+        }
+      ],
+      "return_type": {
+        "name": "i64",
+        "node": "TypeRef"
+      }
+    },
+    {
+      "body": {
+        "node": "BlockStmt",
+        "statements": [
+          {
+            "initializer": {
+              "element_type_ref": {
+                "element_type": {
+                  "name": "i64",
+                  "node": "TypeRef"
+                },
+                "node": "ArrayTypeRef"
+              },
+              "length_expr": {
+                "node": "LiteralExpr",
+                "value": "4"
+              },
+              "node": "ArrayCtorExpr"
+            },
+            "name": "arr",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "element_type": {
+                "name": "i64",
+                "node": "TypeRef"
+              },
+              "node": "ArrayTypeRef"
+            }
+          },
+          {
+            "node": "AssignStmt",
+            "target": {
+              "index_expr": {
+                "node": "LiteralExpr",
+                "value": "0"
+              },
+              "node": "IndexExpr",
+              "object_expr": {
+                "name": "arr",
+                "node": "IdentifierExpr"
+              }
+            },
+            "value": {
+              "node": "LiteralExpr",
+              "value": "10"
+            }
+          },
+          {
+            "node": "AssignStmt",
+            "target": {
+              "index_expr": {
+                "node": "LiteralExpr",
+                "value": "1"
+              },
+              "node": "IndexExpr",
+              "object_expr": {
+                "name": "arr",
+                "node": "IdentifierExpr"
+              }
+            },
+            "value": {
+              "node": "LiteralExpr",
+              "value": "20"
+            }
+          },
+          {
+            "node": "AssignStmt",
+            "target": {
+              "index_expr": {
+                "node": "LiteralExpr",
+                "value": "2"
+              },
+              "node": "IndexExpr",
+              "object_expr": {
+                "name": "arr",
+                "node": "IdentifierExpr"
+              }
+            },
+            "value": {
+              "node": "LiteralExpr",
+              "value": "30"
+            }
+          },
+          {
+            "node": "AssignStmt",
+            "target": {
+              "index_expr": {
+                "node": "LiteralExpr",
+                "value": "3"
+              },
+              "node": "IndexExpr",
+              "object_expr": {
+                "name": "arr",
+                "node": "IdentifierExpr"
+              }
+            },
+            "value": {
+              "node": "LiteralExpr",
+              "value": "40"
+            }
+          },
+          {
+            "initializer": {
+              "arguments": [
+                {
+                  "node": "LiteralExpr",
+                  "value": "1"
+                },
+                {
+                  "node": "LiteralExpr",
+                  "value": "3"
+                }
+              ],
+              "callee": {
+                "field_name": "slice",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "name": "arr",
+                  "node": "IdentifierExpr"
+                }
+              },
+              "node": "CallExpr"
+            },
+            "name": "sub",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "element_type": {
+                "name": "i64",
+                "node": "TypeRef"
+              },
+              "node": "ArrayTypeRef"
+            }
+          },
+          {
+            "initializer": {
+              "arguments": [
+                {
+                  "node": "CastExpr",
+                  "operand": {
+                    "arguments": [],
+                    "callee": {
+                      "field_name": "len",
+                      "node": "FieldAccessExpr",
+                      "object_expr": {
+                        "name": "sub",
+                        "node": "IdentifierExpr"
+                      }
+                    },
+                    "node": "CallExpr"
+                  },
+                  "type_ref": {
+                    "name": "i64",
+                    "node": "TypeRef"
+                  }
+                }
+              ],
+              "callee": {
+                "field_name": "from_i64",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "name": "Counter",
+                  "node": "IdentifierExpr"
+                }
+              },
+              "node": "CallExpr"
+            },
+            "name": "c",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "Counter",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "expression": {
+              "arguments": [],
+              "callee": {
+                "field_name": "inc",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "name": "c",
+                  "node": "IdentifierExpr"
+                }
+              },
+              "node": "CallExpr"
+            },
+            "node": "ExprStmt"
+          },
+          {
+            "condition": {
+              "left": {
+                "arguments": [
+                  {
+                    "arguments": [],
+                    "callee": {
+                      "field_name": "read",
+                      "node": "FieldAccessExpr",
+                      "object_expr": {
+                        "name": "c",
+                        "node": "IdentifierExpr"
+                      }
+                    },
+                    "node": "CallExpr"
+                  },
+                  {
+                    "arguments": [
+                      {
+                        "name": "arr",
+                        "node": "IdentifierExpr"
+                      }
+                    ],
+                    "callee": {
+                      "name": "helper",
+                      "node": "IdentifierExpr"
+                    },
+                    "node": "CallExpr"
+                  }
+                ],
+                "callee": {
+                  "field_name": "sum",
+                  "node": "FieldAccessExpr",
+                  "object_expr": {
+                    "name": "Counter",
+                    "node": "IdentifierExpr"
+                  }
+                },
+                "node": "CallExpr"
+              },
+              "node": "BinaryExpr",
+              "operator": ">",
+              "right": {
+                "node": "LiteralExpr",
+                "value": "0"
+              }
+            },
+            "else_branch": {
+              "node": "BlockStmt",
+              "statements": [
+                {
+                  "node": "ReturnStmt",
+                  "value": {
+                    "node": "LiteralExpr",
+                    "value": "1"
+                  }
+                }
+              ]
+            },
+            "node": "IfStmt",
+            "then_branch": {
+              "node": "BlockStmt",
+              "statements": [
+                {
+                  "node": "ReturnStmt",
+                  "value": {
+                    "node": "LiteralExpr",
+                    "value": "0"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "is_export": true,
+      "is_extern": false,
+      "name": "main",
+      "node": "FunctionDecl",
+      "params": [],
+      "return_type": {
+        "name": "i64",
+        "node": "TypeRef"
+      }
+    }
+  ],
+  "imports": [
+    {
+      "is_export": false,
+      "module_path": [
+        "std",
+        "io"
+      ],
+      "node": "ImportDecl"
+    },
+    {
+      "is_export": true,
+      "module_path": [
+        "std",
+        "box"
+      ],
+      "node": "ImportDecl"
+    }
+  ],
+  "node": "ModuleAst"
+}

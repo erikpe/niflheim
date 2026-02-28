@@ -1,0 +1,1 @@
+!(a && b) || ((i64)std.math.Counter(7).value) >= (i64)items[-1]

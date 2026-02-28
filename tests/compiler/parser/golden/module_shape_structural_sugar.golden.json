@@ -1,0 +1,287 @@
+{
+  "classes": [],
+  "functions": [
+    {
+      "body": {
+        "node": "BlockStmt",
+        "statements": [
+          {
+            "initializer": {
+              "arguments": [],
+              "callee": {
+                "field_name": "new",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "name": "Vec",
+                  "node": "IdentifierExpr"
+                }
+              },
+              "node": "CallExpr"
+            },
+            "name": "v",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "Vec",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "expression": {
+              "arguments": [
+                {
+                  "arguments": [
+                    {
+                      "node": "LiteralExpr",
+                      "value": "1"
+                    }
+                  ],
+                  "callee": {
+                    "name": "BoxI64",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "CallExpr"
+                }
+              ],
+              "callee": {
+                "field_name": "push",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "name": "v",
+                  "node": "IdentifierExpr"
+                }
+              },
+              "node": "CallExpr"
+            },
+            "node": "ExprStmt"
+          },
+          {
+            "expression": {
+              "arguments": [
+                {
+                  "arguments": [
+                    {
+                      "node": "LiteralExpr",
+                      "value": "2"
+                    }
+                  ],
+                  "callee": {
+                    "name": "BoxI64",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "CallExpr"
+                }
+              ],
+              "callee": {
+                "field_name": "push",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "name": "v",
+                  "node": "IdentifierExpr"
+                }
+              },
+              "node": "CallExpr"
+            },
+            "node": "ExprStmt"
+          },
+          {
+            "initializer": {
+              "index_expr": {
+                "node": "UnaryExpr",
+                "operand": {
+                  "node": "LiteralExpr",
+                  "value": "1"
+                },
+                "operator": "-"
+              },
+              "node": "IndexExpr",
+              "object_expr": {
+                "name": "v",
+                "node": "IdentifierExpr"
+              }
+            },
+            "name": "a",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "Obj",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "node": "AssignStmt",
+            "target": {
+              "index_expr": {
+                "node": "UnaryExpr",
+                "operand": {
+                  "node": "LiteralExpr",
+                  "value": "1"
+                },
+                "operator": "-"
+              },
+              "node": "IndexExpr",
+              "object_expr": {
+                "name": "v",
+                "node": "IdentifierExpr"
+              }
+            },
+            "value": {
+              "name": "a",
+              "node": "IdentifierExpr"
+            }
+          },
+          {
+            "initializer": {
+              "arguments": [
+                {
+                  "node": "LiteralExpr",
+                  "value": "0"
+                },
+                {
+                  "node": "CastExpr",
+                  "operand": {
+                    "arguments": [],
+                    "callee": {
+                      "field_name": "len",
+                      "node": "FieldAccessExpr",
+                      "object_expr": {
+                        "name": "v",
+                        "node": "IdentifierExpr"
+                      }
+                    },
+                    "node": "CallExpr"
+                  },
+                  "type_ref": {
+                    "name": "i64",
+                    "node": "TypeRef"
+                  }
+                }
+              ],
+              "callee": {
+                "field_name": "slice",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "name": "v",
+                  "node": "IdentifierExpr"
+                }
+              },
+              "node": "CallExpr"
+            },
+            "name": "s",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "Vec",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "initializer": {
+              "arguments": [
+                {
+                  "node": "LiteralExpr",
+                  "value": "0"
+                },
+                {
+                  "node": "LiteralExpr",
+                  "value": "1"
+                }
+              ],
+              "callee": {
+                "field_name": "slice",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "name": "v",
+                  "node": "IdentifierExpr"
+                }
+              },
+              "node": "CallExpr"
+            },
+            "name": "t",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "Vec",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "condition": {
+              "left": {
+                "arguments": [],
+                "callee": {
+                  "field_name": "len",
+                  "node": "FieldAccessExpr",
+                  "object_expr": {
+                    "name": "s",
+                    "node": "IdentifierExpr"
+                  }
+                },
+                "node": "CallExpr"
+              },
+              "node": "BinaryExpr",
+              "operator": "==",
+              "right": {
+                "arguments": [],
+                "callee": {
+                  "field_name": "len",
+                  "node": "FieldAccessExpr",
+                  "object_expr": {
+                    "name": "t",
+                    "node": "IdentifierExpr"
+                  }
+                },
+                "node": "CallExpr"
+              }
+            },
+            "else_branch": null,
+            "node": "IfStmt",
+            "then_branch": {
+              "node": "BlockStmt",
+              "statements": [
+                {
+                  "node": "ReturnStmt",
+                  "value": {
+                    "node": "LiteralExpr",
+                    "value": "0"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "ReturnStmt",
+            "value": {
+              "node": "LiteralExpr",
+              "value": "1"
+            }
+          }
+        ]
+      },
+      "is_export": false,
+      "is_extern": false,
+      "name": "main",
+      "node": "FunctionDecl",
+      "params": [],
+      "return_type": {
+        "name": "i64",
+        "node": "TypeRef"
+      }
+    }
+  ],
+  "imports": [
+    {
+      "is_export": false,
+      "module_path": [
+        "std",
+        "vec"
+      ],
+      "node": "ImportDecl"
+    },
+    {
+      "is_export": false,
+      "module_path": [
+        "std",
+        "box"
+      ],
+      "node": "ImportDecl"
+    }
+  ],
+  "node": "ModuleAst"
+}

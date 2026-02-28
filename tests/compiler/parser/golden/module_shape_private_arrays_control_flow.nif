@@ -1,0 +1,65 @@
+import std.io;
+export import std.box;
+
+extern fn rt_gc_collect(ts: Obj) -> unit;
+export extern fn rt_panic(msg: Str) -> unit;
+
+class Counter {
+    private value: i64;
+
+    private static fn from_i64(v: i64) -> Counter {
+        return Counter(v);
+    }
+
+    fn inc() -> unit {
+        __self.value = __self.value + 1;
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+
+    static fn sum(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+}
+
+fn helper(items: i64[]) -> i64 {
+    var i: i64 = 0;
+    var total: i64 = 0;
+
+    while i < (i64)items.len() {
+        if i == 2 {
+            i = i + 1;
+            continue;
+        }
+
+        total = total + items[i];
+        if total > 50 {
+            break;
+        }
+
+        i = i + 1;
+    }
+
+    return total;
+}
+
+export fn main() -> i64 {
+    var arr: i64[] = i64[](4);
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    arr[3] = 40;
+
+    var sub: i64[] = arr[1:3];
+    var c: Counter = Counter.from_i64((i64)sub.len());
+    c.inc();
+
+    if Counter.sum(c.read(), helper(arr)) > 0 {
+        return 0;
+    } else {
+        return 1;
+    }
+}

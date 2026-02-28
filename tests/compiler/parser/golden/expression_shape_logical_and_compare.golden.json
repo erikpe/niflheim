@@ -1,0 +1,78 @@
+{
+  "left": {
+    "node": "UnaryExpr",
+    "operand": {
+      "left": {
+        "name": "a",
+        "node": "IdentifierExpr"
+      },
+      "node": "BinaryExpr",
+      "operator": "&&",
+      "right": {
+        "name": "b",
+        "node": "IdentifierExpr"
+      }
+    },
+    "operator": "!"
+  },
+  "node": "BinaryExpr",
+  "operator": "||",
+  "right": {
+    "left": {
+      "node": "CastExpr",
+      "operand": {
+        "field_name": "value",
+        "node": "FieldAccessExpr",
+        "object_expr": {
+          "arguments": [
+            {
+              "node": "LiteralExpr",
+              "value": "7"
+            }
+          ],
+          "callee": {
+            "field_name": "Counter",
+            "node": "FieldAccessExpr",
+            "object_expr": {
+              "field_name": "math",
+              "node": "FieldAccessExpr",
+              "object_expr": {
+                "name": "std",
+                "node": "IdentifierExpr"
+              }
+            }
+          },
+          "node": "CallExpr"
+        }
+      },
+      "type_ref": {
+        "name": "i64",
+        "node": "TypeRef"
+      }
+    },
+    "node": "BinaryExpr",
+    "operator": ">=",
+    "right": {
+      "node": "CastExpr",
+      "operand": {
+        "index_expr": {
+          "node": "UnaryExpr",
+          "operand": {
+            "node": "LiteralExpr",
+            "value": "1"
+          },
+          "operator": "-"
+        },
+        "node": "IndexExpr",
+        "object_expr": {
+          "name": "items",
+          "node": "IdentifierExpr"
+        }
+      },
+      "type_ref": {
+        "name": "i64",
+        "node": "TypeRef"
+      }
+    }
+  }
+}

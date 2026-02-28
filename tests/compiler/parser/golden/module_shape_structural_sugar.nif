@@ -1,0 +1,19 @@
+import std.vec;
+import std.box;
+
+fn main() -> i64 {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(1));
+    v.push(BoxI64(2));
+
+    var a: Obj = v[-1];
+    v[-1] = a;
+
+    var s: Vec = v[:];
+    var t: Vec = v[0:1];
+
+    if s.len() == t.len() {
+        return 0;
+    }
+    return 1;
+}

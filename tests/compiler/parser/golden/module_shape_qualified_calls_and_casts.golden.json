@@ -1,0 +1,207 @@
+{
+  "classes": [
+    {
+      "fields": [
+        {
+          "is_private": false,
+          "name": "value",
+          "node": "FieldDecl",
+          "type_ref": {
+            "name": "i64",
+            "node": "TypeRef"
+          }
+        }
+      ],
+      "is_export": false,
+      "methods": [],
+      "name": "Item",
+      "node": "ClassDecl"
+    }
+  ],
+  "functions": [
+    {
+      "body": {
+        "node": "BlockStmt",
+        "statements": [
+          {
+            "node": "ReturnStmt",
+            "value": {
+              "arguments": [
+                {
+                  "node": "LiteralExpr",
+                  "value": "7"
+                }
+              ],
+              "callee": {
+                "field_name": "Item",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "field_name": "math",
+                  "node": "FieldAccessExpr",
+                  "object_expr": {
+                    "name": "util",
+                    "node": "IdentifierExpr"
+                  }
+                }
+              },
+              "node": "CallExpr"
+            }
+          }
+        ]
+      },
+      "is_export": false,
+      "is_extern": false,
+      "name": "make",
+      "node": "FunctionDecl",
+      "params": [],
+      "return_type": {
+        "name": "util.math.Item",
+        "node": "TypeRef"
+      }
+    },
+    {
+      "body": {
+        "node": "BlockStmt",
+        "statements": [
+          {
+            "initializer": {
+              "node": "NullExpr"
+            },
+            "name": "o",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "Obj",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "initializer": {
+              "field_name": "value",
+              "node": "FieldAccessExpr",
+              "object_expr": {
+                "node": "CastExpr",
+                "operand": {
+                  "arguments": [],
+                  "callee": {
+                    "name": "make",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "CallExpr"
+                },
+                "type_ref": {
+                  "name": "util.math.Item",
+                  "node": "TypeRef"
+                }
+              }
+            },
+            "name": "x",
+            "node": "VarDeclStmt",
+            "type_ref": {
+              "name": "i64",
+              "node": "TypeRef"
+            }
+          },
+          {
+            "condition": {
+              "left": {
+                "node": "UnaryExpr",
+                "operand": {
+                  "left": {
+                    "name": "x",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "BinaryExpr",
+                  "operator": "<",
+                  "right": {
+                    "node": "LiteralExpr",
+                    "value": "0"
+                  }
+                },
+                "operator": "!"
+              },
+              "node": "BinaryExpr",
+              "operator": "&&",
+              "right": {
+                "left": {
+                  "left": {
+                    "name": "x",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "BinaryExpr",
+                  "operator": "==",
+                  "right": {
+                    "node": "LiteralExpr",
+                    "value": "7"
+                  }
+                },
+                "node": "BinaryExpr",
+                "operator": "||",
+                "right": {
+                  "left": {
+                    "name": "x",
+                    "node": "IdentifierExpr"
+                  },
+                  "node": "BinaryExpr",
+                  "operator": "==",
+                  "right": {
+                    "node": "LiteralExpr",
+                    "value": "8"
+                  }
+                }
+              }
+            },
+            "else_branch": null,
+            "node": "IfStmt",
+            "then_branch": {
+              "node": "BlockStmt",
+              "statements": [
+                {
+                  "node": "ReturnStmt",
+                  "value": {
+                    "node": "LiteralExpr",
+                    "value": "0"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "ReturnStmt",
+            "value": {
+              "node": "LiteralExpr",
+              "value": "1"
+            }
+          }
+        ]
+      },
+      "is_export": false,
+      "is_extern": false,
+      "name": "main",
+      "node": "FunctionDecl",
+      "params": [],
+      "return_type": {
+        "name": "i64",
+        "node": "TypeRef"
+      }
+    }
+  ],
+  "imports": [
+    {
+      "is_export": false,
+      "module_path": [
+        "util",
+        "math"
+      ],
+      "node": "ImportDecl"
+    },
+    {
+      "is_export": false,
+      "module_path": [
+        "std",
+        "vec"
+      ],
+      "node": "ImportDecl"
+    }
+  ],
+  "node": "ModuleAst"
+}

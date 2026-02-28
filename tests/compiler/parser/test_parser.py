@@ -1,16 +1,11 @@
 from dataclasses import fields, is_dataclass
-from pathlib import Path
 
 import pytest
 
 from compiler.ast_nodes import *
-from compiler.ast_dump import ast_to_debug_json
 from compiler.lexer import SourceSpan, lex
 from compiler.parser import ParserError, TokenStream, parse, parse_expression
 from compiler.tokens import TokenKind
-
-
-GOLDEN_DIR = Path(__file__).parent / "golden"
 
 
 def _assert_ast_nodes_have_spans(node: object) -> None:
@@ -592,27 +587,3 @@ fn main() -> unit {
 def test_parse_expression_ast_nodes_have_spans_recursively() -> None:
     expr = parse_expression(lex("(i64)foo(1 + 2).bar[3]", source_path="examples/span_check_expr.nif"))
     _assert_ast_nodes_have_spans(expr)
-
-
-def test_module_ast_debug_dump_matches_golden() -> None:
-    source_path = GOLDEN_DIR / "module_shape.nif"
-    expected_path = GOLDEN_DIR / "module_shape.golden.json"
-
-    source = source_path.read_text(encoding="utf-8")
-    module = parse(lex(source, source_path=source_path.as_posix()))
-    actual = ast_to_debug_json(module)
-    expected = expected_path.read_text(encoding="utf-8")
-
-    assert actual.rstrip() == expected.rstrip()
-
-
-def test_expression_ast_debug_dump_matches_golden() -> None:
-    source_path = GOLDEN_DIR / "expression_shape.nif"
-    expected_path = GOLDEN_DIR / "expression_shape.golden.json"
-
-    source = source_path.read_text(encoding="utf-8")
-    expr = parse_expression(lex(source, source_path=source_path.as_posix()))
-    actual = ast_to_debug_json(expr)
-    expected = expected_path.read_text(encoding="utf-8")
-
-    assert actual.rstrip() == expected.rstrip()

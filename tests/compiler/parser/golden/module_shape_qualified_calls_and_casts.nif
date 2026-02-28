@@ -1,0 +1,21 @@
+import util.math;
+import std.vec;
+
+class Item {
+    value: i64;
+}
+
+fn make() -> util.math.Item {
+    return util.math.Item(7);
+}
+
+fn main() -> i64 {
+    var o: Obj = null;
+    var x: i64 = ((util.math.Item)make()).value;
+
+    if !(x < 0) && (x == 7 || x == 8) {
+        return 0;
+    }
+
+    return 1;
+}

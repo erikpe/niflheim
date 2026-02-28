@@ -1,0 +1,49 @@
+{
+  "arguments": [
+    {
+      "node": "LiteralExpr",
+      "value": "3"
+    },
+    {
+      "name": "len",
+      "node": "IdentifierExpr"
+    }
+  ],
+  "callee": {
+    "field_name": "slice",
+    "node": "FieldAccessExpr",
+    "object_expr": {
+      "field_name": "baz",
+      "node": "FieldAccessExpr",
+      "object_expr": {
+        "node": "CastExpr",
+        "operand": {
+          "arguments": [
+            {
+              "node": "LiteralExpr",
+              "value": "1"
+            },
+            {
+              "node": "LiteralExpr",
+              "value": "2"
+            }
+          ],
+          "callee": {
+            "field_name": "bar",
+            "node": "FieldAccessExpr",
+            "object_expr": {
+              "name": "foo",
+              "node": "IdentifierExpr"
+            }
+          },
+          "node": "CallExpr"
+        },
+        "type_ref": {
+          "name": "util.Counter",
+          "node": "TypeRef"
+        }
+      }
+    }
+  },
+  "node": "CallExpr"
+}

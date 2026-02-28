@@ -1,0 +1,1 @@
+((util.Counter)foo.bar(1, 2)).baz[3:len]

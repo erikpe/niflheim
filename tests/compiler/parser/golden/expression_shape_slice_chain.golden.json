@@ -1,0 +1,118 @@
+{
+  "arguments": [
+    {
+      "node": "CastExpr",
+      "operand": {
+        "node": "UnaryExpr",
+        "operand": {
+          "name": "x",
+          "node": "IdentifierExpr"
+        },
+        "operator": "-"
+      },
+      "type_ref": {
+        "name": "i64",
+        "node": "TypeRef"
+      }
+    },
+    {
+      "arguments": [
+        {
+          "node": "LiteralExpr",
+          "value": "0"
+        },
+        {
+          "node": "CastExpr",
+          "operand": {
+            "arguments": [],
+            "callee": {
+              "field_name": "len",
+              "node": "FieldAccessExpr",
+              "object_expr": {
+                "name": "y",
+                "node": "IdentifierExpr"
+              }
+            },
+            "node": "CallExpr"
+          },
+          "type_ref": {
+            "name": "i64",
+            "node": "TypeRef"
+          }
+        }
+      ],
+      "callee": {
+        "field_name": "slice",
+        "node": "FieldAccessExpr",
+        "object_expr": {
+          "name": "y",
+          "node": "IdentifierExpr"
+        }
+      },
+      "node": "CallExpr"
+    },
+    {
+      "index_expr": {
+        "node": "UnaryExpr",
+        "operand": {
+          "node": "LiteralExpr",
+          "value": "1"
+        },
+        "operator": "-"
+      },
+      "node": "IndexExpr",
+      "object_expr": {
+        "name": "z",
+        "node": "IdentifierExpr"
+      }
+    }
+  ],
+  "callee": {
+    "field_name": "field",
+    "node": "FieldAccessExpr",
+    "object_expr": {
+      "index_expr": {
+        "node": "LiteralExpr",
+        "value": "0"
+      },
+      "node": "IndexExpr",
+      "object_expr": {
+        "arguments": [
+          {
+            "node": "LiteralExpr",
+            "value": "1"
+          },
+          {
+            "node": "CastExpr",
+            "operand": {
+              "arguments": [],
+              "callee": {
+                "field_name": "len",
+                "node": "FieldAccessExpr",
+                "object_expr": {
+                  "name": "arr",
+                  "node": "IdentifierExpr"
+                }
+              },
+              "node": "CallExpr"
+            },
+            "type_ref": {
+              "name": "i64",
+              "node": "TypeRef"
+            }
+          }
+        ],
+        "callee": {
+          "field_name": "slice",
+          "node": "FieldAccessExpr",
+          "object_expr": {
+            "name": "arr",
+            "node": "IdentifierExpr"
+          }
+        },
+        "node": "CallExpr"
+      }
+    }
+  },
+  "node": "CallExpr"
+}
