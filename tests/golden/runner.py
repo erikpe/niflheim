@@ -300,7 +300,7 @@ def _run_test(test: GoldenTest) -> TestResult:
     )
 
 
-def _print_result(result: TestResult) -> None:
+def _print_result_per_file(result: TestResult) -> None:
     rel_path = result.source_path.relative_to(REPO_ROOT)
     if result.ok:
         print(f"PASS {rel_path}")
@@ -319,10 +319,37 @@ def _print_result(result: TestResult) -> None:
             print(f"    - {detail}")
 
 
+def _print_result_per_run(result: TestResult) -> None:
+    rel_path = result.source_path.relative_to(REPO_ROOT)
+    if not result.compile_ok:
+        print(f"FAIL {rel_path} :: <compile>")
+        print(f"  compile: {result.compile_error}")
+        return
+
+    for run in result.run_results:
+        status = "PASS" if run.ok else "FAIL"
+        print(f"{status} {rel_path} :: {run.name}")
+        if not run.ok:
+            for detail in run.details:
+                print(f"  - {detail}")
+
+
+def _print_result(result: TestResult, *, per_run: bool) -> None:
+    if per_run:
+        _print_result_per_run(result)
+        return
+    _print_result_per_file(result)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Niflheim golden tests")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="Number of concurrent workers")
     parser.add_argument("--filter", type=str, default=None, help="Glob under tests/golden (e.g. 'arithmetic/**')")
+    parser.add_argument(
+        "--print-per-run",
+        action="store_true",
+        help="Print one PASS/FAIL line per run case instead of per test file",
+    )
     args = parser.parse_args()
 
     try:
@@ -335,16 +362,15 @@ def main() -> int:
         print("golden: no tests discovered")
         return 0
 
-    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     results: list[TestResult] = []
     with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        for result in pool.map(_run_test, tests):
+        futures = [pool.submit(_run_test, test) for test in tests]
+        for future in as_completed(futures):
+            result = future.result()
             results.append(result)
-
-    results.sort(key=lambda item: str(item.source_path))
-    for result in results:
-        _print_result(result)
+            _print_result(result, per_run=args.print_per_run)
 
     failed = [result for result in results if not result.ok]
     total_runs = sum(len(test.runs) for test in tests)
