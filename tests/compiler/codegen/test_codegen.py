@@ -968,3 +968,65 @@ fn f(o: Obj) -> Obj {
     assert '.asciz "Obj"' in asm
     assert ".data" in asm
     assert "__nif_type_Obj:" in asm
+
+
+def test_emit_asm_class_type_metadata_includes_pointer_offsets_for_reference_fields() -> None:
+    source = """
+class Holder {
+    value: Obj;
+    count: i64;
+}
+
+fn f(o: Obj) -> Holder {
+    return (Holder)o;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "__nif_type_name_Holder__ptr_offsets:" in asm
+    assert "__nif_type_name_Holder__ptr_offsets:\n    .long 24" in asm
+    assert (
+        "__nif_type_Holder:\n"
+        "    .long 0\n"
+        "    .long 1\n"
+        "    .long 1\n"
+        "    .long 8\n"
+        "    .quad 0\n"
+        "    .quad __nif_type_name_Holder\n"
+        "    .quad 0\n"
+        "    .quad __nif_type_name_Holder__ptr_offsets\n"
+        "    .long 1\n"
+        "    .long 0"
+    ) in asm
+
+
+def test_emit_asm_class_type_metadata_omits_pointer_offsets_for_primitive_fields() -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn f(o: Obj) -> Counter {
+    return (Counter)o;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "__nif_type_name_Counter__ptr_offsets:" not in asm
+    assert (
+        "__nif_type_Counter:\n"
+        "    .long 0\n"
+        "    .long 0\n"
+        "    .long 1\n"
+        "    .long 8\n"
+        "    .quad 0\n"
+        "    .quad __nif_type_name_Counter\n"
+        "    .quad 0\n"
+        "    .quad 0\n"
+        "    .long 0\n"
+        "    .long 0"
+    ) in asm

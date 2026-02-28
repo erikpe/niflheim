@@ -1631,28 +1631,58 @@ class CodeGenerator:
         if not type_names:
             return
 
+        class_decls_by_name = {cls.name: cls for cls in self.module_ast.classes}
+        pointer_offset_symbols: dict[str, tuple[str, list[int]]] = {}
+        for type_name in type_names:
+            class_decl = class_decls_by_name.get(type_name)
+            if class_decl is None:
+                continue
+            pointer_offsets = [
+                24 + (8 * field_index)
+                for field_index, field in enumerate(class_decl.fields)
+                if _is_reference_type_name(_type_ref_name(field.type_ref))
+            ]
+            if pointer_offsets:
+                pointer_offset_symbols[type_name] = (
+                    f"{_mangle_type_name_symbol(type_name)}__ptr_offsets",
+                    pointer_offsets,
+                )
+
         self.out.append("")
         self.out.append(".section .rodata")
         for type_name in type_names:
             self.out.append(f"{_mangle_type_name_symbol(type_name)}:")
             self.out.append(f'    .asciz "{type_name}"')
+        for symbol, pointer_offsets in pointer_offset_symbols.values():
+            self.out.append(f"{symbol}:")
+            for offset in pointer_offsets:
+                self.out.append(f"    .long {offset}")
 
         self.out.append("")
         self.out.append(".data")
         for type_name in type_names:
             type_sym = _mangle_type_symbol(type_name)
             name_sym = _mangle_type_name_symbol(type_name)
+            pointer_offsets_meta = pointer_offset_symbols.get(type_name)
+            if pointer_offsets_meta is None:
+                type_flags = 0
+                pointer_offsets_sym = "0"
+                pointer_offsets_count = 0
+            else:
+                pointer_offsets_sym = pointer_offsets_meta[0]
+                pointer_offsets_count = len(pointer_offsets_meta[1])
+                type_flags = 1
             self.out.append("    .p2align 3")
             self.out.append(f"{type_sym}:")
             self.out.append("    .long 0")
-            self.out.append("    .long 0")
+            self.out.append(f"    .long {type_flags}")
             self.out.append("    .long 1")
             self.out.append("    .long 8")
             self.out.append("    .quad 0")
             self.out.append(f"    .quad {name_sym}")
             self.out.append("    .quad 0")
-            self.out.append("    .quad 0")
-            self.out.append("    .long 0")
+            self.out.append(f"    .quad {pointer_offsets_sym}")
+            self.out.append(f"    .long {pointer_offsets_count}")
             self.out.append("    .long 0")
 
     def generate(self) -> str:
