@@ -177,6 +177,18 @@ void* rt_array_new_ref(uint64_t len) {
     return rt_array_new(len, RT_ARRAY_KIND_REF, sizeof(void*), &rt_type_array_reference_desc);
 }
 
+void* rt_array_from_bytes_u8(const uint8_t* bytes, uint64_t len) {
+    if (len > 0 && bytes == NULL) {
+        rt_panic("rt_array_from_bytes_u8: bytes is NULL with non-zero length");
+    }
+
+    RtArrayObj* array = (RtArrayObj*)rt_array_new_u8(len);
+    if (len > 0) {
+        memcpy(array->data, bytes, (size_t)len);
+    }
+    return (void*)array;
+}
+
 uint64_t rt_array_len(const void* array_obj) {
     return rt_require_array_obj(array_obj, "rt_array_len: object is not array")->len;
 }
