@@ -1,67 +1,8 @@
-extern fn rt_str_len(value: Str) -> i64;
-extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
-extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
-
-class Str {
-    fn len() -> i64 {
-        return rt_str_len(__self);
-    }
-
-    fn get_u8(index: i64) -> u8 {
-        var resolved: i64 = index;
-        if resolved < 0 {
-            resolved = __self.len() + resolved;
-        }
-        return rt_str_get_u8(__self, resolved);
-    }
-
-    fn slice(begin: i64, end: i64) -> Str {
-        var resolved_begin: i64 = begin;
-        if resolved_begin < 0 {
-            resolved_begin = __self.len() + resolved_begin;
-        }
-
-        var resolved_end: i64 = end;
-        if resolved_end < 0 {
-            resolved_end = __self.len() + resolved_end;
-        }
-
-        return rt_str_slice(__self, resolved_begin, resolved_end);
-    }
-
-    fn strip() -> Str {
-        var start: i64 = 0;
-        var stop: i64 = __self.len();
-
-        while start < stop && (
-            __self.get_u8(start) == (u8)32 ||
-            __self.get_u8(start) == (u8)9 ||
-            __self.get_u8(start) == (u8)10 ||
-            __self.get_u8(start) == (u8)11 ||
-            __self.get_u8(start) == (u8)12 ||
-            __self.get_u8(start) == (u8)13
-        ) {
-            start = start + 1;
-        }
-
-        while start < stop && (
-            __self.get_u8(stop - 1) == (u8)32 ||
-            __self.get_u8(stop - 1) == (u8)9 ||
-            __self.get_u8(stop - 1) == (u8)10 ||
-            __self.get_u8(stop - 1) == (u8)11 ||
-            __self.get_u8(stop - 1) == (u8)12 ||
-            __self.get_u8(stop - 1) == (u8)13
-        ) {
-            stop = stop - 1;
-        }
-
-        return __self.slice(start, stop);
-    }
-}
+import std.newstr;
 
 fn main() -> i64 {
-    var v: Str = " \tHello world!\n";
-    var s: Str = v.strip();
+    var v: NewStr = " \tHello world!\n";
+    var s: NewStr = v.strip();
     if s[0] != (u8)72 {
         return 1;
     }
@@ -69,9 +10,9 @@ fn main() -> i64 {
         return 2;
     }
 
-    var w: Str = " \n\t\r";
-    var empty: Str = w.strip();
-    if empty.len() != 0 {
+    var w: NewStr = " \n\t\r";
+    var empty: NewStr = w.strip();
+    if empty.len() != 0u {
         return 3;
     }
     return 0;

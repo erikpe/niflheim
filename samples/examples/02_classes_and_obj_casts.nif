@@ -1,7 +1,8 @@
 // classes, nullable references, Obj up/down casts
+import std.newstr;
 
 class Person {
-    name: Str;
+    name: NewStr;
     age: i64;
 
     fn birthday(self: Person) -> unit {
@@ -9,7 +10,7 @@ class Person {
     }
 }
 
-export fn make_person(name: Str, age: i64) -> Person {
+export fn make_person(name: NewStr, age: i64) -> Person {
     var p: Person = Person(name, age);
     return p;
 }

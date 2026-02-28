@@ -5,7 +5,6 @@
 #include <stdio.h>
 
 #include "runtime.h"
-#include "str.h"
 
 void rt_println_i64(int64_t value) {
     printf("%" PRId64 "\n", value);
@@ -28,7 +27,7 @@ void rt_println_double(double value) {
     printf("%f\n", value);
 }
 
-void* rt_read_all(void) {
+void* rt_read_all_bytes(void) {
     size_t capacity = 4096;
     size_t len = 0;
     uint8_t* buffer = (uint8_t*)malloc(capacity);
@@ -65,8 +64,7 @@ void* rt_read_all(void) {
         }
     }
 
-    RtThreadState* ts = rt_thread_state();
-    void* str_obj = rt_str_from_bytes(ts, buffer, (uint64_t)len);
+    void* bytes_obj = rt_array_from_bytes_u8(buffer, (uint64_t)len);
     free(buffer);
-    return str_obj;
+    return bytes_obj;
 }

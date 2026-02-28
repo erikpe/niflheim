@@ -1,7 +1,8 @@
 import std.error;
-import std.str;
+import std.newstr;
 
-fn main() -> i64 {
+fn main() -> i64
+{
     panic("Golden panic message");
     return 0;
 }

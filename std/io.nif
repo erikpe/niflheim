@@ -1,11 +1,11 @@
-import std.str;
+import std.newstr;
 
 extern fn rt_println_i64(value: i64) -> unit;
 extern fn rt_println_u64(value: u64) -> unit;
 extern fn rt_println_u8(value: u8) -> unit;
 extern fn rt_println_bool(value: bool) -> unit;
 extern fn rt_println_double(value: double) -> unit;
-extern fn rt_read_all() -> Str;
+extern fn rt_read_all_bytes() -> u8[];
 
 export fn println_i64(value: i64) -> unit
 {
@@ -32,7 +32,7 @@ export fn println_double(value: double) -> unit
     rt_println_double(value);
 }
 
-export fn read_all() -> Str
+export fn read_all() -> NewStr
 {
-    return rt_read_all();
+    return NewStr.from_u8_array(rt_read_all_bytes());
 }

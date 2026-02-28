@@ -1,5 +1,5 @@
 import std.test;
-import std.str;
+import std.newstr;
 import std.io;
 
 

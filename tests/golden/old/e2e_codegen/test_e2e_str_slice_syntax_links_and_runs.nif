@@ -1,27 +1,11 @@
-extern fn rt_str_len(value: Str) -> i64;
-extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
-extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
-
-class Str {
-    fn len() -> i64 {
-        return rt_str_len(__self);
-    }
-
-    fn get_u8(index: i64) -> u8 {
-        return rt_str_get_u8(__self, index);
-    }
-
-    fn slice(begin: i64, end: i64) -> Str {
-        return rt_str_slice(__self, begin, end);
-    }
-}
+import std.newstr;
 
 fn main() -> i64 {
-    var v: Str = "Hello world!";
-    var s1: Str = v[3:5];
-    var s2: Str = v[:7];
-    var s3: Str = v[4:];
-    var s4: Str = v[:];
+    var v: NewStr = "Hello world!";
+    var s1: NewStr = v[3:5];
+    var s2: NewStr = v[:7];
+    var s3: NewStr = v[4:];
+    var s4: NewStr = v[:];
     var c1: u8 = s1[0];
     var c2: u8 = s2[6];
     var c3: u8 = s3[0];

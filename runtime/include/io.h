@@ -12,7 +12,7 @@ void rt_println_u64(uint64_t value);
 void rt_println_u8(uint64_t value);
 void rt_println_bool(int64_t value);
 void rt_println_double(double value);
-void* rt_read_all(void);
+void* rt_read_all_bytes(void);
 
 #ifdef __cplusplus
 }

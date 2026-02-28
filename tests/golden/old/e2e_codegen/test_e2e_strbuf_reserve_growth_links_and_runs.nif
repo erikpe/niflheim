@@ -1,18 +1,11 @@
-extern fn rt_strbuf_new(capacity: i64) -> StrBuf;
-extern fn rt_strbuf_reserve(value: StrBuf, new_capacity: i64) -> unit;
-
-class StrBuf {
-    static fn new(capacity: i64) -> StrBuf {
-        return rt_strbuf_new(capacity);
-    }
-
-    fn reserve(new_capacity: i64) -> unit {
-        rt_strbuf_reserve(__self, new_capacity);
-    }
-}
+import std.newstr;
 
 fn main() -> i64 {
-    var b: StrBuf = StrBuf.new(0);
-    b.reserve(16);
+    var b: NewStrBuf = NewStrBuf.new(0u);
+    var i: u64 = 0u;
+    while i < 16u {
+        b.append_char('a');
+        i = i + 1u;
+    }
     return 0;
 }

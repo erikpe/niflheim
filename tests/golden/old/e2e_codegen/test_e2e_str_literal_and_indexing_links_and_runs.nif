@@ -1,13 +1,7 @@
-extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
-
-class Str {
-    fn get_u8(index: i64) -> u8 {
-        return rt_str_get_u8(__self, index);
-    }
-}
+import std.newstr;
 
 fn main() -> i64 {
-    var s: Str = "AB\n";
+    var s: NewStr = "AB\n";
     var b: u8 = s[1];
     return (i64)b;
 }
