@@ -220,6 +220,28 @@ def test_parse_export_requires_import_class_or_fn() -> None:
     assert "examples/bad_export.nif" in str(error.value)
 
 
+def test_parse_vec_type_and_static_call_via_identifier_path() -> None:
+    source = """
+fn main() -> unit {
+    var v: Vec = Vec.new();
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/vec_ident_parse.nif"))
+
+    fn = module.functions[0]
+    decl = fn.body.statements[0]
+    assert isinstance(decl, VarDeclStmt)
+    assert isinstance(decl.type_ref, TypeRef)
+    assert decl.type_ref.name == "Vec"
+
+    assert isinstance(decl.initializer, CallExpr)
+    assert isinstance(decl.initializer.callee, FieldAccessExpr)
+    assert isinstance(decl.initializer.callee.object_expr, IdentifierExpr)
+    assert decl.initializer.callee.object_expr.name == "Vec"
+    assert decl.initializer.callee.field_name == "new"
+
+
 def test_parse_extern_and_export_extern_function_declarations() -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;

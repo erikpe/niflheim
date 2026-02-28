@@ -145,3 +145,11 @@ def test_lex_error_includes_path_row_col() -> None:
         lex('"unterminated', source_path="examples/bad.nif")
 
     assert "examples/bad.nif:1:1" in str(error.value)
+
+
+def test_lex_vec_is_identifier_not_keyword() -> None:
+    tokens = lex("var v: Vec = Vec.new();")
+    vec_tokens = [token for token in tokens if token.lexeme == "Vec"]
+
+    assert len(vec_tokens) == 2
+    assert all(token.kind == TokenKind.IDENT for token in vec_tokens)

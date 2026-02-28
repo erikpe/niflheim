@@ -72,6 +72,55 @@ def test_typecheck_program_rejects_bad_imported_function_argument_type(tmp_path:
         typecheck_program(program)
 
 
+def test_typecheck_program_allows_imported_std_vec_with_index_and_slice_sugar(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "std" / "vec.nif",
+        """
+        export class Vec {
+            values: Obj[];
+
+            static fn new() -> Vec {
+                return Vec(Obj[](4u));
+            }
+
+            fn len() -> i64 {
+                return 4;
+            }
+
+            fn get(index: i64) -> Obj {
+                return __self.values[index];
+            }
+
+            fn set(index: i64, value: Obj) -> unit {
+                __self.values[index] = value;
+                return;
+            }
+
+            fn slice(begin: i64, end: i64) -> Vec {
+                return __self;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import std.vec;
+
+        fn main() -> unit {
+            var v: Vec = Vec.new();
+            v[0] = null;
+            var x: Obj = v[-1];
+            var s: Vec = v[:];
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_rejects_bad_imported_constructor_argument_type(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",

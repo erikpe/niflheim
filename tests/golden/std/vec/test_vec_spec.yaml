@@ -1,7 +1,15 @@
 runs:
   - { name: vec_baseline, input: { stdin: "1" }, expect: { exit_code: 0 } }
-  - { name: vec_negative_index_and_slice, input: { stdin: "2" }, expect: { exit_code: 0 } }
-  - { name: vec_grow_and_copy, input: { stdin: "3" }, expect: { exit_code: 0 } }
-  - { name: vec_get_oob_panics, input: { stdin: "4" }, expect: { panic: "Vec.get: index out of bounds" } }
-  - { name: vec_set_oob_panics, input: { stdin: "5" }, expect: { panic: "Vec.set: index out of bounds" } }
-  - { name: vec_slice_oob_panics, input: { stdin: "6" }, expect: { panic: "Vec.slice: invalid slice range" } }
+  - { name: vec_index_sugar_with_wrapping_negative_indexes, input: { stdin: "2" }, expect: { exit_code: 0 } }
+  - { name: vec_slice_sugar_forms_and_negative_wrapping, input: { stdin: "3" }, expect: { exit_code: 0 } }
+  - { name: vec_slice_copy_independence, input: { stdin: "4" }, expect: { exit_code: 0 } }
+  - { name: vec_grow_and_copy, input: { stdin: "5" }, expect: { exit_code: 0 } }
+  - { name: vec_get_oob_panics, input: { stdin: "6" }, expect: { panic: "Vec.get: index out of bounds" } }
+  - { name: vec_set_oob_panics, input: { stdin: "7" }, expect: { panic: "Vec.set: index out of bounds" } }
+  - { name: vec_get_negative_wrap_oob_panics, input: { stdin: "8" }, expect: { panic: "Vec.get: index out of bounds" } }
+  - { name: vec_set_negative_wrap_oob_panics, input: { stdin: "9" }, expect: { panic: "Vec.set: index out of bounds" } }
+  - { name: vec_slice_oob_panics, input: { stdin: "10" }, expect: { panic: "Vec.slice: invalid slice range" } }
+  - { name: vec_slice_negative_begin_oob_panics, input: { stdin: "11" }, expect: { panic: "Vec.slice: invalid slice range" } }
+  - { name: vec_slice_negative_end_oob_panics, input: { stdin: "12" }, expect: { panic: "Vec.slice: invalid slice range" } }
+  - { name: vec_slice_reversed_panics, input: { stdin: "13" }, expect: { panic: "Vec.slice: invalid slice range" } }
+  - { name: vec_with_capacity_negative_panics, input: { stdin: "14" }, expect: { panic: "Vec.with_capacity: negative capacity" } }

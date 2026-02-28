@@ -418,6 +418,36 @@ fn main() -> i64 {
     assert "    call __nif_method_Bag_get" in asm
 
 
+def test_emit_asm_structural_slice_sugar_for_user_class_lowers_to_slice_method() -> None:
+    source = """
+class Window {
+    values: i64[];
+
+    static fn new() -> Window {
+        return Window(i64[](3u));
+    }
+
+    fn slice(begin: i64, end: i64) -> Window {
+        return __self;
+    }
+}
+
+fn main() -> i64 {
+    var w: Window = Window.new();
+    var part: Window = w[0:2];
+    if part == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call __nif_method_Window_slice" in asm
+
+
 def test_emit_asm_array_constructor_lowers_to_runtime_symbol_by_element_kind() -> None:
     source = """
 class Person {
