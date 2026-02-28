@@ -541,13 +541,8 @@ def _infer_expression_type_name(
         return _type_ref_name(expr.element_type_ref)
 
     if isinstance(expr, FieldAccessExpr):
+        receiver_type = _field_receiver_type_name(expr.object_expr, ctx)
         if expr.field_name == "value":
-            if isinstance(expr.object_expr, IdentifierExpr):
-                receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
-            elif isinstance(expr.object_expr, CastExpr):
-                receiver_type = _type_ref_name(expr.object_expr.type_ref)
-            else:
-                receiver_type = "Obj"
             if receiver_type == "BoxDouble":
                 return "double"
             if receiver_type == "BoxU64":
@@ -557,6 +552,10 @@ def _infer_expression_type_name(
             if receiver_type == "BoxBool":
                 return "bool"
             return "i64"
+        if receiver_type is not None:
+            field_type_name = ctx.class_field_type_names.get((receiver_type, expr.field_name))
+            if field_type_name is not None:
+                return field_type_name
         return "i64"
 
     if isinstance(expr, IndexExpr):
@@ -585,6 +584,17 @@ def _infer_expression_type_name(
         return _infer_expression_type_name(expr.left, ctx)
 
     return "i64"
+
+
+def _field_receiver_type_name(object_expr: Expression, ctx: EmitContext) -> str | None:
+    if isinstance(object_expr, IdentifierExpr):
+        return ctx.layout.slot_type_names.get(object_expr.name)
+    if isinstance(object_expr, CastExpr):
+        return _type_ref_name(object_expr.type_ref)
+    type_name = _infer_expression_type_name(object_expr, ctx)
+    if _is_reference_type_name(type_name):
+        return type_name
+    return None
 
 
 def _method_function_decl(class_decl: ClassDecl, method_decl: MethodDecl, label: str) -> FunctionDecl:
@@ -634,6 +644,8 @@ class CodeGenerator:
         self.function_return_types: dict[str, str] = {}
         self.constructor_layouts: dict[str, ConstructorLayout] = {}
         self.constructor_labels: dict[str, str] = {}
+        self.class_field_offsets: dict[tuple[str, str], int] = {}
+        self.class_field_type_names: dict[tuple[str, str], str] = {}
         self.string_literal_labels: dict[str, tuple[str, int]] = {}
         self.source_lines_by_path: dict[str, list[str] | None] = {}
         self.last_emitted_comment_location: tuple[str, int] | None = None
@@ -681,6 +693,9 @@ class CodeGenerator:
             )
             self.constructor_layouts[cls.name] = ctor_layout
             self.constructor_labels[cls.name] = ctor_label
+            for field_index, field in enumerate(cls.fields):
+                self.class_field_offsets[(cls.name, field.name)] = 24 + (8 * field_index)
+                self.class_field_type_names[(cls.name, field.name)] = _type_ref_name(field.type_ref)
 
     def _emit_frame_prologue(self, target_label: str, layout: FunctionLayout, *, global_symbol: bool) -> None:
         if global_symbol:
@@ -886,16 +901,9 @@ class CodeGenerator:
         layout = ctx.layout
         label_counter = ctx.label_counter
 
-        receiver_type_name: str | None = None
-        if isinstance(expr.object_expr, IdentifierExpr):
-            receiver_name = expr.object_expr.name
-            receiver_type_name = layout.slot_type_names.get(receiver_name)
-            if receiver_type_name is None:
-                raise NotImplementedError(f"field receiver '{receiver_name}' is not materialized in stack layout")
-        elif isinstance(expr.object_expr, CastExpr):
-            receiver_type_name = _type_ref_name(expr.object_expr.type_ref)
-        else:
-            raise NotImplementedError("field access codegen currently supports identifier or cast receivers")
+        receiver_type_name = _field_receiver_type_name(expr.object_expr, ctx)
+        if receiver_type_name is None:
+            raise NotImplementedError("field access codegen requires class-typed receiver")
 
         if expr.field_name == "value":
             getter_name = BOX_VALUE_GETTER_RUNTIME_CALLS.get(receiver_type_name)
@@ -921,7 +929,13 @@ class CodeGenerator:
                 )
                 return
 
-        raise NotImplementedError("field access codegen currently supports only Box*.value reads")
+        field_offset = self.class_field_offsets.get((receiver_type_name, expr.field_name))
+        if field_offset is None:
+            raise NotImplementedError(
+                f"field access codegen missing field '{expr.field_name}' on class '{receiver_type_name}'"
+            )
+        self._emit_expr(expr.object_expr, ctx)
+        self.out.append(f"    mov rax, qword ptr [rax + {field_offset}]")
 
     def _emit_cast_expr(self, expr: CastExpr, ctx: EmitContext) -> None:
         label_counter = ctx.label_counter
@@ -1418,8 +1432,24 @@ class CodeGenerator:
                 self._emit_call_expr(synthetic_call, ctx)
                 return
 
+            if isinstance(stmt.target, FieldAccessExpr):
+                receiver_type_name = _field_receiver_type_name(stmt.target.object_expr, ctx)
+                if receiver_type_name is None:
+                    raise NotImplementedError("field assignment codegen requires class-typed receiver")
+                field_offset = self.class_field_offsets.get((receiver_type_name, stmt.target.field_name))
+                if field_offset is None:
+                    raise NotImplementedError(
+                        f"field assignment codegen missing field '{stmt.target.field_name}' on class '{receiver_type_name}'"
+                    )
+                self._emit_expr(stmt.target.object_expr, ctx)
+                self.out.append("    push rax")
+                self._emit_expr(stmt.value, ctx)
+                self.out.append("    pop rcx")
+                self.out.append(f"    mov qword ptr [rcx + {field_offset}], rax")
+                return
+
             if not isinstance(stmt.target, IdentifierExpr):
-                raise NotImplementedError("assignment codegen currently supports identifier or index targets only")
+                raise NotImplementedError("assignment codegen currently supports identifier, index, or field targets only")
             offset = layout.slot_offsets.get(stmt.target.name)
             if offset is None:
                 raise NotImplementedError(f"identifier '{stmt.target.name}' is not materialized in stack layout")
@@ -1544,6 +1574,7 @@ class CodeGenerator:
             constructor_labels=self.constructor_labels,
             function_return_types=self.function_return_types,
             string_literal_labels=self.string_literal_labels,
+            class_field_type_names=self.class_field_type_names,
         )
 
         for stmt in fn.body.statements:

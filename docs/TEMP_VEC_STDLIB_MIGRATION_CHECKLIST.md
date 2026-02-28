@@ -25,7 +25,7 @@ Goal: land stdlib-backed Vec and remove critical compiler hardcoding while keepi
 
 ### 1) Add stdlib Vec implementation (Obj[] backing)
 
-- [ ] Prerequisite: general class field read/write codegen support exists (needed for Vec internal state fields).
+- [x] Prerequisite: general class field read/write codegen support exists (needed for Vec internal state fields).
 - [ ] Create std/vec.nif with exported class Vec.
 - [ ] Implement internal storage with Obj[] + capacity/len bookkeeping.
 - [ ] Provide baseline API parity expected by existing programs/tests:

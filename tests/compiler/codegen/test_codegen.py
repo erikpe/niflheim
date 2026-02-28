@@ -630,6 +630,44 @@ fn main() -> i64 {
     assert "    call rt_alloc_obj" in asm
 
 
+def test_emit_asm_class_field_read_lowers_to_object_payload_load() -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(7);
+    return c.value;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov rax, qword ptr [rax + 24]" in asm
+
+
+def test_emit_asm_class_field_assignment_lowers_to_object_payload_store() -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(7);
+    c.value = 9;
+    return c.value;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov qword ptr [rcx + 24], rax" in asm
+    assert "    mov rax, qword ptr [rax + 24]" in asm
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks() -> None:
     source = """
 fn f(ts: Obj) -> unit {
