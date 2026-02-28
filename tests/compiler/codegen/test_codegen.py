@@ -385,6 +385,39 @@ fn main() -> i64 {
     assert "rt_vec_" not in asm
 
 
+def test_emit_asm_structural_index_sugar_for_user_class_lowers_to_get_set_methods() -> None:
+    source = """
+class Bag {
+    values: i64[];
+
+    static fn new() -> Bag {
+        return Bag(i64[](2u));
+    }
+
+    fn get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    fn set(index: i64, value: i64) -> unit {
+        __self.values[index] = value;
+        return;
+    }
+}
+
+fn main() -> i64 {
+    var b: Bag = Bag.new();
+    b[0] = 7;
+    return b[0];
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call __nif_method_Bag_set" in asm
+    assert "    call __nif_method_Bag_get" in asm
+
+
 def test_emit_asm_array_constructor_lowers_to_runtime_symbol_by_element_kind() -> None:
     source = """
 class Person {

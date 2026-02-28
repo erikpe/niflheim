@@ -42,7 +42,6 @@ from compiler.codegen_model import (
     ARRAY_SLICE_RUNTIME_CALLS,
     BOX_VALUE_GETTER_RUNTIME_CALLS,
     BUILTIN_CONSTRUCTOR_RUNTIME_CALLS,
-    BUILTIN_INDEX_RUNTIME_CALLS,
     BUILTIN_METHOD_RETURN_TYPES,
     BUILTIN_METHOD_RUNTIME_CALLS,
     BUILTIN_RUNTIME_TYPE_SYMBOLS,
@@ -1019,32 +1018,17 @@ class CodeGenerator:
             self._emit_call_expr(synthetic_call, ctx)
             return
 
-        self._emit_expr(expr.index_expr, ctx)
-        self.out.append("    push rax")
-        self._emit_expr(expr.object_expr, ctx)
-        self.out.append("    push rax")
-
-        self._emit_runtime_call_hook(
-            fn_name=ctx.fn_name,
-            phase="before",
-            label_counter=ctx.label_counter,
-            line=expr.span.start.line,
-            column=expr.span.start.column,
+        synthetic_callee = FieldAccessExpr(
+            object_expr=expr.object_expr,
+            field_name="get",
+            span=expr.span,
         )
-        self._emit_root_slot_updates(layout)
-        self.out.append("    pop rdi")
-        self.out.append("    pop rsi")
-
-        runtime_call = BUILTIN_INDEX_RUNTIME_CALLS.get(receiver_type_name)
-        if runtime_call is None:
-            raise NotImplementedError("index codegen currently supports Str receivers")
-        self.out.append(f"    call {runtime_call}")
-
-        self._emit_runtime_call_hook(
-            fn_name=ctx.fn_name,
-            phase="after",
-            label_counter=ctx.label_counter,
+        synthetic_call = CallExpr(
+            callee=synthetic_callee,
+            arguments=[expr.index_expr],
+            span=expr.span,
         )
+        self._emit_call_expr(synthetic_call, ctx)
 
     def _emit_array_ctor_expr(self, expr: ArrayCtorExpr, ctx: EmitContext) -> None:
         array_type_name = _type_ref_name(expr.element_type_ref)

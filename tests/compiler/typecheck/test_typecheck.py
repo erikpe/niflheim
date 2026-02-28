@@ -429,6 +429,110 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_structural_index_sugar_for_user_class() -> None:
+    source = """
+class Bag {
+    values: i64[];
+
+    static fn new() -> Bag {
+        return Bag(i64[](2u));
+    }
+
+    fn get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    fn set(index: i64, value: i64) -> unit {
+        __self.values[index] = value;
+        return;
+    }
+}
+
+fn main() -> unit {
+    var b: Bag = Bag.new();
+    b[0] = 42;
+    var v: i64 = b[0];
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_structural_index_sugar_for_wrong_get_signature() -> None:
+    source = """
+class BadBag {
+    values: i64[];
+
+    static fn new() -> BadBag {
+        return BadBag(i64[](1u));
+    }
+
+    fn get(index: u64) -> i64 {
+        return 0;
+    }
+}
+
+fn main() -> unit {
+    var b: BadBag = BadBag.new();
+    var v: i64 = b[0];
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="get' first parameter must be i64"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_structural_slice_sugar_for_user_class() -> None:
+    source = """
+class Window {
+    values: i64[];
+
+    static fn new() -> Window {
+        var seed: i64[] = i64[](3u);
+        seed[0] = 10;
+        seed[1] = 20;
+        seed[2] = 30;
+        return Window(seed);
+    }
+
+    fn slice(begin: i64, end: i64) -> Window {
+        return Window(__self.values[begin:end]);
+    }
+}
+
+fn main() -> unit {
+    var w: Window = Window.new();
+    var part: Window = w[0:2];
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_structural_slice_sugar_for_wrong_slice_signature() -> None:
+    source = """
+class BadWindow {
+    values: i64[];
+
+    static fn new() -> BadWindow {
+        return BadWindow(i64[](1u));
+    }
+
+    fn slice(begin: u64, end: u64) -> BadWindow {
+        return __self;
+    }
+}
+
+fn main() -> unit {
+    var w: BadWindow = BadWindow.new();
+    var part: BadWindow = w[0:1];
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="slice' parameters must be i64"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_str_index_returns_u8() -> None:
     source = """
 class Str {

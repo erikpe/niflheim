@@ -11,13 +11,13 @@ fn test_vec_baseline() -> unit {
     v.push(BoxI64(20));
     assert(v.len() == 2);
 
-    var first: i64 = ((BoxI64)v.get(0)).value;
-    var second: i64 = ((BoxI64)v.get(1)).value;
+    var first: i64 = ((BoxI64)v[0]).value;
+    var second: i64 = ((BoxI64)v[1]).value;
     assert(first == 10);
     assert(second == 20);
 
-    v.set(1, BoxI64(99));
-    assert(((BoxI64)v.get(1)).value == 99);
+    v[1] = BoxI64(99);
+    assert(((BoxI64)v[1]).value == 99);
 }
 
 

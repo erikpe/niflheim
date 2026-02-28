@@ -208,9 +208,9 @@ Depends on: 7 (can be parallelized once behavior is stable)
 
 Depends on: 7
 
-- [ ] Add/clarify checker logic so sugar eligibility is structural by method signature.
-- [ ] Add tests proving non-Vec class can opt into [] / [:] / []= by implementing get/slice/set.
-- [ ] Add negative tests for missing/incorrect method signatures.
+- [x] Add/clarify checker logic so sugar eligibility is structural by method signature.
+- [x] Add tests proving non-Vec class can opt into [] / [:] / []= by implementing get/slice/set.
+- [x] Add negative tests for missing/incorrect method signatures.
 
 ---
 

@@ -213,6 +213,15 @@ class TypeChecker:
 
         if isinstance(stmt, AssignStmt):
             self._ensure_assignable_target(stmt.target)
+            if isinstance(stmt.target, IndexExpr):
+                object_type = self._infer_expression_type(stmt.target.object_expr)
+                if object_type.element_type is None and not is_str_type_name(object_type.name) and object_type.name != "Map":
+                    value_type = self._infer_expression_type(stmt.value)
+                    self._ensure_structural_set_method_for_index_assignment(
+                        object_type,
+                        value_type,
+                        stmt.target.span,
+                    )
             target_type = self._infer_expression_type(stmt.target)
             value_type = self._infer_expression_type(stmt.value)
             self._require_assignable(target_type, value_type, stmt.value.span)
@@ -259,6 +268,8 @@ class TypeChecker:
             object_type = self._infer_expression_type(expr.object_expr)
             if is_str_type_name(object_type.name):
                 raise TypeCheckError("Cannot assign through Str index: Str is immutable", expr.span)
+            if object_type.element_type is None and object_type.name != "Map":
+                self._ensure_structural_set_method_available_for_index_assignment(object_type, expr.span)
             return
 
         raise TypeCheckError("Invalid assignment target", expr.span)
@@ -443,6 +454,11 @@ class TypeChecker:
 
             if obj_type.name == "Map":
                 return TypeInfo(name="Obj", kind="reference")
+
+            class_info = self._lookup_class_by_type_name(obj_type.name)
+            if class_info is not None:
+                self._require_array_index_type(index_type, expr.index_expr.span)
+                return self._resolve_structural_get_method_result_type(obj_type, class_info, expr.span)
             raise TypeCheckError(f"Type '{obj_type.name}' is not indexable", expr.span)
 
         raise TypeCheckError("Unsupported expression", expr.span)
@@ -570,6 +586,15 @@ class TypeChecker:
             method_sig = class_info.methods.get(expr.callee.field_name)
             if method_sig is None:
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
+
+            if expr.callee.field_name == "slice":
+                return self._resolve_structural_slice_method_result_type(
+                    object_type,
+                    class_info,
+                    expr.arguments,
+                    expr.span,
+                )
+
             if method_sig.is_static:
                 raise TypeCheckError(
                     f"Static method '{class_info.name}.{expr.callee.field_name}' must be called on the class",
@@ -596,6 +621,141 @@ class TypeChecker:
             return payload
         owner_dotted, class_name = payload.rsplit(":", 1)
         return f"{owner_dotted}::{class_name}"
+
+    def _resolve_structural_get_method_result_type(
+        self,
+        object_type: TypeInfo,
+        class_info: ClassInfo,
+        span: SourceSpan,
+    ) -> TypeInfo:
+        method_sig = class_info.methods.get("get")
+        if method_sig is None:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not indexable (missing method 'get(i64)')",
+                span,
+            )
+        if method_sig.is_static:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not indexable (method 'get' must be instance method)",
+                span,
+            )
+        if len(method_sig.params) != 1:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not indexable (method 'get' must take exactly 1 argument)",
+                span,
+            )
+
+        qualified_index_param = self._qualify_member_type_for_owner(method_sig.params[0], object_type.name)
+        if qualified_index_param.name != "i64":
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not indexable (method 'get' first parameter must be i64)",
+                span,
+            )
+
+        return self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
+
+    def _ensure_structural_set_method_available_for_index_assignment(
+        self,
+        object_type: TypeInfo,
+        span: SourceSpan,
+    ) -> None:
+        class_info = self._lookup_class_by_type_name(object_type.name)
+        if class_info is None:
+            raise TypeCheckError(f"Type '{object_type.name}' is not index-assignable", span)
+
+        method_sig = class_info.methods.get("set")
+        if method_sig is None:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not index-assignable (missing method 'set(i64, T)')",
+                span,
+            )
+        if method_sig.is_static:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not index-assignable (method 'set' must be instance method)",
+                span,
+            )
+        if len(method_sig.params) != 2:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not index-assignable (method 'set' must take exactly 2 arguments)",
+                span,
+            )
+
+        qualified_index_param = self._qualify_member_type_for_owner(method_sig.params[0], object_type.name)
+        if qualified_index_param.name != "i64":
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not index-assignable (method 'set' first parameter must be i64)",
+                span,
+            )
+
+        qualified_return_type = self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
+        if qualified_return_type.name != "unit":
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not index-assignable (method 'set' must return unit)",
+                span,
+            )
+
+    def _ensure_structural_set_method_for_index_assignment(
+        self,
+        object_type: TypeInfo,
+        value_type: TypeInfo,
+        span: SourceSpan,
+    ) -> None:
+        class_info = self._lookup_class_by_type_name(object_type.name)
+        if class_info is None:
+            raise TypeCheckError(f"Type '{object_type.name}' is not index-assignable", span)
+
+        get_result_type = self._resolve_structural_get_method_result_type(object_type, class_info, span)
+        self._ensure_structural_set_method_available_for_index_assignment(object_type, span)
+
+        method_sig = class_info.methods["set"]
+        qualified_value_param = self._qualify_member_type_for_owner(method_sig.params[1], object_type.name)
+        self._require_assignable(qualified_value_param, value_type, span)
+
+        if not self._type_infos_equal(qualified_value_param, get_result_type):
+            raise TypeCheckError(
+                f"Type '{object_type.name}' index sugar requires matching get/set value type",
+                span,
+            )
+
+    def _resolve_structural_slice_method_result_type(
+        self,
+        object_type: TypeInfo,
+        class_info: ClassInfo,
+        args: list[Expression],
+        span: SourceSpan,
+    ) -> TypeInfo:
+        method_sig = class_info.methods.get("slice")
+        if method_sig is None:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not sliceable (missing method 'slice(i64, i64)')",
+                span,
+            )
+        if method_sig.is_static:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not sliceable (method 'slice' must be instance method)",
+                span,
+            )
+        if len(method_sig.params) != 2:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not sliceable (method 'slice' must take exactly 2 arguments)",
+                span,
+            )
+        if len(args) != 2:
+            raise TypeCheckError(f"Expected 2 arguments, got {len(args)}", span)
+
+        qualified_begin_param = self._qualify_member_type_for_owner(method_sig.params[0], object_type.name)
+        qualified_end_param = self._qualify_member_type_for_owner(method_sig.params[1], object_type.name)
+        if qualified_begin_param.name != "i64" or qualified_end_param.name != "i64":
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not sliceable (method 'slice' parameters must be i64)",
+                span,
+            )
+
+        begin_arg_type = self._infer_expression_type(args[0])
+        end_arg_type = self._infer_expression_type(args[1])
+        self._require_array_index_type(begin_arg_type, args[0].span)
+        self._require_array_index_type(end_arg_type, args[1].span)
+        return self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
 
     def _resolve_imported_function_sig(self, fn_name: str, span: SourceSpan) -> FunctionSig | None:
         current_module = self._current_module_info()
