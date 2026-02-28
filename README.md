@@ -12,6 +12,7 @@ Key design docs:
 - [docs/TEST_PLAN_v0.1.md](docs/TEST_PLAN_v0.1.md)
 - [docs/GRAMMAR_EBNF.md](docs/GRAMMAR_EBNF.md)
 - [docs/REPO_STRUCTURE.md](docs/REPO_STRUCTURE.md)
+- [docs/INDEXING_SUGAR_DESIGN.md](docs/INDEXING_SUGAR_DESIGN.md)
 
 ## Repository Areas
 
