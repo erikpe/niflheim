@@ -52,13 +52,13 @@ from compiler.codegen_model import (
     TEMP_RUNTIME_ROOT_SLOT_COUNT,
 )
 from compiler.codegen_str_helper import (
+    STR_CLASS_NAME,
     collect_string_literals,
     decode_char_literal,
     decode_string_literal,
     escape_asm_string_bytes,
     escape_c_string,
 )
-from compiler.str_type_utils import STR_CLASS_NAME
 
 
 def _epilogue_label(fn_name: str) -> str:

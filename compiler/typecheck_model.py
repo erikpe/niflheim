@@ -5,18 +5,6 @@ from dataclasses import dataclass
 from compiler.lexer import SourceSpan
 
 
-__all__ = [
-    "PRIMITIVE_TYPE_NAMES",
-    "REFERENCE_BUILTIN_TYPE_NAMES",
-    "NUMERIC_TYPE_NAMES",
-    "BUILTIN_INDEX_RESULT_TYPE_NAMES",
-    "TypeInfo",
-    "FunctionSig",
-    "ClassInfo",
-    "TypeCheckError",
-]
-
-
 PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
 REFERENCE_BUILTIN_TYPE_NAMES = {
     "Obj",

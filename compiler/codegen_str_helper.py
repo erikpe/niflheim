@@ -21,6 +21,13 @@ from compiler.ast_nodes import (
 )
 
 
+STR_CLASS_NAME = "NewStr"
+
+
+def is_str_type_name(type_name: str) -> bool:
+    return type_name == STR_CLASS_NAME or type_name.endswith("::NewStr")
+
+
 def escape_asm_string_bytes(data: bytes) -> str:
     pieces: list[str] = []
     for byte in data:
@@ -225,14 +232,3 @@ def collect_string_literals(module_ast: ModuleAst) -> list[str]:
                 collect_string_literals_from_stmt(stmt, literals, seen)
 
     return literals
-
-
-__all__ = [
-    "escape_asm_string_bytes",
-    "escape_c_string",
-    "decode_string_literal",
-    "decode_char_literal",
-    "collect_string_literals_from_expr",
-    "collect_string_literals_from_stmt",
-    "collect_string_literals",
-]

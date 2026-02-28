@@ -22,9 +22,6 @@ UNARY_START_TOKENS: set[TokenKind] = {
 }
 
 
-BUILTIN_CALLABLE_TYPE_TOKENS: tuple[TokenKind, ...] = ()
-
-
 class ParserError(ValueError):
     def __init__(self, message: str, span: SourceSpan):
         super().__init__(f"{message} at {span.start.path}:{span.start.line}:{span.start.column}")
@@ -735,7 +732,7 @@ class Parser:
         if self._is_array_ctor_start():
             return self._parse_array_ctor_expr()
 
-        if self.stream.match(TokenKind.IDENT, *BUILTIN_CALLABLE_TYPE_TOKENS):
+        if self.stream.match(TokenKind.IDENT):
             token = self.stream.previous()
             return IdentifierExpr(name=token.lexeme, span=token.span)
 
