@@ -5,6 +5,7 @@
 
 #include "array.h"
 #include "io.h"
+#include "panic.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,12 +97,6 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
 RtGcStats rt_gc_get_stats(void);
 void rt_gc_collect(RtThreadState* ts);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
-void rt_panic_null_term_array(const void* array_obj);
-
-__attribute__((noreturn)) void rt_panic(const char* message);
-__attribute__((noreturn)) void rt_panic_null_deref(void);
-__attribute__((noreturn)) void rt_panic_bad_cast(const char* from_type, const char* to_type);
-__attribute__((noreturn)) void rt_panic_oom(void);
 
 #ifdef __cplusplus
 }

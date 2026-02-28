@@ -146,6 +146,7 @@ fn main() -> i64 {
     gc_c = repo_root / "runtime" / "src" / "gc.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
     array_c = repo_root / "runtime" / "src" / "array.c"
+    panic_c = repo_root / "runtime" / "src" / "panic.c"
     exe_path = tmp_path / "program"
 
     subprocess.run(
@@ -158,6 +159,7 @@ fn main() -> i64 {
             str(gc_c),
             str(io_c),
             str(array_c),
+            str(panic_c),
             str(out_asm),
             "-o",
             str(exe_path),
@@ -277,6 +279,7 @@ fn main() -> i64 {
     gc_c = repo_root / "runtime" / "src" / "gc.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
     array_c = repo_root / "runtime" / "src" / "array.c"
+    panic_c = repo_root / "runtime" / "src" / "panic.c"
     exe_path = tmp_path / "program"
 
     subprocess.run(
@@ -289,6 +292,7 @@ fn main() -> i64 {
             str(gc_c),
             str(io_c),
             str(array_c),
+            str(panic_c),
             str(out_asm),
             "-o",
             str(exe_path),
@@ -392,6 +396,7 @@ fn main() -> i64 {
     gc_c = repo_root / "runtime" / "src" / "gc.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
     array_c = repo_root / "runtime" / "src" / "array.c"
+    panic_c = repo_root / "runtime" / "src" / "panic.c"
     exe_path = tmp_path / "program"
 
     subprocess.run(
@@ -404,6 +409,7 @@ fn main() -> i64 {
             str(gc_c),
             str(io_c),
             str(array_c),
+            str(panic_c),
             str(out_asm),
             "-o",
             str(exe_path),

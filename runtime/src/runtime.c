@@ -1,7 +1,6 @@
 #include "runtime.h"
 
 #include <limits.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 static RtThreadState g_thread_state = {0};
@@ -14,32 +13,6 @@ static void rt_require(int condition, const char* message) {
     if (!condition) {
         rt_panic(message);
     }
-}
-
-static void rt_print_stacktrace(void) {
-    const RtTraceFrame* frame = g_thread_state.trace_top;
-    if (frame == NULL) {
-        return;
-    }
-
-    fprintf(stderr, "stacktrace:\n");
-    while (frame != NULL) {
-        const char* function_name = frame->function_name ? frame->function_name : "<unknown>";
-        const char* file_path = frame->file_path ? frame->file_path : "<unknown>";
-        fprintf(stderr, "  at %s (%s:%u:%u)\n", function_name, file_path, frame->line, frame->column);
-        frame = frame->prev;
-    }
-}
-
-static __attribute__((noreturn)) void rt_abort_with_message(const char* message) {
-    fprintf(stderr, "panic: %s\n", message ? message : "unknown");
-    if (g_thread_state.trace_top != NULL) {
-        const RtTraceFrame* top = g_thread_state.trace_top;
-        const char* file_path = top->file_path ? top->file_path : "<unknown>";
-        fprintf(stderr, "location: %s:%u:%u\n", file_path, top->line, top->column);
-    }
-    rt_print_stacktrace();
-    abort();
 }
 
 static const char* rt_type_name_or_unknown(const RtType* type) {
@@ -83,7 +56,7 @@ RtThreadState* rt_thread_state(void) {
 void rt_trace_push(const char* function_name, const char* file_path, uint32_t line, uint32_t column) {
     RtTraceFrame* frame = (RtTraceFrame*)calloc(1, sizeof(RtTraceFrame));
     if (frame == NULL) {
-        rt_abort_with_message("rt_trace_push: out of memory");
+        rt_panic("rt_trace_push: out of memory");
     }
 
     frame->function_name = function_name;
@@ -96,7 +69,7 @@ void rt_trace_push(const char* function_name, const char* file_path, uint32_t li
 
 void rt_trace_pop(void) {
     if (g_thread_state.trace_top == NULL) {
-        rt_abort_with_message("rt_trace_pop: trace stack underflow");
+        rt_panic("rt_trace_pop: trace stack underflow");
     }
 
     RtTraceFrame* top = g_thread_state.trace_top;
@@ -199,36 +172,4 @@ void* rt_checked_cast(void* obj, const RtType* expected_type) {
         rt_type_name_or_unknown(header->type),
         rt_type_name_or_unknown(expected_type)
     );
-}
-
-void rt_panic(const char* message) {
-    rt_abort_with_message(message);
-}
-
-void rt_panic_null_deref(void) {
-    rt_panic("null dereference");
-}
-
-void rt_panic_bad_cast(const char* from_type, const char* to_type) {
-    char message[256];
-    snprintf(
-        message,
-        sizeof(message),
-        "bad cast (%s -> %s)",
-        from_type ? from_type : "<unknown>",
-        to_type ? to_type : "<unknown>"
-    );
-    rt_abort_with_message(message);
-}
-
-void rt_panic_null_term_array(const void* array_obj) {
-    rt_require(array_obj != NULL, "rt_panic_null_term_array: object is null");
-
-    const char* message = (const char*)rt_array_data_ptr(array_obj);
-    rt_require(message != NULL, "rt_panic_null_term_array: array data pointer is null");
-    rt_panic(message);
-}
-
-void rt_panic_oom(void) {
-    rt_panic("out of memory");
 }

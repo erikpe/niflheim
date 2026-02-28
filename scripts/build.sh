@@ -40,6 +40,7 @@ cc \
   "$repo_root/runtime/src/gc.c" \
   "$repo_root/runtime/src/io.c" \
   "$repo_root/runtime/src/array.c" \
+  "$repo_root/runtime/src/panic.c" \
   "$asm_out" \
   -o "$output"
 
