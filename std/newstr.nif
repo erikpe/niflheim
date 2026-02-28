@@ -1,0 +1,156 @@
+import std.error;
+import std.str;
+
+export class NewStr
+{
+    private _bytes: u8[];
+
+    static fn from_u8_array(value: u8[]) -> NewStr {
+        return NewStr(value[:]);
+    }
+
+    static fn from_char(value: u8) -> NewStr {
+        var bytes: u8[] = u8[](1u);
+        bytes[0] = value;
+        return NewStr(bytes);
+    }
+
+    fn len() -> u64 {
+        return __self._bytes.len();
+    }
+
+    private fn _normalize_index(index: i64) -> i64 {
+        var len_i64: i64 = (i64)__self.len();
+        if index < 0 {
+            index = len_i64 + index;
+        }
+        return index;
+    }
+
+    fn get(index: i64) -> u8 {
+        index = __self._normalize_index(index);
+        if index < 0 || index >= (i64)__self.len() {
+            panic("NewStr.get: index out of bounds");
+        }
+        return __self._bytes[index];
+    }
+
+    fn set(index: i64, byte: u8) -> unit {
+        index = __self._normalize_index(index);
+        if index < 0 || index >= (i64)__self.len() {
+            panic("NewStr.set: index out of bounds");
+        }
+        __self._bytes[index] = byte;
+    }
+
+    fn slice(begin: i64, end: i64) -> NewStr {
+        begin = __self._normalize_index(begin);
+        end = __self._normalize_index(end);
+
+        if begin < 0 || end < begin || (u64)end > __self.len() {
+            panic("NewStr.slice: invalid slice range");
+        }
+
+        return NewStr(__self._bytes[begin:end]);
+    }
+
+    fn strip() -> NewStr {
+        var start: i64 = 0;
+        var stop: i64 = (i64)__self.len();
+
+        while start < stop {
+            var c: u8 = __self[start];
+            if (c == ' ' || c == '\n' || c == '\r' || c == '\t') {
+                start = start + 1;
+                continue;
+            }
+            break;
+        }
+
+        while start < stop {
+            var c: u8 = __self[stop - 1];
+            if (c == ' ' || c == '\n' || c == '\r' || c == '\t') {
+                stop = stop - 1;
+                continue;
+            }
+            break;
+        }
+
+        return __self[start:stop];
+    }
+
+    fn to_u64() -> u64 {
+        var length: u64 = __self.len();
+        if length == 0u {
+            panic("NewStr.to_u64 on empty string");
+        }
+
+        var out: u64 = 0u;
+        var i: u64 = 0u;
+        while i < length {
+            var ch: u8 = __self[(i64)i];
+            if ch < '0' || ch > '9' {
+                panic("NewStr.to_u64 invalid digit");
+            }
+
+            var digit: u64 = (u64)(ch - '0');
+            if (out > 1844674407370955161u) || (out == 1844674407370955161u && digit > 5u) {
+                panic("NewStr.to_u64 overflow");
+            }
+
+            out = out * 10u + digit;
+            i = i + 1u;
+        }
+
+        return out;
+    }
+
+    fn to_i64() -> i64 {
+        var length: u64 = __self.len();
+        if length == 0u {
+            panic("NewStr.to_i64 on empty string");
+        }
+
+        var negative: bool = false;
+        var start: u64 = 0u;
+        if __self[0] == '-' {
+            negative = true;
+            start = 1u;
+            if length == 1u {
+                panic("NewStr.to_i64 invalid digit");
+            }
+        }
+
+        var out: u64 = 0u;
+        var i: u64 = start;
+        while i < length {
+            var ch: u8 = __self[(i64)i];
+            if ch < '0' || ch > '9' {
+                panic("NewStr.to_i64 invalid digit");
+            }
+
+            var digit: u64 = (u64)(ch - '0');
+            if out > 922337203685477580u {
+                panic("NewStr.to_i64 overflow");
+            }
+            else if negative && (out == 922337203685477580u && digit > 8u) {
+                panic("NewStr.to_i64 overflow");
+            }
+            else if !negative && (out == 922337203685477580u && digit > 7u) {
+                panic("NewStr.to_i64 overflow");
+            }
+
+            out = out * 10u + digit;
+            i = i + 1u;
+        }
+
+        if negative {
+            if out == 9223372036854775808u {
+                return -9223372036854775808;
+            }
+            return -((i64)out);
+        }
+
+        return (i64)out;
+    }
+}

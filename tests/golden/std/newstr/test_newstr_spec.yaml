@@ -1,0 +1,10 @@
+runs:
+  - { name: baseline_get_set_slice, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: strip, input: { stdin: "2" }, expect: { exit_code: 0 } }
+  - { name: numeric_parse_ok, input: { stdin: "3" }, expect: { exit_code: 0 } }
+  - { name: from_u8_array, input: { stdin: "4" }, expect: { exit_code: 0 } }
+  - { name: get_oob_panics, input: { stdin: "5" }, expect: { panic: "NewStr.get: index out of bounds" } }
+  - { name: set_oob_panics, input: { stdin: "6" }, expect: { panic: "NewStr.set: index out of bounds" } }
+  - { name: slice_oob_panics, input: { stdin: "7" }, expect: { panic: "NewStr.slice: invalid slice range" } }
+  - { name: to_u64_invalid_digit_panics, input: { stdin: "8" }, expect: { panic: "NewStr.to_u64 invalid digit" } }
+  - { name: to_i64_overflow_panics, input: { stdin: "9" }, expect: { panic: "NewStr.to_i64 overflow" } }

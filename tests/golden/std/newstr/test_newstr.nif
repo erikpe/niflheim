@@ -1,0 +1,117 @@
+import std.test;
+import std.io;
+import std.str;
+import std.newstr;
+
+
+fn newstr_from_literal(value: Str) -> NewStr {
+    var length: u64 = value.len();
+    var bytes: u8[] = u8[](length);
+
+    var i: u64 = 0u;
+    while i < length {
+        bytes[(i64)i] = value[(i64)i];
+        i = i + 1u;
+    }
+
+    return NewStr.from_u8_array(bytes);
+}
+
+
+fn test_baseline_get_set_slice() -> unit {
+    var s: NewStr = newstr_from_literal("abcd");
+    assert(s.len() == 4u);
+    assert(s[0] == 'a');
+    assert(s[-1] == 'd');
+
+    s[1] = 'Z';
+    assert(s[1] == 'Z');
+
+    var mid: NewStr = s[1:3];
+    assert(mid.len() == 2u);
+    assert(mid[0] == 'Z');
+    assert(mid[1] == 'c');
+
+    var word: NewStr = newstr_from_literal("foobar");
+    word[2] = 'x';
+    assert(word[0] == 'f');
+    assert(word[1] == 'o');
+    assert(word[2] == 'x');
+    assert(word[3] == 'b');
+    assert(word[4] == 'a');
+    assert(word[5] == 'r');
+}
+
+
+fn test_strip() -> unit {
+    var s: NewStr = newstr_from_literal(" \tA\n ");
+    var t: NewStr = s.strip();
+    assert(t.len() == 1u);
+    assert(t[0] == 'A');
+}
+
+
+fn test_numeric_parse_ok() -> unit {
+    assert(newstr_from_literal("18446744073709551615").to_u64() == 18446744073709551615u);
+    assert(newstr_from_literal("-9223372036854775808").to_i64() == -9223372036854775808);
+    assert(newstr_from_literal("9223372036854775807").to_i64() == 9223372036854775807);
+}
+
+
+fn test_from_u8_array() -> unit {
+    var bytes: u8[] = u8[](3u);
+    bytes[0] = 'A';
+    bytes[1] = 'B';
+    bytes[2] = 'C';
+
+    var s: NewStr = NewStr.from_u8_array(bytes);
+    bytes[0] = 'Z';
+    assert(s.len() == 3u);
+    assert(s[0] == 'A');
+    assert(s[2] == 'C');
+}
+
+
+fn test_get_oob_panics() -> unit {
+    var s: NewStr = NewStr.from_char('A');
+    var c: u8 = s[1];
+}
+
+
+fn test_set_oob_panics() -> unit {
+    var s: NewStr = NewStr.from_char('A');
+    s[1] = 'B';
+}
+
+
+fn test_slice_oob_panics() -> unit {
+    var s: NewStr = newstr_from_literal("ab");
+    var t: NewStr = s[0:3];
+}
+
+
+fn test_to_u64_invalid_digit_panics() -> unit {
+    newstr_from_literal("12x").to_u64();
+}
+
+
+fn test_to_i64_overflow_panics() -> unit {
+    newstr_from_literal("9223372036854775808").to_i64();
+}
+
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { test_baseline_get_set_slice(); }
+    if select == 2u { test_strip(); }
+    if select == 3u { test_numeric_parse_ok(); }
+    if select == 4u { test_from_u8_array(); }
+    if select == 5u { test_get_oob_panics(); }
+    if select == 6u { test_set_oob_panics(); }
+    if select == 7u { test_slice_oob_panics(); }
+    if select == 8u { test_to_u64_invalid_digit_panics(); }
+    if select == 9u { test_to_i64_overflow_panics(); }
+
+    return 0;
+}
