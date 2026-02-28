@@ -1,7 +1,6 @@
 import std.error;
 import std.str;
 
-
 export class Vec
 {
     private _len: u64;

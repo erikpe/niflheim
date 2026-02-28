@@ -7,26 +7,32 @@ extern fn rt_println_bool(value: bool) -> unit;
 extern fn rt_println_double(value: double) -> unit;
 extern fn rt_read_all() -> Str;
 
-export fn println_i64(value: i64) -> unit {
+export fn println_i64(value: i64) -> unit
+{
     rt_println_i64(value);
 }
 
-export fn println_u64(value: u64) -> unit {
+export fn println_u64(value: u64) -> unit
+{
     rt_println_u64(value);
 }
 
-export fn println_u8(value: u8) -> unit {
+export fn println_u8(value: u8) -> unit
+{
     rt_println_u8(value);
 }
 
-export fn println_bool(value: bool) -> unit {
+export fn println_bool(value: bool) -> unit
+{
     rt_println_bool(value);
 }
 
-export fn println_double(value: double) -> unit {
+export fn println_double(value: double) -> unit
+{
     rt_println_double(value);
 }
 
-export fn read_all() -> Str {
+export fn read_all() -> Str
+{
     return rt_read_all();
 }

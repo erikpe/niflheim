@@ -7,7 +7,6 @@ export class BoxI64
     }
 }
 
-
 export class BoxU64
 {
     private _value: u64;
@@ -16,7 +15,6 @@ export class BoxU64
         return __self._value;
     }
 }
-
 
 export class BoxU8
 {
@@ -27,7 +25,6 @@ export class BoxU8
     }
 }
 
-
 export class BoxBool
 {
     private _value: bool;
@@ -36,7 +33,6 @@ export class BoxBool
         return __self._value;
     }
 }
-
 
 export class BoxDouble
 {
