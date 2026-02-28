@@ -1,14 +1,16 @@
 // Vec (Obj elements) and Map (Obj -> Obj identity keys)
+import std.box;
+import std.vec;
 
 export fn main() -> unit {
-    var nums: Vec = Vec();
-    nums.push((Obj)BoxI64(10));
-    nums.push((Obj)BoxI64(10));
-    nums.push((Obj)BoxI64(42));
+    var nums: Vec = Vec.new();
+    nums.push((Obj)NewBoxI64(10));
+    nums.push((Obj)NewBoxI64(10));
+    nums.push((Obj)NewBoxI64(42));
 
     var m: Map = Map();
 
-    // identity key behavior: two distinct BoxI64(10) objects are different keys
+    // identity key behavior: two distinct NewBoxI64(10) objects are different keys
     var k1: Obj = nums.get(0);
     var k2: Obj = nums.get(1);
     var v1: Obj = (Obj)"first ten";

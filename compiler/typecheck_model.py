@@ -21,11 +21,6 @@ PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
 REFERENCE_BUILTIN_TYPE_NAMES = {
     "Obj",
     "Map",
-    "BoxI64",
-    "BoxU64",
-    "BoxU8",
-    "BoxBool",
-    "BoxDouble",
 }
 NUMERIC_TYPE_NAMES = {"i64", "u64", "u8", "double"}
 BUILTIN_INDEX_RESULT_TYPE_NAMES = {

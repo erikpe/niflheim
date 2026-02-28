@@ -60,7 +60,6 @@ Built-in reference types for v0.1:
 - `T[]` (fixed-size array type constructor)
 - `Vec` (dynamic vector of `Obj`)
 - `Map` (hash map `Obj -> Obj`, identity hash/equality)
-- `BoxI64`, `BoxU64`, `BoxU8`, `BoxBool`, `BoxDouble`
 - User-defined class instance types
 
 Defaults:
@@ -141,11 +140,11 @@ Visibility details:
 - Key semantics: identity only.
 - Baseline operations: `len`, `put`, `get`, `contains`.
 
-### 5.4 Box Types
+### 5.4 std.box Wrapper Types
 
-- `BoxI64`, `BoxU64`, `BoxU8`, `BoxBool`, `BoxDouble` are heap wrappers for primitive values.
+- Primitive wrappers are provided by `std.box` as ordinary classes (`NewBoxI64`, `NewBoxU64`, `NewBoxU8`, `NewBoxBool`, `NewBoxDouble`).
 - Primary purpose: allow primitives in `Obj`-based containers.
-- Box instances are immutable in v0.1.
+- Wrapper instances are immutable by convention (private field + getter method).
 
 ### 5.5 Planned Early Extensions
 
@@ -435,7 +434,7 @@ Minimal C runtime provides:
 - [x] Implement `Str` (immutable).
 - [x] Implement `Vec` (`Obj` elements).
 - [ ] Implement `Map` (`Obj -> Obj`, identity key semantics).
-- [x] Implement primitive box classes.
+- [x] Provide primitive wrapper classes in `std.box`.
 - [ ] Add API and behavioral tests for nested containers.
 
 ## G. Tooling and Diagnostics

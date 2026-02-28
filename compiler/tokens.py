@@ -37,11 +37,6 @@ class TokenKind(str, Enum):
     OBJ = "OBJ"
     STR = "STR"
     MAP = "MAP"
-    BOXI64 = "BOXI64"
-    BOXU64 = "BOXU64"
-    BOXU8 = "BOXU8"
-    BOXBOOL = "BOXBOOL"
-    BOXDOUBLE = "BOXDOUBLE"
 
     TRUE = "TRUE"
     FALSE = "FALSE"
@@ -101,11 +96,6 @@ KEYWORDS: dict[str, TokenKind] = {
     "Obj": TokenKind.OBJ,
     "Str": TokenKind.STR,
     "Map": TokenKind.MAP,
-    "BoxI64": TokenKind.BOXI64,
-    "BoxU64": TokenKind.BOXU64,
-    "BoxU8": TokenKind.BOXU8,
-    "BoxBool": TokenKind.BOXBOOL,
-    "BoxDouble": TokenKind.BOXDOUBLE,
     "true": TokenKind.TRUE,
     "false": TokenKind.FALSE,
     "null": TokenKind.NULL,
@@ -157,9 +147,4 @@ TYPE_NAME_TOKENS: set[TokenKind] = {
     TokenKind.OBJ,
     TokenKind.STR,
     TokenKind.MAP,
-    TokenKind.BOXI64,
-    TokenKind.BOXU64,
-    TokenKind.BOXU8,
-    TokenKind.BOXBOOL,
-    TokenKind.BOXDOUBLE,
 }

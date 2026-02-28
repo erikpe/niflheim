@@ -19,21 +19,11 @@ UNARY_START_TOKENS: set[TokenKind] = {
     TokenKind.TRUE,
     TokenKind.FALSE,
     TokenKind.NULL,
-    TokenKind.BOXI64,
-    TokenKind.BOXU64,
-    TokenKind.BOXU8,
-    TokenKind.BOXBOOL,
-    TokenKind.BOXDOUBLE,
 }
 
 
 BUILTIN_CALLABLE_TYPE_TOKENS: tuple[TokenKind, ...] = (
     TokenKind.STR,
-    TokenKind.BOXI64,
-    TokenKind.BOXU64,
-    TokenKind.BOXU8,
-    TokenKind.BOXBOOL,
-    TokenKind.BOXDOUBLE,
 )
 
 

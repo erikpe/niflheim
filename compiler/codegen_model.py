@@ -54,23 +54,6 @@ class EmitContext:
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 FLOAT_PARAM_REGISTERS = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"]
 PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
-BOX_CONSTRUCTOR_RUNTIME_CALLS = {
-    "BoxI64": "rt_box_i64_new",
-    "BoxU64": "rt_box_u64_new",
-    "BoxU8": "rt_box_u8_new",
-    "BoxBool": "rt_box_bool_new",
-    "BoxDouble": "rt_box_double_new",
-}
-BUILTIN_CONSTRUCTOR_RUNTIME_CALLS = {
-    **BOX_CONSTRUCTOR_RUNTIME_CALLS,
-}
-BOX_VALUE_GETTER_RUNTIME_CALLS = {
-    "BoxI64": "rt_box_i64_get",
-    "BoxU64": "rt_box_u64_get",
-    "BoxU8": "rt_box_u8_get",
-    "BoxBool": "rt_box_bool_get",
-    "BoxDouble": "rt_box_double_get",
-}
 BUILTIN_METHOD_RUNTIME_CALLS = {
 }
 BUILTIN_METHOD_RETURN_TYPES: dict[tuple[str, str], str] = {
@@ -111,11 +94,6 @@ ARRAY_SLICE_RUNTIME_CALLS = {
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_checked_cast": (0,),
-    "rt_box_i64_get": (0,),
-    "rt_box_u64_get": (0,),
-    "rt_box_u8_get": (0,),
-    "rt_box_bool_get": (0,),
-    "rt_box_double_get": (0,),
     "rt_array_len": (0,),
     "rt_array_get_i64": (0,),
     "rt_array_get_u64": (0,),
@@ -141,19 +119,7 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_strbuf_set_u8": (0,),
     "rt_strbuf_to_str": (0,),
 }
-BUILTIN_RUNTIME_TYPE_SYMBOLS: dict[str, str] = {
-    "BoxI64": "rt_type_box_i64_desc",
-    "BoxU64": "rt_type_box_u64_desc",
-    "BoxU8": "rt_type_box_u8_desc",
-    "BoxBool": "rt_type_box_bool_desc",
-    "BoxDouble": "rt_type_box_double_desc",
-}
 RUNTIME_RETURN_TYPES: dict[str, str] = {
-    "rt_box_double_get": "double",
-    "rt_box_i64_get": "i64",
-    "rt_box_u64_get": "u64",
-    "rt_box_u8_get": "u8",
-    "rt_box_bool_get": "bool",
     "rt_array_len": "u64",
     "rt_array_get_i64": "i64",
     "rt_array_get_u64": "u64",

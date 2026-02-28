@@ -40,11 +40,6 @@ from compiler.codegen_model import (
     ARRAY_GET_RUNTIME_CALLS,
     ARRAY_SET_RUNTIME_CALLS,
     ARRAY_SLICE_RUNTIME_CALLS,
-    BOX_VALUE_GETTER_RUNTIME_CALLS,
-    BUILTIN_CONSTRUCTOR_RUNTIME_CALLS,
-    BUILTIN_METHOD_RETURN_TYPES,
-    BUILTIN_METHOD_RUNTIME_CALLS,
-    BUILTIN_RUNTIME_TYPE_SYMBOLS,
     ConstructorLayout,
     EmitContext,
     FLOAT_PARAM_REGISTERS,
@@ -274,9 +269,6 @@ def _is_runtime_call_name(name: str) -> bool:
 
 
 def _mangle_type_symbol(type_name: str) -> str:
-    builtin_symbol = BUILTIN_RUNTIME_TYPE_SYMBOLS.get(type_name)
-    if builtin_symbol is not None:
-        return builtin_symbol
     safe = type_name.replace(".", "_").replace(":", "_").replace("[", "_").replace("]", "_")
     return f"__nif_type_{safe}"
 
@@ -430,17 +422,6 @@ def _resolve_method_call_target(
             )
         raise NotImplementedError(f"array method-call codegen could not resolve '{method_owner_type_name}.{method_name}'")
 
-    builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((method_owner_type_name, method_name))
-    if builtin_method is None and "::" in method_owner_type_name:
-        method_owner_type_name = method_owner_type_name.split("::", 1)[1]
-        builtin_method = BUILTIN_METHOD_RUNTIME_CALLS.get((method_owner_type_name, method_name))
-    if builtin_method is not None:
-        return ResolvedCallTarget(
-            name=builtin_method,
-            receiver_expr=receiver_expr,
-            return_type_name=BUILTIN_METHOD_RETURN_TYPES[(method_owner_type_name, method_name)],
-        )
-
     method_label = ctx.method_labels.get((receiver_type_name, method_name))
     if method_label is None and "::" in receiver_type_name:
         unqualified_type_name = receiver_type_name.split("::", 1)[1]
@@ -467,9 +448,6 @@ def _resolve_call_target_name(
     ctx: EmitContext,
 ) -> ResolvedCallTarget:
     if isinstance(callee, IdentifierExpr):
-        builtin_ctor_runtime = BUILTIN_CONSTRUCTOR_RUNTIME_CALLS.get(callee.name)
-        if builtin_ctor_runtime is not None:
-            return ResolvedCallTarget(name=builtin_ctor_runtime, receiver_expr=None, return_type_name=callee.name)
         ctor_label = ctx.constructor_labels.get(callee.name)
         if ctor_label is not None:
             return ResolvedCallTarget(name=ctor_label, receiver_expr=None, return_type_name=callee.name)
@@ -541,16 +519,6 @@ def _infer_expression_type_name(
 
     if isinstance(expr, FieldAccessExpr):
         receiver_type = _field_receiver_type_name(expr.object_expr, ctx)
-        if expr.field_name == "value":
-            if receiver_type == "BoxDouble":
-                return "double"
-            if receiver_type == "BoxU64":
-                return "u64"
-            if receiver_type == "BoxU8":
-                return "u8"
-            if receiver_type == "BoxBool":
-                return "bool"
-            return "i64"
         if receiver_type is not None:
             field_type_name = ctx.class_field_type_names.get((receiver_type, expr.field_name))
             if field_type_name is not None:
@@ -895,36 +863,9 @@ class CodeGenerator:
         raise NotImplementedError(f"literal codegen not implemented for '{expr.value}'")
 
     def _emit_field_access_expr(self, expr: FieldAccessExpr, ctx: EmitContext) -> None:
-        layout = ctx.layout
-        label_counter = ctx.label_counter
-
         receiver_type_name = _field_receiver_type_name(expr.object_expr, ctx)
         if receiver_type_name is None:
             raise NotImplementedError("field access codegen requires class-typed receiver")
-
-        if expr.field_name == "value":
-            getter_name = BOX_VALUE_GETTER_RUNTIME_CALLS.get(receiver_type_name)
-            if getter_name is not None:
-                self._emit_expr(expr.object_expr, ctx)
-                self.out.append("    push rax")
-                self._emit_runtime_call_hook(
-                    fn_name=ctx.fn_name,
-                    phase="before",
-                    label_counter=label_counter,
-                    line=expr.span.start.line,
-                    column=expr.span.start.column,
-                )
-                self._emit_root_slot_updates(layout)
-                self.out.append("    pop rdi")
-                self.out.append(f"    call {getter_name}")
-                if receiver_type_name == "BoxDouble":
-                    self.out.append("    movq rax, xmm0")
-                self._emit_runtime_call_hook(
-                    fn_name=ctx.fn_name,
-                    phase="after",
-                    label_counter=label_counter,
-                )
-                return
 
         field_offset = self.class_field_offsets.get((receiver_type_name, expr.field_name))
         if field_offset is None:
