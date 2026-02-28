@@ -43,7 +43,7 @@ fn main() -> i64 {
     }
 
     var i: i64 = 0;
-    var n: i64 = primes.len();
+    var n: i64 = (i64)primes.len();
     var sum: i64;
     while i < n {
         sum = sum + ((BoxI64)primes[i]).value;

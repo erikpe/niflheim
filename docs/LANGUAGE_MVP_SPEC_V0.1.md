@@ -131,6 +131,9 @@ Visibility details:
 
 - `Vec` is a dynamic array of `Obj`.
 - Baseline operations: `len`, `push`, `get`, `set`.
+- `len() -> u64`.
+- `with_capacity(capacity: u64) -> Vec`.
+- Index and slice parameters are signed: `get(index: i64)`, `set(index: i64, value: Obj)`, `slice(begin: i64, end: i64)`.
 
 ### 5.3 Map
 

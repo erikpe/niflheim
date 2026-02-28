@@ -12,4 +12,4 @@ runs:
   - { name: vec_slice_negative_begin_oob_panics, input: { stdin: "11" }, expect: { panic: "Vec.slice: invalid slice range" } }
   - { name: vec_slice_negative_end_oob_panics, input: { stdin: "12" }, expect: { panic: "Vec.slice: invalid slice range" } }
   - { name: vec_slice_reversed_panics, input: { stdin: "13" }, expect: { panic: "Vec.slice: invalid slice range" } }
-  - { name: vec_with_capacity_negative_panics, input: { stdin: "14" }, expect: { panic: "Vec.with_capacity: negative capacity" } }
+  - { name: vec_with_capacity_zero_is_allowed, input: { stdin: "14" }, expect: { exit_code: 0 } }
