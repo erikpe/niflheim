@@ -45,6 +45,7 @@ class FunctionSig:
     params: list[TypeInfo]
     return_type: TypeInfo
     is_static: bool = False
+    is_private: bool = False
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,8 @@ class ClassInfo:
     fields: dict[str, TypeInfo]
     field_order: list[str]
     methods: dict[str, FunctionSig]
+    private_fields: set[str]
+    private_methods: set[str]
 
 
 class TypeCheckError(ValueError):

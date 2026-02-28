@@ -142,6 +142,106 @@ fn main() -> i64 {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_private_members_inside_declaring_class() -> None:
+    source = """
+class Counter {
+    private value: i64;
+
+    private fn hidden(delta: i64) -> i64 {
+        return __self.value + delta;
+    }
+
+    fn use_hidden(delta: i64) -> i64 {
+        return __self.hidden(delta);
+    }
+
+    private static fn make_with(value: i64) -> Counter {
+        return Counter(value);
+    }
+
+    static fn make_public(value: i64) -> Counter {
+        return Counter.make_with(value);
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter.make_public(5);
+    return c.use_hidden(2);
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_private_field_access_outside_class() -> None:
+    source = """
+class Counter {
+    private value: i64;
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(7);
+    return c.value;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Member 'Counter.value' is private"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_private_instance_method_call_outside_class() -> None:
+    source = """
+class Counter {
+    private fn hidden() -> i64 {
+        return 1;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter();
+    return c.hidden();
+}
+"""
+    with pytest.raises(TypeCheckError, match="Member 'Counter.hidden' is private"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_private_static_method_call_outside_class() -> None:
+    source = """
+class Counter {
+    private static fn hidden() -> i64 {
+        return 1;
+    }
+}
+
+fn main() -> i64 {
+    return Counter.hidden();
+}
+"""
+    with pytest.raises(TypeCheckError, match="Member 'Counter.hidden' is private"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_private_field_access_from_other_class_same_module() -> None:
+    source = """
+class Counter {
+    private value: i64;
+}
+
+class Reader {
+    fn read(c: Counter) -> i64 {
+        return c.value;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(7);
+    var r: Reader = Reader();
+    return r.read(c);
+}
+"""
+    with pytest.raises(TypeCheckError, match="Member 'Counter.value' is private"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_reference_to_primitive_assignment() -> None:
     source = """
 class Person {
@@ -531,6 +631,79 @@ fn main() -> unit {
 """
     with pytest.raises(TypeCheckError, match="slice' parameters must be i64"):
         _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_structural_index_and_slice_sugar_for_private_methods() -> None:
+    source_get = """
+class HiddenGet {
+    values: i64[];
+
+    static fn new() -> HiddenGet {
+        return HiddenGet(i64[](1u));
+    }
+
+    private fn get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+}
+
+fn main() -> unit {
+    var b: HiddenGet = HiddenGet.new();
+    var v: i64 = b[0];
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Member 'HiddenGet.get' is private"):
+        _parse_and_typecheck(source_get)
+
+    source_set = """
+class HiddenSet {
+    values: i64[];
+
+    static fn new() -> HiddenSet {
+        return HiddenSet(i64[](1u));
+    }
+
+    fn get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    private fn set(index: i64, value: i64) -> unit {
+        __self.values[index] = value;
+        return;
+    }
+}
+
+fn main() -> unit {
+    var b: HiddenSet = HiddenSet.new();
+    b[0] = 1;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Member 'HiddenSet.set' is private"):
+        _parse_and_typecheck(source_set)
+
+    source_slice = """
+class HiddenSlice {
+    values: i64[];
+
+    static fn new() -> HiddenSlice {
+        return HiddenSlice(i64[](2u));
+    }
+
+    private fn slice(begin: i64, end: i64) -> HiddenSlice {
+        return __self;
+    }
+}
+
+fn main() -> unit {
+    var w: HiddenSlice = HiddenSlice.new();
+    var part: HiddenSlice = w[0:1];
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Member 'HiddenSlice.slice' is private"):
+        _parse_and_typecheck(source_slice)
 
 
 def test_typecheck_str_index_returns_u8() -> None:

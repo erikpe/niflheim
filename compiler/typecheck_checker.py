@@ -57,6 +57,7 @@ class TypeChecker:
 
         self.scope_stack: list[dict[str, TypeInfo]] = []
         self.loop_depth: int = 0
+        self.current_private_owner_type: str | None = None
 
     def check(self) -> None:
         if not self.pre_collected:
@@ -79,6 +80,7 @@ class TypeChecker:
                     method_decl.body,
                     method_sig.return_type,
                     receiver_type=None if method_sig.is_static else TypeInfo(name=class_info.name, kind="reference"),
+                    owner_class_name=class_info.name,
                 )
 
     def _collect_declarations(self) -> None:
@@ -90,6 +92,8 @@ class TypeChecker:
                 fields={},
                 field_order=[],
                 methods={},
+                private_fields=set(),
+                private_methods=set(),
             )
 
         for class_decl in self.module_ast.classes:
@@ -108,11 +112,16 @@ class TypeChecker:
                     raise TypeCheckError(f"Duplicate method '{method_decl.name}'", method_decl.span)
                 methods[method_decl.name] = self._function_sig_from_decl(method_decl)
 
+            private_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_private}
+            private_methods = {method_decl.name for method_decl in class_decl.methods if method_decl.is_private}
+
             self.classes[class_decl.name] = ClassInfo(
                 name=class_decl.name,
                 fields=fields,
                 field_order=field_order,
                 methods=methods,
+                private_fields=private_fields,
+                private_methods=private_methods,
             )
 
         for fn_decl in self.module_ast.functions:
@@ -131,6 +140,7 @@ class TypeChecker:
             params=params,
             return_type=self._resolve_type_ref(decl.return_type),
             is_static=decl.is_static if isinstance(decl, MethodDecl) else False,
+            is_private=decl.is_private if isinstance(decl, MethodDecl) else False,
         )
 
     def _check_function_like(
@@ -140,20 +150,27 @@ class TypeChecker:
         return_type: TypeInfo,
         *,
         receiver_type: TypeInfo | None = None,
+        owner_class_name: str | None = None,
     ) -> None:
+        previous_owner = self.current_private_owner_type
+        if owner_class_name is not None:
+            self.current_private_owner_type = self._canonicalize_reference_type_name(owner_class_name)
+
         self._push_scope()
-        if receiver_type is not None:
-            self._declare_variable("__self", receiver_type, body.span)
-        for param in params:
-            param_type = self._resolve_type_ref(param.type_ref)
-            self._declare_variable(param.name, param_type, param.span)
+        try:
+            if receiver_type is not None:
+                self._declare_variable("__self", receiver_type, body.span)
+            for param in params:
+                param_type = self._resolve_type_ref(param.type_ref)
+                self._declare_variable(param.name, param_type, param.span)
 
-        self._check_block(body, return_type)
+            self._check_block(body, return_type)
 
-        if return_type.name != "unit" and not self._block_guarantees_return(body):
-            raise TypeCheckError("Non-unit function must return on all paths", body.span)
-
-        self._pop_scope()
+            if return_type.name != "unit" and not self._block_guarantees_return(body):
+                raise TypeCheckError("Non-unit function must return on all paths", body.span)
+        finally:
+            self._pop_scope()
+            self.current_private_owner_type = previous_owner
 
     def _check_block(self, block: BlockStmt, return_type: TypeInfo) -> None:
         self._push_scope()
@@ -433,10 +450,12 @@ class TypeChecker:
 
             field_type = class_info.fields.get(expr.field_name)
             if field_type is not None:
+                self._require_member_visible(class_info, object_type.name, expr.field_name, "field", expr.span)
                 return self._qualify_member_type_for_owner(field_type, object_type.name)
 
             method_sig = class_info.methods.get(expr.field_name)
             if method_sig is not None:
+                self._require_member_visible(class_info, object_type.name, expr.field_name, "method", expr.span)
                 return TypeInfo(name=f"__method__:{class_info.name}:{method_sig.name}", kind="callable")
 
             raise TypeCheckError(f"Class '{class_info.name}' has no member '{expr.field_name}'", expr.span)
@@ -535,6 +554,7 @@ class TypeChecker:
                 method_sig = class_info.methods.get(expr.callee.field_name)
                 if method_sig is None:
                     raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
+                self._require_member_visible(class_info, class_type_name, expr.callee.field_name, "method", expr.span)
                 if not method_sig.is_static:
                     raise TypeCheckError(
                         f"Method '{class_info.name}.{expr.callee.field_name}' is not static",
@@ -586,6 +606,7 @@ class TypeChecker:
             method_sig = class_info.methods.get(expr.callee.field_name)
             if method_sig is None:
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
+            self._require_member_visible(class_info, object_type.name, expr.callee.field_name, "method", expr.span)
 
             if expr.callee.field_name == "slice":
                 return self._resolve_structural_slice_method_result_type(
@@ -634,6 +655,7 @@ class TypeChecker:
                 f"Type '{object_type.name}' is not indexable (missing method 'get(i64)')",
                 span,
             )
+        self._require_member_visible(class_info, object_type.name, "get", "method", span)
         if method_sig.is_static:
             raise TypeCheckError(
                 f"Type '{object_type.name}' is not indexable (method 'get' must be instance method)",
@@ -669,6 +691,7 @@ class TypeChecker:
                 f"Type '{object_type.name}' is not index-assignable (missing method 'set(i64, T)')",
                 span,
             )
+        self._require_member_visible(class_info, object_type.name, "set", "method", span)
         if method_sig.is_static:
             raise TypeCheckError(
                 f"Type '{object_type.name}' is not index-assignable (method 'set' must be instance method)",
@@ -730,6 +753,7 @@ class TypeChecker:
                 f"Type '{object_type.name}' is not sliceable (missing method 'slice(i64, i64)')",
                 span,
             )
+        self._require_member_visible(class_info, object_type.name, "slice", "method", span)
         if method_sig.is_static:
             raise TypeCheckError(
                 f"Type '{object_type.name}' is not sliceable (method 'slice' must be instance method)",
@@ -1123,3 +1147,25 @@ class TypeChecker:
             return [*left, expr.field_name]
 
         return None
+
+    def _require_member_visible(
+        self,
+        class_info: ClassInfo,
+        owner_type_name: str,
+        member_name: str,
+        member_kind: str,
+        span: SourceSpan,
+    ) -> None:
+        is_private = (
+            member_name in class_info.private_fields
+            if member_kind == "field"
+            else member_name in class_info.private_methods
+        )
+        if not is_private:
+            return
+
+        owner_canonical = self._canonicalize_reference_type_name(owner_type_name)
+        if self.current_private_owner_type == owner_canonical:
+            return
+
+        raise TypeCheckError(f"Member '{class_info.name}.{member_name}' is private", span)

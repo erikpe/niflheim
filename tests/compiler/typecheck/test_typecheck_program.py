@@ -46,6 +46,68 @@ def test_typecheck_program_allows_imported_function_and_class_usage(tmp_path: Pa
     typecheck_program(program)
 
 
+def test_typecheck_program_rejects_private_member_access_across_modules(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class Counter {
+            private value: i64;
+
+            static fn make(value: i64) -> Counter {
+                return Counter(value);
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> i64 {
+            var c: Counter = util.Counter.make(1);
+            return c.value;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    with pytest.raises(TypeCheckError, match="Member 'Counter.value' is private"):
+        typecheck_program(program)
+
+
+def test_typecheck_program_rejects_private_method_call_across_modules(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class Counter {
+            private fn hidden() -> i64 {
+                return 1;
+            }
+
+            static fn make() -> Counter {
+                return Counter();
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> i64 {
+            var c: Counter = util.Counter.make();
+            return c.hidden();
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    with pytest.raises(TypeCheckError, match="Member 'Counter.hidden' is private"):
+        typecheck_program(program)
+
+
 def test_typecheck_program_rejects_bad_imported_function_argument_type(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",

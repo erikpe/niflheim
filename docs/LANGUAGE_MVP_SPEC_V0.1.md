@@ -85,10 +85,18 @@ Defaults:
 ### 4.1 Classes
 
 - Classes support fields and methods.
+- Fields and methods can be declared `private` for class-only access.
 - Methods are instance methods by default.
 - Static methods are declared explicitly with `static fn` and are called on the class name (`Counter.add(...)`).
 - No inheritance in v0.1.
 - No interfaces in v0.1 (may be added later).
+
+Visibility details:
+
+- `private` applies to class fields and class methods (instance or static).
+- Private members are accessible only from methods declared inside the same class.
+- Access from free functions, other classes, and importing modules is rejected by type checking.
+- Leading underscore naming (for example `_value`) is convention-only and has no visibility semantics.
 
 ### 4.2 Allocation and Identity
 

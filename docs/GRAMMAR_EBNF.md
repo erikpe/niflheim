@@ -66,6 +66,15 @@ Implementation status note: unqualified and module-qualified imported class name
 
 These import/re-export forms are frozen for MVP v0.1.
 
+## Class Member Visibility in Grammar
+
+- Class fields and methods may be prefixed with `private`.
+- Supported forms:
+  - `private field_name: Type;`
+  - `private fn method(...) -> Type { ... }`
+  - `private static fn method(...) -> Type { ... }`
+- Private visibility is enforced by type checking (class-only access), not by parsing.
+
 ## Lexer Expectations
 
 The grammar assumes the lexer:

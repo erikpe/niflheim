@@ -219,18 +219,37 @@ class Parser:
             if self.stream.is_at_end():
                 raise ParserError("Unterminated class body", class_token.span)
 
+            private_token: Token | None = None
+            if self.stream.match(TokenKind.PRIVATE):
+                private_token = self.stream.previous()
+            is_private = private_token is not None
+
             if self.stream.match(TokenKind.STATIC):
                 static_token = self.stream.previous()
                 fn_token = self.stream.expect(TokenKind.FN, "Expected 'fn' after 'static' in class body")
-                methods.append(self._parse_method_decl(fn_token=fn_token, is_static=True, start_token=static_token))
+                methods.append(
+                    self._parse_method_decl(
+                        fn_token=fn_token,
+                        is_static=True,
+                        is_private=is_private,
+                        start_token=private_token if private_token is not None else static_token,
+                    )
+                )
                 continue
 
             if self.stream.match(TokenKind.FN):
-                methods.append(self._parse_method_decl(fn_token=self.stream.previous(), is_static=False))
+                methods.append(
+                    self._parse_method_decl(
+                        fn_token=self.stream.previous(),
+                        is_static=False,
+                        is_private=is_private,
+                        start_token=private_token,
+                    )
+                )
                 continue
 
             if self.stream.check(TokenKind.IDENT) and self.stream.peek(1).kind == TokenKind.COLON:
-                fields.append(self._parse_field_decl())
+                fields.append(self._parse_field_decl(is_private=is_private, start_token=private_token))
                 continue
 
             raise ParserError("Expected field or method declaration in class body", self.stream.peek().span)
@@ -246,18 +265,27 @@ class Parser:
             span=span,
         )
 
-    def _parse_field_decl(self) -> FieldDecl:
+    def _parse_field_decl(self, *, is_private: bool, start_token: Token | None = None) -> FieldDecl:
         name = self.stream.expect(TokenKind.IDENT, "Expected field name")
         self.stream.expect(TokenKind.COLON, "Expected ':' after field name")
         type_ref = self._parse_type_ref()
         semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after field declaration")
+        start = start_token.span.start if start_token is not None else name.span.start
         return FieldDecl(
             name=name.lexeme,
             type_ref=type_ref,
-            span=SourceSpan(start=name.span.start, end=semicolon.span.end),
+            is_private=is_private,
+            span=SourceSpan(start=start, end=semicolon.span.end),
         )
 
-    def _parse_method_decl(self, *, fn_token: Token, is_static: bool, start_token: Token | None = None) -> MethodDecl:
+    def _parse_method_decl(
+        self,
+        *,
+        fn_token: Token,
+        is_static: bool,
+        is_private: bool,
+        start_token: Token | None = None,
+    ) -> MethodDecl:
         name, params, return_type = self._parse_callable_signature()
         body = self._parse_block_stmt()
         return MethodDecl(
@@ -266,6 +294,7 @@ class Parser:
             return_type=return_type,
             body=body,
             is_static=is_static,
+            is_private=is_private,
             span=SourceSpan(start=(start_token.span.start if start_token is not None else fn_token.span.start), end=body.span.end),
         )
 

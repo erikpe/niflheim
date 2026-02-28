@@ -4,9 +4,9 @@ import std.str;
 
 export class Vec
 {
-    _len: i64;
-    _capacity: i64;
-    _storage: Obj[];
+    private _len: i64;
+    private _capacity: i64;
+    private _storage: Obj[];
 
     static fn new() -> Vec {
         return Vec.with_capacity(4);
@@ -29,7 +29,7 @@ export class Vec
         return __self._len;
     }
 
-    fn _grow(min_capacity: i64) -> unit {
+    private fn _grow(min_capacity: i64) -> unit {
         if __self._capacity >= min_capacity {
             return;
         }
@@ -54,7 +54,7 @@ export class Vec
         __self._capacity = next_capacity;
     }
 
-    fn _normalize_index(index: i64) -> i64 {
+    private fn _normalize_index(index: i64) -> i64 {
         if index < 0 {
             index = __self._len + index;
         }

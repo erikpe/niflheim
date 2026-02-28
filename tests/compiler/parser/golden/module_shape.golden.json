@@ -3,6 +3,7 @@
     {
       "fields": [
         {
+          "is_private": false,
           "name": "x",
           "node": "FieldDecl",
           "type_ref": {
@@ -11,6 +12,7 @@
           }
         },
         {
+          "is_private": false,
           "name": "y",
           "node": "FieldDecl",
           "type_ref": {
@@ -80,6 +82,7 @@
               }
             ]
           },
+          "is_private": false,
           "is_static": false,
           "name": "move",
           "node": "MethodDecl",

@@ -211,6 +211,36 @@ class Counter {
     assert method.is_static is True
 
 
+def test_parse_private_field_and_methods_in_class_body() -> None:
+    source = """
+class Counter {
+    private value: i64;
+
+    private fn get_value() -> i64 {
+        return __self.value;
+    }
+
+    private static fn from_i64(value: i64) -> Counter {
+        return Counter(value);
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/private_members_parse.nif"))
+
+    cls = module.classes[0]
+    assert len(cls.fields) == 1
+    assert cls.fields[0].name == "value"
+    assert cls.fields[0].is_private is True
+
+    assert len(cls.methods) == 2
+    assert cls.methods[0].name == "get_value"
+    assert cls.methods[0].is_private is True
+    assert cls.methods[0].is_static is False
+    assert cls.methods[1].name == "from_i64"
+    assert cls.methods[1].is_private is True
+    assert cls.methods[1].is_static is True
+
+
 def test_parse_export_requires_import_class_or_fn() -> None:
     source = "export return;"
     with pytest.raises(ParserError) as error:

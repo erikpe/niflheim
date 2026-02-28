@@ -38,6 +38,7 @@ class ImportDecl:
 class FieldDecl:
     name: str
     type_ref: TypeRefNode
+    is_private: bool
     span: SourceSpan
 
 
@@ -48,6 +49,7 @@ class MethodDecl:
     return_type: TypeRefNode
     body: "BlockStmt"
     is_static: bool
+    is_private: bool
     span: SourceSpan
 
 

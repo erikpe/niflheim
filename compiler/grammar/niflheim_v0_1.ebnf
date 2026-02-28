@@ -27,9 +27,9 @@ class_member       = field_decl
                    | method_decl
                    ;
 
-field_decl         = IDENT ":" type ";" ;
+field_decl         = [ "private" ] IDENT ":" type ";" ;
 
-method_decl        = [ "static" ] "fn" IDENT "(" [ param_list ] ")" "->" type block ;
+method_decl        = [ "private" ] [ "static" ] "fn" IDENT "(" [ param_list ] ")" "->" type block ;
 
 fn_decl            = "fn" IDENT "(" [ param_list ] ")" "->" type block ;
 
@@ -158,7 +158,7 @@ string_char        = ? any char except unescaped quote/newline ? ;
 char_char          = ? single byte char or supported escape ? ;
 
 (* Keywords
-   import export class fn static var if else while return
+   import export class private fn static var if else while return
    i64 u64 u8 bool double unit
    Obj Str Map BoxI64 BoxU64 BoxU8 BoxBool BoxDouble
    true false null

@@ -47,6 +47,12 @@ def test_lex_static_keyword() -> None:
     assert TokenKind.STATIC in kinds
 
 
+def test_lex_private_keyword() -> None:
+    source = "class C { private value: i64; private fn f() -> unit { return; } }"
+    kinds = [token.kind for token in lex(source)]
+    assert TokenKind.PRIVATE in kinds
+
+
 def test_lex_skips_whitespace_and_line_comments() -> None:
     source = "// first\nvar x: i64 = 1; // second\n"
     tokens = lex(source)
