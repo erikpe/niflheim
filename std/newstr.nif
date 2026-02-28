@@ -154,3 +154,113 @@ export class NewStr
         return (i64)out;
     }
 }
+
+
+export class NewStrBuf
+{
+    private _len: u64;
+    private _capacity: u64;
+    private _storage: u8[];
+
+    static fn new(capacity: u64) -> NewStrBuf {
+        if capacity < 1u {
+            capacity = 1u;
+        }
+        return NewStrBuf(0u, capacity, u8[](capacity));
+    }
+
+    static fn from_newstr(in_str: NewStr) -> NewStrBuf {
+        var length: u64 = in_str.len();
+        var capacity: u64 = length;
+        if capacity < 1u {
+            capacity = 1u;
+        }
+
+        var storage: u8[] = u8[](capacity);
+
+        var i: u64 = 0u;
+        while i < length {
+            storage[(i64)i] = in_str[(i64)i];
+            i = i + 1u;
+        }
+
+        return NewStrBuf(length, capacity, storage);
+    }
+
+    fn append_char(byte: u8) -> NewStrBuf {
+        __self._grow(__self._len + 1u);
+        __self._storage[(i64)__self._len] = byte;
+        __self._len = __self._len + 1u;
+        return __self;
+    }
+
+    fn len() -> u64 {
+        return __self._len;
+    }
+
+    private fn _grow(min_capacity: u64) -> unit {
+        if __self._capacity >= min_capacity {
+            return;
+        }
+
+        var next_capacity: u64 = __self._capacity;
+        if next_capacity < 1u {
+            next_capacity = 1u;
+        }
+
+        while next_capacity < min_capacity {
+            next_capacity = next_capacity * 2u;
+        }
+
+        var next_storage: u8[] = u8[](next_capacity);
+        var i: u64 = 0u;
+        while i < __self._len {
+            next_storage[(i64)i] = __self._storage[(i64)i];
+            i = i + 1u;
+        }
+
+        __self._storage = next_storage;
+        __self._capacity = next_capacity;
+    }
+
+    fn to_newstr() -> NewStr {
+        return NewStr.from_u8_array(__self._storage[:(i64)__self._len]);
+    }
+
+    private fn _normalize_index(index: i64) -> i64 {
+        var len_i64: i64 = (i64)__self._len;
+        if index < 0 {
+            index = len_i64 + index;
+        }
+        return index;
+    }
+
+    fn get(index: i64) -> u8 {
+        index = __self._normalize_index(index);
+        if index < 0 || index >= (i64)__self._len {
+            panic("NewStrBuf.get: index out of bounds");
+        }
+        return __self._storage[index];
+    }
+
+    fn set(index: i64, byte: u8) -> unit {
+        index = __self._normalize_index(index);
+        if index < 0 || index >= (i64)__self._len {
+            panic("NewStrBuf.set: index out of bounds");
+        }
+        __self._storage[index] = byte;
+    }
+
+    fn slice(begin: i64, end: i64) -> NewStrBuf {
+        begin = __self._normalize_index(begin);
+        end = __self._normalize_index(end);
+
+        if begin < 0 || end < begin || (u64)end > __self._len {
+            panic("NewStrBuf.slice: invalid slice range");
+        }
+
+        var out_storage: u8[] = __self._storage[begin:end];
+        var out_len: u64 = (u64)(end - begin);
+        return NewStrBuf(out_len, out_len, out_storage);
+    }
+}

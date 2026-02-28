@@ -72,6 +72,61 @@ fn test_from_u8_array() -> unit {
 }
 
 
+fn test_newstrbuf_baseline() -> unit {
+    var s: NewStr = newstr_from_literal("foobar");
+    var buf: NewStrBuf = NewStrBuf.from_newstr(s);
+
+    assert(buf.len() == 6u);
+    assert(buf[0] == 'f');
+    assert(buf[-1] == 'r');
+
+    buf[2] = 'x';
+    assert(buf[2] == 'x');
+
+    var mid: NewStrBuf = buf[1:4];
+    assert(mid.len() == 3u);
+    assert(mid[0] == 'o');
+    assert(mid[1] == 'x');
+    assert(mid[2] == 'b');
+
+    var out: NewStr = buf.to_newstr();
+    assert(out[0] == 'f');
+    assert(out[1] == 'o');
+    assert(out[2] == 'x');
+    assert(out[3] == 'b');
+    assert(out[4] == 'a');
+    assert(out[5] == 'r');
+}
+
+
+fn test_newstrbuf_get_oob_panics() -> unit {
+    var buf: NewStrBuf = NewStrBuf.new(0u);
+    var c: u8 = buf[0];
+}
+
+
+fn test_newstrbuf_append_char() -> unit {
+    var buf: NewStrBuf = NewStrBuf.new(1u);
+    buf.append_char('f').append_char('o').append_char('o').append_char('b').append_char('a').append_char('r');
+
+    assert(buf.len() == 6u);
+    assert(buf[0] == 'f');
+    assert(buf[1] == 'o');
+    assert(buf[2] == 'o');
+    assert(buf[3] == 'b');
+    assert(buf[4] == 'a');
+    assert(buf[5] == 'r');
+
+    var out: NewStr = buf.to_newstr();
+    assert(out[0] == 'f');
+    assert(out[1] == 'o');
+    assert(out[2] == 'o');
+    assert(out[3] == 'b');
+    assert(out[4] == 'a');
+    assert(out[5] == 'r');
+}
+
+
 fn test_get_oob_panics() -> unit {
     var s: NewStr = NewStr.from_char('A');
     var c: u8 = s[1];
@@ -112,6 +167,9 @@ fn main() -> i64 {
     if select == 7u { test_slice_oob_panics(); }
     if select == 8u { test_to_u64_invalid_digit_panics(); }
     if select == 9u { test_to_i64_overflow_panics(); }
+    if select == 10u { test_newstrbuf_baseline(); }
+    if select == 11u { test_newstrbuf_get_oob_panics(); }
+    if select == 12u { test_newstrbuf_append_char(); }
 
     return 0;
 }
