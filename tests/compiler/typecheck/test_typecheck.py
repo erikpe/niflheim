@@ -796,33 +796,73 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
-def test_typecheck_allows_builtin_box_constructors_and_value_field_reads() -> None:
+def test_typecheck_allows_newbox_class_constructors_and_value_getters() -> None:
     source = """
-fn main() -> unit {
-    var a: BoxI64 = BoxI64(7);
-    var b: BoxU64 = BoxU64((u64)9);
-    var c: BoxU8 = BoxU8((u8)255);
-    var d: BoxBool = BoxBool(true);
+class NewBoxI64 {
+    private _value: i64;
 
-    var av: i64 = a.value;
-    var bv: u64 = b.value;
-    var cv: u8 = c.value;
-    var dv: bool = d.value;
+    fn value() -> i64 {
+        return __self._value;
+    }
+}
+
+class NewBoxU64 {
+    private _value: u64;
+
+    fn value() -> u64 {
+        return __self._value;
+    }
+}
+
+class NewBoxU8 {
+    private _value: u8;
+
+    fn value() -> u8 {
+        return __self._value;
+    }
+}
+
+class NewBoxBool {
+    private _value: bool;
+
+    fn value() -> bool {
+        return __self._value;
+    }
+}
+
+fn main() -> unit {
+    var a: NewBoxI64 = NewBoxI64(7);
+    var b: NewBoxU64 = NewBoxU64((u64)9);
+    var c: NewBoxU8 = NewBoxU8((u8)255);
+    var d: NewBoxBool = NewBoxBool(true);
+
+    var av: i64 = a.value();
+    var bv: u64 = b.value();
+    var cv: u8 = c.value();
+    var dv: bool = d.value();
     return;
 }
 """
     _parse_and_typecheck(source)
 
 
-def test_typecheck_rejects_assignment_through_box_value_field() -> None:
+def test_typecheck_rejects_assignment_to_newbox_private_field() -> None:
     source = """
+class NewBoxI64 {
+    private _value: i64;
+
+    fn value() -> i64 {
+        return __self._value;
+    }
+}
+
 fn main() -> unit {
-    var a: BoxI64 = BoxI64(7);
-    a.value = 9;
+    var a: NewBoxI64 = NewBoxI64(7);
+    a._value = 9;
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Box instances are immutable"):
+    with pytest.raises(TypeCheckError, match="Member 'NewBoxI64._value' is private"):
         _parse_and_typecheck(source)
 
 
