@@ -1,0 +1,9 @@
+import std.box;
+import std.vec;
+
+fn main() -> i64 {
+    var v: Vec = Vec.new();
+    v.push(NewBoxI64(41));
+    v.push(NewBoxI64(1));
+    return ((NewBoxI64)v.get(0)).value() + ((NewBoxI64)v.get(1)).value();
+}

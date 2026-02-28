@@ -1,6 +1,0 @@
-fn main() -> i64 {
-    var v: Vec = Vec();
-    v.push(BoxI64(41));
-    v.push(BoxI64(1));
-    return ((BoxI64)v.get(0)).value + ((BoxI64)v.get(1)).value;
-}

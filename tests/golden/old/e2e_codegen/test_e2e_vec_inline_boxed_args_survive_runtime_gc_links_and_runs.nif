@@ -1,0 +1,42 @@
+import std.box;
+import std.vec;
+
+fn main() -> i64 {
+    var max: i64 = 2000;
+    var flags: Vec = Vec.new();
+    var i: i64 = 0;
+
+    while i <= max {
+        flags.push(NewBoxBool(true));
+        i = i + 1;
+    }
+
+    flags.set(0, NewBoxBool(false));
+    flags.set(1, NewBoxBool(false));
+
+    var p: i64 = 2;
+    while p <= max / p {
+        if ((NewBoxBool)flags.get(p)).value() {
+            var m: i64 = p * p;
+            while m <= max {
+                flags.set(m, NewBoxBool(false));
+                m = m + p;
+            }
+        }
+        p = p + 1;
+    }
+
+    var primes: Vec = Vec.new();
+    var n: i64 = 2;
+    while n <= max {
+        if ((NewBoxBool)flags.get(n)).value() {
+            primes.push(NewBoxI64(n));
+        }
+        n = n + 1;
+    }
+
+    if primes.len() != 303u {
+        return 1;
+    }
+    return 0;
+}
