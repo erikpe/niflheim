@@ -41,7 +41,6 @@ cc \
   "$repo_root/runtime/src/io.c" \
   "$repo_root/runtime/src/str.c" \
   "$repo_root/runtime/src/strbuf.c" \
-  "$repo_root/runtime/src/box.c" \
   "$repo_root/runtime/src/array.c" \
   "$asm_out" \
   -o "$output"

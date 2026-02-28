@@ -54,7 +54,6 @@ Runtime sources are split by responsibility:
 - `runtime/src/gc.c` - GC implementation
 - `runtime/src/io.c` - runtime IO/println implementation
 - `runtime/src/str.c` - `Str` implementation
-- `runtime/src/box.c` - primitive box implementations
 - `runtime/src/vec.c` - `Vec` implementation
 - `runtime/src/strbuf.c` - `StrBuf` implementation
 

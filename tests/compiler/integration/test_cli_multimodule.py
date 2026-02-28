@@ -147,7 +147,7 @@ fn main() -> i64 {
     io_c = repo_root / "runtime" / "src" / "io.c"
     str_c = repo_root / "runtime" / "src" / "str.c"
     strbuf_c = repo_root / "runtime" / "src" / "strbuf.c"
-    box_c = repo_root / "runtime" / "src" / "box.c"
+    array_c = repo_root / "runtime" / "src" / "array.c"
     exe_path = tmp_path / "program"
 
     subprocess.run(
@@ -161,7 +161,7 @@ fn main() -> i64 {
             str(io_c),
             str(str_c),
             str(strbuf_c),
-            str(box_c),
+            str(array_c),
             str(out_asm),
             "-o",
             str(exe_path),
@@ -282,7 +282,7 @@ fn main() -> i64 {
     io_c = repo_root / "runtime" / "src" / "io.c"
     str_c = repo_root / "runtime" / "src" / "str.c"
     strbuf_c = repo_root / "runtime" / "src" / "strbuf.c"
-    box_c = repo_root / "runtime" / "src" / "box.c"
+    array_c = repo_root / "runtime" / "src" / "array.c"
     exe_path = tmp_path / "program"
 
     subprocess.run(
@@ -296,7 +296,7 @@ fn main() -> i64 {
             str(io_c),
             str(str_c),
             str(strbuf_c),
-            str(box_c),
+            str(array_c),
             str(out_asm),
             "-o",
             str(exe_path),
@@ -401,7 +401,7 @@ fn main() -> i64 {
     io_c = repo_root / "runtime" / "src" / "io.c"
     str_c = repo_root / "runtime" / "src" / "str.c"
     strbuf_c = repo_root / "runtime" / "src" / "strbuf.c"
-    box_c = repo_root / "runtime" / "src" / "box.c"
+    array_c = repo_root / "runtime" / "src" / "array.c"
     exe_path = tmp_path / "program"
 
     subprocess.run(
@@ -415,7 +415,7 @@ fn main() -> i64 {
             str(io_c),
             str(str_c),
             str(strbuf_c),
-            str(box_c),
+            str(array_c),
             str(out_asm),
             "-o",
             str(exe_path),

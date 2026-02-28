@@ -33,13 +33,11 @@ Minimal C runtime skeleton for upcoming backend/GC work.
 - `include/runtime.h` - runtime ABI declarations.
 - `include/io.h` - runtime IO/println API declarations.
 - `include/str.h` - `Str` runtime API declarations.
-- `include/box.h` - primitive box runtime API declarations.
 - `include/vec.h` - `Vec` runtime API declarations.
 - `src/runtime.c` - low-level runtime infrastructure (thread state, root frames, allocation, panic support).
 - `src/gc.c` - GC implementation unit.
 - `src/io.c` - runtime IO/println implementation unit.
 - `src/str.c` - `Str` object implementation.
-- `src/box.c` - primitive box object implementations.
 - `src/vec.c` - `Vec` object implementation.
 - `Makefile` - runtime static library build.
 
