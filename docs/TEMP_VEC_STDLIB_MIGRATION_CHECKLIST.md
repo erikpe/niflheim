@@ -26,16 +26,16 @@ Goal: land stdlib-backed Vec and remove critical compiler hardcoding while keepi
 ### 1) Add stdlib Vec implementation (Obj[] backing)
 
 - [x] Prerequisite: general class field read/write codegen support exists (needed for Vec internal state fields).
-- [ ] Create std/vec.nif with exported class Vec.
-- [ ] Implement internal storage with Obj[] + capacity/len bookkeeping.
+- [x] Create std/vec.nif with exported class Vec.
+- [x] Implement internal storage with Obj[] + capacity/len bookkeeping.
 - [ ] Provide baseline API parity expected by existing programs/tests:
-  - [ ] Vec() constructor path (or static new, then update callers consistently)
-  - [ ] len
-  - [ ] push
-  - [ ] get(i64)
-  - [ ] set(i64, Obj)
-  - [ ] optional slice(i64, i64) if Vec slicing is to be supported now
-- [ ] Ensure index type is i64 and bounds behavior is deterministic.
+  - [x] Vec() constructor path (or static new, then update callers consistently)
+  - [x] len
+  - [x] push
+  - [x] get(i64)
+  - [x] set(i64, Obj)
+  - [x] optional slice(i64, i64) if Vec slicing is to be supported now
+- [x] Ensure index type is i64 and bounds behavior is deterministic.
 
 ---
 
@@ -45,21 +45,21 @@ Goal: land stdlib-backed Vec and remove critical compiler hardcoding while keepi
 
 ### Lexer/parser surface
 
-- [ ] compiler/tokens.py
-  - [ ] Remove Vec keyword token and keyword mapping.
-  - [ ] Ensure Vec is lexed as IDENT.
-  - [ ] Remove VEC from TYPE_NAME_TOKENS.
-- [ ] compiler/parser.py
-  - [ ] Remove TokenKind.VEC from BUILTIN_CALLABLE_TYPE_TOKENS.
-  - [ ] Ensure type and call parsing works via IDENT path for Vec.
-- [ ] compiler/grammar/niflheim_v0_1.ebnf
-  - [ ] Remove Vec from builtin named_type list if no longer language-builtin.
+- [x] compiler/tokens.py
+  - [x] Remove Vec keyword token and keyword mapping.
+  - [x] Ensure Vec is lexed as IDENT.
+  - [x] Remove VEC from TYPE_NAME_TOKENS.
+- [x] compiler/parser.py
+  - [x] Remove TokenKind.VEC from BUILTIN_CALLABLE_TYPE_TOKENS.
+  - [x] Ensure type and call parsing works via IDENT path for Vec.
+- [x] compiler/grammar/niflheim_v0_1.ebnf
+  - [x] Remove Vec from builtin named_type list if no longer language-builtin.
 
 ### Type system model
 
-- [ ] compiler/typecheck_model.py
-  - [ ] Remove Vec from REFERENCE_BUILTIN_TYPE_NAMES.
-  - [ ] Remove Vec from BUILTIN_INDEX_RESULT_TYPE_NAMES.
+- [x] compiler/typecheck_model.py
+  - [x] Remove Vec from REFERENCE_BUILTIN_TYPE_NAMES.
+  - [x] Remove Vec from BUILTIN_INDEX_RESULT_TYPE_NAMES.
 
 ---
 
@@ -67,14 +67,14 @@ Goal: land stdlib-backed Vec and remove critical compiler hardcoding while keepi
 
 Depends on: 2
 
-- [ ] compiler/typecheck_checker.py
-  - [ ] Remove BUILTIN_VEC_METHOD_SPECS.
-  - [ ] Remove IdentifierExpr special case that treats Vec as builtin callable.
-  - [ ] Remove FieldAccessExpr special case for object_type.name == "Vec".
-  - [ ] Remove CallExpr special case for Vec constructor/method signatures.
-  - [ ] Remove IndexExpr Vec fallback through BUILTIN_INDEX_RESULT_TYPE_NAMES.
-- [ ] Keep array behavior unchanged.
-- [ ] Ensure class method resolution handles Vec from std module exactly like any class.
+- [x] compiler/typecheck_checker.py
+  - [x] Remove BUILTIN_VEC_METHOD_SPECS.
+  - [x] Remove IdentifierExpr special case that treats Vec as builtin callable.
+  - [x] Remove FieldAccessExpr special case for object_type.name == "Vec".
+  - [x] Remove CallExpr special case for Vec constructor/method signatures.
+  - [x] Remove IndexExpr Vec fallback through BUILTIN_INDEX_RESULT_TYPE_NAMES.
+- [x] Keep array behavior unchanged.
+- [x] Ensure class method resolution handles Vec from std module exactly like any class.
 
 ---
 
@@ -84,22 +84,22 @@ Depends on: 3
 
 ### Builtin tables
 
-- [ ] compiler/codegen_model.py
-  - [ ] Remove Vec from BUILTIN_CONSTRUCTOR_RUNTIME_CALLS.
-  - [ ] Remove Vec entries from BUILTIN_METHOD_RUNTIME_CALLS.
-  - [ ] Remove Vec entries from BUILTIN_METHOD_RETURN_TYPES.
-  - [ ] Remove Vec from BUILTIN_INDEX_RUNTIME_CALLS.
-  - [ ] Remove rt_vec_* entries from RUNTIME_REF_ARG_INDICES.
-  - [ ] Remove Vec from BUILTIN_RUNTIME_TYPE_SYMBOLS.
-  - [ ] Remove rt_vec_* from RUNTIME_RETURN_TYPES.
+- [x] compiler/codegen_model.py
+  - [x] Remove Vec from BUILTIN_CONSTRUCTOR_RUNTIME_CALLS.
+  - [x] Remove Vec entries from BUILTIN_METHOD_RUNTIME_CALLS.
+  - [x] Remove Vec entries from BUILTIN_METHOD_RETURN_TYPES.
+  - [x] Remove Vec from BUILTIN_INDEX_RUNTIME_CALLS.
+  - [x] Remove rt_vec_* entries from RUNTIME_REF_ARG_INDICES.
+  - [x] Remove Vec from BUILTIN_RUNTIME_TYPE_SYMBOLS.
+  - [x] Remove rt_vec_* from RUNTIME_RETURN_TYPES.
 
 ### Vec branches in lowering
 
-- [ ] compiler/codegen.py
-  - [ ] Remove Vec-specific return-type inference branches.
-  - [ ] Remove Vec-specific path in _emit_index_expr.
-  - [ ] Ensure index/slice/set sugar lowers through generic method-call path.
-  - [ ] Ensure assignment-to-index remains canonicalized to set call.
+- [x] compiler/codegen.py
+  - [x] Remove Vec-specific return-type inference branches.
+  - [x] Remove Vec-specific path in _emit_index_expr.
+  - [x] Ensure index/slice/set sugar lowers through generic method-call path.
+  - [x] Ensure assignment-to-index remains canonicalized to set call.
 
 ---
 
@@ -107,11 +107,11 @@ Depends on: 3
 
 Depends on: 4
 
-- [ ] scripts/build.sh
-  - [ ] Keep vec.c linked temporarily unless all callsites are migrated.
-- [ ] tests/compiler/integration/test_cli_multimodule.py
-  - [ ] Keep vec.c link entries temporarily unless all tests are migrated.
-- [ ] Ensure no new codegen path emits rt_vec_*.
+- [x] scripts/build.sh
+  - [x] Keep vec.c linked temporarily unless all callsites are migrated.
+- [x] tests/compiler/integration/test_cli_multimodule.py
+  - [x] Keep vec.c link entries temporarily unless all tests are migrated.
+- [x] Ensure no new codegen path emits rt_vec_*.
 
 ---
 

@@ -350,6 +350,41 @@ fn main() -> i64 {
     assert "    call rt_box_i64_get" in asm
 
 
+def test_emit_asm_user_defined_vec_class_uses_method_symbols_not_rt_vec_builtins() -> None:
+    source = """
+class Vec {
+    _len: i64;
+
+    static fn new() -> Vec {
+        return Vec(0);
+    }
+
+    fn len() -> i64 {
+        return __self._len;
+    }
+
+    fn push(value: Obj) -> unit {
+        __self._len = __self._len + 1;
+        return;
+    }
+}
+
+fn main() -> i64 {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(1));
+    return v.len();
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call __nif_method_Vec_new" in asm
+    assert "    call __nif_method_Vec_push" in asm
+    assert "    call __nif_method_Vec_len" in asm
+    assert "rt_vec_" not in asm
+
+
 def test_emit_asm_array_constructor_lowers_to_runtime_symbol_by_element_kind() -> None:
     source = """
 class Person {

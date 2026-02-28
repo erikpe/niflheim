@@ -1,0 +1,110 @@
+import std.error;
+import std.str;
+
+
+export class Vec
+{
+    _len: i64;
+    _capacity: i64;
+    _storage: Obj[];
+
+    static fn new() -> Vec {
+        return Vec.with_capacity(4);
+    }
+
+    static fn with_capacity(capacity: i64) -> Vec {
+        if capacity < 0 {
+            panic("Vec.with_capacity: negative capacity");
+        }
+
+        var final_capacity: i64 = capacity;
+        if final_capacity < 1 {
+            final_capacity = 1;
+        }
+
+        return Vec(0, final_capacity, Obj[]((u64)final_capacity));
+    }
+
+    fn len() -> i64 {
+        return __self._len;
+    }
+
+    fn _grow(min_capacity: i64) -> unit {
+        if __self._capacity >= min_capacity {
+            return;
+        }
+
+        var next_capacity: i64 = __self._capacity;
+        if next_capacity < 1 {
+            next_capacity = 1;
+        }
+
+        while next_capacity < min_capacity {
+            next_capacity = next_capacity * 2;
+        }
+
+        var next_storage: Obj[] = Obj[]((u64)next_capacity);
+        var i: i64 = 0;
+        while i < __self._len {
+            next_storage[i] = __self._storage[i];
+            i = i + 1;
+        }
+
+        __self._storage = next_storage;
+        __self._capacity = next_capacity;
+    }
+
+    fn _normalize_index(index: i64) -> i64 {
+        var resolved: i64 = index;
+        if resolved < 0 {
+            resolved = __self._len + resolved;
+        }
+        return resolved;
+    }
+
+    fn push(value: Obj) -> unit {
+        __self._grow(__self._len + 1);
+        __self._storage[__self._len] = value;
+        __self._len = __self._len + 1;
+    }
+
+    fn get(index: i64) -> Obj {
+        var resolved: i64 = __self._normalize_index(index);
+        if resolved < 0 || resolved >= __self._len {
+            panic("Vec.get: index out of bounds");
+        }
+        return __self._storage[resolved];
+    }
+
+    fn set(index: i64, value: Obj) -> unit {
+        var resolved: i64 = __self._normalize_index(index);
+        if resolved < 0 || resolved >= __self._len {
+            panic("Vec.set: index out of bounds");
+        }
+        __self._storage[resolved] = value;
+    }
+
+    fn slice(begin: i64, end: i64) -> Vec {
+        var resolved_begin: i64 = begin;
+        if resolved_begin < 0 {
+            resolved_begin = __self._len + resolved_begin;
+        }
+
+        var resolved_end: i64 = end;
+        if resolved_end < 0 {
+            resolved_end = __self._len + resolved_end;
+        }
+
+        if resolved_begin < 0 || resolved_end < resolved_begin || resolved_end > __self._len {
+            panic("Vec.slice: invalid slice range");
+        }
+
+        var out: Vec = Vec.with_capacity(resolved_end - resolved_begin);
+        var i: i64 = resolved_begin;
+        while i < resolved_end {
+            out.push(__self._storage[i]);
+            i = i + 1;
+        }
+        return out;
+    }
+}

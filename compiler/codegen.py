@@ -231,7 +231,7 @@ def _expr_needs_temp_runtime_roots(expr: Expression) -> bool:
     if isinstance(expr, FieldAccessExpr):
         return _expr_needs_temp_runtime_roots(expr.object_expr)
     if isinstance(expr, IndexExpr):
-        return _expr_needs_temp_runtime_roots(expr.object_expr) or _expr_needs_temp_runtime_roots(expr.index_expr)
+        return True
     if isinstance(expr, ArrayCtorExpr):
         return _expr_needs_temp_runtime_roots(expr.length_expr)
     return False
@@ -989,22 +989,9 @@ class CodeGenerator:
     def _emit_index_expr(self, expr: IndexExpr, ctx: EmitContext) -> None:
         layout = ctx.layout
 
-        if not isinstance(expr.object_expr, IdentifierExpr):
-            raise NotImplementedError("index codegen currently requires identifier receivers")
-
-        receiver_name = expr.object_expr.name
-        receiver_type_name = layout.slot_type_names.get(receiver_name)
-        if receiver_type_name is None:
-            raise NotImplementedError(f"index receiver '{receiver_name}' is not materialized in stack layout")
+        receiver_type_name = _infer_expression_type_name(expr.object_expr, ctx)
 
         if is_str_type_name(receiver_type_name):
-            method_label = ctx.method_labels.get((receiver_type_name, "get_u8"))
-            if method_label is None and "::" in receiver_type_name:
-                unqualified_type_name = receiver_type_name.split("::", 1)[1]
-                method_label = ctx.method_labels.get((unqualified_type_name, "get_u8"))
-            if method_label is None:
-                raise NotImplementedError("index codegen for Str requires Str.get_u8 method")
-
             synthetic_callee = FieldAccessExpr(
                 object_expr=expr.object_expr,
                 field_name="get_u8",
@@ -1415,8 +1402,6 @@ class CodeGenerator:
 
         if isinstance(stmt, AssignStmt):
             if isinstance(stmt.target, IndexExpr):
-                if not isinstance(stmt.target.object_expr, IdentifierExpr):
-                    raise NotImplementedError("index assignment codegen currently requires identifier receivers")
                 synthetic_callee = FieldAccessExpr(
                     object_expr=stmt.target.object_expr,
                     field_name="set",

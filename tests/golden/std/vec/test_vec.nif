@@ -1,0 +1,84 @@
+import std.test;
+import std.io;
+import std.vec;
+
+
+fn test_vec_baseline() -> unit {
+    var v: Vec = Vec.new();
+    assert(v.len() == 0);
+
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
+    assert(v.len() == 2);
+
+    var first: i64 = ((BoxI64)v.get(0)).value;
+    var second: i64 = ((BoxI64)v.get(1)).value;
+    assert(first == 10);
+    assert(second == 20);
+
+    v.set(1, BoxI64(99));
+    assert(((BoxI64)v.get(1)).value == 99);
+}
+
+
+fn test_vec_negative_index_and_slice() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(3));
+    v.push(BoxI64(5));
+    v.push(BoxI64(8));
+
+    assert(((BoxI64)v.get(-1)).value == 8);
+    assert(((BoxI64)v.get(-2)).value == 5);
+
+    var s: Vec = v.slice(1, 3);
+    assert(s.len() == 2);
+    assert(((BoxI64)s.get(0)).value == 5);
+    assert(((BoxI64)s.get(1)).value == 8);
+}
+
+
+fn test_vec_grow_and_copy() -> unit {
+    var v: Vec = Vec.with_capacity(1);
+    var i: i64 = 0;
+    while i < 20 {
+        v.push(BoxI64(i));
+        i = i + 1;
+    }
+
+    assert(v.len() == 20);
+    assert(((BoxI64)v.get(0)).value == 0);
+    assert(((BoxI64)v.get(19)).value == 19);
+}
+
+
+fn test_vec_get_oob_panics() -> unit {
+    var v: Vec = Vec.new();
+    v.get(0);
+}
+
+
+fn test_vec_set_oob_panics() -> unit {
+    var v: Vec = Vec.new();
+    v.set(0, BoxI64(1));
+}
+
+
+fn test_vec_slice_oob_panics() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(1));
+    v.slice(0, 2);
+}
+
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { test_vec_baseline(); }
+    if select == 2u { test_vec_negative_index_and_slice(); }
+    if select == 3u { test_vec_grow_and_copy(); }
+    if select == 4u { test_vec_get_oob_panics(); }
+    if select == 5u { test_vec_set_oob_panics(); }
+    if select == 6u { test_vec_slice_oob_panics(); }
+
+    return 0;
+}

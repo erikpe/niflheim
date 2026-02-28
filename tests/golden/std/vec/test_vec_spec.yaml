@@ -1,0 +1,7 @@
+runs:
+  - { name: vec_baseline, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: vec_negative_index_and_slice, input: { stdin: "2" }, expect: { exit_code: 0 } }
+  - { name: vec_grow_and_copy, input: { stdin: "3" }, expect: { exit_code: 0 } }
+  - { name: vec_get_oob_panics, input: { stdin: "4" }, expect: { panic: "Vec.get: index out of bounds" } }
+  - { name: vec_set_oob_panics, input: { stdin: "5" }, expect: { panic: "Vec.set: index out of bounds" } }
+  - { name: vec_slice_oob_panics, input: { stdin: "6" }, expect: { panic: "Vec.slice: invalid slice range" } }
