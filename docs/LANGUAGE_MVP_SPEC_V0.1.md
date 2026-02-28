@@ -142,7 +142,7 @@ Visibility details:
 
 ### 5.4 std.box Wrapper Types
 
-- Primitive wrappers are provided by `std.box` as ordinary classes (`NewBoxI64`, `NewBoxU64`, `NewBoxU8`, `NewBoxBool`, `NewBoxDouble`).
+- Primitive wrappers are provided by `std.box` as ordinary classes (`BoxI64`, `BoxU64`, `BoxU8`, `BoxBool`, `BoxDouble`).
 - Primary purpose: allow primitives in `Obj`-based containers.
 - Wrapper instances are immutable by convention (private field + getter method).
 

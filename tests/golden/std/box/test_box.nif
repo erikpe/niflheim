@@ -3,34 +3,34 @@ import std.io;
 import std.box;
 
 
-fn test_new_box_i64() -> unit {
-    var x: NewBoxI64 = NewBoxI64(-7);
+fn test_box_i64() -> unit {
+    var x: BoxI64 = BoxI64(-7);
     assert(x.value() == -7);
 }
 
 
-fn test_new_box_u64() -> unit {
-    var x: NewBoxU64 = NewBoxU64(123u);
+fn test_box_u64() -> unit {
+    var x: BoxU64 = BoxU64(123u);
     assert(x.value() == 123u);
 }
 
 
-fn test_new_box_u8() -> unit {
-    var x: NewBoxU8 = NewBoxU8((u8)255);
+fn test_box_u8() -> unit {
+    var x: BoxU8 = BoxU8((u8)255);
     assert(x.value() == (u8)255);
 }
 
 
-fn test_new_box_bool() -> unit {
-    var t: NewBoxBool = NewBoxBool(true);
-    var f: NewBoxBool = NewBoxBool(false);
+fn test_box_bool() -> unit {
+    var t: BoxBool = BoxBool(true);
+    var f: BoxBool = BoxBool(false);
     assert(t.value() == true);
     assert(f.value() == false);
 }
 
 
-fn test_new_box_double() -> unit {
-    var x: NewBoxDouble = NewBoxDouble(1.5);
+fn test_box_double() -> unit {
+    var x: BoxDouble = BoxDouble(1.5);
     assert(x.value() == 1.5);
 }
 
@@ -38,11 +38,11 @@ fn test_new_box_double() -> unit {
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
-    if select == 1u { test_new_box_i64(); }
-    if select == 2u { test_new_box_u64(); }
-    if select == 3u { test_new_box_u8(); }
-    if select == 4u { test_new_box_bool(); }
-    if select == 5u { test_new_box_double(); }
+    if select == 1u { test_box_i64(); }
+    if select == 2u { test_box_u64(); }
+    if select == 3u { test_box_u8(); }
+    if select == 4u { test_box_bool(); }
+    if select == 5u { test_box_double(); }
 
     return 0;
 }

@@ -35,7 +35,7 @@ Backend/codegen, runtime GC implementation details, and full CLI workflow are st
 Recent backend/runtime updates:
 - Full `double` lowering is implemented in codegen, including literals, arithmetic/comparisons, casts, and mixed integer/floating call signatures.
 - SysV floating-point ABI paths are implemented for parameters/returns (`xmm0`-`xmm7`) in function calls, method calls, and constructors.
-- `std.box` primitive wrapper classes (`NewBox*`) are available for `Obj`-container use cases.
+- `std.box` primitive wrapper classes (`Box*`) are available for `Obj`-container use cases.
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
 
 ## Policy Decisions (MVP)

@@ -8,95 +8,95 @@ fn test_vec_baseline() -> unit {
     var v: Vec = Vec.new();
     assert(v.len() == 0u);
 
-    v.push(NewBoxI64(10));
-    v.push(NewBoxI64(20));
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
     assert(v.len() == 2u);
 
-    var first: i64 = ((NewBoxI64)v[0]).value();
-    var second: i64 = ((NewBoxI64)v[1]).value();
+    var first: i64 = ((BoxI64)v[0]).value();
+    var second: i64 = ((BoxI64)v[1]).value();
     assert(first == 10);
     assert(second == 20);
 
-    v[1] = NewBoxI64(99);
-    assert(((NewBoxI64)v[1]).value() == 99);
+    v[1] = BoxI64(99);
+    assert(((BoxI64)v[1]).value() == 99);
 }
 
 
 fn test_vec_index_sugar_with_wrapping_negative_indexes() -> unit {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(10));
-    v.push(NewBoxI64(20));
-    v.push(NewBoxI64(30));
-    v.push(NewBoxI64(40));
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
+    v.push(BoxI64(30));
+    v.push(BoxI64(40));
 
-    assert(((NewBoxI64)v[-1]).value() == 40);
-    assert(((NewBoxI64)v[-4]).value() == 10);
+    assert(((BoxI64)v[-1]).value() == 40);
+    assert(((BoxI64)v[-4]).value() == 10);
 
-    v[-1] = NewBoxI64(99);
-    assert(((NewBoxI64)v[3]).value() == 99);
+    v[-1] = BoxI64(99);
+    assert(((BoxI64)v[3]).value() == 99);
 
-    v[-4] = NewBoxI64(77);
-    assert(((NewBoxI64)v[0]).value() == 77);
+    v[-4] = BoxI64(77);
+    assert(((BoxI64)v[0]).value() == 77);
 }
 
 
 fn test_vec_slice_sugar_forms_and_negative_wrapping() -> unit {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(10));
-    v.push(NewBoxI64(20));
-    v.push(NewBoxI64(30));
-    v.push(NewBoxI64(40));
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
+    v.push(BoxI64(30));
+    v.push(BoxI64(40));
 
     var a: Vec = v[1:3];
     assert(a.len() == 2u);
-    assert(((NewBoxI64)a[0]).value() == 20);
-    assert(((NewBoxI64)a[1]).value() == 30);
+    assert(((BoxI64)a[0]).value() == 20);
+    assert(((BoxI64)a[1]).value() == 30);
 
     var b: Vec = v[:2];
     assert(b.len() == 2u);
-    assert(((NewBoxI64)b[0]).value() == 10);
-    assert(((NewBoxI64)b[1]).value() == 20);
+    assert(((BoxI64)b[0]).value() == 10);
+    assert(((BoxI64)b[1]).value() == 20);
 
     var c: Vec = v[2:];
     assert(c.len() == 2u);
-    assert(((NewBoxI64)c[0]).value() == 30);
-    assert(((NewBoxI64)c[1]).value() == 40);
+    assert(((BoxI64)c[0]).value() == 30);
+    assert(((BoxI64)c[1]).value() == 40);
 
     var d: Vec = v[:];
     assert(d.len() == 4u);
-    assert(((NewBoxI64)d[0]).value() == 10);
-    assert(((NewBoxI64)d[3]).value() == 40);
+    assert(((BoxI64)d[0]).value() == 10);
+    assert(((BoxI64)d[3]).value() == 40);
 
     var e: Vec = v[-3:-1];
     assert(e.len() == 2u);
-    assert(((NewBoxI64)e[0]).value() == 20);
-    assert(((NewBoxI64)e[1]).value() == 30);
+    assert(((BoxI64)e[0]).value() == 20);
+    assert(((BoxI64)e[1]).value() == 30);
 
     var f: Vec = v[:-1];
     assert(f.len() == 3u);
-    assert(((NewBoxI64)f[0]).value() == 10);
-    assert(((NewBoxI64)f[2]).value() == 30);
+    assert(((BoxI64)f[0]).value() == 10);
+    assert(((BoxI64)f[2]).value() == 30);
 
     var g: Vec = v[-2:];
     assert(g.len() == 2u);
-    assert(((NewBoxI64)g[0]).value() == 30);
-    assert(((NewBoxI64)g[1]).value() == 40);
+    assert(((BoxI64)g[0]).value() == 30);
+    assert(((BoxI64)g[1]).value() == 40);
 }
 
 
 fn test_vec_slice_copy_independence() -> unit {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(10));
-    v.push(NewBoxI64(20));
-    v.push(NewBoxI64(30));
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
+    v.push(BoxI64(30));
 
     var s: Vec = v[1:3];
     assert(s.len() == 2u);
-    assert(((NewBoxI64)s[0]).value() == 20);
-    assert(((NewBoxI64)s[1]).value() == 30);
+    assert(((BoxI64)s[0]).value() == 20);
+    assert(((BoxI64)s[1]).value() == 30);
 
-    v[1] = NewBoxI64(99);
-    assert(((NewBoxI64)s[0]).value() == 20);
+    v[1] = BoxI64(99);
+    assert(((BoxI64)s[0]).value() == 20);
 }
 
 
@@ -104,13 +104,13 @@ fn test_vec_grow_and_copy() -> unit {
     var v: Vec = Vec.with_capacity(1u);
     var i: i64 = 0;
     while i < 20 {
-        v.push(NewBoxI64(i));
+        v.push(BoxI64(i));
         i = i + 1;
     }
 
     assert(v.len() == 20u);
-    assert(((NewBoxI64)v[0]).value() == 0);
-    assert(((NewBoxI64)v[19]).value() == 19);
+    assert(((BoxI64)v[0]).value() == 0);
+    assert(((BoxI64)v[19]).value() == 19);
 }
 
 
@@ -122,53 +122,53 @@ fn test_vec_get_oob_panics() -> unit {
 
 fn test_vec_set_oob_panics() -> unit {
     var v: Vec = Vec.new();
-    v[0] = NewBoxI64(1);
+    v[0] = BoxI64(1);
 }
 
 
 fn test_vec_get_negative_wrap_oob_panics() -> unit {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(1));
-    v.push(NewBoxI64(2));
+    v.push(BoxI64(1));
+    v.push(BoxI64(2));
     var x: Obj = v[-3];
 }
 
 
 fn test_vec_set_negative_wrap_oob_panics() -> unit {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(1));
-    v.push(NewBoxI64(2));
-    v[-3] = NewBoxI64(7);
+    v.push(BoxI64(1));
+    v.push(BoxI64(2));
+    v[-3] = BoxI64(7);
 }
 
 
 fn test_vec_slice_oob_panics() -> unit {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(1));
+    v.push(BoxI64(1));
     v[0:2];
 }
 
 
 fn test_vec_slice_negative_begin_oob_panics() -> unit {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(1));
-    v.push(NewBoxI64(2));
+    v.push(BoxI64(1));
+    v.push(BoxI64(2));
     v[-3:1];
 }
 
 
 fn test_vec_slice_negative_end_oob_panics() -> unit {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(1));
-    v.push(NewBoxI64(2));
+    v.push(BoxI64(1));
+    v.push(BoxI64(2));
     v[0:-3];
 }
 
 
 fn test_vec_slice_reversed_panics() -> unit {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(1));
-    v.push(NewBoxI64(2));
+    v.push(BoxI64(1));
+    v.push(BoxI64(2));
     v[2:1];
 }
 
@@ -176,9 +176,9 @@ fn test_vec_slice_reversed_panics() -> unit {
 fn test_vec_with_capacity_zero_is_allowed() -> unit {
     var v: Vec = Vec.with_capacity(0u);
     assert(v.len() == 0u);
-    v.push(NewBoxI64(7));
+    v.push(BoxI64(7));
     assert(v.len() == 1u);
-    assert(((NewBoxI64)v[0]).value() == 7);
+    assert(((BoxI64)v[0]).value() == 7);
 }
 
 

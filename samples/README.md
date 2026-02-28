@@ -24,5 +24,5 @@ Additional debugging-oriented sample:
 Stdlib IO sample:
 - `samples/stdlib_io_println.nif` (`import std.io; println_i64(...)` without direct runtime calls)
 
-Vec + NewBoxI64 prime sample:
-- `samples/vec_primes_2_to_1000000.nif` (collects primes into `Vec` of `NewBoxI64`, then prints aggregate output)
+Vec + BoxI64 prime sample:
+- `samples/vec_primes_2_to_1000000.nif` (collects primes into `Vec` of `BoxI64`, then prints aggregate output)

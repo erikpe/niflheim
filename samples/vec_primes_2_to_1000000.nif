@@ -35,11 +35,11 @@ fn main() -> i64 {
     var c: u8 = s[5];
     s = s.strip();
 
-    primes.push(NewBoxI64(2));
+    primes.push(BoxI64(2));
     var candidate: i64 = 3;
     while candidate <= 100000 {
         if is_prime(candidate) {
-            primes.push(NewBoxI64(candidate));
+            primes.push(BoxI64(candidate));
         }
         candidate = candidate + 2;
     }
@@ -48,7 +48,7 @@ fn main() -> i64 {
     var n: i64 = (i64)primes.len();
     var sum: i64;
     while i < n {
-        sum = sum + ((NewBoxI64)primes[i]).value();
+        sum = sum + ((BoxI64)primes[i]).value();
         i = i + 1;
     }
     println_i64(sum);

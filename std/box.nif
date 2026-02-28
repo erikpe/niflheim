@@ -1,4 +1,4 @@
-export class NewBoxI64
+export class BoxI64
 {
     private _value: i64;
 
@@ -8,7 +8,7 @@ export class NewBoxI64
 }
 
 
-export class NewBoxU64
+export class BoxU64
 {
     private _value: u64;
 
@@ -18,7 +18,7 @@ export class NewBoxU64
 }
 
 
-export class NewBoxU8
+export class BoxU8
 {
     private _value: u8;
 
@@ -28,7 +28,7 @@ export class NewBoxU8
 }
 
 
-export class NewBoxBool
+export class BoxBool
 {
     private _value: bool;
 
@@ -38,7 +38,7 @@ export class NewBoxBool
 }
 
 
-export class NewBoxDouble
+export class BoxDouble
 {
     private _value: double;
 

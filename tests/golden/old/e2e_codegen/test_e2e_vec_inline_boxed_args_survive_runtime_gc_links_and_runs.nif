@@ -7,19 +7,19 @@ fn main() -> i64 {
     var i: i64 = 0;
 
     while i <= max {
-        flags.push(NewBoxBool(true));
+        flags.push(BoxBool(true));
         i = i + 1;
     }
 
-    flags.set(0, NewBoxBool(false));
-    flags.set(1, NewBoxBool(false));
+    flags.set(0, BoxBool(false));
+    flags.set(1, BoxBool(false));
 
     var p: i64 = 2;
     while p <= max / p {
-        if ((NewBoxBool)flags.get(p)).value() {
+        if ((BoxBool)flags.get(p)).value() {
             var m: i64 = p * p;
             while m <= max {
-                flags.set(m, NewBoxBool(false));
+                flags.set(m, BoxBool(false));
                 m = m + p;
             }
         }
@@ -29,8 +29,8 @@ fn main() -> i64 {
     var primes: Vec = Vec.new();
     var n: i64 = 2;
     while n <= max {
-        if ((NewBoxBool)flags.get(n)).value() {
-            primes.push(NewBoxI64(n));
+        if ((BoxBool)flags.get(n)).value() {
+            primes.push(BoxI64(n));
         }
         n = n + 1;
     }

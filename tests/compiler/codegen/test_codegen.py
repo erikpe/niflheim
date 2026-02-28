@@ -335,9 +335,9 @@ fn main() -> i64 {
     assert "    call rt_str_get_u8" in asm
 
 
-def test_emit_asm_newbox_i64_constructor_and_value_method_lower_to_class_symbols() -> None:
+def test_emit_asm_box_i64_constructor_and_value_method_lower_to_class_symbols() -> None:
     source = """
-class NewBoxI64 {
+class BoxI64 {
     _value: i64;
 
     fn value() -> i64 {
@@ -346,7 +346,7 @@ class NewBoxI64 {
 }
 
 fn main() -> i64 {
-    var b: NewBoxI64 = NewBoxI64(7);
+    var b: BoxI64 = BoxI64(7);
     return b.value();
 }
 """
@@ -354,8 +354,8 @@ fn main() -> i64 {
 
     asm = emit_asm(module)
 
-    assert "    call __nif_ctor_NewBoxI64" in asm
-    assert "    call __nif_method_NewBoxI64_value" in asm
+    assert "    call __nif_ctor_BoxI64" in asm
+    assert "    call __nif_method_BoxI64_value" in asm
 
 
 def test_emit_asm_user_defined_vec_class_uses_method_symbols_not_rt_vec_builtins() -> None:

@@ -3,8 +3,8 @@ import std.vec;
 
 fn main() -> i64 {
     var v: Vec = Vec.new();
-    v.push(NewBoxI64(10));
-    v.push(NewBoxI64(20));
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
     var first: Obj = v.get(0);
     v.set(1, first);
 
