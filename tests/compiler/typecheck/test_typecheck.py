@@ -520,9 +520,6 @@ def test_typecheck_allows_provably_null_index_deref_at_compile_time() -> None:
 fn main() -> unit {
     var nums: i64[] = null;
     var x: i64 = nums[0];
-
-    var m: Map = null;
-    var y: Obj = m[0];
     return;
 }
 """

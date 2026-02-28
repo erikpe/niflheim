@@ -35,7 +35,6 @@ class TokenKind(str, Enum):
     UNIT = "UNIT"
 
     OBJ = "OBJ"
-    MAP = "MAP"
 
     TRUE = "TRUE"
     FALSE = "FALSE"
@@ -93,7 +92,6 @@ KEYWORDS: dict[str, TokenKind] = {
     "double": TokenKind.DOUBLE,
     "unit": TokenKind.UNIT,
     "Obj": TokenKind.OBJ,
-    "Map": TokenKind.MAP,
     "true": TokenKind.TRUE,
     "false": TokenKind.FALSE,
     "null": TokenKind.NULL,
@@ -143,5 +141,4 @@ TYPE_NAME_TOKENS: set[TokenKind] = {
     TokenKind.DOUBLE,
     TokenKind.UNIT,
     TokenKind.OBJ,
-    TokenKind.MAP,
 }

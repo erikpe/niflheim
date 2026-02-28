@@ -223,7 +223,7 @@ class TypeChecker:
             self._ensure_assignable_target(stmt.target)
             if isinstance(stmt.target, IndexExpr):
                 object_type = self._infer_expression_type(stmt.target.object_expr)
-                if object_type.element_type is None and object_type.name != "Map":
+                if object_type.element_type is None:
                     value_type = self._infer_expression_type(stmt.value)
                     self._ensure_structural_set_method_for_index_assignment(
                         object_type,
@@ -271,7 +271,7 @@ class TypeChecker:
 
         if isinstance(expr, IndexExpr):
             object_type = self._infer_expression_type(expr.object_expr)
-            if object_type.element_type is None and object_type.name != "Map":
+            if object_type.element_type is None:
                 self._ensure_structural_set_method_available_for_index_assignment(object_type, expr.span)
             return
 
@@ -443,9 +443,6 @@ class TypeChecker:
             if obj_type.element_type is not None:
                 self._require_array_index_type(index_type, expr.index_expr.span)
                 return obj_type.element_type
-
-            if obj_type.name == "Map":
-                return TypeInfo(name="Obj", kind="reference")
 
             class_info = self._lookup_class_by_type_name(obj_type.name)
             if class_info is not None:

@@ -134,8 +134,6 @@ primitive_type     = "i64"
                    ;
 
 named_type         = "Obj"
-                   | "Str"
-                   | "Map"
                    | IDENT
                    ;
 
@@ -155,7 +153,7 @@ char_char          = ? single byte char or supported escape ? ;
 (* Keywords
    import export class private fn static var if else while return
    i64 u64 u8 bool double unit
-   Obj Str Map
+   Obj
    true false null
 *)
 
