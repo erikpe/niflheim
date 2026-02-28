@@ -14,11 +14,11 @@ def _parse_and_typecheck(source: str) -> None:
 
 def test_typecheck_primitives_and_references_ok() -> None:
     source = """
-class Str {
+class NewStr {
 }
 
 class Person {
-    name: Str;
+    name: NewStr;
     age: i64;
 
     fn birthday(years: i64) -> i64 {
@@ -467,7 +467,7 @@ fn main() -> unit {
 
 def test_typecheck_rejects_unrelated_reference_cast() -> None:
     source = """
-class Str {
+class NewStr {
 }
 
 class Person {
@@ -476,11 +476,11 @@ class Person {
 
 fn main() -> unit {
     var p: Person = Person(1);
-    var s: Str = (Str)p;
+    var s: NewStr = (NewStr)p;
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Invalid cast from 'Person' to 'Str'"):
+    with pytest.raises(TypeCheckError, match="Invalid cast from 'Person' to 'NewStr'"):
         _parse_and_typecheck(source)
 
 
@@ -708,11 +708,14 @@ fn main() -> unit {
 
 def test_typecheck_str_index_returns_u8() -> None:
     source = """
-class Str {
+class NewStr {
+    fn get(index: i64) -> u8 {
+        return 0u8;
+    }
 }
 
 fn main() -> unit {
-    var s: Str = "A";
+    var s: NewStr = "A";
     var b: u8 = s[0];
     return;
 }
@@ -722,25 +725,22 @@ fn main() -> unit {
 
 def test_typecheck_str_slice_syntax_desugars_and_typechecks() -> None:
     source = """
-extern fn rt_str_len(value: Str) -> i64;
-extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
-
-class Str {
-    fn len() -> i64 {
-        return rt_str_len(__self);
+class NewStr {
+    fn len() -> u64 {
+        return 0u;
     }
 
-    fn slice(begin: i64, end: i64) -> Str {
-        return rt_str_slice(__self, begin, end);
+    fn slice(begin: i64, end: i64) -> NewStr {
+        return __self;
     }
 }
 
 fn main() -> unit {
-    var v: Str = "Hello world!";
-    var s1: Str = v[3:5];
-    var s2: Str = v[:7];
-    var s3: Str = v[4:];
-    var s4: Str = v[:];
+    var v: NewStr = "Hello world!";
+    var s1: NewStr = v[3:5];
+    var s2: NewStr = v[:7];
+    var s3: NewStr = v[4:];
+    var s4: NewStr = v[:];
     return;
 }
 """
@@ -749,17 +749,15 @@ fn main() -> unit {
 
 def test_typecheck_allows_implicit___self_in_method_body() -> None:
     source = """
-extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
-
-class Str {
-    fn get_u8(index: i64) -> u8 {
-        return rt_str_get_u8(__self, index);
+class NewStr {
+    fn get(index: i64) -> u8 {
+        return 0u8;
     }
 }
 
 fn main() -> unit {
-    var s: Str = "A";
-    var b: u8 = s.get_u8(0);
+    var s: NewStr = "A";
+    var b: u8 = s.get(0);
     return;
 }
 """
@@ -768,11 +766,14 @@ fn main() -> unit {
 
 def test_typecheck_rejects_non_i64_str_index() -> None:
     source = """
-class Str {
+class NewStr {
+    fn get(index: i64) -> u8 {
+        return 0u8;
+    }
 }
 
 fn main() -> unit {
-    var s: Str = "A";
+    var s: NewStr = "A";
     var b: u8 = s[true];
     return;
 }
@@ -783,17 +784,23 @@ fn main() -> unit {
 
 def test_typecheck_rejects_assignment_through_str_index() -> None:
     source = """
-class Str {
+class NewStr {
+    fn get(index: i64) -> u8 {
+        return 0u8;
+    }
+
+    fn set(index: i64, value: u8) -> unit {
+        return;
+    }
 }
 
 fn main() -> unit {
-    var s: Str = "A";
+    var s: NewStr = "A";
     s[0] = (u8)66;
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Str is immutable"):
-        _parse_and_typecheck(source)
+    _parse_and_typecheck(source)
 
 
 def test_typecheck_allows_box_class_constructors_and_value_getters() -> None:

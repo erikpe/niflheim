@@ -223,7 +223,7 @@ class TypeChecker:
             self._ensure_assignable_target(stmt.target)
             if isinstance(stmt.target, IndexExpr):
                 object_type = self._infer_expression_type(stmt.target.object_expr)
-                if object_type.element_type is None and not is_str_type_name(object_type.name) and object_type.name != "Map":
+                if object_type.element_type is None and object_type.name != "Map":
                     value_type = self._infer_expression_type(stmt.value)
                     self._ensure_structural_set_method_for_index_assignment(
                         object_type,
@@ -271,8 +271,6 @@ class TypeChecker:
 
         if isinstance(expr, IndexExpr):
             object_type = self._infer_expression_type(expr.object_expr)
-            if is_str_type_name(object_type.name):
-                raise TypeCheckError("Cannot assign through Str index: Str is immutable", expr.span)
             if object_type.element_type is None and object_type.name != "Map":
                 self._ensure_structural_set_method_available_for_index_assignment(object_type, expr.span)
             return
@@ -442,10 +440,6 @@ class TypeChecker:
         if isinstance(expr, IndexExpr):
             obj_type = self._infer_expression_type(expr.object_expr)
             index_type = self._infer_expression_type(expr.index_expr)
-            if is_str_type_name(obj_type.name):
-                self._require_type_name(index_type, "i64", expr.index_expr.span)
-                return TypeInfo(name="u8", kind="primitive")
-
             if obj_type.element_type is not None:
                 self._require_array_index_type(index_type, expr.index_expr.span)
                 return obj_type.element_type
@@ -837,7 +831,33 @@ class TypeChecker:
         if imported_class_type is not None:
             return imported_class_type
 
+        global_class_type = self._resolve_unique_global_class_type(STR_CLASS_NAME, span)
+        if global_class_type is not None:
+            return global_class_type
+
         raise TypeCheckError(f"Unknown type '{STR_CLASS_NAME}'", span)
+
+    def _resolve_unique_global_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
+        if self.module_class_infos is None:
+            return None
+
+        matches: list[ModulePath] = []
+        for module_path, classes in self.module_class_infos.items():
+            if class_name in classes:
+                matches.append(module_path)
+
+        if not matches:
+            return None
+
+        if len(matches) > 1:
+            candidates = ", ".join(sorted(".".join(path) for path in matches))
+            raise TypeCheckError(
+                f"Ambiguous global class '{class_name}' (matches: {candidates})",
+                span,
+            )
+
+        owner_dotted = ".".join(matches[0])
+        return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
 
     def _resolve_imported_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
         matched_module = self._resolve_unique_imported_class_module(

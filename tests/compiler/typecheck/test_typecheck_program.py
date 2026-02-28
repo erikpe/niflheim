@@ -539,12 +539,12 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_function(tmp_p
         typecheck_program(program)
 
 
-def test_typecheck_program_imported_std_str_methods_on_unqualified_str(tmp_path: Path) -> None:
+def test_typecheck_program_imported_std_newstr_methods_on_unqualified_newstr(tmp_path: Path) -> None:
     _write(
-        tmp_path / "std" / "str.nif",
+        tmp_path / "std" / "newstr.nif",
         """
-        export class Str {
-            fn strip() -> Str {
+        export class NewStr {
+            fn strip() -> NewStr {
                 return __self;
             }
         }
@@ -553,11 +553,11 @@ def test_typecheck_program_imported_std_str_methods_on_unqualified_str(tmp_path:
     _write(
         tmp_path / "main.nif",
         """
-        import std.str;
+        import std.newstr;
 
         fn main() -> unit {
-            var s: Str = "Hello world!";
-            var t: Str = s.strip();
+            var s: NewStr = "Hello world!";
+            var t: NewStr = s.strip();
             return;
         }
         """,
@@ -567,12 +567,12 @@ def test_typecheck_program_imported_std_str_methods_on_unqualified_str(tmp_path:
     typecheck_program(program)
 
 
-def test_typecheck_program_imported_std_str_from_char_static_call(tmp_path: Path) -> None:
+def test_typecheck_program_imported_std_newstr_from_char_static_call(tmp_path: Path) -> None:
     _write(
-        tmp_path / "std" / "str.nif",
+        tmp_path / "std" / "newstr.nif",
         """
-        export class Str {
-            static fn from_char(value: u8) -> Str {
+        export class NewStr {
+            static fn from_char(value: u8) -> NewStr {
                 return "A";
             }
         }
@@ -581,10 +581,10 @@ def test_typecheck_program_imported_std_str_from_char_static_call(tmp_path: Path
     _write(
         tmp_path / "main.nif",
         """
-        import std.str;
+        import std.newstr;
 
         fn main() -> unit {
-            var s: Str = Str.from_char('Z');
+            var s: NewStr = NewStr.from_char('Z');
             return;
         }
         """,

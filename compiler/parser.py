@@ -22,9 +22,7 @@ UNARY_START_TOKENS: set[TokenKind] = {
 }
 
 
-BUILTIN_CALLABLE_TYPE_TOKENS: tuple[TokenKind, ...] = (
-    TokenKind.STR,
-)
+BUILTIN_CALLABLE_TYPE_TOKENS: tuple[TokenKind, ...] = ()
 
 
 class ParserError(ValueError):
@@ -163,7 +161,7 @@ class Parser:
 
     @staticmethod
     def _is_symbol_name_kind(kind: TokenKind) -> bool:
-        return kind in {TokenKind.IDENT, TokenKind.STR}
+        return kind == TokenKind.IDENT
 
     def _expect_symbol_name(self, message: str) -> Token:
         token = self.stream.peek()

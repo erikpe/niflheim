@@ -58,7 +58,7 @@ from compiler.codegen_str_helper import (
     escape_asm_string_bytes,
     escape_c_string,
 )
-from compiler.str_type_utils import STR_CLASS_NAME, is_str_type_name
+from compiler.str_type_utils import STR_CLASS_NAME
 
 
 def _epilogue_label(fn_name: str) -> str:
@@ -528,8 +528,6 @@ def _infer_expression_type_name(
     if isinstance(expr, IndexExpr):
         if isinstance(expr.object_expr, IdentifierExpr):
             receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
-            if is_str_type_name(receiver_type):
-                return "u8"
             if _is_array_type_name(receiver_type):
                 return _array_element_type_name(receiver_type)
         return "i64"
@@ -818,6 +816,9 @@ class CodeGenerator:
             if label_and_len is None:
                 raise NotImplementedError("missing string literal lowering metadata")
             data_label, data_len = label_and_len
+            from_u8_label = ctx.method_labels.get((STR_CLASS_NAME, "from_u8_array"))
+            if from_u8_label is None or not ctx.method_is_static.get((STR_CLASS_NAME, "from_u8_array"), False):
+                raise NotImplementedError(f"missing static {STR_CLASS_NAME}.from_u8_array for string literal lowering")
             self._emit_runtime_call_hook(
                 fn_name=ctx.fn_name,
                 phase="before",
@@ -826,16 +827,16 @@ class CodeGenerator:
                 column=expr.span.start.column,
             )
             self._emit_root_slot_updates(layout)
-            self.out.append("    call rt_thread_state")
-            self.out.append("    mov rdi, rax")
-            self.out.append(f"    lea rsi, [rip + {data_label}]")
-            self.out.append(f"    mov rdx, {data_len}")
-            self.out.append("    call rt_str_from_bytes")
+            self.out.append(f"    lea rdi, [rip + {data_label}]")
+            self.out.append(f"    mov rsi, {data_len}")
+            self.out.append("    call rt_array_from_bytes_u8")
             self._emit_runtime_call_hook(
                 fn_name=ctx.fn_name,
                 phase="after",
                 label_counter=label_counter,
             )
+            self.out.append("    mov rdi, rax")
+            self.out.append(f"    call {from_u8_label}")
             return
 
         if expr.value == "true":
@@ -930,20 +931,6 @@ class CodeGenerator:
         layout = ctx.layout
 
         receiver_type_name = _infer_expression_type_name(expr.object_expr, ctx)
-
-        if is_str_type_name(receiver_type_name):
-            synthetic_callee = FieldAccessExpr(
-                object_expr=expr.object_expr,
-                field_name="get_u8",
-                span=expr.span,
-            )
-            synthetic_call = CallExpr(
-                callee=synthetic_callee,
-                arguments=[expr.index_expr],
-                span=expr.span,
-            )
-            self._emit_call_expr(synthetic_call, ctx)
-            return
 
         if _is_array_type_name(receiver_type_name):
             synthetic_callee = FieldAccessExpr(

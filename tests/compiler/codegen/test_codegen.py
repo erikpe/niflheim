@@ -294,10 +294,18 @@ fn main() -> i64 {
     assert "    call println_i64" in asm
 
 
-def test_emit_asm_string_literal_lowers_via_rt_str_from_bytes() -> None:
+def test_emit_asm_string_literal_lowers_via_u8_array_and_newstr_factory() -> None:
     source = """
+class NewStr {
+    _bytes: u8[];
+
+    static fn from_u8_array(value: u8[]) -> NewStr {
+        return NewStr(value);
+    }
+}
+
 fn main() -> i64 {
-    var s: Str = "A\\x42\\n";
+    var s: NewStr = "A\\x42\\n";
     if s == null {
         return 1;
     }
@@ -309,21 +317,22 @@ fn main() -> i64 {
     asm = emit_asm(module)
 
     assert "__nif_str_lit_0:" in asm
-    assert "    call rt_str_from_bytes" in asm
+    assert "    call rt_array_from_bytes_u8" in asm
+    assert "    call __nif_method_NewStr_from_u8_array" in asm
 
 
-def test_emit_asm_str_index_lowers_via_rt_str_get_u8() -> None:
+def test_emit_asm_newstr_index_lowers_via_structural_get_call() -> None:
     source = """
-extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
+class NewStr {
+    _bytes: u8[];
 
-class Str {
-    fn get_u8(index: i64) -> u8 {
-        return rt_str_get_u8(__self, index);
+    fn get(index: i64) -> u8 {
+        return __self._bytes[index];
     }
 }
 
 fn main() -> i64 {
-    var s: Str = "ABC";
+    var s: NewStr = NewStr(u8[](3u));
     var b: u8 = s[1];
     return (i64)b;
 }
@@ -332,7 +341,7 @@ fn main() -> i64 {
 
     asm = emit_asm(module)
 
-    assert "    call rt_str_get_u8" in asm
+    assert "    call __nif_method_NewStr_get" in asm
 
 
 def test_emit_asm_box_i64_constructor_and_value_method_lower_to_class_symbols() -> None:

@@ -40,6 +40,26 @@ static RtStrObj* rt_require_str_obj(const void* str_obj, const char* api_name) {
     return str;
 }
 
+static void rt_panic_from_bytes(const uint8_t* bytes, uint64_t len, const char* api_name) {
+    if (len > (uint64_t)(SIZE_MAX - 1)) {
+        rt_panic("rt_panic_*: message too large");
+    }
+
+    const size_t message_len = (size_t)len;
+    char* message = (char*)malloc(message_len + 1);
+    if (message == NULL) {
+        rt_panic("rt_panic_*: out of memory");
+    }
+
+    if (message_len > 0) {
+        memcpy(message, bytes, message_len);
+    }
+    message[message_len] = '\0';
+
+    (void)api_name;
+    rt_panic(message);
+}
+
 void* rt_str_from_bytes(RtThreadState* ts, const uint8_t* bytes, uint64_t len) {
     if (len > 0 && bytes == NULL) {
         rt_panic("rt_str_from_bytes: bytes is NULL with non-zero length");
@@ -91,20 +111,35 @@ void* rt_str_slice(const void* str_obj, int64_t begin, int64_t end) {
 void rt_panic_str(const void* str_obj) {
     const RtStrObj* str = rt_require_str_obj(str_obj, "rt_panic_str: object is not Str");
 
-    if (str->len > (uint64_t)(SIZE_MAX - 1)) {
-        rt_panic("rt_panic_str: message too large");
+    rt_panic_from_bytes(str->bytes, str->len, "rt_panic_str");
+}
+
+void rt_panic_newstr(const void* newstr_obj) {
+    rt_require(newstr_obj != NULL, "rt_panic_newstr: object is null");
+
+    const uint8_t* object_bytes = (const uint8_t*)newstr_obj;
+    const void* storage_obj = *(const void* const*)(object_bytes + sizeof(RtObjHeader));
+    rt_require(storage_obj != NULL, "rt_panic_newstr: _bytes storage is null");
+
+    const uint64_t len = rt_array_len(storage_obj);
+    if (len > (uint64_t)(SIZE_MAX - 1)) {
+        rt_panic("rt_panic_newstr: message too large");
     }
 
-    const size_t len = (size_t)str->len;
-    char* message = (char*)malloc(len + 1);
-    if (message == NULL) {
-        rt_panic("rt_panic_str: out of memory");
-    }
-
+    uint8_t* bytes = NULL;
     if (len > 0) {
-        memcpy(message, str->bytes, len);
+        bytes = (uint8_t*)malloc((size_t)len);
+        if (bytes == NULL) {
+            rt_panic("rt_panic_newstr: out of memory");
+        }
+        for (uint64_t i = 0; i < len; i++) {
+            bytes[i] = (uint8_t)rt_array_get_u8(storage_obj, (int64_t)i);
+        }
     }
-    message[len] = '\0';
 
-    rt_panic(message);
+    rt_panic_from_bytes(bytes, len, "rt_panic_newstr");
+
+    if (bytes != NULL) {
+        free(bytes);
+    }
 }

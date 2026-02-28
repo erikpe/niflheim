@@ -334,23 +334,13 @@ def test_cli_std_error_panic_unqualified_call(tmp_path: Path, monkeypatch) -> No
         return
 
     (tmp_path / "std").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "std" / "str.nif").write_text(
+    (tmp_path / "std" / "newstr.nif").write_text(
         """
-extern fn rt_str_len(value: Str) -> i64;
-extern fn rt_str_get_u8(value: Str, index: i64) -> u8;
-extern fn rt_str_slice(value: Str, begin: i64, end: i64) -> Str;
+export class NewStr {
+    _bytes: u8[];
 
-export class Str {
-    fn len() -> i64 {
-        return rt_str_len(__self);
-    }
-
-    fn get_u8(index: i64) -> u8 {
-        return rt_str_get_u8(__self, index);
-    }
-
-    fn slice(begin: i64, end: i64) -> Str {
-        return rt_str_slice(__self, begin, end);
+    static fn from_u8_array(value: u8[]) -> NewStr {
+        return NewStr(value);
     }
 }
 """,
@@ -358,12 +348,12 @@ export class Str {
     )
     (tmp_path / "std" / "error.nif").write_text(
         """
-import std.str;
+import std.newstr;
 
-extern fn rt_panic_str(msg: Str) -> unit;
+extern fn rt_panic_newstr(msg: NewStr) -> unit;
 
-export fn panic(msg: Str) -> unit {
-    rt_panic_str(msg);
+export fn panic(msg: NewStr) -> unit {
+    rt_panic_newstr(msg);
 }
 """,
         encoding="utf-8",
@@ -373,7 +363,6 @@ export fn panic(msg: Str) -> unit {
     entry.write_text(
         """
 import std.error;
-import std.str;
 
 fn main() -> i64 {
     panic("Panic at the disco!");

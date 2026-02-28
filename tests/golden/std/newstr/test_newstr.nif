@@ -1,25 +1,10 @@
 import std.test;
 import std.io;
-import std.str;
 import std.newstr;
 
 
-fn newstr_from_literal(value: Str) -> NewStr {
-    var length: u64 = value.len();
-    var bytes: u8[] = u8[](length);
-
-    var i: u64 = 0u;
-    while i < length {
-        bytes[(i64)i] = value[(i64)i];
-        i = i + 1u;
-    }
-
-    return NewStr.from_u8_array(bytes);
-}
-
-
 fn test_baseline_get_set_slice() -> unit {
-    var s: NewStr = newstr_from_literal("abcd");
+    var s: NewStr = "abcd";
     assert(s.len() == 4u);
     assert(s[0] == 'a');
     assert(s[-1] == 'd');
@@ -32,7 +17,7 @@ fn test_baseline_get_set_slice() -> unit {
     assert(mid[0] == 'Z');
     assert(mid[1] == 'c');
 
-    var word: NewStr = newstr_from_literal("foobar");
+    var word: NewStr = "foobar";
     word[2] = 'x';
     assert(word[0] == 'f');
     assert(word[1] == 'o');
@@ -44,7 +29,7 @@ fn test_baseline_get_set_slice() -> unit {
 
 
 fn test_strip() -> unit {
-    var s: NewStr = newstr_from_literal(" \tA\n ");
+    var s: NewStr = " \tA\n ";
     var t: NewStr = s.strip();
     assert(t.len() == 1u);
     assert(t[0] == 'A');
@@ -52,9 +37,9 @@ fn test_strip() -> unit {
 
 
 fn test_numeric_parse_ok() -> unit {
-    assert(newstr_from_literal("18446744073709551615").to_u64() == 18446744073709551615u);
-    assert(newstr_from_literal("-9223372036854775808").to_i64() == -9223372036854775808);
-    assert(newstr_from_literal("9223372036854775807").to_i64() == 9223372036854775807);
+    assert(("18446744073709551615").to_u64() == 18446744073709551615u);
+    assert(("-9223372036854775808").to_i64() == -9223372036854775808);
+    assert(("9223372036854775807").to_i64() == 9223372036854775807);
 }
 
 
@@ -73,7 +58,7 @@ fn test_from_u8_array() -> unit {
 
 
 fn test_newstrbuf_baseline() -> unit {
-    var s: NewStr = newstr_from_literal("foobar");
+    var s: NewStr = "foobar";
     var buf: NewStrBuf = NewStrBuf.from_newstr(s);
 
     assert(buf.len() == 6u);
@@ -140,18 +125,18 @@ fn test_set_oob_panics() -> unit {
 
 
 fn test_slice_oob_panics() -> unit {
-    var s: NewStr = newstr_from_literal("ab");
+    var s: NewStr = "ab";
     var t: NewStr = s[0:3];
 }
 
 
 fn test_to_u64_invalid_digit_panics() -> unit {
-    newstr_from_literal("12x").to_u64();
+    ("12x").to_u64();
 }
 
 
 fn test_to_i64_overflow_panics() -> unit {
-    newstr_from_literal("9223372036854775808").to_i64();
+    ("9223372036854775808").to_i64();
 }
 
 

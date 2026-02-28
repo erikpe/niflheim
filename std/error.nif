@@ -1,8 +1,8 @@
-import std.str;
+import std.newstr;
 
-extern fn rt_panic_str(msg: Str) -> unit;
+extern fn rt_panic_newstr(msg: NewStr) -> unit;
 
-export fn panic(msg: Str) -> unit
+export fn panic(msg: NewStr) -> unit
 {
-    rt_panic_str(msg);
+    rt_panic_newstr(msg);
 }
