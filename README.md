@@ -46,7 +46,7 @@ Recent backend/runtime updates:
 
 ## Runtime / GC Tests
 
-Runtime test harnesses live under `runtime/tests/` and are built/run via `runtime/Makefile`.
+Runtime test harnesses live under `tests/runtime/` and are built/run via `runtime/Makefile`.
 
 Runtime sources are split by responsibility:
 - `runtime/src/runtime.c` - low-level runtime infrastructure (thread state, roots, allocation, panic support)

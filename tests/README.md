@@ -2,21 +2,21 @@
 
 Test layout (aligned with `docs/TEST_PLAN_v0.1.md`):
 
-- `lexer/`
-- `parser/`
-- `resolver/`
-- `typecheck/`
-- `codegen/`
+- `compiler/`
+	- `lexer/`
+	- `parser/`
+	- `resolver/`
+	- `typecheck/`
+	- `codegen/`
+	- `integration/`
+- `golden/`
 - `runtime/`
-- `gc/`
-- `integration/`
-- `stress/`
 
 Each test should focus on one scenario and include clear expected behavior.
 
 ## Runtime / GC Harnesses
 
-Runtime GC tests are C harnesses under `runtime/tests/` and are executed via make targets:
+Runtime/GC tests are C harnesses under `tests/runtime/` and are executed via make targets:
 
 - `make -C runtime test` → GC stress scenarios (`test_gc_stress`)
 - `make -C runtime test-positive` → root API happy-path checks (`test_roots_positive`)

@@ -271,15 +271,14 @@ Diagnostics are part of MVP quality.
 
 Suggested repository structure:
 
-- `tests/lexer/`
-- `tests/parser/`
-- `tests/resolver/`
-- `tests/typecheck/`
-- `tests/codegen/`
+- `tests/compiler/lexer/`
+- `tests/compiler/parser/`
+- `tests/compiler/resolver/`
+- `tests/compiler/typecheck/`
+- `tests/compiler/codegen/`
 - `tests/runtime/`
-- `tests/gc/`
-- `tests/integration/`
-- `tests/stress/`
+- `tests/compiler/integration/`
+- `tests/golden/`
 
 Conventions:
 - One scenario per file.

@@ -140,7 +140,7 @@ fn main() -> i64 {
     assert rc == 0
     assert out_asm.exists()
 
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
@@ -277,7 +277,7 @@ fn main() -> i64 {
     assert rc == 0
     assert out_asm.exists()
 
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
@@ -398,7 +398,7 @@ fn main() -> i64 {
     assert rc == 0
     assert out_asm.exists()
 
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"

@@ -3,6 +3,6 @@ build/
 *.a
 *.o
 
-# Runtime test binaries (no extension in runtime/tests/)
-runtime/tests/test_*
-!runtime/tests/test_*.*
+# Runtime test binaries (no extension in tests/runtime/)
+tests/runtime/test_*
+!tests/runtime/test_*.*

@@ -63,7 +63,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--golden-dir",
-        default="tests/parser/golden",
+        default="tests/compiler/parser/golden",
         help="Directory containing parser golden .nif and .golden.json files.",
     )
     parser.add_argument(

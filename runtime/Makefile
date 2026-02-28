@@ -3,7 +3,7 @@ CFLAGS := -std=c11 -Wall -Wextra -Werror -Iinclude
 
 RUNTIME_SRC := src/runtime.c src/gc.c src/io.c src/str.c src/box.c src/vec.c src/array.c
 RUNTIME_OBJ := $(RUNTIME_SRC:.c=.o)
-TEST_DIR := tests
+TEST_DIR := ../tests/runtime
 GC_STRESS_BIN := $(TEST_DIR)/test_gc_stress
 GC_STRESS_SRC := $(TEST_DIR)/test_gc_stress.c
 ROOTS_POSITIVE_BIN := $(TEST_DIR)/test_roots_positive
