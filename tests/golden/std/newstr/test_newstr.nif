@@ -140,6 +140,152 @@ fn test_to_i64_overflow_panics() -> unit {
 }
 
 
+fn test_merge_to_u64() -> unit {
+    assert("0".to_u64() == 0u);
+    assert("1".to_u64() == 1u);
+    assert("1000000".to_u64() == 1000000u);
+    assert("18446744073709551615".to_u64() == 18446744073709551615u);
+}
+
+
+fn test_merge_to_i64() -> unit {
+    assert("0".to_i64() == 0);
+    assert("1".to_i64() == 1);
+    assert("-1".to_i64() == -1);
+    assert("1000000".to_i64() == 1000000);
+    assert("-1000000".to_i64() == -1000000);
+    assert("9223372036854775807".to_i64() == 9223372036854775807);
+    assert("-9223372036854775808".to_i64() == -9223372036854775808);
+}
+
+
+fn test_merge_to_u64_overflow1() -> unit {
+    "18446744073709551616".to_u64();
+}
+
+
+fn test_merge_to_u64_overflow2() -> unit {
+    "18446744073709551624".to_u64();
+}
+
+
+fn test_merge_to_u64_invalid_digit() -> unit {
+    "123x123".to_u64();
+}
+
+
+fn test_merge_to_u64_empty_string() -> unit {
+    "".to_u64();
+}
+
+
+fn test_merge_to_i64_overflow1() -> unit {
+    "9223372036854775808".to_i64();
+}
+
+
+fn test_merge_to_i64_overflow2() -> unit {
+    "9223372036854775811".to_i64();
+}
+
+
+fn test_merge_to_i64_overflow3() -> unit {
+    "-9223372036854775809".to_i64();
+}
+
+
+fn test_merge_to_i64_overflow4() -> unit {
+    "-9223372036854775811".to_i64();
+}
+
+
+fn test_merge_to_i64_invalid_digit() -> unit {
+    "abcd".to_i64();
+}
+
+
+fn test_merge_to_i64_empty_string() -> unit {
+    "".to_i64();
+}
+
+
+fn test_merge_e2e_str_from_char() -> unit {
+    var s: NewStr = NewStr.from_char('Z');
+    var c: u8 = s[0];
+    assert((i64)c == 90);
+}
+
+
+fn test_merge_e2e_str_hex_escape() -> unit {
+    var s: NewStr = "\x41\x42";
+    var b: u8 = s[0];
+    assert((i64)b == 65);
+}
+
+
+fn test_merge_e2e_str_literal_indexing() -> unit {
+    var s: NewStr = "AB\n";
+    var b: u8 = s[1];
+    assert((i64)b == 66);
+}
+
+
+fn test_merge_e2e_str_oob_index_panics() -> unit {
+    var v: NewStr = "Hello world!";
+    var c1: u8 = v[-15];
+    var c2: u8 = v[15];
+    assert((i64)c1 + (i64)c2 == 0);
+}
+
+
+fn test_merge_e2e_str_oob_slice_panics() -> unit {
+    var v: NewStr = "Hello world!";
+    var s1: NewStr = v[-15:5];
+    var s2: NewStr = v[15:20];
+    assert((i64)s1[0] + (i64)s2[0] == 0);
+}
+
+
+fn test_merge_e2e_str_negative_index_and_slice() -> unit {
+    var v: NewStr = "Hello world!";
+    var c1: u8 = v[-1];
+    var c2: u8 = v[-3];
+    var s1: NewStr = v[:-1];
+    var s2: NewStr = v[-8:8];
+    var c3: u8 = s1[-1];
+    var c4: u8 = s2[2];
+    var sum: i64 = (i64)c1 + (i64)c2 + (i64)c3 + (i64)c4;
+    assert(sum == 360);
+}
+
+
+fn test_merge_e2e_str_slice_syntax() -> unit {
+    var v: NewStr = "Hello world!";
+    var s1: NewStr = v[3:5];
+    var s2: NewStr = v[:7];
+    var s3: NewStr = v[4:];
+    var s4: NewStr = v[:];
+    var c1: u8 = s1[0];
+    var c2: u8 = s2[6];
+    var c3: u8 = s3[0];
+    var c4: u8 = s4[11];
+    var sum: i64 = (i64)c1 + (i64)c2 + (i64)c3 + (i64)c4;
+    assert(sum == 371);
+}
+
+
+fn test_merge_e2e_str_strip_whitespace() -> unit {
+    var v: NewStr = " \tHello world!\n";
+    var s: NewStr = v.strip();
+    assert(s[0] == (u8)72);
+    assert(s[-1] == (u8)33);
+
+    var w: NewStr = " \n\t\r";
+    var empty: NewStr = w.strip();
+    assert(empty.len() == 0u);
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -155,6 +301,25 @@ fn main() -> i64 {
     if select == 10u { test_newstrbuf_baseline(); }
     if select == 11u { test_newstrbuf_get_oob_panics(); }
     if select == 12u { test_newstrbuf_append_char(); }
+    if select == 13u { test_merge_to_u64(); test_merge_to_i64(); }
+    if select == 14u { test_merge_to_u64_overflow1(); }
+    if select == 15u { test_merge_to_u64_overflow2(); }
+    if select == 16u { test_merge_to_u64_invalid_digit(); }
+    if select == 17u { test_merge_to_u64_empty_string(); }
+    if select == 18u { test_merge_to_i64_overflow1(); }
+    if select == 19u { test_merge_to_i64_overflow2(); }
+    if select == 20u { test_merge_to_i64_overflow3(); }
+    if select == 21u { test_merge_to_i64_overflow4(); }
+    if select == 22u { test_merge_to_i64_invalid_digit(); }
+    if select == 23u { test_merge_to_i64_empty_string(); }
+    if select == 24u { test_merge_e2e_str_from_char(); }
+    if select == 25u { test_merge_e2e_str_hex_escape(); }
+    if select == 26u { test_merge_e2e_str_literal_indexing(); }
+    if select == 27u { test_merge_e2e_str_oob_index_panics(); }
+    if select == 28u { test_merge_e2e_str_oob_slice_panics(); }
+    if select == 29u { test_merge_e2e_str_negative_index_and_slice(); }
+    if select == 30u { test_merge_e2e_str_slice_syntax(); }
+    if select == 31u { test_merge_e2e_str_strip_whitespace(); }
 
     return 0;
 }

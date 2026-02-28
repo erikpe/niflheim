@@ -1,4 +1,0 @@
-runs:
-  - name: e2e_str_negative_index_and_slice_links_and_runs
-    expect:
-      exit_code: 104

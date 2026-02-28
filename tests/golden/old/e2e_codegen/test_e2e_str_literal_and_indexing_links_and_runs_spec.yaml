@@ -1,4 +1,0 @@
-runs:
-  - name: e2e_str_literal_and_indexing_links_and_runs
-    expect:
-      exit_code: 66

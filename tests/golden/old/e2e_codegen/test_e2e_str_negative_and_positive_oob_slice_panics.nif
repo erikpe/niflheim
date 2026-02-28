@@ -1,8 +1,0 @@
-import std.newstr;
-
-fn main() -> i64 {
-    var v: NewStr = "Hello world!";
-    var s1: NewStr = v[-15:5];
-    var s2: NewStr = v[15:20];
-    return (i64)s1[0] + (i64)s2[0];
-}

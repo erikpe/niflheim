@@ -1,7 +1,0 @@
-import std.newstr;
-
-fn main() -> i64 {
-    var s: NewStr = "AB\n";
-    var b: u8 = s[1];
-    return (i64)b;
-}

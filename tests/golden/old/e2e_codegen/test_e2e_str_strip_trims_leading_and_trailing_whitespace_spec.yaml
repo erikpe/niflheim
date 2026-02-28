@@ -1,4 +1,0 @@
-runs:
-  - name: e2e_str_strip_trims_leading_and_trailing_whitespace
-    expect:
-      exit_code: 0

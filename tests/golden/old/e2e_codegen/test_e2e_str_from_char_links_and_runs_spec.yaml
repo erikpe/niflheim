@@ -1,4 +1,0 @@
-runs:
-  - name: e2e_str_from_char_links_and_runs
-    expect:
-      exit_code: 90

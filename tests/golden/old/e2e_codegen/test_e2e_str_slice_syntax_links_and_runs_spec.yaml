@@ -1,4 +1,0 @@
-runs:
-  - name: e2e_str_slice_syntax_links_and_runs
-    expect:
-      exit_code: 115

@@ -1,4 +1,0 @@
-runs:
-  - name: e2e_str_negative_and_positive_oob_index_panics
-    expect:
-      panic: "panic"

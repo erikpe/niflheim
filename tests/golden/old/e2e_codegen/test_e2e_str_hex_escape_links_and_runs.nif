@@ -1,7 +1,0 @@
-import std.newstr;
-
-fn main() -> i64 {
-    var s: NewStr = "\x41\x42";
-    var b: u8 = s[0];
-    return (i64)b;
-}
