@@ -11,22 +11,22 @@ runs:
   - { name: newstrbuf_baseline, input: { stdin: "10" }, expect: { exit_code: 0 } }
   - { name: newstrbuf_get_oob_panics, input: { stdin: "11" }, expect: { panic: "NewStrBuf.get: index out of bounds" } }
   - { name: newstrbuf_append_char, input: { stdin: "12" }, expect: { exit_code: 0 } }
-  - { name: merge_to_u64_and_to_i64, input: { stdin: "13" }, expect: { exit_code: 0 } }
-  - { name: merge_to_u64_overflow1, input: { stdin: "14" }, expect: { panic: "NewStr.to_u64 overflow" } }
-  - { name: merge_to_u64_overflow2, input: { stdin: "15" }, expect: { panic: "NewStr.to_u64 overflow" } }
-  - { name: merge_to_u64_invalid_digit, input: { stdin: "16" }, expect: { panic: "NewStr.to_u64 invalid digit" } }
-  - { name: merge_to_u64_empty_string, input: { stdin: "17" }, expect: { panic: "NewStr.to_u64 on empty string" } }
-  - { name: merge_to_i64_overflow1, input: { stdin: "18" }, expect: { panic: "NewStr.to_i64 overflow" } }
-  - { name: merge_to_i64_overflow2, input: { stdin: "19" }, expect: { panic: "NewStr.to_i64 overflow" } }
-  - { name: merge_to_i64_overflow3, input: { stdin: "20" }, expect: { panic: "NewStr.to_i64 overflow" } }
-  - { name: merge_to_i64_overflow4, input: { stdin: "21" }, expect: { panic: "NewStr.to_i64 overflow" } }
-  - { name: merge_to_i64_invalid_digit, input: { stdin: "22" }, expect: { panic: "NewStr.to_i64 invalid digit" } }
-  - { name: merge_to_i64_empty_string, input: { stdin: "23" }, expect: { panic: "NewStr.to_i64 on empty string" } }
-  - { name: merge_e2e_str_from_char, input: { stdin: "24" }, expect: { exit_code: 0 } }
-  - { name: merge_e2e_str_hex_escape, input: { stdin: "25" }, expect: { exit_code: 0 } }
-  - { name: merge_e2e_str_literal_indexing, input: { stdin: "26" }, expect: { exit_code: 0 } }
-  - { name: merge_e2e_str_oob_index_panics, input: { stdin: "27" }, expect: { panic: "panic" } }
-  - { name: merge_e2e_str_oob_slice_panics, input: { stdin: "28" }, expect: { panic: "panic" } }
-  - { name: merge_e2e_str_negative_index_and_slice, input: { stdin: "29" }, expect: { exit_code: 0 } }
-  - { name: merge_e2e_str_slice_syntax, input: { stdin: "30" }, expect: { exit_code: 0 } }
-  - { name: merge_e2e_str_strip_whitespace, input: { stdin: "31" }, expect: { exit_code: 0 } }
+  - { name: to_u64_and_to_i64, input: { stdin: "13" }, expect: { exit_code: 0 } }
+  - { name: to_u64_overflow1, input: { stdin: "14" }, expect: { panic: "NewStr.to_u64 overflow" } }
+  - { name: to_u64_overflow2, input: { stdin: "15" }, expect: { panic: "NewStr.to_u64 overflow" } }
+  - { name: to_u64_invalid_digit, input: { stdin: "16" }, expect: { panic: "NewStr.to_u64 invalid digit" } }
+  - { name: to_u64_empty_string, input: { stdin: "17" }, expect: { panic: "NewStr.to_u64 on empty string" } }
+  - { name: to_i64_overflow1, input: { stdin: "18" }, expect: { panic: "NewStr.to_i64 overflow" } }
+  - { name: to_i64_overflow2, input: { stdin: "19" }, expect: { panic: "NewStr.to_i64 overflow" } }
+  - { name: to_i64_overflow3, input: { stdin: "20" }, expect: { panic: "NewStr.to_i64 overflow" } }
+  - { name: to_i64_overflow4, input: { stdin: "21" }, expect: { panic: "NewStr.to_i64 overflow" } }
+  - { name: to_i64_invalid_digit, input: { stdin: "22" }, expect: { panic: "NewStr.to_i64 invalid digit" } }
+  - { name: to_i64_empty_string, input: { stdin: "23" }, expect: { panic: "NewStr.to_i64 on empty string" } }
+  - { name: e2e_str_from_char, input: { stdin: "24" }, expect: { exit_code: 0 } }
+  - { name: e2e_str_hex_escape, input: { stdin: "25" }, expect: { exit_code: 0 } }
+  - { name: e2e_str_literal_indexing, input: { stdin: "26" }, expect: { exit_code: 0 } }
+  - { name: e2e_str_oob_index_panics, input: { stdin: "27" }, expect: { panic: "panic" } }
+  - { name: e2e_str_oob_slice_panics, input: { stdin: "28" }, expect: { panic: "panic" } }
+  - { name: e2e_str_negative_index_and_slice, input: { stdin: "29" }, expect: { exit_code: 0 } }
+  - { name: e2e_str_slice_syntax, input: { stdin: "30" }, expect: { exit_code: 0 } }
+  - { name: e2e_str_strip_whitespace, input: { stdin: "31" }, expect: { exit_code: 0 } }
