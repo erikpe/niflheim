@@ -30,8 +30,6 @@ enum {
     RT_GC_GROWTH_DEN = 1u,
 };
 
-void rt_gc_collect(RtThreadState* ts);
-
 
 static uint64_t rt_saturating_add_u64(uint64_t a, uint64_t b) {
     if (UINT64_MAX - a < b) {

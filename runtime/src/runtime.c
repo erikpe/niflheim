@@ -5,10 +5,6 @@
 
 static RtThreadState g_thread_state = {0};
 
-void rt_gc_maybe_collect(RtThreadState* ts, uint64_t upcoming_bytes);
-void rt_gc_track_allocation(RtObjHeader* obj);
-void rt_gc_reset_state(void);
-
 static void rt_require(int condition, const char* message) {
     if (!condition) {
         rt_panic(message);
