@@ -5,7 +5,6 @@ from compiler.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
 from compiler.str_type_utils import STR_CLASS_NAME, is_str_type_name
 from compiler.typecheck_model import (
-    BUILTIN_INDEX_RESULT_TYPE_NAMES,
     ClassInfo,
     FunctionSig,
     NUMERIC_TYPE_NAMES,
@@ -22,16 +21,6 @@ BUILTIN_BOX_VALUE_TYPES: dict[str, TypeInfo] = {
     "BoxU8": TypeInfo(name="u8", kind="primitive"),
     "BoxBool": TypeInfo(name="bool", kind="primitive"),
     "BoxDouble": TypeInfo(name="double", kind="primitive"),
-}
-
-BUILTIN_VEC_METHOD_SPECS: dict[str, tuple[list[TypeInfo], TypeInfo]] = {
-    "len": ([], TypeInfo(name="i64", kind="primitive")),
-    "push": ([TypeInfo(name="Obj", kind="reference")], TypeInfo(name="unit", kind="primitive")),
-    "get": ([TypeInfo(name="i64", kind="primitive")], TypeInfo(name="Obj", kind="reference")),
-    "set": (
-        [TypeInfo(name="i64", kind="primitive"), TypeInfo(name="Obj", kind="reference")],
-        TypeInfo(name="unit", kind="primitive"),
-    ),
 }
 
 ARRAY_METHOD_NAMES = {"len", "get", "set", "slice"}
@@ -289,9 +278,6 @@ class TypeChecker:
             if expr.name in BUILTIN_BOX_VALUE_TYPES:
                 return TypeInfo(name=f"__class__:{expr.name}", kind="callable")
 
-            if expr.name == "Vec":
-                return TypeInfo(name="__class__:Vec", kind="callable")
-
             imported_class_type = self._resolve_imported_class_type(expr.name, expr.span)
             if imported_class_type is not None:
                 if "::" in imported_class_type.name:
@@ -425,12 +411,6 @@ class TypeChecker:
                     raise TypeCheckError(f"Class '{object_type.name}' has no member '{expr.field_name}'", expr.span)
                 return box_value_type
 
-            if object_type.name == "Vec":
-                method_spec = BUILTIN_VEC_METHOD_SPECS.get(expr.field_name)
-                if method_spec is None:
-                    raise TypeCheckError(f"Class 'Vec' has no member '{expr.field_name}'", expr.span)
-                return TypeInfo(name=f"__method__:Vec:{expr.field_name}", kind="callable")
-
             if object_type.element_type is not None:
                 if expr.field_name not in ARRAY_METHOD_NAMES:
                     raise TypeCheckError(f"Array type '{object_type.name}' has no member '{expr.field_name}'", expr.span)
@@ -461,11 +441,6 @@ class TypeChecker:
                 self._require_array_index_type(index_type, expr.index_expr.span)
                 return obj_type.element_type
 
-            builtin_index_result = BUILTIN_INDEX_RESULT_TYPE_NAMES.get(obj_type.name)
-            if builtin_index_result is not None:
-                self._require_type_name(index_type, "i64", expr.index_expr.span)
-                result_kind = "primitive" if builtin_index_result in PRIMITIVE_TYPE_NAMES else "reference"
-                return TypeInfo(name=builtin_index_result, kind=result_kind)
             if obj_type.name == "Map":
                 return TypeInfo(name="Obj", kind="reference")
             raise TypeCheckError(f"Type '{obj_type.name}' is not indexable", expr.span)
@@ -490,10 +465,6 @@ class TypeChecker:
             if builtin_box_value_type is not None:
                 self._check_call_arguments([builtin_box_value_type], expr.arguments, expr.span)
                 return TypeInfo(name=name, kind="reference")
-
-            if name == "Vec":
-                self._check_call_arguments([], expr.arguments, expr.span)
-                return TypeInfo(name="Vec", kind="reference")
 
             class_info = self.classes.get(name)
             if class_info is not None:
@@ -562,14 +533,6 @@ class TypeChecker:
 
                 self._check_call_arguments(qualified_params, expr.arguments, expr.span)
                 return qualified_return_type
-
-            if object_type.name == "Vec":
-                method_spec = BUILTIN_VEC_METHOD_SPECS.get(expr.callee.field_name)
-                if method_spec is None:
-                    raise TypeCheckError(f"Class 'Vec' has no method '{expr.callee.field_name}'", expr.span)
-                params, return_type = method_spec
-                self._check_call_arguments(params, expr.arguments, expr.span)
-                return return_type
 
             if object_type.element_type is not None:
                 method_name = expr.callee.field_name

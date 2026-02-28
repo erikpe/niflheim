@@ -418,8 +418,8 @@ fn main() -> unit {
 def test_typecheck_allows_provably_null_index_deref_at_compile_time() -> None:
     source = """
 fn main() -> unit {
-    var v: Vec = null;
-    var x: Obj = v[0];
+    var nums: i64[] = null;
+    var x: i64 = nums[0];
 
     var m: Map = null;
     var y: Obj = m[0];
@@ -546,33 +546,6 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Box instances are immutable"):
-        _parse_and_typecheck(source)
-
-
-def test_typecheck_allows_builtin_vec_constructor_and_methods() -> None:
-    source = """
-fn main() -> unit {
-    var v: Vec = Vec();
-    v.push(BoxI64(1));
-    var n: i64 = v.len();
-    var x: Obj = v.get(0);
-    v.set(0, x);
-    var y: Obj = v[0];
-    return;
-}
-"""
-    _parse_and_typecheck(source)
-
-
-def test_typecheck_rejects_vec_push_non_obj_argument() -> None:
-    source = """
-fn main() -> unit {
-    var v: Vec = Vec();
-    v.push(1);
-    return;
-}
-"""
-    with pytest.raises(TypeCheckError, match="Cannot assign 'i64' to 'Obj'"):
         _parse_and_typecheck(source)
 
 

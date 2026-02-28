@@ -565,8 +565,6 @@ def _infer_expression_type_name(
                 return "u8"
             if _is_array_type_name(receiver_type):
                 return _array_element_type_name(receiver_type)
-            if receiver_type == "Vec":
-                return "Obj"
         return "i64"
 
     if isinstance(expr, CallExpr):
@@ -1020,7 +1018,7 @@ class CodeGenerator:
             self._emit_call_expr(synthetic_call, ctx)
             return
 
-        if _is_array_type_name(receiver_type_name) or receiver_type_name == "Vec":
+        if _is_array_type_name(receiver_type_name):
             synthetic_callee = FieldAccessExpr(
                 object_expr=expr.object_expr,
                 field_name="get",
@@ -1052,7 +1050,7 @@ class CodeGenerator:
 
         runtime_call = BUILTIN_INDEX_RUNTIME_CALLS.get(receiver_type_name)
         if runtime_call is None:
-            raise NotImplementedError("index codegen currently supports Str and Vec receivers")
+            raise NotImplementedError("index codegen currently supports Str receivers")
         self.out.append(f"    call {runtime_call}")
 
         self._emit_runtime_call_hook(

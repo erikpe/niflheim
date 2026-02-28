@@ -350,47 +350,6 @@ fn main() -> i64 {
     assert "    call rt_box_i64_get" in asm
 
 
-def test_emit_asm_vec_constructor_and_methods_lower_to_runtime_calls() -> None:
-    source = """
-fn main() -> i64 {
-    var v: Vec = Vec();
-    v.push(BoxI64(1));
-    var n: i64 = v.len();
-    var x: Obj = v.get(0);
-    v.set(0, x);
-    return n;
-}
-"""
-    module = parse(lex(source, source_path="examples/codegen.nif"))
-
-    asm = emit_asm(module)
-
-    assert "    call rt_vec_new" in asm
-    assert "    call rt_vec_push" in asm
-    assert "    call rt_vec_len" in asm
-    assert "    call rt_vec_get" in asm
-    assert "    call rt_vec_set" in asm
-
-
-def test_emit_asm_vec_index_lowers_via_rt_vec_get() -> None:
-    source = """
-fn main() -> i64 {
-    var v: Vec = Vec();
-    v.push(BoxI64(1));
-    var x: Obj = v[0];
-    if x == null {
-        return 1;
-    }
-    return 0;
-}
-"""
-    module = parse(lex(source, source_path="examples/codegen.nif"))
-
-    asm = emit_asm(module)
-
-    assert "    call rt_vec_get" in asm
-
-
 def test_emit_asm_array_constructor_lowers_to_runtime_symbol_by_element_kind() -> None:
     source = """
 class Person {

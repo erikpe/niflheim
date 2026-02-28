@@ -62,7 +62,6 @@ BOX_CONSTRUCTOR_RUNTIME_CALLS = {
     "BoxDouble": "rt_box_double_new",
 }
 BUILTIN_CONSTRUCTOR_RUNTIME_CALLS = {
-    "Vec": "rt_vec_new",
     **BOX_CONSTRUCTOR_RUNTIME_CALLS,
 }
 BOX_VALUE_GETTER_RUNTIME_CALLS = {
@@ -73,20 +72,10 @@ BOX_VALUE_GETTER_RUNTIME_CALLS = {
     "BoxDouble": "rt_box_double_get",
 }
 BUILTIN_METHOD_RUNTIME_CALLS = {
-    ("Vec", "len"): "rt_vec_len",
-    ("Vec", "push"): "rt_vec_push",
-    ("Vec", "get"): "rt_vec_get",
-    ("Vec", "set"): "rt_vec_set",
 }
 BUILTIN_METHOD_RETURN_TYPES: dict[tuple[str, str], str] = {
-    ("Vec", "len"): "i64",
-    ("Vec", "push"): "unit",
-    ("Vec", "get"): "Obj",
-    ("Vec", "set"): "unit",
 }
-BUILTIN_INDEX_RUNTIME_CALLS = {
-    "Vec": "rt_vec_get",
-}
+BUILTIN_INDEX_RUNTIME_CALLS: dict[str, str] = {}
 ARRAY_CONSTRUCTOR_RUNTIME_CALLS = {
     "i64": "rt_array_new_i64",
     "u64": "rt_array_new_u64",
@@ -127,10 +116,6 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_box_u8_get": (0,),
     "rt_box_bool_get": (0,),
     "rt_box_double_get": (0,),
-    "rt_vec_len": (0,),
-    "rt_vec_get": (0,),
-    "rt_vec_push": (0, 1),
-    "rt_vec_set": (0, 2),
     "rt_array_len": (0,),
     "rt_array_get_i64": (0,),
     "rt_array_get_u64": (0,),
@@ -157,7 +142,6 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_strbuf_to_str": (0,),
 }
 BUILTIN_RUNTIME_TYPE_SYMBOLS: dict[str, str] = {
-    "Vec": "rt_type_vec_desc",
     "BoxI64": "rt_type_box_i64_desc",
     "BoxU64": "rt_type_box_u64_desc",
     "BoxU8": "rt_type_box_u8_desc",
@@ -170,9 +154,6 @@ RUNTIME_RETURN_TYPES: dict[str, str] = {
     "rt_box_u64_get": "u64",
     "rt_box_u8_get": "u8",
     "rt_box_bool_get": "bool",
-    "rt_vec_len": "i64",
-    "rt_vec_get": "Obj",
-    "rt_vec_new": "Vec",
     "rt_array_len": "u64",
     "rt_array_get_i64": "i64",
     "rt_array_get_u64": "u64",

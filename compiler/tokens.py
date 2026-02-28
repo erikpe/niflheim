@@ -35,7 +35,6 @@ class TokenKind(str, Enum):
 
     OBJ = "OBJ"
     STR = "STR"
-    VEC = "VEC"
     MAP = "MAP"
     BOXI64 = "BOXI64"
     BOXU64 = "BOXU64"
@@ -99,7 +98,6 @@ KEYWORDS: dict[str, TokenKind] = {
     "unit": TokenKind.UNIT,
     "Obj": TokenKind.OBJ,
     "Str": TokenKind.STR,
-    "Vec": TokenKind.VEC,
     "Map": TokenKind.MAP,
     "BoxI64": TokenKind.BOXI64,
     "BoxU64": TokenKind.BOXU64,
@@ -156,7 +154,6 @@ TYPE_NAME_TOKENS: set[TokenKind] = {
     TokenKind.UNIT,
     TokenKind.OBJ,
     TokenKind.STR,
-    TokenKind.VEC,
     TokenKind.MAP,
     TokenKind.BOXI64,
     TokenKind.BOXU64,

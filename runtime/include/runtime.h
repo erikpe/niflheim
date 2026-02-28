@@ -8,7 +8,6 @@
 #include "io.h"
 #include "str.h"
 #include "strbuf.h"
-#include "vec.h"
 
 #ifdef __cplusplus
 extern "C" {

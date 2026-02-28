@@ -29,7 +29,6 @@ UNARY_START_TOKENS: set[TokenKind] = {
 
 BUILTIN_CALLABLE_TYPE_TOKENS: tuple[TokenKind, ...] = (
     TokenKind.STR,
-    TokenKind.VEC,
     TokenKind.BOXI64,
     TokenKind.BOXU64,
     TokenKind.BOXU8,
