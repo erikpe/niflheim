@@ -1,0 +1,19 @@
+import std.io;
+import std.box;
+
+
+fn main() -> i64 {
+    var a: NewBoxI64 = NewBoxI64(42);
+    var b: NewBoxU8 = NewBoxU8((u8)7);
+    var c: NewBoxBool = NewBoxBool(true);
+
+    println_i64(a.value());
+    println_i64((i64)b.value());
+    if c.value() {
+        println_i64(1);
+    } else {
+        println_i64(0);
+    }
+
+    return 0;
+}

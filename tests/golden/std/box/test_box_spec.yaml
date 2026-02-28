@@ -1,0 +1,6 @@
+runs:
+  - { name: new_box_i64, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: new_box_u64, input: { stdin: "2" }, expect: { exit_code: 0 } }
+  - { name: new_box_u8, input: { stdin: "3" }, expect: { exit_code: 0 } }
+  - { name: new_box_bool, input: { stdin: "4" }, expect: { exit_code: 0 } }
+  - { name: new_box_double, input: { stdin: "5" }, expect: { exit_code: 0 } }

@@ -1,0 +1,48 @@
+export class NewBoxI64
+{
+    private _value: i64;
+
+    fn value() -> i64 {
+        return __self._value;
+    }
+}
+
+
+export class NewBoxU64
+{
+    private _value: u64;
+
+    fn value() -> u64 {
+        return __self._value;
+    }
+}
+
+
+export class NewBoxU8
+{
+    private _value: u8;
+
+    fn value() -> u8 {
+        return __self._value;
+    }
+}
+
+
+export class NewBoxBool
+{
+    private _value: bool;
+
+    fn value() -> bool {
+        return __self._value;
+    }
+}
+
+
+export class NewBoxDouble
+{
+    private _value: double;
+
+    fn value() -> double {
+        return __self._value;
+    }
+}
