@@ -227,6 +227,10 @@ fn test_u8() -> unit {
     println_u8(r_u8_42);
     println_u8(r_u8_43);
     println_u8(r_u8_44);
+
+    println_u64((u64)(200u8 + 200u8));
+    println_u64((u64)(255u8 + 1u8));
+    println_u64((u64)(17u8 + 255u8));
 }
 
 fn test_double() -> unit {

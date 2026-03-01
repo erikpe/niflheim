@@ -1,0 +1,5 @@
+runs:
+  - name: negation
+    expect:
+      exit_code: 0
+      stdout_file: "test_negation_expected.txt"

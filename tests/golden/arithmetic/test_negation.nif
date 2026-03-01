@@ -1,0 +1,14 @@
+import std.io;
+
+fn test_u8_negation_narrowing() -> unit {
+    var a: u8 = 200u8;
+
+    println_u64((u64)(-a));
+    println_u64((u64)(-(1u8)));
+    println_u64((u64)(-(0u8)));
+}
+
+fn main() -> i64 {
+    test_u8_negation_narrowing();
+    return 0;
+}

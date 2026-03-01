@@ -1115,6 +1115,8 @@ class CodeGenerator:
                 self.out.append("    movq rax, xmm1")
                 return
             self.out.append("    neg rax")
+            if operand_type_name == "u8":
+                self.out.append("    and rax, 255")
             return
         if expr.operator == "!":
             self._emit_bool_normalize()
@@ -1270,6 +1272,8 @@ class CodeGenerator:
             raise NotImplementedError(f"binary operator '{expr.operator}' is not supported for double operands")
 
         if self._emit_integer_binary_op(expr.operator, left_type_name):
+            if left_type_name == "u8" and expr.operator in {"+", "-", "*", "/", "%"}:
+                self.out.append("    and rax, 255")
             return
 
         raise NotImplementedError(f"binary operator '{expr.operator}' is not supported")

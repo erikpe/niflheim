@@ -294,6 +294,40 @@ fn main() -> i64 {
     assert "    call println_i64" in asm
 
 
+def test_emit_asm_masks_u8_arithmetic_results() -> None:
+    source = """
+fn f(a: u8, b: u8) -> u8 {
+    var x: u8 = a + b;
+    var y: u8 = a - b;
+    var z: u8 = a * b;
+    return z;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_u8_arith.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    add rax, rcx" in asm
+    assert "    sub rax, rcx" in asm
+    assert "    imul rax, rcx" in asm
+    assert asm.count("    and rax, 255") >= 3
+
+
+def test_emit_asm_masks_u8_unary_negation_result() -> None:
+    source = """
+fn f(a: u8) -> u8 {
+    var x: u8 = -a;
+    return x;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_u8_unary.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    neg rax" in asm
+    assert "    and rax, 255" in asm
+
+
 def test_emit_asm_string_literal_lowers_via_u8_array_and_str_factory() -> None:
     source = """
 class Str {
