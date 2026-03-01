@@ -1,0 +1,5 @@
+runs:
+  - name: print_all_positive_normal_and_edges
+    expect:
+      exit_code: 0
+      stdout_file: "test_print_expected.txt"
