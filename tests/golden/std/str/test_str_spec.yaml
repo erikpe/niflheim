@@ -30,3 +30,8 @@ runs:
   - { name: e2e_str_negative_index_and_slice, input: { stdin: "29" }, expect: { exit_code: 0 } }
   - { name: e2e_str_slice_syntax, input: { stdin: "30" }, expect: { exit_code: 0 } }
   - { name: e2e_str_strip_whitespace, input: { stdin: "31" }, expect: { exit_code: 0 } }
+  - { name: from_u64_edges, input: { stdin: "32" }, expect: { exit_code: 0 } }
+  - { name: from_u64_roundtrip, input: { stdin: "33" }, expect: { exit_code: 0 } }
+  - { name: compare_to, input: { stdin: "34" }, expect: { exit_code: 0 } }
+  - { name: from_i64_edges, input: { stdin: "35" }, expect: { exit_code: 0 } }
+  - { name: from_i64_roundtrip, input: { stdin: "36" }, expect: { exit_code: 0 } }

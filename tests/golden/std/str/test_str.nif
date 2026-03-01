@@ -286,6 +286,59 @@ fn test_merge_e2e_str_strip_whitespace() -> unit {
 }
 
 
+fn test_from_u64_edges() -> unit {
+    var zero: Str = Str.from_u64(0u);
+    assert(zero.compareTo("0") == 0);
+
+    var one: Str = Str.from_u64(1u);
+    assert(one.compareTo("1") == 0);
+
+    var max: Str = Str.from_u64(18446744073709551615u);
+    assert(max.compareTo("18446744073709551615") == 0);
+}
+
+
+fn test_from_u64_roundtrip() -> unit {
+    assert(Str.from_u64(0u).to_u64() == 0u);
+    assert(Str.from_u64(7u).to_u64() == 7u);
+    assert(Str.from_u64(42u).to_u64() == 42u);
+    assert(Str.from_u64(1000000000000000000u).to_u64() == 1000000000000000000u);
+    assert(Str.from_u64(18446744073709551615u).to_u64() == 18446744073709551615u);
+}
+
+
+fn test_compare_to() -> unit {
+    assert("abc".compareTo("abc") == 0);
+    assert("abc".compareTo("abd") < 0);
+    assert("abd".compareTo("abc") > 0);
+
+    assert("ab".compareTo("abc") == -99);
+    assert("abc".compareTo("ab") == 99);
+    assert("A".compareTo("a") == -32);
+}
+
+
+fn test_from_i64_edges() -> unit {
+    assert(Str.from_i64(0).compareTo("0") == 0);
+    assert(Str.from_i64(1).compareTo("1") == 0);
+    assert(Str.from_i64(-1).compareTo("-1") == 0);
+    assert(Str.from_i64(9223372036854775807).compareTo("9223372036854775807") == 0);
+    assert(Str.from_i64(-9223372036854775808).compareTo("-9223372036854775808") == 0);
+    assert(Str.from_i64(-9223372036854775807).compareTo("-9223372036854775807") == 0);
+}
+
+
+fn test_from_i64_roundtrip() -> unit {
+    assert(Str.from_i64(0).to_i64() == 0);
+    assert(Str.from_i64(7).to_i64() == 7);
+    assert(Str.from_i64(-7).to_i64() == -7);
+    assert(Str.from_i64(1234567890123456789).to_i64() == 1234567890123456789);
+    assert(Str.from_i64(-1234567890123456789).to_i64() == -1234567890123456789);
+    assert(Str.from_i64(9223372036854775807).to_i64() == 9223372036854775807);
+    assert(Str.from_i64(-9223372036854775808).to_i64() == -9223372036854775808);
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -320,6 +373,11 @@ fn main() -> i64 {
     if select == 29u { test_merge_e2e_str_negative_index_and_slice(); }
     if select == 30u { test_merge_e2e_str_slice_syntax(); }
     if select == 31u { test_merge_e2e_str_strip_whitespace(); }
+    if select == 32u { test_from_u64_edges(); }
+    if select == 33u { test_from_u64_roundtrip(); }
+    if select == 34u { test_compare_to(); }
+    if select == 35u { test_from_i64_edges(); }
+    if select == 36u { test_from_i64_roundtrip(); }
 
     return 0;
 }

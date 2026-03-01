@@ -78,6 +78,50 @@ export class Str
         return __self[start:stop];
     }
 
+    fn compareTo(other: Str) -> i64 {
+        var self_len: u64 = __self.len();
+        var other_len: u64 = other.len();
+        var common_len: u64 = self_len;
+        if other_len < common_len {
+            common_len = other_len;
+        }
+
+        var i: u64 = 0u;
+        while i < common_len {
+            var self_byte: u8 = __self[(i64)i];
+            var other_byte: u8 = other[(i64)i];
+            if self_byte != other_byte {
+                return (i64)self_byte - (i64)other_byte;
+            }
+            i = i + 1u;
+        }
+
+        if self_len == other_len {
+            return 0;
+        }
+        if self_len < other_len {
+            return -((i64)other[(i64)self_len]);
+        }
+        return (i64)__self[(i64)other_len];
+    }
+
+    static fn from_u64(value: u64) -> Str {
+        if value == 0u {
+            return Str.from_char('0');
+        }
+
+        var buf: u8[] = u8[](20);
+        var index: i64 = 19;
+        while value > 0u {
+            var digit: u64 = value % 10u;
+            buf[index] = (u8)(digit + 48u);
+            value = value / 10u;
+            index = index - 1;
+        }
+
+        return Str.from_u8_array(buf[index + 1:20]);
+    }
+
     fn to_u64() -> u64 {
         var length: u64 = __self.len();
         if length == 0u {
@@ -102,6 +146,42 @@ export class Str
         }
 
         return out;
+    }
+
+    static fn from_i64(value: i64) -> Str {
+        if value == 0 {
+            return Str.from_char('0');
+        }
+
+        var negative: bool = value < 0;
+        var magnitude: u64;
+        if negative {
+            if value == -9223372036854775808 {
+                magnitude = 9223372036854775808u;
+            }
+            else {
+                magnitude = (u64)(-value);
+            }
+        }
+        else {
+            magnitude = (u64)value;
+        }
+
+        var buf: u8[] = u8[](20);
+        var index: i64 = 19;
+        while magnitude > 0u {
+            var digit: u64 = magnitude % 10u;
+            buf[index] = (u8)(digit + 48u);
+            magnitude = magnitude / 10u;
+            index = index - 1;
+        }
+
+        if negative {
+            buf[index] = '-';
+            return Str.from_u8_array(buf[index:20]);
+        }
+
+        return Str.from_u8_array(buf[index + 1:20]);
     }
 
     fn to_i64() -> i64 {
