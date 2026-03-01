@@ -3,6 +3,6 @@ import std.io;
 
 fn main() -> i64
 {
-    var v: NewStr = "   18446744073709551615 \t\n\r  "[2:-8].strip();
+    var v: Str = "   18446744073709551615 \t\n\r  "[2:-8].strip();
     return 0;
 }

@@ -14,11 +14,11 @@ def _parse_and_typecheck(source: str) -> None:
 
 def test_typecheck_primitives_and_references_ok() -> None:
     source = """
-class NewStr {
+class Str {
 }
 
 class Person {
-    name: NewStr;
+    name: Str;
     age: i64;
 
     fn birthday(years: i64) -> i64 {
@@ -467,7 +467,7 @@ fn main() -> unit {
 
 def test_typecheck_rejects_unrelated_reference_cast() -> None:
     source = """
-class NewStr {
+class Str {
 }
 
 class Person {
@@ -476,11 +476,11 @@ class Person {
 
 fn main() -> unit {
     var p: Person = Person(1);
-    var s: NewStr = (NewStr)p;
+    var s: Str = (Str)p;
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Invalid cast from 'Person' to 'NewStr'"):
+    with pytest.raises(TypeCheckError, match="Invalid cast from 'Person' to 'Str'"):
         _parse_and_typecheck(source)
 
 
@@ -705,14 +705,14 @@ fn main() -> unit {
 
 def test_typecheck_str_index_returns_u8() -> None:
     source = """
-class NewStr {
+class Str {
     fn get(index: i64) -> u8 {
         return 0u8;
     }
 }
 
 fn main() -> unit {
-    var s: NewStr = "A";
+    var s: Str = "A";
     var b: u8 = s[0];
     return;
 }
@@ -722,22 +722,22 @@ fn main() -> unit {
 
 def test_typecheck_str_slice_syntax_desugars_and_typechecks() -> None:
     source = """
-class NewStr {
+class Str {
     fn len() -> u64 {
         return 0u;
     }
 
-    fn slice(begin: i64, end: i64) -> NewStr {
+    fn slice(begin: i64, end: i64) -> Str {
         return __self;
     }
 }
 
 fn main() -> unit {
-    var v: NewStr = "Hello world!";
-    var s1: NewStr = v[3:5];
-    var s2: NewStr = v[:7];
-    var s3: NewStr = v[4:];
-    var s4: NewStr = v[:];
+    var v: Str = "Hello world!";
+    var s1: Str = v[3:5];
+    var s2: Str = v[:7];
+    var s3: Str = v[4:];
+    var s4: Str = v[:];
     return;
 }
 """
@@ -746,14 +746,14 @@ fn main() -> unit {
 
 def test_typecheck_allows_implicit___self_in_method_body() -> None:
     source = """
-class NewStr {
+class Str {
     fn get(index: i64) -> u8 {
         return 0u8;
     }
 }
 
 fn main() -> unit {
-    var s: NewStr = "A";
+    var s: Str = "A";
     var b: u8 = s.get(0);
     return;
 }
@@ -763,14 +763,14 @@ fn main() -> unit {
 
 def test_typecheck_rejects_non_i64_str_index() -> None:
     source = """
-class NewStr {
+class Str {
     fn get(index: i64) -> u8 {
         return 0u8;
     }
 }
 
 fn main() -> unit {
-    var s: NewStr = "A";
+    var s: Str = "A";
     var b: u8 = s[true];
     return;
 }
@@ -781,7 +781,7 @@ fn main() -> unit {
 
 def test_typecheck_rejects_assignment_through_str_index() -> None:
     source = """
-class NewStr {
+class Str {
     fn get(index: i64) -> u8 {
         return 0u8;
     }
@@ -792,7 +792,7 @@ class NewStr {
 }
 
 fn main() -> unit {
-    var s: NewStr = "A";
+    var s: Str = "A";
     s[0] = (u8)66;
     return;
 }

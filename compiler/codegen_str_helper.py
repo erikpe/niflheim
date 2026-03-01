@@ -21,11 +21,11 @@ from compiler.ast_nodes import (
 )
 
 
-STR_CLASS_NAME = "NewStr"
+STR_CLASS_NAME = "Str"
 
 
 def is_str_type_name(type_name: str) -> bool:
-    return type_name == STR_CLASS_NAME or type_name.endswith("::NewStr")
+    return type_name == STR_CLASS_NAME or type_name.endswith("::Str")
 
 
 def escape_asm_string_bytes(data: bytes) -> str:

@@ -296,16 +296,16 @@ fn main() -> i64 {
 
 def test_emit_asm_string_literal_lowers_via_u8_array_and_newstr_factory() -> None:
     source = """
-class NewStr {
+class Str {
     _bytes: u8[];
 
-    static fn from_u8_array(value: u8[]) -> NewStr {
-        return NewStr(value);
+    static fn from_u8_array(value: u8[]) -> Str {
+        return Str(value);
     }
 }
 
 fn main() -> i64 {
-    var s: NewStr = "A\\x42\\n";
+    var s: Str = "A\\x42\\n";
     if s == null {
         return 1;
     }
@@ -318,12 +318,12 @@ fn main() -> i64 {
 
     assert "__nif_str_lit_0:" in asm
     assert "    call rt_array_from_bytes_u8" in asm
-    assert "    call __nif_method_NewStr_from_u8_array" in asm
+    assert "    call __nif_method_Str_from_u8_array" in asm
 
 
 def test_emit_asm_newstr_index_lowers_via_structural_get_call() -> None:
     source = """
-class NewStr {
+class Str {
     _bytes: u8[];
 
     fn get(index: i64) -> u8 {
@@ -332,7 +332,7 @@ class NewStr {
 }
 
 fn main() -> i64 {
-    var s: NewStr = NewStr(u8[](3u));
+    var s: Str = Str(u8[](3u));
     var b: u8 = s[1];
     return (i64)b;
 }
@@ -341,7 +341,7 @@ fn main() -> i64 {
 
     asm = emit_asm(module)
 
-    assert "    call __nif_method_NewStr_get" in asm
+    assert "    call __nif_method_Str_get" in asm
 
 
 def test_emit_asm_box_i64_constructor_and_value_method_lower_to_class_symbols() -> None:

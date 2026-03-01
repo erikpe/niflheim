@@ -543,8 +543,8 @@ def test_typecheck_program_imported_std_newstr_methods_on_unqualified_newstr(tmp
     _write(
         tmp_path / "std" / "newstr.nif",
         """
-        export class NewStr {
-            fn strip() -> NewStr {
+        export class Str {
+            fn strip() -> Str {
                 return __self;
             }
         }
@@ -556,8 +556,8 @@ def test_typecheck_program_imported_std_newstr_methods_on_unqualified_newstr(tmp
         import std.newstr;
 
         fn main() -> unit {
-            var s: NewStr = "Hello world!";
-            var t: NewStr = s.strip();
+            var s: Str = "Hello world!";
+            var t: Str = s.strip();
             return;
         }
         """,
@@ -571,8 +571,8 @@ def test_typecheck_program_imported_std_newstr_from_char_static_call(tmp_path: P
     _write(
         tmp_path / "std" / "newstr.nif",
         """
-        export class NewStr {
-            static fn from_char(value: u8) -> NewStr {
+        export class Str {
+            static fn from_char(value: u8) -> Str {
                 return "A";
             }
         }
@@ -584,7 +584,7 @@ def test_typecheck_program_imported_std_newstr_from_char_static_call(tmp_path: P
         import std.newstr;
 
         fn main() -> unit {
-            var s: NewStr = NewStr.from_char('Z');
+            var s: Str = Str.from_char('Z');
             return;
         }
         """,

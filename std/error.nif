@@ -2,7 +2,7 @@ import std.newstr;
 
 extern fn rt_panic_null_term_array(msg: u8[]) -> unit;
 
-export fn panic(msg: NewStr) -> unit
+export fn panic(msg: Str) -> unit
 {
     var length: i64 = (i64)msg.len();
     var msg_arr: u8[] = u8[]((u64)length + 1u);

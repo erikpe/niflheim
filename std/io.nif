@@ -32,7 +32,7 @@ export fn println_double(value: double) -> unit
     rt_println_double(value);
 }
 
-export fn read_all() -> NewStr
+export fn read_all() -> Str
 {
-    return NewStr.from_u8_array(rt_read_all_bytes());
+    return Str.from_u8_array(rt_read_all_bytes());
 }

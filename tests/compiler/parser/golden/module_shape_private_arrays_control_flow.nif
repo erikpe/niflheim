@@ -2,7 +2,7 @@ import std.io;
 export import std.box;
 
 extern fn rt_gc_collect(ts: Obj) -> unit;
-export extern fn rt_panic(msg: NewStr) -> unit;
+export extern fn rt_panic(msg: Str) -> unit;
 
 class Counter {
     private value: i64;

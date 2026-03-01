@@ -1,7 +1,7 @@
 import std.newstr;
 
 fn main() -> i64 {
-    var b: NewStrBuf = NewStrBuf.new(0u);
+    var b: StrBuf = StrBuf.new(0u);
     var i: u64 = 0u;
     while i < 16u {
         b.append_char('a');

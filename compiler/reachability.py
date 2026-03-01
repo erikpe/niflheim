@@ -129,7 +129,7 @@ class ReachabilityWalker:
 
         if isinstance(expr, FieldAccessExpr):
             if isinstance(expr.object_expr, LiteralExpr) and expr.object_expr.value.startswith('"'):
-                ctx.found_classes.add("NewStr")
+                ctx.found_classes.add("Str")
             self._walk_expr(expr.object_expr, ctx=ctx)
             return
 

@@ -215,7 +215,7 @@
           "name": "msg",
           "node": "ParamDecl",
           "type_ref": {
-            "name": "NewStr",
+            "name": "Str",
             "node": "TypeRef"
           }
         }

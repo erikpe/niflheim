@@ -270,7 +270,7 @@ fn main() -> unit {
 def test_parse_extern_and_export_extern_function_declarations() -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;
-export extern fn rt_panic(msg: NewStr) -> unit;
+export extern fn rt_panic(msg: Str) -> unit;
 """
     module = parse(lex(source, source_path="examples/extern.nif"))
 
@@ -288,7 +288,7 @@ export extern fn rt_panic(msg: NewStr) -> unit;
     assert exported.is_export is True
     assert exported.is_extern is True
     assert exported.body is None
-    assert exported.params[0].type_ref.name == "NewStr"
+    assert exported.params[0].type_ref.name == "Str"
 
 
 def test_parse_unterminated_block_raises_parser_error() -> None:
@@ -508,34 +508,34 @@ fn build(c: util.Counter) -> util.Counter {
 
 def test_parse_allows_newstr_as_class_name() -> None:
     source = """
-export class NewStr {
+export class Str {
 }
 """
     module = parse(lex(source, source_path="examples/newstr_class.nif"))
     assert len(module.classes) == 1
-    assert module.classes[0].name == "NewStr"
+    assert module.classes[0].name == "Str"
 
 
 def test_parse_allows_newstr_in_qualified_type_segment() -> None:
     source = """
 fn main() -> unit {
-    var s: std.NewStr = null;
+    var s: std.Str = null;
     return;
 }
 """
     module = parse(lex(source, source_path="examples/qualified_newstr_type.nif"))
     stmt = module.functions[0].body.statements[0]
     assert isinstance(stmt, VarDeclStmt)
-    assert stmt.type_ref.name == "std.NewStr"
+    assert stmt.type_ref.name == "std.Str"
 
 
 def test_parse_allows_newstr_in_qualified_constructor_call() -> None:
-    expr = parse_expression(lex("newstr.NewStr()", source_path="examples/qualified_newstr_ctor.nif"))
+    expr = parse_expression(lex("newstr.Str()", source_path="examples/qualified_newstr_ctor.nif"))
     assert isinstance(expr, CallExpr)
     assert isinstance(expr.callee, FieldAccessExpr)
     assert isinstance(expr.callee.object_expr, IdentifierExpr)
     assert expr.callee.object_expr.name == "newstr"
-    assert expr.callee.field_name == "NewStr"
+    assert expr.callee.field_name == "Str"
 
 
 def test_parse_expression_invalid_missing_rhs() -> None:

@@ -69,7 +69,7 @@ def test_lex_skips_whitespace_and_line_comments() -> None:
 
 
 def test_lex_numbers_and_string_literal() -> None:
-    source = 'var a: double = 12.5; var s: NewStr = "hi\\n";'
+    source = 'var a: double = 12.5; var s: Str = "hi\\n";'
     tokens = lex(source)
     kinds = [t.kind for t in tokens]
     assert TokenKind.FLOAT_LIT in kinds
@@ -104,7 +104,7 @@ def test_lex_char_literal_and_escape_literal() -> None:
 
 
 def test_lex_string_literal_allows_hex_escape() -> None:
-    source = 'var s: NewStr = "A\\x42\\0";'
+    source = 'var s: Str = "A\\x42\\0";'
     tokens = lex(source)
     string_token = next(t for t in tokens if t.kind == TokenKind.STRING_LIT)
     assert string_token.lexeme == '"A\\x42\\0"'
@@ -121,19 +121,19 @@ def test_lex_token_span_line_and_column() -> None:
 
 def test_lex_raises_on_unterminated_string() -> None:
     with pytest.raises(LexerError) as error:
-        lex('var s: NewStr = "unterminated')
+        lex('var s: Str = "unterminated')
 
     assert "Unterminated string literal" in str(error.value)
 
 
 def test_lex_raises_on_invalid_string_escape() -> None:
     with pytest.raises(LexerError, match="Invalid string escape sequence"):
-        lex('var s: NewStr = "bad\\q";')
+        lex('var s: Str = "bad\\q";')
 
 
 def test_lex_raises_on_invalid_hex_escape() -> None:
     with pytest.raises(LexerError, match="Invalid string escape sequence"):
-        lex('var s: NewStr = "bad\\xG1";')
+        lex('var s: Str = "bad\\xG1";')
 
 
 def test_lex_raises_on_invalid_char_escape() -> None:

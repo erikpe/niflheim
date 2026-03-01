@@ -332,11 +332,11 @@ def test_cli_std_error_panic_unqualified_call(tmp_path: Path, monkeypatch) -> No
     (tmp_path / "std").mkdir(parents=True, exist_ok=True)
     (tmp_path / "std" / "newstr.nif").write_text(
         """
-export class NewStr {
+export class Str {
     _bytes: u8[];
 
-    static fn from_u8_array(value: u8[]) -> NewStr {
-        return NewStr(value);
+    static fn from_u8_array(value: u8[]) -> Str {
+        return Str(value);
     }
 }
 """,
@@ -348,7 +348,7 @@ import std.newstr;
 
 extern fn rt_panic_null_term_array(msg: u8[]) -> unit;
 
-export fn panic(msg: NewStr) -> unit {
+export fn panic(msg: Str) -> unit {
     var msg_bytes: u8[] = msg._bytes;
     var length: i64 = (i64)msg_bytes.len();
     var msg_arr: u8[] = u8[]((u64)length + 1u);
