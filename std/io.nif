@@ -2,7 +2,7 @@ import std.str;
 import std.error;
 
 extern fn rt_write_u8_array(value: u8[]) -> u64;
-extern fn rt_read_all_bytes() -> u8[];
+extern fn rt_read_u8_array(value: u8[], offset: u64) -> u64;
 
 export fn print(text: Str) -> unit
 {
@@ -55,5 +55,31 @@ export fn println_double(value: double) -> unit
 
 export fn read_all() -> Str
 {
-    return Str.from_u8_array(rt_read_all_bytes());
+    var bytes: u8[] = u8[](4096u);
+    var filled: u64 = 0u;
+
+    while true {
+        var next: u64 = rt_read_u8_array(bytes, filled);
+        if next == filled {
+            break; // No bytes read, we're done
+        }
+
+        filled = next;
+        if filled == bytes.len() {
+            var new_capacity: u64 = bytes.len() * 2u;
+            if new_capacity <= bytes.len() {
+                panic("io.read_all: input too large");
+            }
+
+            var grown: u8[] = u8[](new_capacity);
+            var i: u64 = 0u;
+            while i < filled {
+                grown[(i64)i] = bytes[(i64)i];
+                i = i + 1u;
+            }
+            bytes = grown;
+        }
+    }
+
+    return Str.from_u8_array(bytes[:(i64)filled]);
 }

@@ -17,44 +17,21 @@ uint64_t rt_write_u8_array(const void* array_obj) {
     return (uint64_t)written;
 }
 
-void* rt_read_all_bytes(void) {
-    size_t capacity = 4096;
-    size_t len = 0;
-    uint8_t* buffer = (uint8_t*)malloc(capacity);
-    if (buffer == NULL) {
-        rt_panic("rt_read_all: out of memory");
+uint64_t rt_read_u8_array(void* array_obj, uint64_t offset) {
+    const uint64_t length_u64 = rt_array_len(array_obj);
+    if (offset > length_u64) {
+        rt_panic("rt_read_u8_array: offset out of bounds");
     }
 
-    while (1) {
-        if (len == capacity) {
-            size_t new_capacity = capacity * 2;
-            if (new_capacity < capacity) {
-                free(buffer);
-                rt_panic("rt_read_all: input too large");
-            }
-            uint8_t* grown = (uint8_t*)realloc(buffer, new_capacity);
-            if (grown == NULL) {
-                free(buffer);
-                rt_panic("rt_read_all: out of memory");
-            }
-            buffer = grown;
-            capacity = new_capacity;
-        }
+    const size_t length = (size_t)length_u64;
+    const size_t start = (size_t)offset;
+    const size_t remaining = length - start;
+    uint8_t* bytes = (uint8_t*)rt_array_data_ptr(array_obj);
 
-        const size_t remaining = capacity - len;
-        const size_t read_count = fread(buffer + len, 1, remaining, stdin);
-        len += read_count;
-
-        if (read_count == 0) {
-            if (ferror(stdin)) {
-                free(buffer);
-                rt_panic("rt_read_all: failed reading stdin");
-            }
-            break;
-        }
+    const size_t read_count = fread(bytes + start, 1u, remaining, stdin);
+    if (read_count == 0u && ferror(stdin)) {
+        rt_panic("rt_read_u8_array: failed reading stdin");
     }
 
-    void* bytes_obj = rt_array_from_bytes_u8(buffer, (uint64_t)len);
-    free(buffer);
-    return bytes_obj;
+    return offset + (uint64_t)read_count;
 }

@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 uint64_t rt_write_u8_array(const void* array_obj);
-void* rt_read_all_bytes(void);
+uint64_t rt_read_u8_array(void* array_obj, uint64_t offset);
 
 #ifdef __cplusplus
 }
