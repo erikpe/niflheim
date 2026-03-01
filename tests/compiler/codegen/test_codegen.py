@@ -328,6 +328,23 @@ fn f(a: u8) -> u8 {
     assert "    and rax, 255" in asm
 
 
+def test_emit_asm_normalizes_signed_modulo_to_true_modulo() -> None:
+    source = """
+fn f(a: i64, b: i64) -> i64 {
+    return a % b;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_signed_mod.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    cqo" in asm
+    assert "    idiv rcx" in asm
+    assert "    mov r8, rax" in asm
+    assert "    xor r8, rcx" in asm
+    assert "    add rax, rcx" in asm
+
+
 def test_emit_asm_string_literal_lowers_via_u8_array_and_str_factory() -> None:
     source = """
 class Str {

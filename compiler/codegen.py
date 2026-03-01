@@ -1198,7 +1198,13 @@ class CodeGenerator:
 
         return False
 
-    def _emit_integer_binary_op(self, operator: str, operand_type_name: str) -> bool:
+    def _emit_integer_binary_op(
+        self,
+        operator: str,
+        operand_type_name: str,
+        fn_name: str,
+        label_counter: list[int],
+    ) -> bool:
         is_unsigned = operand_type_name in {"u64", "u8"}
         if operator == "+":
             self.out.append("    add rax, rcx")
@@ -1224,6 +1230,16 @@ class CodeGenerator:
             else:
                 self.out.append("    cqo")
                 self.out.append("    idiv rcx")
+                done_label = _next_label(fn_name, "smod_done", label_counter)
+                self.out.append("    mov rax, rdx")
+                self.out.append("    test rax, rax")
+                self.out.append(f"    je {done_label}")
+                self.out.append("    mov r8, rax")
+                self.out.append("    xor r8, rcx")
+                self.out.append(f"    jns {done_label}")
+                self.out.append("    add rax, rcx")
+                self.out.append(f"{done_label}:")
+                return True
             self.out.append("    mov rax, rdx")
             return True
 
@@ -1271,7 +1287,7 @@ class CodeGenerator:
 
             raise NotImplementedError(f"binary operator '{expr.operator}' is not supported for double operands")
 
-        if self._emit_integer_binary_op(expr.operator, left_type_name):
+        if self._emit_integer_binary_op(expr.operator, left_type_name, fn_name, label_counter):
             if left_type_name == "u8" and expr.operator in {"+", "-", "*", "/", "%"}:
                 self.out.append("    and rax, 255")
             return
