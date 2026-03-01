@@ -41,3 +41,4 @@ runs:
   - { name: strbuf_append_i64, input: { stdin: "39" }, expect: { exit_code: 0 } }
   - { name: from_misc_scalars, input: { stdin: "41" }, expect: { exit_code: 0 } }
   - { name: strbuf_append_scalars, input: { stdin: "42" }, expect: { exit_code: 0 } }
+  - { name: splitlines, input: { stdin: "43" }, expect: { exit_code: 0 } }

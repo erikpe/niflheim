@@ -1,4 +1,5 @@
 import std.error;
+import std.vec;
 
 export class Str
 {
@@ -284,6 +285,43 @@ export class Str
         }
 
         return (i64)out;
+    }
+
+    fn splitlines() -> Vec {
+        var out: Vec = Vec.new();
+        var length: i64 = (i64)__self.len();
+        var start: i64 = 0;
+        var i: i64 = 0;
+
+        while i < length {
+            var ch: u8 = __self[i];
+            if ch == '\n' {
+                out.push(__self[start:i]);
+                i = i + 1;
+                start = i;
+                continue;
+            }
+
+            if ch == '\r' {
+                out.push(__self[start:i]);
+                if (i + 1) < length && __self[i + 1] == '\n' {
+                    i = i + 2;
+                    start = i;
+                    continue;
+                }
+
+                i = i + 1;
+                start = i;
+                continue;
+            }
+
+            i = i + 1;
+        }
+
+        if start < length {
+            out.push(__self[start:length]);
+        }
+        return out;
     }
 }
 

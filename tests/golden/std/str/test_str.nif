@@ -1,6 +1,7 @@
 import std.test;
 import std.io;
 import std.str;
+import std.vec;
 
 
 fn test_baseline_get_set_slice() -> unit {
@@ -410,6 +411,33 @@ fn test_strbuf_append_scalars() -> unit {
 }
 
 
+fn test_splitlines() -> unit {
+    var lines1: Vec = "a\nb\r\nc\n".splitlines();
+    assert(lines1.len() == 3u);
+    assert(((Str)lines1[0]).compareTo("a") == 0);
+    assert(((Str)lines1[1]).compareTo("b") == 0);
+    assert(((Str)lines1[2]).compareTo("c") == 0);
+
+    var lines2: Vec = "x\r\ny".splitlines();
+    assert(lines2.len() == 2u);
+    assert(((Str)lines2[0]).compareTo("x") == 0);
+    assert(((Str)lines2[1]).compareTo("y") == 0);
+
+    var lines3: Vec = "p\rq".splitlines();
+    assert(lines3.len() == 2u);
+    assert(((Str)lines3[0]).compareTo("p") == 0);
+    assert(((Str)lines3[1]).compareTo("q") == 0);
+
+    var lines4: Vec = "\r\na\r\rb\n\n".splitlines();
+    assert(lines4.len() == 5u);
+    assert(((Str)lines4[0]).compareTo("") == 0);
+    assert(((Str)lines4[1]).compareTo("a") == 0);
+    assert(((Str)lines4[2]).compareTo("") == 0);
+    assert(((Str)lines4[3]).compareTo("b") == 0);
+    assert(((Str)lines4[4]).compareTo("") == 0);
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -455,5 +483,6 @@ fn main() -> i64 {
     if select == 40u { test_to_u8_array(); }
     if select == 41u { test_from_misc_scalars(); }
     if select == 42u { test_strbuf_append_scalars(); }
+    if select == 43u { test_splitlines(); }
     return 0;
 }

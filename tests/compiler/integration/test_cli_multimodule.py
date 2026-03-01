@@ -94,6 +94,10 @@ def test_cli_std_io_println_i64_unqualified_call(tmp_path: Path, monkeypatch) ->
         (repo_root / "std" / "error.nif").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    (tmp_path / "std" / "vec.nif").write_text(
+        (repo_root / "std" / "vec.nif").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (tmp_path / "std" / "io.nif").write_text(
         """
 import std.str;
@@ -248,6 +252,10 @@ def test_cli_std_io_println_i64_qualified_call(tmp_path: Path, monkeypatch) -> N
     )
     (tmp_path / "std" / "error.nif").write_text(
         (repo_root / "std" / "error.nif").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (tmp_path / "std" / "vec.nif").write_text(
+        (repo_root / "std" / "vec.nif").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     (tmp_path / "std" / "io.nif").write_text(
