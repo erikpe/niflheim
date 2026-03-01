@@ -22,6 +22,12 @@ fn test_println_u8() -> unit {
     println_u8(128u8);
 }
 
+fn test_println_char() -> unit {
+    println_char('A');
+    println_char('z');
+    println_char('0');
+}
+
 fn test_println_bool() -> unit {
     println_bool(true);
     println_bool(false);
@@ -38,6 +44,7 @@ fn main() -> i64 {
     test_println_i64();
     test_println_u64();
     test_println_u8();
+    test_println_char();
     test_println_bool();
     test_println_double();
     return 0;

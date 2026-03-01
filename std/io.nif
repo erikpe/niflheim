@@ -43,6 +43,11 @@ export fn println_u8(value: u8) -> unit
     println(Str.from_u8(value));
 }
 
+export fn println_char(value: u8) -> unit
+{
+    println(Str.from_char(value));
+}
+
 export fn println_bool(value: bool) -> unit
 {
     println(Str.from_bool(value));
