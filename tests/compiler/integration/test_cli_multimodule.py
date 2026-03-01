@@ -84,20 +84,44 @@ def test_cli_std_io_println_i64_unqualified_call(tmp_path: Path, monkeypatch) ->
     if cc is None:
         return
 
+    repo_root = Path(__file__).resolve().parents[3]
     (tmp_path / "std").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "std" / "str.nif").write_text(
+        (repo_root / "std" / "str.nif").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (tmp_path / "std" / "error.nif").write_text(
+        (repo_root / "std" / "error.nif").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (tmp_path / "std" / "io.nif").write_text(
         """
-extern fn rt_println_i64(value: i64) -> unit;
-extern fn rt_println_u64(value: u64) -> unit;
+import std.str;
+
 extern fn rt_println_u8(value: u8) -> unit;
 extern fn rt_println_bool(value: bool) -> unit;
+extern fn rt_write_u8_array(value: u8[]) -> unit;
+
+fn print(value: Str) -> unit {
+    var len: u64 = value.len();
+    var out: u8[] = u8[](len + 1u);
+
+    var i: u64 = 0u;
+    while i < len {
+        out[(i64)i] = value[(i64)i];
+        i = i + 1u;
+    }
+
+    out[(i64)len] = '\\n';
+    rt_write_u8_array(out);
+}
 
 export fn println_i64(value: i64) -> unit {
-    rt_println_i64(value);
+    print(Str.from_i64(value));
 }
 
 export fn println_u64(value: u64) -> unit {
-    rt_println_u64(value);
+    print(Str.from_u64(value));
 }
 
 export fn println_u8(value: u8) -> unit {
@@ -218,20 +242,44 @@ def test_cli_std_io_println_i64_qualified_call(tmp_path: Path, monkeypatch) -> N
     if cc is None:
         return
 
+    repo_root = Path(__file__).resolve().parents[3]
     (tmp_path / "std").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "std" / "str.nif").write_text(
+        (repo_root / "std" / "str.nif").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (tmp_path / "std" / "error.nif").write_text(
+        (repo_root / "std" / "error.nif").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (tmp_path / "std" / "io.nif").write_text(
         """
-extern fn rt_println_i64(value: i64) -> unit;
-extern fn rt_println_u64(value: u64) -> unit;
+import std.str;
+
 extern fn rt_println_u8(value: u8) -> unit;
 extern fn rt_println_bool(value: bool) -> unit;
+extern fn rt_write_u8_array(value: u8[]) -> unit;
+
+fn print(value: Str) -> unit {
+    var len: u64 = value.len();
+    var out: u8[] = u8[](len + 1u);
+
+    var i: u64 = 0u;
+    while i < len {
+        out[(i64)i] = value[(i64)i];
+        i = i + 1u;
+    }
+
+    out[(i64)len] = '\\n';
+    rt_write_u8_array(out);
+}
 
 export fn println_i64(value: i64) -> unit {
-    rt_println_i64(value);
+    print(Str.from_i64(value));
 }
 
 export fn println_u64(value: u64) -> unit {
-    rt_println_u64(value);
+    print(Str.from_u64(value));
 }
 
 export fn println_u8(value: u8) -> unit {

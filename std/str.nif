@@ -8,6 +8,10 @@ export class Str
         return Str(value[:]);
     }
 
+    fn to_u8_array() -> u8[] {
+        return __self._bytes[:];
+    }
+
     static fn from_char(value: u8) -> Str {
         var bytes: u8[] = u8[](1u);
         bytes[0] = value;
@@ -266,11 +270,33 @@ export class StrBuf
         return StrBuf(length, capacity, storage);
     }
 
+    fn append(msg: Str) -> StrBuf {
+        var msg_len: u64 = msg.len();
+        __self._grow(__self._len + msg_len);
+
+        var i: u64 = 0u;
+        while i < msg_len {
+            __self._storage[(i64)(__self._len + i)] = msg[(i64)i];
+            i = i + 1u;
+        }
+
+        __self._len = __self._len + msg_len;
+        return __self;
+    }
+
     fn append_char(byte: u8) -> StrBuf {
         __self._grow(__self._len + 1u);
         __self._storage[(i64)__self._len] = byte;
         __self._len = __self._len + 1u;
         return __self;
+    }
+
+    fn append_u64(value: u64) -> StrBuf {
+        return __self.append(Str.from_u64(value));
+    }
+
+    fn append_i64(value: i64) -> StrBuf {
+        return __self.append(Str.from_i64(value));
     }
 
     fn len() -> u64 {

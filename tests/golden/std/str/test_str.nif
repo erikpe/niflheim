@@ -57,6 +57,20 @@ fn test_from_u8_array() -> unit {
 }
 
 
+fn test_to_u8_array() -> unit {
+    var s: Str = "ABC";
+    var bytes: u8[] = s.to_u8_array();
+
+    assert(bytes.len() == 3u);
+    assert(bytes[0] == 'A');
+    assert(bytes[1] == 'B');
+    assert(bytes[2] == 'C');
+
+    bytes[0] = 'Z';
+    assert(s[0] == 'A');
+}
+
+
 fn test_strbuf_baseline() -> unit {
     var s: Str = "foobar";
     var buf: StrBuf = StrBuf.from_str(s);
@@ -109,6 +123,34 @@ fn test_strbuf_append_char() -> unit {
     assert(out[3] == 'b');
     assert(out[4] == 'a');
     assert(out[5] == 'r');
+}
+
+
+fn test_strbuf_append() -> unit {
+    var buf: StrBuf = StrBuf.new(1u);
+    buf.append("foo").append("bar").append("");
+
+    assert(buf.len() == 6u);
+    var out: Str = buf.to_str();
+    assert(out.compareTo("foobar") == 0);
+}
+
+
+fn test_strbuf_append_u64() -> unit {
+    var buf: StrBuf = StrBuf.new(1u);
+    buf.append_u64(0u).append("-").append_u64(42u).append("-").append_u64(18446744073709551615u);
+
+    var out: Str = buf.to_str();
+    assert(out.compareTo("0-42-18446744073709551615") == 0);
+}
+
+
+fn test_strbuf_append_i64() -> unit {
+    var buf: StrBuf = StrBuf.new(1u);
+    buf.append_i64(0).append("-").append_i64(-42).append("-").append_i64(9223372036854775807).append("-").append_i64(-9223372036854775808);
+
+    var out: Str = buf.to_str();
+    assert(out.compareTo("0--42-9223372036854775807--9223372036854775808") == 0);
 }
 
 
@@ -346,6 +388,7 @@ fn main() -> i64 {
     if select == 2u { test_strip(); }
     if select == 3u { test_numeric_parse_ok(); }
     if select == 4u { test_from_u8_array(); }
+    if select == 40u { test_to_u8_array(); }
     if select == 5u { test_get_oob_panics(); }
     if select == 6u { test_set_oob_panics(); }
     if select == 7u { test_slice_oob_panics(); }
@@ -378,6 +421,8 @@ fn main() -> i64 {
     if select == 34u { test_compare_to(); }
     if select == 35u { test_from_i64_edges(); }
     if select == 36u { test_from_i64_roundtrip(); }
-
+    if select == 37u { test_strbuf_append(); }
+    if select == 38u { test_strbuf_append_u64(); }
+    if select == 39u { test_strbuf_append_i64(); }
     return 0;
 }
