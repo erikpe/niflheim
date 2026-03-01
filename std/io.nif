@@ -1,4 +1,4 @@
-import std.newstr;
+import std.str;
 
 extern fn rt_println_i64(value: i64) -> unit;
 extern fn rt_println_u64(value: u64) -> unit;

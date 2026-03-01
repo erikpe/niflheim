@@ -539,9 +539,9 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_function(tmp_p
         typecheck_program(program)
 
 
-def test_typecheck_program_imported_std_newstr_methods_on_unqualified_newstr(tmp_path: Path) -> None:
+def test_typecheck_program_imported_std_str_methods_on_unqualified_str(tmp_path: Path) -> None:
     _write(
-        tmp_path / "std" / "newstr.nif",
+        tmp_path / "std" / "str.nif",
         """
         export class Str {
             fn strip() -> Str {
@@ -553,7 +553,7 @@ def test_typecheck_program_imported_std_newstr_methods_on_unqualified_newstr(tmp
     _write(
         tmp_path / "main.nif",
         """
-        import std.newstr;
+        import std.str;
 
         fn main() -> unit {
             var s: Str = "Hello world!";
@@ -567,9 +567,9 @@ def test_typecheck_program_imported_std_newstr_methods_on_unqualified_newstr(tmp
     typecheck_program(program)
 
 
-def test_typecheck_program_imported_std_newstr_from_char_static_call(tmp_path: Path) -> None:
+def test_typecheck_program_imported_std_str_from_char_static_call(tmp_path: Path) -> None:
     _write(
-        tmp_path / "std" / "newstr.nif",
+        tmp_path / "std" / "str.nif",
         """
         export class Str {
             static fn from_char(value: u8) -> Str {
@@ -581,7 +581,7 @@ def test_typecheck_program_imported_std_newstr_from_char_static_call(tmp_path: P
     _write(
         tmp_path / "main.nif",
         """
-        import std.newstr;
+        import std.str;
 
         fn main() -> unit {
             var s: Str = Str.from_char('Z');

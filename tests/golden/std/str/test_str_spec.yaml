@@ -8,9 +8,9 @@ runs:
   - { name: slice_oob_panics, input: { stdin: "7" }, expect: { panic: "Str.slice: invalid slice range" } }
   - { name: to_u64_invalid_digit_panics, input: { stdin: "8" }, expect: { panic: "Str.to_u64 invalid digit" } }
   - { name: to_i64_overflow_panics, input: { stdin: "9" }, expect: { panic: "Str.to_i64 overflow" } }
-  - { name: newstrbuf_baseline, input: { stdin: "10" }, expect: { exit_code: 0 } }
-  - { name: newstrbuf_get_oob_panics, input: { stdin: "11" }, expect: { panic: "StrBuf.get: index out of bounds" } }
-  - { name: newstrbuf_append_char, input: { stdin: "12" }, expect: { exit_code: 0 } }
+  - { name: strbuf_baseline, input: { stdin: "10" }, expect: { exit_code: 0 } }
+  - { name: strbuf_get_oob_panics, input: { stdin: "11" }, expect: { panic: "StrBuf.get: index out of bounds" } }
+  - { name: strbuf_append_char, input: { stdin: "12" }, expect: { exit_code: 0 } }
   - { name: to_u64_and_to_i64, input: { stdin: "13" }, expect: { exit_code: 0 } }
   - { name: to_u64_overflow1, input: { stdin: "14" }, expect: { panic: "Str.to_u64 overflow" } }
   - { name: to_u64_overflow2, input: { stdin: "15" }, expect: { panic: "Str.to_u64 overflow" } }

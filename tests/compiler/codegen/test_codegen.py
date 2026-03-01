@@ -294,7 +294,7 @@ fn main() -> i64 {
     assert "    call println_i64" in asm
 
 
-def test_emit_asm_string_literal_lowers_via_u8_array_and_newstr_factory() -> None:
+def test_emit_asm_string_literal_lowers_via_u8_array_and_str_factory() -> None:
     source = """
 class Str {
     _bytes: u8[];
@@ -321,7 +321,7 @@ fn main() -> i64 {
     assert "    call __nif_method_Str_from_u8_array" in asm
 
 
-def test_emit_asm_newstr_index_lowers_via_structural_get_call() -> None:
+def test_emit_asm_str_index_lowers_via_structural_get_call() -> None:
     source = """
 class Str {
     _bytes: u8[];

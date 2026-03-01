@@ -1,5 +1,5 @@
 // classes, nullable references, Obj up/down casts
-import std.newstr;
+import std.str;
 
 class Person {
     name: Str;

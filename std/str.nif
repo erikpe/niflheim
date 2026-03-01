@@ -168,7 +168,7 @@ export class StrBuf
         return StrBuf(0u, capacity, u8[](capacity));
     }
 
-    static fn from_newstr(in_str: Str) -> StrBuf {
+    static fn from_str(in_str: Str) -> StrBuf {
         var length: u64 = in_str.len();
         var capacity: u64 = length;
         if capacity < 1u {
@@ -222,7 +222,7 @@ export class StrBuf
         __self._capacity = next_capacity;
     }
 
-    fn to_newstr() -> Str {
+    fn to_str() -> Str {
         return Str.from_u8_array(__self._storage[:(i64)__self._len]);
     }
 

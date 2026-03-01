@@ -1,4 +1,4 @@
-import std.newstr;
+import std.str;
 
 extern fn rt_panic_null_term_array(msg: u8[]) -> unit;
 

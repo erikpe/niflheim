@@ -330,7 +330,7 @@ def test_cli_std_error_panic_unqualified_call(tmp_path: Path, monkeypatch) -> No
         return
 
     (tmp_path / "std").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "std" / "newstr.nif").write_text(
+    (tmp_path / "std" / "str.nif").write_text(
         """
 export class Str {
     _bytes: u8[];
@@ -344,7 +344,7 @@ export class Str {
     )
     (tmp_path / "std" / "error.nif").write_text(
         """
-import std.newstr;
+import std.str;
 
 extern fn rt_panic_null_term_array(msg: u8[]) -> unit;
 

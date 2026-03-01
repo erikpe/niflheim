@@ -1,5 +1,5 @@
 import std.error;
-import std.newstr;
+import std.str;
 
 export fn assert(condition: bool) -> unit
 {

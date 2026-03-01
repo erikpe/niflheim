@@ -506,35 +506,35 @@ fn build(c: util.Counter) -> util.Counter {
     assert fn.body.statements[0].type_ref.name == "util.Counter"
 
 
-def test_parse_allows_newstr_as_class_name() -> None:
+def test_parse_allows_str_as_class_name() -> None:
     source = """
 export class Str {
 }
 """
-    module = parse(lex(source, source_path="examples/newstr_class.nif"))
+    module = parse(lex(source, source_path="examples/str_class.nif"))
     assert len(module.classes) == 1
     assert module.classes[0].name == "Str"
 
 
-def test_parse_allows_newstr_in_qualified_type_segment() -> None:
+def test_parse_allows_str_in_qualified_type_segment() -> None:
     source = """
 fn main() -> unit {
     var s: std.Str = null;
     return;
 }
 """
-    module = parse(lex(source, source_path="examples/qualified_newstr_type.nif"))
+    module = parse(lex(source, source_path="examples/qualified_str_type.nif"))
     stmt = module.functions[0].body.statements[0]
     assert isinstance(stmt, VarDeclStmt)
     assert stmt.type_ref.name == "std.Str"
 
 
-def test_parse_allows_newstr_in_qualified_constructor_call() -> None:
-    expr = parse_expression(lex("newstr.Str()", source_path="examples/qualified_newstr_ctor.nif"))
+def test_parse_allows_str_in_qualified_constructor_call() -> None:
+    expr = parse_expression(lex("strmod.Str()", source_path="examples/qualified_str_ctor.nif"))
     assert isinstance(expr, CallExpr)
     assert isinstance(expr.callee, FieldAccessExpr)
     assert isinstance(expr.callee.object_expr, IdentifierExpr)
-    assert expr.callee.object_expr.name == "newstr"
+    assert expr.callee.object_expr.name == "strmod"
     assert expr.callee.field_name == "Str"
 
 

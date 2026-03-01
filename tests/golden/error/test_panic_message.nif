@@ -1,5 +1,5 @@
 import std.error;
-import std.newstr;
+import std.str;
 
 fn main() -> i64
 {

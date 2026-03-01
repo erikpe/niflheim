@@ -1,6 +1,6 @@
 import std.test;
 import std.io;
-import std.newstr;
+import std.str;
 
 
 fn test_baseline_get_set_slice() -> unit {
@@ -57,9 +57,9 @@ fn test_from_u8_array() -> unit {
 }
 
 
-fn test_newstrbuf_baseline() -> unit {
+fn test_strbuf_baseline() -> unit {
     var s: Str = "foobar";
-    var buf: StrBuf = StrBuf.from_newstr(s);
+    var buf: StrBuf = StrBuf.from_str(s);
 
     assert(buf.len() == 6u);
     assert(buf[0] == 'f');
@@ -74,7 +74,7 @@ fn test_newstrbuf_baseline() -> unit {
     assert(mid[1] == 'x');
     assert(mid[2] == 'b');
 
-    var out: Str = buf.to_newstr();
+    var out: Str = buf.to_str();
     assert(out[0] == 'f');
     assert(out[1] == 'o');
     assert(out[2] == 'x');
@@ -84,13 +84,13 @@ fn test_newstrbuf_baseline() -> unit {
 }
 
 
-fn test_newstrbuf_get_oob_panics() -> unit {
+fn test_strbuf_get_oob_panics() -> unit {
     var buf: StrBuf = StrBuf.new(0u);
     var c: u8 = buf[0];
 }
 
 
-fn test_newstrbuf_append_char() -> unit {
+fn test_strbuf_append_char() -> unit {
     var buf: StrBuf = StrBuf.new(1u);
     buf.append_char('f').append_char('o').append_char('o').append_char('b').append_char('a').append_char('r');
 
@@ -102,7 +102,7 @@ fn test_newstrbuf_append_char() -> unit {
     assert(buf[4] == 'a');
     assert(buf[5] == 'r');
 
-    var out: Str = buf.to_newstr();
+    var out: Str = buf.to_str();
     assert(out[0] == 'f');
     assert(out[1] == 'o');
     assert(out[2] == 'o');
@@ -298,9 +298,9 @@ fn main() -> i64 {
     if select == 7u { test_slice_oob_panics(); }
     if select == 8u { test_to_u64_invalid_digit_panics(); }
     if select == 9u { test_to_i64_overflow_panics(); }
-    if select == 10u { test_newstrbuf_baseline(); }
-    if select == 11u { test_newstrbuf_get_oob_panics(); }
-    if select == 12u { test_newstrbuf_append_char(); }
+    if select == 10u { test_strbuf_baseline(); }
+    if select == 11u { test_strbuf_get_oob_panics(); }
+    if select == 12u { test_strbuf_append_char(); }
     if select == 13u { test_merge_to_u64(); test_merge_to_i64(); }
     if select == 14u { test_merge_to_u64_overflow1(); }
     if select == 15u { test_merge_to_u64_overflow2(); }

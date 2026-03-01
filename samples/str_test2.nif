@@ -1,4 +1,4 @@
-import std.newstr;
+import std.str;
 import std.io;
 
 fn main() -> i64
