@@ -1,27 +1,20 @@
 #include "io.h"
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "runtime.h"
 
-void rt_write_u8_array(const void* array_obj) {
+uint64_t rt_write_u8_array(const void* array_obj) {
     const uint8_t* bytes = (const uint8_t*)rt_array_data_ptr(array_obj);
-    size_t remaining = (size_t)rt_array_len(array_obj);
+    const size_t length = (size_t)rt_array_len(array_obj);
 
-    while (remaining > 0) {
-        const size_t written = fwrite(bytes, 1u, remaining, stdout);
-        if (written == 0u) {
-            if (ferror(stdout)) {
-                rt_panic("rt_write_u8_array: failed writing stdout");
-            }
-            rt_panic("rt_write_u8_array: short write");
-        }
-
-        bytes += written;
-        remaining -= written;
+    const size_t written = fwrite(bytes, 1u, length, stdout);
+    if (written == 0u && ferror(stdout)) {
+        rt_panic("rt_write_u8_array: failed writing stdout");
     }
+
+    return (uint64_t)written;
 }
 
 void* rt_read_all_bytes(void) {

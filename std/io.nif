@@ -1,12 +1,26 @@
 import std.str;
+import std.error;
 
-extern fn rt_write_u8_array(value: u8[]) -> unit;
+extern fn rt_write_u8_array(value: u8[]) -> u64;
 extern fn rt_read_all_bytes() -> u8[];
-
 
 export fn print(text: Str) -> unit
 {
-    rt_write_u8_array(text.to_u8_array());
+    var remaining: u8[] = text.to_u8_array();
+    while remaining.len() > 0u {
+        var written: u64 = rt_write_u8_array(remaining);
+        if written == 0u {
+            panic("io.print: zero-byte write");
+        }
+        if written > remaining.len() {
+            panic("io.print: invalid bytes-written result");
+        }
+        if written < remaining.len() {
+            remaining = remaining[(i64)written:];
+            continue;
+        }
+        return;
+    }
 }
 
 export fn println(text: Str) -> unit

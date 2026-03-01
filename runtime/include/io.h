@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void rt_write_u8_array(const void* array_obj);
+uint64_t rt_write_u8_array(const void* array_obj);
 void* rt_read_all_bytes(void);
 
 #ifdef __cplusplus
