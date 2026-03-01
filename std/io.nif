@@ -1,8 +1,5 @@
 import std.str;
 
-extern fn rt_println_u8(value: u8) -> unit;
-extern fn rt_println_bool(value: bool) -> unit;
-extern fn rt_println_double(value: double) -> unit;
 extern fn rt_write_u8_array(value: u8[]) -> unit;
 extern fn rt_read_all_bytes() -> u8[];
 
@@ -29,17 +26,17 @@ export fn println_u64(value: u64) -> unit
 
 export fn println_u8(value: u8) -> unit
 {
-    rt_println_u8(value);
+    println(Str.from_u8(value));
 }
 
 export fn println_bool(value: bool) -> unit
 {
-    rt_println_bool(value);
+    println(Str.from_bool(value));
 }
 
 export fn println_double(value: double) -> unit
 {
-    rt_println_double(value);
+    println(Str.from_double(value));
 }
 
 export fn read_all() -> Str

@@ -39,3 +39,5 @@ runs:
   - { name: from_i64_roundtrip, input: { stdin: "36" }, expect: { exit_code: 0 } }
   - { name: strbuf_append_u64, input: { stdin: "38" }, expect: { exit_code: 0 } }
   - { name: strbuf_append_i64, input: { stdin: "39" }, expect: { exit_code: 0 } }
+  - { name: from_misc_scalars, input: { stdin: "41" }, expect: { exit_code: 0 } }
+  - { name: strbuf_append_scalars, input: { stdin: "42" }, expect: { exit_code: 0 } }

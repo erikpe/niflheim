@@ -98,8 +98,6 @@ def test_cli_std_io_println_i64_unqualified_call(tmp_path: Path, monkeypatch) ->
         """
 import std.str;
 
-extern fn rt_println_u8(value: u8) -> unit;
-extern fn rt_println_bool(value: bool) -> unit;
 extern fn rt_write_u8_array(value: u8[]) -> unit;
 
 fn print(value: Str) -> unit {
@@ -125,11 +123,11 @@ export fn println_u64(value: u64) -> unit {
 }
 
 export fn println_u8(value: u8) -> unit {
-    rt_println_u8(value);
+    print(Str.from_u8(value));
 }
 
 export fn println_bool(value: bool) -> unit {
-    rt_println_bool(value);
+    print(Str.from_bool(value));
 }
 """,
         encoding="utf-8",
@@ -256,8 +254,6 @@ def test_cli_std_io_println_i64_qualified_call(tmp_path: Path, monkeypatch) -> N
         """
 import std.str;
 
-extern fn rt_println_u8(value: u8) -> unit;
-extern fn rt_println_bool(value: bool) -> unit;
 extern fn rt_write_u8_array(value: u8[]) -> unit;
 
 fn print(value: Str) -> unit {
@@ -283,11 +279,11 @@ export fn println_u64(value: u64) -> unit {
 }
 
 export fn println_u8(value: u8) -> unit {
-    rt_println_u8(value);
+    print(Str.from_u8(value));
 }
 
 export fn println_bool(value: bool) -> unit {
-    rt_println_bool(value);
+    print(Str.from_bool(value));
 }
 """,
         encoding="utf-8",

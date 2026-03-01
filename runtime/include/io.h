@@ -7,9 +7,6 @@
 extern "C" {
 #endif
 
-void rt_println_u8(uint64_t value);
-void rt_println_bool(int64_t value);
-void rt_println_double(double value);
 void rt_write_u8_array(const void* array_obj);
 void* rt_read_all_bytes(void);
 

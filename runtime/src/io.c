@@ -6,19 +6,6 @@
 
 #include "runtime.h"
 
-void rt_println_u8(uint64_t value) {
-    const uint8_t narrowed = (uint8_t)value;
-    printf("%" PRIu8 "\n", narrowed);
-}
-
-void rt_println_bool(int64_t value) {
-    printf("%s\n", value != 0 ? "true" : "false");
-}
-
-void rt_println_double(double value) {
-    printf("%f\n", value);
-}
-
 void rt_write_u8_array(const void* array_obj) {
     const uint8_t* bytes = (const uint8_t*)rt_array_data_ptr(array_obj);
     size_t remaining = (size_t)rt_array_len(array_obj);

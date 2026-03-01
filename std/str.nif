@@ -18,6 +18,17 @@ export class Str
         return Str(bytes);
     }
 
+    static fn from_u8(value: u8) -> Str {
+        return Str.from_u64((u64)value);
+    }
+
+    static fn from_bool(value: bool) -> Str {
+        if value {
+            return "true";
+        }
+        return "false";
+    }
+
     fn len() -> u64 {
         return __self._bytes.len();
     }
@@ -188,6 +199,44 @@ export class Str
         return Str.from_u8_array(buf[index + 1:20]);
     }
 
+    static fn from_double(value: double) -> Str {
+        var negative: bool = value < 0.0;
+        if negative {
+            value = -value;
+        }
+
+        var int_part: u64 = (u64)value;
+        var frac: double = value - (double)int_part;
+
+        var frac_part: u64 = (u64)(frac * 1000000.0 + 0.5);
+        if frac_part == 1000000u {
+            int_part = int_part + 1u;
+            frac_part = 0u;
+        }
+
+        var buf: StrBuf = StrBuf.new(32u);
+        if negative {
+            buf.append_char('-');
+        }
+
+        buf.append_u64(int_part);
+        buf.append_char('.');
+
+        var divisor: u64 = 100000u;
+        var i: u64 = 0u;
+        while i < 6u {
+            var digit: u64 = frac_part / divisor;
+            buf.append_char((u8)(digit + 48u));
+            frac_part = frac_part % divisor;
+            if divisor > 1u {
+                divisor = divisor / 10u;
+            }
+            i = i + 1u;
+        }
+
+        return buf.to_str();
+    }
+
     fn to_i64() -> i64 {
         var length: u64 = __self.len();
         if length == 0u {
@@ -297,6 +346,18 @@ export class StrBuf
 
     fn append_i64(value: i64) -> StrBuf {
         return __self.append(Str.from_i64(value));
+    }
+
+    fn append_u8(value: u8) -> StrBuf {
+        return __self.append(Str.from_u8(value));
+    }
+
+    fn append_bool(value: bool) -> StrBuf {
+        return __self.append(Str.from_bool(value));
+    }
+
+    fn append_double(value: double) -> StrBuf {
+        return __self.append(Str.from_double(value));
     }
 
     fn len() -> u64 {

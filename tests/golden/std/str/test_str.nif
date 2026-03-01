@@ -381,6 +381,35 @@ fn test_from_i64_roundtrip() -> unit {
 }
 
 
+fn test_from_misc_scalars() -> unit {
+    assert(Str.from_u8(0u8).compareTo("0") == 0);
+    assert(Str.from_u8(255u8).compareTo("255") == 0);
+
+    assert(Str.from_bool(true).compareTo("true") == 0);
+    assert(Str.from_bool(false).compareTo("false") == 0);
+
+    assert(Str.from_double(0.0).compareTo("0.000000") == 0);
+    assert(Str.from_double(1.5).compareTo("1.500000") == 0);
+    assert(Str.from_double(-2.25).compareTo("-2.250000") == 0);
+    assert(Str.from_double(123456.125).compareTo("123456.125000") == 0);
+}
+
+
+fn test_strbuf_append_scalars() -> unit {
+    var buf: StrBuf = StrBuf.new(1u);
+    buf.append_u8(255u8)
+        .append("|")
+        .append_bool(true)
+        .append("|")
+        .append_bool(false)
+        .append("|")
+        .append_double(-2.25);
+
+    var out: Str = buf.to_str();
+    assert(out.compareTo("255|true|false|-2.250000") == 0);
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -388,7 +417,6 @@ fn main() -> i64 {
     if select == 2u { test_strip(); }
     if select == 3u { test_numeric_parse_ok(); }
     if select == 4u { test_from_u8_array(); }
-    if select == 40u { test_to_u8_array(); }
     if select == 5u { test_get_oob_panics(); }
     if select == 6u { test_set_oob_panics(); }
     if select == 7u { test_slice_oob_panics(); }
@@ -424,5 +452,8 @@ fn main() -> i64 {
     if select == 37u { test_strbuf_append(); }
     if select == 38u { test_strbuf_append_u64(); }
     if select == 39u { test_strbuf_append_i64(); }
+    if select == 40u { test_to_u8_array(); }
+    if select == 41u { test_from_misc_scalars(); }
+    if select == 42u { test_strbuf_append_scalars(); }
     return 0;
 }
