@@ -1,0 +1,177 @@
+#include "gc_tracked_set.h"
+
+#include "panic.h"
+
+#include <limits.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+
+enum {
+    RT_TRACKED_SET_INITIAL_CAPACITY = 1024u,
+};
+
+#define RT_TRACKED_SET_TOMBSTONE ((RtObjHeader*)(uintptr_t)1)
+
+
+static RtObjHeader** g_tracked_set_slots = NULL;
+static uint64_t g_tracked_set_capacity = 0;
+static uint64_t g_tracked_set_size = 0;
+
+
+static uint64_t rt_hash_ptr_uint64(uintptr_t value) {
+    uint64_t x = (uint64_t)value;
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdu;
+    x ^= x >> 33;
+    x *= 0xc4ceb9fe1a85ec53u;
+    x ^= x >> 33;
+    return x;
+}
+
+
+static uint64_t rt_next_power_of_two_at_least(uint64_t value) {
+    uint64_t out = 1u;
+    while (out < value && out < (UINT64_MAX / 2u)) {
+        out <<= 1u;
+    }
+    return out;
+}
+
+
+static void rt_insert_into_slots(RtObjHeader** slots, uint64_t capacity, RtObjHeader* obj) {
+    if (slots == NULL || capacity == 0u || obj == NULL) {
+        return;
+    }
+
+    uint64_t mask = capacity - 1u;
+    uint64_t index = rt_hash_ptr_uint64((uintptr_t)obj) & mask;
+    while (slots[index] != NULL) {
+        index = (index + 1u) & mask;
+    }
+    slots[index] = obj;
+}
+
+
+static void rt_tracked_set_rebuild(uint64_t new_capacity) {
+    if (new_capacity < RT_TRACKED_SET_INITIAL_CAPACITY) {
+        new_capacity = RT_TRACKED_SET_INITIAL_CAPACITY;
+    }
+    new_capacity = rt_next_power_of_two_at_least(new_capacity);
+
+    RtObjHeader** new_slots = (RtObjHeader**)calloc((size_t)new_capacity, sizeof(RtObjHeader*));
+    if (new_slots == NULL) {
+        rt_panic_oom();
+    }
+
+    uint64_t new_size = 0u;
+    for (uint64_t i = 0u; i < g_tracked_set_capacity; i++) {
+        RtObjHeader* obj = g_tracked_set_slots[i];
+        if (obj == NULL || obj == RT_TRACKED_SET_TOMBSTONE) {
+            continue;
+        }
+        rt_insert_into_slots(new_slots, new_capacity, obj);
+        new_size++;
+    }
+
+    free(g_tracked_set_slots);
+    g_tracked_set_slots = new_slots;
+    g_tracked_set_capacity = new_capacity;
+    g_tracked_set_size = new_size;
+}
+
+
+static void rt_tracked_set_ensure_capacity_for_insert(void) {
+    if (g_tracked_set_capacity == 0u) {
+        rt_tracked_set_rebuild(RT_TRACKED_SET_INITIAL_CAPACITY);
+        return;
+    }
+
+    uint64_t threshold = (g_tracked_set_capacity * 7u) / 10u;
+    if (g_tracked_set_size + 1u > threshold) {
+        rt_tracked_set_rebuild(g_tracked_set_capacity * 2u);
+    }
+}
+
+
+void rt_gc_tracked_set_insert(RtObjHeader* obj) {
+    if (obj == NULL) {
+        return;
+    }
+
+    rt_tracked_set_ensure_capacity_for_insert();
+    uint64_t mask = g_tracked_set_capacity - 1u;
+    uint64_t index = rt_hash_ptr_uint64((uintptr_t)obj) & mask;
+    uint64_t first_tombstone = UINT64_MAX;
+
+    while (1) {
+        RtObjHeader* slot = g_tracked_set_slots[index];
+        if (slot == NULL) {
+            uint64_t target = (first_tombstone != UINT64_MAX) ? first_tombstone : index;
+            g_tracked_set_slots[target] = obj;
+            g_tracked_set_size++;
+            return;
+        }
+        if (slot == RT_TRACKED_SET_TOMBSTONE) {
+            if (first_tombstone == UINT64_MAX) {
+                first_tombstone = index;
+            }
+        } else if (slot == obj) {
+            return;
+        }
+        index = (index + 1u) & mask;
+    }
+}
+
+
+int rt_gc_tracked_set_contains(const RtObjHeader* obj) {
+    if (obj == NULL || g_tracked_set_capacity == 0u) {
+        return 0;
+    }
+
+    uint64_t mask = g_tracked_set_capacity - 1u;
+    uint64_t index = rt_hash_ptr_uint64((uintptr_t)obj) & mask;
+    while (1) {
+        RtObjHeader* slot = g_tracked_set_slots[index];
+        if (slot == NULL) {
+            return 0;
+        }
+        if (slot != RT_TRACKED_SET_TOMBSTONE && slot == obj) {
+            return 1;
+        }
+        index = (index + 1u) & mask;
+    }
+}
+
+
+void rt_gc_tracked_set_remove(RtObjHeader* obj) {
+    if (obj == NULL || g_tracked_set_capacity == 0u) {
+        return;
+    }
+
+    uint64_t mask = g_tracked_set_capacity - 1u;
+    uint64_t index = rt_hash_ptr_uint64((uintptr_t)obj) & mask;
+    while (1) {
+        RtObjHeader* slot = g_tracked_set_slots[index];
+        if (slot == NULL) {
+            return;
+        }
+        if (slot != RT_TRACKED_SET_TOMBSTONE && slot == obj) {
+            g_tracked_set_slots[index] = RT_TRACKED_SET_TOMBSTONE;
+            if (g_tracked_set_size > 0u) {
+                g_tracked_set_size--;
+            }
+            return;
+        }
+        index = (index + 1u) & mask;
+    }
+}
+
+
+void rt_gc_tracked_set_reset(void) {
+    free(g_tracked_set_slots);
+    g_tracked_set_slots = NULL;
+    g_tracked_set_capacity = 0u;
+    g_tracked_set_size = 0u;
+}

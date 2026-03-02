@@ -170,6 +170,8 @@ fn main() -> i64 {
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
+    gc_trace_c = repo_root / "runtime" / "src" / "gc_trace.c"
+    gc_tracked_set_c = repo_root / "runtime" / "src" / "gc_tracked_set.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
     array_c = repo_root / "runtime" / "src" / "array.c"
     panic_c = repo_root / "runtime" / "src" / "panic.c"
@@ -183,6 +185,8 @@ fn main() -> i64 {
             str(runtime_include),
             str(runtime_c),
             str(gc_c),
+            str(gc_trace_c),
+            str(gc_tracked_set_c),
             str(io_c),
             str(array_c),
             str(panic_c),
@@ -329,6 +333,8 @@ fn main() -> i64 {
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
+    gc_trace_c = repo_root / "runtime" / "src" / "gc_trace.c"
+    gc_tracked_set_c = repo_root / "runtime" / "src" / "gc_tracked_set.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
     array_c = repo_root / "runtime" / "src" / "array.c"
     panic_c = repo_root / "runtime" / "src" / "panic.c"
@@ -342,6 +348,8 @@ fn main() -> i64 {
             str(runtime_include),
             str(runtime_c),
             str(gc_c),
+            str(gc_trace_c),
+            str(gc_tracked_set_c),
             str(io_c),
             str(array_c),
             str(panic_c),
@@ -446,6 +454,8 @@ fn main() -> i64 {
     runtime_include = repo_root / "runtime" / "include"
     runtime_c = repo_root / "runtime" / "src" / "runtime.c"
     gc_c = repo_root / "runtime" / "src" / "gc.c"
+    gc_trace_c = repo_root / "runtime" / "src" / "gc_trace.c"
+    gc_tracked_set_c = repo_root / "runtime" / "src" / "gc_tracked_set.c"
     io_c = repo_root / "runtime" / "src" / "io.c"
     array_c = repo_root / "runtime" / "src" / "array.c"
     panic_c = repo_root / "runtime" / "src" / "panic.c"
@@ -459,6 +469,8 @@ fn main() -> i64 {
             str(runtime_include),
             str(runtime_c),
             str(gc_c),
+            str(gc_trace_c),
+            str(gc_tracked_set_c),
             str(io_c),
             str(array_c),
             str(panic_c),
