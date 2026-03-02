@@ -1,0 +1,14 @@
+runs:
+  - name: part1_full_input
+    input:
+      stdin_file: "test_part1_input.txt"
+    expect:
+      exit_code: 0
+      stdout: "RESULT:1172\n"
+
+  - name: part1_test1_input
+    input:
+      stdin: "L68\nL30\nR48\nL5\nR60\nL55\nL1\nL99\nR14\nL82\n"
+    expect:
+      exit_code: 0
+      stdout: "RESULT:3\n"
