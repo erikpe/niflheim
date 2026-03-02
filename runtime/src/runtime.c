@@ -42,6 +42,7 @@ void rt_init(void) {
 }
 
 void rt_shutdown(void) {
+    rt_gc_trace_print_summary();
     rt_gc_reset_state();
 }
 
