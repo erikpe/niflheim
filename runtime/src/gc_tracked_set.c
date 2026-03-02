@@ -3,7 +3,6 @@
 #include "panic.h"
 
 #include <limits.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -31,15 +30,6 @@ static uint64_t rt_hash_ptr_uint64(uintptr_t value) {
 }
 
 
-static uint64_t rt_next_power_of_two_at_least(uint64_t value) {
-    uint64_t out = 1u;
-    while (out < value && out < (UINT64_MAX / 2u)) {
-        out <<= 1u;
-    }
-    return out;
-}
-
-
 static void rt_insert_into_slots(RtObjHeader** slots, uint64_t capacity, RtObjHeader* obj) {
     if (slots == NULL || capacity == 0u || obj == NULL) {
         return;
@@ -58,7 +48,6 @@ static void rt_tracked_set_rebuild(uint64_t new_capacity) {
     if (new_capacity < RT_TRACKED_SET_INITIAL_CAPACITY) {
         new_capacity = RT_TRACKED_SET_INITIAL_CAPACITY;
     }
-    new_capacity = rt_next_power_of_two_at_least(new_capacity);
 
     RtObjHeader** new_slots = (RtObjHeader**)calloc((size_t)new_capacity, sizeof(RtObjHeader*));
     if (new_slots == NULL) {
@@ -95,12 +84,14 @@ static void rt_tracked_set_ensure_capacity_for_insert(void) {
 }
 
 
-void rt_gc_tracked_set_insert(RtObjHeader* obj) {
-    if (obj == NULL) {
-        return;
+static uint64_t rt_tracked_set_find_slot(const RtObjHeader* obj, int* out_found) {
+    if (out_found != NULL) {
+        *out_found = 0;
+    }
+    if (obj == NULL || g_tracked_set_capacity == 0u) {
+        return UINT64_MAX;
     }
 
-    rt_tracked_set_ensure_capacity_for_insert();
     uint64_t mask = g_tracked_set_capacity - 1u;
     uint64_t index = rt_hash_ptr_uint64((uintptr_t)obj) & mask;
     uint64_t first_tombstone = UINT64_MAX;
@@ -108,63 +99,58 @@ void rt_gc_tracked_set_insert(RtObjHeader* obj) {
     while (1) {
         RtObjHeader* slot = g_tracked_set_slots[index];
         if (slot == NULL) {
-            uint64_t target = (first_tombstone != UINT64_MAX) ? first_tombstone : index;
-            g_tracked_set_slots[target] = obj;
-            g_tracked_set_size++;
-            return;
+            return (first_tombstone != UINT64_MAX) ? first_tombstone : index;
         }
         if (slot == RT_TRACKED_SET_TOMBSTONE) {
             if (first_tombstone == UINT64_MAX) {
                 first_tombstone = index;
             }
         } else if (slot == obj) {
-            return;
+            if (out_found != NULL) {
+                *out_found = 1;
+            }
+            return index;
         }
         index = (index + 1u) & mask;
     }
+}
+
+
+void rt_gc_tracked_set_insert(RtObjHeader* obj) {
+    if (obj == NULL) {
+        return;
+    }
+
+    rt_tracked_set_ensure_capacity_for_insert();
+
+    int found = 0;
+    uint64_t index = rt_tracked_set_find_slot(obj, &found);
+    if (found || index == UINT64_MAX) {
+        return;
+    }
+
+    g_tracked_set_slots[index] = obj;
+    g_tracked_set_size++;
 }
 
 
 int rt_gc_tracked_set_contains(const RtObjHeader* obj) {
-    if (obj == NULL || g_tracked_set_capacity == 0u) {
-        return 0;
-    }
-
-    uint64_t mask = g_tracked_set_capacity - 1u;
-    uint64_t index = rt_hash_ptr_uint64((uintptr_t)obj) & mask;
-    while (1) {
-        RtObjHeader* slot = g_tracked_set_slots[index];
-        if (slot == NULL) {
-            return 0;
-        }
-        if (slot != RT_TRACKED_SET_TOMBSTONE && slot == obj) {
-            return 1;
-        }
-        index = (index + 1u) & mask;
-    }
+    int found = 0;
+    (void)rt_tracked_set_find_slot(obj, &found);
+    return found;
 }
 
 
 void rt_gc_tracked_set_remove(RtObjHeader* obj) {
-    if (obj == NULL || g_tracked_set_capacity == 0u) {
+    int found = 0;
+    uint64_t index = rt_tracked_set_find_slot(obj, &found);
+    if (!found || index == UINT64_MAX) {
         return;
     }
 
-    uint64_t mask = g_tracked_set_capacity - 1u;
-    uint64_t index = rt_hash_ptr_uint64((uintptr_t)obj) & mask;
-    while (1) {
-        RtObjHeader* slot = g_tracked_set_slots[index];
-        if (slot == NULL) {
-            return;
-        }
-        if (slot != RT_TRACKED_SET_TOMBSTONE && slot == obj) {
-            g_tracked_set_slots[index] = RT_TRACKED_SET_TOMBSTONE;
-            if (g_tracked_set_size > 0u) {
-                g_tracked_set_size--;
-            }
-            return;
-        }
-        index = (index + 1u) & mask;
+    g_tracked_set_slots[index] = RT_TRACKED_SET_TOMBSTONE;
+    if (g_tracked_set_size > 0u) {
+        g_tracked_set_size--;
     }
 }
 
