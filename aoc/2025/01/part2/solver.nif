@@ -1,0 +1,59 @@
+import std.io;
+import std.str;
+import std.vec;
+
+fn count_zero_hits(start: i64, clicks: i64) -> i64
+{
+    var first_hit: i64 = 0;
+    if start == 0 {
+        first_hit = 100;
+    }
+    else {
+        first_hit = start;
+    }
+
+    if clicks < first_hit {
+        return 0;
+    }
+
+    return 1 + ((clicks - first_hit) / 100);
+}
+
+fn main() -> i64
+{
+    var input_rows: Vec = read_all().splitlines();
+    var num_rows: i64 = (i64)input_rows.len();
+
+    var dial: i64 = 50;
+    var password: i64 = 0;
+
+    var i: i64 = 0;
+    while i < num_rows {
+        var direction: u8 = ((Str)input_rows[i])[0];
+        var clicks: i64 = ((Str)input_rows[i])[1:].to_i64();
+        if direction == 'L' {
+            password = password + count_zero_hits(dial, clicks);
+
+            var reduced_clicks: i64 = clicks % 100;
+            dial = dial - reduced_clicks;
+            if dial < 0 {
+                dial = dial + 100;
+            }
+        }
+        else if direction == 'R' {
+            var right_start: i64 = 100 - dial;
+            if right_start == 100 {
+                right_start = 0;
+            }
+            password = password + count_zero_hits(right_start, clicks);
+
+            dial = (dial + (clicks % 100)) % 100;
+        }
+        i = i + 1;
+    }
+
+    print("RESULT:");
+    println_i64(password);
+
+    return 0;
+}
