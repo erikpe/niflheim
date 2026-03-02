@@ -295,15 +295,15 @@ void rt_gc_collect(RtThreadState* ts) {
 
     rt_gc_trace_collect_begin();
 
-    rt_gc_trace_mark_begin();
+    rt_gc_trace_phase_begin(RT_GC_TRACE_PHASE_MARK);
     rt_clear_all_marks();
     rt_mark_from_global_roots();
     rt_mark_from_shadow_stack(ts);
-    rt_gc_trace_mark_end();
+    rt_gc_trace_phase_end(RT_GC_TRACE_PHASE_MARK);
 
-    rt_gc_trace_sweep_begin();
+    rt_gc_trace_phase_begin(RT_GC_TRACE_PHASE_SWEEP);
     g_live_bytes = rt_sweep_unmarked();
-    rt_gc_trace_sweep_end();
+    rt_gc_trace_phase_end(RT_GC_TRACE_PHASE_SWEEP);
     g_allocated_bytes = g_live_bytes;
     rt_update_threshold_from_live(g_live_bytes);
 

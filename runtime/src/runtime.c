@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include "gc_trace.h"
 
 #include <limits.h>
 #include <stdlib.h>
