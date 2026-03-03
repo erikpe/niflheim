@@ -13,3 +13,6 @@ runs:
   - { name: vec_slice_negative_end_oob_panics, input: { stdin: "12" }, expect: { panic: "Vec.slice: invalid slice range" } }
   - { name: vec_slice_reversed_panics, input: { stdin: "13" }, expect: { panic: "Vec.slice: invalid slice range" } }
   - { name: vec_with_capacity_zero_is_allowed, input: { stdin: "14" }, expect: { exit_code: 0 } }
+  - { name: vec_slice_write_sugar_updates_range, input: { stdin: "15" }, expect: { exit_code: 0 } }
+  - { name: vec_slice_write_length_mismatch_panics, input: { stdin: "16" }, expect: { panic: "Vec.set_slice: length mismatch" } }
+  - { name: vec_slice_write_oob_panics, input: { stdin: "17" }, expect: { panic: "Vec.set_slice: invalid slice range" } }

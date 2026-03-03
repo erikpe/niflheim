@@ -182,6 +182,47 @@ fn test_vec_with_capacity_zero_is_allowed() -> unit {
 }
 
 
+fn test_vec_slice_write_sugar_updates_range() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
+    v.push(BoxI64(30));
+    v.push(BoxI64(40));
+
+    var repl: Vec = Vec.new();
+    repl.push(BoxI64(7));
+    repl.push(BoxI64(8));
+
+    v[1:3] = repl;
+    assert(((BoxI64)v[0]).val == 10);
+    assert(((BoxI64)v[1]).val == 7);
+    assert(((BoxI64)v[2]).val == 8);
+    assert(((BoxI64)v[3]).val == 40);
+}
+
+
+fn test_vec_slice_write_length_mismatch_panics() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(10));
+    v.push(BoxI64(20));
+    v.push(BoxI64(30));
+
+    var repl: Vec = Vec.new();
+    repl.push(BoxI64(99));
+
+    v[0:2] = repl;
+}
+
+
+fn test_vec_slice_write_oob_panics() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(10));
+    var repl: Vec = Vec.new();
+    repl.push(BoxI64(77));
+    v[0:2] = repl;
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -199,6 +240,9 @@ fn main() -> i64 {
     if select == 12u { test_vec_slice_negative_end_oob_panics(); }
     if select == 13u { test_vec_slice_reversed_panics(); }
     if select == 14u { test_vec_with_capacity_zero_is_allowed(); }
+    if select == 15u { test_vec_slice_write_sugar_updates_range(); }
+    if select == 16u { test_vec_slice_write_length_mismatch_panics(); }
+    if select == 17u { test_vec_slice_write_oob_panics(); }
 
     return 0;
 }

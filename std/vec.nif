@@ -87,4 +87,20 @@ export class Vec
         out._len = (u64)out_len;
         return out;
     }
+
+    fn set_slice(begin: i64, end: i64, value: Vec) -> unit {
+        begin = __self._normalize_index(begin);
+        end = __self._normalize_index(end);
+
+        if begin < 0 || end < begin || (u64)end > __self._len {
+            panic("Vec.set_slice: invalid slice range");
+        }
+
+        var target_len: u64 = (u64)(end - begin);
+        if value.len() != target_len {
+            panic("Vec.set_slice: length mismatch");
+        }
+
+        __self._storage[begin:end] = value._storage[0:(i64)value._len];
+    }
 }
