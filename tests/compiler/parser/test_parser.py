@@ -236,6 +236,77 @@ class Counter {
     assert cls.methods[1].is_static is True
 
 
+def test_parse_final_field_modifiers_in_class_body() -> None:
+    source = """
+class Counter {
+    final value: i64;
+    private final secret: i64;
+}
+"""
+    module = parse(lex(source, source_path="examples/final_fields_parse.nif"))
+
+    cls = module.classes[0]
+    assert len(cls.fields) == 2
+    assert cls.fields[0].name == "value"
+    assert cls.fields[0].is_final is True
+    assert cls.fields[0].is_private is False
+    assert cls.fields[1].name == "secret"
+    assert cls.fields[1].is_final is True
+    assert cls.fields[1].is_private is True
+
+
+def test_parse_rejects_final_modifier_on_method() -> None:
+    source = """
+class Counter {
+    final fn value() -> i64 {
+        return 1;
+    }
+}
+"""
+    with pytest.raises(ParserError, match="'final' modifier is only allowed on fields"):
+        parse(lex(source, source_path="examples/final_method_parse.nif"))
+
+
+def test_parse_rejects_duplicate_private_modifier() -> None:
+    source = """
+class Counter {
+    private private value: i64;
+}
+"""
+    with pytest.raises(ParserError, match="Duplicate 'private' modifier"):
+        parse(lex(source, source_path="examples/dup_private_parse.nif"))
+
+
+def test_parse_rejects_duplicate_final_modifier() -> None:
+    source = """
+class Counter {
+    final final value: i64;
+}
+"""
+    with pytest.raises(ParserError, match="Duplicate 'final' modifier"):
+        parse(lex(source, source_path="examples/dup_final_parse.nif"))
+
+
+def test_parse_rejects_duplicate_private_with_mixed_order() -> None:
+    source = """
+class Counter {
+    private final private value: i64;
+}
+"""
+    with pytest.raises(ParserError, match="Duplicate 'private' modifier"):
+        parse(lex(source, source_path="examples/dup_private_mixed_parse.nif"))
+
+
+def test_parse_rejects_duplicate_final_with_mixed_order() -> None:
+    source = """
+class Counter {
+    final private final value: i64;
+}
+"""
+    with pytest.raises(ParserError, match="Duplicate 'final' modifier"):
+        parse(lex(source, source_path="examples/dup_final_mixed_parse.nif"))
+
+
 def test_parse_export_requires_import_class_or_fn() -> None:
     source = "export return;"
     with pytest.raises(ParserError) as error:

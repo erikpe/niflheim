@@ -33,7 +33,9 @@ class ClassInfo:
     field_order: list[str]
     methods: dict[str, FunctionSig]
     private_fields: set[str]
+    final_fields: set[str]
     private_methods: set[str]
+    constructor_is_private: bool
 
 
 class TypeCheckError(ValueError):

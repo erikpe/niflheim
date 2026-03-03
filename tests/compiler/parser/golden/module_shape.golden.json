@@ -3,6 +3,7 @@
     {
       "fields": [
         {
+          "is_final": false,
           "is_private": false,
           "name": "x",
           "node": "FieldDecl",
@@ -12,6 +13,7 @@
           }
         },
         {
+          "is_final": false,
           "is_private": false,
           "name": "y",
           "node": "FieldDecl",

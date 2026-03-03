@@ -39,6 +39,7 @@ class FieldDecl:
     name: str
     type_ref: TypeRefNode
     is_private: bool
+    is_final: bool
     span: SourceSpan
 
 

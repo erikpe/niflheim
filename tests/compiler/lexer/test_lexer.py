@@ -53,6 +53,12 @@ def test_lex_private_keyword() -> None:
     assert TokenKind.PRIVATE in kinds
 
 
+def test_lex_final_keyword() -> None:
+    source = "class C { final value: i64; }"
+    kinds = [token.kind for token in lex(source)]
+    assert TokenKind.FINAL in kinds
+
+
 def test_lex_skips_whitespace_and_line_comments() -> None:
     source = "// first\nvar x: i64 = 1; // second\n"
     tokens = lex(source)

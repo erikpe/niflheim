@@ -205,11 +205,27 @@ class Parser:
                 raise ParserError("Unterminated class body", class_token.span)
 
             private_token: Token | None = None
-            if self.stream.match(TokenKind.PRIVATE):
-                private_token = self.stream.previous()
+            final_token: Token | None = None
+            while True:
+                if self.stream.match(TokenKind.PRIVATE):
+                    if private_token is not None:
+                        raise ParserError("Duplicate 'private' modifier", self.stream.previous().span)
+                    private_token = self.stream.previous()
+                    continue
+                if self.stream.match(TokenKind.FINAL):
+                    if final_token is not None:
+                        raise ParserError("Duplicate 'final' modifier", self.stream.previous().span)
+                    final_token = self.stream.previous()
+                    continue
+                break
+
             is_private = private_token is not None
+            is_final = final_token is not None
+            modifier_start = private_token if private_token is not None else final_token
 
             if self.stream.match(TokenKind.STATIC):
+                if is_final:
+                    raise ParserError("'final' modifier is only allowed on fields", final_token.span)
                 static_token = self.stream.previous()
                 fn_token = self.stream.expect(TokenKind.FN, "Expected 'fn' after 'static' in class body")
                 methods.append(
@@ -217,24 +233,26 @@ class Parser:
                         fn_token=fn_token,
                         is_static=True,
                         is_private=is_private,
-                        start_token=private_token if private_token is not None else static_token,
+                        start_token=modifier_start if modifier_start is not None else static_token,
                     )
                 )
                 continue
 
             if self.stream.match(TokenKind.FN):
+                if is_final:
+                    raise ParserError("'final' modifier is only allowed on fields", final_token.span)
                 methods.append(
                     self._parse_method_decl(
                         fn_token=self.stream.previous(),
                         is_static=False,
                         is_private=is_private,
-                        start_token=private_token,
+                        start_token=modifier_start,
                     )
                 )
                 continue
 
             if self.stream.check(TokenKind.IDENT) and self.stream.peek(1).kind == TokenKind.COLON:
-                fields.append(self._parse_field_decl(is_private=is_private, start_token=private_token))
+                fields.append(self._parse_field_decl(is_private=is_private, is_final=is_final, start_token=modifier_start))
                 continue
 
             raise ParserError("Expected field or method declaration in class body", self.stream.peek().span)
@@ -250,7 +268,7 @@ class Parser:
             span=span,
         )
 
-    def _parse_field_decl(self, *, is_private: bool, start_token: Token | None = None) -> FieldDecl:
+    def _parse_field_decl(self, *, is_private: bool, is_final: bool, start_token: Token | None = None) -> FieldDecl:
         name = self.stream.expect(TokenKind.IDENT, "Expected field name")
         self.stream.expect(TokenKind.COLON, "Expected ':' after field name")
         type_ref = self._parse_type_ref()
@@ -260,6 +278,7 @@ class Parser:
             name=name.lexeme,
             type_ref=type_ref,
             is_private=is_private,
+            is_final=is_final,
             span=SourceSpan(start=start, end=semicolon.span.end),
         )
 

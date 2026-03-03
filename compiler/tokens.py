@@ -17,6 +17,7 @@ class TokenKind(str, Enum):
     EXTERN = "EXTERN"
     CLASS = "CLASS"
     PRIVATE = "PRIVATE"
+    FINAL = "FINAL"
     FN = "FN"
     VAR = "VAR"
     IF = "IF"
@@ -76,6 +77,7 @@ KEYWORDS: dict[str, TokenKind] = {
     "extern": TokenKind.EXTERN,
     "class": TokenKind.CLASS,
     "private": TokenKind.PRIVATE,
+    "final": TokenKind.FINAL,
     "fn": TokenKind.FN,
     "var": TokenKind.VAR,
     "if": TokenKind.IF,

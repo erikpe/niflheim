@@ -176,10 +176,14 @@ def test_typecheck_rejects_private_field_access_outside_class() -> None:
     source = """
 class Counter {
     private value: i64;
+
+    static fn make(value: i64) -> Counter {
+        return Counter(value);
+    }
 }
 
 fn main() -> i64 {
-    var c: Counter = Counter(7);
+    var c: Counter = Counter.make(7);
     return c.value;
 }
 """
@@ -224,6 +228,10 @@ def test_typecheck_rejects_private_field_access_from_other_class_same_module() -
     source = """
 class Counter {
     private value: i64;
+
+    static fn make(value: i64) -> Counter {
+        return Counter(value);
+    }
 }
 
 class Reader {
@@ -233,13 +241,85 @@ class Reader {
 }
 
 fn main() -> i64 {
-    var c: Counter = Counter(7);
+    var c: Counter = Counter.make(7);
     var r: Reader = Reader();
     return r.read(c);
 }
 """
     with pytest.raises(TypeCheckError, match="Member 'Counter.value' is private"):
         _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_assignment_to_final_field_inside_class() -> None:
+    source = """
+class Counter {
+    final value: i64;
+
+    fn bump() -> unit {
+        __self.value = __self.value + 1;
+        return;
+    }
+}
+
+fn main() -> unit {
+    var c: Counter = Counter(1);
+    c.bump();
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Field 'Counter.value' is final"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_assignment_to_final_field_outside_class() -> None:
+    source = """
+class Counter {
+    final value: i64;
+}
+
+fn main() -> unit {
+    var c: Counter = Counter(1);
+    c.value = 2;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Field 'Counter.value' is final"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_private_implicit_constructor_call_outside_class() -> None:
+    source = """
+class Counter {
+    private value: i64;
+
+    static fn make(value: i64) -> Counter {
+        return Counter(value);
+    }
+}
+
+fn main() -> unit {
+    var a: Counter = Counter(1);
+    var b: Counter = Counter.make(2);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Constructor for class 'Counter' is private"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_public_implicit_constructor_for_public_final_fields() -> None:
+    source = """
+class BoxI64 {
+    final value: i64;
+}
+
+fn main() -> unit {
+    var b: BoxI64 = BoxI64(7);
+    var x: i64 = b.value;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_reference_to_primitive_assignment() -> None:
@@ -803,7 +883,7 @@ fn main() -> unit {
 def test_typecheck_allows_box_class_constructors_and_value_getters() -> None:
     source = """
 class BoxI64 {
-    private _value: i64;
+    final _value: i64;
 
     fn value() -> i64 {
         return __self._value;
@@ -811,7 +891,7 @@ class BoxI64 {
 }
 
 class BoxU64 {
-    private _value: u64;
+    final _value: u64;
 
     fn value() -> u64 {
         return __self._value;
@@ -819,7 +899,7 @@ class BoxU64 {
 }
 
 class BoxU8 {
-    private _value: u8;
+    final _value: u8;
 
     fn value() -> u8 {
         return __self._value;
@@ -827,7 +907,7 @@ class BoxU8 {
 }
 
 class BoxBool {
-    private _value: bool;
+    final _value: bool;
 
     fn value() -> bool {
         return __self._value;
@@ -850,10 +930,10 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
-def test_typecheck_rejects_assignment_to_box_private_field() -> None:
+def test_typecheck_rejects_assignment_to_box_final_field() -> None:
     source = """
 class BoxI64 {
-    private _value: i64;
+    final _value: i64;
 
     fn value() -> i64 {
         return __self._value;
@@ -866,7 +946,7 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Member 'BoxI64._value' is private"):
+    with pytest.raises(TypeCheckError, match="Field 'BoxI64._value' is final"):
         _parse_and_typecheck(source)
 
 

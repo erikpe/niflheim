@@ -84,7 +84,9 @@ class TypeChecker:
                 field_order=[],
                 methods={},
                 private_fields=set(),
+                final_fields=set(),
                 private_methods=set(),
+                constructor_is_private=False,
             )
 
         for class_decl in self.module_ast.classes:
@@ -104,6 +106,7 @@ class TypeChecker:
                 methods[method_decl.name] = self._function_sig_from_decl(method_decl)
 
             private_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_private}
+            final_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_final}
             private_methods = {method_decl.name for method_decl in class_decl.methods if method_decl.is_private}
 
             self.classes[class_decl.name] = ClassInfo(
@@ -112,7 +115,9 @@ class TypeChecker:
                 field_order=field_order,
                 methods=methods,
                 private_fields=private_fields,
+                final_fields=final_fields,
                 private_methods=private_methods,
+                constructor_is_private=len(private_fields) > 0,
             )
 
         for fn_decl in self.module_ast.functions:
@@ -267,6 +272,7 @@ class TypeChecker:
             return
 
         if isinstance(expr, FieldAccessExpr):
+            self._ensure_field_access_assignable(expr)
             return
 
         if isinstance(expr, IndexExpr):
@@ -790,9 +796,29 @@ class TypeChecker:
         span: SourceSpan,
         result_type: TypeInfo,
     ) -> TypeInfo:
+        if class_info.constructor_is_private:
+            owner_canonical = self._canonicalize_reference_type_name(result_type.name)
+            if self.current_private_owner_type != owner_canonical:
+                raise TypeCheckError(f"Constructor for class '{class_info.name}' is private", span)
+
         ctor_params = [class_info.fields[field_name] for field_name in class_info.field_order]
         self._check_call_arguments(ctor_params, args, span)
         return result_type
+
+    def _ensure_field_access_assignable(self, expr: FieldAccessExpr) -> None:
+        object_type = self._infer_expression_type(expr.object_expr)
+        class_info = self._lookup_class_by_type_name(object_type.name)
+        if class_info is None:
+            raise TypeCheckError("Invalid assignment target", expr.span)
+
+        field_type = class_info.fields.get(expr.field_name)
+        if field_type is None:
+            raise TypeCheckError("Invalid assignment target", expr.span)
+
+        self._require_member_visible(class_info, object_type.name, expr.field_name, "field", expr.span)
+
+        if expr.field_name in class_info.final_fields:
+            raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)
 
     def _resolve_type_ref(self, type_ref: TypeRefNode) -> TypeInfo:
         if isinstance(type_ref, ArrayTypeRef):

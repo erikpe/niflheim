@@ -3,6 +3,7 @@
     {
       "fields": [
         {
+          "is_final": false,
           "is_private": false,
           "name": "value",
           "node": "FieldDecl",

@@ -209,6 +209,63 @@ def test_typecheck_program_rejects_bad_imported_constructor_argument_type(tmp_pa
         typecheck_program(program)
 
 
+def test_typecheck_program_rejects_private_implicit_constructor_call_across_modules(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class Counter {
+            private value: i64;
+
+            static fn make(value: i64) -> Counter {
+                return Counter(value);
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var a: Counter = util.Counter.make(1);
+            var b: Counter = util.Counter(2);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    with pytest.raises(TypeCheckError, match="Constructor for class 'Counter' is private"):
+        typecheck_program(program)
+
+
+def test_typecheck_program_allows_imported_public_implicit_constructor_with_final_field(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class BoxI64 {
+            final value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var b: BoxI64 = util.BoxI64(7);
+            var x: i64 = b.value;
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_allows_unqualified_imported_exported_class_as_type(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",

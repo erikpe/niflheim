@@ -85,6 +85,7 @@ Defaults:
 
 - Classes support fields and methods.
 - Fields and methods can be declared `private` for class-only access.
+- Fields can be declared `final`; final fields are write-once at construction and cannot be reassigned.
 - Methods are instance methods by default.
 - Static methods are declared explicitly with `static fn` and are called on the class name (`Counter.add(...)`).
 - No inheritance in v0.1.
@@ -96,6 +97,13 @@ Visibility details:
 - Private members are accessible only from methods declared inside the same class.
 - Access from free functions, other classes, and importing modules is rejected by type checking.
 - Leading underscore naming (for example `_value`) is convention-only and has no visibility semantics.
+
+Constructor visibility details (implicit constructor in v0.1):
+
+- Every class has an implicit constructor that takes all declared fields in declaration order.
+- If at least one field is `private`, the implicit constructor is `private` to that class.
+- Otherwise, the implicit constructor is public.
+- Final-field note: final reference fields pin the reference value (the referenced object may still be mutated).
 
 ### 4.2 Allocation and Identity
 
