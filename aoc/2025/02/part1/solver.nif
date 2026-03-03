@@ -1,0 +1,94 @@
+import std.io;
+import std.str;
+import std.vec;
+
+fn pow10(exp: i64) -> i64
+{
+    var out: i64 = 1;
+    var i: i64 = 0;
+    while i < exp {
+        out = out * 10;
+        i = i + 1;
+    }
+    return out;
+}
+
+fn ceil_div_pos(a: i64, b: i64) -> i64
+{
+    if a <= 0 {
+        return 0;
+    }
+    return (a + b - 1) / b;
+}
+
+fn sum_arith(first: i64, last: i64, count: i64) -> i64
+{
+    return (first + last) * count / 2;
+}
+
+fn calc_invalid_sum(from: i64, to: i64) -> i64
+{
+    var invalid_sum: i64 = 0;
+
+    var half_digits: i64 = 1;
+    while half_digits <= 9 {
+        var p10: i64 = pow10(half_digits);
+        var rep_factor: i64 = p10 + 1;
+
+        var k_min_digits: i64 = 1;
+        if half_digits > 1 {
+            k_min_digits = p10 / 10;
+        }
+
+        var k_max_digits: i64 = p10 - 1;
+
+        var k_lo: i64 = ceil_div_pos(from, rep_factor);
+        if k_lo < k_min_digits {
+            k_lo = k_min_digits;
+        }
+
+        var k_hi: i64 = to / rep_factor;
+        if k_hi > k_max_digits {
+            k_hi = k_max_digits;
+        }
+
+        if k_lo <= k_hi {
+            var k_count: i64 = k_hi - k_lo + 1;
+            var k_sum: i64 = sum_arith(k_lo, k_hi, k_count);
+            invalid_sum = invalid_sum + rep_factor * k_sum;
+        }
+
+        var smallest: i64 = k_min_digits * rep_factor;
+        if smallest > to {
+            break;
+        }
+
+        half_digits = half_digits + 1;
+    }
+
+    return invalid_sum;
+}
+
+fn main() -> i64
+{
+    var input_ranges: Vec = read_all().strip().split(',');
+    var num_ranges: i64 = (i64)input_ranges.len();
+
+    var invalid_sum: i64 = 0;
+
+    var i: i64 = 0;
+    while i < num_ranges {
+        var range_text: Str = ((Str)input_ranges[i]).strip();
+        var range: Vec = range_text.split('-');
+        var from: i64 = ((Str)range[0]).to_i64();
+        var to: i64 = ((Str)range[1]).to_i64();
+        invalid_sum = invalid_sum + calc_invalid_sum(from, to);
+
+        i = i + 1;
+    }
+
+    print("RESULT:");
+    println_i64(invalid_sum);
+
+    return 0;
+}
