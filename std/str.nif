@@ -147,7 +147,7 @@ export class Str
         var out: u64 = 0u;
         var i: u64 = 0u;
         while i < length {
-            var ch: u8 = __self[(i64)i];
+            var ch: u8 = __self._bytes[(i64)i];
             if ch < '0' || ch > '9' {
                 panic("Str.to_u64 invalid digit");
             }
@@ -266,7 +266,7 @@ export class Str
         var out: u64 = 0u;
         var i: u64 = start;
         while i < length {
-            var ch: u8 = __self[(i64)i];
+            var ch: u8 = __self._bytes[(i64)i];
             if ch < '0' || ch > '9' {
                 panic("Str.to_i64 invalid digit");
             }
@@ -303,7 +303,7 @@ export class Str
         var i: i64 = 0;
 
         while i < length {
-            var ch: u8 = __self[i];
+            var ch: u8 = __self._bytes[(i64)i];
             if ch == '\n' {
                 out.push(Str(__self._bytes[start:i]));
                 i = i + 1;
@@ -313,7 +313,7 @@ export class Str
 
             if ch == '\r' {
                 out.push(Str(__self._bytes[start:i]));
-                if (i + 1) < length && __self[i + 1] == '\n' {
+                if (i + 1) < length && __self._bytes[i + 1] == '\n' {
                     i = i + 2;
                     start = i;
                     continue;
@@ -340,7 +340,7 @@ export class Str
         var i: i64 = 0;
 
         while i < length {
-            var ch: u8 = __self[i];
+            var ch: u8 = __self._bytes[(i64)i];
             if ch == delimiter {
                 out.push(Str(__self._bytes[start:i]));
                 i = i + 1;
@@ -388,10 +388,7 @@ export class StrBuf
     fn append(msg: Str) -> StrBuf {
         var msg_len: u64 = msg.len();
         __self._grow(__self._len + msg_len);
-
-        var msg_bytes: u8[] = msg.to_u8_array();
-        __self._storage[(i64)__self._len:(i64)(__self._len + msg_len)] = msg_bytes;
-
+        __self._storage[(i64)__self._len:(i64)(__self._len + msg_len)] = msg.to_u8_array();
         __self._len = __self._len + msg_len;
         return __self;
     }
@@ -442,7 +439,7 @@ export class StrBuf
         }
 
         var next_storage: u8[] = u8[](next_capacity);
-        next_storage[0:(i64)__self._len] = __self._storage[0:(i64)__self._len];
+        next_storage[:(i64)__self._len] = __self._storage[:(i64)__self._len];
 
         __self._storage = next_storage;
         __self._capacity = next_capacity;
@@ -484,8 +481,7 @@ export class StrBuf
             panic("StrBuf.slice: invalid slice range");
         }
 
-        var out_storage: u8[] = __self._storage[begin:end];
         var out_len: u64 = (u64)(end - begin);
-        return StrBuf(out_len, out_len, out_storage);
+        return StrBuf(out_len, out_len, __self._storage[begin:end]);
     }
 }
