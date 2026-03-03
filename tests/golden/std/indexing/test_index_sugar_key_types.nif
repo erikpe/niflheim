@@ -1,0 +1,105 @@
+import std.test;
+
+class FlagMap {
+    yes: i64;
+    no: i64;
+
+    fn get(key: bool) -> i64 {
+        if key {
+            return __self.yes;
+        }
+        return __self.no;
+    }
+
+    fn set(key: bool, value: i64) -> unit {
+        if key {
+            __self.yes = value;
+            return;
+        }
+        __self.no = value;
+    }
+}
+
+class WeirdStore {
+    stored: bool;
+
+    fn get(index: i64) -> bool {
+        return __self.stored;
+    }
+
+    fn set(index: i64, value: i64) -> unit {
+        __self.stored = value > 0;
+    }
+}
+
+class SplitKey {
+    value: i64;
+
+    fn get(flag: bool) -> i64 {
+        if flag {
+            return __self.value;
+        }
+        return 0;
+    }
+
+    fn set(index: i64, value: i64) -> unit {
+        if index == 0 {
+            __self.value = value;
+        }
+    }
+}
+
+class ReadOnlyIndex {
+    value: i64;
+
+    fn get(index: i64) -> i64 {
+        if index == 0 {
+            return __self.value;
+        }
+        return -1;
+    }
+}
+
+class WriteOnlyIndex {
+    value: i64;
+
+    fn set(index: i64, value: i64) -> unit {
+        if index == 0 {
+            __self.value = value;
+        }
+    }
+
+    fn reveal() -> i64 {
+        return __self.value;
+    }
+}
+
+fn main() -> i64 {
+    var m: FlagMap = FlagMap(10, 20);
+    assert(m[true] == 10);
+    assert(m[false] == 20);
+
+    m[false] = 99;
+    assert(m[false] == 99);
+
+    var w: WeirdStore = WeirdStore(false);
+    assert(w[0] == false);
+    w[0] = 7;
+    assert(w[0] == true);
+    w[0] = -1;
+    assert(w[0] == false);
+
+    var s: SplitKey = SplitKey(5);
+    assert(s[true] == 5);
+    s[0] = 42;
+    assert(s[true] == 42);
+
+    var ro: ReadOnlyIndex = ReadOnlyIndex(77);
+    assert(ro[0] == 77);
+
+    var wo: WriteOnlyIndex = WriteOnlyIndex(0);
+    wo[0] = 123;
+    assert(wo.reveal() == 123);
+
+    return 0;
+}

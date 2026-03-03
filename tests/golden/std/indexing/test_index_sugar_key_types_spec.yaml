@@ -1,0 +1,2 @@
+runs:
+  - { name: structural_index_custom_key_types, input: { stdin: "" }, expect: { exit_code: 0 } }

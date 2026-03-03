@@ -655,8 +655,65 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="get' first parameter must be i64"):
+    with pytest.raises(TypeCheckError, match="Cannot assign 'i64' to 'u64'"):
         _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_structural_index_sugar_with_non_i64_key_type() -> None:
+    source = """
+class FlagMap {
+    yes: i64;
+    no: i64;
+
+    fn get(key: bool) -> i64 {
+        if key {
+            return __self.yes;
+        }
+        return __self.no;
+    }
+
+    fn set(key: bool, value: i64) -> unit {
+        if key {
+            __self.yes = value;
+            return;
+        }
+        __self.no = value;
+    }
+}
+
+fn main() -> unit {
+    var m: FlagMap = FlagMap(10, 20);
+    var a: i64 = m[true];
+    m[false] = 99;
+    var b: i64 = m[false];
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_mismatched_get_and_set_value_types_for_index_sugar() -> None:
+    source = """
+class WeirdStore {
+    stored: bool;
+
+    fn get(index: i64) -> bool {
+        return __self.stored;
+    }
+
+    fn set(index: i64, value: i64) -> unit {
+        __self.stored = value > 0;
+    }
+}
+
+fn main() -> unit {
+    var w: WeirdStore = WeirdStore(false);
+    w[0] = 7;
+    var flag: bool = w[0];
+    return;
+}
+"""
+    _parse_and_typecheck(source)
 
 
 def test_typecheck_allows_structural_slice_sugar_for_user_class() -> None:
@@ -855,7 +912,7 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Expected 'i64', got 'bool'"):
+    with pytest.raises(TypeCheckError, match="Cannot assign 'bool' to 'i64'"):
         _parse_and_typecheck(source)
 
 

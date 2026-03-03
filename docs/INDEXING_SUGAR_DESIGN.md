@@ -30,9 +30,15 @@ Sugar is enabled for any type that provides matching method signatures. This is 
 
 Baseline signatures:
 
-- `get(i64) -> T`
-- `set(i64, T) -> unit`
+- `get(K) -> R`
+- `set(K, W) -> unit`
 - `slice(i64, i64) -> U` (typically `Self`, but policy is method-signature driven)
+
+Notes:
+
+- `K` is method-signature driven for index sugar (`obj[key]`, `obj[key] = value`), and is not hard-coded to `i64` for structural class-based indexing.
+- Read and write sugar are independent (`R` and `W` may differ).
+- Slice sugar remains explicitly `i64`-bounded.
 
 This allows future stdlib classes to opt in without compiler changes tied to specific class names (`Vec`, `Map`, `Str`, etc.).
 
