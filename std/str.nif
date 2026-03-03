@@ -323,6 +323,30 @@ export class Str
         }
         return out;
     }
+
+    fn split(delimiter: u8) -> Vec {
+        var out: Vec = Vec.new();
+        var length: i64 = (i64)__self.len();
+        var start: i64 = 0;
+        var i: i64 = 0;
+
+        while i < length {
+            var ch: u8 = __self[i];
+            if ch == delimiter {
+                out.push(__self[start:i]);
+                i = i + 1;
+                start = i;
+                continue;
+            }
+
+            i = i + 1;
+        }
+
+        if start < length {
+            out.push(__self[start:length]);
+        }
+        return out;
+    }
 }
 
 
