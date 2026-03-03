@@ -1,11 +1,10 @@
 runs:
-  - { name: baseline_get_set_slice, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: baseline_get_slice, input: { stdin: "1" }, expect: { exit_code: 0 } }
   - { name: strip, input: { stdin: "2" }, expect: { exit_code: 0 } }
   - { name: numeric_parse_ok, input: { stdin: "3" }, expect: { exit_code: 0 } }
   - { name: from_u8_array, input: { stdin: "4" }, expect: { exit_code: 0 } }
-  - { name: to_u8_array, input: { stdin: "40" }, expect: { exit_code: 0 } }
   - { name: get_oob_panics, input: { stdin: "5" }, expect: { panic: "Str.get: index out of bounds" } }
-  - { name: set_oob_panics, input: { stdin: "6" }, expect: { panic: "Str.set: index out of bounds" } }
+  - { name: negative_index_get, input: { stdin: "6" }, expect: { exit_code: 0 } }
   - { name: slice_oob_panics, input: { stdin: "7" }, expect: { panic: "Str.slice: invalid slice range" } }
   - { name: to_u64_invalid_digit_panics, input: { stdin: "8" }, expect: { panic: "Str.to_u64 invalid digit" } }
   - { name: to_i64_overflow_panics, input: { stdin: "9" }, expect: { panic: "Str.to_i64 overflow" } }
@@ -39,6 +38,7 @@ runs:
   - { name: from_i64_roundtrip, input: { stdin: "36" }, expect: { exit_code: 0 } }
   - { name: strbuf_append_u64, input: { stdin: "38" }, expect: { exit_code: 0 } }
   - { name: strbuf_append_i64, input: { stdin: "39" }, expect: { exit_code: 0 } }
+  - { name: to_u8_array, input: { stdin: "40" }, expect: { exit_code: 0 } }
   - { name: from_misc_scalars, input: { stdin: "41" }, expect: { exit_code: 0 } }
   - { name: strbuf_append_scalars, input: { stdin: "42" }, expect: { exit_code: 0 } }
   - { name: splitlines, input: { stdin: "43" }, expect: { exit_code: 0 } }

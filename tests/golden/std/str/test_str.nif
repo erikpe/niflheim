@@ -4,28 +4,16 @@ import std.str;
 import std.vec;
 
 
-fn test_baseline_get_set_slice() -> unit {
+fn test_baseline_get_slice() -> unit {
     var s: Str = "abcd";
     assert(s.len() == 4u);
     assert(s[0] == 'a');
     assert(s[-1] == 'd');
 
-    s[1] = 'Z';
-    assert(s[1] == 'Z');
-
     var mid: Str = s[1:3];
     assert(mid.len() == 2u);
-    assert(mid[0] == 'Z');
+    assert(mid[0] == 'b');
     assert(mid[1] == 'c');
-
-    var word: Str = "foobar";
-    word[2] = 'x';
-    assert(word[0] == 'f');
-    assert(word[1] == 'o');
-    assert(word[2] == 'x');
-    assert(word[3] == 'b');
-    assert(word[4] == 'a');
-    assert(word[5] == 'r');
 }
 
 
@@ -161,9 +149,10 @@ fn test_get_oob_panics() -> unit {
 }
 
 
-fn test_set_oob_panics() -> unit {
-    var s: Str = Str.from_char('A');
-    s[1] = 'B';
+fn test_negative_index_get() -> unit {
+    var s: Str = "abcdef";
+    assert(s[-1] == 'f');
+    assert(s[-2] == 'e');
 }
 
 
@@ -441,12 +430,12 @@ fn test_splitlines() -> unit {
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
-    if select == 1u { test_baseline_get_set_slice(); }
+    if select == 1u { test_baseline_get_slice(); }
     if select == 2u { test_strip(); }
     if select == 3u { test_numeric_parse_ok(); }
     if select == 4u { test_from_u8_array(); }
     if select == 5u { test_get_oob_panics(); }
-    if select == 6u { test_set_oob_panics(); }
+    if select == 6u { test_negative_index_get(); }
     if select == 7u { test_slice_oob_panics(); }
     if select == 8u { test_to_u64_invalid_digit_panics(); }
     if select == 9u { test_to_i64_overflow_panics(); }

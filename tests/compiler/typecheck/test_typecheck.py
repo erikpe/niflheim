@@ -991,10 +991,6 @@ class Str {
     fn get(index: i64) -> u8 {
         return 0u8;
     }
-
-    fn set(index: i64, value: u8) -> unit {
-        return;
-    }
 }
 
 fn main() -> unit {
@@ -1003,7 +999,8 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    with pytest.raises(TypeCheckError, match="missing method 'set\\(K, V\\)'"):
+        _parse_and_typecheck(source)
 
 
 def test_typecheck_allows_box_class_constructors_and_value_getters() -> None:

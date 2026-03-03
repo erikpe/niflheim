@@ -50,14 +50,6 @@ export class Str
         return __self._bytes[index];
     }
 
-    fn set(index: i64, byte: u8) -> unit {
-        index = __self._normalize_index(index);
-        if index < 0 || index >= (i64)__self.len() {
-            panic("Str.set: index out of bounds");
-        }
-        __self._bytes[index] = byte;
-    }
-
     fn slice(begin: i64, end: i64) -> Str {
         begin = __self._normalize_index(begin);
         end = __self._normalize_index(end);
