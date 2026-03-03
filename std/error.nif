@@ -6,13 +6,8 @@ export fn panic(msg: Str) -> unit
 {
     var length: i64 = (i64)msg.len();
     var msg_arr: u8[] = u8[]((u64)length + 1u);
-
-    var i: i64 = 0;
-    while i < length {
-        msg_arr[i] = msg[i];
-        i = i + 1;
-    }
-    msg_arr[length] = 0u8;
+    msg_arr[0:length] = msg.to_u8_array();
+    msg_arr[length] = '\0';
 
     rt_panic_null_term_array(msg_arr);
 }

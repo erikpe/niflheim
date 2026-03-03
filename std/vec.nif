@@ -37,11 +37,7 @@ export class Vec
         }
 
         var next_storage: Obj[] = Obj[](next_capacity);
-        var i: i64 = 0;
-        while i < (i64)__self._len {
-            next_storage[i] = __self._storage[i];
-            i = i + 1;
-        }
+        next_storage[0:(i64)__self._len] = __self._storage[0:(i64)__self._len];
 
         __self._storage = next_storage;
         __self._capacity = next_capacity;
@@ -85,12 +81,10 @@ export class Vec
             panic("Vec.slice: invalid slice range");
         }
 
-        var out: Vec = Vec.with_capacity((u64)(end - begin));
-        var i: i64 = begin;
-        while i < end {
-            out.push(__self._storage[i]);
-            i = i + 1;
-        }
+        var out_len: i64 = end - begin;
+        var out: Vec = Vec.with_capacity((u64)out_len);
+        out._storage[0:out_len] = __self._storage[begin:end];
+        out._len = (u64)out_len;
         return out;
     }
 }

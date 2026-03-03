@@ -77,11 +77,7 @@ export fn read_all() -> Str
             }
 
             var grown: u8[] = u8[](new_capacity);
-            var i: u64 = 0u;
-            while i < filled {
-                grown[(i64)i] = bytes[(i64)i];
-                i = i + 1u;
-            }
+            grown[:(i64)filled] = bytes[:(i64)filled];
             bytes = grown;
         }
     }
