@@ -1,44 +1,24 @@
 export class BoxI64
 {
-    final _value: i64;
-
-    fn value() -> i64 {
-        return __self._value;
-    }
+    final val: i64;
 }
 
 export class BoxU64
 {
-    final _value: u64;
-
-    fn value() -> u64 {
-        return __self._value;
-    }
+    final val: u64;
 }
 
 export class BoxU8
 {
-    final _value: u8;
-
-    fn value() -> u8 {
-        return __self._value;
-    }
+    final val: u8;
 }
 
 export class BoxBool
 {
-    final _value: bool;
-
-    fn value() -> bool {
-        return __self._value;
-    }
+    final val: bool;
 }
 
 export class BoxDouble
 {
-    final _value: double;
-
-    fn value() -> double {
-        return __self._value;
-    }
+    final val: double;
 }

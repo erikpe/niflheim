@@ -7,9 +7,9 @@ fn main() -> i64 {
     var b: BoxU8 = BoxU8((u8)7);
     var c: BoxBool = BoxBool(true);
 
-    println_i64(a.value());
-    println_i64((i64)b.value());
-    if c.value() {
+    println_i64(a.val);
+    println_i64((i64)b.val);
+    if c.val {
         println_i64(1);
     } else {
         println_i64(0);

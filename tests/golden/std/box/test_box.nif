@@ -5,33 +5,33 @@ import std.box;
 
 fn test_box_i64() -> unit {
     var x: BoxI64 = BoxI64(-7);
-    assert(x.value() == -7);
+    assert(x.val == -7);
 }
 
 
 fn test_box_u64() -> unit {
     var x: BoxU64 = BoxU64(123u);
-    assert(x.value() == 123u);
+    assert(x.val == 123u);
 }
 
 
 fn test_box_u8() -> unit {
     var x: BoxU8 = BoxU8((u8)255);
-    assert(x.value() == (u8)255);
+    assert(x.val == (u8)255);
 }
 
 
 fn test_box_bool() -> unit {
     var t: BoxBool = BoxBool(true);
     var f: BoxBool = BoxBool(false);
-    assert(t.value() == true);
-    assert(f.value() == false);
+    assert(t.val == true);
+    assert(f.val == false);
 }
 
 
 fn test_box_double() -> unit {
     var x: BoxDouble = BoxDouble(1.5);
-    assert(x.value() == 1.5);
+    assert(x.val == 1.5);
 }
 
 
