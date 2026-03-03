@@ -767,6 +767,75 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_structural_slice_write_sugar_for_user_class() -> None:
+    source = """
+class Window {
+    values: i64[];
+
+    static fn from_three(a: i64, b: i64, c: i64) -> Window {
+        var seed: i64[] = i64[](3u);
+        seed[0] = a;
+        seed[1] = b;
+        seed[2] = c;
+        return Window(seed);
+    }
+
+    fn len() -> u64 {
+        return __self.values.len();
+    }
+
+    fn get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    fn set_slice(begin: i64, end: i64, value: Window) -> unit {
+        var i: i64 = 0;
+        while begin + i < end {
+            __self.values[begin + i] = value.values[i];
+            i = i + 1;
+        }
+    }
+}
+
+fn main() -> unit {
+    var w: Window = Window.from_three(1, 2, 3);
+    var repl: Window = Window.from_three(9, 8, 7);
+    w[1:3] = repl;
+    var x: i64 = w[1];
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_structural_slice_write_sugar_for_wrong_set_slice_signature() -> None:
+    source = """
+class BadWindow {
+    values: i64[];
+
+    static fn new() -> BadWindow {
+        return BadWindow(i64[](2u));
+    }
+
+    fn len() -> u64 {
+        return __self.values.len();
+    }
+
+    fn set_slice(begin: u64, end: i64, value: BadWindow) -> unit {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var w: BadWindow = BadWindow.new();
+    w[0:1] = BadWindow.new();
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="set_slice' first two parameters must be i64"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_structural_index_and_slice_sugar_for_private_methods() -> None:
     source_get = """
 class HiddenGet {

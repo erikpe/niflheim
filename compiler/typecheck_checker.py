@@ -598,6 +598,14 @@ class TypeChecker:
                     expr.span,
                 )
 
+            if expr.callee.field_name == "set_slice":
+                return self._resolve_structural_set_slice_method_result_type(
+                    object_type,
+                    class_info,
+                    expr.arguments,
+                    expr.span,
+                )
+
             if method_sig.is_static:
                 raise TypeCheckError(
                     f"Static method '{class_info.name}.{expr.callee.field_name}' must be called on the class",
@@ -750,6 +758,59 @@ class TypeChecker:
         self._require_array_index_type(begin_arg_type, args[0].span)
         self._require_array_index_type(end_arg_type, args[1].span)
         return self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
+
+    def _resolve_structural_set_slice_method_result_type(
+        self,
+        object_type: TypeInfo,
+        class_info: ClassInfo,
+        args: list[Expression],
+        span: SourceSpan,
+    ) -> TypeInfo:
+        method_sig = class_info.methods.get("set_slice")
+        if method_sig is None:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not slice-assignable (missing method 'set_slice(i64, i64, U)')",
+                span,
+            )
+        self._require_member_visible(class_info, object_type.name, "set_slice", "method", span)
+        if method_sig.is_static:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not slice-assignable (method 'set_slice' must be instance method)",
+                span,
+            )
+        if len(method_sig.params) != 3:
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not slice-assignable (method 'set_slice' must take exactly 3 arguments)",
+                span,
+            )
+        if len(args) != 3:
+            raise TypeCheckError(f"Expected 3 arguments, got {len(args)}", span)
+
+        qualified_begin_param = self._qualify_member_type_for_owner(method_sig.params[0], object_type.name)
+        qualified_end_param = self._qualify_member_type_for_owner(method_sig.params[1], object_type.name)
+        if qualified_begin_param.name != "i64" or qualified_end_param.name != "i64":
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not slice-assignable (method 'set_slice' first two parameters must be i64)",
+                span,
+            )
+
+        begin_arg_type = self._infer_expression_type(args[0])
+        end_arg_type = self._infer_expression_type(args[1])
+        self._require_array_index_type(begin_arg_type, args[0].span)
+        self._require_array_index_type(end_arg_type, args[1].span)
+
+        qualified_value_param = self._qualify_member_type_for_owner(method_sig.params[2], object_type.name)
+        value_arg_type = self._infer_expression_type(args[2])
+        self._require_assignable(qualified_value_param, value_arg_type, args[2].span)
+
+        qualified_return_type = self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
+        if qualified_return_type.name != "unit":
+            raise TypeCheckError(
+                f"Type '{object_type.name}' is not slice-assignable (method 'set_slice' must return unit)",
+                span,
+            )
+
+        return TypeInfo(name="unit", kind="primitive")
 
     def _resolve_imported_function_sig(self, fn_name: str, span: SourceSpan) -> FunctionSig | None:
         current_module = self._current_module_info()

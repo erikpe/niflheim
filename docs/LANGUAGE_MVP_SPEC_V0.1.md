@@ -199,12 +199,13 @@ Implementation status note (current tree):
   - `x[i]` is equivalent to `x.get(i)`
   - `x[i] = v` is equivalent to `x.set(i, v)`
   - `x[a:b]` is equivalent to `x.slice(a, b)`
+  - `x[a:b] = v` is equivalent to `x.set_slice(a, b, v)`
 
   Compiler implementation policy:
 
   - Keep a single semantic path (method-call semantics) rather than independent index/method paths.
   - Prefer structural eligibility over hard-coded type-name checks.
-  - A type participates in sugar when it provides compatible methods (for example `get`, `set`, `slice` with `i64` index parameters).
+  - A type participates in sugar when it provides compatible methods (for example `get(K)`, `set(K, W)`, `slice(i64, i64)`, `set_slice(i64, i64, U)`).
 
   This policy is intentionally future-oriented for stdlib container families (for example specialized vectors), map-like classes, and potential stdlib implementations of `Str`/`StrBuf` backed by `u8[]`.
 

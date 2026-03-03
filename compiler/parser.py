@@ -507,10 +507,15 @@ class Parser:
     def _parse_expr_or_assign_stmt(self) -> Statement:
         expr = self._parse_expression()
         if self.stream.match(TokenKind.ASSIGN):
-            if not self._is_assignable_target(expr):
-                raise ParserError("Invalid assignment target", expr.span)
             value = self._parse_expression()
             semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after assignment")
+
+            slice_write_stmt = self._try_build_slice_write_stmt(expr, value, semicolon.span.end)
+            if slice_write_stmt is not None:
+                return slice_write_stmt
+
+            if not self._is_assignable_target(expr):
+                raise ParserError("Invalid assignment target", expr.span)
             return AssignStmt(
                 target=expr,
                 value=value,
@@ -523,6 +528,29 @@ class Parser:
     @staticmethod
     def _is_assignable_target(expr: Expression) -> bool:
         return isinstance(expr, (IdentifierExpr, FieldAccessExpr, IndexExpr))
+
+    @staticmethod
+    def _try_build_slice_write_stmt(expr: Expression, value: Expression, end_span) -> ExprStmt | None:
+        if not isinstance(expr, CallExpr):
+            return None
+        if not isinstance(expr.callee, FieldAccessExpr):
+            return None
+        if expr.callee.field_name != "slice":
+            return None
+        if len(expr.arguments) != 2:
+            return None
+
+        set_slice_callee = FieldAccessExpr(
+            object_expr=expr.callee.object_expr,
+            field_name="set_slice",
+            span=expr.callee.span,
+        )
+        set_slice_call = CallExpr(
+            callee=set_slice_callee,
+            arguments=[expr.arguments[0], expr.arguments[1], value],
+            span=SourceSpan(start=expr.span.start, end=end_span),
+        )
+        return ExprStmt(expression=set_slice_call, span=SourceSpan(start=expr.span.start, end=end_span))
 
     def _parse_expression(self) -> Expression:
         return self._parse_logical_or()

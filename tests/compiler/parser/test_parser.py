@@ -483,6 +483,28 @@ def test_parse_expression_slice_full_omission_desugars_to_zero_and_casted_len() 
     assert expr.arguments[1].operand.callee.field_name == "len"
 
 
+def test_parse_slice_assignment_desugars_to_set_slice_call() -> None:
+    source = """
+fn main() -> unit {
+    var v: Vec = Vec.new();
+    v[1:3] = Vec.new();
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/slice_assign.nif"))
+
+    stmt = module.functions[0].body.statements[1]
+    assert isinstance(stmt, ExprStmt)
+    assert isinstance(stmt.expression, CallExpr)
+    assert isinstance(stmt.expression.callee, FieldAccessExpr)
+    assert stmt.expression.callee.field_name == "set_slice"
+    assert len(stmt.expression.arguments) == 3
+    assert isinstance(stmt.expression.arguments[0], LiteralExpr)
+    assert stmt.expression.arguments[0].value == "1"
+    assert isinstance(stmt.expression.arguments[1], LiteralExpr)
+    assert stmt.expression.arguments[1].value == "3"
+
+
 def test_parse_expression_cast_then_unary_operand() -> None:
     expr = parse_expression(lex("(i64)-x", source_path="examples/expr.nif"))
 

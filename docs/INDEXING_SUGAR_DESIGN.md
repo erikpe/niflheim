@@ -21,6 +21,7 @@ Adopt **method-canonical indexing semantics**.
 - `obj[index]` is canonicalized to `obj.get(index)`
 - `obj[index] = value` is canonicalized to `obj.set(index, value)`
 - `obj[begin:end]` is canonicalized to `obj.slice(begin, end)`
+- `obj[begin:end] = value` is canonicalized to `obj.set_slice(begin, end, value)`
 
 The compiler should keep only one semantic implementation path (method-call path), not independent parallel implementations for index syntax and method syntax.
 
@@ -33,12 +34,14 @@ Baseline signatures:
 - `get(K) -> R`
 - `set(K, W) -> unit`
 - `slice(i64, i64) -> U` (typically `Self`, but policy is method-signature driven)
+- `set_slice(i64, i64, U) -> unit`
 
 Notes:
 
 - `K` is method-signature driven for index sugar (`obj[key]`, `obj[key] = value`), and is not hard-coded to `i64` for structural class-based indexing.
 - Read and write sugar are independent (`R` and `W` may differ).
 - Slice sugar remains explicitly `i64`-bounded.
+- Slice-write sugar (`obj[begin:end] = value`) uses `set_slice(i64, i64, U)`; `U` is method-signature driven.
 
 This allows future stdlib classes to opt in without compiler changes tied to specific class names (`Vec`, `Map`, `Str`, etc.).
 
