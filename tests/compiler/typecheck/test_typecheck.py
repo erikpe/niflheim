@@ -1156,16 +1156,30 @@ fn main() -> unit {
     var b: u8 = nums.get(1);
     var n: u64 = nums.len();
     var part: u8[] = nums[0:2];
+    nums[1:3] = part;
 
     var people: Person[] = Person[](2u);
     people[0] = Person(7);
     people.set(1, null);
     var p0: Person = people.get(0);
     var ps: Person[] = people.slice(0, 1);
+    people[0:1] = ps;
     return;
 }
 """
     _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_array_set_slice_value_type_mismatch() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u8[] = u8[](4u);
+    nums[1:3] = true;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Cannot assign 'bool' to 'u8\[\]'"):
+        _parse_and_typecheck(source)
 
 
 def test_typecheck_arrays_are_invariant() -> None:

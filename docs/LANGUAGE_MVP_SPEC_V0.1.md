@@ -178,6 +178,7 @@ These are specialization/performance features and should not change core semanti
   - `arr.get(index) -> T`, alias `arr[index]`
   - `arr.set(index, value) -> unit`, alias `arr[index] = value`
   - `arr.slice(start, end) -> T[]`, alias `arr[start:end]`
+  - `arr.set_slice(start, end, value: T[]) -> unit`, alias `arr[start:end] = value`
 - Bounds violations panic and abort.
 - `slice` semantics in v0.1: copying slice (new array allocation).
 - Array assignability policy in v0.1: invariant (`A[]` is assignable only to `A[]`, except `null` to reference arrays).

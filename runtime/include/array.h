@@ -41,6 +41,13 @@ void* rt_array_slice_bool(const void* array_obj, int64_t start, int64_t end);
 void* rt_array_slice_double(const void* array_obj, int64_t start, int64_t end);
 void* rt_array_slice_ref(const void* array_obj, int64_t start, int64_t end);
 
+void rt_array_set_slice_i64(void* array_obj, int64_t start, int64_t end, const void* value_array_obj);
+void rt_array_set_slice_u64(void* array_obj, int64_t start, int64_t end, const void* value_array_obj);
+void rt_array_set_slice_u8(void* array_obj, int64_t start, int64_t end, const void* value_array_obj);
+void rt_array_set_slice_bool(void* array_obj, int64_t start, int64_t end, const void* value_array_obj);
+void rt_array_set_slice_double(void* array_obj, int64_t start, int64_t end, const void* value_array_obj);
+void rt_array_set_slice_ref(void* array_obj, int64_t start, int64_t end, const void* value_array_obj);
+
 #ifdef __cplusplus
 }
 #endif

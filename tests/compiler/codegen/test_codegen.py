@@ -615,6 +615,7 @@ fn main() -> unit {
     nums.set(1, 42u);
     var x: u64 = nums.get(1);
     var s: u64[] = nums.slice(0, 2);
+    nums.set_slice(1, 3, s);
     return;
 }
 """
@@ -625,6 +626,7 @@ fn main() -> unit {
     assert "    call rt_array_set_u64" in asm
     assert "    call rt_array_get_u64" in asm
     assert "    call rt_array_slice_u64" in asm
+    assert "    call rt_array_set_slice_u64" in asm
 
 
 def test_emit_asm_array_reference_set_roots_reference_value_argument_for_runtime_call() -> None:

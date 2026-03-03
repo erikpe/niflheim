@@ -39,6 +39,7 @@ from compiler.codegen_model import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_GET_RUNTIME_CALLS,
     ARRAY_SET_RUNTIME_CALLS,
+    ARRAY_SET_SLICE_RUNTIME_CALLS,
     ARRAY_SLICE_RUNTIME_CALLS,
     ConstructorLayout,
     EmitContext,
@@ -209,6 +210,7 @@ def _expr_needs_temp_runtime_roots(expr: Expression) -> bool:
             "get",
             "set",
             "slice",
+            "set_slice",
             "get_u8",
         }:
             return True
@@ -419,6 +421,12 @@ def _resolve_method_call_target(
                 name=ARRAY_SLICE_RUNTIME_CALLS[kind],
                 receiver_expr=receiver_expr,
                 return_type_name=method_owner_type_name,
+            )
+        if method_name == "set_slice":
+            return ResolvedCallTarget(
+                name=ARRAY_SET_SLICE_RUNTIME_CALLS[kind],
+                receiver_expr=receiver_expr,
+                return_type_name="unit",
             )
         raise NotImplementedError(f"array method-call codegen could not resolve '{method_owner_type_name}.{method_name}'")
 

@@ -14,7 +14,7 @@ from compiler.typecheck_model import (
     TypeInfo,
 )
 
-ARRAY_METHOD_NAMES = {"len", "get", "set", "slice"}
+ARRAY_METHOD_NAMES = {"len", "get", "set", "slice", "set_slice"}
 
 I64_MAX_LITERAL = 9223372036854775807
 I64_MIN_MAGNITUDE_LITERAL = 9223372036854775808
@@ -579,6 +579,16 @@ class TypeChecker:
                     self._require_array_index_type(start_type, expr.arguments[0].span)
                     self._require_array_index_type(end_type, expr.arguments[1].span)
                     return object_type
+                if method_name == "set_slice":
+                    if len(expr.arguments) != 3:
+                        raise TypeCheckError(f"Expected 3 arguments, got {len(expr.arguments)}", expr.span)
+                    start_type = self._infer_expression_type(expr.arguments[0])
+                    end_type = self._infer_expression_type(expr.arguments[1])
+                    self._require_array_index_type(start_type, expr.arguments[0].span)
+                    self._require_array_index_type(end_type, expr.arguments[1].span)
+                    value_type = self._infer_expression_type(expr.arguments[2])
+                    self._require_assignable(object_type, value_type, expr.arguments[2].span)
+                    return TypeInfo(name="unit", kind="primitive")
                 raise TypeCheckError(f"Array type '{object_type.name}' has no method '{method_name}'", expr.span)
 
             class_info = self._lookup_class_by_type_name(object_type.name)

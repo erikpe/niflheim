@@ -153,6 +153,26 @@ static void* rt_array_slice(const void* array_obj, uint64_t kind, int64_t start,
     return (void*)slice;
 }
 
+static void rt_array_set_slice(void* array_obj, uint64_t kind, int64_t start, int64_t end, const void* value_array_obj, const char* api_name) {
+    RtArrayObj* target = rt_require_array_kind(array_obj, kind, api_name);
+    RtArrayObj* value = rt_require_array_kind(value_array_obj, kind, api_name);
+
+    rt_require_slice_range(target, start, end, api_name);
+
+    uint64_t start_u = (uint64_t)start;
+    uint64_t end_u = (uint64_t)end;
+    uint64_t slice_len = end_u - start_u;
+    if (value->len != slice_len) {
+        rt_panic(api_name);
+    }
+
+    uint64_t byte_offset = rt_mul_u64_checked(start_u, target->element_size);
+    uint64_t copy_bytes = rt_mul_u64_checked(slice_len, target->element_size);
+    if (copy_bytes > 0) {
+        memcpy(target->data + byte_offset, value->data, (size_t)copy_bytes);
+    }
+}
+
 void* rt_array_new_i64(uint64_t len) {
     return rt_array_new(len, RT_ARRAY_KIND_I64, sizeof(int64_t), &rt_type_array_primitive_desc);
 }
@@ -292,4 +312,28 @@ void* rt_array_slice_double(const void* array_obj, int64_t start, int64_t end) {
 
 void* rt_array_slice_ref(const void* array_obj, int64_t start, int64_t end) {
     return rt_array_slice(array_obj, RT_ARRAY_KIND_REF, start, end, "rt_array_slice_ref: invalid slice range");
+}
+
+void rt_array_set_slice_i64(void* array_obj, int64_t start, int64_t end, const void* value_array_obj) {
+    rt_array_set_slice(array_obj, RT_ARRAY_KIND_I64, start, end, value_array_obj, "rt_array_set_slice_i64: invalid slice assignment");
+}
+
+void rt_array_set_slice_u64(void* array_obj, int64_t start, int64_t end, const void* value_array_obj) {
+    rt_array_set_slice(array_obj, RT_ARRAY_KIND_U64, start, end, value_array_obj, "rt_array_set_slice_u64: invalid slice assignment");
+}
+
+void rt_array_set_slice_u8(void* array_obj, int64_t start, int64_t end, const void* value_array_obj) {
+    rt_array_set_slice(array_obj, RT_ARRAY_KIND_U8, start, end, value_array_obj, "rt_array_set_slice_u8: invalid slice assignment");
+}
+
+void rt_array_set_slice_bool(void* array_obj, int64_t start, int64_t end, const void* value_array_obj) {
+    rt_array_set_slice(array_obj, RT_ARRAY_KIND_BOOL, start, end, value_array_obj, "rt_array_set_slice_bool: invalid slice assignment");
+}
+
+void rt_array_set_slice_double(void* array_obj, int64_t start, int64_t end, const void* value_array_obj) {
+    rt_array_set_slice(array_obj, RT_ARRAY_KIND_DOUBLE, start, end, value_array_obj, "rt_array_set_slice_double: invalid slice assignment");
+}
+
+void rt_array_set_slice_ref(void* array_obj, int64_t start, int64_t end, const void* value_array_obj) {
+    rt_array_set_slice(array_obj, RT_ARRAY_KIND_REF, start, end, value_array_obj, "rt_array_set_slice_ref: invalid slice assignment");
 }

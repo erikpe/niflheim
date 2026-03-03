@@ -91,6 +91,14 @@ ARRAY_SLICE_RUNTIME_CALLS = {
     "double": "rt_array_slice_double",
     "ref": "rt_array_slice_ref",
 }
+ARRAY_SET_SLICE_RUNTIME_CALLS = {
+    "i64": "rt_array_set_slice_i64",
+    "u64": "rt_array_set_slice_u64",
+    "u8": "rt_array_set_slice_u8",
+    "bool": "rt_array_set_slice_bool",
+    "double": "rt_array_set_slice_double",
+    "ref": "rt_array_set_slice_ref",
+}
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_checked_cast": (0,),
@@ -113,6 +121,12 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_array_slice_bool": (0,),
     "rt_array_slice_double": (0,),
     "rt_array_slice_ref": (0,),
+    "rt_array_set_slice_i64": (0, 3),
+    "rt_array_set_slice_u64": (0, 3),
+    "rt_array_set_slice_u8": (0, 3),
+    "rt_array_set_slice_bool": (0, 3),
+    "rt_array_set_slice_double": (0, 3),
+    "rt_array_set_slice_ref": (0, 3),
     "rt_panic_null_term_array": (0,),
 }
 RUNTIME_RETURN_TYPES: dict[str, str] = {
@@ -123,6 +137,12 @@ RUNTIME_RETURN_TYPES: dict[str, str] = {
     "rt_array_get_bool": "bool",
     "rt_array_get_double": "double",
     "rt_array_get_ref": "Obj",
+    "rt_array_set_slice_i64": "unit",
+    "rt_array_set_slice_u64": "unit",
+    "rt_array_set_slice_u8": "unit",
+    "rt_array_set_slice_bool": "unit",
+    "rt_array_set_slice_double": "unit",
+    "rt_array_set_slice_ref": "unit",
     "rt_checked_cast": "Obj",
     "rt_panic_null_term_array": "unit",
 }

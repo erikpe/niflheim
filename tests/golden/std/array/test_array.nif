@@ -50,6 +50,25 @@ fn test_slice_copy_behavior() -> unit {
 }
 
 
+fn test_set_slice_write_behavior() -> unit {
+    var target: u8[] = u8[](4u);
+    target[0] = (u8)10;
+    target[1] = (u8)20;
+    target[2] = (u8)30;
+    target[3] = (u8)40;
+
+    var src: u8[] = u8[](2u);
+    src[0] = (u8)7;
+    src[1] = (u8)8;
+
+    target[1:3] = src;
+    assert(target[0] == (u8)10);
+    assert(target[1] == (u8)7);
+    assert(target[2] == (u8)8);
+    assert(target[3] == (u8)40);
+}
+
+
 fn test_get_oob_panics() -> unit {
     var arr: u8[] = u8[](1u);
     arr.get(1);
@@ -74,6 +93,13 @@ fn test_negative_index_panics() -> unit {
 }
 
 
+fn test_set_slice_invalid_length_panics() -> unit {
+    var target: u8[] = u8[](4u);
+    var src: u8[] = u8[](1u);
+    target[1:3] = src;
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -84,6 +110,8 @@ fn main() -> i64 {
     if select == 5u { test_set_oob_panics(); }
     if select == 6u { test_slice_oob_panics(); }
     if select == 7u { test_negative_index_panics(); }
+    if select == 8u { test_set_slice_write_behavior(); }
+    if select == 9u { test_set_slice_invalid_length_panics(); }
 
     return 0;
 }
