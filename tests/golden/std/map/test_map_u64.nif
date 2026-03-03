@@ -1,0 +1,148 @@
+import std.test;
+import std.map;
+import std.box;
+import std.io;
+
+
+fn test_put_get_contains() -> unit {
+    var m: MapU64 = MapU64.new();
+    assert(m.len() == 0u);
+
+    m.put(10u, BoxI64(111));
+    m.put(20u, BoxI64(222));
+
+    assert(m.len() == 2u);
+    assert(m.contains(10u));
+    assert(m.contains(20u));
+    assert(!m.contains(30u));
+
+    assert(((BoxI64)m.get(10u)).val == 111);
+    assert(((BoxI64)m.get(20u)).val == 222);
+}
+
+
+fn test_overwrite_same_key() -> unit {
+    var m: MapU64 = MapU64.new();
+    m.put(7u, BoxI64(1));
+    m.put(7u, BoxI64(9));
+
+    assert(m.len() == 1u);
+    assert(m.contains(7u));
+    assert(((BoxI64)m.get(7u)).val == 9);
+}
+
+
+fn test_growth_and_probe_chains() -> unit {
+    var m: MapU64 = MapU64.with_capacity(2u);
+
+    var i: u64 = 0u;
+    while i < 80u {
+        var key: u64 = i * 17u + 3u;
+        m.put(key, BoxU64(i));
+        i = i + 1u;
+    }
+
+    assert(m.len() == 80u);
+
+    i = 0u;
+    while i < 80u {
+        var key: u64 = i * 17u + 3u;
+        assert(m.contains(key));
+        assert(((BoxU64)m.get(key)).val == i);
+        i = i + 1u;
+    }
+}
+
+
+fn test_index_sugar_write_and_read() -> unit {
+    var m: MapU64 = MapU64.new();
+
+    m[1u] = BoxI64(42);
+    m[2u] = BoxI64(99);
+
+    assert(((BoxI64)m[1u]).val == 42);
+    assert(((BoxI64)m[2u]).val == 99);
+    assert(m.len() == 2u);
+}
+
+
+fn test_get_missing_panics() -> unit {
+    var m: MapU64 = MapU64.new();
+    var v: Obj = m.get(999u);
+}
+
+
+fn test_large_insert_then_overwrite_all() -> unit {
+    var m: MapU64 = MapU64.with_capacity(1u);
+
+    var i: u64 = 0u;
+    while i < 512u {
+        var key: u64 = i * 131u + 17u;
+        m.put(key, BoxU64(i));
+        i = i + 1u;
+    }
+
+    assert(m.len() == 512u);
+
+    i = 0u;
+    while i < 512u {
+        var key: u64 = i * 131u + 17u;
+        assert(m.contains(key));
+        assert(((BoxU64)m.get(key)).val == i);
+        i = i + 1u;
+    }
+
+    i = 0u;
+    while i < 512u {
+        var key: u64 = i * 131u + 17u;
+        m.put(key, BoxU64(i + 1000u));
+        i = i + 1u;
+    }
+
+    assert(m.len() == 512u);
+
+    i = 0u;
+    while i < 512u {
+        var key: u64 = i * 131u + 17u;
+        assert(((BoxU64)m.get(key)).val == i + 1000u);
+        i = i + 1u;
+    }
+}
+
+
+fn test_collision_cluster_same_bucket() -> unit {
+    var m: MapU64 = MapU64.with_capacity(8u);
+
+    m.put(1u, BoxI64(10));
+    m.put(9u, BoxI64(20));
+    m.put(17u, BoxI64(30));
+    m.put(25u, BoxI64(40));
+    m.put(33u, BoxI64(50));
+
+    assert(m.len() == 5u);
+    assert(((BoxI64)m.get(1u)).val == 10);
+    assert(((BoxI64)m.get(9u)).val == 20);
+    assert(((BoxI64)m.get(17u)).val == 30);
+    assert(((BoxI64)m.get(25u)).val == 40);
+    assert(((BoxI64)m.get(33u)).val == 50);
+
+    m.put(17u, BoxI64(300));
+    assert(m.len() == 5u);
+    assert(((BoxI64)m.get(17u)).val == 300);
+    assert(!m.contains(41u));
+}
+
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { test_put_get_contains(); }
+    if select == 2u { test_overwrite_same_key(); }
+    if select == 3u { test_growth_and_probe_chains(); }
+    if select == 4u { test_index_sugar_write_and_read(); }
+    if select == 5u { test_get_missing_panics(); }
+    if select == 6u { test_large_insert_then_overwrite_all(); }
+    if select == 7u { test_collision_cluster_same_bucket(); }
+
+    return 0;
+}
