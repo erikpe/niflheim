@@ -57,6 +57,12 @@ class TokenKind(str, Enum):
     STAR = "STAR"
     SLASH = "SLASH"
     PERCENT = "PERCENT"
+    AMP = "AMP"
+    PIPE = "PIPE"
+    CARET = "CARET"
+    LSHIFT = "LSHIFT"
+    RSHIFT = "RSHIFT"
+    TILDE = "TILDE"
     ASSIGN = "ASSIGN"
     BANG = "BANG"
 
@@ -108,6 +114,8 @@ TWO_CHAR_TOKENS: dict[str, TokenKind] = {
     ">=": TokenKind.GTE,
     "&&": TokenKind.ANDAND,
     "||": TokenKind.OROR,
+    "<<": TokenKind.LSHIFT,
+    ">>": TokenKind.RSHIFT,
 }
 
 
@@ -127,6 +135,10 @@ ONE_CHAR_TOKENS: dict[str, TokenKind] = {
     "*": TokenKind.STAR,
     "/": TokenKind.SLASH,
     "%": TokenKind.PERCENT,
+    "&": TokenKind.AMP,
+    "|": TokenKind.PIPE,
+    "^": TokenKind.CARET,
+    "~": TokenKind.TILDE,
     "=": TokenKind.ASSIGN,
     "!": TokenKind.BANG,
     "<": TokenKind.LT,

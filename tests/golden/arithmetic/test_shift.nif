@@ -1,0 +1,36 @@
+import std.io;
+
+fn test_shift_success() -> unit {
+    var a: u64 = 1u;
+    var b: u64 = a << 63u;
+    println_u64(b);
+    println_u64(b >> 63u);
+
+    var c: u8 = 200u8;
+    println_u8(c << 1u);
+    println_u8(c >> 3u);
+
+    var d: i64 = -8;
+    println_i64(d >> 1u);
+    println_i64(d << 1u);
+}
+
+fn test_shift_u8_oob_panics() -> unit {
+    var c: u8 = 1u8;
+    var x: u8 = c << 8u;
+}
+
+fn test_shift_u64_oob_panics() -> unit {
+    var a: u64 = 1u;
+    var x: u64 = a >> 64u;
+}
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { test_shift_success(); }
+    if select == 2u { test_shift_u8_oob_panics(); }
+    if select == 3u { test_shift_u64_oob_panics(); }
+
+    return 0;
+}

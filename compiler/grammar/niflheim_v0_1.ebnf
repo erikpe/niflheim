@@ -69,17 +69,25 @@ expression         = logical_or ;
 
 logical_or         = logical_and { "||" logical_and } ;
 
-logical_and        = equality { "&&" equality } ;
+logical_and        = bitwise_or { "&&" bitwise_or } ;
+
+bitwise_or         = bitwise_xor { "|" bitwise_xor } ;
+
+bitwise_xor        = bitwise_and { "^" bitwise_and } ;
+
+bitwise_and        = equality { "&" equality } ;
 
 equality           = comparison { ( "==" | "!=" ) comparison } ;
 
-comparison         = additive { ( "<" | "<=" | ">" | ">=" ) additive } ;
+comparison         = shift { ( "<" | "<=" | ">" | ">=" ) shift } ;
+
+shift              = additive { ( "<<" | ">>" ) additive } ;
 
 additive           = multiplicative { ( "+" | "-" ) multiplicative } ;
 
 multiplicative     = unary { ( "*" | "/" | "%" ) unary } ;
 
-unary              = ( "!" | "-" ) unary
+unary              = ( "!" | "-" | "~" ) unary
                    | cast
                    | postfix
                    ;

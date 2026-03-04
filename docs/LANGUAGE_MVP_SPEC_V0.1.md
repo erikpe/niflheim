@@ -77,6 +77,18 @@ Defaults:
 - Downcast from `Obj` to a concrete reference type is explicit and runtime-checked.
 - Failed downcast panics and aborts.
 
+### 3.5 Operator Typing Rules (Current)
+
+- Arithmetic operators (`+`, `-`, `*`, `/`, `%`) require matching numeric operand types.
+- Unary minus (`-x`) is allowed only for signed numeric types: `i64`, `double`.
+- Bitwise binary operators (`&`, `|`, `^`) are allowed for integer types `i64`, `u64`, `u8` and require matching operand types.
+- Unary bitwise not (`~x`) is allowed for integer types `i64`, `u64`, `u8`.
+- Shift operators (`<<`, `>>`) are allowed when left operand is `i64`, `u64`, or `u8` and right operand is `u64`.
+- Shift result type is the left operand type.
+- Right shift semantics: arithmetic for `i64`, logical for `u64` and `u8`.
+- Shift count is runtime-checked; counts `>= bit_width` panic and abort (`64` for `i64`/`u64`, `8` for `u8`).
+- Signed/unsigned mixing in binary operations is not allowed without explicit casts.
+
 ---
 
 ## 4) Classes and Object Semantics

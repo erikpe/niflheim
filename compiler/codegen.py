@@ -618,8 +618,17 @@ class CodeGenerator:
         self.class_field_offsets: dict[tuple[str, str], int] = {}
         self.class_field_type_names: dict[tuple[str, str], str] = {}
         self.string_literal_labels: dict[str, tuple[str, int]] = {}
+        self.runtime_panic_message_labels: dict[str, str] = {}
         self.source_lines_by_path: dict[str, list[str] | None] = {}
         self.last_emitted_comment_location: tuple[str, int] | None = None
+
+    def _runtime_panic_message_label(self, message: str) -> str:
+        label = self.runtime_panic_message_labels.get(message)
+        if label is not None:
+            return label
+        label = f"__nif_runtime_panic_msg_{len(self.runtime_panic_message_labels)}"
+        self.runtime_panic_message_labels[message] = label
+        return label
 
     def _source_line_text(self, file_path: str, line: int) -> str:
         if line <= 0:
@@ -1126,6 +1135,12 @@ class CodeGenerator:
             if operand_type_name == "u8":
                 self.out.append("    and rax, 255")
             return
+        if expr.operator == "~":
+            self.out.append("    not rax")
+            operand_type_name = _infer_expression_type_name(expr.operand, ctx)
+            if operand_type_name == "u8":
+                self.out.append("    and rax, 255")
+            return
         if expr.operator == "!":
             self._emit_bool_normalize()
             self.out.append("    xor rax, 1")
@@ -1251,6 +1266,33 @@ class CodeGenerator:
             self.out.append("    mov rax, rdx")
             return True
 
+        if operator == "&":
+            self.out.append("    and rax, rcx")
+            return True
+        if operator == "|":
+            self.out.append("    or rax, rcx")
+            return True
+        if operator == "^":
+            self.out.append("    xor rax, rcx")
+            return True
+
+        if operator in {"<<", ">>"}:
+            max_shift = 8 if operand_type_name == "u8" else 64
+            shift_ok_label = _next_label(fn_name, "shift_ok", label_counter)
+            panic_message_label = self._runtime_panic_message_label("invalid shift count")
+            self.out.append(f"    cmp rcx, {max_shift}")
+            self.out.append(f"    jb {shift_ok_label}")
+            self.out.append(f"    lea rdi, [rip + {panic_message_label}]")
+            self.out.append("    call rt_panic")
+            self.out.append(f"{shift_ok_label}:")
+            if operator == "<<":
+                self.out.append("    shl rax, cl")
+            elif is_unsigned:
+                self.out.append("    shr rax, cl")
+            else:
+                self.out.append("    sar rax, cl")
+            return True
+
         if operator in ("==", "!=", "<", "<=", ">", ">="):
             self.out.append("    cmp rax, rcx")
             if operator == "==":
@@ -1296,7 +1338,7 @@ class CodeGenerator:
             raise NotImplementedError(f"binary operator '{expr.operator}' is not supported for double operands")
 
         if self._emit_integer_binary_op(expr.operator, left_type_name, fn_name, label_counter):
-            if left_type_name == "u8" and expr.operator in {"+", "-", "*", "/", "%"}:
+            if left_type_name == "u8" and expr.operator in {"+", "-", "*", "/", "%", "&", "|", "^", "<<", ">>"}:
                 self.out.append("    and rax, 255")
             return
 
@@ -1641,6 +1683,16 @@ class CodeGenerator:
             self.out.append(f"    .long {pointer_offsets_count}")
             self.out.append("    .long 0")
 
+    def _emit_runtime_panic_messages_section(self) -> None:
+        if not self.runtime_panic_message_labels:
+            return
+
+        self.out.append("")
+        self.out.append(".section .rodata")
+        for message, label in self.runtime_panic_message_labels.items():
+            self.out.append(f"{label}:")
+            self.out.append(f'    .asciz "{escape_c_string(message)}"')
+
     def generate(self) -> str:
         self._emit_type_metadata_section()
         self.string_literal_labels = self._emit_string_literal_section()
@@ -1666,6 +1718,8 @@ class CodeGenerator:
         for cls in self.module_ast.classes:
             self.out.append("")
             self._emit_constructor_function(cls)
+
+        self._emit_runtime_panic_messages_section()
 
         self.out.append("")
         self.out.append('.section .note.GNU-stack,"",@progbits')

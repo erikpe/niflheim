@@ -1,0 +1,38 @@
+import std.io;
+
+fn test_u64_bitwise() -> unit {
+    var a: u64 = 18446744073709551615u;
+    var b: u64 = 1085102592571150095u;
+
+    println_u64(a & b);
+    println_u64(a | b);
+    println_u64(a ^ b);
+    println_u64(~b);
+}
+
+fn test_u8_bitwise() -> unit {
+    var a: u8 = 200u8;
+    var b: u8 = 15u8;
+
+    println_u8(a & b);
+    println_u8(a | b);
+    println_u8(a ^ b);
+    println_u8(~a);
+}
+
+fn test_i64_bitwise() -> unit {
+    var x: i64 = -2;
+    var y: i64 = 5;
+
+    println_i64(x & y);
+    println_i64(x | y);
+    println_i64(x ^ y);
+    println_i64(~x);
+}
+
+fn main() -> i64 {
+    test_u64_bitwise();
+    test_u8_bitwise();
+    test_i64_bitwise();
+    return 0;
+}

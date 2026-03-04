@@ -19,6 +19,7 @@ ARRAY_METHOD_NAMES = {"len", "get", "set", "slice", "set_slice"}
 I64_MAX_LITERAL = 9223372036854775807
 I64_MIN_MAGNITUDE_LITERAL = 9223372036854775808
 U64_MAX_LITERAL = 18446744073709551615
+BITWISE_TYPE_NAMES = {"i64", "u64", "u8"}
 
 
 class TypeChecker:
@@ -361,6 +362,12 @@ class TypeChecker:
                     raise TypeCheckError("Unary '-' requires signed numeric operand", expr.span)
                 return operand_type
 
+            if expr.operator == "~":
+                operand_type = self._infer_expression_type(expr.operand)
+                if operand_type.name not in BITWISE_TYPE_NAMES:
+                    raise TypeCheckError("Unary '~' requires integer operand", expr.span)
+                return operand_type
+
             raise TypeCheckError(f"Unknown unary operator '{expr.operator}'", expr.span)
 
         if isinstance(expr, BinaryExpr):
@@ -375,6 +382,20 @@ class TypeChecker:
                     raise TypeCheckError(f"Operator '{op}' requires matching operand types", expr.span)
                 if op == "%" and left_type.name == "double":
                     raise TypeCheckError("Operator '%' is not supported for 'double'", expr.span)
+                return left_type
+
+            if op in {"<<", ">>"}:
+                if left_type.name not in BITWISE_TYPE_NAMES:
+                    raise TypeCheckError(f"Operator '{op}' requires integer left operand", expr.span)
+                if right_type.name != "u64":
+                    raise TypeCheckError(f"Operator '{op}' requires 'u64' shift count", expr.span)
+                return left_type
+
+            if op in {"&", "|", "^"}:
+                if left_type.name not in BITWISE_TYPE_NAMES or right_type.name not in BITWISE_TYPE_NAMES:
+                    raise TypeCheckError(f"Operator '{op}' requires integer operands", expr.span)
+                if left_type.name != right_type.name:
+                    raise TypeCheckError(f"Operator '{op}' requires matching operand types", expr.span)
                 return left_type
 
             if op in {"<", "<=", ">", ">="}:

@@ -1,0 +1,5 @@
+runs:
+  - name: bitwise
+    expect:
+      exit_code: 0
+      stdout_file: "test_bitwise_expected.txt"

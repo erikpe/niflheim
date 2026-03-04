@@ -389,6 +389,24 @@ def test_parse_expression_precedence_multiplicative_over_additive() -> None:
     assert expr.right.operator == "*"
 
 
+def test_parse_expression_precedence_additive_over_shift() -> None:
+    expr = parse_expression(lex("1 + 2 << 3", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, BinaryExpr)
+    assert expr.operator == "<<"
+    assert isinstance(expr.left, BinaryExpr)
+    assert expr.left.operator == "+"
+
+
+def test_parse_expression_precedence_shift_over_comparison() -> None:
+    expr = parse_expression(lex("x << 1u < y", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, BinaryExpr)
+    assert expr.operator == "<"
+    assert isinstance(expr.left, BinaryExpr)
+    assert expr.left.operator == "<<"
+
+
 def test_parse_expression_char_literal() -> None:
     expr = parse_expression(lex("'q'", source_path="examples/expr.nif"))
 
@@ -411,6 +429,35 @@ def test_parse_expression_precedence_logical_and_over_or() -> None:
     assert isinstance(expr.left, IdentifierExpr)
     assert isinstance(expr.right, BinaryExpr)
     assert expr.right.operator == "&&"
+
+
+def test_parse_expression_precedence_bitwise_over_logical_and() -> None:
+    expr = parse_expression(lex("a && b | c", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, BinaryExpr)
+    assert expr.operator == "&&"
+    assert isinstance(expr.left, IdentifierExpr)
+    assert isinstance(expr.right, BinaryExpr)
+    assert expr.right.operator == "|"
+
+
+def test_parse_expression_precedence_bitwise_and_over_xor_over_or() -> None:
+    expr = parse_expression(lex("a | b ^ c & d", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, BinaryExpr)
+    assert expr.operator == "|"
+    assert isinstance(expr.right, BinaryExpr)
+    assert expr.right.operator == "^"
+    assert isinstance(expr.right.right, BinaryExpr)
+    assert expr.right.right.operator == "&"
+
+
+def test_parse_expression_unary_bitwise_not() -> None:
+    expr = parse_expression(lex("~x", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, UnaryExpr)
+    assert expr.operator == "~"
+    assert isinstance(expr.operand, IdentifierExpr)
 
 
 def test_parse_expression_postfix_binding_order() -> None:

@@ -521,6 +521,105 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_bitwise_ops_for_matching_integer_types() -> None:
+    source = """
+fn main() -> unit {
+    var a: u64 = 1u;
+    var b: u64 = 2u;
+    var c: u64 = (a & b) | (a ^ b);
+
+    var x: i64 = 7;
+    var y: i64 = ~x;
+
+    var p: u8 = 200u8;
+    var q: u8 = ~p;
+    var r: u8 = p ^ (u8)255;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_bitwise_mixed_integer_types() -> None:
+    source = """
+fn main() -> unit {
+    var a: u64 = 1u;
+    var b: i64 = 2;
+    var c: u64 = a & b;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Operator '&' requires matching operand types"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_bitwise_on_double() -> None:
+    source = """
+fn main() -> unit {
+    var x: double = 1.5;
+    var y: double = 2.0;
+    var z: double = x | y;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Operator '\\|' requires integer operands"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_unary_bitwise_not_on_double() -> None:
+    source = """
+fn main() -> unit {
+    var x: double = 1.5;
+    var y: double = ~x;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Unary '~' requires integer operand"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_shift_ops_with_u64_count() -> None:
+    source = """
+fn main() -> unit {
+    var a: u64 = 1u;
+    var b: u64 = a << 3u;
+    var c: u64 = b >> 1u;
+
+    var x: i64 = -8;
+    var y: i64 = x >> 1u;
+
+    var p: u8 = 200u8;
+    var q: u8 = p << 2u;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_shift_non_u64_count() -> None:
+    source = """
+fn main() -> unit {
+    var a: u64 = 1u;
+    var b: u64 = a << (u8)3;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Operator '<<' requires 'u64' shift count"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_shift_non_integer_left_operand() -> None:
+    source = """
+fn main() -> unit {
+    var d: double = 1.5;
+    var x: double = d >> 1u;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Operator '>>' requires integer left operand"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_obj_upcast_and_explicit_downcast() -> None:
     source = """
 class Person {

@@ -165,3 +165,19 @@ def test_lex_vec_is_identifier_not_keyword() -> None:
 
     assert len(vec_tokens) == 2
     assert all(token.kind == TokenKind.IDENT for token in vec_tokens)
+
+
+def test_lex_bitwise_operator_tokens() -> None:
+    source = "var x: u64 = (1u & 2u) | (3u ^ ~4u);"
+    kinds = [token.kind for token in lex(source)]
+    assert TokenKind.AMP in kinds
+    assert TokenKind.PIPE in kinds
+    assert TokenKind.CARET in kinds
+    assert TokenKind.TILDE in kinds
+
+
+def test_lex_shift_operator_tokens() -> None:
+    source = "var x: u64 = 1u << 3u; var y: i64 = 8 >> 1u;"
+    kinds = [token.kind for token in lex(source)]
+    assert TokenKind.LSHIFT in kinds
+    assert TokenKind.RSHIFT in kinds

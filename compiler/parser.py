@@ -10,6 +10,7 @@ from compiler.tokens import TYPE_NAME_TOKENS, TokenKind
 UNARY_START_TOKENS: set[TokenKind] = {
     TokenKind.BANG,
     TokenKind.MINUS,
+    TokenKind.TILDE,
     TokenKind.LPAREN,
     TokenKind.IDENT,
     TokenKind.INT_LIT,
@@ -569,8 +570,47 @@ class Parser:
         return expr
 
     def _parse_logical_and(self) -> Expression:
-        expr = self._parse_equality()
+        expr = self._parse_bitwise_or()
         while self.stream.match(TokenKind.ANDAND):
+            op = self.stream.previous()
+            right = self._parse_bitwise_or()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_bitwise_or(self) -> Expression:
+        expr = self._parse_bitwise_xor()
+        while self.stream.match(TokenKind.PIPE):
+            op = self.stream.previous()
+            right = self._parse_bitwise_xor()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_bitwise_xor(self) -> Expression:
+        expr = self._parse_bitwise_and()
+        while self.stream.match(TokenKind.CARET):
+            op = self.stream.previous()
+            right = self._parse_bitwise_and()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_bitwise_and(self) -> Expression:
+        expr = self._parse_equality()
+        while self.stream.match(TokenKind.AMP):
             op = self.stream.previous()
             right = self._parse_equality()
             expr = BinaryExpr(
@@ -595,8 +635,21 @@ class Parser:
         return expr
 
     def _parse_comparison(self) -> Expression:
-        expr = self._parse_additive()
+        expr = self._parse_shift()
         while self.stream.match(TokenKind.LT, TokenKind.LTE, TokenKind.GT, TokenKind.GTE):
+            op = self.stream.previous()
+            right = self._parse_shift()
+            expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_shift(self) -> Expression:
+        expr = self._parse_additive()
+        while self.stream.match(TokenKind.LSHIFT, TokenKind.RSHIFT):
             op = self.stream.previous()
             right = self._parse_additive()
             expr = BinaryExpr(
@@ -634,7 +687,7 @@ class Parser:
         return expr
 
     def _parse_unary(self) -> Expression:
-        if self.stream.match(TokenKind.BANG, TokenKind.MINUS):
+        if self.stream.match(TokenKind.BANG, TokenKind.MINUS, TokenKind.TILDE):
             op = self.stream.previous()
             operand = self._parse_unary()
             return UnaryExpr(

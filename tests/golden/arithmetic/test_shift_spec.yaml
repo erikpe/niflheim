@@ -1,0 +1,4 @@
+runs:
+  - { name: shift_success, input: { stdin: "1" }, expect: { exit_code: 0, stdout_file: "test_shift_expected.txt" } }
+  - { name: shift_u8_oob_panics, input: { stdin: "2" }, expect: { panic: "invalid shift count" } }
+  - { name: shift_u64_oob_panics, input: { stdin: "3" }, expect: { panic: "invalid shift count" } }

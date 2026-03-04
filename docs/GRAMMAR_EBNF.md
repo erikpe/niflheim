@@ -22,12 +22,16 @@ It is intended to be strict enough for parser work while keeping semantic valida
 Expression precedence from lowest to highest:
 1. `||`
 2. `&&`
-3. `==`, `!=`
-4. `<`, `<=`, `>`, `>=`
-5. `+`, `-`
-6. `*`, `/`, `%`
-7. unary (`!`, unary `-`), cast
-8. postfix (call, field access, indexing)
+3. `|`
+4. `^`
+5. `&`
+6. `==`, `!=`
+7. `<`, `<=`, `>`, `>=`
+8. `<<`, `>>`
+9. `+`, `-`
+10. `*`, `/`, `%`
+11. unary (`!`, unary `-`, `~`), cast
+12. postfix (call, field access, indexing)
 
 All binary operators are left-associative in v0.1.
 

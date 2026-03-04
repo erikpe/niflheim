@@ -313,19 +313,45 @@ fn f(a: u8, b: u8) -> u8 {
     assert asm.count("    and rax, 255") >= 3
 
 
-def test_emit_asm_masks_u8_unary_negation_result() -> None:
+def test_emit_asm_emits_bitwise_integer_ops_and_u8_masks() -> None:
     source = """
-fn f(a: u8) -> u8 {
-    var x: u8 = -a;
-    return x;
+fn f(a: u8, b: u8, c: i64, d: i64) -> i64 {
+    var x: u8 = (a & b) | (a ^ b);
+    var y: u8 = ~a;
+    var z: i64 = (c & d) | (c ^ d);
+    return z;
 }
 """
-    module = parse(lex(source, source_path="examples/codegen_u8_unary.nif"))
+    module = parse(lex(source, source_path="examples/codegen_bitwise.nif"))
 
     asm = emit_asm(module)
 
-    assert "    neg rax" in asm
-    assert "    and rax, 255" in asm
+    assert "    and rax, rcx" in asm
+    assert "    or rax, rcx" in asm
+    assert "    xor rax, rcx" in asm
+    assert "    not rax" in asm
+    assert asm.count("    and rax, 255") >= 2
+
+
+def test_emit_asm_emits_checked_shift_ops() -> None:
+    source = """
+fn f(a: u64, b: i64, c: u8) -> i64 {
+    var x: u64 = a << 3u;
+    var y: i64 = b >> 1u;
+    var z: u8 = c >> 2u;
+    return y;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_shift.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    shl rax, cl" in asm
+    assert "    sar rax, cl" in asm
+    assert "    shr rax, cl" in asm
+    assert "    cmp rcx, 64" in asm
+    assert "    cmp rcx, 8" in asm
+    assert "    call rt_panic" in asm
 
 
 def test_emit_asm_normalizes_signed_modulo_to_true_modulo() -> None:
