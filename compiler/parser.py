@@ -674,11 +674,24 @@ class Parser:
         return expr
 
     def _parse_multiplicative(self) -> Expression:
-        expr = self._parse_unary()
+        expr = self._parse_power()
         while self.stream.match(TokenKind.STAR, TokenKind.SLASH, TokenKind.PERCENT):
             op = self.stream.previous()
-            right = self._parse_unary()
+            right = self._parse_power()
             expr = BinaryExpr(
+                left=expr,
+                operator=op.lexeme,
+                right=right,
+                span=SourceSpan(start=expr.span.start, end=right.span.end),
+            )
+        return expr
+
+    def _parse_power(self) -> Expression:
+        expr = self._parse_unary()
+        if self.stream.match(TokenKind.POW):
+            op = self.stream.previous()
+            right = self._parse_power()
+            return BinaryExpr(
                 left=expr,
                 operator=op.lexeme,
                 right=right,

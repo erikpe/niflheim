@@ -384,6 +384,13 @@ class TypeChecker:
                     raise TypeCheckError("Operator '%' is not supported for 'double'", expr.span)
                 return left_type
 
+            if op == "**":
+                if left_type.name not in BITWISE_TYPE_NAMES:
+                    raise TypeCheckError("Operator '**' requires integer left operand", expr.span)
+                if right_type.name != "u64":
+                    raise TypeCheckError("Operator '**' requires 'u64' exponent", expr.span)
+                return left_type
+
             if op in {"<<", ">>"}:
                 if left_type.name not in BITWISE_TYPE_NAMES:
                     raise TypeCheckError(f"Operator '{op}' requires integer left operand", expr.span)

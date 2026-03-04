@@ -181,3 +181,9 @@ def test_lex_shift_operator_tokens() -> None:
     kinds = [token.kind for token in lex(source)]
     assert TokenKind.LSHIFT in kinds
     assert TokenKind.RSHIFT in kinds
+
+
+def test_lex_power_operator_token() -> None:
+    source = "var x: u64 = 2u ** 10u;"
+    kinds = [token.kind for token in lex(source)]
+    assert TokenKind.POW in kinds

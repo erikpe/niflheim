@@ -389,6 +389,24 @@ def test_parse_expression_precedence_multiplicative_over_additive() -> None:
     assert expr.right.operator == "*"
 
 
+def test_parse_expression_precedence_power_over_multiplicative() -> None:
+    expr = parse_expression(lex("2 * 3 ** 4", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, BinaryExpr)
+    assert expr.operator == "*"
+    assert isinstance(expr.right, BinaryExpr)
+    assert expr.right.operator == "**"
+
+
+def test_parse_expression_power_is_right_associative() -> None:
+    expr = parse_expression(lex("2 ** 3 ** 2", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, BinaryExpr)
+    assert expr.operator == "**"
+    assert isinstance(expr.right, BinaryExpr)
+    assert expr.right.operator == "**"
+
+
 def test_parse_expression_precedence_additive_over_shift() -> None:
     expr = parse_expression(lex("1 + 2 << 3", source_path="examples/expr.nif"))
 

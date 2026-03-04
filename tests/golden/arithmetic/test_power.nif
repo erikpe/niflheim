@@ -1,0 +1,17 @@
+import std.io;
+
+fn main() -> i64 {
+  println_u64(2u ** 0u);
+  println_u64(2u ** 10u);
+  println_u64(2u ** 3u ** 2u);
+
+  println_i64((-2) ** 3u);
+  println_i64((-2) ** 4u);
+
+  var x: u8 = (u8)5 ** 3u;
+  var y: u8 = (u8)16 ** 2u;
+  println_u8(x);
+  println_u8(y);
+
+  return 0;
+}

@@ -30,10 +30,11 @@ Expression precedence from lowest to highest:
 8. `<<`, `>>`
 9. `+`, `-`
 10. `*`, `/`, `%`
-11. unary (`!`, unary `-`, `~`), cast
-12. postfix (call, field access, indexing)
+11. `**`
+12. unary (`!`, unary `-`, `~`), cast
+13. postfix (call, field access, indexing)
 
-All binary operators are left-associative in v0.1.
+All binary operators are left-associative in v0.1 except `**`, which is right-associative.
 
 ## Notes on Parsing vs Semantics
 

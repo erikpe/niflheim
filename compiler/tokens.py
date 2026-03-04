@@ -55,6 +55,7 @@ class TokenKind(str, Enum):
     PLUS = "PLUS"
     MINUS = "MINUS"
     STAR = "STAR"
+    POW = "POW"
     SLASH = "SLASH"
     PERCENT = "PERCENT"
     AMP = "AMP"
@@ -116,6 +117,7 @@ TWO_CHAR_TOKENS: dict[str, TokenKind] = {
     "||": TokenKind.OROR,
     "<<": TokenKind.LSHIFT,
     ">>": TokenKind.RSHIFT,
+    "**": TokenKind.POW,
 }
 
 

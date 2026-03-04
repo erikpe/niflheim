@@ -1238,6 +1238,25 @@ class CodeGenerator:
         if operator == "*":
             self.out.append("    imul rax, rcx")
             return True
+        if operator == "**":
+            pow_loop_label = _next_label(fn_name, "pow_loop", label_counter)
+            pow_done_label = _next_label(fn_name, "pow_done", label_counter)
+            pow_skip_mul_label = _next_label(fn_name, "pow_skip_mul", label_counter)
+            self.out.append("    mov r8, 1")
+            self.out.append("    mov r9, rax")
+            self.out.append(f"{pow_loop_label}:")
+            self.out.append("    test rcx, rcx")
+            self.out.append(f"    je {pow_done_label}")
+            self.out.append("    test rcx, 1")
+            self.out.append(f"    je {pow_skip_mul_label}")
+            self.out.append("    imul r8, r9")
+            self.out.append(f"{pow_skip_mul_label}:")
+            self.out.append("    imul r9, r9")
+            self.out.append("    shr rcx, 1")
+            self.out.append(f"    jmp {pow_loop_label}")
+            self.out.append(f"{pow_done_label}:")
+            self.out.append("    mov rax, r8")
+            return True
         if operator == "/":
             if is_unsigned:
                 self.out.append("    xor rdx, rdx")
@@ -1338,7 +1357,7 @@ class CodeGenerator:
             raise NotImplementedError(f"binary operator '{expr.operator}' is not supported for double operands")
 
         if self._emit_integer_binary_op(expr.operator, left_type_name, fn_name, label_counter):
-            if left_type_name == "u8" and expr.operator in {"+", "-", "*", "/", "%", "&", "|", "^", "<<", ">>"}:
+            if left_type_name == "u8" and expr.operator in {"+", "-", "*", "**", "/", "%", "&", "|", "^", "<<", ">>"}:
                 self.out.append("    and rax, 255")
             return
 

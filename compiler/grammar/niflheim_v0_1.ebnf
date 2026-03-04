@@ -85,7 +85,9 @@ shift              = additive { ( "<<" | ">>" ) additive } ;
 
 additive           = multiplicative { ( "+" | "-" ) multiplicative } ;
 
-multiplicative     = unary { ( "*" | "/" | "%" ) unary } ;
+multiplicative     = power { ( "*" | "/" | "%" ) power } ;
+
+power              = unary [ "**" power ] ;
 
 unary              = ( "!" | "-" | "~" ) unary
                    | cast

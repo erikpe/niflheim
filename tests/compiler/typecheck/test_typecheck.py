@@ -620,6 +620,40 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_integer_power_with_u64_exponent() -> None:
+    source = """
+fn main() -> unit {
+    var a: u64 = 2u ** 10u;
+    var b: i64 = (-2) ** 3u;
+    var c: u8 = (u8)5 ** 3u;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_power_non_u64_exponent() -> None:
+    source = """
+fn main() -> unit {
+    var a: u64 = 2u ** (u8)3;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Operator '\*\*' requires 'u64' exponent"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_power_non_integer_left_operand() -> None:
+    source = """
+fn main() -> unit {
+    var x: double = 2.0 ** 3u;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Operator '\*\*' requires integer left operand"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_obj_upcast_and_explicit_downcast() -> None:
     source = """
 class Person {

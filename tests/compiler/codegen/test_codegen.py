@@ -354,6 +354,27 @@ fn f(a: u64, b: i64, c: u8) -> i64 {
     assert "    call rt_panic" in asm
 
 
+def test_emit_asm_emits_integer_power_op() -> None:
+    source = """
+fn f(a: u64, b: u8) -> u64 {
+    var x: u64 = a ** 5u;
+    var y: u8 = b ** 3u;
+    return x;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_pow.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    test rcx, rcx" in asm
+    assert "    test rcx, 1" in asm
+    assert "    imul r8, r9" in asm
+    assert "    imul r9, r9" in asm
+    assert "    shr rcx, 1" in asm
+    assert "    mov rax, r8" in asm
+    assert "    and rax, 255" in asm
+
+
 def test_emit_asm_normalizes_signed_modulo_to_true_modulo() -> None:
     source = """
 fn f(a: i64, b: i64) -> i64 {
