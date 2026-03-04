@@ -24,6 +24,26 @@ enum {
 };
 
 
+static const char* rt_array_kind_name(uint64_t kind) {
+    switch (kind) {
+        case RT_ARRAY_KIND_I64:
+            return "i64[]";
+        case RT_ARRAY_KIND_U64:
+            return "u64[]";
+        case RT_ARRAY_KIND_U8:
+            return "u8[]";
+        case RT_ARRAY_KIND_BOOL:
+            return "bool[]";
+        case RT_ARRAY_KIND_DOUBLE:
+            return "double[]";
+        case RT_ARRAY_KIND_REF:
+            return "Obj[]";
+        default:
+            return "<unknown-array-kind>";
+    }
+}
+
+
 static void rt_array_trace_ref(void* obj, void (*mark_ref)(void** slot));
 
 RtType rt_type_array_primitive_desc = {
@@ -96,6 +116,31 @@ static RtArrayObj* rt_require_array_kind(const void* array_obj, uint64_t expecte
         rt_panic(api_name);
     }
     return array;
+}
+
+void* rt_checked_cast_array_kind(void* obj, uint64_t expected_kind) {
+    if (obj == NULL) {
+        return NULL;
+    }
+
+    RtObjHeader* header = (RtObjHeader*)obj;
+    const RtType* type = header->type;
+    if (type != &rt_type_array_primitive_desc && type != &rt_type_array_reference_desc) {
+        rt_panic_bad_cast(
+            (type == NULL || type->debug_name == NULL) ? "<unknown>" : type->debug_name,
+            rt_array_kind_name(expected_kind)
+        );
+    }
+
+    RtArrayObj* array = (RtArrayObj*)obj;
+    if (array->element_kind != expected_kind) {
+        rt_panic_bad_cast(
+            rt_array_kind_name(array->element_kind),
+            rt_array_kind_name(expected_kind)
+        );
+    }
+
+    return obj;
 }
 
 static void rt_require_index_in_bounds(const RtArrayObj* array, int64_t index, const char* api_name) {

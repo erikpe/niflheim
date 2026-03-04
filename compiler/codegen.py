@@ -899,6 +899,43 @@ class CodeGenerator:
         self._emit_expr(expr.operand, ctx)
         source_type = _infer_expression_type_name(expr.operand, ctx)
         target_type = _type_ref_name(expr.type_ref)
+
+        if target_type == source_type:
+            return
+
+        # Upcasts from any reference type to Obj are always safe and need no runtime check.
+        if target_type == "Obj" and source_type != "null" and _is_reference_type_name(source_type):
+            return
+
+        if _is_array_type_name(target_type) and source_type == "Obj":
+            element_type = _array_element_type_name(target_type)
+            array_kind_by_element_type = {
+                "i64": 1,
+                "u64": 2,
+                "u8": 3,
+                "bool": 4,
+                "double": 5,
+            }
+            expected_kind = array_kind_by_element_type.get(element_type, 6)
+            self.out.append("    push rax")
+            self._emit_runtime_call_hook(
+                fn_name=ctx.fn_name,
+                phase="before",
+                label_counter=label_counter,
+                line=expr.span.start.line,
+                column=expr.span.start.column,
+            )
+            self.out.append("    pop rax")
+            self.out.append("    mov rdi, rax")
+            self.out.append(f"    mov rsi, {expected_kind}")
+            self.out.append("    call rt_checked_cast_array_kind")
+            self._emit_runtime_call_hook(
+                fn_name=ctx.fn_name,
+                phase="after",
+                label_counter=label_counter,
+            )
+            return
+
         if _is_reference_type_name(target_type):
             type_symbol = _mangle_type_symbol(target_type)
             self.out.append("    push rax")
@@ -918,9 +955,6 @@ class CodeGenerator:
                 phase="after",
                 label_counter=label_counter,
             )
-            return
-
-        if target_type == source_type:
             return
 
         if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:

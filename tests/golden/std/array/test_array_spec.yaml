@@ -8,3 +8,8 @@ runs:
   - { name: negative_index_panics, input: { stdin: "7" }, expect: { panic: "rt_array_get_u8: index out of bounds" } }
   - { name: set_slice_write_behavior, input: { stdin: "8" }, expect: { exit_code: 0 } }
   - { name: set_slice_invalid_length_panics, input: { stdin: "9" }, expect: { panic: "rt_array_set_slice_u8: invalid slice assignment" } }
+  - { name: obj_to_u64_array_cast_ok, input: { stdin: "10" }, expect: { exit_code: 0 } }
+  - { name: obj_to_u64_array_cast_bad_kind_panics, input: { stdin: "11" }, expect: { panic: "bad cast (u8[] -> u64[])" } }
+  - { name: primitive_array_to_reference_array_cast_panics, input: { stdin: "12" }, expect: { panic: "bad cast (u64[] -> Obj[])" } }
+  - { name: reference_array_to_primitive_array_cast_panics, input: { stdin: "13" }, expect: { panic: "bad cast (Obj[] -> u64[])" } }
+  - { name: reference_array_roundtrip_cast_ok, input: { stdin: "14" }, expect: { exit_code: 0 } }

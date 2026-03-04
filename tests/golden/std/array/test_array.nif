@@ -100,6 +100,60 @@ fn test_set_slice_invalid_length_panics() -> unit {
 }
 
 
+fn test_obj_to_u64_array_cast_ok() -> unit {
+    var nums: u64[] = u64[](2u);
+    nums[0] = 11u;
+    nums[1] = 22u;
+
+    var boxed: Obj = (Obj)nums;
+    var roundtrip: u64[] = (u64[])boxed;
+
+    assert(roundtrip.len() == 2u);
+    assert(roundtrip[0] == 11u);
+    assert(roundtrip[1] == 22u);
+}
+
+
+fn test_obj_to_u64_array_cast_bad_kind_panics() -> unit {
+    var bytes: u8[] = u8[](1u);
+    var boxed: Obj = (Obj)bytes;
+    var bad: u64[] = (u64[])boxed;
+    bad.len();
+}
+
+
+fn test_primitive_array_to_reference_array_cast_panics() -> unit {
+    var nums: u64[] = u64[](1u);
+    var boxed: Obj = (Obj)nums;
+    var bad: Person[] = (Person[])boxed;
+    bad.len();
+}
+
+
+fn test_reference_array_to_primitive_array_cast_panics() -> unit {
+    var people: Person[] = Person[](1u);
+    var boxed: Obj = (Obj)people;
+    var bad: u64[] = (u64[])boxed;
+    bad.len();
+}
+
+
+fn test_reference_array_roundtrip_cast_ok() -> unit {
+    var people: Person[] = Person[](2u);
+    people[0] = Person(41);
+    people[1] = Person(99);
+
+    var boxed: Obj = (Obj)people;
+    var roundtrip: Person[] = (Person[])boxed;
+
+    assert(roundtrip.len() == 2u);
+    assert(roundtrip[0] != null);
+    assert(roundtrip[1] != null);
+    assert(roundtrip[0].age == 41);
+    assert(roundtrip[1].age == 99);
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -112,6 +166,11 @@ fn main() -> i64 {
     if select == 7u { test_negative_index_panics(); }
     if select == 8u { test_set_slice_write_behavior(); }
     if select == 9u { test_set_slice_invalid_length_panics(); }
+    if select == 10u { test_obj_to_u64_array_cast_ok(); }
+    if select == 11u { test_obj_to_u64_array_cast_bad_kind_panics(); }
+    if select == 12u { test_primitive_array_to_reference_array_cast_panics(); }
+    if select == 13u { test_reference_array_to_primitive_array_cast_panics(); }
+    if select == 14u { test_reference_array_roundtrip_cast_ok(); }
 
     return 0;
 }

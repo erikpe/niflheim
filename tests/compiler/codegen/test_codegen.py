@@ -1037,8 +1037,12 @@ fn caller(x: Obj) -> Obj {
 
 def test_emit_asm_reference_cast_calls_rt_checked_cast() -> None:
     source = """
-fn f(o: Obj) -> Obj {
-    return (Obj)o;
+class Person {
+    age: i64;
+}
+
+fn f(o: Obj) -> Person {
+    return (Person)o;
 }
 """
     module = parse(lex(source, source_path="examples/codegen.nif"))
@@ -1046,7 +1050,40 @@ fn f(o: Obj) -> Obj {
     asm = emit_asm(module)
 
     assert "    call rt_checked_cast" in asm
-    assert "    lea rsi, [rip + __nif_type_Obj]" in asm
+    assert "    lea rsi, [rip + __nif_type_Person]" in asm
+
+
+def test_emit_asm_reference_upcast_to_obj_does_not_call_rt_checked_cast() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn f(p: Person, nums: u64[]) -> Obj {
+    var a: Obj = (Obj)p;
+    var b: Obj = (Obj)nums;
+    return b;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "rt_checked_cast" not in asm
+
+
+def test_emit_asm_obj_to_array_cast_calls_rt_checked_cast_array_kind() -> None:
+    source = """
+fn f(o: Obj) -> u64[] {
+    return (u64[])o;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_checked_cast_array_kind" in asm
+    assert "    mov rsi, 2" in asm
 
 
 def test_emit_asm_primitive_cast_does_not_call_rt_checked_cast() -> None:
