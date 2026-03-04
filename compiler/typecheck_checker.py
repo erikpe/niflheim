@@ -357,8 +357,8 @@ class TypeChecker:
                         return TypeInfo(name="i64", kind="primitive")
 
                 operand_type = self._infer_expression_type(expr.operand)
-                if operand_type.name not in NUMERIC_TYPE_NAMES:
-                    raise TypeCheckError("Unary '-' requires numeric operand", expr.span)
+                if operand_type.name not in {"i64", "double"}:
+                    raise TypeCheckError("Unary '-' requires signed numeric operand", expr.span)
                 return operand_type
 
             raise TypeCheckError(f"Unknown unary operator '{expr.operator}'", expr.span)

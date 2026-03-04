@@ -1,14 +1,34 @@
 import std.io;
 
-fn test_u8_negation_narrowing() -> unit {
-    var a: u8 = 200u8;
+fn test_i64_negation() -> unit {
+    var a: i64 = 200;
 
-    println_u64((u64)(-a));
-    println_u64((u64)(-(1u8)));
-    println_u64((u64)(-(0u8)));
+    println_i64(-a);
+    println_i64(-(1));
+    println_i64(-(0));
+}
+
+fn test_i64_negation_edges() -> unit {
+    var max: i64 = 9223372036854775807;
+    var min: i64 = -9223372036854775808;
+    var min_plus_one: i64 = -9223372036854775807;
+
+    println_i64(-max);
+    println_i64(-min);
+    println_i64(-min_plus_one);
+}
+
+fn test_double_negation() -> unit {
+    var x: double = 2.5;
+
+    println_double(-x);
+    println_double(-(1.5));
+    println_double(-(3.0));
 }
 
 fn main() -> i64 {
-    test_u8_negation_narrowing();
+    test_i64_negation();
+    test_i64_negation_edges();
+    test_double_negation();
     return 0;
 }

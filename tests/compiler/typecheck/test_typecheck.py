@@ -497,6 +497,30 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_unary_minus_on_u64() -> None:
+    source = """
+fn main() -> unit {
+    var x: u64 = 1u;
+    var y: u64 = -x;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Unary '-' requires signed numeric operand"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_unary_minus_on_u8() -> None:
+    source = """
+fn main() -> unit {
+    var x: u8 = 1u8;
+    var y: u8 = -x;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Unary '-' requires signed numeric operand"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_obj_upcast_and_explicit_downcast() -> None:
     source = """
 class Person {

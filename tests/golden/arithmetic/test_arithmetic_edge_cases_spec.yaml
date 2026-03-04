@@ -1,0 +1,5 @@
+runs:
+  - name: arithmetic_edge_cases
+    expect:
+      exit_code: 0
+      stdout_file: "test_arithmetic_edge_cases_expected.txt"

@@ -1,6 +1,7 @@
 import std.io;
 
-fn main() -> i64 {
+// Purpose: verify u64 division/modulo/comparison behavior for values with high bit set.
+fn test_u64_highbit_div_mod_and_comparisons() -> unit {
   var u64_max: u64 = 18446744073709551615u;
   var u64_hi: u64 = 9223372036854775808u;
   var u64_billion: u64 = 1000000000u;
@@ -24,5 +25,19 @@ fn main() -> i64 {
   println_bool(u64_hi <= 1u);
   println_bool(u64_hi > 1u);
   println_bool(u64_hi >= 1u);
+}
+
+// Purpose: verify u8 arithmetic narrows/masks to 8 bits after operations.
+fn test_u8_arithmetic_narrowing_masks_to_8_bits() -> unit {
+  var a: u8 = 200u8;
+
+  println_u64((u64)(a + a));
+  println_u64((u64)(a * (u8)2));
+  println_u64((u64)(a - (u8)250));
+}
+
+fn main() -> i64 {
+  test_u64_highbit_div_mod_and_comparisons();
+  test_u8_arithmetic_narrowing_masks_to_8_bits();
   return 0;
 }
