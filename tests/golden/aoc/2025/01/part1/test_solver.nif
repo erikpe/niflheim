@@ -4,16 +4,13 @@ import std.vec;
 
 fn main() -> i64
 {
-    var input_rows: Vec = read_all().splitlines();
-    var num_rows: i64 = (i64)input_rows.len();
-
     var dial: i64 = 50;
     var password: i64 = 0;
 
-    var i: i64 = 0;
-    while i < num_rows {
-        var direction: u8 = ((Str)input_rows[i])[0];
-        var clicks: i64 = ((Str)input_rows[i])[1:].to_i64();
+    for row in read_all().splitlines() {
+        var line: Str = (Str)row;
+        var direction: u8 = line[0];
+        var clicks: i64 = line[1:].to_i64();
         if direction == 'L' {
             dial = (dial - clicks) % 100;
         }
@@ -23,7 +20,6 @@ fn main() -> i64
         if dial == 0 {
             password = password + 1;
         }
-        i = i + 1;
     }
 
     print("RESULT:");

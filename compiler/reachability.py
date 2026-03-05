@@ -15,6 +15,7 @@ from compiler.ast_nodes import (
     ExprStmt,
     Expression,
     FieldAccessExpr,
+    ForInStmt,
     FunctionDecl,
     IdentifierExpr,
     IfStmt,
@@ -210,6 +211,11 @@ class ReachabilityWalker:
 
         if isinstance(stmt, WhileStmt):
             self._walk_expr(stmt.condition, ctx=ctx)
+            self._walk_block(stmt.body, ctx=ctx.child_scope())
+            return
+
+        if isinstance(stmt, ForInStmt):
+            self._walk_expr(stmt.collection_expr, ctx=ctx)
             self._walk_block(stmt.body, ctx=ctx.child_scope())
 
     def _walk_block(self, block: BlockStmt, *, ctx: WalkContext) -> None:
