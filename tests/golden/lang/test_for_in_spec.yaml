@@ -8,3 +8,5 @@ runs:
   - { name: iter_len_snapshot, input: { stdin: "7" }, expect: { exit_code: 0 } }
   - { name: iter_get_oob_panics, input: { stdin: "8" }, expect: { panic: "rt_array_get_i64: index out of bounds" } }
   - { name: iter_get_returns_reference_type, input: { stdin: "9" }, expect: { exit_code: 0 } }
+  - { name: for_in_over_primitive_array, input: { stdin: "10" }, expect: { exit_code: 0 } }
+  - { name: for_in_over_reference_array, input: { stdin: "11" }, expect: { exit_code: 0 } }

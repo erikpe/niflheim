@@ -14,7 +14,7 @@ from compiler.typecheck_model import (
     TypeInfo,
 )
 
-ARRAY_METHOD_NAMES = {"len", "get", "set", "slice", "set_slice"}
+ARRAY_METHOD_NAMES = {"len", "get", "set", "slice", "set_slice", "iter_len", "iter_get"}
 
 I64_MAX_LITERAL = 9223372036854775807
 I64_MIN_MAGNITUDE_LITERAL = 9223372036854775808
@@ -514,6 +514,9 @@ class TypeChecker:
         raise TypeCheckError("Unsupported expression", expr.span)
 
     def _resolve_for_in_element_type(self, collection_type: TypeInfo, span: SourceSpan) -> TypeInfo:
+        if collection_type.element_type is not None:
+            return collection_type.element_type
+
         class_info = self._lookup_class_by_type_name(collection_type.name)
         if class_info is None:
             raise TypeCheckError(
@@ -650,7 +653,16 @@ class TypeChecker:
                 if method_name == "len":
                     self._check_call_arguments([], expr.arguments, expr.span)
                     return TypeInfo(name="u64", kind="primitive")
+                if method_name == "iter_len":
+                    self._check_call_arguments([], expr.arguments, expr.span)
+                    return TypeInfo(name="u64", kind="primitive")
                 if method_name == "get":
+                    if len(expr.arguments) != 1:
+                        raise TypeCheckError(f"Expected 1 arguments, got {len(expr.arguments)}", expr.span)
+                    index_type = self._infer_expression_type(expr.arguments[0])
+                    self._require_array_index_type(index_type, expr.arguments[0].span)
+                    return object_type.element_type
+                if method_name == "iter_get":
                     if len(expr.arguments) != 1:
                         raise TypeCheckError(f"Expected 1 arguments, got {len(expr.arguments)}", expr.span)
                     index_type = self._infer_expression_type(expr.arguments[0])

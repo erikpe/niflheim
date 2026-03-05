@@ -221,6 +221,34 @@ fn test_iter_get_returns_reference_type() -> unit {
     assert(total == 15);
 }
 
+fn test_for_in_over_primitive_array() -> unit {
+    var values: i64[] = i64[](4u);
+    values[0] = 2;
+    values[1] = 3;
+    values[2] = -1;
+    values[3] = 5;
+
+    var sum: i64 = 0;
+    for value in values {
+        sum = sum + value;
+    }
+
+    assert(sum == 9);
+}
+
+fn test_for_in_over_reference_array() -> unit {
+    var values: Item[] = Item[](2u);
+    values[0] = Item(12);
+    values[1] = Item(-5);
+
+    var sum: i64 = 0;
+    for entry in values {
+        sum = sum + entry.value;
+    }
+
+    assert(sum == 7);
+}
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -233,6 +261,8 @@ fn main() -> i64 {
     if select == 7u { test_iter_len_is_snapshot_for_loop(); }
     if select == 8u { test_iter_get_oob_panics(); }
     if select == 9u { test_iter_get_returns_reference_type(); }
+    if select == 10u { test_for_in_over_primitive_array(); }
+    if select == 11u { test_for_in_over_reference_array(); }
 
     return 0;
 }

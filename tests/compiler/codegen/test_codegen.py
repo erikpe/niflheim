@@ -676,6 +676,29 @@ fn main() -> unit {
     assert "    call rt_array_set_slice_u64" in asm
 
 
+def test_emit_asm_for_in_over_array_lowers_to_array_iter_runtime_calls() -> None:
+    source = """
+fn main() -> i64 {
+    var values: i64[] = i64[](2u);
+    values[0] = 4;
+    values[1] = 6;
+
+    var sum: i64 = 0;
+    for value in values {
+        sum = sum + value;
+    }
+
+    return sum;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_len" in asm
+    assert "    call rt_array_get_i64" in asm
+
+
 def test_emit_asm_array_reference_set_roots_reference_value_argument_for_runtime_call() -> None:
     source = """
 class Person {

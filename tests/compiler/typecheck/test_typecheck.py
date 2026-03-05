@@ -648,6 +648,47 @@ fn main() -> i64 {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_for_in_over_primitive_array() -> None:
+    source = """
+fn main() -> i64 {
+    var values: i64[] = i64[](3u);
+    values[0] = 4;
+    values[1] = -1;
+    values[2] = 7;
+
+    var sum: i64 = 0;
+    for value in values {
+        sum = sum + value;
+    }
+
+    return sum;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_for_in_over_reference_array() -> None:
+    source = """
+class Box {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var values: Box[] = Box[](2u);
+    values[0] = Box(9);
+    values[1] = Box(11);
+
+    var sum: i64 = 0;
+    for item in values {
+        sum = sum + item.value;
+    }
+
+    return sum;
+}
+"""
+    _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_for_in_on_len_get_only_map_like_type() -> None:
     source = """
 class MapLike {

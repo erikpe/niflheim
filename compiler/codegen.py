@@ -136,10 +136,25 @@ def _collect_locals(stmt: Statement, local_types_by_name: dict[str, str]) -> Non
         _collect_locals(stmt.body, local_types_by_name)
         return
     if isinstance(stmt, ForInStmt):
-        local_types_by_name.setdefault(stmt.coll_temp_name, stmt.collection_type_name or "Obj")
+        inferred_collection_type = stmt.collection_type_name
+        if not inferred_collection_type:
+            if isinstance(stmt.collection_expr, IdentifierExpr):
+                inferred_collection_type = local_types_by_name.get(stmt.collection_expr.name, "Obj")
+            elif isinstance(stmt.collection_expr, CastExpr):
+                inferred_collection_type = _type_ref_name(stmt.collection_expr.type_ref)
+            elif isinstance(stmt.collection_expr, ArrayCtorExpr):
+                inferred_collection_type = _type_ref_name(stmt.collection_expr.element_type_ref)
+            else:
+                inferred_collection_type = "Obj"
+
+        inferred_element_type = stmt.element_type_name
+        if not inferred_element_type and _is_array_type_name(inferred_collection_type):
+            inferred_element_type = _array_element_type_name(inferred_collection_type)
+
+        local_types_by_name.setdefault(stmt.coll_temp_name, inferred_collection_type)
         local_types_by_name.setdefault(stmt.len_temp_name, "i64")
         local_types_by_name.setdefault(stmt.index_temp_name, "i64")
-        local_types_by_name.setdefault(stmt.element_name, stmt.element_type_name or "i64")
+        local_types_by_name.setdefault(stmt.element_name, inferred_element_type or "i64")
         _collect_locals(stmt.body, local_types_by_name)
         return
 
@@ -214,8 +229,10 @@ def _expr_needs_temp_runtime_roots(expr: Expression) -> bool:
             return True
         if isinstance(expr.callee, FieldAccessExpr) and expr.callee.field_name in {
             "len",
+            "iter_len",
             "push",
             "get",
+            "iter_get",
             "set",
             "slice",
             "set_slice",
@@ -412,7 +429,15 @@ def _resolve_method_call_target(
         kind = _array_element_runtime_kind(element_type_name)
         if method_name == "len":
             return ResolvedCallTarget(name="rt_array_len", receiver_expr=receiver_expr, return_type_name="u64")
+        if method_name == "iter_len":
+            return ResolvedCallTarget(name="rt_array_len", receiver_expr=receiver_expr, return_type_name="u64")
         if method_name == "get":
+            return ResolvedCallTarget(
+                name=ARRAY_GET_RUNTIME_CALLS[kind],
+                receiver_expr=receiver_expr,
+                return_type_name=element_type_name,
+            )
+        if method_name == "iter_get":
             return ResolvedCallTarget(
                 name=ARRAY_GET_RUNTIME_CALLS[kind],
                 receiver_expr=receiver_expr,
