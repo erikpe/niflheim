@@ -1,0 +1,6 @@
+runs:
+  - { name: range_basic_half_open, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: range_negative_to_positive, input: { stdin: "2" }, expect: { exit_code: 0 } }
+  - { name: range_empty_when_equal_bounds, input: { stdin: "3" }, expect: { exit_code: 0 } }
+  - { name: range_empty_when_descending, input: { stdin: "4" }, expect: { exit_code: 0 } }
+  - { name: range_nested_loops, input: { stdin: "5" }, expect: { exit_code: 0 } }

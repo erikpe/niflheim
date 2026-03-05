@@ -1,0 +1,16 @@
+export class Range
+{
+    final start: i64;
+    final end: i64;
+
+    fn iter_len() -> u64 {
+        if __self.end <= __self.start {
+            return 0u;
+        }
+        return (u64)(__self.end - __self.start);
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return __self.start + index;
+    }
+}

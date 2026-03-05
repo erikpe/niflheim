@@ -1,0 +1,70 @@
+import std.test;
+import std.io;
+import std.range;
+
+fn test_range_basic_half_open() -> unit {
+    var sum: i64 = 0;
+    var count: i64 = 0;
+
+    for i in Range(17, 23) {
+        sum = sum + i;
+        count = count + 1;
+    }
+
+    assert(count == 6);
+    assert(sum == 117);
+}
+
+fn test_range_negative_to_positive() -> unit {
+    var sum: i64 = 0;
+
+    for i in Range(-2, 3) {
+        sum = sum + i;
+    }
+
+    assert(sum == 0);
+}
+
+fn test_range_empty_when_equal_bounds() -> unit {
+    var touched: bool = false;
+
+    for i in Range(5, 5) {
+        touched = true;
+    }
+
+    assert(touched == false);
+}
+
+fn test_range_empty_when_descending() -> unit {
+    var touched: bool = false;
+
+    for i in Range(10, 2) {
+        touched = true;
+    }
+
+    assert(touched == false);
+}
+
+fn test_range_nested_loops() -> unit {
+    var total: i64 = 0;
+
+    for i in Range(0, 3) {
+        for j in Range(0, 2) {
+            total = total + (i * 10 + j);
+        }
+    }
+
+    assert(total == 63);
+}
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { test_range_basic_half_open(); }
+    if select == 2u { test_range_negative_to_positive(); }
+    if select == 3u { test_range_empty_when_equal_bounds(); }
+    if select == 4u { test_range_empty_when_descending(); }
+    if select == 5u { test_range_nested_loops(); }
+
+    return 0;
+}
