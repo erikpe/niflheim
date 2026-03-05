@@ -1,30 +1,27 @@
 import std.io;
 import std.error;
+import std.range;
 import std.str;
 import std.vec;
 
 fn decode_end_state(end_state_str: Str) -> u64
 {
-    end_state_str = end_state_str[1:-1];
     var end_state_bits: u64 = 0u;
-    var i: i64 = 0;
-    while i < (i64)end_state_str.len() {
-        if end_state_str[i] == '#' {
-            end_state_bits = end_state_bits | (1u << (u64)i);
+    var i: u64 = 0u;
+    for ch in end_state_str[1:-1] {
+        if ch == '#' {
+            end_state_bits = end_state_bits | (1u << i);
         }
-        i = i + 1;
+        i = i + 1u;
     }
     return end_state_bits;
 }
 
 fn decode_press(press_str: Str) -> u64
 {
-    var presses: Vec = press_str[1:-1].split(',');
     var press_bits: u64 = 0u;
-    var i: i64 = 0;
-    while i < (i64)presses.len() {
-        press_bits = press_bits | (1u << ((Str)presses[i]).to_u64());
-        i = i + 1;
+    for press in press_str[1:-1].split(',') {
+        press_bits = press_bits | (1u << ((Str)press).to_u64());
     }
     return press_bits;
 }
@@ -38,50 +35,40 @@ fn find_endstate(end_state_bits: u64, presses_bits: u64[], num_presses: u64) -> 
         total = 0u;
     } else if num_presses > 0u {
         // combinations without repetition: C(base_count, num_presses)
-        var i: u64 = 1u;
-        while i <= num_presses {
-            total = (total * (base_count - num_presses + i)) / i;
-            i = i + 1u;
+        for i in Range(1, (i64)num_presses + 1) {
+            total = (total * (base_count - num_presses + (u64)i)) / (u64)i;
         }
     }
 
     var indices: u64[] = u64[](num_presses);
-    var i: i64 = 0;
-    while i < (i64)num_presses {
+    for i in Range(0, (i64)num_presses) {
         indices[i] = (u64)i;
-        i = i + 1;
     }
 
-    var out_index: u64 = 0u;
-    while out_index < total {
+    for out_index in Range(0, (i64)total) {
         var running_state: u64 = 0u;
-        var j: i64 = 0;
-        while j < (i64)num_presses {
+        for j in Range(0, (i64)num_presses) {
             running_state = running_state ^ presses_bits[(i64)indices[j]];
-            j = j + 1;
         }
         if running_state == end_state_bits {
             return true;
         }
 
-        if out_index + 1u < total {
+        if (u64)(out_index + 1) < total {
             var p: i64 = (i64)num_presses - 1;
             while p >= 0 {
-                var limit: u64 = base_count - ((u64)num_presses - (u64)p);
+                var limit: u64 = base_count - (num_presses - (u64)p);
                 if indices[p] < limit {
                     var next_value: u64 = indices[p] + 1u;
                     indices[p] = next_value;
-                    var q: i64 = p + 1;
-                    while q < (i64)num_presses {
+                    for q in Range(p + 1, (i64)num_presses) {
                         indices[q] = indices[q - 1] + 1u;
-                        q = q + 1;
                     }
                     break;
                 }
                 p = p - 1;
             }
         }
-        out_index = out_index + 1u;
     }
 
     return false;
@@ -93,10 +80,8 @@ fn solve_machine(machine: Str) -> u64
     var end_state_bits: u64 = decode_end_state((Str)parts[0]);
 
     var presses_bits: u64[] = u64[](parts.len() - 2u);
-    var i: i64 = 0;
-    while i < (i64)presses_bits.len() {
-        presses_bits[i] = decode_press((Str)parts[i + 1]);
-        i = i + 1;
+    for part_index in Range(1, (i64)parts.len() - 1) {
+        presses_bits[part_index - 1] = decode_press((Str)parts[part_index]);
     }
 
     var num_presses: u64 = 1u;
@@ -111,13 +96,9 @@ fn solve_machine(machine: Str) -> u64
 
 fn main() -> i64
 {
-    var lines: Vec = read_all().splitlines();
-    var num_lines: i64 = (i64)lines.len();
     var min_presses: u64 = 0u;
-    var i: i64 = 0;
-    while i < num_lines {
-        min_presses = min_presses + solve_machine((Str)lines[i]);
-        i = i + 1;
+    for line in read_all().splitlines() {
+        min_presses = min_presses + solve_machine((Str)line);
     }
     print("RESULT:");
     println_u64(min_presses);
