@@ -33,6 +33,11 @@ export fn println_i64(value: i64) -> unit
     println(Str.from_i64(value));
 }
 
+export fn print_u64(value: u64) -> unit
+{
+    print(Str.from_u64(value));
+}
+
 export fn println_u64(value: u64) -> unit
 {
     println(Str.from_u64(value));
