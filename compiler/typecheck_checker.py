@@ -206,6 +206,22 @@ class TypeChecker:
             self.loop_depth -= 1
             return
 
+        if isinstance(stmt, ForInStmt):
+            collection_type = self._infer_expression_type(stmt.collection_expr)
+            element_type = self._resolve_for_in_element_type(collection_type, stmt.span)
+            object.__setattr__(stmt, "collection_type_name", collection_type.name)
+            object.__setattr__(stmt, "element_type_name", element_type.name)
+
+            self.loop_depth += 1
+            self._push_scope()
+            try:
+                self._declare_variable(stmt.element_name, element_type, stmt.span)
+                self._check_block(stmt.body, return_type)
+            finally:
+                self._pop_scope()
+                self.loop_depth -= 1
+            return
+
         if isinstance(stmt, BreakStmt):
             if self.loop_depth <= 0:
                 raise TypeCheckError("'break' is only allowed inside while loops", stmt.span)
@@ -496,6 +512,55 @@ class TypeChecker:
             raise TypeCheckError(f"Type '{obj_type.name}' is not indexable", expr.span)
 
         raise TypeCheckError("Unsupported expression", expr.span)
+
+    def _resolve_for_in_element_type(self, collection_type: TypeInfo, span: SourceSpan) -> TypeInfo:
+        class_info = self._lookup_class_by_type_name(collection_type.name)
+        if class_info is None:
+            raise TypeCheckError(
+                f"Type '{collection_type.name}' is not iterable (missing methods 'iter_len()' and 'iter_get(i64)')",
+                span,
+            )
+
+        iter_len_sig = class_info.methods.get("iter_len")
+        if iter_len_sig is None:
+            raise TypeCheckError(
+                f"Type '{collection_type.name}' is not iterable (missing method 'iter_len()')",
+                span,
+            )
+        self._require_member_visible(class_info, collection_type.name, "iter_len", "method", span)
+        if iter_len_sig.is_static or len(iter_len_sig.params) != 0:
+            raise TypeCheckError(
+                f"Type '{collection_type.name}' is not iterable (method 'iter_len' must be instance method with 0 args)",
+                span,
+            )
+        iter_len_return = self._qualify_member_type_for_owner(iter_len_sig.return_type, collection_type.name)
+        if iter_len_return.name != "u64":
+            raise TypeCheckError(
+                f"Type '{collection_type.name}' is not iterable (method 'iter_len' must return u64)",
+                span,
+            )
+
+        iter_get_sig = class_info.methods.get("iter_get")
+        if iter_get_sig is None:
+            raise TypeCheckError(
+                f"Type '{collection_type.name}' is not iterable (missing method 'iter_get(i64)')",
+                span,
+            )
+        self._require_member_visible(class_info, collection_type.name, "iter_get", "method", span)
+        if iter_get_sig.is_static or len(iter_get_sig.params) != 1:
+            raise TypeCheckError(
+                f"Type '{collection_type.name}' is not iterable (method 'iter_get' must be instance method with 1 arg)",
+                span,
+            )
+
+        iter_get_param = self._qualify_member_type_for_owner(iter_get_sig.params[0], collection_type.name)
+        if iter_get_param.name != "i64":
+            raise TypeCheckError(
+                f"Type '{collection_type.name}' is not iterable (method 'iter_get' parameter must be i64)",
+                span,
+            )
+
+        return self._qualify_member_type_for_owner(iter_get_sig.return_type, collection_type.name)
 
     def _infer_call_type(self, expr: CallExpr) -> TypeInfo:
         if isinstance(expr.callee, IdentifierExpr):

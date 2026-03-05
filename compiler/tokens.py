@@ -23,6 +23,8 @@ class TokenKind(str, Enum):
     IF = "IF"
     ELSE = "ELSE"
     WHILE = "WHILE"
+    FOR = "FOR"
+    IN = "IN"
     STATIC = "STATIC"
     BREAK = "BREAK"
     CONTINUE = "CONTINUE"
@@ -90,6 +92,8 @@ KEYWORDS: dict[str, TokenKind] = {
     "if": TokenKind.IF,
     "else": TokenKind.ELSE,
     "while": TokenKind.WHILE,
+    "for": TokenKind.FOR,
+    "in": TokenKind.IN,
     "static": TokenKind.STATIC,
     "break": TokenKind.BREAK,
     "continue": TokenKind.CONTINUE,

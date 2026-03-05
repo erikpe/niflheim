@@ -183,6 +183,13 @@ def test_lex_shift_operator_tokens() -> None:
     assert TokenKind.RSHIFT in kinds
 
 
+def test_lex_for_in_keywords() -> None:
+    source = "for elem in coll { return; }"
+    kinds = [token.kind for token in lex(source)]
+    assert TokenKind.FOR in kinds
+    assert TokenKind.IN in kinds
+
+
 def test_lex_power_operator_token() -> None:
     source = "var x: u64 = 2u ** 10u;"
     kinds = [token.kind for token in lex(source)]

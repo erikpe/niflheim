@@ -206,22 +206,30 @@ Implementation status note (current tree):
   - Runtime provides storage/layout + `len/get/set/slice` primitives + bounds/GC behavior.
   - A stdlib-first array wrapper layer is a planned follow-up, not the current implementation state.
 
-  ### 5.7 Indexing Sugar Canonicalization Policy (Direction)
+### 5.7 Sugaring Protocols (Direction)
 
-  To support stdlib-first container implementations (starting with `Vec`), indexing sugar semantics are defined by canonical method lowering:
+To support stdlib-first container implementations and avoid hard-coded container-name behavior, sugar eligibility is structural and split into distinct protocols.
 
-  - `x[i]` is equivalent to `x.get(i)`
-  - `x[i] = v` is equivalent to `x.set(i, v)`
-  - `x[a:b]` is equivalent to `x.slice(a, b)`
-  - `x[a:b] = v` is equivalent to `x.set_slice(a, b, v)`
+Indexing/slicing protocol:
 
-  Compiler implementation policy:
+- `x[i]` is equivalent to `x.get(i)`
+- `x[i] = v` is equivalent to `x.set(i, v)`
+- `x[a:b]` is equivalent to `x.slice(a, b)`
+- `x[a:b] = v` is equivalent to `x.set_slice(a, b, v)`
+- Structural method shape: `get(K) -> R`, `set(K, W) -> unit`, `slice(i64, i64) -> U`, `set_slice(i64, i64, U) -> unit`
+- `K` is method-signature driven (not hard-coded to `i64`)
 
-  - Keep a single semantic path (method-call semantics) rather than independent index/method paths.
-  - Prefer structural eligibility over hard-coded type-name checks.
-  - A type participates in sugar when it provides compatible methods (for example `get(K)`, `set(K, W)`, `slice(i64, i64)`, `set_slice(i64, i64, U)`).
+For-in iteration protocol (planned lowering target):
 
-  This policy is intentionally future-oriented for stdlib container families (for example specialized vectors), map-like classes, and potential stdlib implementations of `Str`/`StrBuf` backed by `u8[]`.
+- surface syntax: `for elem in collection { ... }`
+- structural method shape: `iter_len() -> u64` and `iter_get(i64) -> T`
+- lowering intent: evaluate collection once, snapshot `iter_len()`, iterate with `i64` index, infer `T` from `iter_get`
+
+Design lock-in note:
+
+- `get(K)` remains key/index-agnostic for indexing sugar.
+- `for ... in` does not use `get`; it requires `iter_len/iter_get(i64)` specifically.
+- This prevents key-based maps (for example `get(u64)` for lookup) from becoming accidentally iterable via for-sugar.
 
 ---
 

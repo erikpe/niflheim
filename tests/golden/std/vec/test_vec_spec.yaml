@@ -16,3 +16,4 @@ runs:
   - { name: vec_slice_write_sugar_updates_range, input: { stdin: "15" }, expect: { exit_code: 0 } }
   - { name: vec_slice_write_length_mismatch_panics, input: { stdin: "16" }, expect: { panic: "Vec.set_slice: length mismatch" } }
   - { name: vec_slice_write_oob_panics, input: { stdin: "17" }, expect: { panic: "Vec.set_slice: invalid slice range" } }
+  - { name: vec_for_in_iteration, input: { stdin: "18" }, expect: { exit_code: 0 } }

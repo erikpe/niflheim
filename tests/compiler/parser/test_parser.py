@@ -188,6 +188,28 @@ fn main() -> unit {
     assert isinstance(loop_stmt.body.statements[1], ContinueStmt)
 
 
+def test_parse_for_in_statement() -> None:
+    source = """
+fn main() -> unit {
+    for elem in coll {
+        foo(elem);
+    }
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/for_in_parse.nif"))
+    fn = module.functions[0]
+    for_stmt = fn.body.statements[0]
+
+    assert isinstance(for_stmt, ForInStmt)
+    assert for_stmt.element_name == "elem"
+    assert isinstance(for_stmt.collection_expr, IdentifierExpr)
+    assert for_stmt.collection_expr.name == "coll"
+    assert for_stmt.coll_temp_name.startswith("__nif_sugar_for_coll_")
+    assert for_stmt.len_temp_name.startswith("__nif_sugar_for_len_")
+    assert for_stmt.index_temp_name.startswith("__nif_sugar_for_i_")
+
+
 def test_parse_static_method_in_class_body() -> None:
     source = """
 class Counter {

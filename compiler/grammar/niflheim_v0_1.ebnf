@@ -40,6 +40,7 @@ param              = IDENT ":" type ;
 block              = "{" { statement } "}" ;
 
 statement          = var_decl_stmt
+                   | for_stmt
                    | if_stmt
                    | while_stmt
                    | return_stmt
@@ -49,6 +50,8 @@ statement          = var_decl_stmt
                    ;
 
 var_decl_stmt      = "var" IDENT ":" type [ "=" expression ] ";" ;
+
+for_stmt           = "for" IDENT "in" expression block ;
 
 if_stmt            = "if" expression block [ "else" ( if_stmt | block ) ] ;
 

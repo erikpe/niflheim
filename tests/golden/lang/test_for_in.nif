@@ -1,0 +1,238 @@
+import std.test;
+import std.io;
+
+class Seq {
+    values: i64[];
+    len_calls: u64;
+    get_calls: u64;
+
+    fn iter_len() -> u64 {
+        __self.len_calls = __self.len_calls + 1u;
+        return __self.values.len();
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        __self.get_calls = __self.get_calls + 1u;
+        return __self.values[index];
+    }
+}
+
+class Range {
+    limit: u64;
+
+    fn iter_len() -> u64 {
+        return __self.limit;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return index;
+    }
+}
+
+class BadLenSeq {
+    values: i64[];
+
+    fn iter_len() -> u64 {
+        return __self.values.len() + 1u;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+}
+
+class SeqFactory {
+    ticks: i64;
+
+    fn make() -> Seq {
+        __self.ticks = __self.ticks + 1;
+
+        var values: i64[] = i64[](3u);
+        values[0] = 1;
+        values[1] = 2;
+        values[2] = 3;
+
+        return Seq(values, 0u, 0u);
+    }
+}
+
+class Item {
+    value: i64;
+}
+
+class RefSeq {
+    values: Item[];
+
+    fn iter_len() -> u64 {
+        return __self.values.len();
+    }
+
+    fn iter_get(index: i64) -> Item {
+        return __self.values[index];
+    }
+}
+
+fn test_basic_sum_and_call_counts() -> unit {
+    var values: i64[] = i64[](4u);
+    values[0] = 5;
+    values[1] = -2;
+    values[2] = 8;
+    values[3] = 1;
+
+    var seq: Seq = Seq(values, 0u, 0u);
+    var sum: i64 = 0;
+
+    for elem in seq {
+        sum = sum + elem;
+    }
+
+    assert(sum == 12);
+    assert(seq.len_calls == 1u);
+    assert(seq.get_calls == 4u);
+}
+
+fn test_empty_collection_no_iterations() -> unit {
+    var values: i64[] = i64[](0u);
+    var seq: Seq = Seq(values, 0u, 0u);
+
+    var touched: bool = false;
+    for elem in seq {
+        touched = true;
+    }
+
+    assert(touched == false);
+    assert(seq.len_calls == 1u);
+    assert(seq.get_calls == 0u);
+}
+
+fn test_break_stops_iteration() -> unit {
+    var values: i64[] = i64[](5u);
+    values[0] = 1;
+    values[1] = 2;
+    values[2] = 3;
+    values[3] = 100;
+    values[4] = 200;
+
+    var seq: Seq = Seq(values, 0u, 0u);
+    var sum: i64 = 0;
+
+    for elem in seq {
+        if elem == 3 {
+            break;
+        }
+        sum = sum + elem;
+    }
+
+    assert(sum == 3);
+    assert(seq.len_calls == 1u);
+    assert(seq.get_calls == 3u);
+}
+
+fn test_continue_skips_body_tail() -> unit {
+    var values: i64[] = i64[](5u);
+    values[0] = -4;
+    values[1] = 7;
+    values[2] = -1;
+    values[3] = 2;
+    values[4] = 3;
+
+    var seq: Seq = Seq(values, 0u, 0u);
+    var sum_positive: i64 = 0;
+
+    for elem in seq {
+        if elem < 0 {
+            continue;
+        }
+        sum_positive = sum_positive + elem;
+    }
+
+    assert(sum_positive == 12);
+    assert(seq.len_calls == 1u);
+    assert(seq.get_calls == 5u);
+}
+
+fn test_nested_for_in_loops() -> unit {
+    var outer: Range = Range(3u);
+    var inner: Range = Range(2u);
+    var total: i64 = 0;
+
+    for i in outer {
+        for j in inner {
+            total = total + (i * 10 + j);
+        }
+    }
+
+    assert(total == 63);
+}
+
+fn test_collection_expression_evaluated_once() -> unit {
+    var factory: SeqFactory = SeqFactory(0);
+
+    var sum: i64 = 0;
+    for elem in factory.make() {
+        sum = sum + elem;
+    }
+
+    assert(factory.ticks == 1);
+    assert(sum == 6);
+}
+
+fn test_iter_len_is_snapshot_for_loop() -> unit {
+    var r: Range = Range(3u);
+    var seen: i64 = 0;
+
+    for value in r {
+        seen = seen + 1;
+        if value == 0 {
+            r.limit = 10u;
+        }
+    }
+
+    assert(seen == 3);
+}
+
+fn test_iter_get_oob_panics() -> unit {
+    var values: i64[] = i64[](2u);
+    values[0] = 10;
+    values[1] = 20;
+
+    var bad: BadLenSeq = BadLenSeq(values);
+
+    for elem in bad {
+        if elem == -999 {
+            return;
+        }
+    }
+}
+
+fn test_iter_get_returns_reference_type() -> unit {
+    var values: Item[] = Item[](3u);
+    values[0] = Item(4);
+    values[1] = Item(9);
+    values[2] = Item(2);
+
+    var seq: RefSeq = RefSeq(values);
+    var total: i64 = 0;
+
+    for elem in seq {
+        total = total + elem.value;
+    }
+
+    assert(total == 15);
+}
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { test_basic_sum_and_call_counts(); }
+    if select == 2u { test_empty_collection_no_iterations(); }
+    if select == 3u { test_break_stops_iteration(); }
+    if select == 4u { test_continue_skips_body_tail(); }
+    if select == 5u { test_nested_for_in_loops(); }
+    if select == 6u { test_collection_expression_evaluated_once(); }
+    if select == 7u { test_iter_len_is_snapshot_for_loop(); }
+    if select == 8u { test_iter_get_oob_panics(); }
+    if select == 9u { test_iter_get_returns_reference_type(); }
+
+    return 0;
+}

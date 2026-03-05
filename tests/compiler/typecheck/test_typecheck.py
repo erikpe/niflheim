@@ -620,6 +620,58 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_for_in_with_iter_protocol() -> None:
+    source = """
+class Seq {
+    values: i64[];
+
+    fn iter_len() -> u64 {
+        return __self.values.len();
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+}
+
+fn main() -> i64 {
+    var s: Seq = Seq(i64[](2u));
+    s.values[0] = 7;
+    s.values[1] = 9;
+    var out: i64 = 0;
+    for elem in s {
+        out = out + elem;
+    }
+    return out;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_for_in_on_len_get_only_map_like_type() -> None:
+    source = """
+class MapLike {
+    fn len() -> u64 {
+        return 0u;
+    }
+
+    fn get(key: u64) -> i64 {
+        return 0;
+    }
+}
+
+fn main() -> unit {
+    var m: MapLike = MapLike();
+    for value in m {
+        return;
+    }
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"not iterable \(missing method 'iter_len\(\)'\)"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_integer_power_with_u64_exponent() -> None:
     source = """
 fn main() -> unit {

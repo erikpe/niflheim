@@ -45,6 +45,7 @@ Examples:
 - Call arguments are positional-only in v0.1.
 - `named_type` includes `IDENT` for user classes; actual type resolution is done in resolver/type checker.
 - `lvalue` shape is syntactic; mutability checks are semantic, while null-dereference checks are runtime-only in v0.1.
+- `for elem in collection { ... }` parses as dedicated loop syntax; iterable eligibility is semantic and requires `iter_len() -> u64` plus `iter_get(i64) -> T`.
 
 Frozen array syntax (v0.1 extension track):
 - Array type: `T[]`

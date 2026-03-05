@@ -427,6 +427,31 @@ fn test_splitlines() -> unit {
 }
 
 
+fn test_str_for_in_iteration() -> unit {
+    var s: Str = "Ab0";
+    var sum: i64 = 0;
+
+    for ch in s {
+        sum = sum + (i64)ch;
+    }
+
+    assert(sum == 211);
+}
+
+
+fn test_strbuf_for_in_iteration() -> unit {
+    var buf: StrBuf = StrBuf.new(1u);
+    buf.append("Hi!");
+
+    var sum: i64 = 0;
+    for ch in buf {
+        sum = sum + (i64)ch;
+    }
+
+    assert(sum == 210);
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -473,5 +498,7 @@ fn main() -> i64 {
     if select == 41u { test_from_misc_scalars(); }
     if select == 42u { test_strbuf_append_scalars(); }
     if select == 43u { test_splitlines(); }
+    if select == 44u { test_str_for_in_iteration(); }
+    if select == 45u { test_strbuf_for_in_iteration(); }
     return 0;
 }

@@ -223,6 +223,21 @@ fn test_vec_slice_write_oob_panics() -> unit {
 }
 
 
+fn test_vec_for_in_iteration() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(3));
+    v.push(BoxI64(5));
+    v.push(BoxI64(-2));
+
+    var sum: i64 = 0;
+    for elem in v {
+        sum = sum + ((BoxI64)elem).val;
+    }
+
+    assert(sum == 6);
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -243,6 +258,7 @@ fn main() -> i64 {
     if select == 15u { test_vec_slice_write_sugar_updates_range(); }
     if select == 16u { test_vec_slice_write_length_mismatch_panics(); }
     if select == 17u { test_vec_slice_write_oob_panics(); }
+    if select == 18u { test_vec_for_in_iteration(); }
 
     return 0;
 }

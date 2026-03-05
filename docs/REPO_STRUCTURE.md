@@ -67,3 +67,4 @@ Supporting documentation:
 - [ROADMAP_v0.1.md](ROADMAP_v0.1.md) - milestone/iteration plan.
 - [ABI_NOTES.md](ABI_NOTES.md) - compiler/runtime ABI notes.
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.
+- [SUGARING_DESIGN.md](SUGARING_DESIGN.md) - canonical sugar protocols (indexing/slicing and for-in iteration).

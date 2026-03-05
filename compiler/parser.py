@@ -80,6 +80,12 @@ class TokenStream:
 class Parser:
     def __init__(self, tokens: list[Token]):
         self.stream = TokenStream(tokens)
+        self._sugar_symbol_counter = 0
+
+    def _next_sugar_symbol(self, stem: str) -> str:
+        value = self._sugar_symbol_counter
+        self._sugar_symbol_counter += 1
+        return f"__nif_sugar_{stem}_{value}"
 
     def parse_module(self) -> ModuleAst:
         imports: list[ImportDecl] = []
@@ -429,6 +435,9 @@ class Parser:
         if self.stream.match(TokenKind.WHILE):
             return self._parse_while_stmt(while_token=self.stream.previous())
 
+        if self.stream.match(TokenKind.FOR):
+            return self._parse_for_in_stmt(for_token=self.stream.previous())
+
         if self.stream.match(TokenKind.RETURN):
             return self._parse_return_stmt(return_token=self.stream.previous())
 
@@ -488,6 +497,23 @@ class Parser:
             condition=condition,
             body=body,
             span=SourceSpan(start=while_token.span.start, end=body.span.end),
+        )
+
+    def _parse_for_in_stmt(self, *, for_token: Token) -> ForInStmt:
+        element_token = self.stream.expect(TokenKind.IDENT, "Expected loop variable name after 'for'")
+        self.stream.expect(TokenKind.IN, "Expected 'in' after loop variable name")
+        collection_expr = self._parse_expression()
+        body = self._parse_block_stmt()
+        return ForInStmt(
+            element_name=element_token.lexeme,
+            collection_expr=collection_expr,
+            body=body,
+            coll_temp_name=self._next_sugar_symbol("for_coll"),
+            len_temp_name=self._next_sugar_symbol("for_len"),
+            index_temp_name=self._next_sugar_symbol("for_i"),
+            collection_type_name="",
+            element_type_name="",
+            span=SourceSpan(start=for_token.span.start, end=body.span.end),
         )
 
     def _parse_return_stmt(self, *, return_token: Token) -> ReturnStmt:

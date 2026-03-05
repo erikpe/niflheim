@@ -209,6 +209,19 @@ class ContinueStmt:
 
 
 @dataclass(frozen=True)
+class ForInStmt:
+    element_name: str
+    collection_expr: Expression
+    body: BlockStmt
+    coll_temp_name: str
+    len_temp_name: str
+    index_temp_name: str
+    collection_type_name: str
+    element_type_name: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class AssignStmt:
     target: Expression
     value: Expression
@@ -226,6 +239,7 @@ Statement = (
     | VarDeclStmt
     | IfStmt
     | WhileStmt
+    | ForInStmt
     | ReturnStmt
     | BreakStmt
     | ContinueStmt

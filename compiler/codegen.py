@@ -26,6 +26,7 @@ from compiler.ast_nodes import (
     NullExpr,
     ParamDecl,
     ContinueStmt,
+    ForInStmt,
     ReturnStmt,
     Statement,
     TypeRef,
@@ -132,6 +133,13 @@ def _collect_locals(stmt: Statement, local_types_by_name: dict[str, str]) -> Non
             _collect_locals(stmt.else_branch, local_types_by_name)
         return
     if isinstance(stmt, WhileStmt):
+        _collect_locals(stmt.body, local_types_by_name)
+        return
+    if isinstance(stmt, ForInStmt):
+        local_types_by_name.setdefault(stmt.coll_temp_name, stmt.collection_type_name or "Obj")
+        local_types_by_name.setdefault(stmt.len_temp_name, "i64")
+        local_types_by_name.setdefault(stmt.index_temp_name, "i64")
+        local_types_by_name.setdefault(stmt.element_name, stmt.element_type_name or "i64")
         _collect_locals(stmt.body, local_types_by_name)
         return
 
@@ -1421,6 +1429,57 @@ class CodeGenerator:
             if function_return_type_name == "double":
                 self.out.append("    movq xmm0, rax")
             self.out.append(f"    jmp {epilogue_label}")
+            return
+
+        if isinstance(stmt, ForInStmt):
+            loop_start = _next_label(fn_name, "for_in_start", label_counter)
+            loop_continue = _next_label(fn_name, "for_in_continue", label_counter)
+            loop_done = _next_label(fn_name, "for_in_done", label_counter)
+
+            self._emit_expr(stmt.collection_expr, ctx)
+            self.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.coll_temp_name])}, rax")
+
+            iter_len_call = CallExpr(
+                callee=FieldAccessExpr(
+                    object_expr=IdentifierExpr(name=stmt.coll_temp_name, span=stmt.span),
+                    field_name="iter_len",
+                    span=stmt.span,
+                ),
+                arguments=[],
+                span=stmt.span,
+            )
+            self._emit_expr(iter_len_call, ctx)
+            self.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.len_temp_name])}, rax")
+            self.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.index_temp_name])}, 0")
+
+            self.out.append(f"{loop_start}:")
+            self.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
+            self.out.append(f"    cmp rax, {_offset_operand(layout.slot_offsets[stmt.len_temp_name])}")
+            self.out.append(f"    jge {loop_done}")
+
+            iter_get_call = CallExpr(
+                callee=FieldAccessExpr(
+                    object_expr=IdentifierExpr(name=stmt.coll_temp_name, span=stmt.span),
+                    field_name="iter_get",
+                    span=stmt.span,
+                ),
+                arguments=[IdentifierExpr(name=stmt.index_temp_name, span=stmt.span)],
+                span=stmt.span,
+            )
+            self._emit_expr(iter_get_call, ctx)
+            self.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.element_name])}, rax")
+
+            loop_labels.append((loop_continue, loop_done))
+            for nested in stmt.body.statements:
+                self._emit_statement(nested, epilogue_label, function_return_type_name, ctx, loop_labels)
+            loop_labels.pop()
+
+            self.out.append(f"{loop_continue}:")
+            self.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
+            self.out.append("    add rax, 1")
+            self.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.index_temp_name])}, rax")
+            self.out.append(f"    jmp {loop_start}")
+            self.out.append(f"{loop_done}:")
             return
 
         if isinstance(stmt, VarDeclStmt):

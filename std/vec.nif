@@ -22,6 +22,14 @@ export class Vec
         return __self._len;
     }
 
+    fn iter_len() -> u64 {
+        return __self._len;
+    }
+
+    fn iter_get(index: i64) -> Obj {
+        return __self._storage[index];
+    }
+
     private fn _grow(min_capacity: u64) -> unit {
         if __self._capacity >= min_capacity {
             return;
