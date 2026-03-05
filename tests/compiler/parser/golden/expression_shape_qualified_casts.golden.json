@@ -10,7 +10,7 @@
     }
   ],
   "callee": {
-    "field_name": "slice",
+    "field_name": "slice_get",
     "node": "FieldAccessExpr",
     "object_expr": {
       "field_name": "baz",

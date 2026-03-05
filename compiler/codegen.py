@@ -230,13 +230,11 @@ def _expr_needs_temp_runtime_roots(expr: Expression) -> bool:
         if isinstance(expr.callee, FieldAccessExpr) and expr.callee.field_name in {
             "len",
             "iter_len",
-            "push",
-            "get",
+            "index_get",
             "iter_get",
-            "set",
-            "slice",
-            "set_slice",
-            "get_u8",
+            "index_set",
+            "slice_get",
+            "slice_set",
         }:
             return True
         if _expr_needs_temp_runtime_roots(expr.callee):
@@ -431,7 +429,7 @@ def _resolve_method_call_target(
             return ResolvedCallTarget(name="rt_array_len", receiver_expr=receiver_expr, return_type_name="u64")
         if method_name == "iter_len":
             return ResolvedCallTarget(name="rt_array_len", receiver_expr=receiver_expr, return_type_name="u64")
-        if method_name == "get":
+        if method_name == "index_get":
             return ResolvedCallTarget(
                 name=ARRAY_GET_RUNTIME_CALLS[kind],
                 receiver_expr=receiver_expr,
@@ -443,19 +441,19 @@ def _resolve_method_call_target(
                 receiver_expr=receiver_expr,
                 return_type_name=element_type_name,
             )
-        if method_name == "set":
+        if method_name == "index_set":
             return ResolvedCallTarget(
                 name=ARRAY_SET_RUNTIME_CALLS[kind],
                 receiver_expr=receiver_expr,
                 return_type_name="unit",
             )
-        if method_name == "slice":
+        if method_name == "slice_get":
             return ResolvedCallTarget(
                 name=ARRAY_SLICE_RUNTIME_CALLS[kind],
                 receiver_expr=receiver_expr,
                 return_type_name=method_owner_type_name,
             )
-        if method_name == "set_slice":
+        if method_name == "slice_set":
             return ResolvedCallTarget(
                 name=ARRAY_SET_SLICE_RUNTIME_CALLS[kind],
                 receiver_expr=receiver_expr,
@@ -1019,7 +1017,7 @@ class CodeGenerator:
         if _is_array_type_name(receiver_type_name):
             synthetic_callee = FieldAccessExpr(
                 object_expr=expr.object_expr,
-                field_name="get",
+                field_name="index_get",
                 span=expr.span,
             )
             synthetic_call = CallExpr(
@@ -1032,7 +1030,7 @@ class CodeGenerator:
 
         synthetic_callee = FieldAccessExpr(
             object_expr=expr.object_expr,
-            field_name="get",
+            field_name="index_get",
             span=expr.span,
         )
         synthetic_call = CallExpr(
@@ -1523,7 +1521,7 @@ class CodeGenerator:
             if isinstance(stmt.target, IndexExpr):
                 synthetic_callee = FieldAccessExpr(
                     object_expr=stmt.target.object_expr,
-                    field_name="set",
+                    field_name="index_set",
                     span=stmt.target.span,
                 )
                 synthetic_call = CallExpr(

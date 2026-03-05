@@ -424,7 +424,7 @@ def test_emit_asm_str_index_lowers_via_structural_get_call() -> None:
 class Str {
     _bytes: u8[];
 
-    fn get(index: i64) -> u8 {
+    fn index_get(index: i64) -> u8 {
         return __self._bytes[index];
     }
 }
@@ -439,7 +439,7 @@ fn main() -> i64 {
 
     asm = emit_asm(module)
 
-    assert "    call __nif_method_Str_get" in asm
+    assert "    call __nif_method_Str_index_get" in asm
 
 
 def test_emit_asm_box_i64_constructor_and_value_method_lower_to_class_symbols() -> None:
@@ -509,11 +509,11 @@ class Bag {
         return Bag(i64[](2u));
     }
 
-    fn get(index: i64) -> i64 {
+    fn index_get(index: i64) -> i64 {
         return __self.values[index];
     }
 
-    fn set(index: i64, value: i64) -> unit {
+    fn index_set(index: i64, value: i64) -> unit {
         __self.values[index] = value;
         return;
     }
@@ -529,8 +529,8 @@ fn main() -> i64 {
 
     asm = emit_asm(module)
 
-    assert "    call __nif_method_Bag_set" in asm
-    assert "    call __nif_method_Bag_get" in asm
+    assert "    call __nif_method_Bag_index_set" in asm
+    assert "    call __nif_method_Bag_index_get" in asm
 
 
 def test_emit_asm_structural_slice_sugar_for_user_class_lowers_to_slice_method() -> None:
@@ -542,7 +542,7 @@ class Window {
         return Window(i64[](3u));
     }
 
-    fn slice(begin: i64, end: i64) -> Window {
+    fn slice_get(begin: i64, end: i64) -> Window {
         return __self;
     }
 }
@@ -560,7 +560,7 @@ fn main() -> i64 {
 
     asm = emit_asm(module)
 
-    assert "    call __nif_method_Window_slice" in asm
+    assert "    call __nif_method_Window_slice_get" in asm
 
 
 def test_emit_asm_array_constructor_lowers_to_runtime_symbol_by_element_kind() -> None:
@@ -624,7 +624,7 @@ fn main() -> unit {
     var s: u8[] = nums[1:3];
 
     var people: Person[] = Person[](2u);
-    var t: Person[] = people.slice(0, 1);
+    var t: Person[] = people.slice_get(0, 1);
     return;
 }
 """
@@ -659,10 +659,10 @@ def test_emit_asm_array_method_form_get_set_slice_lowers_to_runtime_calls() -> N
     source = """
 fn main() -> unit {
     var nums: u64[] = u64[](4u);
-    nums.set(1, 42u);
-    var x: u64 = nums.get(1);
-    var s: u64[] = nums.slice(0, 2);
-    nums.set_slice(1, 3, s);
+    nums.index_set(1, 42u);
+    var x: u64 = nums.index_get(1);
+    var s: u64[] = nums.slice_get(0, 2);
+    nums.slice_set(1, 3, s);
     return;
 }
 """
@@ -708,7 +708,7 @@ class Person {
 fn main() -> unit {
     var people: Person[] = Person[](1u);
     var p: Person = Person(7);
-    people.set(0, p);
+    people.index_set(0, p);
     return;
 }
 """

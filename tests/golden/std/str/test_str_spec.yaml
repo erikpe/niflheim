@@ -3,13 +3,13 @@ runs:
   - { name: strip, input: { stdin: "2" }, expect: { exit_code: 0 } }
   - { name: numeric_parse_ok, input: { stdin: "3" }, expect: { exit_code: 0 } }
   - { name: from_u8_array, input: { stdin: "4" }, expect: { exit_code: 0 } }
-  - { name: get_oob_panics, input: { stdin: "5" }, expect: { panic: "Str.get: index out of bounds" } }
+  - { name: get_oob_panics, input: { stdin: "5" }, expect: { panic: "Str.index_get: index out of bounds" } }
   - { name: negative_index_get, input: { stdin: "6" }, expect: { exit_code: 0 } }
-  - { name: slice_oob_panics, input: { stdin: "7" }, expect: { panic: "Str.slice: invalid slice range" } }
+  - { name: slice_oob_panics, input: { stdin: "7" }, expect: { panic: "Str.slice_get: invalid slice range" } }
   - { name: to_u64_invalid_digit_panics, input: { stdin: "8" }, expect: { panic: "Str.to_u64 invalid digit" } }
   - { name: to_i64_overflow_panics, input: { stdin: "9" }, expect: { panic: "Str.to_i64 overflow" } }
   - { name: strbuf_baseline, input: { stdin: "10" }, expect: { exit_code: 0 } }
-  - { name: strbuf_get_oob_panics, input: { stdin: "11" }, expect: { panic: "StrBuf.get: index out of bounds" } }
+  - { name: strbuf_get_oob_panics, input: { stdin: "11" }, expect: { panic: "StrBuf.index_get: index out of bounds" } }
   - { name: strbuf_append_char, input: { stdin: "12" }, expect: { exit_code: 0 } }
   - { name: strbuf_append, input: { stdin: "37" }, expect: { exit_code: 0 } }
   - { name: to_u64_and_to_i64, input: { stdin: "13" }, expect: { exit_code: 0 } }

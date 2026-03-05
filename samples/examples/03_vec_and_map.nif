@@ -11,8 +11,8 @@ export fn main() -> unit {
     var m: Map = Map();
 
     // identity key behavior: two distinct BoxI64(10) objects are different keys
-    var k1: Obj = nums.get(0);
-    var k2: Obj = nums.get(1);
+    var k1: Obj = nums.index_get(0);
+    var k2: Obj = nums.index_get(1);
     var v1: Obj = (Obj)"first ten";
     var v2: Obj = (Obj)"second ten";
 

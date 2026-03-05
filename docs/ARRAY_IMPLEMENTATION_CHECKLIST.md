@@ -15,9 +15,9 @@ Use this as the execution reference while implementing parser, type checker, cod
 - [x] Defaults are zero/false for primitives and `null` for references.
 - [x] Baseline API frozen:
   - [x] `arr.len() -> u64`
-  - [x] `arr.get(index) -> T` (alias: `arr[index]`)
-  - [x] `arr.set(index, value) -> unit` (alias: `arr[index] = value`)
-  - [x] `arr.slice(start, end) -> T[]` (alias: `arr[start:end]`)
+  - [x] `arr.index_get(index) -> T` (alias: `arr[index]`)
+  - [x] `arr.index_set(index, value) -> unit` (alias: `arr[index] = value`)
+  - [x] `arr.slice_get(start, end) -> T[]` (alias: `arr[start:end]`)
 - [x] Slice semantics in MVP: copying slice (new allocation).
 - [x] Assignability in MVP: invariant (`A[]` only assignable to `A[]`).
 - [x] Nested arrays are out of scope for current MVP array rollout (`T[][]` and deeper are disallowed for now).
@@ -63,9 +63,9 @@ Use this as the execution reference while implementing parser, type checker, cod
   - [x] result type is `T[]`
 
 ### 3.2 Operations
-- [x] `arr[index]` and `arr.get(index)` return `T`.
-- [x] `arr[index] = v` and `arr.set(index, v)` require `v` assignable to `T`.
-- [x] `arr[start:end]` and `arr.slice(start,end)` return `T[]`.
+- [x] `arr[index]` and `arr.index_get(index)` return `T`.
+- [x] `arr[index] = v` and `arr.index_set(index, v)` require `v` assignable to `T`.
+- [x] `arr[start:end]` and `arr.slice_get(start,end)` return `T[]`.
 - [x] `arr.len()` returns `u64`.
 
 ### 3.3 Assignment and compatibility

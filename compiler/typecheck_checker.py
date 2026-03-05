@@ -14,7 +14,7 @@ from compiler.typecheck_model import (
     TypeInfo,
 )
 
-ARRAY_METHOD_NAMES = {"len", "get", "set", "slice", "set_slice", "iter_len", "iter_get"}
+ARRAY_METHOD_NAMES = {"len", "index_get", "index_set", "slice_get", "slice_set", "iter_len", "iter_get"}
 
 I64_MAX_LITERAL = 9223372036854775807
 I64_MIN_MAGNITUDE_LITERAL = 9223372036854775808
@@ -656,7 +656,7 @@ class TypeChecker:
                 if method_name == "iter_len":
                     self._check_call_arguments([], expr.arguments, expr.span)
                     return TypeInfo(name="u64", kind="primitive")
-                if method_name == "get":
+                if method_name == "index_get":
                     if len(expr.arguments) != 1:
                         raise TypeCheckError(f"Expected 1 arguments, got {len(expr.arguments)}", expr.span)
                     index_type = self._infer_expression_type(expr.arguments[0])
@@ -668,7 +668,7 @@ class TypeChecker:
                     index_type = self._infer_expression_type(expr.arguments[0])
                     self._require_array_index_type(index_type, expr.arguments[0].span)
                     return object_type.element_type
-                if method_name == "set":
+                if method_name == "index_set":
                     if len(expr.arguments) != 2:
                         raise TypeCheckError(f"Expected 2 arguments, got {len(expr.arguments)}", expr.span)
                     index_type = self._infer_expression_type(expr.arguments[0])
@@ -676,7 +676,7 @@ class TypeChecker:
                     value_type = self._infer_expression_type(expr.arguments[1])
                     self._require_assignable(object_type.element_type, value_type, expr.arguments[1].span)
                     return TypeInfo(name="unit", kind="primitive")
-                if method_name == "slice":
+                if method_name == "slice_get":
                     if len(expr.arguments) != 2:
                         raise TypeCheckError(f"Expected 2 arguments, got {len(expr.arguments)}", expr.span)
                     start_type = self._infer_expression_type(expr.arguments[0])
@@ -684,7 +684,7 @@ class TypeChecker:
                     self._require_array_index_type(start_type, expr.arguments[0].span)
                     self._require_array_index_type(end_type, expr.arguments[1].span)
                     return object_type
-                if method_name == "set_slice":
+                if method_name == "slice_set":
                     if len(expr.arguments) != 3:
                         raise TypeCheckError(f"Expected 3 arguments, got {len(expr.arguments)}", expr.span)
                     start_type = self._infer_expression_type(expr.arguments[0])
@@ -705,7 +705,7 @@ class TypeChecker:
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
             self._require_member_visible(class_info, object_type.name, expr.callee.field_name, "method", expr.span)
 
-            if expr.callee.field_name == "slice":
+            if expr.callee.field_name == "slice_get":
                 return self._resolve_structural_slice_method_result_type(
                     object_type,
                     class_info,
@@ -713,7 +713,7 @@ class TypeChecker:
                     expr.span,
                 )
 
-            if expr.callee.field_name == "set_slice":
+            if expr.callee.field_name == "slice_set":
                 return self._resolve_structural_set_slice_method_result_type(
                     object_type,
                     class_info,
@@ -756,21 +756,21 @@ class TypeChecker:
         index_span: SourceSpan,
         span: SourceSpan,
     ) -> TypeInfo:
-        method_sig = class_info.methods.get("get")
+        method_sig = class_info.methods.get("index_get")
         if method_sig is None:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not indexable (missing method 'get(K)')",
+                f"Type '{object_type.name}' is not indexable (missing method 'index_get(K)')",
                 span,
             )
-        self._require_member_visible(class_info, object_type.name, "get", "method", span)
+        self._require_member_visible(class_info, object_type.name, "index_get", "method", span)
         if method_sig.is_static:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not indexable (method 'get' must be instance method)",
+                f"Type '{object_type.name}' is not indexable (method 'index_get' must be instance method)",
                 span,
             )
         if len(method_sig.params) != 1:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not indexable (method 'get' must take exactly 1 argument)",
+                f"Type '{object_type.name}' is not indexable (method 'index_get' must take exactly 1 argument)",
                 span,
             )
 
@@ -788,28 +788,28 @@ class TypeChecker:
         if class_info is None:
             raise TypeCheckError(f"Type '{object_type.name}' is not index-assignable", span)
 
-        method_sig = class_info.methods.get("set")
+        method_sig = class_info.methods.get("index_set")
         if method_sig is None:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not index-assignable (missing method 'set(K, V)')",
+                f"Type '{object_type.name}' is not index-assignable (missing method 'index_set(K, V)')",
                 span,
             )
-        self._require_member_visible(class_info, object_type.name, "set", "method", span)
+        self._require_member_visible(class_info, object_type.name, "index_set", "method", span)
         if method_sig.is_static:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not index-assignable (method 'set' must be instance method)",
+                f"Type '{object_type.name}' is not index-assignable (method 'index_set' must be instance method)",
                 span,
             )
         if len(method_sig.params) != 2:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not index-assignable (method 'set' must take exactly 2 arguments)",
+                f"Type '{object_type.name}' is not index-assignable (method 'index_set' must take exactly 2 arguments)",
                 span,
             )
 
         qualified_return_type = self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
         if qualified_return_type.name != "unit":
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not index-assignable (method 'set' must return unit)",
+                f"Type '{object_type.name}' is not index-assignable (method 'index_set' must return unit)",
                 span,
             )
 
@@ -840,21 +840,21 @@ class TypeChecker:
         args: list[Expression],
         span: SourceSpan,
     ) -> TypeInfo:
-        method_sig = class_info.methods.get("slice")
+        method_sig = class_info.methods.get("slice_get")
         if method_sig is None:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not sliceable (missing method 'slice(i64, i64)')",
+                f"Type '{object_type.name}' is not sliceable (missing method 'slice_get(i64, i64)')",
                 span,
             )
-        self._require_member_visible(class_info, object_type.name, "slice", "method", span)
+        self._require_member_visible(class_info, object_type.name, "slice_get", "method", span)
         if method_sig.is_static:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not sliceable (method 'slice' must be instance method)",
+                f"Type '{object_type.name}' is not sliceable (method 'slice_get' must be instance method)",
                 span,
             )
         if len(method_sig.params) != 2:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not sliceable (method 'slice' must take exactly 2 arguments)",
+                f"Type '{object_type.name}' is not sliceable (method 'slice_get' must take exactly 2 arguments)",
                 span,
             )
         if len(args) != 2:
@@ -864,7 +864,7 @@ class TypeChecker:
         qualified_end_param = self._qualify_member_type_for_owner(method_sig.params[1], object_type.name)
         if qualified_begin_param.name != "i64" or qualified_end_param.name != "i64":
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not sliceable (method 'slice' parameters must be i64)",
+                f"Type '{object_type.name}' is not sliceable (method 'slice_get' parameters must be i64)",
                 span,
             )
 
@@ -881,21 +881,21 @@ class TypeChecker:
         args: list[Expression],
         span: SourceSpan,
     ) -> TypeInfo:
-        method_sig = class_info.methods.get("set_slice")
+        method_sig = class_info.methods.get("slice_set")
         if method_sig is None:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not slice-assignable (missing method 'set_slice(i64, i64, U)')",
+                f"Type '{object_type.name}' is not slice-assignable (missing method 'slice_set(i64, i64, U)')",
                 span,
             )
-        self._require_member_visible(class_info, object_type.name, "set_slice", "method", span)
+        self._require_member_visible(class_info, object_type.name, "slice_set", "method", span)
         if method_sig.is_static:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not slice-assignable (method 'set_slice' must be instance method)",
+                f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' must be instance method)",
                 span,
             )
         if len(method_sig.params) != 3:
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not slice-assignable (method 'set_slice' must take exactly 3 arguments)",
+                f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' must take exactly 3 arguments)",
                 span,
             )
         if len(args) != 3:
@@ -905,7 +905,7 @@ class TypeChecker:
         qualified_end_param = self._qualify_member_type_for_owner(method_sig.params[1], object_type.name)
         if qualified_begin_param.name != "i64" or qualified_end_param.name != "i64":
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not slice-assignable (method 'set_slice' first two parameters must be i64)",
+                f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' first two parameters must be i64)",
                 span,
             )
 
@@ -921,7 +921,7 @@ class TypeChecker:
         qualified_return_type = self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
         if qualified_return_type.name != "unit":
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not slice-assignable (method 'set_slice' must return unit)",
+                f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' must return unit)",
                 span,
             )
 

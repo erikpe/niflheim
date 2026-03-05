@@ -14,9 +14,9 @@ export fn count_freq(values: Vec) -> Vec {
 
     var i: i64 = 0;
     while i < (i64)values.len() {
-        var key: Obj = values.get(i);
+        var key: Obj = values.index_get(i);
         if freq.contains(key) {
-            var c_obj: Obj = freq.get(key);
+            var c_obj: Obj = freq.index_get(key);
             var c_box: BoxI64 = (BoxI64)c_obj;
             var next: i64 = c_box.val + 1;
             freq.put(key, (Obj)BoxI64(next));

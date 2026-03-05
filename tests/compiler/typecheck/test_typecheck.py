@@ -696,7 +696,7 @@ class MapLike {
         return 0u;
     }
 
-    fn get(key: u64) -> i64 {
+    fn index_get(key: u64) -> i64 {
         return 0;
     }
 }
@@ -865,11 +865,11 @@ class Bag {
         return Bag(i64[](2u));
     }
 
-    fn get(index: i64) -> i64 {
+    fn index_get(index: i64) -> i64 {
         return __self.values[index];
     }
 
-    fn set(index: i64, value: i64) -> unit {
+    fn index_set(index: i64, value: i64) -> unit {
         __self.values[index] = value;
         return;
     }
@@ -894,7 +894,7 @@ class BadBag {
         return BadBag(i64[](1u));
     }
 
-    fn get(index: u64) -> i64 {
+    fn index_get(index: u64) -> i64 {
         return 0;
     }
 }
@@ -915,14 +915,14 @@ class FlagMap {
     yes: i64;
     no: i64;
 
-    fn get(key: bool) -> i64 {
+    fn index_get(key: bool) -> i64 {
         if key {
             return __self.yes;
         }
         return __self.no;
     }
 
-    fn set(key: bool, value: i64) -> unit {
+    fn index_set(key: bool, value: i64) -> unit {
         if key {
             __self.yes = value;
             return;
@@ -947,11 +947,11 @@ def test_typecheck_allows_mismatched_get_and_set_value_types_for_index_sugar() -
 class WeirdStore {
     stored: bool;
 
-    fn get(index: i64) -> bool {
+    fn index_get(index: i64) -> bool {
         return __self.stored;
     }
 
-    fn set(index: i64, value: i64) -> unit {
+    fn index_set(index: i64, value: i64) -> unit {
         __self.stored = value > 0;
     }
 }
@@ -979,7 +979,7 @@ class Window {
         return Window(seed);
     }
 
-    fn slice(begin: i64, end: i64) -> Window {
+    fn slice_get(begin: i64, end: i64) -> Window {
         return Window(__self.values[begin:end]);
     }
 }
@@ -1002,7 +1002,7 @@ class BadWindow {
         return BadWindow(i64[](1u));
     }
 
-    fn slice(begin: u64, end: u64) -> BadWindow {
+    fn slice_get(begin: u64, end: u64) -> BadWindow {
         return __self;
     }
 }
@@ -1013,7 +1013,7 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="slice' parameters must be i64"):
+    with pytest.raises(TypeCheckError, match="slice_get' parameters must be i64"):
         _parse_and_typecheck(source)
 
 
@@ -1034,11 +1034,11 @@ class Window {
         return __self.values.len();
     }
 
-    fn get(index: i64) -> i64 {
+    fn index_get(index: i64) -> i64 {
         return __self.values[index];
     }
 
-    fn set_slice(begin: i64, end: i64, value: Window) -> unit {
+    fn slice_set(begin: i64, end: i64, value: Window) -> unit {
         var i: i64 = 0;
         while begin + i < end {
             __self.values[begin + i] = value.values[i];
@@ -1071,7 +1071,7 @@ class BadWindow {
         return __self.values.len();
     }
 
-    fn set_slice(begin: u64, end: i64, value: BadWindow) -> unit {
+    fn slice_set(begin: u64, end: i64, value: BadWindow) -> unit {
         return;
     }
 }
@@ -1082,7 +1082,7 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="set_slice' first two parameters must be i64"):
+    with pytest.raises(TypeCheckError, match="slice_set' first two parameters must be i64"):
         _parse_and_typecheck(source)
 
 
@@ -1095,7 +1095,7 @@ class HiddenGet {
         return HiddenGet(i64[](1u));
     }
 
-    private fn get(index: i64) -> i64 {
+    private fn index_get(index: i64) -> i64 {
         return __self.values[index];
     }
 }
@@ -1106,7 +1106,7 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Member 'HiddenGet.get' is private"):
+    with pytest.raises(TypeCheckError, match="Member 'HiddenGet.index_get' is private"):
         _parse_and_typecheck(source_get)
 
     source_set = """
@@ -1117,11 +1117,11 @@ class HiddenSet {
         return HiddenSet(i64[](1u));
     }
 
-    fn get(index: i64) -> i64 {
+    fn index_get(index: i64) -> i64 {
         return __self.values[index];
     }
 
-    private fn set(index: i64, value: i64) -> unit {
+    private fn index_set(index: i64, value: i64) -> unit {
         __self.values[index] = value;
         return;
     }
@@ -1133,7 +1133,7 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Member 'HiddenSet.set' is private"):
+    with pytest.raises(TypeCheckError, match="Member 'HiddenSet.index_set' is private"):
         _parse_and_typecheck(source_set)
 
     source_slice = """
@@ -1144,7 +1144,7 @@ class HiddenSlice {
         return HiddenSlice(i64[](2u));
     }
 
-    private fn slice(begin: i64, end: i64) -> HiddenSlice {
+    private fn slice_get(begin: i64, end: i64) -> HiddenSlice {
         return __self;
     }
 }
@@ -1155,14 +1155,14 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Member 'HiddenSlice.slice' is private"):
+    with pytest.raises(TypeCheckError, match="Member 'HiddenSlice.slice_get' is private"):
         _parse_and_typecheck(source_slice)
 
 
 def test_typecheck_str_index_returns_u8() -> None:
     source = """
 class Str {
-    fn get(index: i64) -> u8 {
+    fn index_get(index: i64) -> u8 {
         return 0u8;
     }
 }
@@ -1183,7 +1183,7 @@ class Str {
         return 0u;
     }
 
-    fn slice(begin: i64, end: i64) -> Str {
+    fn slice_get(begin: i64, end: i64) -> Str {
         return __self;
     }
 }
@@ -1203,14 +1203,14 @@ fn main() -> unit {
 def test_typecheck_allows_implicit___self_in_method_body() -> None:
     source = """
 class Str {
-    fn get(index: i64) -> u8 {
+    fn index_get(index: i64) -> u8 {
         return 0u8;
     }
 }
 
 fn main() -> unit {
     var s: Str = "A";
-    var b: u8 = s.get(0);
+    var b: u8 = s.index_get(0);
     return;
 }
 """
@@ -1220,7 +1220,7 @@ fn main() -> unit {
 def test_typecheck_rejects_non_i64_str_index() -> None:
     source = """
 class Str {
-    fn get(index: i64) -> u8 {
+    fn index_get(index: i64) -> u8 {
         return 0u8;
     }
 }
@@ -1238,7 +1238,7 @@ fn main() -> unit {
 def test_typecheck_rejects_assignment_through_str_index() -> None:
     source = """
 class Str {
-    fn get(index: i64) -> u8 {
+    fn index_get(index: i64) -> u8 {
         return 0u8;
     }
 }
@@ -1249,7 +1249,7 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="missing method 'set\\(K, V\\)'"):
+    with pytest.raises(TypeCheckError, match="missing method 'index_set\\(K, V\\)'"):
         _parse_and_typecheck(source)
 
 
@@ -1398,18 +1398,18 @@ class Person {
 fn main() -> unit {
     var nums: u8[] = u8[](4u);
     nums[0] = 1u8;
-    nums.set(1, (u8)2);
+    nums.index_set(1, (u8)2);
     var a: u8 = nums[0];
-    var b: u8 = nums.get(1);
+    var b: u8 = nums.index_get(1);
     var n: u64 = nums.len();
     var part: u8[] = nums[0:2];
     nums[1:3] = part;
 
     var people: Person[] = Person[](2u);
     people[0] = Person(7);
-    people.set(1, null);
-    var p0: Person = people.get(0);
-    var ps: Person[] = people.slice(0, 1);
+    people.index_set(1, null);
+    var p0: Person = people.index_get(0);
+    var ps: Person[] = people.slice_get(0, 1);
     people[0:1] = ps;
     return;
 }
@@ -1472,7 +1472,7 @@ def test_typecheck_rejects_non_i64_array_get_index() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](2u);
-    var x: u8 = nums.get(true);
+    var x: u8 = nums.index_get(true);
     return;
 }
 """
@@ -1484,7 +1484,7 @@ def test_typecheck_rejects_non_i64_array_set_index() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](2u);
-    nums.set(true, (u8)1);
+    nums.index_set(true, (u8)1);
     return;
 }
 """
@@ -1496,7 +1496,7 @@ def test_typecheck_rejects_non_i64_array_slice_end() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](2u);
-    var s: u8[] = nums.slice(0, true);
+    var s: u8[] = nums.slice_get(0, true);
     return;
 }
 """
@@ -1520,7 +1520,7 @@ def test_typecheck_rejects_array_get_missing_index_argument() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](3u);
-    var x: u8 = nums.get();
+    var x: u8 = nums.index_get();
     return;
 }
 """
@@ -1532,7 +1532,7 @@ def test_typecheck_rejects_array_set_missing_value_argument() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](3u);
-    nums.set(0);
+    nums.index_set(0);
     return;
 }
 """
@@ -1544,7 +1544,7 @@ def test_typecheck_rejects_array_slice_missing_end_argument() -> None:
     source = """
 fn main() -> unit {
     var nums: u8[] = u8[](3u);
-    var s: u8[] = nums.slice(0);
+    var s: u8[] = nums.slice_get(0);
     return;
 }
 """

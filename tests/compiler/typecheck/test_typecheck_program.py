@@ -149,16 +149,16 @@ def test_typecheck_program_allows_imported_std_vec_with_index_and_slice_sugar(tm
                 return 4;
             }
 
-            fn get(index: i64) -> Obj {
+            fn index_get(index: i64) -> Obj {
                 return __self.values[index];
             }
 
-            fn set(index: i64, value: Obj) -> unit {
+            fn index_set(index: i64, value: Obj) -> unit {
                 __self.values[index] = value;
                 return;
             }
 
-            fn slice(begin: i64, end: i64) -> Vec {
+            fn slice_get(begin: i64, end: i64) -> Vec {
                 return __self;
             }
         }
@@ -526,7 +526,7 @@ def test_typecheck_program_allows_array_types_for_unqualified_and_qualified_impo
             var a: Counter[] = Counter[](2u);
             var b: util.Counter[] = a;
             b[0] = util.Counter(1);
-            var x: util.Counter = b.get(0);
+            var x: util.Counter = b.index_get(0);
             return;
         }
         """,

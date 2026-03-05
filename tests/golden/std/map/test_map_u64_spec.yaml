@@ -3,6 +3,6 @@ runs:
   - { name: overwrite_same_key, input: { stdin: "2" }, expect: { exit_code: 0 } }
   - { name: growth_and_probe_chains, input: { stdin: "3" }, expect: { exit_code: 0 } }
   - { name: index_sugar_write_and_read, input: { stdin: "4" }, expect: { exit_code: 0 } }
-  - { name: get_missing_panics, input: { stdin: "5" }, expect: { panic: "MapU64.get: key not found" } }
+  - { name: get_missing_panics, input: { stdin: "5" }, expect: { panic: "MapU64.index_get: key not found" } }
   - { name: large_insert_then_overwrite_all, input: { stdin: "6" }, expect: { exit_code: 0 } }
   - { name: collision_cluster_same_bucket, input: { stdin: "7" }, expect: { exit_code: 0 } }

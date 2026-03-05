@@ -12,12 +12,12 @@ fn test_primitive_smoke() -> unit {
     assert(bytes.len() == 3u);
     assert(bytes[0] == (u8)0);
     bytes[1] = (u8)17;
-    assert(bytes.get(1) == (u8)17);
+    assert(bytes.index_get(1) == (u8)17);
 
     var nums: i64[] = i64[](2u);
     assert(nums.len() == 2u);
     assert(nums[0] == 0);
-    nums.set(1, -9);
+    nums.index_set(1, -9);
     assert(nums[1] == -9);
 }
 
@@ -71,25 +71,25 @@ fn test_set_slice_write_behavior() -> unit {
 
 fn test_get_oob_panics() -> unit {
     var arr: u8[] = u8[](1u);
-    arr.get(1);
+    arr.index_get(1);
 }
 
 
 fn test_set_oob_panics() -> unit {
     var arr: u8[] = u8[](1u);
-    arr.set(1, (u8)1);
+    arr.index_set(1, (u8)1);
 }
 
 
 fn test_slice_oob_panics() -> unit {
     var arr: u8[] = u8[](1u);
-    arr.slice(0, 2);
+    arr.slice_get(0, 2);
 }
 
 
 fn test_negative_index_panics() -> unit {
     var arr: u8[] = u8[](1u);
-    arr.get(-1);
+    arr.index_get(-1);
 }
 
 

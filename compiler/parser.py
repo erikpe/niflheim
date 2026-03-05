@@ -562,14 +562,14 @@ class Parser:
             return None
         if not isinstance(expr.callee, FieldAccessExpr):
             return None
-        if expr.callee.field_name != "slice":
+        if expr.callee.field_name != "slice_get":
             return None
         if len(expr.arguments) != 2:
             return None
 
         set_slice_callee = FieldAccessExpr(
             object_expr=expr.callee.object_expr,
-            field_name="set_slice",
+            field_name="slice_set",
             span=expr.callee.span,
         )
         set_slice_call = CallExpr(
@@ -851,7 +851,7 @@ class Parser:
 
         slice_field = FieldAccessExpr(
             object_expr=object_expr,
-            field_name="slice",
+            field_name="slice_get",
             span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
         )
         return CallExpr(

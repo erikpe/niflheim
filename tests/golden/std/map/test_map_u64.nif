@@ -16,8 +16,8 @@ fn test_put_get_contains() -> unit {
     assert(m.contains(20u));
     assert(!m.contains(30u));
 
-    assert(((BoxI64)m.get(10u)).val == 111);
-    assert(((BoxI64)m.get(20u)).val == 222);
+    assert(((BoxI64)m.index_get(10u)).val == 111);
+    assert(((BoxI64)m.index_get(20u)).val == 222);
 }
 
 
@@ -28,7 +28,7 @@ fn test_overwrite_same_key() -> unit {
 
     assert(m.len() == 1u);
     assert(m.contains(7u));
-    assert(((BoxI64)m.get(7u)).val == 9);
+    assert(((BoxI64)m.index_get(7u)).val == 9);
 }
 
 
@@ -48,7 +48,7 @@ fn test_growth_and_probe_chains() -> unit {
     while i < 80u {
         var key: u64 = i * 17u + 3u;
         assert(m.contains(key));
-        assert(((BoxU64)m.get(key)).val == i);
+        assert(((BoxU64)m.index_get(key)).val == i);
         i = i + 1u;
     }
 }
@@ -68,7 +68,7 @@ fn test_index_sugar_write_and_read() -> unit {
 
 fn test_get_missing_panics() -> unit {
     var m: MapU64 = MapU64.new();
-    var v: Obj = m.get(999u);
+    var v: Obj = m.index_get(999u);
 }
 
 
@@ -88,7 +88,7 @@ fn test_large_insert_then_overwrite_all() -> unit {
     while i < 512u {
         var key: u64 = i * 131u + 17u;
         assert(m.contains(key));
-        assert(((BoxU64)m.get(key)).val == i);
+        assert(((BoxU64)m.index_get(key)).val == i);
         i = i + 1u;
     }
 
@@ -104,7 +104,7 @@ fn test_large_insert_then_overwrite_all() -> unit {
     i = 0u;
     while i < 512u {
         var key: u64 = i * 131u + 17u;
-        assert(((BoxU64)m.get(key)).val == i + 1000u);
+        assert(((BoxU64)m.index_get(key)).val == i + 1000u);
         i = i + 1u;
     }
 }
@@ -120,15 +120,15 @@ fn test_collision_cluster_same_bucket() -> unit {
     m.put(33u, BoxI64(50));
 
     assert(m.len() == 5u);
-    assert(((BoxI64)m.get(1u)).val == 10);
-    assert(((BoxI64)m.get(9u)).val == 20);
-    assert(((BoxI64)m.get(17u)).val == 30);
-    assert(((BoxI64)m.get(25u)).val == 40);
-    assert(((BoxI64)m.get(33u)).val == 50);
+    assert(((BoxI64)m.index_get(1u)).val == 10);
+    assert(((BoxI64)m.index_get(9u)).val == 20);
+    assert(((BoxI64)m.index_get(17u)).val == 30);
+    assert(((BoxI64)m.index_get(25u)).val == 40);
+    assert(((BoxI64)m.index_get(33u)).val == 50);
 
     m.put(17u, BoxI64(300));
     assert(m.len() == 5u);
-    assert(((BoxI64)m.get(17u)).val == 300);
+    assert(((BoxI64)m.index_get(17u)).val == 300);
     assert(!m.contains(41u));
 }
 

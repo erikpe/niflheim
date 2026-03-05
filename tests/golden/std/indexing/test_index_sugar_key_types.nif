@@ -4,14 +4,14 @@ class FlagMap {
     yes: i64;
     no: i64;
 
-    fn get(key: bool) -> i64 {
+    fn index_get(key: bool) -> i64 {
         if key {
             return __self.yes;
         }
         return __self.no;
     }
 
-    fn set(key: bool, value: i64) -> unit {
+    fn index_set(key: bool, value: i64) -> unit {
         if key {
             __self.yes = value;
             return;
@@ -23,11 +23,11 @@ class FlagMap {
 class WeirdStore {
     stored: bool;
 
-    fn get(index: i64) -> bool {
+    fn index_get(index: i64) -> bool {
         return __self.stored;
     }
 
-    fn set(index: i64, value: i64) -> unit {
+    fn index_set(index: i64, value: i64) -> unit {
         __self.stored = value > 0;
     }
 }
@@ -35,14 +35,14 @@ class WeirdStore {
 class SplitKey {
     value: i64;
 
-    fn get(flag: bool) -> i64 {
+    fn index_get(flag: bool) -> i64 {
         if flag {
             return __self.value;
         }
         return 0;
     }
 
-    fn set(index: i64, value: i64) -> unit {
+    fn index_set(index: i64, value: i64) -> unit {
         if index == 0 {
             __self.value = value;
         }
@@ -52,7 +52,7 @@ class SplitKey {
 class ReadOnlyIndex {
     value: i64;
 
-    fn get(index: i64) -> i64 {
+    fn index_get(index: i64) -> i64 {
         if index == 0 {
             return __self.value;
         }
@@ -63,7 +63,7 @@ class ReadOnlyIndex {
 class WriteOnlyIndex {
     value: i64;
 
-    fn set(index: i64, value: i64) -> unit {
+    fn index_set(index: i64, value: i64) -> unit {
         if index == 0 {
             __self.value = value;
         }
@@ -89,11 +89,11 @@ class SliceWindow {
         return __self.values.len();
     }
 
-    fn get(index: i64) -> i64 {
+    fn index_get(index: i64) -> i64 {
         return __self.values[index];
     }
 
-    fn set_slice(begin: i64, end: i64, value: SliceWindow) -> unit {
+    fn slice_set(begin: i64, end: i64, value: SliceWindow) -> unit {
         var i: i64 = 0;
         while begin + i < end {
             __self.values[begin + i] = value.values[i];
@@ -105,11 +105,11 @@ class SliceWindow {
 class SliceBoolFlag {
     value: bool;
 
-    fn set_slice(begin: i64, end: i64, value: bool) -> unit {
+    fn slice_set(begin: i64, end: i64, value: bool) -> unit {
         __self.value = value;
     }
 
-    fn get() -> bool {
+    fn index_get() -> bool {
         return __self.value;
     }
 }
@@ -150,9 +150,9 @@ fn main() -> i64 {
 
     var sb: SliceBoolFlag = SliceBoolFlag(false);
     sb[0:0] = true;
-    assert(sb.get() == true);
+    assert(sb.index_get() == true);
     sb[1:2] = false;
-    assert(sb.get() == false);
+    assert(sb.index_get() == false);
 
     return 0;
 }

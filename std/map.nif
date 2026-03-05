@@ -28,10 +28,10 @@ export class MapU64
         return __self._find_existing_index(key) >= 0;
     }
 
-    fn get(key: u64) -> Obj {
+    fn index_get(key: u64) -> Obj {
         var index: i64 = __self._find_existing_index(key);
         if index < 0 {
-            panic("MapU64.get: key not found");
+            panic("MapU64.index_get: key not found");
         }
         return __self._values[index];
     }
@@ -43,7 +43,7 @@ export class MapU64
         }
     }
 
-    fn set(key: u64, value: Obj) -> unit {
+    fn index_set(key: u64, value: Obj) -> unit {
         __self.put(key, value);
     }
 

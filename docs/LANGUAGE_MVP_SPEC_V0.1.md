@@ -153,7 +153,7 @@ Constructor visibility details (implicit constructor in v0.1):
 - Baseline operations: `len`, `push`, `get`, `set`.
 - `len() -> u64`.
 - `with_capacity(capacity: u64) -> Vec`.
-- Index and slice parameters are signed: `get(index: i64)`, `set(index: i64, value: Obj)`, `slice(begin: i64, end: i64)`.
+- Index and slice parameters are signed: `index_get(index: i64)`, `index_set(index: i64, value: Obj)`, `slice_get(begin: i64, end: i64)`.
 
 ### 5.3 Map
 
@@ -188,10 +188,10 @@ These are specialization/performance features and should not change core semanti
   - Reference/class element type: `null`.
 - Baseline operations:
   - `arr.len() -> u64`
-  - `arr.get(index) -> T`, alias `arr[index]`
-  - `arr.set(index, value) -> unit`, alias `arr[index] = value`
-  - `arr.slice(start, end) -> T[]`, alias `arr[start:end]`
-  - `arr.set_slice(start, end, value: T[]) -> unit`, alias `arr[start:end] = value`
+  - `arr.index_get(index) -> T`, alias `arr[index]`
+  - `arr.index_set(index, value) -> unit`, alias `arr[index] = value`
+  - `arr.slice_get(start, end) -> T[]`, alias `arr[start:end]`
+  - `arr.slice_set(start, end, value: T[]) -> unit`, alias `arr[start:end] = value`
 - Bounds violations panic and abort.
 - `slice` semantics in v0.1: copying slice (new array allocation).
 - Array assignability policy in v0.1: invariant (`A[]` is assignable only to `A[]`, except `null` to reference arrays).
@@ -212,11 +212,11 @@ To support stdlib-first container implementations and avoid hard-coded container
 
 Indexing/slicing protocol:
 
-- `x[i]` is equivalent to `x.get(i)`
-- `x[i] = v` is equivalent to `x.set(i, v)`
-- `x[a:b]` is equivalent to `x.slice(a, b)`
-- `x[a:b] = v` is equivalent to `x.set_slice(a, b, v)`
-- Structural method shape: `get(K) -> R`, `set(K, W) -> unit`, `slice(i64, i64) -> U`, `set_slice(i64, i64, U) -> unit`
+- `x[i]` is equivalent to `x.index_get(i)`
+- `x[i] = v` is equivalent to `x.index_set(i, v)`
+- `x[a:b]` is equivalent to `x.slice_get(a, b)`
+- `x[a:b] = v` is equivalent to `x.slice_set(a, b, v)`
+- Structural method shape: `index_get(K) -> R`, `index_set(K, W) -> unit`, `slice_get(i64, i64) -> U`, `slice_set(i64, i64, U) -> unit`
 - `K` is method-signature driven (not hard-coded to `i64`)
 
 For-in iteration protocol (planned lowering target):
@@ -227,9 +227,9 @@ For-in iteration protocol (planned lowering target):
 
 Design lock-in note:
 
-- `get(K)` remains key/index-agnostic for indexing sugar.
+- `index_get(K)` remains key/index-agnostic for indexing sugar.
 - `for ... in` does not use `get`; it requires `iter_len/iter_get(i64)` specifically.
-- This prevents key-based maps (for example `get(u64)` for lookup) from becoming accidentally iterable via for-sugar.
+- This prevents key-based maps (for example `index_get(u64)` for lookup) from becoming accidentally iterable via for-sugar.
 
 ---
 

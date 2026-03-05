@@ -65,28 +65,28 @@ export class Vec
         __self._len = __self._len + 1u;
     }
 
-    fn get(index: i64) -> Obj {
+    fn index_get(index: i64) -> Obj {
         index = __self._normalize_index(index);
         if index < 0 || index >= (i64)__self._len {
-            panic("Vec.get: index out of bounds");
+            panic("Vec.index_get: index out of bounds");
         }
         return __self._storage[index];
     }
 
-    fn set(index: i64, value: Obj) -> unit {
+    fn index_set(index: i64, value: Obj) -> unit {
         index = __self._normalize_index(index);
         if index < 0 || index >= (i64)__self._len {
-            panic("Vec.set: index out of bounds");
+            panic("Vec.index_set: index out of bounds");
         }
         __self._storage[index] = value;
     }
 
-    fn slice(begin: i64, end: i64) -> Vec {
+    fn slice_get(begin: i64, end: i64) -> Vec {
         begin = __self._normalize_index(begin);
         end = __self._normalize_index(end);
 
         if begin < 0 || end < begin || (u64)end > __self._len {
-            panic("Vec.slice: invalid slice range");
+            panic("Vec.slice_get: invalid slice range");
         }
 
         var out_len: i64 = end - begin;
@@ -96,17 +96,17 @@ export class Vec
         return out;
     }
 
-    fn set_slice(begin: i64, end: i64, value: Vec) -> unit {
+    fn slice_set(begin: i64, end: i64, value: Vec) -> unit {
         begin = __self._normalize_index(begin);
         end = __self._normalize_index(end);
 
         if begin < 0 || end < begin || (u64)end > __self._len {
-            panic("Vec.set_slice: invalid slice range");
+            panic("Vec.slice_set: invalid slice range");
         }
 
         var target_len: u64 = (u64)(end - begin);
         if value.len() != target_len {
-            panic("Vec.set_slice: length mismatch");
+            panic("Vec.slice_set: length mismatch");
         }
 
         __self._storage[begin:end] = value._storage[0:(i64)value._len];

@@ -8,7 +8,7 @@ Accepted (locked direction for sugaring protocols).
 
 Niflheim already has sugar forms (`[]`, `[:]`, index assignment) and structural lowering behavior for container-like types. We also want a future `for elem in collection { ... }` sugar without introducing hard-coded container names.
 
-Some types (for example maps) intentionally use `get(key)` where the argument is a key, not a positional index. Reusing the same method contract for both indexing sugar and iteration sugar would create ambiguity and accidental eligibility.
+Some types (for example maps) intentionally use `index_get(key)` where the argument is a key, not a positional index. Reusing the same method contract for both indexing sugar and iteration sugar would create ambiguity and accidental eligibility.
 
 ## Decision
 
@@ -18,17 +18,17 @@ Adopt two distinct structural sugar protocols.
 
 Canonical lowering:
 
-- `obj[index]` -> `obj.get(index)`
-- `obj[index] = value` -> `obj.set(index, value)`
-- `obj[begin:end]` -> `obj.slice(begin, end)`
-- `obj[begin:end] = value` -> `obj.set_slice(begin, end, value)`
+- `obj[index]` -> `obj.index_get(index)`
+- `obj[index] = value` -> `obj.index_set(index, value)`
+- `obj[begin:end]` -> `obj.slice_get(begin, end)`
+- `obj[begin:end] = value` -> `obj.slice_set(begin, end, value)`
 
 Structural eligibility:
 
-- `get(K) -> R`
-- `set(K, W) -> unit`
-- `slice(i64, i64) -> U`
-- `set_slice(i64, i64, U) -> unit`
+- `index_get(K) -> R`
+- `index_set(K, W) -> unit`
+- `slice_get(i64, i64) -> U`
+- `slice_set(i64, i64, U) -> unit`
 
 Notes:
 
@@ -66,7 +66,7 @@ Notes:
 
 - `T` is inferred from `iter_get(i64)` return type.
 - This protocol is intentionally distinct from indexing sugar.
-- A type with `get(K)` (for example map key lookup) is not automatically iterable by `for ... in` unless it also defines `iter_len`/`iter_get(i64)`.
+- A type with non-iteration lookup methods (for example map key lookup) is not automatically iterable by `for ... in` unless it also defines `iter_len`/`iter_get(i64)`.
 
 ## Consequences
 
@@ -84,7 +84,7 @@ Notes:
 
 ## Migration Guidance
 
-1. Keep existing indexing/slicing lowering on `get/set/slice/set_slice`.
+1. Keep indexing/slicing lowering on `index_get/index_set/slice_get/slice_set`.
 2. Implement `for ... in` lowering only against `iter_len/iter_get(i64)`.
 3. Ensure parser/typechecker/codegen diagnostics mention the specific missing protocol methods.
 4. Add tests for both positive and negative eligibility (especially map-like key-based `get`).
@@ -93,4 +93,4 @@ Notes:
 
 - Immediate implementation of all future sugar forms.
 - Generic container/typeclass features.
-- Implicitly treating `get(i64)` as iteration protocol without explicit `iter_*` methods.
+- Implicitly treating `index_get(i64)` as iteration protocol without explicit `iter_*` methods.

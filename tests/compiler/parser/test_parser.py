@@ -515,7 +515,7 @@ def test_parse_expression_slice_full_bounds_desugars_to_slice_call() -> None:
 
     assert isinstance(expr, CallExpr)
     assert isinstance(expr.callee, FieldAccessExpr)
-    assert expr.callee.field_name == "slice"
+    assert expr.callee.field_name == "slice_get"
     assert isinstance(expr.callee.object_expr, IdentifierExpr)
     assert expr.callee.object_expr.name == "v"
     assert len(expr.arguments) == 2
@@ -530,7 +530,7 @@ def test_parse_expression_slice_from_start_desugars_to_zero_begin() -> None:
 
     assert isinstance(expr, CallExpr)
     assert isinstance(expr.callee, FieldAccessExpr)
-    assert expr.callee.field_name == "slice"
+    assert expr.callee.field_name == "slice_get"
     assert len(expr.arguments) == 2
     assert isinstance(expr.arguments[0], LiteralExpr)
     assert expr.arguments[0].value == "0"
@@ -543,7 +543,7 @@ def test_parse_expression_slice_to_end_desugars_to_casted_len_call() -> None:
 
     assert isinstance(expr, CallExpr)
     assert isinstance(expr.callee, FieldAccessExpr)
-    assert expr.callee.field_name == "slice"
+    assert expr.callee.field_name == "slice_get"
     assert len(expr.arguments) == 2
     assert isinstance(expr.arguments[0], LiteralExpr)
     assert expr.arguments[0].value == "4"
@@ -559,7 +559,7 @@ def test_parse_expression_slice_full_omission_desugars_to_zero_and_casted_len() 
 
     assert isinstance(expr, CallExpr)
     assert isinstance(expr.callee, FieldAccessExpr)
-    assert expr.callee.field_name == "slice"
+    assert expr.callee.field_name == "slice_get"
     assert len(expr.arguments) == 2
     assert isinstance(expr.arguments[0], LiteralExpr)
     assert expr.arguments[0].value == "0"
@@ -584,7 +584,7 @@ fn main() -> unit {
     assert isinstance(stmt, ExprStmt)
     assert isinstance(stmt.expression, CallExpr)
     assert isinstance(stmt.expression.callee, FieldAccessExpr)
-    assert stmt.expression.callee.field_name == "set_slice"
+    assert stmt.expression.callee.field_name == "slice_set"
     assert len(stmt.expression.arguments) == 3
     assert isinstance(stmt.expression.arguments[0], LiteralExpr)
     assert stmt.expression.arguments[0].value == "1"
