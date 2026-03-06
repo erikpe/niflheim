@@ -33,6 +33,7 @@ class ClassInfo:
     name: str
     fields: dict[str, TypeInfo]
     field_order: list[str]
+    constructor_param_order: list[str]
     methods: dict[str, FunctionSig]
     private_fields: set[str]
     final_fields: set[str]

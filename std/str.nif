@@ -4,7 +4,9 @@ import std.vec;
 
 export class Str
 {
-    private _bytes: u8[];
+    private final _bytes: u8[];
+    private _hash_cached: bool = false;
+    private _hash_code: u64 = 0u;
 
     static fn from_u8_array(value: u8[]) -> Str {
         return Str(value[:]);
@@ -123,6 +125,10 @@ export class Str
     }
 
     fn hash_code() -> u64 {
+        if __self._hash_cached {
+            return __self._hash_code;
+        }
+
         var hash: u64 = 14695981039346656037u;
         var i: u64 = 0u;
         var length: u64 = __self.len();
@@ -133,7 +139,9 @@ export class Str
             i = i + 1u;
         }
 
-        return hash;
+        __self._hash_code = hash;
+        __self._hash_cached = true;
+        return __self._hash_code;
     }
 
     fn equals(other: Obj) -> bool {

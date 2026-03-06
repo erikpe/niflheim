@@ -3,6 +3,7 @@
     {
       "fields": [
         {
+          "initializer": null,
           "is_final": false,
           "is_private": false,
           "name": "x",
@@ -13,6 +14,7 @@
           }
         },
         {
+          "initializer": null,
           "is_final": false,
           "is_private": false,
           "name": "y",

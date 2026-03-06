@@ -1630,6 +1630,55 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_constructor_omits_default_initialized_fields_from_params() -> None:
+    source = """
+class Counter {
+    value: i64;
+    cached: bool = false;
+}
+
+fn main() -> unit {
+    var c: Counter = Counter(7);
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_constructor_call_including_defaulted_field_argument() -> None:
+    source = """
+class Counter {
+    value: i64;
+    cached: bool = false;
+}
+
+fn main() -> unit {
+    var c: Counter = Counter(7, true);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expected 1 arguments, got 2"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_non_constant_class_field_initializer() -> None:
+    source = """
+fn seed() -> i64 {
+    return 1;
+}
+
+class Counter {
+    value: i64 = seed();
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Class field initializer must be a constant expression in MVP"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_unknown_array_member_access() -> None:
     source = """
 fn main() -> unit {

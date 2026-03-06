@@ -83,6 +83,7 @@ class TypeChecker:
                 name=class_decl.name,
                 fields={},
                 field_order=[],
+                constructor_param_order=[],
                 methods={},
                 private_fields=set(),
                 final_fields=set(),
@@ -93,10 +94,17 @@ class TypeChecker:
         for class_decl in self.module_ast.classes:
             fields: dict[str, TypeInfo] = {}
             field_order: list[str] = []
+            constructor_param_order: list[str] = []
             for field_decl in class_decl.fields:
                 if field_decl.name in fields:
                     raise TypeCheckError(f"Duplicate field '{field_decl.name}'", field_decl.span)
                 field_type = self._resolve_type_ref(field_decl.type_ref)
+                if field_decl.initializer is not None:
+                    self._check_field_initializer_expr(field_decl.initializer)
+                    init_type = self._infer_expression_type(field_decl.initializer)
+                    self._require_assignable(field_type, init_type, field_decl.initializer.span)
+                else:
+                    constructor_param_order.append(field_decl.name)
                 fields[field_decl.name] = field_type
                 field_order.append(field_decl.name)
 
@@ -114,6 +122,7 @@ class TypeChecker:
                 name=class_decl.name,
                 fields=fields,
                 field_order=field_order,
+                constructor_param_order=constructor_param_order,
                 methods=methods,
                 private_fields=private_fields,
                 final_fields=final_fields,
@@ -129,6 +138,24 @@ class TypeChecker:
             if fn_decl.name in self.functions or fn_decl.name in self.classes:
                 raise TypeCheckError(f"Duplicate declaration '{fn_decl.name}'", fn_decl.span)
             self.functions[fn_decl.name] = self._function_sig_from_decl(fn_decl)
+
+    def _check_field_initializer_expr(self, expr: Expression) -> None:
+        if isinstance(expr, (LiteralExpr, NullExpr)):
+            return
+        if isinstance(expr, UnaryExpr):
+            self._check_field_initializer_expr(expr.operand)
+            return
+        if isinstance(expr, BinaryExpr):
+            self._check_field_initializer_expr(expr.left)
+            self._check_field_initializer_expr(expr.right)
+            return
+        if isinstance(expr, CastExpr):
+            self._check_field_initializer_expr(expr.operand)
+            return
+        raise TypeCheckError(
+            "Class field initializer must be a constant expression in MVP",
+            expr.span,
+        )
 
     def _function_sig_from_decl(self, decl: FunctionDecl | MethodDecl) -> FunctionSig:
         params = [self._resolve_type_ref(param.type_ref) for param in decl.params]
@@ -1033,7 +1060,7 @@ class TypeChecker:
             if self.current_private_owner_type != owner_canonical:
                 raise TypeCheckError(f"Constructor for class '{class_info.name}' is private", span)
 
-        ctor_params = [class_info.fields[field_name] for field_name in class_info.field_order]
+        ctor_params = [class_info.fields[field_name] for field_name in class_info.constructor_param_order]
         self._check_call_arguments(ctor_params, args, span)
         return result_type
 

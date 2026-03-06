@@ -279,11 +279,15 @@ class Parser:
         name = self.stream.expect(TokenKind.IDENT, "Expected field name")
         self.stream.expect(TokenKind.COLON, "Expected ':' after field name")
         type_ref = self._parse_type_ref()
+        initializer: Expression | None = None
+        if self.stream.match(TokenKind.ASSIGN):
+            initializer = self._parse_expression()
         semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after field declaration")
         start = start_token.span.start if start_token is not None else name.span.start
         return FieldDecl(
             name=name.lexeme,
             type_ref=type_ref,
+            initializer=initializer,
             is_private=is_private,
             is_final=is_final,
             span=SourceSpan(start=start, end=semicolon.span.end),

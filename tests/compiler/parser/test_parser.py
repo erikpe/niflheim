@@ -686,6 +686,21 @@ class Predicates {
     assert isinstance(cls.fields[1].type_ref, FunctionTypeRef)
 
 
+def test_parse_class_field_default_initializer() -> None:
+    source = """
+class Counter {
+    value: i64 = 0;
+    done: bool = false;
+}
+"""
+    module = parse(lex(source, source_path="examples/field_defaults.nif"))
+    cls = module.classes[0]
+    assert isinstance(cls.fields[0].initializer, LiteralExpr)
+    assert cls.fields[0].initializer.value == "0"
+    assert isinstance(cls.fields[1].initializer, LiteralExpr)
+    assert cls.fields[1].initializer.value == "false"
+
+
 def test_parse_nested_function_type_in_param_position() -> None:
     source = """
 fn compose(

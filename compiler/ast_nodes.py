@@ -45,6 +45,7 @@ class ImportDecl:
 class FieldDecl:
     name: str
     type_ref: TypeRefNode
+    initializer: "Expression | None"
     is_private: bool
     is_final: bool
     span: SourceSpan

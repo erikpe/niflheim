@@ -684,12 +684,23 @@ def _constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDec
     params = [
         ParamDecl(name=field.name, type_ref=field.type_ref, span=field.span)
         for field in class_decl.fields
+        if field.initializer is None
     ]
     return FunctionDecl(
         name=label,
         params=params,
         return_type=TypeRef(name=class_decl.name, span=class_decl.span),
-        body=BlockStmt(statements=[], span=class_decl.span),
+        body=BlockStmt(
+            statements=[
+                VarDeclStmt(
+                    name="__nif_ctor_obj",
+                    type_ref=TypeRef(name=class_decl.name, span=class_decl.span),
+                    initializer=None,
+                    span=class_decl.span,
+                )
+            ],
+            span=class_decl.span,
+        ),
         is_export=False,
         is_extern=False,
         span=class_decl.span,
@@ -761,6 +772,7 @@ class CodeGenerator:
                 type_symbol=_mangle_type_symbol(cls.name),
                 payload_bytes=len(cls.fields) * 8,
                 field_names=[field.name for field in cls.fields],
+                param_field_names=[field.name for field in cls.fields if field.initializer is None],
             )
             self.constructor_layouts[cls.name] = ctor_layout
             self.constructor_labels[cls.name] = ctor_label
@@ -1841,11 +1853,37 @@ class CodeGenerator:
             phase="after",
             label_counter=label_counter,
         )
+        self.out.append(f"    mov {_offset_operand(layout.slot_offsets['__nif_ctor_obj'])}, rax")
+
+        emit_ctx = EmitContext(
+            layout=layout,
+            fn_name=target_label,
+            label_counter=label_counter,
+            method_labels=self.method_labels,
+            method_return_types=self.method_return_types,
+            method_is_static=self.method_is_static,
+            constructor_labels=self.constructor_labels,
+            function_return_types=self.function_return_types,
+            string_literal_labels=self.string_literal_labels,
+            class_field_type_names=self.class_field_type_names,
+        )
+
+        param_fields = set(ctor_layout.param_field_names)
+        field_decl_by_name = {field.name: field for field in cls.fields}
 
         for field_index, field_name in enumerate(ctor_layout.field_names):
             field_offset = 24 + (8 * field_index)
-            value_offset = layout.slot_offsets[field_name]
-            self.out.append(f"    mov rcx, {_offset_operand(value_offset)}")
+            field_decl = field_decl_by_name[field_name]
+            if field_name in param_fields:
+                value_offset = layout.slot_offsets[field_name]
+                self.out.append(f"    mov rcx, {_offset_operand(value_offset)}")
+            else:
+                if field_decl.initializer is None:
+                    raise NotImplementedError("constructor default initializer missing")
+                self._emit_expr(field_decl.initializer, emit_ctx)
+                self.out.append("    mov rcx, rax")
+
+            self.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets['__nif_ctor_obj'])}")
             self.out.append(f"    mov qword ptr [rax + {field_offset}], rcx")
 
         self.out.append(f"    jmp {epilogue}")

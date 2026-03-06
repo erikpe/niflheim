@@ -1,0 +1,77 @@
+import std.io;
+
+class Point {
+    x: i64;
+    y: i64 = 10;
+    z: i64 = -3;
+}
+
+class Mixed {
+    a: i64;
+    b: bool = false;
+    c: u64;
+    d: u8 = (u8)(1 + 2);
+}
+
+class Flags {
+    on: bool = true;
+    off: bool = false;
+}
+
+class WithCastDefaults {
+    u: u64 = (u64)(1 + 2);
+    i: i64 = -5;
+    b: bool = !false;
+}
+
+fn test_defaults_applied() -> i64 {
+    var p: Point = Point(7);
+    if p.x != 7 { return 1; }
+    if p.y != 10 { return 2; }
+    if p.z != -3 { return 3; }
+    return 0;
+}
+
+fn test_only_required_ctor_args() -> i64 {
+    var m: Mixed = Mixed(4, 9u);
+    if m.a != 4 { return 4; }
+    if m.b { return 5; }
+    if m.c != 9u { return 6; }
+    if m.d != 3u8 { return 7; }
+    return 0;
+}
+
+fn test_multiple_instances_keep_defaults() -> i64 {
+    var p1: Point = Point(1);
+    var p2: Point = Point(2);
+    if p1.y != 10 || p2.y != 10 { return 8; }
+    if p1.z != -3 || p2.z != -3 { return 9; }
+    return 0;
+}
+
+fn test_bool_defaults() -> i64 {
+    var f: Flags = Flags();
+    if !f.on { return 10; }
+    if f.off { return 11; }
+    return 0;
+}
+
+fn test_cast_and_expression_defaults() -> i64 {
+    var w: WithCastDefaults = WithCastDefaults();
+    if w.u != 3u { return 12; }
+    if w.i != -5 { return 13; }
+    if !w.b { return 14; }
+    return 0;
+}
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { return test_defaults_applied(); }
+    if select == 2u { return test_only_required_ctor_args(); }
+    if select == 3u { return test_multiple_instances_keep_defaults(); }
+    if select == 4u { return test_bool_defaults(); }
+    if select == 5u { return test_cast_and_expression_defaults(); }
+
+    return 15;
+}
