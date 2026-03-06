@@ -16,28 +16,28 @@ Use this checklist to implement first-class function values without closures.
 
 ## 2) Lexer and Grammar
 
-- [ ] Keep `fn` keyword behavior unchanged for declarations.
-- [ ] Extend type grammar to parse function types in type positions.
-- [ ] Ensure function type parsing composes with array types only if explicitly allowed by design.
-- [ ] Add/refresh EBNF in `compiler/grammar/niflheim_v0_1.ebnf`.
+- [x] Keep `fn` keyword behavior unchanged for declarations.
+- [x] Extend type grammar to parse function types in type positions.
+- [x] Ensure function type parsing composes with array types only if explicitly allowed by design.
+- [x] Add/refresh EBNF in `compiler/grammar/niflheim_v0_1.ebnf`.
 
 ## 3) AST and Type Model
 
-- [ ] Add function type node to AST type references.
-- [ ] Add corresponding `TypeInfo` shape for function signatures.
+- [x] Add function type node to AST type references.
+- [x] Add corresponding `TypeInfo` shape for function signatures.
 - [ ] Add canonical function-type string or structural identity representation.
 
 ## 4) Parser
 
-- [ ] Parse `fn(...) -> ...` in all type annotation contexts:
+- [x] Parse `fn(...) -> ...` in all type annotation contexts:
   - var declarations
   - params
   - return types
   - fields
-- [ ] Keep declaration parsing unambiguous:
+- [x] Keep declaration parsing unambiguous:
   - declaration form remains `fn name(...) -> ... { ... }`
   - type form remains `fn(...) -> ...`
-- [ ] Add negative parse diagnostics for malformed function types.
+- [x] Add negative parse diagnostics for malformed function types.
 
 ## 5) Resolver and Symbol Binding
 

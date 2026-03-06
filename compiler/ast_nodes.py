@@ -17,7 +17,14 @@ class ArrayTypeRef:
     span: SourceSpan
 
 
-TypeRefNode = TypeRef | ArrayTypeRef
+@dataclass(frozen=True)
+class FunctionTypeRef:
+    param_types: list["TypeRefNode"]
+    return_type: "TypeRefNode"
+    span: SourceSpan
+
+
+TypeRefNode = TypeRef | ArrayTypeRef | FunctionTypeRef
 
 
 @dataclass(frozen=True)

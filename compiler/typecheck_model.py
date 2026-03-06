@@ -15,6 +15,8 @@ class TypeInfo:
     name: str
     kind: str
     element_type: "TypeInfo | None" = None
+    callable_params: list["TypeInfo"] | None = None
+    callable_return: "TypeInfo | None" = None
 
 
 @dataclass(frozen=True)

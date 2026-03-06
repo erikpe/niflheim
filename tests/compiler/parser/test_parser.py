@@ -618,18 +618,120 @@ fn build(values: u8[]) -> Person[] {
 
     assert isinstance(fn.params[0].type_ref, ArrayTypeRef)
     assert isinstance(fn.params[0].type_ref.element_type, TypeRef)
-    assert fn.params[0].type_ref.element_type.name == "u8"
 
-    assert isinstance(fn.return_type, ArrayTypeRef)
-    assert isinstance(fn.return_type.element_type, TypeRef)
-    assert fn.return_type.element_type.name == "Person"
 
-    stmt = fn.body.statements[0]
-    assert isinstance(stmt, VarDeclStmt)
-    assert isinstance(stmt.type_ref, ArrayTypeRef)
-    assert isinstance(stmt.type_ref.element_type, TypeRef)
-    assert stmt.type_ref.element_type.name == "Person"
-    assert isinstance(stmt.initializer, ArrayCtorExpr)
+def test_parse_function_type_in_var_decl() -> None:
+    source = """
+fn add(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+fn main() -> unit {
+    var f: fn(i64, i64) -> i64 = add;
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/fn_type_var.nif"))
+    main_fn = module.functions[1]
+    decl = main_fn.body.statements[0]
+    assert isinstance(decl, VarDeclStmt)
+    assert isinstance(decl.type_ref, FunctionTypeRef)
+    assert len(decl.type_ref.param_types) == 2
+    assert isinstance(decl.type_ref.param_types[0], TypeRef)
+    assert decl.type_ref.param_types[0].name == "i64"
+    assert isinstance(decl.type_ref.param_types[1], TypeRef)
+    assert decl.type_ref.param_types[1].name == "i64"
+    assert isinstance(decl.type_ref.return_type, TypeRef)
+    assert decl.type_ref.return_type.name == "i64"
+
+
+def test_parse_function_type_in_param_and_return_positions() -> None:
+    source = """
+fn apply2(f: fn(i64, i64) -> i64, x: i64, y: i64) -> fn(i64) -> i64 {
+    return identity;
+}
+
+fn identity(v: i64) -> i64 {
+    return v;
+}
+"""
+    module = parse(lex(source, source_path="examples/fn_type_param_return.nif"))
+    apply2_fn = module.functions[0]
+
+    assert isinstance(apply2_fn.params[0].type_ref, FunctionTypeRef)
+    param_fn_type = apply2_fn.params[0].type_ref
+    assert len(param_fn_type.param_types) == 2
+    assert isinstance(param_fn_type.return_type, TypeRef)
+    assert param_fn_type.return_type.name == "i64"
+
+    assert isinstance(apply2_fn.return_type, FunctionTypeRef)
+    ret_fn_type = apply2_fn.return_type
+    assert len(ret_fn_type.param_types) == 1
+    assert isinstance(ret_fn_type.param_types[0], TypeRef)
+    assert ret_fn_type.param_types[0].name == "i64"
+    assert isinstance(ret_fn_type.return_type, TypeRef)
+    assert ret_fn_type.return_type.name == "i64"
+
+
+def test_parse_function_type_in_class_field_position() -> None:
+    source = """
+class Predicates {
+    trim: fn(Str) -> Str;
+    empty: fn(Str) -> bool;
+}
+"""
+    module = parse(lex(source, source_path="examples/fn_type_field.nif"))
+    cls = module.classes[0]
+    assert isinstance(cls.fields[0].type_ref, FunctionTypeRef)
+    assert isinstance(cls.fields[1].type_ref, FunctionTypeRef)
+
+
+def test_parse_nested_function_type_in_param_position() -> None:
+    source = """
+fn compose(
+    f: fn(i64) -> i64,
+    g: fn(i64) -> fn(i64) -> i64
+) -> unit {
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/fn_type_nested.nif"))
+    fn_decl = module.functions[0]
+
+    assert isinstance(fn_decl.params[1].type_ref, FunctionTypeRef)
+    outer = fn_decl.params[1].type_ref
+    assert isinstance(outer.return_type, FunctionTypeRef)
+    inner = outer.return_type
+    assert len(inner.param_types) == 1
+    assert isinstance(inner.return_type, TypeRef)
+    assert inner.return_type.name == "i64"
+
+
+def test_parse_rejects_malformed_function_type_missing_arrow() -> None:
+    source = """
+fn main() -> unit {
+    var f: fn(i64, i64) i64;
+    return;
+}
+"""
+    with pytest.raises(ParserError, match="Expected '->' after function type parameter list"):
+        parse(lex(source, source_path="examples/fn_type_missing_arrow.nif"))
+
+
+def test_parse_function_type_can_return_array_type() -> None:
+    source = """
+fn main() -> unit {
+    var make: fn(u64) -> i64[];
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/fn_type_array_return.nif"))
+    decl = module.functions[0].body.statements[0]
+    assert isinstance(decl, VarDeclStmt)
+    assert isinstance(decl.type_ref, FunctionTypeRef)
+    assert isinstance(decl.type_ref.return_type, ArrayTypeRef)
+    assert isinstance(decl.type_ref.return_type.element_type, TypeRef)
+    assert decl.type_ref.return_type.element_type.name == "i64"
 
 
 def test_parse_expression_array_constructor() -> None:

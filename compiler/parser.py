@@ -380,6 +380,29 @@ class Parser:
         )
 
     def _parse_type_ref(self) -> TypeRefNode:
+        if self.stream.match(TokenKind.FN):
+            fn_token = self.stream.previous()
+            self.stream.expect(TokenKind.LPAREN, "Expected '(' after 'fn' in function type")
+
+            param_types: list[TypeRefNode] = []
+            if not self.stream.check(TokenKind.RPAREN):
+                while True:
+                    param_types.append(self._parse_type_ref())
+                    if not self.stream.match(TokenKind.COMMA):
+                        break
+
+            self.stream.expect(TokenKind.RPAREN, "Expected ')' after function type parameters")
+            self.stream.expect(TokenKind.ARROW, "Expected '->' after function type parameter list")
+            return_type = self._parse_type_ref()
+            fn_type = FunctionTypeRef(
+                param_types=param_types,
+                return_type=return_type,
+                span=SourceSpan(start=fn_token.span.start, end=return_type.span.end),
+            )
+            if self.stream.check(TokenKind.LBRACKET):
+                raise ParserError("Array function types are not supported yet", self.stream.peek().span)
+            return fn_type
+
         token = self.stream.peek()
         if token.kind not in TYPE_NAME_TOKENS:
             raise ParserError("Expected type name", token.span)

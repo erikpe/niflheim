@@ -132,7 +132,11 @@ literal            = INT_LIT
                    | "false"
                    ;
 
-type               = base_type { "[" "]" } ;
+type               = fn_type | base_type { "[" "]" } ;
+
+fn_type            = "fn" "(" [ type_list ] ")" "->" type ;
+
+type_list          = type { "," type } ;
 
 base_type          = primitive_type
                    | named_type
