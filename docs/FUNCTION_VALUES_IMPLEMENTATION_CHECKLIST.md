@@ -25,7 +25,7 @@ Use this checklist to implement first-class function values without closures.
 
 - [x] Add function type node to AST type references.
 - [x] Add corresponding `TypeInfo` shape for function signatures.
-- [ ] Add canonical function-type string or structural identity representation.
+- [x] Add canonical function-type string or structural identity representation.
 
 ## 4) Parser
 
@@ -76,8 +76,8 @@ Use this checklist to implement first-class function values without closures.
 
 ### 9.1 Parser
 
-- [ ] Positive parse tests for nested function-type signatures.
-- [ ] Negative parse tests for malformed `fn(...) -> ...` forms.
+- [x] Positive parse tests for nested function-type signatures.
+- [x] Negative parse tests for malformed `fn(...) -> ...` forms.
 
 ### 9.2 Type Checker
 
