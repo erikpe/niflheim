@@ -281,6 +281,48 @@ fn main() -> i64 {
     assert "    call sum3" in asm
 
 
+def test_emit_asm_function_value_from_top_level_function_and_indirect_call() -> None:
+    source = """
+fn add(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+fn main() -> i64 {
+    var f: fn(i64, i64) -> i64 = add;
+    return f(20, 22);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_fn_value_top_level.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    lea rax, [rip + add]" in asm
+    assert "    mov r11, rax" in asm
+    assert "    call r11" in asm
+
+
+def test_emit_asm_function_value_from_static_method_and_indirect_call() -> None:
+    source = """
+class Math {
+    static fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+}
+
+fn main() -> i64 {
+    var f: fn(i64, i64) -> i64 = Math.add;
+    return f(20, 22);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_fn_value_static_method.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    lea rax, [rip + __nif_method_Math_add]" in asm
+    assert "    mov r11, rax" in asm
+    assert "    call r11" in asm
+
+
 def test_emit_asm_module_qualified_call_uses_member_symbol_name() -> None:
     source = """
 fn main() -> i64 {

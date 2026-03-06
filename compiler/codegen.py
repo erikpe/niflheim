@@ -16,6 +16,7 @@ from compiler.ast_nodes import (
     ExprStmt,
     Expression,
     FieldAccessExpr,
+    FunctionTypeRef,
     FunctionDecl,
     IdentifierExpr,
     IndexExpr,
@@ -77,7 +78,37 @@ def _offset_operand(offset: int) -> str:
 
 
 def _is_reference_type_name(type_name: str) -> bool:
+    if _is_function_type_name(type_name):
+        return False
     return type_name not in PRIMITIVE_TYPE_NAMES
+
+
+def _is_function_type_name(type_name: str) -> bool:
+    return type_name.startswith("fn(")
+
+
+def _function_type_return_type_name(type_name: str) -> str:
+    if not _is_function_type_name(type_name):
+        raise ValueError(f"not a function type name: {type_name}")
+
+    depth = 0
+    close_index = -1
+    for index, char in enumerate(type_name):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                close_index = index
+                break
+
+    if close_index < 0:
+        raise ValueError(f"malformed function type name: {type_name}")
+
+    tail = type_name[close_index + 1 :].lstrip()
+    if not tail.startswith("->"):
+        raise ValueError(f"malformed function type name: {type_name}")
+    return tail[2:].strip()
 
 
 def _is_array_type_name(type_name: str) -> bool:
@@ -101,6 +132,9 @@ def _type_ref_name(type_ref: TypeRefNode) -> str:
         return type_ref.name
     if isinstance(type_ref, ArrayTypeRef):
         return f"{_type_ref_name(type_ref.element_type)}[]"
+    if isinstance(type_ref, FunctionTypeRef):
+        params_text = ",".join(_type_ref_name(param_type) for param_type in type_ref.param_types)
+        return f"fn({params_text})->{_type_ref_name(type_ref.return_type)}"
     raise TypeError(f"unsupported type ref node: {type(type_ref).__name__}")
 
 
@@ -525,6 +559,32 @@ def _resolve_call_target_name(
     raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
 
 
+def _resolve_callable_value_label(
+    expr: Expression,
+    ctx: EmitContext,
+) -> str | None:
+    if isinstance(expr, IdentifierExpr):
+        if expr.name in ctx.layout.slot_offsets:
+            return None
+        if expr.name in ctx.function_return_types:
+            return expr.name
+        return None
+
+    if isinstance(expr, FieldAccessExpr):
+        try:
+            resolved_target = _resolve_call_target_name(expr, ctx)
+        except NotImplementedError:
+            return None
+
+        if resolved_target.receiver_expr is not None:
+            return None
+        if resolved_target.name in set(ctx.constructor_labels.values()):
+            return None
+        return resolved_target.name
+
+    return None
+
+
 def _infer_expression_type_name(
     expr: Expression,
     ctx: EmitContext,
@@ -912,6 +972,11 @@ class CodeGenerator:
         raise NotImplementedError(f"literal codegen not implemented for '{expr.value}'")
 
     def _emit_field_access_expr(self, expr: FieldAccessExpr, ctx: EmitContext) -> None:
+        callable_label = _resolve_callable_value_label(expr, ctx)
+        if callable_label is not None:
+            self.out.append(f"    lea rax, [rip + {callable_label}]")
+            return
+
         receiver_type_name = _field_receiver_type_name(expr.object_expr, ctx)
         if receiver_type_name is None:
             raise NotImplementedError("field access codegen requires class-typed receiver")
@@ -1083,9 +1148,16 @@ class CodeGenerator:
             return
 
         if isinstance(expr, IdentifierExpr):
-            if expr.name not in layout.slot_offsets:
-                raise NotImplementedError(f"identifier '{expr.name}' is not materialized in stack layout")
-            self.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[expr.name])}")
+            if expr.name in layout.slot_offsets:
+                self.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[expr.name])}")
+                return
+
+            callable_label = _resolve_callable_value_label(expr, ctx)
+            if callable_label is not None:
+                self.out.append(f"    lea rax, [rip + {callable_label}]")
+                return
+
+            raise NotImplementedError(f"identifier '{expr.name}' is not materialized in stack layout")
             return
 
         if isinstance(expr, FieldAccessExpr):
@@ -1122,6 +1194,45 @@ class CodeGenerator:
         layout = ctx.layout
         fn_name = ctx.fn_name
         label_counter = ctx.label_counter
+
+        callee_type_name = _infer_expression_type_name(expr.callee, ctx)
+        if _is_function_type_name(callee_type_name):
+            call_argument_type_names = [_infer_expression_type_name(arg, ctx) for arg in expr.arguments]
+            integer_arg_count = sum(1 for type_name in call_argument_type_names if type_name != "double")
+            float_arg_count = sum(1 for type_name in call_argument_type_names if type_name == "double")
+            if integer_arg_count > len(PARAM_REGISTERS):
+                raise NotImplementedError("call codegen currently supports up to 6 integer/pointer positional arguments")
+            if float_arg_count > len(FLOAT_PARAM_REGISTERS):
+                raise NotImplementedError("call codegen currently supports up to 8 floating-point positional arguments")
+
+            for arg in reversed(expr.arguments):
+                self._emit_expr(arg, ctx)
+                self.out.append("    push rax")
+
+            self._emit_expr(expr.callee, ctx)
+            self.out.append("    mov r11, rax")
+
+            self._emit_root_slot_updates(layout)
+
+            integer_reg_index = 0
+            float_reg_index = 0
+            for type_name in call_argument_type_names:
+                self.out.append("    pop rax")
+                if type_name == "double":
+                    self.out.append(f"    movq {FLOAT_PARAM_REGISTERS[float_reg_index]}, rax")
+                    float_reg_index += 1
+                else:
+                    self.out.append(f"    mov {PARAM_REGISTERS[integer_reg_index]}, rax")
+                    integer_reg_index += 1
+
+            self.out.append("    call r11")
+
+            return_type_name = _function_type_return_type_name(callee_type_name)
+            if return_type_name == "double":
+                self.out.append("    movq rax, xmm0")
+            elif return_type_name == "unit":
+                self.out.append("    mov rax, 0")
+            return
 
         resolved_target = _resolve_call_target_name(expr.callee, ctx)
         target_name = resolved_target.name

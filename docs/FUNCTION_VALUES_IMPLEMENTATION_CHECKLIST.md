@@ -43,7 +43,7 @@ Use this checklist to implement first-class function values without closures.
 
 - [x] Ensure top-level function symbols can be used as expression values.
 - [x] Ensure qualified static method symbols can be resolved as value expressions.
-- [ ] Reject non-static method value forms with clear diagnostics.
+- [x] Reject non-static method value forms with clear diagnostics.
 
 ## 6) Type Checker
 
@@ -54,16 +54,16 @@ Use this checklist to implement first-class function values without closures.
   - instance method values
   - lambdas
   - capture-like constructs
-- [ ] Keep current callable handling for normal direct calls intact.
+- [x] Keep current callable handling for normal direct calls intact.
 
 ## 7) Codegen
 
-- [ ] Define runtime representation for function values (code pointer in MVP).
-- [ ] Lower function symbol expressions to pointer constants/labels.
-- [ ] Lower qualified static method values to method labels.
-- [ ] Lower function-typed calls to indirect calls.
-- [ ] Preserve existing SysV integer/floating argument handling for indirect calls.
-- [ ] Ensure GC/rooting policy remains correct around indirect calls.
+- [x] Define runtime representation for function values (code pointer in MVP).
+- [x] Lower function symbol expressions to pointer constants/labels.
+- [x] Lower qualified static method values to method labels.
+- [x] Lower function-typed calls to indirect calls.
+- [x] Preserve existing SysV integer/floating argument handling for indirect calls.
+- [x] Ensure GC/rooting policy remains correct around indirect calls.
 
 ## 8) Diagnostics
 
@@ -89,8 +89,8 @@ Use this checklist to implement first-class function values without closures.
 
 ### 9.3 Codegen/Integration
 
-- [ ] End-to-end indirect call through function variable (primitive args/return).
-- [ ] End-to-end indirect call through static method value.
+- [x] End-to-end indirect call through function variable (primitive args/return).
+- [x] End-to-end indirect call through static method value.
 - [ ] Mixed int/double argument path through function values.
 - [ ] Golden tests for expected output and panic behavior.
 

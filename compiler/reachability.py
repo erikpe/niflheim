@@ -16,6 +16,7 @@ from compiler.ast_nodes import (
     Expression,
     FieldAccessExpr,
     ForInStmt,
+    FunctionTypeRef,
     FunctionDecl,
     IdentifierExpr,
     IfStmt,
@@ -50,10 +51,13 @@ def _is_reference_type_name(type_name: str) -> bool:
     return type_name and type_name[0].isupper()
 
 
-def _type_ref_name(type_ref: TypeRef | ArrayTypeRef) -> str:
+def _type_ref_name(type_ref: TypeRef | ArrayTypeRef | FunctionTypeRef) -> str:
     if isinstance(type_ref, TypeRef):
         return type_ref.name
-    return f"{_type_ref_name(type_ref.element_type)}[]"
+    if isinstance(type_ref, ArrayTypeRef):
+        return f"{_type_ref_name(type_ref.element_type)}[]"
+    params_text = ",".join(_type_ref_name(param_type) for param_type in type_ref.param_types)
+    return f"fn({params_text})->{_type_ref_name(type_ref.return_type)}"
 
 
 def _flatten_field_chain(expr: Expression) -> list[str] | None:
