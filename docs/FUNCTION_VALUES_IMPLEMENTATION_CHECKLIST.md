@@ -67,10 +67,10 @@ Use this checklist to implement first-class function values without closures.
 
 ## 8) Diagnostics
 
-- [ ] Add targeted diagnostics for unsupported constructs:
+- [x] Add targeted diagnostics for unsupported constructs:
   - "instance methods are not first-class values in MVP"
   - "closures/captures are not supported"
-- [ ] Keep messages deterministic with source spans.
+- [x] Keep messages deterministic with source spans.
 
 ## 9) Tests
 

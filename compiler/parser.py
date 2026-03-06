@@ -473,6 +473,9 @@ class Parser:
         if self.stream.check(TokenKind.LBRACE):
             return self._parse_block_stmt()
 
+        if self.stream.check(TokenKind.FN):
+            raise ParserError("Nested functions/closures are not supported in MVP", self.stream.peek().span)
+
         return self._parse_expr_or_assign_stmt()
 
     def _parse_var_decl_stmt(self, *, var_token: Token) -> VarDeclStmt:
@@ -884,6 +887,9 @@ class Parser:
         )
 
     def _parse_primary(self) -> Expression:
+        if self.stream.check(TokenKind.FN):
+            raise ParserError("Function literals/closures are not supported in MVP", self.stream.peek().span)
+
         if self.stream.match(TokenKind.INT_LIT, TokenKind.FLOAT_LIT, TokenKind.STRING_LIT, TokenKind.CHAR_LIT, TokenKind.TRUE, TokenKind.FALSE):
             token = self.stream.previous()
             return LiteralExpr(value=token.lexeme, span=token.span)

@@ -718,6 +718,30 @@ fn main() -> unit {
         parse(lex(source, source_path="examples/fn_type_missing_arrow.nif"))
 
 
+def test_parse_rejects_function_literal_expression_with_clear_diagnostic() -> None:
+    source = """
+fn main() -> unit {
+    var f: fn(i64) -> i64 = fn(x: i64) -> i64 { return x; };
+    return;
+}
+"""
+    with pytest.raises(ParserError, match="Function literals/closures are not supported in MVP"):
+        parse(lex(source, source_path="examples/fn_literal_rejected.nif"))
+
+
+def test_parse_rejects_nested_function_declaration_with_clear_diagnostic() -> None:
+    source = """
+fn main() -> unit {
+    fn helper(x: i64) -> i64 {
+        return x;
+    }
+    return;
+}
+"""
+    with pytest.raises(ParserError, match="Nested functions/closures are not supported in MVP"):
+        parse(lex(source, source_path="examples/nested_fn_rejected.nif"))
+
+
 def test_parse_function_type_can_return_array_type() -> None:
     source = """
 fn main() -> unit {
