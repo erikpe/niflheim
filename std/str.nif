@@ -1,4 +1,5 @@
 import std.error;
+import std.object;
 import std.vec;
 
 export class Str
@@ -119,6 +120,51 @@ export class Str
             return -((i64)other[(i64)self_len]);
         }
         return (i64)__self[(i64)other_len];
+    }
+
+    fn hash_code() -> u64 {
+        var hash: u64 = 14695981039346656037u;
+        var i: u64 = 0u;
+        var length: u64 = __self.len();
+
+        while i < length {
+            hash = hash ^ (u64)__self._bytes[(i64)i];
+            hash = hash * 1099511628211u;
+            i = i + 1u;
+        }
+
+        return hash;
+    }
+
+    fn equals(other: Obj) -> bool {
+        if other == null {
+            return false;
+        }
+
+        var self_obj: Obj = (Obj)__self;
+        if self_obj == other {
+            return true;
+        }
+
+        if !same_type(self_obj, other) {
+            return false;
+        }
+
+        var rhs: Str = (Str)other;
+        var length: u64 = __self.len();
+        if length != rhs.len() {
+            return false;
+        }
+
+        var i: u64 = 0u;
+        while i < length {
+            if __self._bytes[(i64)i] != rhs._bytes[(i64)i] {
+                return false;
+            }
+            i = i + 1u;
+        }
+
+        return true;
     }
 
     static fn from_u64(value: u64) -> Str {

@@ -452,6 +452,30 @@ fn test_strbuf_for_in_iteration() -> unit {
 }
 
 
+fn test_hash_code_equal_content() -> unit {
+    var a: Str = "hash-me";
+    var b: Str = Str.from_u8_array("hash-me".to_u8_array());
+    var c: Str = "hash-you";
+
+    assert(a.hash_code() == b.hash_code());
+    assert(a.hash_code() != c.hash_code());
+}
+
+
+fn test_equals_obj() -> unit {
+    var a: Str = "same";
+    var b: Str = Str.from_u8_array("same".to_u8_array());
+    var c: Str = "diff";
+    var boxed_other: Obj = (Obj)Vec.new();
+
+    assert(a.equals((Obj)a));
+    assert(a.equals((Obj)b));
+    assert(!a.equals((Obj)c));
+    assert(!a.equals(null));
+    assert(!a.equals(boxed_other));
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -500,5 +524,7 @@ fn main() -> i64 {
     if select == 43u { test_splitlines(); }
     if select == 44u { test_str_for_in_iteration(); }
     if select == 45u { test_strbuf_for_in_iteration(); }
+    if select == 46u { test_hash_code_equal_content(); }
+    if select == 47u { test_equals_obj(); }
     return 0;
 }

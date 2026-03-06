@@ -86,6 +86,7 @@ void rt_trace_set_location(uint32_t line, uint32_t column);
 
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
+uint64_t rt_obj_same_type(void* lhs, void* rhs);
 
 #ifdef __cplusplus
 }

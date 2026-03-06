@@ -1,0 +1,8 @@
+extern fn rt_obj_same_type(lhs: Obj, rhs: Obj) -> u64;
+
+export fn same_type(lhs: Obj, rhs: Obj) -> bool {
+    if lhs == null || rhs == null {
+        return false;
+    }
+    return rt_obj_same_type(lhs, rhs) != 0u;
+}

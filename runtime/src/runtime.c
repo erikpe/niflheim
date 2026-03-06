@@ -171,3 +171,13 @@ void* rt_checked_cast(void* obj, const RtType* expected_type) {
         rt_type_name_or_unknown(expected_type)
     );
 }
+
+uint64_t rt_obj_same_type(void* lhs, void* rhs) {
+    if (lhs == NULL || rhs == NULL) {
+        return 0u;
+    }
+
+    RtObjHeader* lhs_header = (RtObjHeader*)lhs;
+    RtObjHeader* rhs_header = (RtObjHeader*)rhs;
+    return lhs_header->type == rhs_header->type ? 1u : 0u;
+}

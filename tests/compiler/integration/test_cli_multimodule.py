@@ -90,6 +90,10 @@ def test_cli_std_io_println_i64_unqualified_call(tmp_path: Path, monkeypatch) ->
         (repo_root / "std" / "str.nif").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    (tmp_path / "std" / "object.nif").write_text(
+        (repo_root / "std" / "object.nif").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (tmp_path / "std" / "error.nif").write_text(
         (repo_root / "std" / "error.nif").read_text(encoding="utf-8"),
         encoding="utf-8",
@@ -252,6 +256,10 @@ def test_cli_std_io_println_i64_qualified_call(tmp_path: Path, monkeypatch) -> N
     (tmp_path / "std").mkdir(parents=True, exist_ok=True)
     (tmp_path / "std" / "str.nif").write_text(
         (repo_root / "std" / "str.nif").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (tmp_path / "std" / "object.nif").write_text(
+        (repo_root / "std" / "object.nif").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     (tmp_path / "std" / "error.nif").write_text(
