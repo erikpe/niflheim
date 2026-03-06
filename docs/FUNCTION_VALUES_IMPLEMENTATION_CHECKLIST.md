@@ -91,8 +91,8 @@ Use this checklist to implement first-class function values without closures.
 
 - [x] End-to-end indirect call through function variable (primitive args/return).
 - [x] End-to-end indirect call through static method value.
-- [ ] Mixed int/double argument path through function values.
-- [ ] Golden tests for expected output and panic behavior.
+- [x] Mixed int/double argument path through function values.
+- [x] Golden tests for expected output and panic behavior.
 
 ## 10) Stdlib Follow-Up (Optional in Same Milestone)
 

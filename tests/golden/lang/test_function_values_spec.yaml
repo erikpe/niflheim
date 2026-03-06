@@ -1,0 +1,2 @@
+runs:
+  - { name: mixed_indirect_calls, expect: { exit_code: 0 } }

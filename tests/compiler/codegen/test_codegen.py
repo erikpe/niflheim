@@ -323,6 +323,31 @@ fn main() -> i64 {
     assert "    call r11" in asm
 
 
+def test_emit_asm_function_value_indirect_call_with_mixed_int_and_double_args() -> None:
+    source = """
+fn mix(a: i64, b: double, c: u64, d: double) -> double {
+    return (double)a + b + (double)c + d;
+}
+
+fn main() -> i64 {
+    var f: fn(i64, double, u64, double) -> double = mix;
+    var out: double = f(2, 0.5, 3u, 0.25);
+    return (i64)(out * 4.0);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_fn_value_mixed_indirect.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov r11, rax" in asm
+    assert "    call r11" in asm
+    assert "    movq xmm0, rax" in asm
+    assert "    movq xmm1, rax" in asm
+    assert "    mov rdi, rax" in asm
+    assert "    mov rsi, rax" in asm
+    assert "    movq rax, xmm0" in asm
+
+
 def test_emit_asm_module_qualified_call_uses_member_symbol_name() -> None:
     source = """
 fn main() -> i64 {

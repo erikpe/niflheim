@@ -1,0 +1,29 @@
+fn mix(a: i64, b: double, c: u64, d: double) -> double {
+    return (double)a + b + (double)c + d;
+}
+
+class Ops {
+    static fn mixed(a: i64, b: double, c: u64, d: double) -> double {
+        return (double)a + b + (double)c + d;
+    }
+}
+
+fn call_mixed(f: fn(i64, double, u64, double) -> double) -> double {
+    return f(2, 0.5, 3u, 0.25);
+}
+
+fn main() -> i64 {
+    var f1: fn(i64, double, u64, double) -> double = mix;
+    var r1: double = call_mixed(f1);
+    if (i64)(r1 * 4.0) != 23 {
+        return 1;
+    }
+
+    var f2: fn(i64, double, u64, double) -> double = Ops.mixed;
+    var r2: double = call_mixed(f2);
+    if (i64)(r2 * 4.0) != 23 {
+        return 2;
+    }
+
+    return 0;
+}

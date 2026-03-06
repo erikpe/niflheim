@@ -105,6 +105,10 @@ class ReachabilityWalker:
 
     def _walk_expr(self, expr: Expression, *, ctx: WalkContext) -> None:
         if isinstance(expr, IdentifierExpr):
+            if expr.name in self.known_function_names:
+                ctx.found_functions.add(expr.name)
+            elif expr.name in self.known_class_names:
+                ctx.found_classes.add(expr.name)
             return
 
         if isinstance(expr, CastExpr):
@@ -133,6 +137,14 @@ class ReachabilityWalker:
             return
 
         if isinstance(expr, FieldAccessExpr):
+            chain = _flatten_field_chain(expr)
+            if chain is not None and len(chain) >= 2:
+                first = chain[0]
+                last = chain[-1]
+                if first in self.known_class_names:
+                    ctx.found_classes.add(first)
+                if last in self.known_function_names:
+                    ctx.found_functions.add(last)
             if isinstance(expr.object_expr, LiteralExpr) and expr.object_expr.value.startswith('"'):
                 ctx.found_classes.add("Str")
             self._walk_expr(expr.object_expr, ctx=ctx)
