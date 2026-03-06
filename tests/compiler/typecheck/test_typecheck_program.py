@@ -46,6 +46,58 @@ def test_typecheck_program_allows_imported_function_and_class_usage(tmp_path: Pa
     typecheck_program(program)
 
 
+def test_typecheck_program_allows_imported_function_value(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> i64 {
+            var f: fn(i64, i64) -> i64 = util.add;
+            return f(20, 22);
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_allows_imported_static_method_value(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export class Math {
+            static fn add(a: i64, b: i64) -> i64 {
+                return a + b;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> i64 {
+            var f: fn(i64, i64) -> i64 = util.Math.add;
+            return f(20, 22);
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_rejects_private_member_access_across_modules(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",

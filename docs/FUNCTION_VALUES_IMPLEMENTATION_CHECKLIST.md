@@ -41,16 +41,16 @@ Use this checklist to implement first-class function values without closures.
 
 ## 5) Resolver and Symbol Binding
 
-- [ ] Ensure top-level function symbols can be used as expression values.
-- [ ] Ensure qualified static method symbols can be resolved as value expressions.
+- [x] Ensure top-level function symbols can be used as expression values.
+- [x] Ensure qualified static method symbols can be resolved as value expressions.
 - [ ] Reject non-static method value forms with clear diagnostics.
 
 ## 6) Type Checker
 
-- [ ] Add function-type equality checks (exact arity and exact param/return types).
-- [ ] Permit assignments from function symbol to matching function-typed variables/fields.
-- [ ] Validate indirect-call expression typing when callee is function-typed.
-- [ ] Reject unsupported forms:
+- [x] Add function-type equality checks (exact arity and exact param/return types).
+- [x] Permit assignments from function symbol to matching function-typed variables/fields.
+- [x] Validate indirect-call expression typing when callee is function-typed.
+- [x] Reject unsupported forms:
   - instance method values
   - lambdas
   - capture-like constructs
@@ -81,11 +81,11 @@ Use this checklist to implement first-class function values without closures.
 
 ### 9.2 Type Checker
 
-- [ ] Assign top-level function to matching function type (positive).
-- [ ] Assign static method to matching function type (positive).
-- [ ] Mismatched arity/type assignment (negative).
-- [ ] Indirect call argument/return mismatch (negative).
-- [ ] Instance method value rejection (negative).
+- [x] Assign top-level function to matching function type (positive).
+- [x] Assign static method to matching function type (positive).
+- [x] Mismatched arity/type assignment (negative).
+- [x] Indirect call argument/return mismatch (negative).
+- [x] Instance method value rejection (negative).
 
 ### 9.3 Codegen/Integration
 

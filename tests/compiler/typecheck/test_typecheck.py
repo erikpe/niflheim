@@ -142,6 +142,84 @@ fn main() -> i64 {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_top_level_function_value_and_indirect_call() -> None:
+    source = """
+fn add(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+fn main() -> i64 {
+    var f: fn(i64, i64) -> i64 = add;
+    return f(20, 22);
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_allows_static_method_value_and_indirect_call() -> None:
+    source = """
+class Math {
+    static fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+}
+
+fn main() -> i64 {
+    var f: fn(i64, i64) -> i64 = Math.add;
+    return f(20, 22);
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_instance_method_value_in_mvp() -> None:
+    source = """
+class Math {
+    fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+}
+
+fn main() -> unit {
+    var m: Math = Math();
+    var f: fn(i64, i64) -> i64 = m.add;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Instance methods are not first-class values in MVP"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_function_value_assignment_type_mismatch() -> None:
+    source = """
+fn add(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+fn main() -> unit {
+    var f: fn(i64) -> i64 = add;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Cannot assign 'fn\(i64, i64\) -> i64' to 'fn\(i64\) -> i64'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_indirect_call_argument_type_mismatch() -> None:
+    source = """
+fn add(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+fn main() -> i64 {
+    var f: fn(i64, i64) -> i64 = add;
+    return f(true, 1);
+}
+"""
+    with pytest.raises(TypeCheckError, match="Cannot assign 'bool' to 'i64'"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_private_members_inside_declaring_class() -> None:
     source = """
 class Counter {

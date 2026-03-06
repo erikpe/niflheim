@@ -312,8 +312,13 @@ class TypeChecker:
             if symbol_type is not None:
                 return symbol_type
 
-            if expr.name in self.functions:
-                return TypeInfo(name=f"__fn__:{expr.name}", kind="callable")
+            fn_sig = self.functions.get(expr.name)
+            if fn_sig is not None:
+                return self._callable_type_from_signature(f"__fn__:{expr.name}", fn_sig)
+
+            imported_fn_sig = self._resolve_imported_function_sig(expr.name, expr.span)
+            if imported_fn_sig is not None:
+                return self._callable_type_from_signature(f"__fn__:{expr.name}", imported_fn_sig)
 
             if expr.name in self.classes:
                 return TypeInfo(name=f"__class__:{expr.name}", kind="callable")
@@ -463,7 +468,8 @@ class TypeChecker:
                 kind, owner_module, member_name = module_member
                 if kind == "function":
                     dotted = ".".join(owner_module)
-                    return TypeInfo(name=f"__fn__:{dotted}:{member_name}", kind="callable")
+                    fn_sig = self.module_function_sigs[owner_module][member_name]
+                    return self._callable_type_from_signature(f"__fn__:{dotted}:{member_name}", fn_sig)
                 if kind == "class":
                     dotted = ".".join(owner_module)
                     return TypeInfo(name=f"__class__:{dotted}:{member_name}", kind="callable")
@@ -471,6 +477,34 @@ class TypeChecker:
                 return TypeInfo(name=f"__module__:{dotted}", kind="module")
 
             object_type = self._infer_expression_type(expr.object_expr)
+
+            if object_type.kind == "callable" and object_type.name.startswith("__class__:"):
+                class_type_name = self._class_type_name_from_callable(object_type.name)
+                class_info = self._lookup_class_by_type_name(class_type_name)
+                if class_info is None:
+                    raise TypeCheckError(f"Type '{class_type_name}' has no callable members", expr.span)
+
+                method_sig = class_info.methods.get(expr.field_name)
+                if method_sig is None:
+                    raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.field_name}'", expr.span)
+                self._require_member_visible(class_info, class_type_name, expr.field_name, "method", expr.span)
+                if not method_sig.is_static:
+                    raise TypeCheckError(
+                        f"Method '{class_info.name}.{expr.field_name}' is not static",
+                        expr.span,
+                    )
+
+                qualified_params = [
+                    self._qualify_member_type_for_owner(param_type, class_type_name)
+                    for param_type in method_sig.params
+                ]
+                qualified_return = self._qualify_member_type_for_owner(method_sig.return_type, class_type_name)
+                return TypeInfo(
+                    name=f"__method__:{class_info.name}:{method_sig.name}",
+                    kind="callable",
+                    callable_params=qualified_params,
+                    callable_return=qualified_return,
+                )
 
             if object_type.element_type is not None:
                 if expr.field_name not in ARRAY_METHOD_NAMES:
@@ -489,7 +523,19 @@ class TypeChecker:
             method_sig = class_info.methods.get(expr.field_name)
             if method_sig is not None:
                 self._require_member_visible(class_info, object_type.name, expr.field_name, "method", expr.span)
-                return TypeInfo(name=f"__method__:{class_info.name}:{method_sig.name}", kind="callable")
+                if not method_sig.is_static:
+                    raise TypeCheckError("Instance methods are not first-class values in MVP", expr.span)
+                qualified_params = [
+                    self._qualify_member_type_for_owner(param_type, object_type.name)
+                    for param_type in method_sig.params
+                ]
+                qualified_return = self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
+                return TypeInfo(
+                    name=f"__method__:{class_info.name}:{method_sig.name}",
+                    kind="callable",
+                    callable_params=qualified_params,
+                    callable_return=qualified_return,
+                )
 
             raise TypeCheckError(f"Class '{class_info.name}' has no member '{expr.field_name}'", expr.span)
 
@@ -737,7 +783,18 @@ class TypeChecker:
             return qualified_return_type
 
         callee_type = self._infer_expression_type(expr.callee)
+        if callee_type.kind == "callable" and callee_type.callable_params is not None and callee_type.callable_return is not None:
+            self._check_call_arguments(callee_type.callable_params, expr.arguments, expr.span)
+            return callee_type.callable_return
         raise TypeCheckError(f"Expression of type '{callee_type.name}' is not callable", expr.callee.span)
+
+    def _callable_type_from_signature(self, name: str, signature: FunctionSig) -> TypeInfo:
+        return TypeInfo(
+            name=name,
+            kind="callable",
+            callable_params=signature.params,
+            callable_return=signature.return_type,
+        )
 
     def _class_type_name_from_callable(self, callable_name: str) -> str:
         if not callable_name.startswith("__class__:"):
@@ -1000,6 +1057,16 @@ class TypeChecker:
             element_type = self._resolve_type_ref(type_ref.element_type)
             return TypeInfo(name=f"{element_type.name}[]", kind="reference", element_type=element_type)
 
+        if isinstance(type_ref, FunctionTypeRef):
+            param_types = [self._resolve_type_ref(param_type) for param_type in type_ref.param_types]
+            return_type = self._resolve_type_ref(type_ref.return_type)
+            return TypeInfo(
+                name=self._format_function_type_name(param_types, return_type),
+                kind="callable",
+                callable_params=param_types,
+                callable_return=return_type,
+            )
+
         name = type_ref.name
         if name in PRIMITIVE_TYPE_NAMES:
             return TypeInfo(name=name, kind="primitive")
@@ -1213,6 +1280,19 @@ class TypeChecker:
         return self._canonicalize_reference_type_name(left) == self._canonicalize_reference_type_name(right)
 
     def _type_infos_equal(self, left: TypeInfo, right: TypeInfo) -> bool:
+        if left.kind == "callable" or right.kind == "callable":
+            if left.kind != "callable" or right.kind != "callable":
+                return False
+            if left.callable_params is None or right.callable_params is None:
+                return False
+            if left.callable_return is None or right.callable_return is None:
+                return False
+            if len(left.callable_params) != len(right.callable_params):
+                return False
+            if not all(self._type_infos_equal(lp, rp) for lp, rp in zip(left.callable_params, right.callable_params)):
+                return False
+            return self._type_infos_equal(left.callable_return, right.callable_return)
+
         if left.element_type is not None or right.element_type is not None:
             if left.element_type is None or right.element_type is None:
                 return False
@@ -1226,7 +1306,10 @@ class TypeChecker:
             return
         if target.name == "Obj" and value.kind == "reference":
             return
-        raise TypeCheckError(f"Cannot assign '{value.name}' to '{target.name}'", span)
+        raise TypeCheckError(
+            f"Cannot assign '{self._display_type_name(value)}' to '{self._display_type_name(target)}'",
+            span,
+        )
 
     def _is_comparable(self, left: TypeInfo, right: TypeInfo) -> bool:
         if self._type_infos_equal(left, right):
@@ -1238,6 +1321,9 @@ class TypeChecker:
         return False
 
     def _check_explicit_cast(self, source: TypeInfo, target: TypeInfo, span: SourceSpan) -> None:
+        if source.kind == "callable" or target.kind == "callable":
+            raise TypeCheckError("Casts involving function types are not allowed in MVP", span)
+
         if self._type_infos_equal(source, target):
             return
 
@@ -1256,6 +1342,15 @@ class TypeChecker:
             f"Invalid cast from '{source.name}' to '{target.name}'",
             span,
         )
+
+    def _format_function_type_name(self, params: list[TypeInfo], return_type: TypeInfo) -> str:
+        params_text = ", ".join(param.name for param in params)
+        return f"fn({params_text}) -> {return_type.name}"
+
+    def _display_type_name(self, type_info: TypeInfo) -> str:
+        if type_info.kind == "callable" and type_info.callable_params is not None and type_info.callable_return is not None:
+            return self._format_function_type_name(type_info.callable_params, type_info.callable_return)
+        return type_info.name
 
     def _current_module_info(self) -> ModuleInfo | None:
         if self.modules is None or self.module_path is None:
