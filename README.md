@@ -13,6 +13,7 @@ Key design docs:
 - [docs/GRAMMAR_EBNF.md](docs/GRAMMAR_EBNF.md)
 - [docs/REPO_STRUCTURE.md](docs/REPO_STRUCTURE.md)
 - [docs/SUGARING_DESIGN.md](docs/SUGARING_DESIGN.md)
+- [docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md](docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md)
 
 ## Repository Areas
 
@@ -37,6 +38,9 @@ Recent backend/runtime updates:
 - SysV floating-point ABI paths are implemented for parameters/returns (`xmm0`-`xmm7`) in function calls, method calls, and constructors.
 - `std.box` primitive wrapper classes (`Box*`) are available for `Obj`-container use cases.
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
+
+Planned near-term extension design now documented:
+- No-capture first-class function values MVP (`fn(T1, T2, ...) -> R`) is specified in [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md) and tracked via [docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md](docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md).
 
 ## Policy Decisions (MVP)
 

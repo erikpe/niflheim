@@ -17,6 +17,7 @@ Out of scope for v0.1:
 - Exceptions / recoverable errors
 - Advanced optimization passes
 - Moving/compacting GC
+- Closures/captured-variable lambdas
 
 ---
 
@@ -331,6 +332,59 @@ Notes:
 - Primary target: stdlib implementation code for core containers/byte operations.
 - Non-goal: replacing high-level safe APIs with pointer-first style in general user code.
 - Safe wrappers over unsafe internals are encouraged as the public API surface.
+
+### 6.3 Function Values (MVP Extension: No Capture)
+
+This subsection freezes the first-class function-value design for the next MVP extension pass.
+
+#### 6.3.1 Scope
+
+- Function values are supported without closures.
+- Function values may reference only top-level functions and static class methods.
+- Captured-variable lambdas and nested-function captures are out of scope.
+
+#### 6.3.2 Type Syntax
+
+- Function type syntax: `fn(T1, T2, ...) -> R`
+- Function type syntax is valid anywhere a type annotation is valid:
+  - variable declarations
+  - function/method parameters
+  - function/method return types
+  - class fields
+
+Examples:
+
+- `var pred: fn(Obj) -> bool = is_empty;`
+- `fn apply(f: fn(i64, i64) -> i64, x: i64, y: i64) -> i64 { ... }`
+
+#### 6.3.3 Value Formation Rules
+
+- Legal function values:
+  - unqualified top-level function symbols (for example `add`)
+  - qualified static method symbols (for example `Math.add`)
+- Not part of this MVP extension:
+  - instance method values (bound or unbound)
+  - inline lambda literals
+  - nested local function values
+
+#### 6.3.4 Call Semantics
+
+- Function-typed expressions are callable: `f(a, b, ...)`.
+- Calls through function values use normal argument/return type checking.
+- Codegen lowers function-valued callees to indirect calls.
+- Existing SysV ABI integer/floating calling convention rules remain unchanged.
+
+#### 6.3.5 Type Compatibility
+
+- Function types are invariant and arity-exact in this MVP extension.
+- Assignment requires exact parameter and return type matches.
+- No implicit adaptation, currying, or variance.
+
+#### 6.3.6 Interactions and Non-Goals
+
+- Explicit casts involving function types are out of scope for this MVP extension.
+- Arrays/containers of function values are deferred until post-MVP unless required by implementation constraints.
+- Interface-style callable objects are out of scope for this extension.
 
 ---
 
