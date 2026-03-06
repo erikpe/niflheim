@@ -348,6 +348,29 @@ fn main() -> i64 {
     assert "    movq rax, xmm0" in asm
 
 
+def test_emit_asm_direct_callable_field_invocation_uses_indirect_call() -> None:
+    source = """
+fn inc(v: i64) -> i64 {
+    return v + 1;
+}
+
+class Holder {
+    f: fn(i64) -> i64;
+}
+
+fn main() -> i64 {
+    var h: Holder = Holder(inc);
+    return h.f(41);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_callable_field_direct.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov r11, rax" in asm
+    assert "    call r11" in asm
+
+
 def test_emit_asm_module_qualified_call_uses_member_symbol_name() -> None:
     source = """
 fn main() -> i64 {

@@ -1,0 +1,110 @@
+import std.test;
+import std.map;
+import std.box;
+import std.io;
+
+class Key {
+    raw: u64;
+}
+
+fn key_hash(value: Obj) -> u64 {
+    if value == null {
+        return 0u;
+    }
+    var key: Key = (Key)value;
+    return key.raw * 11400714819323198485u;
+}
+
+fn key_equals(left: Obj, right: Obj) -> bool {
+    if left == null || right == null {
+        return left == right;
+    }
+    return ((Key)left).raw == ((Key)right).raw;
+}
+
+fn test_put_get_contains() -> unit {
+    var m: Map = Map.new(key_hash, key_equals);
+    assert(m.len() == 0u);
+
+    m.put((Obj)Key(10u), BoxI64(111));
+    m.put((Obj)Key(20u), BoxI64(222));
+
+    assert(m.len() == 2u);
+    assert(m.contains((Obj)Key(10u)));
+    assert(m.contains((Obj)Key(20u)));
+    assert(!m.contains((Obj)Key(30u)));
+
+    assert(((BoxI64)m.index_get((Obj)Key(10u))).val == 111);
+    assert(((BoxI64)m.index_get((Obj)Key(20u))).val == 222);
+}
+
+fn test_overwrite_same_logical_key() -> unit {
+    var m: Map = Map.new(key_hash, key_equals);
+    m.put((Obj)Key(7u), BoxI64(1));
+    m.put((Obj)Key(7u), BoxI64(9));
+
+    assert(m.len() == 1u);
+    assert(((BoxI64)m.index_get((Obj)Key(7u))).val == 9);
+}
+
+fn test_growth_and_probe_chains() -> unit {
+    var m: Map = Map.with_capacity(2u, key_hash, key_equals);
+
+    var i: u64 = 0u;
+    while i < 80u {
+        var key: Obj = (Obj)Key(i * 17u + 3u);
+        m.put(key, BoxU64(i));
+        i = i + 1u;
+    }
+
+    assert(m.len() == 80u);
+
+    i = 0u;
+    while i < 80u {
+        var key: Obj = (Obj)Key(i * 17u + 3u);
+        assert(m.contains(key));
+        assert(((BoxU64)m.index_get(key)).val == i);
+        i = i + 1u;
+    }
+}
+
+fn test_index_sugar_write_and_read() -> unit {
+    var m: Map = Map.new(key_hash, key_equals);
+
+    m[(Obj)Key(1u)] = BoxI64(42);
+    m[(Obj)Key(2u)] = BoxI64(99);
+
+    assert(((BoxI64)m[(Obj)Key(1u)]).val == 42);
+    assert(((BoxI64)m[(Obj)Key(2u)]).val == 99);
+    assert(m.len() == 2u);
+}
+
+fn test_null_key_support() -> unit {
+    var m: Map = Map.new(key_hash, key_equals);
+
+    m.put(null, BoxI64(5));
+    assert(m.contains(null));
+    assert(((BoxI64)m.index_get(null)).val == 5);
+
+    m.put(null, BoxI64(6));
+    assert(m.len() == 1u);
+    assert(((BoxI64)m.index_get(null)).val == 6);
+}
+
+fn test_get_missing_panics() -> unit {
+    var m: Map = Map.new(key_hash, key_equals);
+    var v: Obj = m.index_get((Obj)Key(999u));
+}
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { test_put_get_contains(); }
+    if select == 2u { test_overwrite_same_logical_key(); }
+    if select == 3u { test_growth_and_probe_chains(); }
+    if select == 4u { test_index_sugar_write_and_read(); }
+    if select == 5u { test_null_key_support(); }
+    if select == 6u { test_get_missing_panics(); }
+
+    return 0;
+}
