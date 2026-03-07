@@ -80,13 +80,11 @@ export class Map
     }
 
     private fn _hash(key: Obj) -> u64 {
-        var f: fn(Obj) -> u64 = __self._hash_fn;
-        return f(key);
+        return __self._hash_fn(key);
     }
 
     private fn _equals(left: Obj, right: Obj) -> bool {
-        var eq: fn(Obj, Obj) -> bool = __self._equals_fn;
-        return eq(left, right);
+        return __self._equals_fn(left, right);
     }
 
     private fn _find_existing_index(key: Obj) -> i64 {

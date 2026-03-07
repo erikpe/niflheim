@@ -370,6 +370,7 @@ Examples:
 #### 6.3.4 Call Semantics
 
 - Function-typed expressions are callable: `f(a, b, ...)`.
+- Function-typed fields are callable directly: `obj.fn_field(a, b, ...)`.
 - Calls through function values use normal argument/return type checking.
 - Codegen lowers function-valued callees to indirect calls.
 - Existing SysV ABI integer/floating calling convention rules remain unchanged.

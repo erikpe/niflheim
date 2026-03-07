@@ -1,0 +1,92 @@
+import std.io;
+
+fn inc(v: i64) -> i64 {
+    return v + 1;
+}
+
+fn dec(v: i64) -> i64 {
+    return v - 1;
+}
+
+fn add(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+fn mul(a: i64, b: i64) -> i64 {
+    return a * b;
+}
+
+class UnaryHolder {
+    f: fn(i64) -> i64;
+
+    fn run(v: i64) -> i64 {
+        return __self.f(v);
+    }
+}
+
+class BinaryHolder {
+    op: fn(i64, i64) -> i64;
+
+    fn run(a: i64, b: i64) -> i64 {
+        return __self.op(a, b);
+    }
+}
+
+fn test_direct_callable_field_call() -> i64 {
+    var h: UnaryHolder = UnaryHolder(inc);
+    if h.run(41) != 42 {
+        return 1;
+    }
+    h.f = dec;
+    if h.run(41) != 40 {
+        return 2;
+    }
+    return 0;
+}
+
+fn test_direct_callable_field_in_expression() -> i64 {
+    var h: UnaryHolder = UnaryHolder(inc);
+    if h.f(9) != 10 {
+        return 3;
+    }
+    h.f = dec;
+    if h.f(9) != 8 {
+        return 4;
+    }
+    return 0;
+}
+
+fn test_binary_callable_field_call() -> i64 {
+    var h: BinaryHolder = BinaryHolder(add);
+    if h.run(20, 22) != 42 {
+        return 5;
+    }
+    h.op = mul;
+    if h.run(6, 7) != 42 {
+        return 6;
+    }
+    return 0;
+}
+
+fn test_binary_callable_field_direct_call() -> i64 {
+    var h: BinaryHolder = BinaryHolder(add);
+    if h.op(11, 31) != 42 {
+        return 7;
+    }
+    h.op = mul;
+    if h.op(6, 7) != 42 {
+        return 8;
+    }
+    return 0;
+}
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { return test_direct_callable_field_call(); }
+    if select == 2u { return test_direct_callable_field_in_expression(); }
+    if select == 3u { return test_binary_callable_field_call(); }
+    if select == 4u { return test_binary_callable_field_direct_call(); }
+
+    return 9;
+}

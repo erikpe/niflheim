@@ -238,6 +238,47 @@ fn main() -> i64 {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_direct_callable_field_invocation() -> None:
+    source = """
+fn inc(v: i64) -> i64 {
+    return v + 1;
+}
+
+class Holder {
+    f: fn(i64) -> i64;
+
+    fn run(v: i64) -> i64 {
+        return __self.f(v);
+    }
+}
+
+fn main() -> i64 {
+    var h: Holder = Holder(inc);
+    return h.run(41);
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_direct_call_on_non_callable_field() -> None:
+    source = """
+class Box {
+    value: i64;
+
+    fn bad() -> i64 {
+        return __self.value();
+    }
+}
+
+fn main() -> i64 {
+    var b: Box = Box(1);
+    return b.bad();
+}
+"""
+    with pytest.raises(TypeCheckError, match="Expression of type 'i64' is not callable"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_private_members_inside_declaring_class() -> None:
     source = """
 class Counter {

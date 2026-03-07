@@ -777,6 +777,21 @@ class TypeChecker:
 
             method_sig = class_info.methods.get(expr.callee.field_name)
             if method_sig is None:
+                field_type = class_info.fields.get(expr.callee.field_name)
+                if field_type is not None:
+                    self._require_member_visible(class_info, object_type.name, expr.callee.field_name, "field", expr.span)
+                    qualified_field_type = self._qualify_member_type_for_owner(field_type, object_type.name)
+                    if (
+                        qualified_field_type.kind == "callable"
+                        and qualified_field_type.callable_params is not None
+                        and qualified_field_type.callable_return is not None
+                    ):
+                        self._check_call_arguments(qualified_field_type.callable_params, expr.arguments, expr.span)
+                        return qualified_field_type.callable_return
+                    raise TypeCheckError(
+                        f"Expression of type '{qualified_field_type.name}' is not callable",
+                        expr.callee.span,
+                    )
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
             self._require_member_visible(class_info, object_type.name, expr.callee.field_name, "method", expr.span)
 

@@ -619,9 +619,20 @@ def _infer_expression_type_name(
     if isinstance(expr, FieldAccessExpr):
         receiver_type = _field_receiver_type_name(expr.object_expr, ctx)
         if receiver_type is not None:
-            field_type_name = ctx.class_field_type_names.get((receiver_type, expr.field_name))
-            if field_type_name is not None:
-                return field_type_name
+            receiver_candidates = [receiver_type]
+            if "::" in receiver_type:
+                receiver_candidates.append(receiver_type.split("::", 1)[1])
+
+            for candidate in receiver_candidates:
+                field_type_name = ctx.class_field_type_names.get((candidate, expr.field_name))
+                if field_type_name is not None:
+                    return field_type_name
+
+            for (owner_type, field_name), field_type_name in ctx.class_field_type_names.items():
+                if field_name != expr.field_name:
+                    continue
+                if owner_type == receiver_type or owner_type.endswith(f"::{receiver_type}"):
+                    return field_type_name
         return "i64"
 
     if isinstance(expr, IndexExpr):
@@ -632,6 +643,9 @@ def _infer_expression_type_name(
         return "i64"
 
     if isinstance(expr, CallExpr):
+        callee_type_name = _infer_expression_type_name(expr.callee, ctx)
+        if _is_function_type_name(callee_type_name):
+            return _function_type_return_type_name(callee_type_name)
         resolved_target = _resolve_call_target_name(expr.callee, ctx)
         return resolved_target.return_type_name
 
@@ -994,6 +1008,16 @@ class CodeGenerator:
             raise NotImplementedError("field access codegen requires class-typed receiver")
 
         field_offset = self.class_field_offsets.get((receiver_type_name, expr.field_name))
+        if field_offset is None and "::" in receiver_type_name:
+            unqualified_type_name = receiver_type_name.split("::", 1)[1]
+            field_offset = self.class_field_offsets.get((unqualified_type_name, expr.field_name))
+        if field_offset is None:
+            for (owner_type, field_name), offset in self.class_field_offsets.items():
+                if field_name != expr.field_name:
+                    continue
+                if owner_type == receiver_type_name or owner_type.endswith(f"::{receiver_type_name}"):
+                    field_offset = offset
+                    break
         if field_offset is None:
             raise NotImplementedError(
                 f"field access codegen missing field '{expr.field_name}' on class '{receiver_type_name}'"
