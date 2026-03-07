@@ -77,6 +77,27 @@ def _offset_operand(offset: int) -> str:
     return f"qword ptr [rbp {sign} {abs(offset)}]"
 
 
+def _span_location(span: object | None) -> str | None:
+    if span is None:
+        return None
+    start = getattr(span, "start", None)
+    if start is None:
+        return None
+    path = getattr(start, "path", None)
+    line = getattr(start, "line", None)
+    column = getattr(start, "column", None)
+    if isinstance(path, str) and isinstance(line, int) and isinstance(column, int):
+        return f"{path}:{line}:{column}"
+    return None
+
+
+def _raise_codegen_error(message: str, *, span: object | None = None) -> None:
+    location = _span_location(span)
+    if location is not None:
+        raise NotImplementedError(f"{message} at {location}")
+    raise NotImplementedError(message)
+
+
 def _is_reference_type_name(type_name: str) -> bool:
     if _is_function_type_name(type_name):
         return False
@@ -87,9 +108,9 @@ def _is_function_type_name(type_name: str) -> bool:
     return type_name.startswith("fn(")
 
 
-def _function_type_return_type_name(type_name: str) -> str:
+def _function_type_return_type_name(type_name: str, *, span: object | None = None) -> str:
     if not _is_function_type_name(type_name):
-        raise ValueError(f"not a function type name: {type_name}")
+        _raise_codegen_error(f"not a function type name: {type_name}", span=span)
 
     depth = 0
     close_index = -1
@@ -103,11 +124,11 @@ def _function_type_return_type_name(type_name: str) -> str:
                 break
 
     if close_index < 0:
-        raise ValueError(f"malformed function type name: {type_name}")
+        _raise_codegen_error(f"malformed function type name: {type_name}", span=span)
 
     tail = type_name[close_index + 1 :].lstrip()
     if not tail.startswith("->"):
-        raise ValueError(f"malformed function type name: {type_name}")
+        _raise_codegen_error(f"malformed function type name: {type_name}", span=span)
     return tail[2:].strip()
 
 
@@ -115,9 +136,9 @@ def _is_array_type_name(type_name: str) -> bool:
     return type_name.endswith("[]")
 
 
-def _array_element_type_name(array_type_name: str) -> str:
+def _array_element_type_name(array_type_name: str, *, span: object | None = None) -> str:
     if not _is_array_type_name(array_type_name):
-        raise ValueError(f"not an array type name: {array_type_name}")
+        _raise_codegen_error(f"not an array type name: {array_type_name}", span=span)
     return array_type_name[:-2]
 
 
@@ -135,7 +156,10 @@ def _type_ref_name(type_ref: TypeRefNode) -> str:
     if isinstance(type_ref, FunctionTypeRef):
         params_text = ",".join(_type_ref_name(param_type) for param_type in type_ref.param_types)
         return f"fn({params_text})->{_type_ref_name(type_ref.return_type)}"
-    raise TypeError(f"unsupported type ref node: {type(type_ref).__name__}")
+    _raise_codegen_error(
+        f"unsupported type ref node: {type(type_ref).__name__}",
+        span=getattr(type_ref, "span", None),
+    )
 
 
 def _is_double_literal_text(text: str) -> bool:
@@ -183,7 +207,7 @@ def _collect_locals(stmt: Statement, local_types_by_name: dict[str, str]) -> Non
 
         inferred_element_type = stmt.element_type_name
         if not inferred_element_type and _is_array_type_name(inferred_collection_type):
-            inferred_element_type = _array_element_type_name(inferred_collection_type)
+            inferred_element_type = _array_element_type_name(inferred_collection_type, span=stmt.span)
 
         local_types_by_name.setdefault(stmt.coll_temp_name, inferred_collection_type)
         local_types_by_name.setdefault(stmt.len_temp_name, "i64")
@@ -446,7 +470,10 @@ def _resolve_method_call_target(
     if isinstance(receiver_expr, IdentifierExpr):
         receiver_type_name = ctx.layout.slot_type_names.get(receiver_expr.name)
         if receiver_type_name is None:
-            raise NotImplementedError(f"method receiver '{receiver_expr.name}' is not materialized in stack layout")
+            _raise_codegen_error(
+                f"method receiver '{receiver_expr.name}' is not materialized in stack layout",
+                span=callee.span,
+            )
     elif isinstance(receiver_expr, CastExpr):
         receiver_type_name = _type_ref_name(receiver_expr.type_ref)
     else:
@@ -457,7 +484,7 @@ def _resolve_method_call_target(
     method_name = callee.field_name
 
     if _is_array_type_name(method_owner_type_name):
-        element_type_name = _array_element_type_name(method_owner_type_name)
+        element_type_name = _array_element_type_name(method_owner_type_name, span=callee.span)
         kind = _array_element_runtime_kind(element_type_name)
         if method_name == "len":
             return ResolvedCallTarget(name="rt_array_len", receiver_expr=receiver_expr, return_type_name="u64")
@@ -493,21 +520,30 @@ def _resolve_method_call_target(
                 receiver_expr=receiver_expr,
                 return_type_name="unit",
             )
-        raise NotImplementedError(f"array method-call codegen could not resolve '{method_owner_type_name}.{method_name}'")
+        _raise_codegen_error(
+            f"array method-call codegen could not resolve '{method_owner_type_name}.{method_name}'",
+            span=callee.span,
+        )
 
     method_label = ctx.method_labels.get((receiver_type_name, method_name))
     if method_label is None and "::" in receiver_type_name:
         unqualified_type_name = receiver_type_name.split("::", 1)[1]
         method_label = ctx.method_labels.get((unqualified_type_name, method_name))
     if method_label is None:
-        raise NotImplementedError(f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'")
+        _raise_codegen_error(
+            f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'",
+            span=callee.span,
+        )
 
     is_static = ctx.method_is_static.get((receiver_type_name, method_name))
     if is_static is None and "::" in receiver_type_name:
         unqualified_type_name = receiver_type_name.split("::", 1)[1]
         is_static = ctx.method_is_static.get((unqualified_type_name, method_name))
     if is_static:
-        raise NotImplementedError(f"static method '{receiver_type_name}.{method_name}' must be called on the class")
+        _raise_codegen_error(
+            f"static method '{receiver_type_name}.{method_name}' must be called on the class",
+            span=callee.span,
+        )
 
     return ResolvedCallTarget(
         name=method_label,
@@ -535,7 +571,10 @@ def _resolve_call_target_name(
         if chain is None:
             return _resolve_method_call_target(callee, ctx)
         if len(chain) < 2:
-            raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+            _raise_codegen_error(
+                "call codegen currently supports direct or module-qualified callees only",
+                span=callee.span,
+            )
         if chain[0] in ctx.layout.slot_offsets:
             return _resolve_method_call_target(callee, ctx)
         static_owner = chain[-2]
@@ -556,7 +595,10 @@ def _resolve_call_target_name(
             return_type_name=ctx.function_return_types.get(chain[-1], RUNTIME_RETURN_TYPES.get(chain[-1], "i64")),
         )
 
-    raise NotImplementedError("call codegen currently supports direct or module-qualified callees only")
+    _raise_codegen_error(
+        "call codegen currently supports direct or module-qualified callees only",
+        span=getattr(callee, "span", None),
+    )
 
 
 def _resolve_callable_value_label(
@@ -639,13 +681,13 @@ def _infer_expression_type_name(
         if isinstance(expr.object_expr, IdentifierExpr):
             receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
             if _is_array_type_name(receiver_type):
-                return _array_element_type_name(receiver_type)
+                return _array_element_type_name(receiver_type, span=expr.span)
         return "i64"
 
     if isinstance(expr, CallExpr):
         callee_type_name = _infer_expression_type_name(expr.callee, ctx)
         if _is_function_type_name(callee_type_name):
-            return _function_type_return_type_name(callee_type_name)
+            return _function_type_return_type_name(callee_type_name, span=expr.span)
         resolved_target = _resolve_call_target_name(expr.callee, ctx)
         return resolved_target.return_type_name
 
@@ -820,12 +862,18 @@ class CodeGenerator:
                 continue
             if _type_ref_name(param.type_ref) == "double":
                 if float_param_index >= len(FLOAT_PARAM_REGISTERS):
-                    raise NotImplementedError("parameter codegen currently supports up to 8 floating-point params")
+                    _raise_codegen_error(
+                        "parameter codegen currently supports up to 8 floating-point params",
+                        span=param.span,
+                    )
                 self.out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
                 float_param_index += 1
             else:
                 if integer_param_index >= len(PARAM_REGISTERS):
-                    raise NotImplementedError("parameter codegen currently supports up to 6 SysV integer/pointer params")
+                    _raise_codegen_error(
+                        "parameter codegen currently supports up to 6 SysV integer/pointer params",
+                        span=param.span,
+                    )
                 self.out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[integer_param_index]}")
                 integer_param_index += 1
 
@@ -912,6 +960,8 @@ class CodeGenerator:
         layout: FunctionLayout,
         target_name: str,
         arg_count: int,
+        *,
+        span: object | None = None,
     ) -> int:
         if layout.root_slot_count <= 0:
             return 0
@@ -919,7 +969,7 @@ class CodeGenerator:
         if not ref_indices:
             return 0
         if len(ref_indices) > len(layout.temp_root_slot_offsets):
-            raise NotImplementedError("insufficient temporary root slots for runtime call argument rooting")
+            _raise_codegen_error("insufficient temporary root slots for runtime call argument rooting", span=span)
 
         for temp_index, arg_index in enumerate(ref_indices):
             self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
@@ -948,11 +998,14 @@ class CodeGenerator:
         if expr.value.startswith('"'):
             label_and_len = string_literal_labels.get(expr.value)
             if label_and_len is None:
-                raise NotImplementedError("missing string literal lowering metadata")
+                _raise_codegen_error("missing string literal lowering metadata", span=expr.span)
             data_label, data_len = label_and_len
             from_u8_label = ctx.method_labels.get((STR_CLASS_NAME, "from_u8_array"))
             if from_u8_label is None or not ctx.method_is_static.get((STR_CLASS_NAME, "from_u8_array"), False):
-                raise NotImplementedError(f"missing static {STR_CLASS_NAME}.from_u8_array for string literal lowering")
+                _raise_codegen_error(
+                    f"missing static {STR_CLASS_NAME}.from_u8_array for string literal lowering",
+                    span=expr.span,
+                )
             self._emit_runtime_call_hook(
                 fn_name=ctx.fn_name,
                 phase="before",
@@ -995,7 +1048,7 @@ class CodeGenerator:
             self.out.append(f"    mov rax, {expr.value[:-1]}")
             return
 
-        raise NotImplementedError(f"literal codegen not implemented for '{expr.value}'")
+        _raise_codegen_error(f"literal codegen not implemented for '{expr.value}'", span=expr.span)
 
     def _emit_field_access_expr(self, expr: FieldAccessExpr, ctx: EmitContext) -> None:
         callable_label = _resolve_callable_value_label(expr, ctx)
@@ -1005,7 +1058,7 @@ class CodeGenerator:
 
         receiver_type_name = _field_receiver_type_name(expr.object_expr, ctx)
         if receiver_type_name is None:
-            raise NotImplementedError("field access codegen requires class-typed receiver")
+            _raise_codegen_error("field access codegen requires class-typed receiver", span=expr.span)
 
         field_offset = self.class_field_offsets.get((receiver_type_name, expr.field_name))
         if field_offset is None and "::" in receiver_type_name:
@@ -1019,8 +1072,9 @@ class CodeGenerator:
                     field_offset = offset
                     break
         if field_offset is None:
-            raise NotImplementedError(
-                f"field access codegen missing field '{expr.field_name}' on class '{receiver_type_name}'"
+            _raise_codegen_error(
+                f"field access codegen missing field '{expr.field_name}' on class '{receiver_type_name}'",
+                span=expr.span,
             )
         self._emit_expr(expr.object_expr, ctx)
         self.out.append(f"    mov rax, qword ptr [rax + {field_offset}]")
@@ -1040,7 +1094,7 @@ class CodeGenerator:
             return
 
         if _is_array_type_name(target_type) and source_type == "Obj":
-            element_type = _array_element_type_name(target_type)
+            element_type = _array_element_type_name(target_type, span=expr.span)
             array_kind_by_element_type = {
                 "i64": 1,
                 "u64": 2,
@@ -1144,9 +1198,9 @@ class CodeGenerator:
     def _emit_array_ctor_expr(self, expr: ArrayCtorExpr, ctx: EmitContext) -> None:
         array_type_name = _type_ref_name(expr.element_type_ref)
         if not _is_array_type_name(array_type_name):
-            raise NotImplementedError("array constructor codegen requires array type")
+            _raise_codegen_error("array constructor codegen requires array type", span=expr.span)
 
-        element_type_name = _array_element_type_name(array_type_name)
+        element_type_name = _array_element_type_name(array_type_name, span=expr.span)
         runtime_kind = _array_element_runtime_kind(element_type_name)
         runtime_ctor = ARRAY_CONSTRUCTOR_RUNTIME_CALLS[runtime_kind]
 
@@ -1161,7 +1215,12 @@ class CodeGenerator:
             column=expr.span.start.column,
         )
         self._emit_root_slot_updates(ctx.layout)
-        rooted_runtime_arg_count = self._emit_runtime_call_arg_temp_roots(ctx.layout, runtime_ctor, 1)
+        rooted_runtime_arg_count = self._emit_runtime_call_arg_temp_roots(
+            ctx.layout,
+            runtime_ctor,
+            1,
+            span=expr.span,
+        )
         self.out.append("    pop rdi")
         self.out.append(f"    call {runtime_ctor}")
         if rooted_runtime_arg_count > 0:
@@ -1193,7 +1252,10 @@ class CodeGenerator:
                 self.out.append(f"    lea rax, [rip + {callable_label}]")
                 return
 
-            raise NotImplementedError(f"identifier '{expr.name}' is not materialized in stack layout")
+            _raise_codegen_error(
+                f"identifier '{expr.name}' is not materialized in stack layout",
+                span=expr.span,
+            )
             return
 
         if isinstance(expr, FieldAccessExpr):
@@ -1224,7 +1286,7 @@ class CodeGenerator:
             self._emit_binary_expr(expr, ctx)
             return
 
-        raise NotImplementedError(f"expression codegen not implemented for {type(expr).__name__}")
+        _raise_codegen_error(f"expression codegen not implemented for {type(expr).__name__}", span=expr.span)
 
     def _emit_call_expr(self, expr: CallExpr, ctx: EmitContext) -> None:
         layout = ctx.layout
@@ -1237,9 +1299,15 @@ class CodeGenerator:
             integer_arg_count = sum(1 for type_name in call_argument_type_names if type_name != "double")
             float_arg_count = sum(1 for type_name in call_argument_type_names if type_name == "double")
             if integer_arg_count > len(PARAM_REGISTERS):
-                raise NotImplementedError("call codegen currently supports up to 6 integer/pointer positional arguments")
+                _raise_codegen_error(
+                    "call codegen currently supports up to 6 integer/pointer positional arguments",
+                    span=expr.span,
+                )
             if float_arg_count > len(FLOAT_PARAM_REGISTERS):
-                raise NotImplementedError("call codegen currently supports up to 8 floating-point positional arguments")
+                _raise_codegen_error(
+                    "call codegen currently supports up to 8 floating-point positional arguments",
+                    span=expr.span,
+                )
 
             for arg in reversed(expr.arguments):
                 self._emit_expr(arg, ctx)
@@ -1263,7 +1331,7 @@ class CodeGenerator:
 
             self.out.append("    call r11")
 
-            return_type_name = _function_type_return_type_name(callee_type_name)
+            return_type_name = _function_type_return_type_name(callee_type_name, span=expr.span)
             if return_type_name == "double":
                 self.out.append("    movq rax, xmm0")
             elif return_type_name == "unit":
@@ -1283,9 +1351,15 @@ class CodeGenerator:
         integer_arg_count = sum(1 for type_name in call_argument_type_names if type_name != "double")
         float_arg_count = sum(1 for type_name in call_argument_type_names if type_name == "double")
         if integer_arg_count > len(PARAM_REGISTERS):
-            raise NotImplementedError("call codegen currently supports up to 6 integer/pointer positional arguments")
+            _raise_codegen_error(
+                "call codegen currently supports up to 6 integer/pointer positional arguments",
+                span=expr.span,
+            )
         if float_arg_count > len(FLOAT_PARAM_REGISTERS):
-            raise NotImplementedError("call codegen currently supports up to 8 floating-point positional arguments")
+            _raise_codegen_error(
+                "call codegen currently supports up to 8 floating-point positional arguments",
+                span=expr.span,
+            )
 
         if is_runtime_call:
             self._emit_runtime_call_hook(
@@ -1303,7 +1377,12 @@ class CodeGenerator:
         self._emit_root_slot_updates(layout)
         rooted_runtime_arg_count = 0
         if is_runtime_call:
-            rooted_runtime_arg_count = self._emit_runtime_call_arg_temp_roots(layout, target_name, arg_count)
+            rooted_runtime_arg_count = self._emit_runtime_call_arg_temp_roots(
+                layout,
+                target_name,
+                arg_count,
+                span=expr.span,
+            )
 
         integer_reg_index = 0
         float_reg_index = 0
@@ -1357,7 +1436,7 @@ class CodeGenerator:
             self._emit_bool_normalize()
             self.out.append("    xor rax, 1")
             return
-        raise NotImplementedError(f"unary operator '{expr.operator}' is not supported")
+        _raise_codegen_error(f"unary operator '{expr.operator}' is not supported", span=expr.span)
 
     def _emit_logical_binary_expr(self, expr: BinaryExpr, *, fn_name: str, label_counter: list[int], ctx: EmitContext) -> bool:
         if expr.operator not in ("&&", "||"):
@@ -1566,14 +1645,17 @@ class CodeGenerator:
             if self._emit_double_binary_op(expr.operator):
                 return
 
-            raise NotImplementedError(f"binary operator '{expr.operator}' is not supported for double operands")
+            _raise_codegen_error(
+                f"binary operator '{expr.operator}' is not supported for double operands",
+                span=expr.span,
+            )
 
         if self._emit_integer_binary_op(expr.operator, left_type_name, fn_name, label_counter):
             if left_type_name == "u8" and expr.operator in {"+", "-", "*", "**", "/", "%", "&", "|", "^", "<<", ">>"}:
                 self.out.append("    and rax, 255")
             return
 
-        raise NotImplementedError(f"binary operator '{expr.operator}' is not supported")
+        _raise_codegen_error(f"binary operator '{expr.operator}' is not supported", span=expr.span)
 
     def _emit_statement(
         self,
@@ -1655,7 +1737,10 @@ class CodeGenerator:
         if isinstance(stmt, VarDeclStmt):
             offset = layout.slot_offsets.get(stmt.name)
             if offset is None:
-                raise NotImplementedError(f"variable '{stmt.name}' is not materialized in stack layout")
+                _raise_codegen_error(
+                    f"variable '{stmt.name}' is not materialized in stack layout",
+                    span=stmt.span,
+                )
 
             if stmt.initializer is None:
                 self.out.append("    mov rax, 0")
@@ -1682,11 +1767,12 @@ class CodeGenerator:
             if isinstance(stmt.target, FieldAccessExpr):
                 receiver_type_name = _field_receiver_type_name(stmt.target.object_expr, ctx)
                 if receiver_type_name is None:
-                    raise NotImplementedError("field assignment codegen requires class-typed receiver")
+                    _raise_codegen_error("field assignment codegen requires class-typed receiver", span=stmt.span)
                 field_offset = self.class_field_offsets.get((receiver_type_name, stmt.target.field_name))
                 if field_offset is None:
-                    raise NotImplementedError(
-                        f"field assignment codegen missing field '{stmt.target.field_name}' on class '{receiver_type_name}'"
+                    _raise_codegen_error(
+                        f"field assignment codegen missing field '{stmt.target.field_name}' on class '{receiver_type_name}'",
+                        span=stmt.span,
                     )
                 self._emit_expr(stmt.target.object_expr, ctx)
                 self.out.append("    push rax")
@@ -1696,10 +1782,16 @@ class CodeGenerator:
                 return
 
             if not isinstance(stmt.target, IdentifierExpr):
-                raise NotImplementedError("assignment codegen currently supports identifier, index, or field targets only")
+                _raise_codegen_error(
+                    "assignment codegen currently supports identifier, index, or field targets only",
+                    span=stmt.span,
+                )
             offset = layout.slot_offsets.get(stmt.target.name)
             if offset is None:
-                raise NotImplementedError(f"identifier '{stmt.target.name}' is not materialized in stack layout")
+                _raise_codegen_error(
+                    f"identifier '{stmt.target.name}' is not materialized in stack layout",
+                    span=stmt.span,
+                )
             self._emit_expr(stmt.value, ctx)
             self.out.append(f"    mov {_offset_operand(offset)}, rax")
             return
@@ -1715,14 +1807,14 @@ class CodeGenerator:
 
         if isinstance(stmt, BreakStmt):
             if not loop_labels:
-                raise NotImplementedError("break codegen requires enclosing while loop")
+                _raise_codegen_error("break codegen requires enclosing while loop", span=stmt.span)
             _loop_continue_label, loop_end_label = loop_labels[-1]
             self.out.append(f"    jmp {loop_end_label}")
             return
 
         if isinstance(stmt, ContinueStmt):
             if not loop_labels:
-                raise NotImplementedError("continue codegen requires enclosing while loop")
+                _raise_codegen_error("continue codegen requires enclosing while loop", span=stmt.span)
             loop_continue_label, _loop_end_label = loop_labels[-1]
             self.out.append(f"    jmp {loop_continue_label}")
             return
@@ -1757,7 +1849,7 @@ class CodeGenerator:
             self.out.append(f"{end_label}:")
             return
 
-        raise NotImplementedError(f"statement codegen not implemented for {type(stmt).__name__}")
+        _raise_codegen_error(f"statement codegen not implemented for {type(stmt).__name__}", span=stmt.span)
 
     def _emit_debug_symbol_literals(
         self,
@@ -1903,7 +1995,7 @@ class CodeGenerator:
                 self.out.append(f"    mov rcx, {_offset_operand(value_offset)}")
             else:
                 if field_decl.initializer is None:
-                    raise NotImplementedError("constructor default initializer missing")
+                    _raise_codegen_error("constructor default initializer missing", span=field_decl.span)
                 self._emit_expr(field_decl.initializer, emit_ctx)
                 self.out.append("    mov rcx, rax")
 
