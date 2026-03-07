@@ -86,8 +86,8 @@ export class Str
         }
 
         while start < stop {
-            var c: u8 = __self[stop - 1];
-            if (c == ' ' || c == '\n' || c == '\r' || c == '\t') {
+            var tail_c: u8 = __self[stop - 1];
+            if (tail_c == ' ' || tail_c == '\n' || tail_c == '\r' || tail_c == '\t') {
                 stop = stop - 1;
                 continue;
             }

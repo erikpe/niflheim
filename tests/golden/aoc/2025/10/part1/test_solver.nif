@@ -35,14 +35,14 @@ fn find_endstate(end_state_bits: u64, presses_bits: u64[], num_presses: u64) -> 
         total = 0u;
     } else if num_presses > 0u {
         // combinations without repetition: C(base_count, num_presses)
-        for i in Range(1, (i64)num_presses + 1) {
-            total = (total * (base_count - num_presses + (u64)i)) / (u64)i;
+        for comb_i in Range(1, (i64)num_presses + 1) {
+                total = (total * (base_count - num_presses + (u64)comb_i)) / (u64)comb_i;
         }
     }
 
     var indices: u64[] = u64[](num_presses);
-    for i in Range(0, (i64)num_presses) {
-        indices[i] = (u64)i;
+        for init_i in Range(0, (i64)num_presses) {
+            indices[init_i] = (u64)init_i;
     }
 
     for out_index in Range(0, (i64)total) {

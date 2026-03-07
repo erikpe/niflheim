@@ -46,9 +46,9 @@ fn test_growth_and_probe_chains() -> unit {
 
     i = 0u;
     while i < 80u {
-        var key: u64 = i * 17u + 3u;
-        assert(m.contains(key));
-        assert(((BoxU64)m.index_get(key)).val == i);
+        var verify_key: u64 = i * 17u + 3u;
+        assert(m.contains(verify_key));
+        assert(((BoxU64)m.index_get(verify_key)).val == i);
         i = i + 1u;
     }
 }
@@ -86,16 +86,16 @@ fn test_large_insert_then_overwrite_all() -> unit {
 
     i = 0u;
     while i < 512u {
-        var key: u64 = i * 131u + 17u;
-        assert(m.contains(key));
-        assert(((BoxU64)m.index_get(key)).val == i);
+        var verify_key: u64 = i * 131u + 17u;
+        assert(m.contains(verify_key));
+        assert(((BoxU64)m.index_get(verify_key)).val == i);
         i = i + 1u;
     }
 
     i = 0u;
     while i < 512u {
-        var key: u64 = i * 131u + 17u;
-        m.put(key, BoxU64(i + 1000u));
+        var rewrite_key: u64 = i * 131u + 17u;
+        m.put(rewrite_key, BoxU64(i + 1000u));
         i = i + 1u;
     }
 
@@ -103,8 +103,8 @@ fn test_large_insert_then_overwrite_all() -> unit {
 
     i = 0u;
     while i < 512u {
-        var key: u64 = i * 131u + 17u;
-        assert(((BoxU64)m.index_get(key)).val == i + 1000u);
+        var check_key: u64 = i * 131u + 17u;
+        assert(((BoxU64)m.index_get(check_key)).val == i + 1000u);
         i = i + 1u;
     }
 }
