@@ -1938,7 +1938,6 @@ class CodeGenerator:
         )
         self._emit_zero_slots(layout)
         self._emit_param_spills(fn.params, layout)
-        self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
 
         if layout.root_slot_count > 0:
             if layout.root_slot_names:
@@ -1950,6 +1949,8 @@ class CodeGenerator:
                 root_count=layout.root_slot_count,
                 first_root_offset=first_root_offset,
             )
+
+        self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
 
         emit_ctx = EmitContext(
             layout=layout,
@@ -1991,7 +1992,6 @@ class CodeGenerator:
         )
         self._emit_zero_slots(layout)
         self._emit_param_spills(ctor_fn.params, layout)
-        self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
 
         if layout.root_slot_names:
             first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
@@ -2000,6 +2000,8 @@ class CodeGenerator:
                 root_count=len(layout.root_slot_names),
                 first_root_offset=first_root_offset,
             )
+
+        self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
 
         self._emit_runtime_call_hook(
             fn_name=target_label,

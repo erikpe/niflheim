@@ -1145,6 +1145,54 @@ fn f(x: Obj) -> Obj {
     assert "    call rt_pop_roots" in asm
 
 
+def test_emit_asm_pushes_roots_before_trace_push_for_reference_functions() -> None:
+    source = """
+fn f(x: Obj) -> Obj {
+    return x;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    push_roots_i = asm.index("    call rt_push_roots")
+    trace_push_i = asm.index("    call rt_trace_push")
+    assert push_roots_i < trace_push_i
+
+
+def test_emit_asm_keeps_trace_push_for_functions_without_roots() -> None:
+    source = """
+fn f(a: i64) -> i64 {
+    return a;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_trace_push" in asm
+    assert "    call rt_trace_pop" in asm
+
+
+def test_emit_asm_pushes_roots_before_trace_push_for_constructors() -> None:
+    source = """
+class Boxed {
+    final value: Obj;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    ctor_label = "__nif_ctor_Boxed:"
+    assert ctor_label in asm
+    ctor_start = asm.index(ctor_label)
+    ctor_body = asm[ctor_start:]
+    push_roots_i = ctor_body.index("    call rt_push_roots")
+    trace_push_i = ctor_body.index("    call rt_trace_push")
+    assert push_roots_i < trace_push_i
+
+
 def test_emit_asm_omits_shadow_stack_abi_when_no_named_slots() -> None:
     source = """
 fn f() -> unit {
