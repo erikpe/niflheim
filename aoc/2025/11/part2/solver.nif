@@ -43,9 +43,7 @@ fn main() -> i64 {
     var line: Str;
     for line_obj1 in lines {
         line = (Str)line_obj1;
-        var lhs: Str = line[:3];
-        var lhs_key: BoxI64 = BoxI64(key);
-        keymap[(Obj)lhs] = lhs_key;
+        keymap[(Obj)(line[:3])] = BoxI64(key);
         key = key + 1;
     }
     keymap["out"] = BoxI64(key);
@@ -60,14 +58,12 @@ fn main() -> i64 {
     var graph: Obj[] = Obj[](graph_size);
     for line_obj2 in lines {
         line = (Str)line_obj2;
-        var lhs2: Str = line[:3];
-        key = ((BoxI64)keymap[(Obj)lhs2]).val;
+        key = ((BoxI64)keymap[(Obj)(line[:3])]).val;
         var nodes: Vec = line[5:].split(' ');
         var node_arr: i64[] = i64[](nodes.len());
         i = 0;
         for node_obj in nodes {
-            var node_name: Obj = node_obj;
-            node_arr[i] = ((BoxI64)keymap[node_name]).val;
+            node_arr[i] = ((BoxI64)keymap[(Obj)node_obj]).val;
             i = i + 1;
         }
         graph[key] = node_arr;

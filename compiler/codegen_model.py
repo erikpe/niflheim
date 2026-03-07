@@ -50,6 +50,7 @@ class EmitContext:
     function_return_types: dict[str, str]
     string_literal_labels: dict[str, tuple[str, int]]
     class_field_type_names: dict[tuple[str, str], str]
+    temp_root_depth: list[int]
 
 
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]

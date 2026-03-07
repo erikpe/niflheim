@@ -254,7 +254,7 @@ fn caller() -> i64 {
     asm = emit_asm(module)
 
     assert "    call callee" in asm
-    assert "    sub rsp, 8" not in asm
+    assert "\n    sub rsp, 8\n" not in asm
     assert "    add rsp, 8" not in asm
 
 
@@ -1223,9 +1223,8 @@ fn f(ts: Obj, n: i64) -> unit {
 
     assert "    mov esi, 0" in asm
     assert "    mov esi, 1" in asm
-    assert "    mov esi, 2" not in asm
     assert "    mov edx, 2" in asm
-    assert asm.count("    call rt_root_slot_store") == 2
+    assert asm.count("    call rt_root_slot_store") >= 2
 
 
 def test_emit_asm_no_runtime_root_frame_for_primitive_only_function() -> None:
@@ -1297,6 +1296,27 @@ fn caller(x: Obj) -> Obj {
     assert "    call callee" in asm
     assert "    call rt_root_slot_store" in asm
     assert "rt_safepoint_before" not in asm
+
+
+def test_emit_asm_roots_temporary_reference_args_for_non_runtime_call() -> None:
+    source = """
+fn takes_two(a: Obj[], b: Obj[]) -> u64 {
+    return a.len();
+}
+
+fn caller() -> u64 {
+    return takes_two(Obj[](1u), Obj[](2u));
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    caller_start = asm.index("caller:")
+    caller_end = asm.index(".Lcaller_epilogue:")
+    caller_body = asm[caller_start:caller_end]
+    assert "    call takes_two" in caller_body
+    assert caller_body.count("    call rt_root_slot_store") >= 2
 
 
 def test_emit_asm_reference_cast_calls_rt_checked_cast() -> None:
@@ -1440,3 +1460,26 @@ fn f(o: Obj) -> Counter {
         "    .long 0\n"
         "    .long 0"
     ) in asm
+
+
+def test_emit_asm_emits_class_type_metadata_even_without_casts() -> None:
+    source = """
+class Holder {
+    value: Obj;
+}
+
+fn main() -> i64 {
+    var h: Holder = Holder(null);
+    if h == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "__nif_type_name_Holder:" in asm
+    assert "__nif_type_Holder:" in asm
+    assert "__nif_type_name_Holder__ptr_offsets:" in asm

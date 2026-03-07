@@ -277,7 +277,10 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     root_slot_indices = {name: index for index, name in enumerate(root_slot_names)}
 
     needs_temp_runtime_roots = _function_needs_temp_runtime_roots(fn)
-    temp_root_slot_count = TEMP_RUNTIME_ROOT_SLOT_COUNT if needs_temp_runtime_roots else 0
+    max_call_temp_root_slots = _function_max_call_temp_root_slots(fn)
+    temp_root_slot_count = 0
+    if needs_temp_runtime_roots:
+        temp_root_slot_count = max(TEMP_RUNTIME_ROOT_SLOT_COUNT, max_call_temp_root_slots)
     temp_root_slot_start_index = len(root_slot_names)
     root_slot_count = len(root_slot_names) + temp_root_slot_count
 
@@ -316,21 +319,8 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
 
 def _expr_needs_temp_runtime_roots(expr: Expression) -> bool:
     if isinstance(expr, CallExpr):
-        if isinstance(expr.callee, IdentifierExpr) and expr.callee.name in RUNTIME_REF_ARG_INDICES:
-            return True
-        if isinstance(expr.callee, FieldAccessExpr) and expr.callee.field_name in {
-            "len",
-            "iter_len",
-            "index_get",
-            "iter_get",
-            "index_set",
-            "slice_get",
-            "slice_set",
-        }:
-            return True
-        if _expr_needs_temp_runtime_roots(expr.callee):
-            return True
-        return any(_expr_needs_temp_runtime_roots(arg) for arg in expr.arguments)
+        # Any call can evaluate arguments that allocate and trigger GC.
+        return True
 
     if isinstance(expr, CastExpr):
         return _expr_needs_temp_runtime_roots(expr.operand)
@@ -374,6 +364,81 @@ def _stmt_needs_temp_runtime_roots(stmt: Statement) -> bool:
 
 def _function_needs_temp_runtime_roots(fn: FunctionDecl) -> bool:
     return any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
+
+
+def _max_call_temp_root_slots_in_expr(expr: Expression) -> int:
+    if isinstance(expr, CallExpr):
+        receiver_slots = 1 if isinstance(expr.callee, FieldAccessExpr) else 0
+        max_slots = len(expr.arguments) + receiver_slots
+        max_slots = max(max_slots, _max_call_temp_root_slots_in_expr(expr.callee))
+        for arg in expr.arguments:
+            max_slots = max(max_slots, _max_call_temp_root_slots_in_expr(arg))
+        return max_slots
+
+    if isinstance(expr, CastExpr):
+        return _max_call_temp_root_slots_in_expr(expr.operand)
+    if isinstance(expr, UnaryExpr):
+        return _max_call_temp_root_slots_in_expr(expr.operand)
+    if isinstance(expr, BinaryExpr):
+        return max(_max_call_temp_root_slots_in_expr(expr.left), _max_call_temp_root_slots_in_expr(expr.right))
+    if isinstance(expr, FieldAccessExpr):
+        return _max_call_temp_root_slots_in_expr(expr.object_expr)
+    if isinstance(expr, IndexExpr):
+        return max(
+            _max_call_temp_root_slots_in_expr(expr.object_expr),
+            _max_call_temp_root_slots_in_expr(expr.index_expr),
+        )
+    if isinstance(expr, ArrayCtorExpr):
+        return _max_call_temp_root_slots_in_expr(expr.length_expr)
+    return 0
+
+
+def _max_call_temp_root_slots_in_stmt(stmt: Statement) -> int:
+    if isinstance(stmt, VarDeclStmt):
+        return _max_call_temp_root_slots_in_expr(stmt.initializer) if stmt.initializer is not None else 0
+    if isinstance(stmt, AssignStmt):
+        target_slots = 0
+        if isinstance(stmt.target, IndexExpr):
+            target_slots = max(
+                _max_call_temp_root_slots_in_expr(stmt.target.object_expr),
+                _max_call_temp_root_slots_in_expr(stmt.target.index_expr),
+            )
+        elif isinstance(stmt.target, FieldAccessExpr):
+            target_slots = _max_call_temp_root_slots_in_expr(stmt.target.object_expr)
+        return max(target_slots, _max_call_temp_root_slots_in_expr(stmt.value))
+    if isinstance(stmt, ExprStmt):
+        return _max_call_temp_root_slots_in_expr(stmt.expression)
+    if isinstance(stmt, ReturnStmt):
+        return _max_call_temp_root_slots_in_expr(stmt.value) if stmt.value is not None else 0
+    if isinstance(stmt, BlockStmt):
+        max_slots = 0
+        for nested in stmt.statements:
+            max_slots = max(max_slots, _max_call_temp_root_slots_in_stmt(nested))
+        return max_slots
+    if isinstance(stmt, IfStmt):
+        max_slots = _max_call_temp_root_slots_in_expr(stmt.condition)
+        max_slots = max(max_slots, _max_call_temp_root_slots_in_stmt(stmt.then_branch))
+        if stmt.else_branch is not None:
+            max_slots = max(max_slots, _max_call_temp_root_slots_in_stmt(stmt.else_branch))
+        return max_slots
+    if isinstance(stmt, WhileStmt):
+        return max(
+            _max_call_temp_root_slots_in_expr(stmt.condition),
+            _max_call_temp_root_slots_in_stmt(stmt.body),
+        )
+    if isinstance(stmt, ForInStmt):
+        return max(
+            _max_call_temp_root_slots_in_expr(stmt.collection_expr),
+            _max_call_temp_root_slots_in_stmt(stmt.body),
+        )
+    return 0
+
+
+def _function_max_call_temp_root_slots(fn: FunctionDecl) -> int:
+    max_slots = 0
+    for stmt in fn.body.statements:
+        max_slots = max(max_slots, _max_call_temp_root_slots_in_stmt(stmt))
+    return max_slots
 
 
 def _next_label(fn_name: str, prefix: str, label_counter: list[int]) -> str:
@@ -1020,8 +1085,29 @@ class CodeGenerator:
         return len(ref_indices)
 
     def _emit_clear_runtime_call_arg_temp_roots(self, layout: FunctionLayout, rooted_count: int) -> None:
-        for temp_index in range(rooted_count):
+        self._emit_clear_temp_root_slots(layout, 0, rooted_count)
+
+    def _emit_clear_temp_root_slots(self, layout: FunctionLayout, start_index: int, count: int) -> None:
+        for temp_index in range(start_index, start_index + count):
             self.out.append(f"    mov {_offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
+
+    def _emit_temp_arg_root_from_rsp(
+        self,
+        layout: FunctionLayout,
+        temp_slot_index: int,
+        stack_byte_offset: int,
+        *,
+        span: object | None = None,
+    ) -> None:
+        if not layout.temp_root_slot_offsets:
+            return
+        if temp_slot_index >= len(layout.temp_root_slot_offsets):
+            _raise_codegen_error("insufficient temporary root slots for call argument rooting", span=span)
+
+        self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+        self.out.append(f"    mov rdx, {_stack_slot_operand('rsp', stack_byte_offset)}")
+        self.out.append(f"    mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
+        self.out.append("    call rt_root_slot_store")
 
     def _emit_bool_normalize(self) -> None:
         self.out.append("    cmp rax, 0")
@@ -1334,6 +1420,9 @@ class CodeGenerator:
         callee_type_name = _infer_expression_type_name(expr.callee, ctx)
         if _is_function_type_name(callee_type_name):
             call_argument_type_names = [_infer_expression_type_name(arg, ctx) for arg in expr.arguments]
+            reference_arg_indices = {
+                index for index, type_name in enumerate(call_argument_type_names) if _is_reference_type_name(type_name)
+            }
             arg_locations = _plan_sysv_arg_locations(call_argument_type_names)
             stack_arg_indices = [
                 index
@@ -1342,9 +1431,21 @@ class CodeGenerator:
             ]
             stack_pad_slot_count = 1 if (len(stack_arg_indices) % 2) == 1 else 0
 
-            for arg in reversed(expr.arguments):
+            temp_root_base = ctx.temp_root_depth[0]
+            rooted_temp_arg_count = 0
+            for arg_index in range(len(expr.arguments) - 1, -1, -1):
+                arg = expr.arguments[arg_index]
                 self._emit_expr(arg, ctx)
                 self.out.append("    push rax")
+                if arg_index in reference_arg_indices:
+                    self._emit_temp_arg_root_from_rsp(
+                        layout,
+                        temp_root_base + rooted_temp_arg_count,
+                        0,
+                        span=expr.span,
+                    )
+                    rooted_temp_arg_count += 1
+                    ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
 
             self._emit_expr(expr.callee, ctx)
             self.out.append("    mov r11, rax")
@@ -1373,6 +1474,9 @@ class CodeGenerator:
             cleanup_slot_count = temp_arg_slot_count + len(stack_arg_indices) + stack_pad_slot_count
             if cleanup_slot_count > 0:
                 self.out.append(f"    add rsp, {cleanup_slot_count * 8}")
+            if rooted_temp_arg_count > 0:
+                self._emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
+            ctx.temp_root_depth[0] = temp_root_base
 
             return_type_name = _function_type_return_type_name(callee_type_name, span=expr.span)
             if return_type_name == "double":
@@ -1391,6 +1495,9 @@ class CodeGenerator:
         is_runtime_call = _is_runtime_call_name(target_name)
         arg_count = len(call_arguments)
         call_argument_type_names = [_infer_expression_type_name(arg, ctx) for arg in call_arguments]
+        reference_arg_indices = {
+            index for index, type_name in enumerate(call_argument_type_names) if _is_reference_type_name(type_name)
+        }
         arg_locations = _plan_sysv_arg_locations(call_argument_type_names)
         stack_arg_indices = [
             index
@@ -1398,6 +1505,8 @@ class CodeGenerator:
             if location_kind == "stack"
         ]
         stack_pad_slot_count = 1 if (len(stack_arg_indices) % 2) == 1 else 0
+
+        temp_root_base = ctx.temp_root_depth[0]
 
         if is_runtime_call:
             self._emit_runtime_call_hook(
@@ -1408,19 +1517,22 @@ class CodeGenerator:
                 column=expr.span.start.column,
             )
 
-        for arg in reversed(call_arguments):
+        rooted_temp_arg_count = 0
+        for arg_index in range(len(call_arguments) - 1, -1, -1):
+            arg = call_arguments[arg_index]
             self._emit_expr(arg, ctx)
             self.out.append("    push rax")
+            if arg_index in reference_arg_indices:
+                self._emit_temp_arg_root_from_rsp(
+                    layout,
+                    temp_root_base + rooted_temp_arg_count,
+                    0,
+                    span=expr.span,
+                )
+                rooted_temp_arg_count += 1
+                ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
 
         self._emit_root_slot_updates(layout)
-        rooted_runtime_arg_count = 0
-        if is_runtime_call:
-            rooted_runtime_arg_count = self._emit_runtime_call_arg_temp_roots(
-                layout,
-                target_name,
-                arg_count,
-                span=expr.span,
-            )
 
         self.out.append("    mov r10, rsp")
         for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
@@ -1450,8 +1562,9 @@ class CodeGenerator:
         elif resolved_target.return_type_name == "unit":
             self.out.append("    mov rax, 0")
 
-        if rooted_runtime_arg_count > 0:
-            self._emit_clear_runtime_call_arg_temp_roots(layout, rooted_runtime_arg_count)
+        if rooted_temp_arg_count > 0:
+            self._emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
+        ctx.temp_root_depth[0] = temp_root_base
 
         if is_runtime_call:
             self._emit_runtime_call_hook(
@@ -1963,6 +2076,7 @@ class CodeGenerator:
             function_return_types=self.function_return_types,
             string_literal_labels=self.string_literal_labels,
             class_field_type_names=self.class_field_type_names,
+            temp_root_depth=[0],
         )
 
         for stmt in fn.body.statements:
@@ -2032,6 +2146,7 @@ class CodeGenerator:
             function_return_types=self.function_return_types,
             string_literal_labels=self.string_literal_labels,
             class_field_type_names=self.class_field_type_names,
+            temp_root_depth=[0],
         )
 
         param_fields = set(ctor_layout.param_field_names)
@@ -2075,7 +2190,9 @@ class CodeGenerator:
         return labels
 
     def _emit_type_metadata_section(self) -> None:
-        type_names = _collect_reference_cast_types(self.module_ast)
+        class_type_names = [cls.name for cls in self.module_ast.classes]
+        cast_type_names = _collect_reference_cast_types(self.module_ast)
+        type_names = sorted(set(class_type_names) | set(cast_type_names))
         if not type_names:
             return
 
