@@ -55,6 +55,24 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_field_method_name_collision() -> None:
+    source = """
+class Bad {
+    value: i64;
+
+    fn value() -> i64 {
+        return 1;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate member 'value'"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_allows_break_continue_inside_while() -> None:
     source = """
 fn main() -> unit {

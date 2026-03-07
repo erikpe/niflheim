@@ -112,6 +112,8 @@ class TypeChecker:
             for method_decl in class_decl.methods:
                 if method_decl.name in methods:
                     raise TypeCheckError(f"Duplicate method '{method_decl.name}'", method_decl.span)
+                if method_decl.name in fields:
+                    raise TypeCheckError(f"Duplicate member '{method_decl.name}'", method_decl.span)
                 methods[method_decl.name] = self._function_sig_from_decl(method_decl)
 
             private_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_private}
