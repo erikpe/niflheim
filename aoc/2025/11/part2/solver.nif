@@ -1,0 +1,113 @@
+import std.str;
+import std.vec;
+import std.map;
+import std.io;
+import std.box;
+
+fn str_hash_fn(value: Obj) -> u64 {
+    return ((Str)value).hash_code();
+}
+
+fn strs_equals_fn(left: Obj, right: Obj) -> bool {
+    return ((Str)left).equals(right);
+}
+
+class CacheElem
+{
+    final start: i64;
+    final end: i64;
+
+    static fn equals(left: Obj, right: Obj) -> bool {
+        var left_cache: CacheElem = (CacheElem)left;
+        var right_cache: CacheElem = (CacheElem)right;
+        return left_cache.start == right_cache.start &&
+               left_cache.end == right_cache.end;
+    }
+
+    static fn hash_code(value: Obj) -> u64 {
+        var cache: CacheElem = (CacheElem)value;
+        var hash: u64 = 117u;
+        hash = hash * 311u + (u64)cache.start;
+        hash = hash * 311u + (u64)cache.end;
+        return hash;
+    }
+}
+
+fn find_all_paths_dag(graph: Obj[], memoize_cache: Map, start: i64, end: i64) -> i64
+{
+    if start == end {
+        return 1;
+    }
+
+    var elem: CacheElem = CacheElem(start, end);
+    if memoize_cache.contains((Obj)elem) {
+        //print("mem:");
+        //println_i64(((BoxI64)memoize_cache[(Obj)elem]).val);
+        return ((BoxI64)memoize_cache[(Obj)elem]).val;
+    }
+
+    var paths: i64 = 0;
+    //print("start "); println_i64(start);
+    //print("end "); println_i64(end);
+    for node in (i64[])graph[start] {
+        paths = paths + find_all_paths_dag(graph, memoize_cache, node, end);
+    }
+
+    memoize_cache[(Obj)elem] = BoxI64(paths);
+    return paths;
+}
+
+fn main() -> i64 {
+    var lines: Vec = read_all().splitlines();
+    var keymap: Map = Map.new(str_hash_fn, strs_equals_fn);
+    var key: i64 = 0;
+    var line: Str;
+    for line_obj1 in lines {
+        line = (Str)line_obj1;
+        keymap[(Obj)(line[:3])] = BoxI64(key);
+        key = key + 1;
+    }
+    keymap["out"] = BoxI64(key);
+
+    var svr_key: i64 = ((BoxI64)keymap[(Obj)"svr"]).val;
+    var dac_key: i64 = ((BoxI64)keymap[(Obj)"dac"]).val;
+    var fft_key: i64 = ((BoxI64)keymap[(Obj)"fft"]).val;
+    var out_key: i64 = ((BoxI64)keymap[(Obj)"out"]).val;
+
+    var i: i64 = 0;
+    var graph: Obj[] = Obj[](lines.len() + 1u);
+    for line_obj2 in lines {
+        line = (Str)line_obj2;
+        key = ((BoxI64)keymap[(Obj)(line[:3])]).val;
+        var nodes: Vec = line[5:].split(' ');
+        var node_arr: i64[] = i64[](nodes.len());
+        i = 0;
+        for node_obj in nodes {
+            node_arr[i] = ((BoxI64)keymap[(Obj)node_obj]).val;
+            i = i + 1;
+        }
+        graph[key] = node_arr;
+    }
+    graph[out_key] = i64[](0);
+
+    var memoize_cache: Map = Map.new(CacheElem.hash_code, CacheElem.equals);
+
+    var fft_dac: i64 =
+        find_all_paths_dag(graph, memoize_cache, svr_key, fft_key) *
+        find_all_paths_dag(graph, memoize_cache, fft_key, dac_key) *
+        find_all_paths_dag(graph, memoize_cache, dac_key, out_key);
+    var dac_fft: i64 =
+        find_all_paths_dag(graph, memoize_cache, svr_key, dac_key) *
+        find_all_paths_dag(graph, memoize_cache, dac_key, fft_key) *
+        find_all_paths_dag(graph, memoize_cache, fft_key, out_key);
+    var num_paths: i64 = fft_dac + dac_fft;
+
+    print("RESULT:");
+    println_i64(num_paths);
+
+    return 0;
+}
+
+// 267099405724800 too low
+// 116553393062374746
+// 116553393062374746
