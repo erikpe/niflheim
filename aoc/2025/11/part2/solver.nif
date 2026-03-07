@@ -12,48 +12,27 @@ fn strs_equals_fn(left: Obj, right: Obj) -> bool {
     return ((Str)left).equals(right);
 }
 
-class CacheElem
-{
-    final start: i64;
-    final end: i64;
-
-    static fn equals(left: Obj, right: Obj) -> bool {
-        var left_cache: CacheElem = (CacheElem)left;
-        var right_cache: CacheElem = (CacheElem)right;
-        return left_cache.start == right_cache.start &&
-               left_cache.end == right_cache.end;
-    }
-
-    static fn hash_code(value: Obj) -> u64 {
-        var cache: CacheElem = (CacheElem)value;
-        var hash: u64 = 117u;
-        hash = hash * 311u + (u64)cache.start;
-        hash = hash * 311u + (u64)cache.end;
-        return hash;
-    }
+fn cache_key(graph_size: u64, start: i64, end: i64) -> u64 {
+    return ((u64)start * graph_size) + (u64)end;
 }
 
-fn find_all_paths_dag(graph: Obj[], memoize_cache: Map, start: i64, end: i64) -> i64
+fn find_all_paths_dag(graph: Obj[], memoize_cache: MapU64, graph_size: u64, start: i64, end: i64) -> i64
 {
     if start == end {
         return 1;
     }
 
-    var elem: CacheElem = CacheElem(start, end);
-    if memoize_cache.contains((Obj)elem) {
-        //print("mem:");
-        //println_i64(((BoxI64)memoize_cache[(Obj)elem]).val);
-        return ((BoxI64)memoize_cache[(Obj)elem]).val;
+    var key: u64 = cache_key(graph_size, start, end);
+    if memoize_cache.contains(key) {
+        return ((BoxI64)memoize_cache[key]).val;
     }
 
     var paths: i64 = 0;
-    //print("start "); println_i64(start);
-    //print("end "); println_i64(end);
     for node in (i64[])graph[start] {
-        paths = paths + find_all_paths_dag(graph, memoize_cache, node, end);
+        paths = paths + find_all_paths_dag(graph, memoize_cache, graph_size, node, end);
     }
 
-    memoize_cache[(Obj)elem] = BoxI64(paths);
+    memoize_cache[key] = BoxI64(paths);
     return paths;
 }
 
@@ -64,7 +43,9 @@ fn main() -> i64 {
     var line: Str;
     for line_obj1 in lines {
         line = (Str)line_obj1;
-        keymap[(Obj)(line[:3])] = BoxI64(key);
+        var lhs: Str = line[:3];
+        var lhs_key: BoxI64 = BoxI64(key);
+        keymap[(Obj)lhs] = lhs_key;
         key = key + 1;
     }
     keymap["out"] = BoxI64(key);
@@ -75,31 +56,34 @@ fn main() -> i64 {
     var out_key: i64 = ((BoxI64)keymap[(Obj)"out"]).val;
 
     var i: i64 = 0;
-    var graph: Obj[] = Obj[](lines.len() + 1u);
+    var graph_size: u64 = lines.len() + 1u;
+    var graph: Obj[] = Obj[](graph_size);
     for line_obj2 in lines {
         line = (Str)line_obj2;
-        key = ((BoxI64)keymap[(Obj)(line[:3])]).val;
+        var lhs2: Str = line[:3];
+        key = ((BoxI64)keymap[(Obj)lhs2]).val;
         var nodes: Vec = line[5:].split(' ');
         var node_arr: i64[] = i64[](nodes.len());
         i = 0;
         for node_obj in nodes {
-            node_arr[i] = ((BoxI64)keymap[(Obj)node_obj]).val;
+            var node_name: Obj = node_obj;
+            node_arr[i] = ((BoxI64)keymap[node_name]).val;
             i = i + 1;
         }
         graph[key] = node_arr;
     }
     graph[out_key] = i64[](0);
 
-    var memoize_cache: Map = Map.new(CacheElem.hash_code, CacheElem.equals);
+    var memoize_cache: MapU64 = MapU64.new();
 
     var fft_dac: i64 =
-        find_all_paths_dag(graph, memoize_cache, svr_key, fft_key) *
-        find_all_paths_dag(graph, memoize_cache, fft_key, dac_key) *
-        find_all_paths_dag(graph, memoize_cache, dac_key, out_key);
+        find_all_paths_dag(graph, memoize_cache, graph_size, svr_key, fft_key) *
+        find_all_paths_dag(graph, memoize_cache, graph_size, fft_key, dac_key) *
+        find_all_paths_dag(graph, memoize_cache, graph_size, dac_key, out_key);
     var dac_fft: i64 =
-        find_all_paths_dag(graph, memoize_cache, svr_key, dac_key) *
-        find_all_paths_dag(graph, memoize_cache, dac_key, fft_key) *
-        find_all_paths_dag(graph, memoize_cache, fft_key, out_key);
+        find_all_paths_dag(graph, memoize_cache, graph_size, svr_key, dac_key) *
+        find_all_paths_dag(graph, memoize_cache, graph_size, dac_key, fft_key) *
+        find_all_paths_dag(graph, memoize_cache, graph_size, fft_key, out_key);
     var num_paths: i64 = fft_dac + dac_fft;
 
     print("RESULT:");
@@ -107,7 +91,3 @@ fn main() -> i64 {
 
     return 0;
 }
-
-// 267099405724800 too low
-// 116553393062374746
-// 116553393062374746
