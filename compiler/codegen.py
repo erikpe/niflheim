@@ -367,6 +367,8 @@ def _stmt_needs_temp_runtime_roots(stmt: Statement) -> bool:
         return condition_has or then_has or else_has
     if isinstance(stmt, WhileStmt):
         return _expr_needs_temp_runtime_roots(stmt.condition) or _stmt_needs_temp_runtime_roots(stmt.body)
+    if isinstance(stmt, ForInStmt):
+        return _expr_needs_temp_runtime_roots(stmt.collection_expr) or _stmt_needs_temp_runtime_roots(stmt.body)
     return False
 
 
