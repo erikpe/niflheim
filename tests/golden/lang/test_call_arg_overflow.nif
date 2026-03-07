@@ -1,0 +1,273 @@
+import std.io;
+
+fn sum3(a: i64, b: i64, c: i64) -> i64 {
+    return a + b + c;
+}
+
+fn sum6(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) -> i64 {
+    return a + b + c + d + e + f;
+}
+
+fn order7(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64) -> i64 {
+    return ((((((a * 10) + b) * 10 + c) * 10 + d) * 10 + e) * 10 + f) * 10 + g;
+}
+
+fn weighted8d(a0: double, a1: double, a2: double, a3: double, a4: double, a5: double, a6: double, a7: double) -> i64 {
+    var total: double =
+        a0 +
+        (a1 * 2.0) +
+        (a2 * 4.0) +
+        (a3 * 8.0) +
+        (a4 * 16.0) +
+        (a5 * 32.0) +
+        (a6 * 64.0) +
+        (a7 * 128.0);
+    return (i64)total;
+}
+
+fn weighted9d(a0: double, a1: double, a2: double, a3: double, a4: double, a5: double, a6: double, a7: double, a8: double) -> i64 {
+    var total: double =
+        a0 +
+        (a1 * 2.0) +
+        (a2 * 4.0) +
+        (a3 * 8.0) +
+        (a4 * 16.0) +
+        (a5 * 32.0) +
+        (a6 * 64.0) +
+        (a7 * 128.0) +
+        (a8 * 256.0);
+    return (i64)total;
+}
+
+fn mixed_extreme(
+    i0: i64,
+    i1: i64,
+    i2: i64,
+    i3: i64,
+    i4: i64,
+    i5: i64,
+    i6: i64,
+    d0: double,
+    d1: double,
+    d2: double,
+    d3: double,
+    d4: double,
+    d5: double,
+    d6: double,
+    d7: double,
+    d8: double
+) -> i64 {
+    var i_part: i64 = i0 + (i1 * 10) + (i2 * 100) + (i3 * 1000) + (i4 * 10000) + (i5 * 100000) + (i6 * 1000000);
+    var d_part: i64 = weighted9d(d0, d1, d2, d3, d4, d5, d6, d7, d8);
+    return i_part + (d_part * 10000000);
+}
+
+fn nine_sum(a0: i64, a1: i64, a2: i64, a3: i64, a4: i64, a5: i64, a6: i64, a7: i64, a8: i64) -> i64 {
+    return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8;
+}
+
+class Acc {
+    fn nine_sum(a0: i64, a1: i64, a2: i64, a3: i64, a4: i64, a5: i64, a6: i64, a7: i64, a8: i64) -> i64 {
+        return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8;
+    }
+}
+
+class RefBox {
+    value: i64;
+}
+
+fn ref_order7(r0: RefBox, r1: RefBox, r2: RefBox, r3: RefBox, r4: RefBox, r5: RefBox, r6: RefBox) -> i64 {
+    return r0.value + (r1.value * 10) + (r2.value * 100) + (r3.value * 1000) + (r4.value * 10000) + (r5.value * 100000) + (r6.value * 1000000);
+}
+
+fn ref_int_mix(r0: RefBox, i0: i64, r1: RefBox, i1: i64, r2: RefBox, i2: i64, r3: RefBox, i3: i64, r4: RefBox) -> i64 {
+    return
+        r0.value +
+        (i0 * 10) +
+        (r1.value * 100) +
+        (i1 * 1000) +
+        (r2.value * 10000) +
+        (i2 * 100000) +
+        (r3.value * 1000000) +
+        (i3 * 10000000) +
+        (r4.value * 100000000);
+}
+
+fn mega30(
+    r0: RefBox, i0: i64, d0: double,
+    i1: i64, r1: RefBox, d1: double,
+    d2: double, i2: i64, r2: RefBox,
+    r3: RefBox, d3: double, i3: i64,
+    i4: i64, d4: double, r4: RefBox,
+    r5: RefBox, i5: i64, d5: double,
+    d6: double, r6: RefBox, i6: i64,
+    i7: i64, r7: RefBox, d7: double,
+    r8: RefBox, d8: double, i8: i64,
+    d9: double, i9: i64, r9: RefBox
+) -> i64 {
+    return
+        (r0.value * 1) + ((i64)i0 * 2) + ((i64)d0 * 3) +
+        ((i64)i1 * 4) + (r1.value * 5) + ((i64)d1 * 6) +
+        ((i64)d2 * 7) + ((i64)i2 * 8) + (r2.value * 9) +
+        (r3.value * 10) + ((i64)d3 * 11) + ((i64)i3 * 12) +
+        ((i64)i4 * 13) + ((i64)d4 * 14) + (r4.value * 15) +
+        (r5.value * 16) + ((i64)i5 * 17) + ((i64)d5 * 18) +
+        ((i64)d6 * 19) + (r6.value * 20) + ((i64)i6 * 21) +
+        ((i64)i7 * 22) + (r7.value * 23) + ((i64)d7 * 24) +
+        (r8.value * 25) + ((i64)d8 * 26) + ((i64)i8 * 27) +
+        ((i64)d9 * 28) + ((i64)i9 * 29) + (r9.value * 30);
+}
+
+fn test_normal_case() -> i64 {
+    if sum3(10, 20, 30) != 60 {
+        return 11;
+    }
+    return 0;
+}
+
+fn test_int_edge_six_registers() -> i64 {
+    if sum6(-5, 7, 9, -11, 13, 17) != 30 {
+        return 12;
+    }
+    return 0;
+}
+
+fn test_int_overflow_seven() -> i64 {
+    if order7(1, 2, 3, 4, 5, 6, 7) != 1234567 {
+        return 13;
+    }
+    return 0;
+}
+
+fn test_double_edge_eight_registers() -> i64 {
+    if weighted8d(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0) != 255 {
+        return 14;
+    }
+    return 0;
+}
+
+fn test_double_overflow_nine() -> i64 {
+    if weighted9d(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0) != 511 {
+        return 15;
+    }
+    return 0;
+}
+
+fn test_extreme_mixed_overflow() -> i64 {
+    var got: i64 = mixed_extreme(
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+    );
+
+    if got != 5117654321 {
+        return 16;
+    }
+    return 0;
+}
+
+fn test_indirect_call_with_stack_args() -> i64 {
+    var f: fn(i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64 = nine_sum;
+    if f(1, 2, 3, 4, 5, 6, 7, 8, 9) != 45 {
+        return 17;
+    }
+    return 0;
+}
+
+fn test_method_call_with_stack_args() -> i64 {
+    var a: Acc = Acc();
+    if a.nine_sum(1, 2, 3, 4, 5, 6, 7, 8, 9) != 45 {
+        return 18;
+    }
+    return 0;
+}
+
+fn test_reference_overflow_args() -> i64 {
+    var r1: RefBox = RefBox(1);
+    var r2: RefBox = RefBox(2);
+    var r3: RefBox = RefBox(3);
+    var r4: RefBox = RefBox(4);
+    var r5: RefBox = RefBox(5);
+    var r6: RefBox = RefBox(6);
+    var r7: RefBox = RefBox(7);
+
+    if ref_order7(r1, r2, r3, r4, r5, r6, r7) != 7654321 {
+        return 20;
+    }
+    return 0;
+}
+
+fn test_reference_and_int_overflow_args() -> i64 {
+    var r1: RefBox = RefBox(1);
+    var r2: RefBox = RefBox(2);
+    var r3: RefBox = RefBox(3);
+    var r4: RefBox = RefBox(4);
+    var r5: RefBox = RefBox(5);
+
+    if ref_int_mix(r1, 6, r2, 7, r3, 8, r4, 9, r5) != 594837261 {
+        return 21;
+    }
+    return 0;
+}
+
+fn test_thirty_args_mixed_order() -> i64 {
+    var r0: RefBox = RefBox(101);
+    var r1: RefBox = RefBox(102);
+    var r2: RefBox = RefBox(103);
+    var r3: RefBox = RefBox(104);
+    var r4: RefBox = RefBox(105);
+    var r5: RefBox = RefBox(106);
+    var r6: RefBox = RefBox(107);
+    var r7: RefBox = RefBox(108);
+    var r8: RefBox = RefBox(109);
+    var r9: RefBox = RefBox(110);
+
+    var got: i64 = mega30(
+        r0, 201, 301.0,
+        202, r1, 302.0,
+        303.0, 203, r2,
+        r3, 304.0, 204,
+        205, 305.0, r4,
+        r5, 206, 306.0,
+        307.0, r6, 207,
+        208, r7, 308.0,
+        r8, 309.0, 209,
+        310.0, 210, r9
+    );
+
+    if got != 96500 {
+        return 22;
+    }
+    return 0;
+}
+
+fn main() -> i64 {
+    var select: u64 = read_all().strip().to_u64();
+
+    if select == 1u { return test_normal_case(); }
+    if select == 2u { return test_int_edge_six_registers(); }
+    if select == 3u { return test_int_overflow_seven(); }
+    if select == 4u { return test_double_edge_eight_registers(); }
+    if select == 5u { return test_double_overflow_nine(); }
+    if select == 6u { return test_extreme_mixed_overflow(); }
+    if select == 7u { return test_indirect_call_with_stack_args(); }
+    if select == 8u { return test_method_call_with_stack_args(); }
+    if select == 9u { return test_reference_overflow_args(); }
+    if select == 10u { return test_reference_and_int_overflow_args(); }
+    if select == 11u { return test_thirty_args_mixed_order(); }
+
+    return 23;
+}

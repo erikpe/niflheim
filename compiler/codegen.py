@@ -98,6 +98,39 @@ def _raise_codegen_error(message: str, *, span: object | None = None) -> None:
     raise NotImplementedError(message)
 
 
+def _stack_slot_operand(base_register: str, byte_offset: int) -> str:
+    if byte_offset == 0:
+        return f"qword ptr [{base_register}]"
+    sign = "+" if byte_offset > 0 else "-"
+    return f"qword ptr [{base_register} {sign} {abs(byte_offset)}]"
+
+
+def _plan_sysv_arg_locations(arg_type_names: list[str]) -> list[tuple[str, str | None, int | None]]:
+    locations: list[tuple[str, str | None, int | None]] = []
+    integer_reg_index = 0
+    float_reg_index = 0
+    stack_index = 0
+
+    for type_name in arg_type_names:
+        if type_name == "double":
+            if float_reg_index < len(FLOAT_PARAM_REGISTERS):
+                locations.append(("float_reg", FLOAT_PARAM_REGISTERS[float_reg_index], None))
+                float_reg_index += 1
+            else:
+                locations.append(("stack", None, stack_index))
+                stack_index += 1
+            continue
+
+        if integer_reg_index < len(PARAM_REGISTERS):
+            locations.append(("int_reg", PARAM_REGISTERS[integer_reg_index], None))
+            integer_reg_index += 1
+        else:
+            locations.append(("stack", None, stack_index))
+            stack_index += 1
+
+    return locations
+
+
 def _is_reference_type_name(type_name: str) -> bool:
     if _is_function_type_name(type_name):
         return False
@@ -854,28 +887,31 @@ class CodeGenerator:
             self.out.append(f"    mov {_offset_operand(offset)}, 0")
 
     def _emit_param_spills(self, params: list[ParamDecl], layout: FunctionLayout) -> None:
-        integer_param_index = 0
-        float_param_index = 0
-        for param in params:
+        param_type_names = [_type_ref_name(param.type_ref) for param in params]
+        arg_locations = _plan_sysv_arg_locations(param_type_names)
+
+        for param, (location_kind, location_register, stack_index) in zip(params, arg_locations):
             offset = layout.slot_offsets.get(param.name)
             if offset is None:
                 continue
-            if _type_ref_name(param.type_ref) == "double":
-                if float_param_index >= len(FLOAT_PARAM_REGISTERS):
-                    _raise_codegen_error(
-                        "parameter codegen currently supports up to 8 floating-point params",
-                        span=param.span,
-                    )
-                self.out.append(f"    movq {_offset_operand(offset)}, {FLOAT_PARAM_REGISTERS[float_param_index]}")
-                float_param_index += 1
-            else:
-                if integer_param_index >= len(PARAM_REGISTERS):
-                    _raise_codegen_error(
-                        "parameter codegen currently supports up to 6 SysV integer/pointer params",
-                        span=param.span,
-                    )
-                self.out.append(f"    mov {_offset_operand(offset)}, {PARAM_REGISTERS[integer_param_index]}")
-                integer_param_index += 1
+
+            if location_kind == "int_reg":
+                self.out.append(f"    mov {_offset_operand(offset)}, {location_register}")
+                continue
+
+            if location_kind == "float_reg":
+                self.out.append(f"    movq {_offset_operand(offset)}, {location_register}")
+                continue
+
+            if location_kind == "stack":
+                if stack_index is None:
+                    _raise_codegen_error("missing stack argument index while spilling parameters", span=param.span)
+                incoming_stack_offset = 16 + (stack_index * 8)
+                self.out.append(f"    mov rax, qword ptr [rbp + {incoming_stack_offset}]")
+                self.out.append(f"    mov {_offset_operand(offset)}, rax")
+                continue
+
+            _raise_codegen_error(f"unsupported argument location kind '{location_kind}'", span=param.span)
 
     def _emit_trace_push(self, fn_debug_name_label: str, fn_debug_file_label: str, line: int, column: int) -> None:
         self.out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
@@ -1296,18 +1332,13 @@ class CodeGenerator:
         callee_type_name = _infer_expression_type_name(expr.callee, ctx)
         if _is_function_type_name(callee_type_name):
             call_argument_type_names = [_infer_expression_type_name(arg, ctx) for arg in expr.arguments]
-            integer_arg_count = sum(1 for type_name in call_argument_type_names if type_name != "double")
-            float_arg_count = sum(1 for type_name in call_argument_type_names if type_name == "double")
-            if integer_arg_count > len(PARAM_REGISTERS):
-                _raise_codegen_error(
-                    "call codegen currently supports up to 6 integer/pointer positional arguments",
-                    span=expr.span,
-                )
-            if float_arg_count > len(FLOAT_PARAM_REGISTERS):
-                _raise_codegen_error(
-                    "call codegen currently supports up to 8 floating-point positional arguments",
-                    span=expr.span,
-                )
+            arg_locations = _plan_sysv_arg_locations(call_argument_type_names)
+            stack_arg_indices = [
+                index
+                for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations)
+                if location_kind == "stack"
+            ]
+            stack_pad_slot_count = 1 if (len(stack_arg_indices) % 2) == 1 else 0
 
             for arg in reversed(expr.arguments):
                 self._emit_expr(arg, ctx)
@@ -1318,18 +1349,28 @@ class CodeGenerator:
 
             self._emit_root_slot_updates(layout)
 
-            integer_reg_index = 0
-            float_reg_index = 0
-            for type_name in call_argument_type_names:
-                self.out.append("    pop rax")
-                if type_name == "double":
-                    self.out.append(f"    movq {FLOAT_PARAM_REGISTERS[float_reg_index]}, rax")
-                    float_reg_index += 1
-                else:
-                    self.out.append(f"    mov {PARAM_REGISTERS[integer_reg_index]}, rax")
-                    integer_reg_index += 1
+            self.out.append("    mov r10, rsp")
+            for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
+                arg_offset = arg_index * 8
+                arg_operand = _stack_slot_operand("r10", arg_offset)
+                if location_kind == "int_reg":
+                    self.out.append(f"    mov {location_register}, {arg_operand}")
+                elif location_kind == "float_reg":
+                    self.out.append(f"    movq {location_register}, {arg_operand}")
+
+            if stack_pad_slot_count > 0:
+                self.out.append("    sub rsp, 8")
+            for arg_index in reversed(stack_arg_indices):
+                arg_offset = arg_index * 8
+                self.out.append(f"    mov rax, {_stack_slot_operand('r10', arg_offset)}")
+                self.out.append("    push rax")
 
             self.out.append("    call r11")
+
+            temp_arg_slot_count = len(expr.arguments)
+            cleanup_slot_count = temp_arg_slot_count + len(stack_arg_indices) + stack_pad_slot_count
+            if cleanup_slot_count > 0:
+                self.out.append(f"    add rsp, {cleanup_slot_count * 8}")
 
             return_type_name = _function_type_return_type_name(callee_type_name, span=expr.span)
             if return_type_name == "double":
@@ -1348,18 +1389,13 @@ class CodeGenerator:
         is_runtime_call = _is_runtime_call_name(target_name)
         arg_count = len(call_arguments)
         call_argument_type_names = [_infer_expression_type_name(arg, ctx) for arg in call_arguments]
-        integer_arg_count = sum(1 for type_name in call_argument_type_names if type_name != "double")
-        float_arg_count = sum(1 for type_name in call_argument_type_names if type_name == "double")
-        if integer_arg_count > len(PARAM_REGISTERS):
-            _raise_codegen_error(
-                "call codegen currently supports up to 6 integer/pointer positional arguments",
-                span=expr.span,
-            )
-        if float_arg_count > len(FLOAT_PARAM_REGISTERS):
-            _raise_codegen_error(
-                "call codegen currently supports up to 8 floating-point positional arguments",
-                span=expr.span,
-            )
+        arg_locations = _plan_sysv_arg_locations(call_argument_type_names)
+        stack_arg_indices = [
+            index
+            for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations)
+            if location_kind == "stack"
+        ]
+        stack_pad_slot_count = 1 if (len(stack_arg_indices) % 2) == 1 else 0
 
         if is_runtime_call:
             self._emit_runtime_call_hook(
@@ -1384,18 +1420,28 @@ class CodeGenerator:
                 span=expr.span,
             )
 
-        integer_reg_index = 0
-        float_reg_index = 0
-        for type_name in call_argument_type_names:
-            self.out.append("    pop rax")
-            if type_name == "double":
-                self.out.append(f"    movq {FLOAT_PARAM_REGISTERS[float_reg_index]}, rax")
-                float_reg_index += 1
-            else:
-                self.out.append(f"    mov {PARAM_REGISTERS[integer_reg_index]}, rax")
-                integer_reg_index += 1
+        self.out.append("    mov r10, rsp")
+        for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
+            arg_offset = arg_index * 8
+            arg_operand = _stack_slot_operand("r10", arg_offset)
+            if location_kind == "int_reg":
+                self.out.append(f"    mov {location_register}, {arg_operand}")
+            elif location_kind == "float_reg":
+                self.out.append(f"    movq {location_register}, {arg_operand}")
+
+        if stack_pad_slot_count > 0:
+            self.out.append("    sub rsp, 8")
+        for arg_index in reversed(stack_arg_indices):
+            arg_offset = arg_index * 8
+            self.out.append(f"    mov rax, {_stack_slot_operand('r10', arg_offset)}")
+            self.out.append("    push rax")
 
         self.out.append(f"    call {target_name}")
+
+        temp_arg_slot_count = len(call_arguments)
+        cleanup_slot_count = temp_arg_slot_count + len(stack_arg_indices) + stack_pad_slot_count
+        if cleanup_slot_count > 0:
+            self.out.append(f"    add rsp, {cleanup_slot_count * 8}")
 
         if resolved_target.return_type_name == "double":
             self.out.append("    movq rax, xmm0")

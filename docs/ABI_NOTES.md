@@ -206,6 +206,7 @@ This policy is intentionally simple and predictable.
 SysV x86-64 basics for generated assembly:
 - Integer/pointer args: RDI, RSI, RDX, RCX, R8, R9.
 - Floating-point args: XMM0-XMM7.
+- Additional args beyond register capacity are passed on the caller stack in left-to-right argument order per SysV ABI classification.
 - Integer/pointer return: RAX.
 - Floating-point return: XMM0.
 - Callee-saved: RBX, RBP, R12-R15.

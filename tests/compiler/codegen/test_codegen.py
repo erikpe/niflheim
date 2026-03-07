@@ -130,8 +130,8 @@ fn main() -> double {
 
     asm = emit_asm(module)
 
-    assert "    movq xmm0, rax" in asm
-    assert "    movq xmm1, rax" in asm
+    assert "    movq xmm0, qword ptr [r10]" in asm
+    assert "    movq xmm1, qword ptr [r10 + 8]" in asm
     assert "    addsd xmm0, xmm1" in asm
 
 
@@ -275,10 +275,72 @@ fn main() -> i64 {
     assert "    mov rax, 3" in asm
     assert "    mov rax, 2" in asm
     assert "    mov rax, 1" in asm
-    assert "    mov rdi, rax" in asm
-    assert "    mov rsi, rax" in asm
-    assert "    mov rdx, rax" in asm
+    assert "    mov rdi, qword ptr [r10]" in asm
+    assert "    mov rsi, qword ptr [r10 + 8]" in asm
+    assert "    mov rdx, qword ptr [r10 + 16]" in asm
     assert "    call sum3" in asm
+
+
+def test_emit_asm_direct_call_with_integer_stack_args() -> None:
+    source = """
+fn sum7(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64) -> i64 {
+    return a + b + c + d + e + f + g;
+}
+
+fn main() -> i64 {
+    return sum7(1, 2, 3, 4, 5, 6, 7);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_many_int_args.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call sum7" in asm
+    assert "    sub rsp, 8" in asm
+    assert "    mov rax, qword ptr [r10 + 48]" in asm
+    assert "    push rax" in asm
+    assert "    add rsp, 72" in asm
+
+
+def test_emit_asm_callee_spills_integer_stack_param_to_local_slot() -> None:
+    source = """
+fn sum7(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64) -> i64 {
+    return g;
+}
+
+fn main() -> i64 {
+    return sum7(1, 2, 3, 4, 5, 6, 7);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_many_int_args_spill.nif"))
+
+    asm = emit_asm(module)
+
+    assert "sum7:" in asm
+    assert "    mov rax, qword ptr [rbp + 16]" in asm
+    assert "    mov qword ptr [rbp - 56], rax" in asm
+
+
+def test_emit_asm_direct_call_with_floating_stack_args() -> None:
+    source = """
+fn sum9(a0: double, a1: double, a2: double, a3: double, a4: double, a5: double, a6: double, a7: double, a8: double) -> double {
+    return a8;
+}
+
+fn main() -> i64 {
+    var out: double = sum9(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
+    return (i64)out;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_many_double_args.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call sum9" in asm
+    assert "    movq xmm7, qword ptr [r10 + 56]" in asm
+    assert "    mov rax, qword ptr [r10 + 64]" in asm
+    assert "    push rax" in asm
+    assert "    add rsp, 88" in asm
 
 
 def test_emit_asm_function_value_from_top_level_function_and_indirect_call() -> None:
@@ -341,10 +403,10 @@ fn main() -> i64 {
 
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
-    assert "    movq xmm0, rax" in asm
-    assert "    movq xmm1, rax" in asm
-    assert "    mov rdi, rax" in asm
-    assert "    mov rsi, rax" in asm
+    assert "    movq xmm0, qword ptr [r10 + 8]" in asm
+    assert "    movq xmm1, qword ptr [r10 + 24]" in asm
+    assert "    mov rdi, qword ptr [r10]" in asm
+    assert "    mov rsi, qword ptr [r10 + 16]" in asm
     assert "    movq rax, xmm0" in asm
 
 
@@ -870,8 +932,8 @@ fn main() -> i64 {
 
     assert "__nif_method_Counter_add:" in asm
     assert "    call __nif_method_Counter_add" in asm
-    assert "    mov rdi, rax" in asm
-    assert "    mov rsi, rax" in asm
+    assert "    mov rdi, qword ptr [r10]" in asm
+    assert "    mov rsi, qword ptr [r10 + 8]" in asm
 
 
 def test_emit_asm_static_method_call_lowers_to_method_symbol_without_receiver_arg0() -> None:
