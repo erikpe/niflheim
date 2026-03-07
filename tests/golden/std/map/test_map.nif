@@ -2,6 +2,7 @@ import std.test;
 import std.map;
 import std.box;
 import std.io;
+import std.str;
 
 class Key {
     raw: u64;
@@ -22,29 +23,43 @@ fn key_equals(left: Obj, right: Obj) -> bool {
     return ((Key)left).raw == ((Key)right).raw;
 }
 
+fn str_hash_fn(value: Obj) -> u64 {
+    if value == null {
+        return 0u;
+    }
+    return ((Str)value).hash_code();
+}
+
+fn str_equals_fn(left: Obj, right: Obj) -> bool {
+    if left == null || right == null {
+        return left == right;
+    }
+    return ((Str)left).equals(right);
+}
+
 fn test_put_get_contains() -> unit {
     var m: Map = Map.new(key_hash, key_equals);
     assert(m.len() == 0u);
 
-    m.put((Obj)Key(10u), BoxI64(111));
-    m.put((Obj)Key(20u), BoxI64(222));
+    m[(Obj)Key(10u)] = BoxI64(111);
+    m[(Obj)Key(20u)] = BoxI64(222);
 
     assert(m.len() == 2u);
     assert(m.contains((Obj)Key(10u)));
     assert(m.contains((Obj)Key(20u)));
     assert(!m.contains((Obj)Key(30u)));
 
-    assert(((BoxI64)m.index_get((Obj)Key(10u))).val == 111);
-    assert(((BoxI64)m.index_get((Obj)Key(20u))).val == 222);
+    assert(((BoxI64)m[(Obj)Key(10u)]).val == 111);
+    assert(((BoxI64)m[(Obj)Key(20u)]).val == 222);
 }
 
 fn test_overwrite_same_logical_key() -> unit {
     var m: Map = Map.new(key_hash, key_equals);
-    m.put((Obj)Key(7u), BoxI64(1));
-    m.put((Obj)Key(7u), BoxI64(9));
+    m[(Obj)Key(7u)] = BoxI64(1);
+    m[(Obj)Key(7u)] = BoxI64(9);
 
     assert(m.len() == 1u);
-    assert(((BoxI64)m.index_get((Obj)Key(7u))).val == 9);
+    assert(((BoxI64)m[(Obj)Key(7u)]).val == 9);
 }
 
 fn test_growth_and_probe_chains() -> unit {
@@ -53,7 +68,7 @@ fn test_growth_and_probe_chains() -> unit {
     var i: u64 = 0u;
     while i < 80u {
         var key: Obj = (Obj)Key(i * 17u + 3u);
-        m.put(key, BoxU64(i));
+        m[key] = BoxU64(i);
         i = i + 1u;
     }
 
@@ -63,7 +78,7 @@ fn test_growth_and_probe_chains() -> unit {
     while i < 80u {
         var key: Obj = (Obj)Key(i * 17u + 3u);
         assert(m.contains(key));
-        assert(((BoxU64)m.index_get(key)).val == i);
+        assert(((BoxU64)m[key]).val == i);
         i = i + 1u;
     }
 }
@@ -82,18 +97,57 @@ fn test_index_sugar_write_and_read() -> unit {
 fn test_null_key_support() -> unit {
     var m: Map = Map.new(key_hash, key_equals);
 
-    m.put(null, BoxI64(5));
+    m[null] = BoxI64(5);
     assert(m.contains(null));
-    assert(((BoxI64)m.index_get(null)).val == 5);
+    assert(((BoxI64)m[null]).val == 5);
 
-    m.put(null, BoxI64(6));
+    m[null] = BoxI64(6);
     assert(m.len() == 1u);
-    assert(((BoxI64)m.index_get(null)).val == 6);
+    assert(((BoxI64)m[null]).val == 6);
 }
 
 fn test_get_missing_panics() -> unit {
     var m: Map = Map.new(key_hash, key_equals);
-    var v: Obj = m.index_get((Obj)Key(999u));
+    var v: Obj = m[(Obj)Key(999u)];
+}
+
+fn test_str_keys_under_load() -> unit {
+    var m: Map = Map.with_capacity(4u, str_hash_fn, str_equals_fn);
+
+    var i: u64 = 0u;
+    while i < 120u {
+        var k: Str = Str.from_u64(i);
+        m[(Obj)k] = BoxU64(i * 3u + 1u);
+        i = i + 1u;
+    }
+
+    assert(m.len() == 120u);
+
+    i = 0u;
+    while i < 120u {
+        var lookup: Str = Str.from_u64(i);
+        assert(m.contains((Obj)lookup));
+        assert(((BoxU64)m[(Obj)lookup]).val == i * 3u + 1u);
+        i = i + 1u;
+    }
+
+    i = 0u;
+    while i < 120u {
+        var rewrite: Str = Str.from_u64(i);
+        m[(Obj)rewrite] = BoxU64(i + 1000u);
+        i = i + 1u;
+    }
+
+    assert(m.len() == 120u);
+
+    i = 0u;
+    while i < 120u {
+        var check: Str = Str.from_u64(i);
+        assert(((BoxU64)m[(Obj)check]).val == i + 1000u);
+        i = i + 1u;
+    }
+
+    assert(!m.contains((Obj)"missing"));
 }
 
 fn main() -> i64 {
@@ -105,6 +159,7 @@ fn main() -> i64 {
     if select == 4u { test_index_sugar_write_and_read(); }
     if select == 5u { test_null_key_support(); }
     if select == 6u { test_get_missing_panics(); }
+    if select == 7u { test_str_keys_under_load(); }
 
     return 0;
 }
