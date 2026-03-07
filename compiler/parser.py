@@ -428,17 +428,15 @@ class Parser:
                 span=SourceSpan(start=token.span.start, end=end),
             )
 
-        if self.stream.match(TokenKind.LBRACKET):
+        type_ref: TypeRefNode = base_ref
+        while self.stream.match(TokenKind.LBRACKET):
             self.stream.expect(TokenKind.RBRACKET, "Expected ']' after '[' in array type")
-            array_ref = ArrayTypeRef(
-                element_type=base_ref,
-                span=SourceSpan(start=base_ref.span.start, end=self.stream.previous().span.end),
+            type_ref = ArrayTypeRef(
+                element_type=type_ref,
+                span=SourceSpan(start=type_ref.span.start, end=self.stream.previous().span.end),
             )
-            if self.stream.check(TokenKind.LBRACKET):
-                raise ParserError("Nested array syntax is not supported yet", self.stream.peek().span)
-            return array_ref
 
-        return base_ref
+        return type_ref
 
     def _parse_block_stmt(self) -> BlockStmt:
         lbrace = self.stream.expect(TokenKind.LBRACE, "Expected '{' to start block")
@@ -927,19 +925,21 @@ class Parser:
                     return False
                 lookahead += 2
 
-        if self.stream.peek(lookahead).kind != TokenKind.LBRACKET:
+        saw_array_suffix = False
+        while self.stream.peek(lookahead).kind == TokenKind.LBRACKET:
+            if self.stream.peek(lookahead + 1).kind != TokenKind.RBRACKET:
+                return False
+            saw_array_suffix = True
+            lookahead += 2
+
+        if not saw_array_suffix:
             return False
-        if self.stream.peek(lookahead + 1).kind != TokenKind.RBRACKET:
-            return False
-        next_kind = self.stream.peek(lookahead + 2).kind
-        return next_kind in {TokenKind.LPAREN, TokenKind.LBRACKET}
+        return self.stream.peek(lookahead).kind == TokenKind.LPAREN
 
     def _parse_array_ctor_expr(self) -> ArrayCtorExpr:
         element_type_ref = self._parse_type_ref()
         if not isinstance(element_type_ref, ArrayTypeRef):
             raise ParserError("Expected array constructor type suffix '[]'", self.stream.peek().span)
-        if isinstance(element_type_ref.element_type, ArrayTypeRef):
-            raise ParserError("Nested array syntax is not supported yet", element_type_ref.span)
 
         lparen = self.stream.expect(TokenKind.LPAREN, "Expected '(' after array constructor type")
         if self.stream.check(TokenKind.RPAREN):
@@ -969,12 +969,10 @@ class Parser:
                     return False
                 lookahead += 2
 
-        if self.stream.peek(lookahead).kind == TokenKind.LBRACKET:
+        while self.stream.peek(lookahead).kind == TokenKind.LBRACKET:
             if self.stream.peek(lookahead + 1).kind != TokenKind.RBRACKET:
                 return False
             lookahead += 2
-            if self.stream.peek(lookahead).kind == TokenKind.LBRACKET:
-                return False
 
         if self.stream.peek(lookahead).kind != TokenKind.RPAREN:
             return False

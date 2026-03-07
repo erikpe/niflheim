@@ -33,7 +33,7 @@ class CacheElem
     }
 }
 
-fn find_all_paths_dag(graph: Obj[], memoize_cache: Map, start: i64, end: i64) -> i64
+fn find_all_paths_dag(graph: i64[][], memoize_cache: Map, start: i64, end: i64) -> i64
 {
     if start == end {
         return 1;
@@ -45,7 +45,7 @@ fn find_all_paths_dag(graph: Obj[], memoize_cache: Map, start: i64, end: i64) ->
     }
 
     var paths: i64 = 0;
-    for node in (i64[])graph[start] {
+    for node in graph[start] {
         paths = paths + find_all_paths_dag(graph, memoize_cache, node, end);
     }
 
@@ -71,7 +71,7 @@ fn main() -> i64 {
     var out_key: i64 = ((BoxI64)keymap["out"]).val;
 
     var i: i64 = 0;
-    var graph: Obj[] = Obj[](lines.len() + 1u);
+    var graph: i64[][] = i64[][](lines.len() + 1u);
     for line_obj2 in lines {
         line = (Str)line_obj2;
         key = ((BoxI64)keymap[line[:3]]).val;

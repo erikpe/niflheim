@@ -49,7 +49,9 @@ Examples:
 
 Frozen array syntax (v0.1 extension track):
 - Array type: `T[]`
+- Nested array type: `T[][]` (and deeper)
 - Array constructor expression: `T[](len)`
+- Nested array constructor expression: `T[][](len)`
 - Index alias: `arr[index]`
 - Slice alias: `arr[start:end]`
 

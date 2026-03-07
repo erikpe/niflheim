@@ -791,24 +791,41 @@ def test_parse_expression_array_constructor_requires_length_expression() -> None
     assert "Expected array constructor length expression" in str(error.value)
 
 
-def test_parse_rejects_nested_array_type() -> None:
+def test_parse_allows_nested_array_type() -> None:
     source = """
 fn main() -> unit {
     var x: u8[][] = null;
     return;
 }
 """
-    with pytest.raises(ParserError) as error:
-        parse(lex(source, source_path="examples/bad_nested_array_type.nif"))
+    module = parse(lex(source, source_path="examples/nested_array_type.nif"))
+    decl = module.functions[0].body.statements[0]
 
-    assert "Nested array syntax is not supported yet" in str(error.value)
+    assert isinstance(decl, VarDeclStmt)
+    assert isinstance(decl.type_ref, ArrayTypeRef)
+    assert isinstance(decl.type_ref.element_type, ArrayTypeRef)
+    assert isinstance(decl.type_ref.element_type.element_type, TypeRef)
+    assert decl.type_ref.element_type.element_type.name == "u8"
 
 
-def test_parse_rejects_nested_array_constructor() -> None:
-    with pytest.raises(ParserError) as error:
-        parse_expression(lex("u8[][](3)", source_path="examples/bad_nested_array_ctor.nif"))
+def test_parse_allows_nested_array_constructor() -> None:
+    expr = parse_expression(lex("u8[][](3u)", source_path="examples/nested_array_ctor.nif"))
 
-    assert "Nested array syntax is not supported yet" in str(error.value)
+    assert isinstance(expr, ArrayCtorExpr)
+    assert isinstance(expr.element_type_ref, ArrayTypeRef)
+    assert isinstance(expr.element_type_ref.element_type, ArrayTypeRef)
+    assert isinstance(expr.element_type_ref.element_type.element_type, TypeRef)
+    assert expr.element_type_ref.element_type.element_type.name == "u8"
+
+
+def test_parse_allows_nested_array_cast() -> None:
+    expr = parse_expression(lex("(u8[][])x", source_path="examples/nested_array_cast.nif"))
+
+    assert isinstance(expr, CastExpr)
+    assert isinstance(expr.type_ref, ArrayTypeRef)
+    assert isinstance(expr.type_ref.element_type, ArrayTypeRef)
+    assert isinstance(expr.type_ref.element_type.element_type, TypeRef)
+    assert expr.type_ref.element_type.element_type.name == "u8"
 
 
 def test_parse_function_signature_and_var_decl_with_qualified_types() -> None:

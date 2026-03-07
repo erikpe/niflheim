@@ -1583,6 +1583,23 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_nested_arrays_as_jagged_arrays() -> None:
+    source = """
+fn main() -> unit {
+    var mat: i64[][] = i64[][](2u);
+    mat[0] = i64[](3u);
+    mat[1] = i64[](1u);
+
+    mat[0][1] = 7;
+    var x: i64 = mat[0][1];
+    var row: i64[] = mat.index_get(1);
+    var n: u64 = mat.len();
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_array_set_slice_value_type_mismatch() -> None:
     source = """
 fn main() -> unit {

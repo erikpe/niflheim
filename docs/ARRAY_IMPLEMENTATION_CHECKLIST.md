@@ -20,8 +20,7 @@ Use this as the execution reference while implementing parser, type checker, cod
   - [x] `arr.slice_get(start, end) -> T[]` (alias: `arr[start:end]`)
 - [x] Slice semantics in MVP: copying slice (new allocation).
 - [x] Assignability in MVP: invariant (`A[]` only assignable to `A[]`).
-- [x] Nested arrays are out of scope for current MVP array rollout (`T[][]` and deeper are disallowed for now).
-- [x] Nested arrays may be added later in a dedicated follow-up phase.
+- [x] Nested arrays are supported (`T[][]` and deeper) as jagged arrays (array-of-arrays).
 
 ---
 
@@ -34,7 +33,7 @@ Use this as the execution reference while implementing parser, type checker, cod
 
 ### 1.2 AST model
 - [x] Add AST representation for array constructor expression.
-- [x] Extend type AST to represent single-dimensional arrays (`T[]`) in MVP.
+- [x] Extend type AST to represent nested arrays (`T[]`, `T[][]`, ...).
 - [x] Ensure source spans are preserved for new nodes.
 
 ---
@@ -44,12 +43,12 @@ Use this as the execution reference while implementing parser, type checker, cod
 - [x] Parse `T[]` in type positions (var declarations, params, returns, fields, casts).
 - [x] Parse `T[](len)` in expression positions as array constructor.
 - [x] Keep `expr[index]` and `expr[start:end]` behavior unchanged.
-- [x] Reject nested array syntax (`T[][]`, `T[][](len)`) with a clear diagnostic (deferred feature).
+- [x] Parse nested array syntax (`T[][]`, `T[][](len)`) in both type and expression positions.
 - [x] Add parser diagnostics for malformed array syntax:
   - [x] missing `]`
   - [x] missing constructor `(...)`
   - [x] invalid empty constructor args
-  - [x] invalid nested forms
+  - [x] invalid malformed nested forms (for example, missing `]`)
 
 ---
 
@@ -115,7 +114,7 @@ Use this as the execution reference while implementing parser, type checker, cod
 
 ### 7.1 Parser tests
 - [x] Parse `u8[]` and `Person[]` types.
-- [x] Reject nested `T[][]` with a clear deferred-feature diagnostic.
+- [x] Parse nested array types (`T[][]` and deeper).
 - [x] Parse constructor `T[](len)` in statements and expression contexts.
 - [x] Parse index and slice with arrays without regressions.
 

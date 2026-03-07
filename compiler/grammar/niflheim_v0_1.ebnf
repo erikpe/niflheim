@@ -118,7 +118,7 @@ primary            = literal
                    | "(" expression ")"
                    ;
 
-array_ctor         = ctor_type "[" "]" "(" expression ")" ;
+array_ctor         = ctor_type "[" "]" { "[" "]" } "(" expression ")" ;
 
 ctor_type          = primitive_type
                    | named_type

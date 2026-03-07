@@ -13,3 +13,9 @@ runs:
   - { name: primitive_array_to_reference_array_cast_panics, input: { stdin: "12" }, expect: { panic: "bad cast (u64[] -> Obj[])" } }
   - { name: reference_array_to_primitive_array_cast_panics, input: { stdin: "13" }, expect: { panic: "bad cast (Obj[] -> u64[])" } }
   - { name: reference_array_roundtrip_cast_ok, input: { stdin: "14" }, expect: { exit_code: 0 } }
+  - { name: nested_primitive_index_get_set_levels, input: { stdin: "15" }, expect: { exit_code: 0 } }
+  - { name: nested_primitive_slice_get_set_levels, input: { stdin: "16" }, expect: { exit_code: 0 } }
+  - { name: nested_reference_index_slice_levels, input: { stdin: "17" }, expect: { exit_code: 0 } }
+  - { name: deeply_nested_u8_index_slice_levels, input: { stdin: "18" }, expect: { exit_code: 0 } }
+  - { name: nested_set_slice_invalid_length_panics, input: { stdin: "19" }, expect: { panic: "rt_array_set_slice_ref: invalid slice assignment" } }
+  - { name: nested_inner_slice_oob_panics, input: { stdin: "20" }, expect: { panic: "rt_array_slice_i64: invalid slice range" } }

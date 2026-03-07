@@ -778,10 +778,9 @@ def _infer_expression_type_name(
         return "i64"
 
     if isinstance(expr, IndexExpr):
-        if isinstance(expr.object_expr, IdentifierExpr):
-            receiver_type = ctx.layout.slot_type_names.get(expr.object_expr.name, "Obj")
-            if _is_array_type_name(receiver_type):
-                return _array_element_type_name(receiver_type, span=expr.span)
+        receiver_type = _infer_expression_type_name(expr.object_expr, ctx)
+        if _is_array_type_name(receiver_type):
+            return _array_element_type_name(receiver_type, span=expr.span)
         return "i64"
 
     if isinstance(expr, CallExpr):

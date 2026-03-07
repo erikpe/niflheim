@@ -154,6 +154,201 @@ fn test_reference_array_roundtrip_cast_ok() -> unit {
 }
 
 
+fn test_nested_primitive_index_get_set_levels() -> unit {
+    var grid: i64[][] = i64[][](2u);
+    grid[0] = i64[](3u);
+    grid[1] = i64[](3u);
+
+    grid[0][1] = 11;
+    grid[1][2] = 22;
+
+    assert(grid[0].index_get(1) == 11);
+    assert(grid.index_get(1)[2] == 22);
+
+    var row: i64[] = i64[](3u);
+    row[0] = 5;
+    row[1] = 6;
+    row[2] = 7;
+    grid.index_set(1, row);
+    assert(grid[1][0] == 5);
+    assert(grid[1][1] == 6);
+    assert(grid[1][2] == 7);
+}
+
+
+fn test_nested_primitive_slice_get_set_levels() -> unit {
+    var grid: i64[][] = i64[][](3u);
+    grid[0] = i64[](4u);
+    grid[1] = i64[](4u);
+    grid[2] = i64[](4u);
+
+    grid[0][0] = 10;
+    grid[0][1] = 11;
+    grid[0][2] = 12;
+    grid[0][3] = 13;
+
+    grid[1][0] = 20;
+    grid[1][1] = 21;
+    grid[1][2] = 22;
+    grid[1][3] = 23;
+
+    grid[2][0] = 30;
+    grid[2][1] = 31;
+    grid[2][2] = 32;
+    grid[2][3] = 33;
+
+    var inner_cut: i64[] = grid[1][1:3];
+    assert(inner_cut.len() == 2u);
+    assert(inner_cut[0] == 21);
+    assert(inner_cut[1] == 22);
+
+    var outer_cut: i64[][] = grid[0:2];
+    assert(outer_cut.len() == 2u);
+    assert(outer_cut[0][3] == 13);
+    assert(outer_cut[1][2] == 22);
+
+    var inner_src: i64[] = i64[](2u);
+    inner_src[0] = 70;
+    inner_src[1] = 71;
+    grid[2][1:3] = inner_src;
+    assert(grid[2][0] == 30);
+    assert(grid[2][1] == 70);
+    assert(grid[2][2] == 71);
+    assert(grid[2][3] == 33);
+
+    var repl_rows: i64[][] = i64[][](2u);
+    repl_rows[0] = i64[](4u);
+    repl_rows[1] = i64[](4u);
+    repl_rows[0][0] = 100;
+    repl_rows[0][1] = 101;
+    repl_rows[0][2] = 102;
+    repl_rows[0][3] = 103;
+    repl_rows[1][0] = 110;
+    repl_rows[1][1] = 111;
+    repl_rows[1][2] = 112;
+    repl_rows[1][3] = 113;
+
+    grid[0:2] = repl_rows;
+    assert(grid[0][0] == 100);
+    assert(grid[0][3] == 103);
+    assert(grid[1][0] == 110);
+    assert(grid[1][2] == 112);
+    assert(grid[2][0] == 30);
+}
+
+
+fn test_nested_reference_index_slice_levels() -> unit {
+    var teams: Person[][] = Person[][](2u);
+    assert(teams[0] == null);
+    assert(teams[1] == null);
+
+    teams[0] = Person[](2u);
+    teams[1] = Person[](1u);
+    teams[0][0] = Person(10);
+    teams[0][1] = Person(20);
+    teams[1][0] = Person(30);
+
+    assert(teams[0][0].age == 10);
+    assert(teams[0][1].age == 20);
+    assert(teams.index_get(1)[0].age == 30);
+
+    var squad: Person[] = Person[](1u);
+    squad[0] = Person(77);
+    teams.index_set(1, squad);
+    assert(teams[1][0].age == 77);
+
+    var people_cut: Person[] = teams[0][0:2];
+    assert(people_cut.len() == 2u);
+    assert(people_cut[0].age == 10);
+    assert(people_cut[1].age == 20);
+
+    var team_cut: Person[][] = teams[0:1];
+    assert(team_cut.len() == 1u);
+    assert(team_cut[0][1].age == 20);
+
+    var new_people: Person[] = Person[](2u);
+    new_people[0] = Person(50);
+    new_people[1] = Person(60);
+    teams[0][0:2] = new_people;
+    assert(teams[0][0].age == 50);
+    assert(teams[0][1].age == 60);
+
+    var new_teams: Person[][] = Person[][](1u);
+    new_teams[0] = Person[](2u);
+    new_teams[0][0] = Person(90);
+    new_teams[0][1] = Person(91);
+    teams[0:1] = new_teams;
+    assert(teams[0][0].age == 90);
+    assert(teams[0][1].age == 91);
+    assert(teams[1][0].age == 77);
+}
+
+
+fn test_deeply_nested_u8_index_slice_levels() -> unit {
+    var cube: u8[][][][] = u8[][][][](1u);
+    cube[0] = u8[][][](2u);
+    cube[0][0] = u8[][](1u);
+    cube[0][1] = u8[][](1u);
+    cube[0][0][0] = u8[](4u);
+    cube[0][1][0] = u8[](4u);
+
+    cube[0][0][0][0] = (u8)1;
+    cube[0][0][0][1] = (u8)2;
+    cube[0][0][0][2] = (u8)3;
+    cube[0][0][0][3] = (u8)4;
+
+    cube[0][1][0][0] = (u8)5;
+    cube[0][1][0][1] = (u8)6;
+    cube[0][1][0][2] = (u8)7;
+    cube[0][1][0][3] = (u8)8;
+
+    assert(cube[0][0][0][2] == (u8)3);
+    assert(cube.index_get(0).index_get(1).index_get(0).index_get(3) == (u8)8);
+
+    var deep_cut: u8[] = cube[0][1][0][1:3];
+    assert(deep_cut.len() == 2u);
+    assert(deep_cut[0] == (u8)6);
+    assert(deep_cut[1] == (u8)7);
+
+    var branch_cut: u8[][][][] = cube[0:1];
+    assert(branch_cut.len() == 1u);
+    assert(branch_cut[0][0][0][1] == (u8)2);
+
+    var deep_src: u8[] = u8[](2u);
+    deep_src[0] = (u8)40;
+    deep_src[1] = (u8)41;
+    cube[0][0][0][1:3] = deep_src;
+    assert(cube[0][0][0][0] == (u8)1);
+    assert(cube[0][0][0][1] == (u8)40);
+    assert(cube[0][0][0][2] == (u8)41);
+    assert(cube[0][0][0][3] == (u8)4);
+
+    var new_branch: u8[][] = u8[][](1u);
+    new_branch[0] = u8[](4u);
+    new_branch[0][0] = (u8)9;
+    new_branch[0][1] = (u8)10;
+    new_branch[0][2] = (u8)11;
+    new_branch[0][3] = (u8)12;
+    cube[0].index_set(1, new_branch);
+    assert(cube[0][1][0][0] == (u8)9);
+    assert(cube[0][1][0][3] == (u8)12);
+}
+
+
+fn test_nested_set_slice_invalid_length_panics() -> unit {
+    var rows: i64[][] = i64[][](3u);
+    var src: i64[][] = i64[][](1u);
+    rows[0:2] = src;
+}
+
+
+fn test_nested_inner_slice_oob_panics() -> unit {
+    var rows: i64[][] = i64[][](1u);
+    rows[0] = i64[](1u);
+    rows[0][0:2];
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_all().strip().to_u64();
 
@@ -171,6 +366,12 @@ fn main() -> i64 {
     if select == 12u { test_primitive_array_to_reference_array_cast_panics(); }
     if select == 13u { test_reference_array_to_primitive_array_cast_panics(); }
     if select == 14u { test_reference_array_roundtrip_cast_ok(); }
+    if select == 15u { test_nested_primitive_index_get_set_levels(); }
+    if select == 16u { test_nested_primitive_slice_get_set_levels(); }
+    if select == 17u { test_nested_reference_index_slice_levels(); }
+    if select == 18u { test_deeply_nested_u8_index_slice_levels(); }
+    if select == 19u { test_nested_set_slice_invalid_length_panics(); }
+    if select == 20u { test_nested_inner_slice_oob_panics(); }
 
     return 0;
 }

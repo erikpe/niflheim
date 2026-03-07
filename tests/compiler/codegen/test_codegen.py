@@ -848,6 +848,68 @@ fn main() -> unit {
     assert "    call rt_array_new_double" in asm
 
 
+def test_emit_asm_nested_array_uses_reference_array_runtime_paths() -> None:
+    source = """
+fn main() -> unit {
+    var mat: i64[][] = i64[][](2u);
+    var row: i64[] = i64[](3u);
+    mat[0] = row;
+    var x: i64 = mat[0][1];
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_new_ref" in asm
+    assert "    call rt_array_new_i64" in asm
+    assert "    call rt_array_set_ref" in asm
+    assert "    call rt_array_get_ref" in asm
+    assert "    call rt_array_get_i64" in asm
+
+
+def test_emit_asm_nested_array_chained_field_access_lowers() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> i64 {
+    var teams: Person[][] = Person[][](1u);
+    teams[0] = Person[](1u);
+    teams[0][0] = Person(42);
+    return teams[0][0].age;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    # One get for Person[] from Person[][], then one get for Person from Person[].
+    assert asm.count("    call rt_array_get_ref") >= 2
+    assert "    mov rax, qword ptr [rax + 24]" in asm
+
+
+def test_emit_asm_nested_index_assignment_target_lowers_to_array_set() -> None:
+    source = """
+fn main() -> unit {
+    var cube: u8[][][][] = u8[][][][](1u);
+    cube[0] = u8[][][](1u);
+    cube[0][0] = u8[][](1u);
+    cube[0][0][0] = u8[](2u);
+    cube[0][0][0][1] = (u8)9;
+    return;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_set_u8" in asm
+    assert asm.count("    call rt_array_get_ref") >= 3
+
+
 def test_emit_asm_array_method_form_get_set_slice_lowers_to_runtime_calls() -> None:
     source = """
 fn main() -> unit {

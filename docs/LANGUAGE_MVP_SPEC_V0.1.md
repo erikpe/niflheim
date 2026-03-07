@@ -196,8 +196,7 @@ These are specialization/performance features and should not change core semanti
 - Bounds violations panic and abort.
 - `slice` semantics in v0.1: copying slice (new array allocation).
 - Array assignability policy in v0.1: invariant (`A[]` is assignable only to `A[]`, except `null` to reference arrays).
-- Nested arrays are deferred for now: `T[][]` and deeper are not part of the current MVP array rollout and should be rejected with a clear diagnostic.
-- Nested arrays may be added in a later follow-up milestone.
+- Nested arrays are supported: `T[][]` and deeper are treated as jagged arrays (array-of-arrays), not fixed-shape matrices.
 - Although syntax is generic-like, `T[]` is a built-in type constructor, not user-defined generics.
 
 Implementation status note (current tree):
