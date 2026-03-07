@@ -9,6 +9,7 @@ from compiler.ast_nodes import (
     ExprStmt,
     Expression,
     FieldAccessExpr,
+    ForInStmt,
     IfStmt,
     IndexExpr,
     LiteralExpr,
@@ -213,6 +214,11 @@ def collect_string_literals_from_stmt(stmt: Statement, out: list[str], seen: set
 
     if isinstance(stmt, WhileStmt):
         collect_string_literals_from_expr(stmt.condition, out, seen)
+        collect_string_literals_from_stmt(stmt.body, out, seen)
+        return
+
+    if isinstance(stmt, ForInStmt):
+        collect_string_literals_from_expr(stmt.collection_expr, out, seen)
         collect_string_literals_from_stmt(stmt.body, out, seen)
 
 
