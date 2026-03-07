@@ -48,6 +48,7 @@ class TypeChecker:
             self.classes: dict[str, ClassInfo] = {}
 
         self.scope_stack: list[dict[str, TypeInfo]] = []
+        self.function_local_names_stack: list[set[str]] = []
         self.loop_depth: int = 0
         self.current_private_owner_type: str | None = None
 
@@ -183,6 +184,7 @@ class TypeChecker:
             self.current_private_owner_type = self._canonicalize_reference_type_name(owner_class_name)
 
         self._push_scope()
+        self.function_local_names_stack.append(set())
         try:
             if receiver_type is not None:
                 self._declare_variable("__self", receiver_type, body.span)
@@ -195,6 +197,7 @@ class TypeChecker:
             if return_type.name != "unit" and not self._block_guarantees_return(body):
                 raise TypeCheckError("Non-unit function must return on all paths", body.span)
         finally:
+            self.function_local_names_stack.pop()
             self._pop_scope()
             self.current_private_owner_type = previous_owner
 
@@ -1277,6 +1280,12 @@ class TypeChecker:
         return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
 
     def _declare_variable(self, name: str, var_type: TypeInfo, span: SourceSpan) -> None:
+        if self.function_local_names_stack:
+            function_local_names = self.function_local_names_stack[-1]
+            if name in function_local_names:
+                raise TypeCheckError(f"Duplicate local variable '{name}'", span)
+            function_local_names.add(name)
+
         scope = self.scope_stack[-1]
         if name in scope:
             raise TypeCheckError(f"Duplicate local variable '{name}'", span)

@@ -55,6 +55,35 @@ fn main() -> unit {
         _parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_duplicate_local_name_across_non_overlapping_blocks() -> None:
+    source = """
+fn main() -> unit {
+    for line in i64[](0u) {
+        var x: i64 = 1;
+    }
+
+    var line: i64 = 2;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate local variable 'line'"):
+        _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_duplicate_for_in_element_name_in_same_function() -> None:
+    source = """
+fn main() -> unit {
+    for item in i64[](0u) {
+    }
+    for item in i64[](0u) {
+    }
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate local variable 'item'"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_field_method_name_collision() -> None:
     source = """
 class Bad {
