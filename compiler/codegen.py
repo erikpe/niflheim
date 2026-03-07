@@ -878,6 +878,7 @@ class CodeGenerator:
         self.runtime_panic_message_labels: dict[str, str] = {}
         self.source_lines_by_path: dict[str, list[str] | None] = {}
         self.last_emitted_comment_location: tuple[str, int] | None = None
+        self.aligned_call_label_counter: int = 0
 
     def _runtime_panic_message_label(self, message: str) -> str:
         label = self.runtime_panic_message_labels.get(message)
@@ -886,6 +887,23 @@ class CodeGenerator:
         label = f"__nif_runtime_panic_msg_{len(self.runtime_panic_message_labels)}"
         self.runtime_panic_message_labels[message] = label
         return label
+
+    def _emit_aligned_call(self, target: str) -> None:
+        # Keep call-site stack ABI-correct even when surrounding code has
+        # temporary pushes we do not explicitly track in codegen state.
+        label_id = self.aligned_call_label_counter
+        self.aligned_call_label_counter += 1
+        aligned_label = f".L__nif_aligned_call_{label_id}"
+        done_label = f".L__nif_aligned_call_done_{label_id}"
+        self.out.append("    test rsp, 8")
+        self.out.append(f"    jz {aligned_label}")
+        self.out.append("    sub rsp, 8")
+        self.out.append(f"    call {target}")
+        self.out.append("    add rsp, 8")
+        self.out.append(f"    jmp {done_label}")
+        self.out.append(f"{aligned_label}:")
+        self.out.append(f"    call {target}")
+        self.out.append(f"{done_label}:")
 
     def _source_line_text(self, file_path: str, line: int) -> str:
         if line <= 0:
@@ -1139,14 +1157,14 @@ class CodeGenerator:
             self._emit_root_slot_updates(layout)
             self.out.append(f"    lea rdi, [rip + {data_label}]")
             self.out.append(f"    mov rsi, {data_len}")
-            self.out.append("    call rt_array_from_bytes_u8")
+            self._emit_aligned_call("rt_array_from_bytes_u8")
             self._emit_runtime_call_hook(
                 fn_name=ctx.fn_name,
                 phase="after",
                 label_counter=label_counter,
             )
             self.out.append("    mov rdi, rax")
-            self.out.append(f"    call {from_u8_label}")
+            self._emit_aligned_call(from_u8_label)
             return
 
         if expr.value == "true":
@@ -1237,7 +1255,7 @@ class CodeGenerator:
             self.out.append("    pop rax")
             self.out.append("    mov rdi, rax")
             self.out.append(f"    mov rsi, {expected_kind}")
-            self.out.append("    call rt_checked_cast_array_kind")
+            self._emit_aligned_call("rt_checked_cast_array_kind")
             self._emit_runtime_call_hook(
                 fn_name=ctx.fn_name,
                 phase="after",
@@ -1258,7 +1276,7 @@ class CodeGenerator:
             self.out.append("    pop rax")
             self.out.append("    mov rdi, rax")
             self.out.append(f"    lea rsi, [rip + {type_symbol}]")
-            self.out.append("    call rt_checked_cast")
+            self._emit_aligned_call("rt_checked_cast")
             self._emit_runtime_call_hook(
                 fn_name=ctx.fn_name,
                 phase="after",
@@ -1345,7 +1363,7 @@ class CodeGenerator:
             span=expr.span,
         )
         self.out.append("    pop rdi")
-        self.out.append(f"    call {runtime_ctor}")
+        self._emit_aligned_call(runtime_ctor)
         if rooted_runtime_arg_count > 0:
             self._emit_clear_runtime_call_arg_temp_roots(ctx.layout, rooted_runtime_arg_count)
         self._emit_runtime_call_hook(
@@ -1428,7 +1446,6 @@ class CodeGenerator:
                 for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations)
                 if location_kind == "stack"
             ]
-            stack_pad_slot_count = 1 if (len(stack_arg_indices) % 2) == 1 else 0
 
             temp_root_base = ctx.temp_root_depth[0]
             rooted_temp_arg_count = 0
@@ -1460,17 +1477,15 @@ class CodeGenerator:
                 elif location_kind == "float_reg":
                     self.out.append(f"    movq {location_register}, {arg_operand}")
 
-            if stack_pad_slot_count > 0:
-                self.out.append("    sub rsp, 8")
             for arg_index in reversed(stack_arg_indices):
                 arg_offset = arg_index * 8
                 self.out.append(f"    mov rax, {_stack_slot_operand('r10', arg_offset)}")
                 self.out.append("    push rax")
 
-            self.out.append("    call r11")
+            self._emit_aligned_call("r11")
 
             temp_arg_slot_count = len(expr.arguments)
-            cleanup_slot_count = temp_arg_slot_count + len(stack_arg_indices) + stack_pad_slot_count
+            cleanup_slot_count = temp_arg_slot_count + len(stack_arg_indices)
             if cleanup_slot_count > 0:
                 self.out.append(f"    add rsp, {cleanup_slot_count * 8}")
             if rooted_temp_arg_count > 0:
@@ -1492,7 +1507,6 @@ class CodeGenerator:
             call_arguments = [resolved_target.receiver_expr, *call_arguments]
 
         is_runtime_call = _is_runtime_call_name(target_name)
-        arg_count = len(call_arguments)
         call_argument_type_names = [_infer_expression_type_name(arg, ctx) for arg in call_arguments]
         reference_arg_indices = {
             index for index, type_name in enumerate(call_argument_type_names) if _is_reference_type_name(type_name)
@@ -1503,7 +1517,6 @@ class CodeGenerator:
             for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations)
             if location_kind == "stack"
         ]
-        stack_pad_slot_count = 1 if (len(stack_arg_indices) % 2) == 1 else 0
 
         temp_root_base = ctx.temp_root_depth[0]
 
@@ -1542,17 +1555,15 @@ class CodeGenerator:
             elif location_kind == "float_reg":
                 self.out.append(f"    movq {location_register}, {arg_operand}")
 
-        if stack_pad_slot_count > 0:
-            self.out.append("    sub rsp, 8")
         for arg_index in reversed(stack_arg_indices):
             arg_offset = arg_index * 8
             self.out.append(f"    mov rax, {_stack_slot_operand('r10', arg_offset)}")
             self.out.append("    push rax")
 
-        self.out.append(f"    call {target_name}")
+        self._emit_aligned_call(target_name)
 
         temp_arg_slot_count = len(call_arguments)
-        cleanup_slot_count = temp_arg_slot_count + len(stack_arg_indices) + stack_pad_slot_count
+        cleanup_slot_count = temp_arg_slot_count + len(stack_arg_indices)
         if cleanup_slot_count > 0:
             self.out.append(f"    add rsp, {cleanup_slot_count * 8}")
 
@@ -1753,7 +1764,7 @@ class CodeGenerator:
             self.out.append(f"    cmp rcx, {max_shift}")
             self.out.append(f"    jb {shift_ok_label}")
             self.out.append(f"    lea rdi, [rip + {panic_message_label}]")
-            self.out.append("    call rt_panic")
+            self._emit_aligned_call("rt_panic")
             self.out.append(f"{shift_ok_label}:")
             if operator == "<<":
                 self.out.append("    shl rax, cl")

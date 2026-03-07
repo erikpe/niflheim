@@ -254,8 +254,9 @@ fn caller() -> i64 {
     asm = emit_asm(module)
 
     assert "    call callee" in asm
-    assert "\n    sub rsp, 8\n" not in asm
-    assert "    add rsp, 8" not in asm
+    assert "    test rsp, 8" in asm
+    assert "\n    sub rsp, 8\n" in asm
+    assert "    add rsp, 8" in asm
 
 
 def test_emit_asm_direct_call_argument_register_order() -> None:
@@ -296,10 +297,9 @@ fn main() -> i64 {
     asm = emit_asm(module)
 
     assert "    call sum7" in asm
-    assert "    sub rsp, 8" in asm
     assert "    mov rax, qword ptr [r10 + 48]" in asm
     assert "    push rax" in asm
-    assert "    add rsp, 72" in asm
+    assert "    add rsp, 64" in asm
 
 
 def test_emit_asm_callee_spills_integer_stack_param_to_local_slot() -> None:
@@ -340,7 +340,27 @@ fn main() -> i64 {
     assert "    movq xmm7, qword ptr [r10 + 56]" in asm
     assert "    mov rax, qword ptr [r10 + 64]" in asm
     assert "    push rax" in asm
-    assert "    add rsp, 88" in asm
+    assert "    add rsp, 80" in asm
+
+
+def test_emit_asm_direct_call_one_arg_inserts_alignment_pad() -> None:
+    source = """
+fn id(x: i64) -> i64 {
+    return x;
+}
+
+fn main() -> i64 {
+    return id(41);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_one_arg_call.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call id" in asm
+    assert "    test rsp, 8" in asm
+    assert "    sub rsp, 8" in asm
+    assert "    add rsp, 8" in asm
 
 
 def test_emit_asm_function_value_from_top_level_function_and_indirect_call() -> None:
@@ -361,6 +381,28 @@ fn main() -> i64 {
     assert "    lea rax, [rip + add]" in asm
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
+
+
+def test_emit_asm_function_value_indirect_one_arg_inserts_alignment_pad() -> None:
+    source = """
+fn id(x: i64) -> i64 {
+    return x;
+}
+
+fn main() -> i64 {
+    var f: fn(i64) -> i64 = id;
+    return f(41);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_fn_value_one_arg_indirect.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    mov r11, rax" in asm
+    assert "    call r11" in asm
+    assert "    test rsp, 8" in asm
+    assert "    sub rsp, 8" in asm
+    assert "    add rsp, 8" in asm
 
 
 def test_emit_asm_function_value_from_static_method_and_indirect_call() -> None:
@@ -1379,6 +1421,26 @@ fn caller() -> u64 {
     caller_body = asm[caller_start:caller_end]
     assert "    call takes_two" in caller_body
     assert caller_body.count("    call rt_root_slot_store") >= 2
+
+
+def test_emit_asm_array_ctor_runtime_call_dynamic_aligns_with_prior_pushed_arg() -> None:
+    source = """
+fn consume(a: Obj[], b: i64) -> u64 {
+    return a.len();
+}
+
+fn caller() -> u64 {
+    return consume(Obj[](1u), 7);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_array_ctor_align.nif"))
+
+    asm = emit_asm(module)
+
+    assert "    call rt_array_new_ref" in asm
+    assert "    test rsp, 8" in asm
+    assert "    sub rsp, 8" in asm
+    assert "    add rsp, 8" in asm
 
 
 def test_emit_asm_reference_cast_calls_rt_checked_cast() -> None:
