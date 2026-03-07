@@ -79,17 +79,9 @@ export class Map
         }
     }
 
-    private fn _hash(key: Obj) -> u64 {
-        return __self._hash_fn(key);
-    }
-
-    private fn _equals(left: Obj, right: Obj) -> bool {
-        return __self._equals_fn(left, right);
-    }
-
     private fn _find_existing_index(key: Obj) -> i64 {
         var capacity_i64: i64 = (i64)__self._capacity;
-        var index: i64 = (i64)(__self._hash(key) % __self._capacity);
+        var index: i64 = (i64)(__self._hash_fn(key) % __self._capacity);
         var probes: i64 = 0;
 
         while probes < capacity_i64 {
@@ -97,7 +89,7 @@ export class Map
                 return -1;
             }
 
-            if __self._equals(__self._keys[index], key) {
+            if __self._equals_fn(__self._keys[index], key) {
                 return index;
             }
 
@@ -113,7 +105,7 @@ export class Map
 
     private fn _insert_or_assign(key: Obj, value: Obj) -> bool {
         var capacity_i64: i64 = (i64)__self._capacity;
-        var index: i64 = (i64)(__self._hash(key) % __self._capacity);
+        var index: i64 = (i64)(__self._hash_fn(key) % __self._capacity);
         var probes: i64 = 0;
 
         while probes < capacity_i64 {
@@ -124,7 +116,7 @@ export class Map
                 return true;
             }
 
-            if __self._equals(__self._keys[index], key) {
+            if __self._equals_fn(__self._keys[index], key) {
                 __self._values[index] = value;
                 return false;
             }

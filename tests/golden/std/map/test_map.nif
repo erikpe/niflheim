@@ -3,6 +3,7 @@ import std.map;
 import std.box;
 import std.io;
 import std.str;
+import std.range;
 
 class Key {
     raw: u64;
@@ -65,21 +66,19 @@ fn test_overwrite_same_logical_key() -> unit {
 fn test_growth_and_probe_chains() -> unit {
     var m: Map = Map.with_capacity(2u, key_hash, key_equals);
 
-    var i: u64 = 0u;
-    while i < 80u {
-        var key: Obj = (Obj)Key(i * 17u + 3u);
-        m[key] = BoxU64(i);
-        i = i + 1u;
+    for i in Range(0, 80) {
+        var idx: u64 = (u64)i;
+        var key: Obj = (Obj)Key(idx * 17u + 3u);
+        m[key] = BoxU64(idx);
     }
 
     assert(m.len() == 80u);
 
-    i = 0u;
-    while i < 80u {
-        var key: Obj = (Obj)Key(i * 17u + 3u);
+    for i in Range(0, 80) {
+        var idx: u64 = (u64)i;
+        var key: Obj = (Obj)Key(idx * 17u + 3u);
         assert(m.contains(key));
-        assert(((BoxU64)m[key]).val == i);
-        i = i + 1u;
+        assert(((BoxU64)m[key]).val == idx);
     }
 }
 
@@ -113,38 +112,31 @@ fn test_get_missing_panics() -> unit {
 
 fn test_str_keys_under_load() -> unit {
     var m: Map = Map.with_capacity(4u, str_hash_fn, str_equals_fn);
+    var count: i64 = 1200;
 
-    var i: u64 = 0u;
-    while i < 120u {
-        var k: Str = Str.from_u64(i);
-        m[(Obj)k] = BoxU64(i * 3u + 1u);
-        i = i + 1u;
+    for i in Range(0, count) {
+        var k: Str = Str.from_i64(i);
+        m[(Obj)k] = BoxU64((u64)i * 3u + 1u);
     }
 
-    assert(m.len() == 120u);
+    assert(m.len() == (u64)count);
 
-    i = 0u;
-    while i < 120u {
-        var lookup: Str = Str.from_u64(i);
+    for i in Range(0, count) {
+        var lookup: Str = Str.from_i64(i);
         assert(m.contains((Obj)lookup));
-        assert(((BoxU64)m[(Obj)lookup]).val == i * 3u + 1u);
-        i = i + 1u;
+        assert(((BoxU64)m[(Obj)lookup]).val == (u64)i * 3u + 1u);
     }
 
-    i = 0u;
-    while i < 120u {
-        var rewrite: Str = Str.from_u64(i);
-        m[(Obj)rewrite] = BoxU64(i + 1000u);
-        i = i + 1u;
+    for i in Range(0, count) {
+        var rewrite: Str = Str.from_i64(i);
+        m[(Obj)rewrite] = BoxU64((u64)i + 1000u);
     }
 
-    assert(m.len() == 120u);
+    assert(m.len() == (u64)count);
 
-    i = 0u;
-    while i < 120u {
-        var check: Str = Str.from_u64(i);
-        assert(((BoxU64)m[(Obj)check]).val == i + 1000u);
-        i = i + 1u;
+    for i in Range(0, count) {
+        var check: Str = Str.from_i64(i);
+        assert(((BoxU64)m[(Obj)check]).val == (u64)i + 1000u);
     }
 
     assert(!m.contains((Obj)"missing"));
