@@ -1,0 +1,14 @@
+runs:
+  - name: full_input
+    input:
+      stdin_file: "input.txt"
+    expect:
+      exit_code: 0
+      stdout: "RESULT:287039700129600\n"
+
+  - name: test1_input
+    input:
+      stdin_file: "test1_input.txt"
+    expect:
+      exit_code: 0
+      stdout: "RESULT:2\n"
