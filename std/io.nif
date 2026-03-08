@@ -1,8 +1,11 @@
 import std.str;
 import std.error;
 
+extern fn rt_file_stdin_handle() -> u64;
+extern fn rt_file_open_for_read(path: u8[]) -> u64;
+extern fn rt_file_close(handle: u64) -> unit;
+extern fn rt_file_read_u8_array(handle: u64, value: u8[], offset: u64) -> u64;
 extern fn rt_write_u8_array(value: u8[]) -> u64;
-extern fn rt_read_u8_array(value: u8[], offset: u64) -> u64;
 
 export fn print(text: Str) -> unit
 {
@@ -63,13 +66,13 @@ export fn println_double(value: double) -> unit
     println(Str.from_double(value));
 }
 
-export fn read_all() -> Str
+fn _read_all_from_handle(handle: u64) -> Str
 {
     var bytes: u8[] = u8[](4096u);
     var filled: u64 = 0u;
 
     while true {
-        var next: u64 = rt_read_u8_array(bytes, filled);
+        var next: u64 = rt_file_read_u8_array(handle, bytes, filled);
         if next == filled {
             break; // No bytes read, we're done
         }
@@ -88,4 +91,17 @@ export fn read_all() -> Str
     }
 
     return Str.from_u8_array(bytes[:(i64)filled]);
+}
+
+export fn read_file_all(path: Str) -> Str
+{
+    var handle: u64 = rt_file_open_for_read(path.to_u8_array());
+    var content: Str = _read_all_from_handle(handle);
+    rt_file_close(handle);
+    return content;
+}
+
+export fn read_all() -> Str
+{
+    return _read_all_from_handle(rt_file_stdin_handle());
 }

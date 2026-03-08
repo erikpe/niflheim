@@ -33,7 +33,7 @@ asm_out="${output}.s"
 
 python3 -m compiler.main "$input" -o "$asm_out" --project-root "$repo_root"
 
-cc \
+gcc \
   -O2 \
   -std=c11 \
   -I "$repo_root/runtime/include" \

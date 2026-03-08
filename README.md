@@ -38,6 +38,7 @@ Recent backend/runtime updates:
 - SysV floating-point ABI paths are implemented for parameters/returns (`xmm0`-`xmm7`) in function calls, method calls, and constructors.
 - `std.box` primitive wrapper classes (`Box*`) are available for `Obj`-container use cases.
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
+- `std.io` supports both stdin batch reads (`read_all`) and whole-file reads (`read_file_all(path)`) using minimal runtime open/read/close primitives.
 
 Planned near-term extension design now documented:
 - No-capture first-class function values MVP (`fn(T1, T2, ...) -> R`) is specified in [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md) and tracked via [docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md](docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md).
@@ -57,6 +58,7 @@ Runtime sources are split by responsibility:
 - `runtime/src/runtime.c` - low-level runtime infrastructure (thread state, roots, allocation, panic support)
 - `runtime/src/gc.c` - GC implementation
 - `runtime/src/io.c` - runtime IO/println implementation
+	- includes minimal file-handle primitives used by `std/io.nif` (`open/read/close`), while buffering/growth logic stays in stdlib
 - `runtime/src/vec.c` - `Vec` implementation
 
 - `make -C runtime test` runs GC stress scenarios (`test_gc_stress`):
