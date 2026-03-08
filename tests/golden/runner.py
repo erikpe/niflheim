@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import os
 import subprocess
 import sys
@@ -246,6 +247,31 @@ def _append_stderr_details(errors: list[str], stderr_text: str) -> None:
         errors.append(f"stderr | {line}")
 
 
+def _append_text_diff(errors: list[str], *, label: str, expected: str, actual: str) -> None:
+    errors.append(f"{label} expected {len(expected)} chars, got {len(actual)} chars")
+
+    diff_lines = list(
+        difflib.unified_diff(
+            expected.splitlines(keepends=True),
+            actual.splitlines(keepends=True),
+            fromfile=f"expected {label}",
+            tofile=f"actual {label}",
+            lineterm="",
+        )
+    )
+
+    if not diff_lines:
+        errors.append(f"{label} diff: <no line-level changes>")
+        return
+
+    max_diff_lines = 200
+    errors.append(f"{label} diff (expected vs actual):")
+    for line in diff_lines[:max_diff_lines]:
+        errors.append(f"diff | {line}")
+    if len(diff_lines) > max_diff_lines:
+        errors.append(f"diff | ...<truncated {len(diff_lines) - max_diff_lines} lines>")
+
+
 def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
     cmd = [str(binary_path), *run.run_input.args]
     proc = subprocess.run(
@@ -265,9 +291,11 @@ def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
 
     if expect.stdout is not None and proc.stdout != expect.stdout:
         errors.append("stdout mismatch")
+        _append_text_diff(errors, label="stdout", expected=expect.stdout, actual=proc.stdout)
 
     if expect.stderr is not None and proc.stderr != expect.stderr:
         errors.append("stderr mismatch")
+        _append_text_diff(errors, label="stderr", expected=expect.stderr, actual=proc.stderr)
 
     if expect.panic is not None:
         if proc.returncode == 0:
