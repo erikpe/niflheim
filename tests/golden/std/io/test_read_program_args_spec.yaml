@@ -6,7 +6,7 @@ runs:
 
   - name: read_program_args_with_extra_args
     input:
-      args: ["alpha", "beta gamma", "delta"]
+      args: ["alpha", "beta gamma", "", "delta"]
     expect:
       exit_code: 0
-      stdout: "4\nalpha\nbeta gamma\ndelta\n"
+      stdout: "5\n|alpha|\n|beta gamma|\n||\n|delta|\n"
