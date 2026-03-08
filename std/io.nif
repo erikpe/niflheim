@@ -1,5 +1,6 @@
 import std.str;
 import std.error;
+import std.vec;
 
 extern fn rt_file_stdin_handle() -> u64;
 extern fn rt_file_open_for_read(path: u8[]) -> u64;
@@ -104,4 +105,16 @@ export fn read_file(path: Str) -> Str
 export fn read_stdin() -> Str
 {
     return _read_all_from_handle(rt_file_stdin_handle());
+}
+
+export fn read_program_args() -> Str[]
+{
+    var arg_vec: Vec = read_file("/proc/self/cmdline").split('\0');
+    var args: Str[] = Str[](arg_vec.len());
+    var i: i64 = 0;
+    for arg in arg_vec {
+        args[i] = (Str)arg;
+        i = i + 1;
+    }
+    return args;
 }

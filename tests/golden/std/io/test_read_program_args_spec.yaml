@@ -1,0 +1,12 @@
+runs:
+  - name: read_program_args_without_extra_args
+    expect:
+      exit_code: 0
+      stdout: "1\n"
+
+  - name: read_program_args_with_extra_args
+    input:
+      args: ["alpha", "beta gamma", "delta"]
+    expect:
+      exit_code: 0
+      stdout: "4\nalpha\nbeta gamma\ndelta\n"
