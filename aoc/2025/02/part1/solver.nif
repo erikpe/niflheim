@@ -71,7 +71,7 @@ fn calc_invalid_sum(from: i64, to: i64) -> i64
 
 fn main() -> i64
 {
-    var input_ranges: Vec = read_all().strip().split(',');
+    var input_ranges: Vec = read_stdin().strip().split(',');
     var num_ranges: i64 = (i64)input_ranges.len();
 
     var invalid_sum: i64 = 0;

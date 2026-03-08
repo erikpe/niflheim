@@ -21,7 +21,7 @@ fn count_zero_hits(start: i64, clicks: i64) -> i64
 
 fn main() -> i64
 {
-    var input_rows: Vec = read_all().splitlines();
+    var input_rows: Vec = read_stdin().splitlines();
     var num_rows: i64 = (i64)input_rows.len();
 
     var dial: i64 = 50;

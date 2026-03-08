@@ -49,7 +49,7 @@ fn test_box_type_matching() -> unit {
 
 
 fn main() -> i64 {
-    var select: u64 = read_all().strip().to_u64();
+    var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u { test_same_type_str_instances(); }
     if select == 2u { test_different_type_str_vs_vec(); }

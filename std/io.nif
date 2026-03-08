@@ -81,7 +81,7 @@ fn _read_all_from_handle(handle: u64) -> Str
         if filled == bytes.len() {
             var new_capacity: u64 = bytes.len() * 2u;
             if new_capacity <= bytes.len() {
-                panic("io.read_all: input too large");
+                panic("io.read_stdin: input too large");
             }
 
             var grown: u8[] = u8[](new_capacity);
@@ -93,7 +93,7 @@ fn _read_all_from_handle(handle: u64) -> Str
     return Str.from_u8_array(bytes[:(i64)filled]);
 }
 
-export fn read_file_all(path: Str) -> Str
+export fn read_file(path: Str) -> Str
 {
     var handle: u64 = rt_file_open_for_read(path.to_u8_array());
     var content: Str = _read_all_from_handle(handle);
@@ -101,7 +101,7 @@ export fn read_file_all(path: Str) -> Str
     return content;
 }
 
-export fn read_all() -> Str
+export fn read_stdin() -> Str
 {
     return _read_all_from_handle(rt_file_stdin_handle());
 }

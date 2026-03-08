@@ -143,7 +143,7 @@ fn test_str_keys_under_load() -> unit {
 }
 
 fn main() -> i64 {
-    var select: u64 = read_all().strip().to_u64();
+    var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u { test_put_get_contains(); }
     if select == 2u { test_overwrite_same_logical_key(); }

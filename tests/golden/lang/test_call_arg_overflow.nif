@@ -255,7 +255,7 @@ fn test_thirty_args_mixed_order() -> i64 {
 }
 
 fn main() -> i64 {
-    var select: u64 = read_all().strip().to_u64();
+    var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u { return test_normal_case(); }
     if select == 2u { return test_int_edge_six_registers(); }

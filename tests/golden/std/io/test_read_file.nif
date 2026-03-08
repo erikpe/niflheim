@@ -2,28 +2,28 @@ import std.io;
 import std.str;
 
 fn main() -> i64 {
-    var select: u64 = read_all().strip().to_u64();
+    var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u {
-        var text: Str = read_file_all("tests/golden/std/io/test_read_file_input.txt");
+        var text: Str = read_file("tests/golden/std/io/test_read_file_input.txt");
         print(text);
         return 0;
     }
 
     if select == 2u {
-        var text_exact: Str = read_file_all("tests/golden/std/io/test_read_file_exact_4096.txt");
+        var text_exact: Str = read_file("tests/golden/std/io/test_read_file_exact_4096.txt");
         println_u64(text_exact.len());
         return 0;
     }
 
     if select == 3u {
-        var text_big: Str = read_file_all("tests/golden/std/io/test_read_file_big_5000.txt");
+        var text_big: Str = read_file("tests/golden/std/io/test_read_file_big_5000.txt");
         println_u64(text_big.len());
         return 0;
     }
 
     if select == 4u {
-        var missing: Str = read_file_all("tests/golden/std/io/does_not_exist.txt");
+        var missing: Str = read_file("tests/golden/std/io/does_not_exist.txt");
         print(missing);
         return 0;
     }

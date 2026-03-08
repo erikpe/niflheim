@@ -250,7 +250,7 @@ fn test_for_in_over_reference_array() -> unit {
 }
 
 fn main() -> i64 {
-    var select: u64 = read_all().strip().to_u64();
+    var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u { test_basic_sum_and_call_counts(); }
     if select == 2u { test_empty_collection_no_iterations(); }

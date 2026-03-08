@@ -239,7 +239,7 @@ fn test_vec_for_in_iteration() -> unit {
 
 
 fn main() -> i64 {
-    var select: u64 = read_all().strip().to_u64();
+    var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u { test_vec_baseline(); }
     if select == 2u { test_vec_index_sugar_with_wrapping_negative_indexes(); }

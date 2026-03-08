@@ -97,7 +97,7 @@ fn solve_machine(machine: Str) -> u64
 fn main() -> i64
 {
     var min_presses: u64 = 0u;
-    for line in read_all().splitlines() {
+    for line in read_stdin().splitlines() {
         min_presses = min_presses + solve_machine((Str)line);
     }
     print("RESULT:");

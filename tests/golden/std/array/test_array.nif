@@ -350,7 +350,7 @@ fn test_nested_inner_slice_oob_panics() -> unit {
 
 
 fn main() -> i64 {
-    var select: u64 = read_all().strip().to_u64();
+    var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u { test_primitive_smoke(); }
     if select == 2u { test_reference_default_null(); }

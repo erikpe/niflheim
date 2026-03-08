@@ -166,7 +166,7 @@ fn test_panic_propagates_through_indirect_call() -> unit {
 }
 
 fn main() -> i64 {
-    var select: u64 = read_all().strip().to_u64();
+    var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u { return test_mixed_indirect_calls(); }
     if select == 2u { return test_returned_function_value_dispatch(); }

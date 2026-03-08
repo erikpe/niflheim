@@ -477,7 +477,7 @@ fn test_equals_obj() -> unit {
 
 
 fn main() -> i64 {
-    var select: u64 = read_all().strip().to_u64();
+    var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u { test_baseline_get_slice(); }
     if select == 2u { test_strip(); }

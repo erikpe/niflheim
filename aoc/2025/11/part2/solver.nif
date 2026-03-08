@@ -54,7 +54,7 @@ fn find_all_paths_dag(graph: i64[][], memoize_cache: Map, start: i64, end: i64) 
 }
 
 fn main() -> i64 {
-    var lines: Vec = read_all().splitlines();
+    var lines: Vec = read_stdin().splitlines();
     var keymap: Map = Map.new(str_hash_fn, strs_equals_fn);
     var key: i64 = 0;
     var line: Str;

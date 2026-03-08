@@ -111,7 +111,7 @@ fn solve_machine(machine: Str) -> u64
 
 fn main() -> i64
 {
-    var lines: Vec = read_all().splitlines();
+    var lines: Vec = read_stdin().splitlines();
     var num_lines: i64 = (i64)lines.len();
     var min_presses: u64 = 0u;
     var i: i64 = 0;

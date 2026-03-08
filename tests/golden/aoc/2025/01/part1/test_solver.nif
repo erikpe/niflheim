@@ -7,7 +7,7 @@ fn main() -> i64
     var dial: i64 = 50;
     var password: i64 = 0;
 
-    for row in read_all().splitlines() {
+    for row in read_stdin().splitlines() {
         var line: Str = (Str)row;
         var direction: u8 = line[0];
         var clicks: i64 = line[1:].to_i64();
