@@ -109,7 +109,7 @@ export fn read_stdin() -> Str
 
 export fn read_program_args() -> Str[]
 {
-    var arg_vec: Vec = read_file("/proc/self/cmdline").split('\0');
+    var arg_vec: Vec = read_file("/proc/self/cmdline")[:-1].split('\0');
     var args: Str[] = Str[](arg_vec.len());
     var i: i64 = 0;
     for arg in arg_vec {

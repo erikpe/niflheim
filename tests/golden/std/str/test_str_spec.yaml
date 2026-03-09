@@ -46,3 +46,4 @@ runs:
   - { name: strbuf_for_in_iteration, input: { stdin: "45" }, expect: { exit_code: 0 } }
   - { name: hash_code_equal_content, input: { stdin: "46" }, expect: { exit_code: 0 } }
   - { name: equals_obj, input: { stdin: "47" }, expect: { exit_code: 0 } }
+  - { name: split_trailing_delimiter, input: { stdin: "48" }, expect: { exit_code: 0 } }

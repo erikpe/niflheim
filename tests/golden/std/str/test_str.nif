@@ -427,6 +427,30 @@ fn test_splitlines() -> unit {
 }
 
 
+fn test_split_trailing_delimiter() -> unit {
+    var parts0: Vec = "".split(',');
+    assert(parts0.len() == 1u);
+    assert(((Str)parts0[0]).compareTo("") == 0);
+
+    var parts1: Vec = "a,b,".split(',');
+    assert(parts1.len() == 3u);
+    assert(((Str)parts1[0]).compareTo("a") == 0);
+    assert(((Str)parts1[1]).compareTo("b") == 0);
+    assert(((Str)parts1[2]).compareTo("") == 0);
+
+    var parts2: Vec = ",".split(',');
+    assert(parts2.len() == 2u);
+    assert(((Str)parts2[0]).compareTo("") == 0);
+    assert(((Str)parts2[1]).compareTo("") == 0);
+
+    var parts3: Vec = "x,,".split(',');
+    assert(parts3.len() == 3u);
+    assert(((Str)parts3[0]).compareTo("x") == 0);
+    assert(((Str)parts3[1]).compareTo("") == 0);
+    assert(((Str)parts3[2]).compareTo("") == 0);
+}
+
+
 fn test_str_for_in_iteration() -> unit {
     var s: Str = "Ab0";
     var sum: i64 = 0;
@@ -526,5 +550,6 @@ fn main() -> i64 {
     if select == 45u { test_strbuf_for_in_iteration(); }
     if select == 46u { test_hash_code_equal_content(); }
     if select == 47u { test_equals_obj(); }
+    if select == 48u { test_split_trailing_delimiter(); }
     return 0;
 }

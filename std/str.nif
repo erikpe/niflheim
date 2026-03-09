@@ -404,10 +404,8 @@ export class Str
 
             i = i + 1;
         }
+        out.push(Str(__self._bytes[start:length]));
 
-        if start < length {
-            out.push(Str(__self._bytes[start:length]));
-        }
         return out;
     }
 }
