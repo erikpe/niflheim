@@ -61,6 +61,7 @@ from compiler.codegen_str_helper import (
     decode_string_literal,
     escape_asm_string_bytes,
     escape_c_string,
+    is_str_type_name,
 )
 
 
@@ -1800,14 +1801,29 @@ class CodeGenerator:
         if self._emit_logical_binary_expr(expr, fn_name=fn_name, label_counter=label_counter, ctx=ctx):
             return
 
+        left_type_name = _infer_expression_type_name(expr.left, ctx)
+        right_type_name = _infer_expression_type_name(expr.right, ctx)
+
+        if expr.operator == "+" and is_str_type_name(left_type_name) and is_str_type_name(right_type_name):
+            synthetic_callee = FieldAccessExpr(
+                object_expr=IdentifierExpr(name=STR_CLASS_NAME, span=expr.span),
+                field_name="concat",
+                span=expr.span,
+            )
+            synthetic_call = CallExpr(
+                callee=synthetic_callee,
+                arguments=[expr.left, expr.right],
+                span=expr.span,
+            )
+            self._emit_call_expr(synthetic_call, ctx)
+            return
+
         self._emit_expr(expr.left, ctx)
         self.out.append("    push rax")
         self._emit_expr(expr.right, ctx)
         self.out.append("    mov rcx, rax")
         self.out.append("    pop rax")
 
-        left_type_name = _infer_expression_type_name(expr.left, ctx)
-        right_type_name = _infer_expression_type_name(expr.right, ctx)
         is_double_op = left_type_name == "double" and right_type_name == "double"
 
         if is_double_op:

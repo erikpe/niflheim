@@ -33,6 +33,15 @@ export class Str
         return "false";
     }
 
+    static fn concat(left: Str, right: Str) -> Str {
+        var len_left: i64 = (i64)left.len();
+        var len_right: i64 = (i64)right.len();
+        var new_bytes: u8[] = u8[](len_left + len_right);
+        new_bytes[:len_left] = left._bytes;
+        new_bytes[len_left:len_left+len_right] = right._bytes;
+        return Str(new_bytes);
+    }
+
     fn len() -> u64 {
         return __self._bytes.len();
     }

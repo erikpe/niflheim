@@ -451,6 +451,19 @@ fn test_split_trailing_delimiter() -> unit {
 }
 
 
+fn test_concat_operator() -> unit {
+    var merged: Str = "hello, " + "world";
+    assert(merged.compareTo("hello, world") == 0);
+
+    var left: Str = "x";
+    var right: Str = "";
+    assert((left + right).compareTo("x") == 0);
+
+    var chain: Str = "a" + "b" + "c";
+    assert(chain.compareTo("abc") == 0);
+}
+
+
 fn test_str_for_in_iteration() -> unit {
     var s: Str = "Ab0";
     var sum: i64 = 0;
@@ -551,5 +564,6 @@ fn main() -> i64 {
     if select == 46u { test_hash_code_equal_content(); }
     if select == 47u { test_equals_obj(); }
     if select == 48u { test_split_trailing_delimiter(); }
+    if select == 49u { test_concat_operator(); }
     return 0;
 }

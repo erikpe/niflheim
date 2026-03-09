@@ -429,7 +429,12 @@ class TypeChecker:
             op = expr.operator
 
             if op in {"+", "-", "*", "/", "%"}:
+                if op == "+" and is_str_type_name(left_type.name) and is_str_type_name(right_type.name):
+                    return self._resolve_string_type(expr.span)
+
                 if left_type.name not in NUMERIC_TYPE_NAMES or right_type.name not in NUMERIC_TYPE_NAMES:
+                    if op == "+":
+                        raise TypeCheckError("Operator '+' requires numeric operands or Str operands", expr.span)
                     raise TypeCheckError(f"Operator '{op}' requires numeric operands", expr.span)
                 if left_type.name != right_type.name:
                     raise TypeCheckError(f"Operator '{op}' requires matching operand types", expr.span)

@@ -42,6 +42,37 @@ fn main() -> unit {
     _parse_and_typecheck(source)
 
 
+def test_typecheck_allows_str_plus_str() -> None:
+    source = """
+class Str {
+}
+
+fn main() -> unit {
+    var a: Str = null;
+    var b: Str = null;
+    var c: Str = a + b;
+    return;
+}
+"""
+    _parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_str_plus_non_str() -> None:
+    source = """
+class Str {
+}
+
+fn main() -> unit {
+    var a: Str = null;
+    var b: i64 = 1;
+    var c: Str = a + b;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Operator '\\+' requires numeric operands or Str operands"):
+        _parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_non_bool_condition() -> None:
     source = """
 fn main() -> unit {
