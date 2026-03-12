@@ -1727,6 +1727,14 @@ class CodeGenerator:
             else:
                 self.out.append("    cqo")
                 self.out.append("    idiv rcx")
+                done_label = _next_label(fn_name, "sdiv_done", label_counter)
+                self.out.append("    test rdx, rdx")
+                self.out.append(f"    je {done_label}")
+                self.out.append("    mov r8, rdx")
+                self.out.append("    xor r8, rcx")
+                self.out.append(f"    jns {done_label}")
+                self.out.append("    sub rax, 1")
+                self.out.append(f"{done_label}:")
             return True
         if operator == "%":
             if is_unsigned:
