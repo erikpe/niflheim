@@ -1,3 +1,3 @@
-from compiler.codegen.legacy import emit_asm
+from compiler.codegen.generator import emit_asm
 
 __all__ = ["emit_asm"]

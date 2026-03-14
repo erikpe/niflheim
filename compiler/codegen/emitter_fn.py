@@ -14,7 +14,7 @@ from compiler.codegen.model import EmitContext
 from compiler.codegen.strings import escape_c_string
 
 if TYPE_CHECKING:
-    from compiler.codegen.legacy import CodeGenerator
+    from compiler.codegen.generator import CodeGenerator
 
 
 def emit_debug_symbol_literals(
@@ -102,7 +102,8 @@ def emit_function(codegen: CodeGenerator, fn: FunctionDecl, *, label: str | None
         file_path=fn.span.start.path,
     )
 
-    codegen.emit_frame_prologue(target_label, layout, global_symbol=label is None and (fn.is_export or fn.name == "main"))
+    codegen.emit_frame_prologue(target_label, layout, global_symbol=label is None
+                                and (fn.is_export or fn.name == "main"))
     codegen.emit_location_comment(
         file_path=fn.span.start.path,
         line=fn.span.start.line,

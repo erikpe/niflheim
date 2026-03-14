@@ -21,13 +21,13 @@ from compiler.ast_nodes import (
 )
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
-from compiler.codegen.model import EmitContext, RUNTIME_REF_ARG_INDICES
+from compiler.codegen.model import EmitContext
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.codegen.strings import STR_CLASS_NAME, decode_char_literal, is_str_type_name
 
 if TYPE_CHECKING:
-    from compiler.codegen.legacy import CodeGenerator
+    from compiler.codegen.generator import CodeGenerator
 
 
 def emit_literal_expr(codegen: CodeGenerator, expr: LiteralExpr, ctx: EmitContext) -> None:
@@ -330,9 +330,8 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
     callee_type_name = call_resolution.infer_expression_type_name(expr.callee, ctx)
     if codegen_types.is_function_type_name(callee_type_name):
         call_argument_type_names = [call_resolution.infer_expression_type_name(arg, ctx) for arg in expr.arguments]
-        reference_arg_indices = {
-            index for index, type_name in enumerate(call_argument_type_names) if codegen_types.is_reference_type_name(type_name)
-        }
+        reference_arg_indices = {index for index, type_name in enumerate(
+            call_argument_type_names) if codegen_types.is_reference_type_name(type_name)}
         arg_locations = plan_sysv_arg_locations(call_argument_type_names)
         stack_arg_indices = [
             index
@@ -401,9 +400,8 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
 
     is_runtime_call = codegen_symbols.is_runtime_call_name(target_name)
     call_argument_type_names = [call_resolution.infer_expression_type_name(arg, ctx) for arg in call_arguments]
-    reference_arg_indices = {
-        index for index, type_name in enumerate(call_argument_type_names) if codegen_types.is_reference_type_name(type_name)
-    }
+    reference_arg_indices = {index for index, type_name in enumerate(
+        call_argument_type_names) if codegen_types.is_reference_type_name(type_name)}
     arg_locations = plan_sysv_arg_locations(call_argument_type_names)
     stack_arg_indices = [
         index

@@ -162,3 +162,19 @@ TYPE_NAME_TOKENS: set[TokenKind] = {
     TokenKind.UNIT,
     TokenKind.OBJ,
 }
+
+
+UNARY_START_TOKENS: set[TokenKind] = {
+    TokenKind.BANG,
+    TokenKind.MINUS,
+    TokenKind.TILDE,
+    TokenKind.LPAREN,
+    TokenKind.IDENT,
+    TokenKind.INT_LIT,
+    TokenKind.FLOAT_LIT,
+    TokenKind.STRING_LIT,
+    TokenKind.CHAR_LIT,
+    TokenKind.TRUE,
+    TokenKind.FALSE,
+    TokenKind.NULL,
+}

@@ -13,7 +13,7 @@ from compiler.codegen.symbols import mangle_constructor_symbol, mangle_method_sy
 from compiler.codegen.types import function_type_return_type_name, type_ref_name
 from compiler.lexer import lex
 from compiler.parser import parse
-from compiler.codegen.legacy import CodeGenerator
+from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.model import EmitContext
 
 

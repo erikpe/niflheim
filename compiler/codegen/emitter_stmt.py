@@ -28,7 +28,7 @@ from compiler.codegen.emitter_expr import emit_call_expr, emit_expr
 from compiler.codegen.model import EmitContext
 
 if TYPE_CHECKING:
-    from compiler.codegen.legacy import CodeGenerator
+    from compiler.codegen.generator import CodeGenerator
 
 
 def emit_statement(
@@ -141,7 +141,8 @@ def emit_statement(
         if isinstance(stmt.target, FieldAccessExpr):
             receiver_type_name = call_resolution.field_receiver_type_name(stmt.target.object_expr, ctx)
             if receiver_type_name is None:
-                codegen_types.raise_codegen_error("field assignment codegen requires class-typed receiver", span=stmt.span)
+                codegen_types.raise_codegen_error(
+                    "field assignment codegen requires class-typed receiver", span=stmt.span)
             field_offset = codegen.class_field_offsets.get((receiver_type_name, stmt.target.field_name))
             if field_offset is None:
                 codegen_types.raise_codegen_error(

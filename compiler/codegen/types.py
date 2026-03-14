@@ -55,7 +55,7 @@ def function_type_return_type_name(type_name: str, *, span: object | None = None
     if close_index < 0:
         raise_codegen_error(f"malformed function type name: {type_name}", span=span)
 
-    tail = type_name[close_index + 1 :].lstrip()
+    tail = type_name[close_index + 1:].lstrip()
     if not tail.startswith("->"):
         raise_codegen_error(f"malformed function type name: {type_name}", span=span)
     return tail[2:].strip()

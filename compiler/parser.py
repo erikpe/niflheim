@@ -4,23 +4,7 @@ from dataclasses import dataclass
 
 from compiler.ast_nodes import *
 from compiler.lexer import SourceSpan, Token
-from compiler.tokens import TYPE_NAME_TOKENS, TokenKind
-
-
-UNARY_START_TOKENS: set[TokenKind] = {
-    TokenKind.BANG,
-    TokenKind.MINUS,
-    TokenKind.TILDE,
-    TokenKind.LPAREN,
-    TokenKind.IDENT,
-    TokenKind.INT_LIT,
-    TokenKind.FLOAT_LIT,
-    TokenKind.STRING_LIT,
-    TokenKind.CHAR_LIT,
-    TokenKind.TRUE,
-    TokenKind.FALSE,
-    TokenKind.NULL,
-}
+from compiler.tokens import TYPE_NAME_TOKENS, UNARY_START_TOKENS, TokenKind
 
 
 class ParserError(ValueError):

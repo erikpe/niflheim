@@ -10,7 +10,7 @@ from compiler.codegen.emitter_fn import emit_constructor_function, emit_function
 from compiler.codegen.strings import collect_string_literals, decode_string_literal, escape_asm_string_bytes, escape_c_string
 
 if TYPE_CHECKING:
-    from compiler.codegen.legacy import CodeGenerator
+    from compiler.codegen.generator import CodeGenerator
 
 
 def collect_reference_cast_types_from_expr(expr, out: set[str]) -> None:

@@ -23,7 +23,7 @@ Stage-0 compiler implementation in Python.
 - `typecheck_checker.py` - typechecker engine implementation.
 - `codegen/` - backend package entry point and internal code generation modules.
 	- `__init__.py` - stable `emit_asm(module_ast)` public entry point.
-	- `legacy.py` - shared backend state and remaining coordination helpers.
+	- `generator.py` - shared backend state and remaining coordination helpers.
 	- `model.py`, `strings.py`, `symbols.py`, `types.py`, `layout.py`, `call_resolution.py`, `abi_sysv.py` - shared backend helpers by responsibility.
 	- `asm.py`, `ops_int.py`, `ops_float.py` - assembly building and operator instruction selection.
 	- `emitter_expr.py`, `emitter_stmt.py`, `emitter_fn.py`, `emitter_module.py` - layered expression, statement, function, and module emission.
