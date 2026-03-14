@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import compiler.codegen.types as codegen_types
+
 from compiler.ast_nodes import (
     ArrayCtorExpr,
     BinaryExpr,
@@ -23,17 +25,6 @@ from compiler.codegen.model import (
     ResolvedCallTarget,
 )
 from compiler.codegen.strings import STR_CLASS_NAME
-from compiler.codegen.types import (
-    _array_element_runtime_kind,
-    _array_element_type_name,
-    _function_type_return_type_name,
-    _is_array_type_name,
-    _is_double_literal_text,
-    _is_function_type_name,
-    _is_reference_type_name,
-    _raise_codegen_error,
-    _type_ref_name,
-)
 
 
 def _flatten_field_chain(expr: Expression) -> list[str] | None:
@@ -57,21 +48,21 @@ def _resolve_method_call_target(
     if isinstance(receiver_expr, IdentifierExpr):
         receiver_type_name = ctx.layout.slot_type_names.get(receiver_expr.name)
         if receiver_type_name is None:
-            _raise_codegen_error(
+            codegen_types._raise_codegen_error(
                 f"method receiver '{receiver_expr.name}' is not materialized in stack layout",
                 span=callee.span,
             )
     elif isinstance(receiver_expr, CastExpr):
-        receiver_type_name = _type_ref_name(receiver_expr.type_ref)
+        receiver_type_name = codegen_types._type_ref_name(receiver_expr.type_ref)
     else:
         receiver_type_name = _infer_expression_type_name(receiver_expr, ctx)
 
     method_owner_type_name = receiver_type_name
     method_name = callee.field_name
 
-    if _is_array_type_name(method_owner_type_name):
-        element_type_name = _array_element_type_name(method_owner_type_name, span=callee.span)
-        kind = _array_element_runtime_kind(element_type_name)
+    if codegen_types._is_array_type_name(method_owner_type_name):
+        element_type_name = codegen_types._array_element_type_name(method_owner_type_name, span=callee.span)
+        kind = codegen_types._array_element_runtime_kind(element_type_name)
         if method_name == "len":
             return ResolvedCallTarget(name="rt_array_len", receiver_expr=receiver_expr, return_type_name="u64")
         if method_name == "iter_len":
@@ -106,7 +97,7 @@ def _resolve_method_call_target(
                 receiver_expr=receiver_expr,
                 return_type_name="unit",
             )
-        _raise_codegen_error(
+        codegen_types._raise_codegen_error(
             f"array method-call codegen could not resolve '{method_owner_type_name}.{method_name}'",
             span=callee.span,
         )
@@ -116,7 +107,7 @@ def _resolve_method_call_target(
         unqualified_type_name = receiver_type_name.split("::", 1)[1]
         method_label = ctx.method_labels.get((unqualified_type_name, method_name))
     if method_label is None:
-        _raise_codegen_error(
+        codegen_types._raise_codegen_error(
             f"method-call codegen could not resolve '{receiver_type_name}.{method_name}'",
             span=callee.span,
         )
@@ -126,7 +117,7 @@ def _resolve_method_call_target(
         unqualified_type_name = receiver_type_name.split("::", 1)[1]
         is_static = ctx.method_is_static.get((unqualified_type_name, method_name))
     if is_static:
-        _raise_codegen_error(
+        codegen_types._raise_codegen_error(
             f"static method '{receiver_type_name}.{method_name}' must be called on the class",
             span=callee.span,
         )
@@ -157,7 +148,7 @@ def _resolve_call_target_name(
         if chain is None:
             return _resolve_method_call_target(callee, ctx)
         if len(chain) < 2:
-            _raise_codegen_error(
+            codegen_types._raise_codegen_error(
                 "call codegen currently supports direct or module-qualified callees only",
                 span=callee.span,
             )
@@ -181,7 +172,7 @@ def _resolve_call_target_name(
             return_type_name=ctx.function_return_types.get(chain[-1], RUNTIME_RETURN_TYPES.get(chain[-1], "i64")),
         )
 
-    _raise_codegen_error(
+    codegen_types._raise_codegen_error(
         "call codegen currently supports direct or module-qualified callees only",
         span=getattr(callee, "span", None),
     )
@@ -224,7 +215,7 @@ def _infer_expression_type_name(
             return "u8"
         if expr.value in {"true", "false"}:
             return "bool"
-        if _is_double_literal_text(expr.value):
+        if codegen_types._is_double_literal_text(expr.value):
             return "double"
         if expr.value.endswith("u8") and expr.value[:-2].isdigit():
             return "u8"
@@ -239,10 +230,10 @@ def _infer_expression_type_name(
         return ctx.layout.slot_type_names.get(expr.name, "i64")
 
     if isinstance(expr, CastExpr):
-        return _type_ref_name(expr.type_ref)
+        return codegen_types._type_ref_name(expr.type_ref)
 
     if isinstance(expr, ArrayCtorExpr):
-        return _type_ref_name(expr.element_type_ref)
+        return codegen_types._type_ref_name(expr.element_type_ref)
 
     if isinstance(expr, FieldAccessExpr):
         receiver_type = _field_receiver_type_name(expr.object_expr, ctx)
@@ -265,14 +256,14 @@ def _infer_expression_type_name(
 
     if isinstance(expr, IndexExpr):
         receiver_type = _infer_expression_type_name(expr.object_expr, ctx)
-        if _is_array_type_name(receiver_type):
-            return _array_element_type_name(receiver_type, span=expr.span)
+        if codegen_types._is_array_type_name(receiver_type):
+            return codegen_types._array_element_type_name(receiver_type, span=expr.span)
         return "i64"
 
     if isinstance(expr, CallExpr):
         callee_type_name = _infer_expression_type_name(expr.callee, ctx)
-        if _is_function_type_name(callee_type_name):
-            return _function_type_return_type_name(callee_type_name, span=expr.span)
+        if codegen_types._is_function_type_name(callee_type_name):
+            return codegen_types._function_type_return_type_name(callee_type_name, span=expr.span)
         resolved_target = _resolve_call_target_name(expr.callee, ctx)
         return resolved_target.return_type_name
 
@@ -293,8 +284,8 @@ def _field_receiver_type_name(object_expr: Expression, ctx: EmitContext) -> str 
     if isinstance(object_expr, IdentifierExpr):
         return ctx.layout.slot_type_names.get(object_expr.name)
     if isinstance(object_expr, CastExpr):
-        return _type_ref_name(object_expr.type_ref)
+        return codegen_types._type_ref_name(object_expr.type_ref)
     type_name = _infer_expression_type_name(object_expr, ctx)
-    if _is_reference_type_name(type_name):
+    if codegen_types._is_reference_type_name(type_name):
         return type_name
     return None

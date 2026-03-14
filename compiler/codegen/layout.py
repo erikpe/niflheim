@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import compiler.codegen.types as codegen_types
+
 from compiler.ast_nodes import (
     ArrayCtorExpr,
     AssignStmt,
@@ -22,12 +24,6 @@ from compiler.ast_nodes import (
     WhileStmt,
 )
 from compiler.codegen.model import FunctionLayout, TEMP_RUNTIME_ROOT_SLOT_COUNT
-from compiler.codegen.types import (
-    _array_element_type_name,
-    _is_array_type_name,
-    _is_reference_type_name,
-    _type_ref_name,
-)
 
 
 def _align16(size: int) -> int:
@@ -36,7 +32,7 @@ def _align16(size: int) -> int:
 
 def _collect_locals(stmt: Statement, local_types_by_name: dict[str, str]) -> None:
     if isinstance(stmt, VarDeclStmt):
-        local_types_by_name.setdefault(stmt.name, _type_ref_name(stmt.type_ref))
+        local_types_by_name.setdefault(stmt.name, codegen_types._type_ref_name(stmt.type_ref))
         return
     if isinstance(stmt, BlockStmt):
         for nested in stmt.statements:
@@ -56,15 +52,15 @@ def _collect_locals(stmt: Statement, local_types_by_name: dict[str, str]) -> Non
             if isinstance(stmt.collection_expr, IdentifierExpr):
                 inferred_collection_type = local_types_by_name.get(stmt.collection_expr.name, "Obj")
             elif isinstance(stmt.collection_expr, CastExpr):
-                inferred_collection_type = _type_ref_name(stmt.collection_expr.type_ref)
+                inferred_collection_type = codegen_types._type_ref_name(stmt.collection_expr.type_ref)
             elif isinstance(stmt.collection_expr, ArrayCtorExpr):
-                inferred_collection_type = _type_ref_name(stmt.collection_expr.element_type_ref)
+                inferred_collection_type = codegen_types._type_ref_name(stmt.collection_expr.element_type_ref)
             else:
                 inferred_collection_type = "Obj"
 
         inferred_element_type = stmt.element_type_name
-        if not inferred_element_type and _is_array_type_name(inferred_collection_type):
-            inferred_element_type = _array_element_type_name(inferred_collection_type, span=stmt.span)
+        if not inferred_element_type and codegen_types._is_array_type_name(inferred_collection_type):
+            inferred_element_type = codegen_types._array_element_type_name(inferred_collection_type, span=stmt.span)
 
         local_types_by_name.setdefault(stmt.coll_temp_name, inferred_collection_type)
         local_types_by_name.setdefault(stmt.len_temp_name, "i64")
@@ -206,7 +202,7 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
         if param.name not in seen_names:
             seen_names.add(param.name)
             ordered_slot_names.append(param.name)
-            local_types_by_name[param.name] = _type_ref_name(param.type_ref)
+            local_types_by_name[param.name] = codegen_types._type_ref_name(param.type_ref)
 
     for stmt in fn.body.statements:
         _collect_locals(stmt, local_types_by_name)
@@ -220,7 +216,7 @@ def _build_layout(fn: FunctionDecl) -> FunctionLayout:
     for index, name in enumerate(ordered_slot_names, start=1):
         slot_offsets[name] = -(8 * index)
 
-    root_slot_names = [name for name in ordered_slot_names if _is_reference_type_name(local_types_by_name[name])]
+    root_slot_names = [name for name in ordered_slot_names if codegen_types._is_reference_type_name(local_types_by_name[name])]
     root_slot_indices = {name: index for index, name in enumerate(root_slot_names)}
 
     needs_temp_runtime_roots = _function_needs_temp_runtime_roots(fn)

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import compiler.codegen.call_resolution as call_resolution
+import compiler.codegen.symbols as codegen_symbols
+import compiler.codegen.types as codegen_types
+
 from compiler.ast_nodes import (
     ArrayCtorExpr,
     BinaryExpr,
@@ -17,29 +21,10 @@ from compiler.ast_nodes import (
 )
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
-from compiler.codegen.call_resolution import (
-    _field_receiver_type_name,
-    _infer_expression_type_name,
-    _resolve_call_target_name,
-    _resolve_callable_value_label,
-)
 from compiler.codegen.model import EmitContext, RUNTIME_REF_ARG_INDICES
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.codegen.strings import STR_CLASS_NAME, decode_char_literal, is_str_type_name
-from compiler.codegen.symbols import _is_runtime_call_name, _mangle_type_symbol, _next_label
-from compiler.codegen.types import (
-    _array_element_runtime_kind,
-    _array_element_type_name,
-    _double_literal_bits,
-    _function_type_return_type_name,
-    _is_array_type_name,
-    _is_double_literal_text,
-    _is_function_type_name,
-    _is_reference_type_name,
-    _raise_codegen_error,
-    _type_ref_name,
-)
 
 if TYPE_CHECKING:
     from compiler.codegen.legacy import CodeGenerator
@@ -53,11 +38,11 @@ def emit_literal_expr(codegen: CodeGenerator, expr: LiteralExpr, ctx: EmitContex
     if expr.value.startswith('"'):
         label_and_len = string_literal_labels.get(expr.value)
         if label_and_len is None:
-            _raise_codegen_error("missing string literal lowering metadata", span=expr.span)
+            codegen_types._raise_codegen_error("missing string literal lowering metadata", span=expr.span)
         data_label, data_len = label_and_len
         from_u8_label = ctx.method_labels.get((STR_CLASS_NAME, "from_u8_array"))
         if from_u8_label is None or not ctx.method_is_static.get((STR_CLASS_NAME, "from_u8_array"), False):
-            _raise_codegen_error(
+            codegen_types._raise_codegen_error(
                 f"missing static {STR_CLASS_NAME}.from_u8_array for string literal lowering",
                 span=expr.span,
             )
@@ -87,8 +72,8 @@ def emit_literal_expr(codegen: CodeGenerator, expr: LiteralExpr, ctx: EmitContex
     if expr.value == "false":
         codegen.asm.instr("mov rax, 0")
         return
-    if _is_double_literal_text(expr.value):
-        codegen.asm.instr(f"mov rax, 0x{_double_literal_bits(expr.value):016x}")
+    if codegen_types._is_double_literal_text(expr.value):
+        codegen.asm.instr(f"mov rax, 0x{codegen_types._double_literal_bits(expr.value):016x}")
         return
     if expr.value.startswith("'"):
         codegen.asm.instr(f"mov rax, {decode_char_literal(expr.value)}")
@@ -103,18 +88,18 @@ def emit_literal_expr(codegen: CodeGenerator, expr: LiteralExpr, ctx: EmitContex
         codegen.asm.instr(f"mov rax, {expr.value[:-1]}")
         return
 
-    _raise_codegen_error(f"literal codegen not implemented for '{expr.value}'", span=expr.span)
+    codegen_types._raise_codegen_error(f"literal codegen not implemented for '{expr.value}'", span=expr.span)
 
 
 def emit_field_access_expr(codegen: CodeGenerator, expr: FieldAccessExpr, ctx: EmitContext) -> None:
-    callable_label = _resolve_callable_value_label(expr, ctx)
+    callable_label = call_resolution._resolve_callable_value_label(expr, ctx)
     if callable_label is not None:
         codegen.asm.instr(f"lea rax, [rip + {callable_label}]")
         return
 
-    receiver_type_name = _field_receiver_type_name(expr.object_expr, ctx)
+    receiver_type_name = call_resolution._field_receiver_type_name(expr.object_expr, ctx)
     if receiver_type_name is None:
-        _raise_codegen_error("field access codegen requires class-typed receiver", span=expr.span)
+        codegen_types._raise_codegen_error("field access codegen requires class-typed receiver", span=expr.span)
 
     field_offset = codegen.class_field_offsets.get((receiver_type_name, expr.field_name))
     if field_offset is None and "::" in receiver_type_name:
@@ -128,7 +113,7 @@ def emit_field_access_expr(codegen: CodeGenerator, expr: FieldAccessExpr, ctx: E
                 field_offset = offset
                 break
     if field_offset is None:
-        _raise_codegen_error(
+        codegen_types._raise_codegen_error(
             f"field access codegen missing field '{expr.field_name}' on class '{receiver_type_name}'",
             span=expr.span,
         )
@@ -140,17 +125,17 @@ def emit_cast_expr(codegen: CodeGenerator, expr: CastExpr, ctx: EmitContext) -> 
     label_counter = ctx.label_counter
 
     emit_expr(codegen, expr.operand, ctx)
-    source_type = _infer_expression_type_name(expr.operand, ctx)
-    target_type = _type_ref_name(expr.type_ref)
+    source_type = call_resolution._infer_expression_type_name(expr.operand, ctx)
+    target_type = codegen_types._type_ref_name(expr.type_ref)
 
     if target_type == source_type:
         return
 
-    if target_type == "Obj" and source_type != "null" and _is_reference_type_name(source_type):
+    if target_type == "Obj" and source_type != "null" and codegen_types._is_reference_type_name(source_type):
         return
 
-    if _is_array_type_name(target_type) and source_type == "Obj":
-        element_type = _array_element_type_name(target_type, span=expr.span)
+    if codegen_types._is_array_type_name(target_type) and source_type == "Obj":
+        element_type = codegen_types._array_element_type_name(target_type, span=expr.span)
         array_kind_by_element_type = {
             "i64": 1,
             "u64": 2,
@@ -178,8 +163,8 @@ def emit_cast_expr(codegen: CodeGenerator, expr: CastExpr, ctx: EmitContext) -> 
         )
         return
 
-    if _is_reference_type_name(target_type):
-        type_symbol = _mangle_type_symbol(target_type)
+    if codegen_types._is_reference_type_name(target_type):
+        type_symbol = codegen_symbols._mangle_type_symbol(target_type)
         codegen.asm.instr("push rax")
         codegen._emit_runtime_call_hook(
             fn_name=ctx.fn_name,
@@ -222,7 +207,7 @@ def emit_cast_expr(codegen: CodeGenerator, expr: CastExpr, ctx: EmitContext) -> 
 
 
 def emit_index_expr(codegen: CodeGenerator, expr: IndexExpr, ctx: EmitContext) -> None:
-    receiver_type_name = _infer_expression_type_name(expr.object_expr, ctx)
+    receiver_type_name = call_resolution._infer_expression_type_name(expr.object_expr, ctx)
 
     synthetic_callee = FieldAccessExpr(
         object_expr=expr.object_expr,
@@ -234,7 +219,7 @@ def emit_index_expr(codegen: CodeGenerator, expr: IndexExpr, ctx: EmitContext) -
         arguments=[expr.index_expr],
         span=expr.span,
     )
-    if _is_array_type_name(receiver_type_name):
+    if codegen_types._is_array_type_name(receiver_type_name):
         emit_call_expr(codegen, synthetic_call, ctx)
         return
     emit_call_expr(codegen, synthetic_call, ctx)
@@ -243,12 +228,12 @@ def emit_index_expr(codegen: CodeGenerator, expr: IndexExpr, ctx: EmitContext) -
 def emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExpr, ctx: EmitContext) -> None:
     from compiler.codegen.model import ARRAY_CONSTRUCTOR_RUNTIME_CALLS
 
-    array_type_name = _type_ref_name(expr.element_type_ref)
-    if not _is_array_type_name(array_type_name):
-        _raise_codegen_error("array constructor codegen requires array type", span=expr.span)
+    array_type_name = codegen_types._type_ref_name(expr.element_type_ref)
+    if not codegen_types._is_array_type_name(array_type_name):
+        codegen_types._raise_codegen_error("array constructor codegen requires array type", span=expr.span)
 
-    element_type_name = _array_element_type_name(array_type_name, span=expr.span)
-    runtime_kind = _array_element_runtime_kind(element_type_name)
+    element_type_name = codegen_types._array_element_type_name(array_type_name, span=expr.span)
+    runtime_kind = codegen_types._array_element_runtime_kind(element_type_name)
     runtime_ctor = ARRAY_CONSTRUCTOR_RUNTIME_CALLS[runtime_kind]
 
     emit_expr(codegen, expr.length_expr, ctx)
@@ -295,12 +280,12 @@ def emit_expr(codegen: CodeGenerator, expr: Expression, ctx: EmitContext) -> Non
             codegen.asm.instr(f"mov rax, {offset_operand(layout.slot_offsets[expr.name])}")
             return
 
-        callable_label = _resolve_callable_value_label(expr, ctx)
+        callable_label = call_resolution._resolve_callable_value_label(expr, ctx)
         if callable_label is not None:
             codegen.asm.instr(f"lea rax, [rip + {callable_label}]")
             return
 
-        _raise_codegen_error(
+        codegen_types._raise_codegen_error(
             f"identifier '{expr.name}' is not materialized in stack layout",
             span=expr.span,
         )
@@ -334,7 +319,7 @@ def emit_expr(codegen: CodeGenerator, expr: Expression, ctx: EmitContext) -> Non
         emit_binary_expr(codegen, expr, ctx)
         return
 
-    _raise_codegen_error(f"expression codegen not implemented for {type(expr).__name__}", span=expr.span)
+    codegen_types._raise_codegen_error(f"expression codegen not implemented for {type(expr).__name__}", span=expr.span)
 
 
 def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> None:
@@ -342,11 +327,11 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
     fn_name = ctx.fn_name
     label_counter = ctx.label_counter
 
-    callee_type_name = _infer_expression_type_name(expr.callee, ctx)
-    if _is_function_type_name(callee_type_name):
-        call_argument_type_names = [_infer_expression_type_name(arg, ctx) for arg in expr.arguments]
+    callee_type_name = call_resolution._infer_expression_type_name(expr.callee, ctx)
+    if codegen_types._is_function_type_name(callee_type_name):
+        call_argument_type_names = [call_resolution._infer_expression_type_name(arg, ctx) for arg in expr.arguments]
         reference_arg_indices = {
-            index for index, type_name in enumerate(call_argument_type_names) if _is_reference_type_name(type_name)
+            index for index, type_name in enumerate(call_argument_type_names) if codegen_types._is_reference_type_name(type_name)
         }
         arg_locations = plan_sysv_arg_locations(call_argument_type_names)
         stack_arg_indices = [
@@ -400,24 +385,24 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
             codegen._emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
         ctx.temp_root_depth[0] = temp_root_base
 
-        return_type_name = _function_type_return_type_name(callee_type_name, span=expr.span)
+        return_type_name = codegen_types._function_type_return_type_name(callee_type_name, span=expr.span)
         if return_type_name == "double":
             codegen.asm.instr("movq rax, xmm0")
         elif return_type_name == "unit":
             codegen.asm.instr("mov rax, 0")
         return
 
-    resolved_target = _resolve_call_target_name(expr.callee, ctx)
+    resolved_target = call_resolution._resolve_call_target_name(expr.callee, ctx)
     target_name = resolved_target.name
 
     call_arguments = list(expr.arguments)
     if resolved_target.receiver_expr is not None:
         call_arguments = [resolved_target.receiver_expr, *call_arguments]
 
-    is_runtime_call = _is_runtime_call_name(target_name)
-    call_argument_type_names = [_infer_expression_type_name(arg, ctx) for arg in call_arguments]
+    is_runtime_call = codegen_symbols._is_runtime_call_name(target_name)
+    call_argument_type_names = [call_resolution._infer_expression_type_name(arg, ctx) for arg in call_arguments]
     reference_arg_indices = {
-        index for index, type_name in enumerate(call_argument_type_names) if _is_reference_type_name(type_name)
+        index for index, type_name in enumerate(call_argument_type_names) if codegen_types._is_reference_type_name(type_name)
     }
     arg_locations = plan_sysv_arg_locations(call_argument_type_names)
     stack_arg_indices = [
@@ -494,7 +479,7 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
 
 def emit_unary_expr(codegen: CodeGenerator, expr: UnaryExpr, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.operand, ctx)
-    operand_type_name = _infer_expression_type_name(expr.operand, ctx)
+    operand_type_name = call_resolution._infer_expression_type_name(expr.operand, ctx)
     if expr.operator == "-" and operand_type_name == "double":
         emit_unary_negate_double(codegen.asm)
         return
@@ -505,7 +490,7 @@ def emit_unary_expr(codegen: CodeGenerator, expr: UnaryExpr, ctx: EmitContext) -
         emit_bool_normalize=codegen._emit_bool_normalize,
     ):
         return
-    _raise_codegen_error(f"unary operator '{expr.operator}' is not supported", span=expr.span)
+    codegen_types._raise_codegen_error(f"unary operator '{expr.operator}' is not supported", span=expr.span)
 
 
 def emit_logical_binary_expr(
@@ -548,8 +533,8 @@ def emit_binary_expr(codegen: CodeGenerator, expr: BinaryExpr, ctx: EmitContext)
     if emit_logical_binary_expr(codegen, expr, fn_name=fn_name, label_counter=label_counter, ctx=ctx):
         return
 
-    left_type_name = _infer_expression_type_name(expr.left, ctx)
-    right_type_name = _infer_expression_type_name(expr.right, ctx)
+    left_type_name = call_resolution._infer_expression_type_name(expr.left, ctx)
+    right_type_name = call_resolution._infer_expression_type_name(expr.right, ctx)
 
     if expr.operator == "+" and is_str_type_name(left_type_name) and is_str_type_name(right_type_name):
         synthetic_callee = FieldAccessExpr(
@@ -578,7 +563,7 @@ def emit_binary_expr(codegen: CodeGenerator, expr: BinaryExpr, ctx: EmitContext)
         codegen.asm.instr("movq xmm0, rax")
         if emit_double_binary_op(codegen.asm, expr.operator):
             return
-        _raise_codegen_error(
+        codegen_types._raise_codegen_error(
             f"binary operator '{expr.operator}' is not supported for double operands",
             span=expr.span,
         )
@@ -589,7 +574,7 @@ def emit_binary_expr(codegen: CodeGenerator, expr: BinaryExpr, ctx: EmitContext)
         operand_type_name=left_type_name,
         fn_name=fn_name,
         label_counter=label_counter,
-        next_label=_next_label,
+        next_label=codegen_symbols._next_label,
         runtime_panic_message_label=codegen._runtime_panic_message_label,
         emit_aligned_call=codegen._emit_aligned_call,
     ):
@@ -597,4 +582,4 @@ def emit_binary_expr(codegen: CodeGenerator, expr: BinaryExpr, ctx: EmitContext)
             codegen.asm.instr("and rax, 255")
         return
 
-    _raise_codegen_error(f"binary operator '{expr.operator}' is not supported", span=expr.span)
+    codegen_types._raise_codegen_error(f"binary operator '{expr.operator}' is not supported", span=expr.span)

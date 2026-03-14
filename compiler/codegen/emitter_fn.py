@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import compiler.codegen.layout as codegen_layout
+import compiler.codegen.symbols as codegen_symbols
+import compiler.codegen.types as codegen_types
+
 from compiler.ast_nodes import ClassDecl, FunctionDecl
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_stmt import emit_statement
 from compiler.codegen.emitter_expr import emit_expr
-from compiler.codegen.layout import _build_layout
 from compiler.codegen.model import EmitContext
 from compiler.codegen.strings import escape_c_string
-from compiler.codegen.symbols import _epilogue_label
-from compiler.codegen.types import _raise_codegen_error, _type_ref_name
 
 if TYPE_CHECKING:
     from compiler.codegen.legacy import CodeGenerator
@@ -91,8 +92,8 @@ def constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDecl
 
 def emit_function(codegen: CodeGenerator, fn: FunctionDecl, *, label: str | None = None) -> None:
     target_label = label if label is not None else fn.name
-    epilogue = _epilogue_label(target_label)
-    layout = _build_layout(fn)
+    epilogue = codegen_symbols._epilogue_label(target_label)
+    layout = codegen_layout._build_layout(fn)
     label_counter = [0]
     fn_debug_name_label, fn_debug_file_label = emit_debug_symbol_literals(
         codegen,
@@ -137,7 +138,7 @@ def emit_function(codegen: CodeGenerator, fn: FunctionDecl, *, label: str | None
         temp_root_depth=[0],
     )
 
-    function_return_type_name = _type_ref_name(fn.return_type)
+    function_return_type_name = codegen_types._type_ref_name(fn.return_type)
     for stmt in fn.body.statements:
         emit_statement(codegen, stmt, epilogue, function_return_type_name, emit_ctx, loop_labels=[])
 
@@ -149,8 +150,8 @@ def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
     ctor_layout = codegen.constructor_layouts[cls.name]
     ctor_fn = constructor_function_decl(cls, ctor_layout.label)
     target_label = ctor_layout.label
-    epilogue = _epilogue_label(target_label)
-    layout = _build_layout(ctor_fn)
+    epilogue = codegen_symbols._epilogue_label(target_label)
+    layout = codegen_layout._build_layout(ctor_fn)
     label_counter = [0]
     fn_debug_name_label, fn_debug_file_label = emit_debug_symbol_literals(
         codegen,
@@ -221,7 +222,7 @@ def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
             codegen.asm.instr(f"mov rcx, {offset_operand(value_offset)}")
         else:
             if field_decl.initializer is None:
-                _raise_codegen_error("constructor default initializer missing", span=field_decl.span)
+                codegen_types._raise_codegen_error("constructor default initializer missing", span=field_decl.span)
             emit_expr(codegen, field_decl.initializer, emit_ctx)
             codegen.asm.instr("mov rcx, rax")
 
