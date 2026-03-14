@@ -43,7 +43,7 @@ def emit_statement(
     fn_name = ctx.fn_name
     label_counter = ctx.label_counter
 
-    codegen._emit_location_comment(
+    codegen.emit_location_comment(
         file_path=stmt.span.start.path,
         line=stmt.span.start.line,
         column=stmt.span.start.column,
@@ -58,9 +58,9 @@ def emit_statement(
         return
 
     if isinstance(stmt, ForInStmt):
-        loop_start = codegen_symbols._next_label(fn_name, "for_in_start", label_counter)
-        loop_continue = codegen_symbols._next_label(fn_name, "for_in_continue", label_counter)
-        loop_done = codegen_symbols._next_label(fn_name, "for_in_done", label_counter)
+        loop_start = codegen_symbols.next_label(fn_name, "for_in_start", label_counter)
+        loop_continue = codegen_symbols.next_label(fn_name, "for_in_continue", label_counter)
+        loop_done = codegen_symbols.next_label(fn_name, "for_in_done", label_counter)
 
         emit_expr(codegen, stmt.collection_expr, ctx)
         codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[stmt.coll_temp_name])}, rax")
@@ -111,7 +111,7 @@ def emit_statement(
     if isinstance(stmt, VarDeclStmt):
         offset = layout.slot_offsets.get(stmt.name)
         if offset is None:
-            codegen_types._raise_codegen_error(
+            codegen_types.raise_codegen_error(
                 f"variable '{stmt.name}' is not materialized in stack layout",
                 span=stmt.span,
             )
@@ -139,12 +139,12 @@ def emit_statement(
             return
 
         if isinstance(stmt.target, FieldAccessExpr):
-            receiver_type_name = call_resolution._field_receiver_type_name(stmt.target.object_expr, ctx)
+            receiver_type_name = call_resolution.field_receiver_type_name(stmt.target.object_expr, ctx)
             if receiver_type_name is None:
-                codegen_types._raise_codegen_error("field assignment codegen requires class-typed receiver", span=stmt.span)
+                codegen_types.raise_codegen_error("field assignment codegen requires class-typed receiver", span=stmt.span)
             field_offset = codegen.class_field_offsets.get((receiver_type_name, stmt.target.field_name))
             if field_offset is None:
-                codegen_types._raise_codegen_error(
+                codegen_types.raise_codegen_error(
                     f"field assignment codegen missing field '{stmt.target.field_name}' on class '{receiver_type_name}'",
                     span=stmt.span,
                 )
@@ -156,13 +156,13 @@ def emit_statement(
             return
 
         if not isinstance(stmt.target, IdentifierExpr):
-            codegen_types._raise_codegen_error(
+            codegen_types.raise_codegen_error(
                 "assignment codegen currently supports identifier, index, or field targets only",
                 span=stmt.span,
             )
         offset = layout.slot_offsets.get(stmt.target.name)
         if offset is None:
-            codegen_types._raise_codegen_error(
+            codegen_types.raise_codegen_error(
                 f"identifier '{stmt.target.name}' is not materialized in stack layout",
                 span=stmt.span,
             )
@@ -181,21 +181,21 @@ def emit_statement(
 
     if isinstance(stmt, BreakStmt):
         if not loop_labels:
-            codegen_types._raise_codegen_error("break codegen requires enclosing while loop", span=stmt.span)
+            codegen_types.raise_codegen_error("break codegen requires enclosing while loop", span=stmt.span)
         _loop_continue_label, loop_end_label = loop_labels[-1]
         codegen.asm.instr(f"jmp {loop_end_label}")
         return
 
     if isinstance(stmt, ContinueStmt):
         if not loop_labels:
-            codegen_types._raise_codegen_error("continue codegen requires enclosing while loop", span=stmt.span)
+            codegen_types.raise_codegen_error("continue codegen requires enclosing while loop", span=stmt.span)
         loop_continue_label, _loop_end_label = loop_labels[-1]
         codegen.asm.instr(f"jmp {loop_continue_label}")
         return
 
     if isinstance(stmt, IfStmt):
-        else_label = codegen_symbols._next_label(fn_name, "if_else", label_counter)
-        end_label = codegen_symbols._next_label(fn_name, "if_end", label_counter)
+        else_label = codegen_symbols.next_label(fn_name, "if_else", label_counter)
+        end_label = codegen_symbols.next_label(fn_name, "if_end", label_counter)
 
         emit_expr(codegen, stmt.condition, ctx)
         codegen.asm.instr("cmp rax, 0")
@@ -209,8 +209,8 @@ def emit_statement(
         return
 
     if isinstance(stmt, WhileStmt):
-        start_label = codegen_symbols._next_label(fn_name, "while_start", label_counter)
-        end_label = codegen_symbols._next_label(fn_name, "while_end", label_counter)
+        start_label = codegen_symbols.next_label(fn_name, "while_start", label_counter)
+        end_label = codegen_symbols.next_label(fn_name, "while_end", label_counter)
 
         codegen.asm.label(start_label)
         emit_expr(codegen, stmt.condition, ctx)
@@ -223,4 +223,4 @@ def emit_statement(
         codegen.asm.label(end_label)
         return
 
-    codegen_types._raise_codegen_error(f"statement codegen not implemented for {type(stmt).__name__}", span=stmt.span)
+    codegen_types.raise_codegen_error(f"statement codegen not implemented for {type(stmt).__name__}", span=stmt.span)

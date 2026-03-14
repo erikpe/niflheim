@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 
 def collect_reference_cast_types_from_expr(expr, out: set[str]) -> None:
     if isinstance(expr, CastExpr):
-        target_type_name = codegen_types._type_ref_name(expr.type_ref)
-        if codegen_types._is_reference_type_name(target_type_name):
+        target_type_name = codegen_types.type_ref_name(expr.type_ref)
+        if codegen_types.is_reference_type_name(target_type_name):
             out.add(target_type_name)
         collect_reference_cast_types_from_expr(expr.operand, out)
         return
@@ -110,18 +110,18 @@ def emit_type_metadata_section(codegen: CodeGenerator) -> None:
         pointer_offsets = [
             24 + (8 * field_index)
             for field_index, field in enumerate(class_decl.fields)
-            if codegen_types._is_reference_type_name(codegen_types._type_ref_name(field.type_ref))
+            if codegen_types.is_reference_type_name(codegen_types.type_ref_name(field.type_ref))
         ]
         if pointer_offsets:
             pointer_offset_symbols[type_name] = (
-                f"{codegen_symbols._mangle_type_name_symbol(type_name)}__ptr_offsets",
+                f"{codegen_symbols.mangle_type_name_symbol(type_name)}__ptr_offsets",
                 pointer_offsets,
             )
 
     codegen.asm.blank()
     codegen.asm.directive(".section .rodata")
     for type_name in type_names:
-        codegen.asm.label(codegen_symbols._mangle_type_name_symbol(type_name))
+        codegen.asm.label(codegen_symbols.mangle_type_name_symbol(type_name))
         codegen.asm.asciz(type_name)
     for symbol, pointer_offsets in pointer_offset_symbols.values():
         codegen.asm.label(symbol)
@@ -131,8 +131,8 @@ def emit_type_metadata_section(codegen: CodeGenerator) -> None:
     codegen.asm.blank()
     codegen.asm.directive(".data")
     for type_name in type_names:
-        type_sym = codegen_symbols._mangle_type_symbol(type_name)
-        name_sym = codegen_symbols._mangle_type_name_symbol(type_name)
+        type_sym = codegen_symbols.mangle_type_symbol(type_name)
+        name_sym = codegen_symbols.mangle_type_name_symbol(type_name)
         pointer_offsets_meta = pointer_offset_symbols.get(type_name)
         if pointer_offsets_meta is None:
             type_flags = 0
@@ -174,7 +174,7 @@ def generate_module(codegen: CodeGenerator) -> str:
     codegen.asm.blank()
     codegen.asm.directive(".text")
 
-    codegen._build_symbol_tables()
+    codegen.build_symbol_tables()
 
     for fn in codegen.module_ast.functions:
         if fn.is_extern:

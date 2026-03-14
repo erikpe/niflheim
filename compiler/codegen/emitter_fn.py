@@ -92,8 +92,8 @@ def constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDecl
 
 def emit_function(codegen: CodeGenerator, fn: FunctionDecl, *, label: str | None = None) -> None:
     target_label = label if label is not None else fn.name
-    epilogue = codegen_symbols._epilogue_label(target_label)
-    layout = codegen_layout._build_layout(fn)
+    epilogue = codegen_symbols.epilogue_label(target_label)
+    layout = codegen_layout.build_layout(fn)
     label_counter = [0]
     fn_debug_name_label, fn_debug_file_label = emit_debug_symbol_literals(
         codegen,
@@ -102,27 +102,27 @@ def emit_function(codegen: CodeGenerator, fn: FunctionDecl, *, label: str | None
         file_path=fn.span.start.path,
     )
 
-    codegen._emit_frame_prologue(target_label, layout, global_symbol=label is None and (fn.is_export or fn.name == "main"))
-    codegen._emit_location_comment(
+    codegen.emit_frame_prologue(target_label, layout, global_symbol=label is None and (fn.is_export or fn.name == "main"))
+    codegen.emit_location_comment(
         file_path=fn.span.start.path,
         line=fn.span.start.line,
         column=fn.span.start.column,
     )
-    codegen._emit_zero_slots(layout)
-    codegen._emit_param_spills(fn.params, layout)
+    codegen.emit_zero_slots(layout)
+    codegen.emit_param_spills(fn.params, layout)
 
     if layout.root_slot_count > 0:
         if layout.root_slot_names:
             first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
         else:
             first_root_offset = layout.temp_root_slot_offsets[0]
-        codegen._emit_root_frame_setup(
+        codegen.emit_root_frame_setup(
             layout,
             root_count=layout.root_slot_count,
             first_root_offset=first_root_offset,
         )
 
-    codegen._emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
+    codegen.emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
 
     emit_ctx = EmitContext(
         layout=layout,
@@ -138,20 +138,20 @@ def emit_function(codegen: CodeGenerator, fn: FunctionDecl, *, label: str | None
         temp_root_depth=[0],
     )
 
-    function_return_type_name = codegen_types._type_ref_name(fn.return_type)
+    function_return_type_name = codegen_types.type_ref_name(fn.return_type)
     for stmt in fn.body.statements:
         emit_statement(codegen, stmt, epilogue, function_return_type_name, emit_ctx, loop_labels=[])
 
     codegen.asm.label(epilogue)
-    codegen._emit_function_epilogue(layout, function_return_type_name)
+    codegen.emit_function_epilogue(layout, function_return_type_name)
 
 
 def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
     ctor_layout = codegen.constructor_layouts[cls.name]
     ctor_fn = constructor_function_decl(cls, ctor_layout.label)
     target_label = ctor_layout.label
-    epilogue = codegen_symbols._epilogue_label(target_label)
-    layout = codegen_layout._build_layout(ctor_fn)
+    epilogue = codegen_symbols.epilogue_label(target_label)
+    layout = codegen_layout.build_layout(ctor_fn)
     label_counter = [0]
     fn_debug_name_label, fn_debug_file_label = emit_debug_symbol_literals(
         codegen,
@@ -160,37 +160,37 @@ def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
         file_path=cls.span.start.path,
     )
 
-    codegen._emit_frame_prologue(target_label, layout, global_symbol=False)
-    codegen._emit_location_comment(
+    codegen.emit_frame_prologue(target_label, layout, global_symbol=False)
+    codegen.emit_location_comment(
         file_path=cls.span.start.path,
         line=cls.span.start.line,
         column=cls.span.start.column,
     )
-    codegen._emit_zero_slots(layout)
-    codegen._emit_param_spills(ctor_fn.params, layout)
+    codegen.emit_zero_slots(layout)
+    codegen.emit_param_spills(ctor_fn.params, layout)
 
     if layout.root_slot_names:
         first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
-        codegen._emit_root_frame_setup(
+        codegen.emit_root_frame_setup(
             layout,
             root_count=len(layout.root_slot_names),
             first_root_offset=first_root_offset,
         )
 
-    codegen._emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
+    codegen.emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
 
-    codegen._emit_runtime_call_hook(
+    codegen.emit_runtime_call_hook(
         fn_name=target_label,
         phase="before",
         label_counter=label_counter,
     )
-    codegen._emit_root_slot_updates(layout)
+    codegen.emit_root_slot_updates(layout)
     codegen.asm.instr("call rt_thread_state")
     codegen.asm.instr("mov rdi, rax")
     codegen.asm.instr(f"lea rsi, [rip + {ctor_layout.type_symbol}]")
     codegen.asm.instr(f"mov rdx, {ctor_layout.payload_bytes}")
     codegen.asm.instr("call rt_alloc_obj")
-    codegen._emit_runtime_call_hook(
+    codegen.emit_runtime_call_hook(
         fn_name=target_label,
         phase="after",
         label_counter=label_counter,
@@ -222,7 +222,7 @@ def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
             codegen.asm.instr(f"mov rcx, {offset_operand(value_offset)}")
         else:
             if field_decl.initializer is None:
-                codegen_types._raise_codegen_error("constructor default initializer missing", span=field_decl.span)
+                codegen_types.raise_codegen_error("constructor default initializer missing", span=field_decl.span)
             emit_expr(codegen, field_decl.initializer, emit_ctx)
             codegen.asm.instr("mov rcx, rax")
 
@@ -232,4 +232,4 @@ def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
     codegen.asm.instr(f"jmp {epilogue}")
 
     codegen.asm.label(epilogue)
-    codegen._emit_ref_epilogue(layout)
+    codegen.emit_ref_epilogue(layout)

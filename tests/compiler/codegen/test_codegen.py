@@ -1,16 +1,16 @@
 from compiler.codegen import emit_asm
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
-from compiler.codegen.call_resolution import _resolve_call_target_name, _resolve_callable_value_label
+from compiler.codegen.call_resolution import resolve_call_target_name, resolve_callable_value_label
 from compiler.codegen.emitter_expr import emit_expr as emit_expr_module
 from compiler.codegen.emitter_fn import emit_function as emit_function_module
 from compiler.codegen.emitter_module import generate_module as generate_module_helper
 from compiler.codegen.emitter_stmt import emit_statement as emit_statement_module
-from compiler.codegen.layout import _build_layout
+from compiler.codegen.layout import build_layout
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
-from compiler.codegen.symbols import _mangle_constructor_symbol, _mangle_method_symbol, _next_label
-from compiler.codegen.types import _function_type_return_type_name, _type_ref_name
+from compiler.codegen.symbols import mangle_constructor_symbol, mangle_method_symbol, next_label
+from compiler.codegen.types import function_type_return_type_name, type_ref_name
 from compiler.lexer import lex
 from compiler.parser import parse
 from compiler.codegen.legacy import CodeGenerator
@@ -213,18 +213,18 @@ fn choose(flag: bool) -> i64 {
 def test_codegen_symbol_helpers() -> None:
     counter = [0]
 
-    assert _next_label("f", "loop", counter) == ".Lf_loop_0"
-    assert _next_label("f", "loop", counter) == ".Lf_loop_1"
-    assert _mangle_method_symbol("std::Str", "concat") == "__nif_method_std__Str_concat"
-    assert _mangle_constructor_symbol("std::BigInt") == "__nif_ctor_std__BigInt"
+    assert next_label("f", "loop", counter) == ".Lf_loop_0"
+    assert next_label("f", "loop", counter) == ".Lf_loop_1"
+    assert mangle_method_symbol("std::Str", "concat") == "__nif_method_std__Str_concat"
+    assert mangle_constructor_symbol("std::BigInt") == "__nif_ctor_std__BigInt"
 
 
 def test_codegen_type_helpers() -> None:
     module = parse(lex("fn f(callback: fn(i64,u64)->bool) -> unit { return; }", source_path="examples/codegen.nif"))
     fn = module.functions[0]
 
-    assert _type_ref_name(fn.params[0].type_ref) == "fn(i64,u64)->bool"
-    assert _function_type_return_type_name("fn(i64,u64)->bool") == "bool"
+    assert type_ref_name(fn.params[0].type_ref) == "fn(i64,u64)->bool"
+    assert function_type_return_type_name("fn(i64,u64)->bool") == "bool"
 
 
 def test_asm_builder_formats_operands_and_lines() -> None:
@@ -293,7 +293,7 @@ def test_ops_int_emitters_cover_signed_divmod_shift_and_unary_paths() -> None:
         operand_type_name="i64",
         fn_name="f",
         label_counter=label_counter,
-        next_label=_next_label,
+        next_label=next_label,
         runtime_panic_message_label=runtime_panic_message_label,
         emit_aligned_call=emit_aligned_call,
     )
@@ -303,7 +303,7 @@ def test_ops_int_emitters_cover_signed_divmod_shift_and_unary_paths() -> None:
         operand_type_name="i64",
         fn_name="f",
         label_counter=label_counter,
-        next_label=_next_label,
+        next_label=next_label,
         runtime_panic_message_label=runtime_panic_message_label,
         emit_aligned_call=emit_aligned_call,
     )
@@ -313,7 +313,7 @@ def test_ops_int_emitters_cover_signed_divmod_shift_and_unary_paths() -> None:
         operand_type_name="u8",
         fn_name="f",
         label_counter=label_counter,
-        next_label=_next_label,
+        next_label=next_label,
         runtime_panic_message_label=runtime_panic_message_label,
         emit_aligned_call=emit_aligned_call,
     )
@@ -338,7 +338,7 @@ def test_codegen_build_layout_tracks_reference_roots_and_temp_roots() -> None:
     module = parse(lex("fn f(a: Obj) -> unit { g(a); }", source_path="examples/codegen.nif"))
     fn = module.functions[0]
 
-    layout = _build_layout(fn)
+    layout = build_layout(fn)
 
     assert layout.root_slot_names == ["a"]
     assert layout.root_slot_count >= 7
@@ -384,9 +384,9 @@ fn main() -> i64 {
 """
     module = parse(lex(source, source_path="examples/codegen.nif"))
     generator = CodeGenerator(module)
-    generator._build_symbol_tables()
+    generator.build_symbol_tables()
     fn = module.functions[0]
-    layout = _build_layout(fn)
+    layout = build_layout(fn)
     ctx = EmitContext(
         layout=layout,
         fn_name=fn.name,
@@ -403,18 +403,18 @@ fn main() -> i64 {
 
     call_expr = fn.body.statements[0].value
     assert call_expr is not None
-    resolved = _resolve_call_target_name(call_expr.callee, ctx)
+    resolved = resolve_call_target_name(call_expr.callee, ctx)
     assert resolved.name == generator.method_labels[("Math", "inc")]
     assert resolved.receiver_expr is None
-    assert _resolve_callable_value_label(call_expr.callee, ctx) == generator.method_labels[("Math", "inc")]
+    assert resolve_callable_value_label(call_expr.callee, ctx) == generator.method_labels[("Math", "inc")]
 
 
 def test_emitter_expr_module_emits_integer_binary_expr() -> None:
     module = parse(lex("fn f(a: i64, b: i64) -> i64 { return a + b; }", source_path="examples/codegen_expr.nif"))
     generator = CodeGenerator(module)
-    generator._build_symbol_tables()
+    generator.build_symbol_tables()
     fn = module.functions[0]
-    layout = _build_layout(fn)
+    layout = build_layout(fn)
     ctx = EmitContext(
         layout=layout,
         fn_name=fn.name,
@@ -449,9 +449,9 @@ fn loop_to(limit: i64) -> i64 {
 """
     module = parse(lex(source, source_path="examples/codegen_stmt.nif"))
     generator = CodeGenerator(module)
-    generator._build_symbol_tables()
+    generator.build_symbol_tables()
     fn = module.functions[0]
-    layout = _build_layout(fn)
+    layout = build_layout(fn)
     ctx = EmitContext(
         layout=layout,
         fn_name=fn.name,
@@ -499,7 +499,7 @@ fn caller() -> i64 {
 def test_emitter_fn_module_emits_function_prologue_and_epilogue() -> None:
     module = parse(lex("fn main() -> i64 { return 0; }", source_path="examples/codegen_fn.nif"))
     generator = CodeGenerator(module)
-    generator._build_symbol_tables()
+    generator.build_symbol_tables()
 
     emit_function_module(generator, module.functions[0])
 
