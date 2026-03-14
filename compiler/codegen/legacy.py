@@ -58,6 +58,8 @@ from compiler.codegen.call_resolution import (
     _resolve_callable_value_label,
 )
 from compiler.codegen.layout import _build_layout
+from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
+from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.codegen.strings import (
     STR_CLASS_NAME,
     collect_string_literals,
@@ -943,27 +945,16 @@ class CodeGenerator:
 
     def _emit_unary_expr(self, expr: UnaryExpr, ctx: EmitContext) -> None:
         self._emit_expr(expr.operand, ctx)
-        if expr.operator == "-":
-            operand_type_name = _infer_expression_type_name(expr.operand, ctx)
-            if operand_type_name == "double":
-                self.out.append("    movq xmm0, rax")
-                self.out.append("    xorpd xmm1, xmm1")
-                self.out.append("    subsd xmm1, xmm0")
-                self.out.append("    movq rax, xmm1")
-                return
-            self.out.append("    neg rax")
-            if operand_type_name == "u8":
-                self.out.append("    and rax, 255")
+        operand_type_name = _infer_expression_type_name(expr.operand, ctx)
+        if expr.operator == "-" and operand_type_name == "double":
+            emit_unary_negate_double(self.asm)
             return
-        if expr.operator == "~":
-            self.out.append("    not rax")
-            operand_type_name = _infer_expression_type_name(expr.operand, ctx)
-            if operand_type_name == "u8":
-                self.out.append("    and rax, 255")
-            return
-        if expr.operator == "!":
-            self._emit_bool_normalize()
-            self.out.append("    xor rax, 1")
+        if emit_integer_unary_op(
+            self.asm,
+            operator=expr.operator,
+            operand_type_name=operand_type_name,
+            emit_bool_normalize=self._emit_bool_normalize,
+        ):
             return
         _raise_codegen_error(f"unary operator '{expr.operator}' is not supported", span=expr.span)
 
@@ -991,173 +982,6 @@ class CodeGenerator:
         self._emit_bool_normalize()
         self.out.append(f"{done_label}:")
         return True
-
-    def _emit_double_binary_op(self, operator: str) -> bool:
-        if operator == "+":
-            self.out.append("    addsd xmm0, xmm1")
-            self.out.append("    movq rax, xmm0")
-            return True
-        if operator == "-":
-            self.out.append("    subsd xmm0, xmm1")
-            self.out.append("    movq rax, xmm0")
-            return True
-        if operator == "*":
-            self.out.append("    mulsd xmm0, xmm1")
-            self.out.append("    movq rax, xmm0")
-            return True
-        if operator == "/":
-            self.out.append("    divsd xmm0, xmm1")
-            self.out.append("    movq rax, xmm0")
-            return True
-
-        if operator in ("==", "!=", "<", "<=", ">", ">="):
-            self.out.append("    ucomisd xmm0, xmm1")
-            if operator == "==":
-                self.out.append("    sete al")
-                self.out.append("    setnp dl")
-                self.out.append("    and al, dl")
-            elif operator == "!=":
-                self.out.append("    setne al")
-                self.out.append("    setp dl")
-                self.out.append("    or al, dl")
-            elif operator == "<":
-                self.out.append("    setb al")
-                self.out.append("    setnp dl")
-                self.out.append("    and al, dl")
-            elif operator == "<=":
-                self.out.append("    setbe al")
-                self.out.append("    setnp dl")
-                self.out.append("    and al, dl")
-            elif operator == ">":
-                self.out.append("    seta al")
-                self.out.append("    setnp dl")
-                self.out.append("    and al, dl")
-            else:
-                self.out.append("    setae al")
-                self.out.append("    setnp dl")
-                self.out.append("    and al, dl")
-            self.out.append("    movzx rax, al")
-            return True
-
-        return False
-
-    def _emit_integer_binary_op(
-        self,
-        operator: str,
-        operand_type_name: str,
-        fn_name: str,
-        label_counter: list[int],
-    ) -> bool:
-        is_unsigned = operand_type_name in {"u64", "u8"}
-        if operator == "+":
-            self.out.append("    add rax, rcx")
-            return True
-        if operator == "-":
-            self.out.append("    sub rax, rcx")
-            return True
-        if operator == "*":
-            self.out.append("    imul rax, rcx")
-            return True
-        if operator == "**":
-            pow_loop_label = _next_label(fn_name, "pow_loop", label_counter)
-            pow_done_label = _next_label(fn_name, "pow_done", label_counter)
-            pow_skip_mul_label = _next_label(fn_name, "pow_skip_mul", label_counter)
-            self.out.append("    mov r8, 1")
-            self.out.append("    mov r9, rax")
-            self.out.append(f"{pow_loop_label}:")
-            self.out.append("    test rcx, rcx")
-            self.out.append(f"    je {pow_done_label}")
-            self.out.append("    test rcx, 1")
-            self.out.append(f"    je {pow_skip_mul_label}")
-            self.out.append("    imul r8, r9")
-            self.out.append(f"{pow_skip_mul_label}:")
-            self.out.append("    imul r9, r9")
-            self.out.append("    shr rcx, 1")
-            self.out.append(f"    jmp {pow_loop_label}")
-            self.out.append(f"{pow_done_label}:")
-            self.out.append("    mov rax, r8")
-            return True
-        if operator == "/":
-            if is_unsigned:
-                self.out.append("    xor rdx, rdx")
-                self.out.append("    div rcx")
-            else:
-                self.out.append("    cqo")
-                self.out.append("    idiv rcx")
-                done_label = _next_label(fn_name, "sdiv_done", label_counter)
-                self.out.append("    test rdx, rdx")
-                self.out.append(f"    je {done_label}")
-                self.out.append("    mov r8, rdx")
-                self.out.append("    xor r8, rcx")
-                self.out.append(f"    jns {done_label}")
-                self.out.append("    sub rax, 1")
-                self.out.append(f"{done_label}:")
-            return True
-        if operator == "%":
-            if is_unsigned:
-                self.out.append("    xor rdx, rdx")
-                self.out.append("    div rcx")
-            else:
-                self.out.append("    cqo")
-                self.out.append("    idiv rcx")
-                done_label = _next_label(fn_name, "smod_done", label_counter)
-                self.out.append("    mov rax, rdx")
-                self.out.append("    test rax, rax")
-                self.out.append(f"    je {done_label}")
-                self.out.append("    mov r8, rax")
-                self.out.append("    xor r8, rcx")
-                self.out.append(f"    jns {done_label}")
-                self.out.append("    add rax, rcx")
-                self.out.append(f"{done_label}:")
-                return True
-            self.out.append("    mov rax, rdx")
-            return True
-
-        if operator == "&":
-            self.out.append("    and rax, rcx")
-            return True
-        if operator == "|":
-            self.out.append("    or rax, rcx")
-            return True
-        if operator == "^":
-            self.out.append("    xor rax, rcx")
-            return True
-
-        if operator in {"<<", ">>"}:
-            max_shift = 8 if operand_type_name == "u8" else 64
-            shift_ok_label = _next_label(fn_name, "shift_ok", label_counter)
-            panic_message_label = self._runtime_panic_message_label("invalid shift count")
-            self.out.append(f"    cmp rcx, {max_shift}")
-            self.out.append(f"    jb {shift_ok_label}")
-            self.out.append(f"    lea rdi, [rip + {panic_message_label}]")
-            self._emit_aligned_call("rt_panic")
-            self.out.append(f"{shift_ok_label}:")
-            if operator == "<<":
-                self.out.append("    shl rax, cl")
-            elif is_unsigned:
-                self.out.append("    shr rax, cl")
-            else:
-                self.out.append("    sar rax, cl")
-            return True
-
-        if operator in ("==", "!=", "<", "<=", ">", ">="):
-            self.out.append("    cmp rax, rcx")
-            if operator == "==":
-                self.out.append("    sete al")
-            elif operator == "!=":
-                self.out.append("    setne al")
-            elif operator == "<":
-                self.out.append("    setb al" if is_unsigned else "    setl al")
-            elif operator == "<=":
-                self.out.append("    setbe al" if is_unsigned else "    setle al")
-            elif operator == ">":
-                self.out.append("    seta al" if is_unsigned else "    setg al")
-            else:
-                self.out.append("    setae al" if is_unsigned else "    setge al")
-            self.out.append("    movzx rax, al")
-            return True
-
-        return False
 
     def _emit_binary_expr(self, expr: BinaryExpr, ctx: EmitContext) -> None:
         fn_name = ctx.fn_name
@@ -1194,7 +1018,7 @@ class CodeGenerator:
         if is_double_op:
             self.out.append("    movq xmm1, rcx")
             self.out.append("    movq xmm0, rax")
-            if self._emit_double_binary_op(expr.operator):
+            if emit_double_binary_op(self.asm, expr.operator):
                 return
 
             _raise_codegen_error(
@@ -1202,7 +1026,16 @@ class CodeGenerator:
                 span=expr.span,
             )
 
-        if self._emit_integer_binary_op(expr.operator, left_type_name, fn_name, label_counter):
+        if emit_integer_binary_op(
+            self.asm,
+            operator=expr.operator,
+            operand_type_name=left_type_name,
+            fn_name=fn_name,
+            label_counter=label_counter,
+            next_label=_next_label,
+            runtime_panic_message_label=self._runtime_panic_message_label,
+            emit_aligned_call=self._emit_aligned_call,
+        ):
             if left_type_name == "u8" and expr.operator in {"+", "-", "*", "**", "/", "%", "&", "|", "^", "<<", ">>"}:
                 self.out.append("    and rax, 255")
             return

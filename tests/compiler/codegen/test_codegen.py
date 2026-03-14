@@ -3,6 +3,8 @@ from compiler.codegen.asm import AsmBuilder, _offset_operand, _stack_slot_operan
 from compiler.codegen.abi_sysv import _plan_sysv_arg_locations
 from compiler.codegen.call_resolution import _resolve_call_target_name, _resolve_callable_value_label
 from compiler.codegen.layout import _build_layout
+from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
+from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.codegen.symbols import _mangle_constructor_symbol, _mangle_method_symbol, _next_label
 from compiler.codegen.types import _function_type_return_type_name, _type_ref_name
 from compiler.lexer import lex
@@ -240,6 +242,92 @@ def test_asm_builder_formats_operands_and_lines() -> None:
         "    # generated",
         "",
     ]
+
+
+def test_ops_float_emitters_cover_negation_and_nan_aware_comparison() -> None:
+    builder = AsmBuilder()
+
+    emit_unary_negate_double(builder)
+    ok = emit_double_binary_op(builder, "!=")
+
+    assert ok is True
+    assert "    xorpd xmm1, xmm1" in builder.lines
+    assert "    ucomisd xmm0, xmm1" in builder.lines
+    assert "    setp dl" in builder.lines
+    assert "    or al, dl" in builder.lines
+
+
+def test_ops_int_emitters_cover_signed_divmod_shift_and_unary_paths() -> None:
+    builder = AsmBuilder()
+    label_counter = [0]
+    panic_messages: list[str] = []
+    aligned_calls: list[str] = []
+
+    def runtime_panic_message_label(message: str) -> str:
+        panic_messages.append(message)
+        return "__panic_msg"
+
+    def emit_aligned_call(target: str) -> None:
+        aligned_calls.append(target)
+        builder.instr(f"call {target}")
+
+    emit_integer_unary_op(
+        builder,
+        operator="~",
+        operand_type_name="u8",
+        emit_bool_normalize=lambda: builder.instr("normalize-bool"),
+    )
+    emit_integer_unary_op(
+        builder,
+        operator="!",
+        operand_type_name="bool",
+        emit_bool_normalize=lambda: builder.instr("normalize-bool"),
+    )
+    div_ok = emit_integer_binary_op(
+        builder,
+        operator="/",
+        operand_type_name="i64",
+        fn_name="f",
+        label_counter=label_counter,
+        next_label=_next_label,
+        runtime_panic_message_label=runtime_panic_message_label,
+        emit_aligned_call=emit_aligned_call,
+    )
+    mod_ok = emit_integer_binary_op(
+        builder,
+        operator="%",
+        operand_type_name="i64",
+        fn_name="f",
+        label_counter=label_counter,
+        next_label=_next_label,
+        runtime_panic_message_label=runtime_panic_message_label,
+        emit_aligned_call=emit_aligned_call,
+    )
+    shift_ok = emit_integer_binary_op(
+        builder,
+        operator=">>",
+        operand_type_name="u8",
+        fn_name="f",
+        label_counter=label_counter,
+        next_label=_next_label,
+        runtime_panic_message_label=runtime_panic_message_label,
+        emit_aligned_call=emit_aligned_call,
+    )
+
+    assert div_ok is True
+    assert mod_ok is True
+    assert shift_ok is True
+    assert "    not rax" in builder.lines
+    assert builder.lines.count("    and rax, 255") >= 1
+    assert "    normalize-bool" in builder.lines
+    assert "    xor rax, 1" in builder.lines
+    assert "    cqo" in builder.lines
+    assert "    idiv rcx" in builder.lines
+    assert "    test rdx, rdx" in builder.lines
+    assert "    add rax, rcx" in builder.lines
+    assert "    cmp rcx, 8" in builder.lines
+    assert aligned_calls == ["rt_panic"]
+    assert panic_messages == ["invalid shift count"]
 
 
 def test_codegen_build_layout_tracks_reference_roots_and_temp_roots() -> None:

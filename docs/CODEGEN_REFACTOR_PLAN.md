@@ -315,10 +315,10 @@ The later "Suggested Execution Order by Risk" section does not replace the phase
 
 ### Phase 5: Isolate Operator Lowering
 
-- [ ] Move integer operator lowering into `ops_int.py`.
-- [ ] Move `double` operator lowering into `ops_float.py`.
-- [ ] Keep Python-style signed `/` and `%` normalization logic local to integer-op lowering.
-- [ ] Add focused codegen tests for any moved subtle operator logic.
+- [x] Move integer operator lowering into `ops_int.py`.
+- [x] Move `double` operator lowering into `ops_float.py`.
+- [x] Keep Python-style signed `/` and `%` normalization logic local to integer-op lowering.
+- [x] Add focused codegen tests for any moved subtle operator logic.
 
 ### Phase 6: Split Expression and Statement Emission
 
