@@ -303,9 +303,9 @@ The later "Suggested Execution Order by Risk" section does not replace the phase
 
 ### Phase 3: Extract Semantic Lowering Helpers
 
-- [ ] Extract call-target and callable-value resolution into `call_resolution.py`.
-- [ ] Extract SysV argument-location planning into `abi_sysv.py`.
-- [ ] Keep all call-resolution behavior identical during this phase.
+- [x] Extract call-target and callable-value resolution into `call_resolution.py`.
+- [x] Extract SysV argument-location planning into `abi_sysv.py`.
+- [x] Keep all call-resolution behavior identical during this phase.
 
 ### Phase 4: Introduce an Assembly Builder Layer
 

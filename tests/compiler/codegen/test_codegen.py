@@ -1,9 +1,13 @@
 from compiler.codegen import emit_asm
+from compiler.codegen.abi_sysv import _plan_sysv_arg_locations
+from compiler.codegen.call_resolution import _resolve_call_target_name, _resolve_callable_value_label
 from compiler.codegen.layout import _build_layout
 from compiler.codegen.symbols import _mangle_constructor_symbol, _mangle_method_symbol, _next_label
 from compiler.codegen.types import _function_type_return_type_name, _type_ref_name
 from compiler.lexer import lex
 from compiler.parser import parse
+from compiler.codegen.legacy import CodeGenerator
+from compiler.codegen.model import EmitContext
 
 
 def test_emit_asm_emits_intel_text_header() -> None:
@@ -225,6 +229,70 @@ def test_codegen_build_layout_tracks_reference_roots_and_temp_roots() -> None:
     assert layout.root_slot_names == ["a"]
     assert layout.root_slot_count >= 7
     assert layout.stack_size % 16 == 0
+
+
+def test_plan_sysv_arg_locations_mixes_float_int_and_stack() -> None:
+    locations = _plan_sysv_arg_locations([
+        "i64",
+        "double",
+        "u64",
+        "double",
+        "u8",
+        "double",
+        "bool",
+        "double",
+        "i64",
+        "double",
+        "u64",
+        "i64",
+    ])
+
+    assert locations[0] == ("int_reg", "rdi", None)
+    assert locations[1] == ("float_reg", "xmm0", None)
+    assert locations[7] == ("float_reg", "xmm3", None)
+    assert locations[8] == ("int_reg", "r8", None)
+    assert locations[9] == ("float_reg", "xmm4", None)
+    assert locations[10] == ("int_reg", "r9", None)
+    assert locations[11] == ("stack", None, 0)
+
+
+def test_call_resolution_handles_static_method_and_callable_value() -> None:
+    source = """
+class Math {
+    static fn inc(x: i64) -> i64 {
+        return x + 1;
+    }
+}
+
+fn main() -> i64 {
+    return Math.inc(41);
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+    generator = CodeGenerator(module)
+    generator._build_symbol_tables()
+    fn = module.functions[0]
+    layout = _build_layout(fn)
+    ctx = EmitContext(
+        layout=layout,
+        fn_name=fn.name,
+        label_counter=[0],
+        method_labels=generator.method_labels,
+        method_return_types=generator.method_return_types,
+        method_is_static=generator.method_is_static,
+        constructor_labels=generator.constructor_labels,
+        function_return_types=generator.function_return_types,
+        string_literal_labels=generator.string_literal_labels,
+        class_field_type_names=generator.class_field_type_names,
+        temp_root_depth=[],
+    )
+
+    call_expr = fn.body.statements[0].value
+    assert call_expr is not None
+    resolved = _resolve_call_target_name(call_expr.callee, ctx)
+    assert resolved.name == generator.method_labels[("Math", "inc")]
+    assert resolved.receiver_expr is None
+    assert _resolve_callable_value_label(call_expr.callee, ctx) == generator.method_labels[("Math", "inc")]
 
 
 def test_emit_asm_while_loop_control_flow() -> None:
