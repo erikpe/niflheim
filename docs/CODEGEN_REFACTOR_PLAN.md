@@ -296,10 +296,10 @@ The later "Suggested Execution Order by Risk" section does not replace the phase
 
 ### Phase 2: Extract Pure Helper Files
 
-- [ ] Extract symbol and label helpers into `symbols.py`.
-- [ ] Extract type-name and type-shape helpers into `types.py`.
-- [ ] Extract stack/root layout computation into `layout.py`.
-- [ ] Add or update small unit tests for extracted pure helpers when practical.
+- [x] Extract symbol and label helpers into `symbols.py`.
+- [x] Extract type-name and type-shape helpers into `types.py`.
+- [x] Extract stack/root layout computation into `layout.py`.
+- [x] Add or update small unit tests for extracted pure helpers when practical.
 
 ### Phase 3: Extract Semantic Lowering Helpers
 

@@ -1,4 +1,7 @@
 from compiler.codegen import emit_asm
+from compiler.codegen.layout import _build_layout
+from compiler.codegen.symbols import _mangle_constructor_symbol, _mangle_method_symbol, _next_label
+from compiler.codegen.types import _function_type_return_type_name, _type_ref_name
 from compiler.lexer import lex
 from compiler.parser import parse
 
@@ -194,6 +197,34 @@ fn choose(flag: bool) -> i64 {
     assert ".Lchoose_if_else_" in asm
     assert ".Lchoose_if_end_" in asm
     assert "    je .Lchoose_if_else_" in asm
+
+
+def test_codegen_symbol_helpers() -> None:
+    counter = [0]
+
+    assert _next_label("f", "loop", counter) == ".Lf_loop_0"
+    assert _next_label("f", "loop", counter) == ".Lf_loop_1"
+    assert _mangle_method_symbol("std::Str", "concat") == "__nif_method_std__Str_concat"
+    assert _mangle_constructor_symbol("std::BigInt") == "__nif_ctor_std__BigInt"
+
+
+def test_codegen_type_helpers() -> None:
+    module = parse(lex("fn f(callback: fn(i64,u64)->bool) -> unit { return; }", source_path="examples/codegen.nif"))
+    fn = module.functions[0]
+
+    assert _type_ref_name(fn.params[0].type_ref) == "fn(i64,u64)->bool"
+    assert _function_type_return_type_name("fn(i64,u64)->bool") == "bool"
+
+
+def test_codegen_build_layout_tracks_reference_roots_and_temp_roots() -> None:
+    module = parse(lex("fn f(a: Obj) -> unit { g(a); }", source_path="examples/codegen.nif"))
+    fn = module.functions[0]
+
+    layout = _build_layout(fn)
+
+    assert layout.root_slot_names == ["a"]
+    assert layout.root_slot_count >= 7
+    assert layout.stack_size % 16 == 0
 
 
 def test_emit_asm_while_loop_control_flow() -> None:
