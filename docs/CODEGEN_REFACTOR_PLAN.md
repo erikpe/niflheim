@@ -309,9 +309,9 @@ The later "Suggested Execution Order by Risk" section does not replace the phase
 
 ### Phase 4: Introduce an Assembly Builder Layer
 
-- [ ] Add `asm.py` with a small `AsmBuilder` abstraction.
-- [ ] Replace direct output-list manipulation in a narrow area first.
-- [ ] Convert formatting helpers such as stack-slot operand rendering to use the shared builder/utilities.
+- [x] Add `asm.py` with a small `AsmBuilder` abstraction.
+- [x] Replace direct output-list manipulation in a narrow area first.
+- [x] Convert formatting helpers such as stack-slot operand rendering to use the shared builder/utilities.
 
 ### Phase 5: Isolate Operator Lowering
 

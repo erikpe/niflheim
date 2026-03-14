@@ -1,4 +1,5 @@
 from compiler.codegen import emit_asm
+from compiler.codegen.asm import AsmBuilder, _offset_operand, _stack_slot_operand
 from compiler.codegen.abi_sysv import _plan_sysv_arg_locations
 from compiler.codegen.call_resolution import _resolve_call_target_name, _resolve_callable_value_label
 from compiler.codegen.layout import _build_layout
@@ -220,6 +221,27 @@ def test_codegen_type_helpers() -> None:
     assert _function_type_return_type_name("fn(i64,u64)->bool") == "bool"
 
 
+def test_asm_builder_formats_operands_and_lines() -> None:
+    builder = AsmBuilder()
+
+    builder.directive(".text")
+    builder.label("main")
+    builder.instr(f"mov {_offset_operand(-8)}, 0")
+    builder.instr(f"mov rax, {_stack_slot_operand('rsp', 16)}")
+    builder.comment("generated")
+    builder.blank()
+
+    assert builder.lines == [
+        ".intel_syntax noprefix",
+        ".text",
+        "main:",
+        "    mov qword ptr [rbp - 8], 0",
+        "    mov rax, qword ptr [rsp + 16]",
+        "    # generated",
+        "",
+    ]
+
+
 def test_codegen_build_layout_tracks_reference_roots_and_temp_roots() -> None:
     module = parse(lex("fn f(a: Obj) -> unit { g(a); }", source_path="examples/codegen.nif"))
     fn = module.functions[0]
@@ -293,6 +315,27 @@ fn main() -> i64 {
     assert resolved.name == generator.method_labels[("Math", "inc")]
     assert resolved.receiver_expr is None
     assert _resolve_callable_value_label(call_expr.callee, ctx) == generator.method_labels[("Math", "inc")]
+
+
+def test_codegen_uses_builder_for_aligned_call_and_comments() -> None:
+    source = """
+fn callee() -> i64 {
+    return 7;
+}
+
+fn caller() -> i64 {
+    return callee();
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen.nif"))
+    generator = CodeGenerator(module)
+
+    asm = generator.generate()
+
+    assert generator.asm.build() == asm
+    assert any(line.startswith("    # ") for line in generator.asm.lines)
+    assert "    test rsp, 8" in asm
+    assert ".L__nif_aligned_call_0:" in asm
 
 
 def test_emit_asm_while_loop_control_flow() -> None:

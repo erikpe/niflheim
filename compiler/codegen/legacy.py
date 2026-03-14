@@ -49,6 +49,7 @@ from compiler.codegen.model import (
     RUNTIME_REF_ARG_INDICES,
     RUNTIME_RETURN_TYPES,
 )
+from compiler.codegen.asm import AsmBuilder, _offset_operand, _stack_slot_operand
 from compiler.codegen.abi_sysv import _plan_sysv_arg_locations
 from compiler.codegen.call_resolution import (
     _field_receiver_type_name,
@@ -91,18 +92,6 @@ from compiler.codegen.types import (
 
 def _align16(size: int) -> int:
     return (size + 15) & ~15
-
-
-def _offset_operand(offset: int) -> str:
-    sign = "+" if offset >= 0 else "-"
-    return f"qword ptr [rbp {sign} {abs(offset)}]"
-
-
-def _stack_slot_operand(base_register: str, byte_offset: int) -> str:
-    if byte_offset == 0:
-        return f"qword ptr [{base_register}]"
-    sign = "+" if byte_offset > 0 else "-"
-    return f"qword ptr [{base_register} {sign} {abs(byte_offset)}]"
 
 
 def _collect_reference_cast_types_from_expr(expr: Expression, out: set[str]) -> None:
@@ -233,7 +222,8 @@ def _constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDec
 class CodeGenerator:
     def __init__(self, module_ast: ModuleAst) -> None:
         self.module_ast = module_ast
-        self.out: list[str] = [".intel_syntax noprefix"]
+        self.asm = AsmBuilder()
+        self.out = self.asm.lines
         self.method_labels: dict[tuple[str, str], str] = {}
         self.method_return_types: dict[tuple[str, str], str] = {}
         self.method_is_static: dict[tuple[str, str], bool] = {}
@@ -263,15 +253,15 @@ class CodeGenerator:
         self.aligned_call_label_counter += 1
         aligned_label = f".L__nif_aligned_call_{label_id}"
         done_label = f".L__nif_aligned_call_done_{label_id}"
-        self.out.append("    test rsp, 8")
-        self.out.append(f"    jz {aligned_label}")
-        self.out.append("    sub rsp, 8")
-        self.out.append(f"    call {target}")
-        self.out.append("    add rsp, 8")
-        self.out.append(f"    jmp {done_label}")
-        self.out.append(f"{aligned_label}:")
-        self.out.append(f"    call {target}")
-        self.out.append(f"{done_label}:")
+        self.asm.instr("test rsp, 8")
+        self.asm.instr(f"jz {aligned_label}")
+        self.asm.instr("sub rsp, 8")
+        self.asm.instr(f"call {target}")
+        self.asm.instr("add rsp, 8")
+        self.asm.instr(f"jmp {done_label}")
+        self.asm.label(aligned_label)
+        self.asm.instr(f"call {target}")
+        self.asm.label(done_label)
 
     def _source_line_text(self, file_path: str, line: int) -> str:
         if line <= 0:
@@ -292,7 +282,7 @@ class CodeGenerator:
         if self.last_emitted_comment_location == location_key:
             return
         source_line = self._source_line_text(file_path, line)
-        self.out.append(f"    # {file_path}:{line}:{column} | {source_line}")
+        self.asm.comment(f"{file_path}:{line}:{column} | {source_line}")
         self.last_emitted_comment_location = location_key
 
     def _build_symbol_tables(self) -> None:
@@ -323,20 +313,20 @@ class CodeGenerator:
 
     def _emit_frame_prologue(self, target_label: str, layout: FunctionLayout, *, global_symbol: bool) -> None:
         if global_symbol:
-            self.out.append(f".globl {target_label}")
-        self.out.append(f"{target_label}:")
-        self.out.append("    push rbp")
-        self.out.append("    mov rbp, rsp")
+            self.asm.directive(f".globl {target_label}")
+        self.asm.label(target_label)
+        self.asm.instr("push rbp")
+        self.asm.instr("mov rbp, rsp")
         if layout.stack_size > 0:
-            self.out.append(f"    sub rsp, {layout.stack_size}")
+            self.asm.instr(f"sub rsp, {layout.stack_size}")
 
     def _emit_zero_slots(self, layout: FunctionLayout) -> None:
         for name in layout.slot_names:
-            self.out.append(f"    mov {_offset_operand(layout.slot_offsets[name])}, 0")
+            self.asm.instr(f"mov {_offset_operand(layout.slot_offsets[name])}, 0")
         for name in layout.root_slot_names:
-            self.out.append(f"    mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
+            self.asm.instr(f"mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
         for offset in layout.temp_root_slot_offsets:
-            self.out.append(f"    mov {_offset_operand(offset)}, 0")
+            self.asm.instr(f"mov {_offset_operand(offset)}, 0")
 
     def _emit_param_spills(self, params: list[ParamDecl], layout: FunctionLayout) -> None:
         param_type_names = [_type_ref_name(param.type_ref) for param in params]
@@ -348,70 +338,70 @@ class CodeGenerator:
                 continue
 
             if location_kind == "int_reg":
-                self.out.append(f"    mov {_offset_operand(offset)}, {location_register}")
+                self.asm.instr(f"mov {_offset_operand(offset)}, {location_register}")
                 continue
 
             if location_kind == "float_reg":
-                self.out.append(f"    movq {_offset_operand(offset)}, {location_register}")
+                self.asm.instr(f"movq {_offset_operand(offset)}, {location_register}")
                 continue
 
             if location_kind == "stack":
                 if stack_index is None:
                     _raise_codegen_error("missing stack argument index while spilling parameters", span=param.span)
                 incoming_stack_offset = 16 + (stack_index * 8)
-                self.out.append(f"    mov rax, qword ptr [rbp + {incoming_stack_offset}]")
-                self.out.append(f"    mov {_offset_operand(offset)}, rax")
+                self.asm.instr(f"mov rax, qword ptr [rbp + {incoming_stack_offset}]")
+                self.asm.instr(f"mov {_offset_operand(offset)}, rax")
                 continue
 
             _raise_codegen_error(f"unsupported argument location kind '{location_kind}'", span=param.span)
 
     def _emit_trace_push(self, fn_debug_name_label: str, fn_debug_file_label: str, line: int, column: int) -> None:
-        self.out.append(f"    lea rdi, [rip + {fn_debug_name_label}]")
-        self.out.append(f"    lea rsi, [rip + {fn_debug_file_label}]")
-        self.out.append(f"    mov edx, {line}")
-        self.out.append(f"    mov ecx, {column}")
-        self.out.append("    call rt_trace_push")
+        self.asm.instr(f"lea rdi, [rip + {fn_debug_name_label}]")
+        self.asm.instr(f"lea rsi, [rip + {fn_debug_file_label}]")
+        self.asm.instr(f"mov edx, {line}")
+        self.asm.instr(f"mov ecx, {column}")
+        self.asm.instr("call rt_trace_push")
 
     def _emit_root_frame_setup(self, layout: FunctionLayout, *, root_count: int, first_root_offset: int) -> None:
-        self.out.append("    call rt_thread_state")
-        self.out.append(f"    mov {_offset_operand(layout.thread_state_offset)}, rax")
-        self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        self.out.append(f"    lea rsi, [rbp - {abs(first_root_offset)}]")
-        self.out.append(f"    mov edx, {root_count}")
-        self.out.append("    call rt_root_frame_init")
-        self.out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-        self.out.append(f"    lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
-        self.out.append("    call rt_push_roots")
+        self.asm.instr("call rt_thread_state")
+        self.asm.instr(f"mov {_offset_operand(layout.thread_state_offset)}, rax")
+        self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+        self.asm.instr(f"lea rsi, [rbp - {abs(first_root_offset)}]")
+        self.asm.instr(f"mov edx, {root_count}")
+        self.asm.instr("call rt_root_frame_init")
+        self.asm.instr(f"mov rdi, {_offset_operand(layout.thread_state_offset)}")
+        self.asm.instr(f"lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
+        self.asm.instr("call rt_push_roots")
 
     def _emit_function_epilogue(self, layout: FunctionLayout, return_type_name: str) -> None:
         if return_type_name == "double":
-            self.out.append("    sub rsp, 8")
-            self.out.append("    movq qword ptr [rsp], xmm0")
+            self.asm.instr("sub rsp, 8")
+            self.asm.instr("movq qword ptr [rsp], xmm0")
         else:
-            self.out.append("    push rax")
+            self.asm.instr("push rax")
         if layout.root_slot_count > 0:
-            self.out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-            self.out.append("    call rt_pop_roots")
-        self.out.append("    call rt_trace_pop")
+            self.asm.instr(f"mov rdi, {_offset_operand(layout.thread_state_offset)}")
+            self.asm.instr("call rt_pop_roots")
+        self.asm.instr("call rt_trace_pop")
         if return_type_name == "double":
-            self.out.append("    movq xmm0, qword ptr [rsp]")
-            self.out.append("    add rsp, 8")
+            self.asm.instr("movq xmm0, qword ptr [rsp]")
+            self.asm.instr("add rsp, 8")
         else:
-            self.out.append("    pop rax")
-        self.out.append("    mov rsp, rbp")
-        self.out.append("    pop rbp")
-        self.out.append("    ret")
+            self.asm.instr("pop rax")
+        self.asm.instr("mov rsp, rbp")
+        self.asm.instr("pop rbp")
+        self.asm.instr("ret")
 
     def _emit_ref_epilogue(self, layout: FunctionLayout) -> None:
-        self.out.append("    push rax")
+        self.asm.instr("push rax")
         if layout.root_slot_names:
-            self.out.append(f"    mov rdi, {_offset_operand(layout.thread_state_offset)}")
-            self.out.append("    call rt_pop_roots")
-        self.out.append("    call rt_trace_pop")
-        self.out.append("    pop rax")
-        self.out.append("    mov rsp, rbp")
-        self.out.append("    pop rbp")
-        self.out.append("    ret")
+            self.asm.instr(f"mov rdi, {_offset_operand(layout.thread_state_offset)}")
+            self.asm.instr("call rt_pop_roots")
+        self.asm.instr("call rt_trace_pop")
+        self.asm.instr("pop rax")
+        self.asm.instr("mov rsp, rbp")
+        self.asm.instr("pop rbp")
+        self.asm.instr("ret")
 
     def _emit_runtime_call_hook(
         self,
@@ -423,12 +413,12 @@ class CodeGenerator:
         column: int | None = None,
     ) -> None:
         label = _next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
-        self.out.append(f"{label}:")
-        self.out.append("    # runtime safepoint hook")
+        self.asm.label(label)
+        self.asm.comment("runtime safepoint hook")
         if phase == "before" and line is not None and column is not None:
-            self.out.append(f"    mov edi, {line}")
-            self.out.append(f"    mov esi, {column}")
-            self.out.append("    call rt_trace_set_location")
+            self.asm.instr(f"mov edi, {line}")
+            self.asm.instr(f"mov esi, {column}")
+            self.asm.instr("call rt_trace_set_location")
 
     def _emit_root_slot_updates(self, layout: FunctionLayout) -> None:
         if not layout.root_slot_names:
@@ -1665,34 +1655,34 @@ class CodeGenerator:
         self._emit_type_metadata_section()
         self.string_literal_labels = self._emit_string_literal_section()
 
-        self.out.append("")
-        self.out.append(".text")
+        self.asm.blank()
+        self.asm.directive(".text")
 
         self._build_symbol_tables()
 
         for fn in self.module_ast.functions:
             if fn.is_extern:
                 continue
-            self.out.append("")
+            self.asm.blank()
             self._emit_function(fn)
 
         for cls in self.module_ast.classes:
             for method in cls.methods:
-                self.out.append("")
+                self.asm.blank()
                 method_label = self.method_labels[(cls.name, method.name)]
                 method_fn = _method_function_decl(cls, method, method_label)
                 self._emit_function(method_fn, label=method_label)
 
         for cls in self.module_ast.classes:
-            self.out.append("")
+            self.asm.blank()
             self._emit_constructor_function(cls)
 
         self._emit_runtime_panic_messages_section()
 
-        self.out.append("")
-        self.out.append('.section .note.GNU-stack,"",@progbits')
-        self.out.append("")
-        return "\n".join(self.out)
+        self.asm.blank()
+        self.asm.directive('.section .note.GNU-stack,"",@progbits')
+        self.asm.blank()
+        return self.asm.build()
 
 
 def emit_asm(module_ast: ModuleAst) -> str:
