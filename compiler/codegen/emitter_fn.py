@@ -29,9 +29,9 @@ def emit_debug_symbol_literals(
     codegen.asm.blank()
     codegen.asm.directive(".section .rodata")
     codegen.asm.label(fn_label)
-    codegen.asm.instr(f'.asciz "{escape_c_string(function_name)}"')
+    codegen.asm.asciz(escape_c_string(function_name))
     codegen.asm.label(file_label)
-    codegen.asm.instr(f'.asciz "{escape_c_string(file_path)}"')
+    codegen.asm.asciz(escape_c_string(file_path))
     codegen.asm.blank()
     codegen.asm.directive(".text")
     return fn_label, file_label

@@ -14,7 +14,6 @@ from compiler.ast_nodes import (
     UnaryExpr,
 )
 from compiler.codegen.model import (
-    ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_GET_RUNTIME_CALLS,
     ARRAY_SET_RUNTIME_CALLS,
     ARRAY_SET_SLICE_RUNTIME_CALLS,

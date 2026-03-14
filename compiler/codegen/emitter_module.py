@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from compiler.ast_nodes import BinaryExpr, BlockStmt, CallExpr, CastExpr, ClassDecl, ExprStmt, IfStmt, ReturnStmt, Statement, UnaryExpr, VarDeclStmt, WhileStmt
+from compiler.ast_nodes import BinaryExpr, BlockStmt, CallExpr, CastExpr, ExprStmt, IfStmt, ReturnStmt, Statement, UnaryExpr, VarDeclStmt, WhileStmt
 from compiler.codegen.emitter_fn import emit_constructor_function, emit_function, method_function_decl
 from compiler.codegen.strings import collect_string_literals, decode_string_literal, escape_asm_string_bytes, escape_c_string
 from compiler.codegen.symbols import _mangle_type_name_symbol, _mangle_type_symbol
-from compiler.codegen.strings import collect_string_literals, decode_string_literal, escape_asm_string_bytes
 from compiler.codegen.types import _is_reference_type_name, _type_ref_name
 
 if TYPE_CHECKING:
@@ -89,7 +88,7 @@ def emit_string_literal_section(codegen: CodeGenerator) -> dict[str, tuple[str, 
         data = decode_string_literal(literal)
         labels[literal] = (label, len(data))
         codegen.asm.label(label)
-        codegen.asm.instr(f'.asciz "{escape_asm_string_bytes(data)}"')
+        codegen.asm.asciz(escape_asm_string_bytes(data))
 
     return labels
 
@@ -122,7 +121,7 @@ def emit_type_metadata_section(codegen: CodeGenerator) -> None:
     codegen.asm.directive(".section .rodata")
     for type_name in type_names:
         codegen.asm.label(_mangle_type_name_symbol(type_name))
-        codegen.asm.instr(f'.asciz "{type_name}"')
+        codegen.asm.asciz(type_name)
     for symbol, pointer_offsets in pointer_offset_symbols.values():
         codegen.asm.label(symbol)
         for offset in pointer_offsets:
@@ -164,7 +163,7 @@ def emit_runtime_panic_messages_section(codegen: CodeGenerator) -> None:
     codegen.asm.directive(".section .rodata")
     for message, label in codegen.runtime_panic_message_labels.items():
         codegen.asm.label(label)
-        codegen.asm.instr(f'.asciz "{escape_c_string(message)}"')
+        codegen.asm.asciz(escape_c_string(message))
 
 
 def generate_module(codegen: CodeGenerator) -> str:

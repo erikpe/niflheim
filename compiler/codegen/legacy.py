@@ -3,68 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.ast_nodes import (
-    ArrayCtorExpr,
-    ArrayTypeRef,
-    AssignStmt,
-    BinaryExpr,
-    BlockStmt,
-    BreakStmt,
-    CallExpr,
-    CastExpr,
-    ClassDecl,
-    ExprStmt,
-    Expression,
-    FieldAccessExpr,
-    FunctionTypeRef,
-    FunctionDecl,
-    IdentifierExpr,
-    IndexExpr,
-    IfStmt,
-    LiteralExpr,
-    MethodDecl,
     ModuleAst,
-    NullExpr,
     ParamDecl,
-    ContinueStmt,
-    ForInStmt,
-    ReturnStmt,
-    Statement,
-    TypeRef,
-    TypeRefNode,
-    UnaryExpr,
-    VarDeclStmt,
-    WhileStmt,
 )
 
 from compiler.codegen.model import (
-    ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
-    ARRAY_GET_RUNTIME_CALLS,
-    ARRAY_SET_RUNTIME_CALLS,
-    ARRAY_SET_SLICE_RUNTIME_CALLS,
-    ARRAY_SLICE_RUNTIME_CALLS,
     ConstructorLayout,
-    EmitContext,
-    FLOAT_PARAM_REGISTERS,
     FunctionLayout,
     RUNTIME_REF_ARG_INDICES,
-    RUNTIME_RETURN_TYPES,
 )
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
-from compiler.codegen.call_resolution import (
-    _field_receiver_type_name,
-    _infer_expression_type_name,
-    _resolve_call_target_name,
-    _resolve_callable_value_label,
-)
-from compiler.codegen.emitter_fn import emit_constructor_function, emit_function
-from compiler.codegen.emitter_module import (
-    generate_module,
-)
-from compiler.codegen.layout import _build_layout
-from compiler.codegen.strings import (
-    escape_c_string,
-)
+from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.symbols import (
     _mangle_constructor_symbol,
     _mangle_method_symbol,
@@ -72,14 +22,9 @@ from compiler.codegen.symbols import (
     _next_label,
 )
 from compiler.codegen.types import (
-    _is_reference_type_name,
     _raise_codegen_error,
     _type_ref_name,
 )
-
-
-def _align16(size: int) -> int:
-    return (size + 15) & ~15
 
 
 class CodeGenerator:

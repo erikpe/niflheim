@@ -26,6 +26,9 @@ class AsmBuilder:
     def directive(self, text: str) -> None:
         self.lines.append(text)
 
+    def asciz(self, escaped_text: str) -> None:
+        self.lines.append(f'    .asciz "{escaped_text}"')
+
     def label(self, name: str) -> None:
         self.lines.append(f"{name}:")
 
