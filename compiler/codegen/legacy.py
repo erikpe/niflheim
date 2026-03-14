@@ -37,7 +37,7 @@ from compiler.ast_nodes import (
     WhileStmt,
 )
 
-from compiler.codegen_model import (
+from compiler.codegen.model import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_GET_RUNTIME_CALLS,
     ARRAY_SET_RUNTIME_CALLS,
@@ -54,7 +54,7 @@ from compiler.codegen_model import (
     ResolvedCallTarget,
     TEMP_RUNTIME_ROOT_SLOT_COUNT,
 )
-from compiler.codegen_str_helper import (
+from compiler.codegen.strings import (
     STR_CLASS_NAME,
     collect_string_literals,
     decode_char_literal,

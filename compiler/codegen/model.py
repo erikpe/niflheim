@@ -1,4 +1,4 @@
-from compiler.codegen.model import *from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 

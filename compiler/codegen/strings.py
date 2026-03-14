@@ -1,4 +1,4 @@
-from compiler.codegen.strings import *from __future__ import annotations
+from __future__ import annotations
 
 from compiler.ast_nodes import (
     AssignStmt,

@@ -283,16 +283,16 @@ The later "Suggested Execution Order by Risk" section does not replace the phase
 
 ### Phase 0: Stabilize the Entry Point
 
-- [ ] Freeze `emit_asm(module_ast)` as the only public backend API.
-- [ ] Add a thin package entry point under `compiler/codegen/__init__.py`.
-- [ ] Keep existing imports working while the internals are moved.
+- [x] Freeze `emit_asm(module_ast)` as the only public backend API.
+- [x] Add a thin package entry point under `compiler/codegen/__init__.py`.
+- [x] Keep existing imports working while the internals are moved.
 
 ### Phase 1: Move Existing Helper Modules Under a Package
 
-- [ ] Create `compiler/codegen/` as a package.
-- [ ] Move `compiler/codegen_model.py` to `compiler/codegen/model.py`.
-- [ ] Move `compiler/codegen_str_helper.py` to `compiler/codegen/strings.py`.
-- [ ] Update imports while keeping behavior unchanged.
+- [x] Create `compiler/codegen/` as a package.
+- [x] Move `compiler/codegen_model.py` to `compiler/codegen/model.py`.
+- [x] Move `compiler/codegen_str_helper.py` to `compiler/codegen/strings.py`.
+- [x] Update imports while keeping behavior unchanged.
 
 ### Phase 2: Extract Pure Helper Files
 

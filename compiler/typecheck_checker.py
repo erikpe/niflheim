@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from compiler.ast_nodes import *
-from compiler.codegen_str_helper import STR_CLASS_NAME, is_str_type_name
+from compiler.codegen.strings import STR_CLASS_NAME, is_str_type_name
 from compiler.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
 from compiler.typecheck_model import (
