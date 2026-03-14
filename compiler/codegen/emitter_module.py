@@ -82,14 +82,14 @@ def emit_string_literal_section(codegen: CodeGenerator) -> dict[str, tuple[str, 
     if not string_literals:
         return labels
 
-    codegen.out.append("")
-    codegen.out.append(".section .rodata")
+    codegen.asm.blank()
+    codegen.asm.directive(".section .rodata")
     for index, literal in enumerate(string_literals):
         label = f"__nif_str_lit_{index}"
         data = decode_string_literal(literal)
         labels[literal] = (label, len(data))
-        codegen.out.append(f"{label}:")
-        codegen.out.append(f'    .asciz "{escape_asm_string_bytes(data)}"')
+        codegen.asm.label(label)
+        codegen.asm.instr(f'.asciz "{escape_asm_string_bytes(data)}"')
 
     return labels
 
@@ -118,18 +118,18 @@ def emit_type_metadata_section(codegen: CodeGenerator) -> None:
                 pointer_offsets,
             )
 
-    codegen.out.append("")
-    codegen.out.append(".section .rodata")
+    codegen.asm.blank()
+    codegen.asm.directive(".section .rodata")
     for type_name in type_names:
-        codegen.out.append(f"{_mangle_type_name_symbol(type_name)}:")
-        codegen.out.append(f'    .asciz "{type_name}"')
+        codegen.asm.label(_mangle_type_name_symbol(type_name))
+        codegen.asm.instr(f'.asciz "{type_name}"')
     for symbol, pointer_offsets in pointer_offset_symbols.values():
-        codegen.out.append(f"{symbol}:")
+        codegen.asm.label(symbol)
         for offset in pointer_offsets:
-            codegen.out.append(f"    .long {offset}")
+            codegen.asm.instr(f".long {offset}")
 
-    codegen.out.append("")
-    codegen.out.append(".data")
+    codegen.asm.blank()
+    codegen.asm.directive(".data")
     for type_name in type_names:
         type_sym = _mangle_type_symbol(type_name)
         name_sym = _mangle_type_name_symbol(type_name)
@@ -142,29 +142,29 @@ def emit_type_metadata_section(codegen: CodeGenerator) -> None:
             pointer_offsets_sym = pointer_offsets_meta[0]
             pointer_offsets_count = len(pointer_offsets_meta[1])
             type_flags = 1
-        codegen.out.append("    .p2align 3")
-        codegen.out.append(f"{type_sym}:")
-        codegen.out.append("    .long 0")
-        codegen.out.append(f"    .long {type_flags}")
-        codegen.out.append("    .long 1")
-        codegen.out.append("    .long 8")
-        codegen.out.append("    .quad 0")
-        codegen.out.append(f"    .quad {name_sym}")
-        codegen.out.append("    .quad 0")
-        codegen.out.append(f"    .quad {pointer_offsets_sym}")
-        codegen.out.append(f"    .long {pointer_offsets_count}")
-        codegen.out.append("    .long 0")
+        codegen.asm.instr(".p2align 3")
+        codegen.asm.label(type_sym)
+        codegen.asm.instr(".long 0")
+        codegen.asm.instr(f".long {type_flags}")
+        codegen.asm.instr(".long 1")
+        codegen.asm.instr(".long 8")
+        codegen.asm.instr(".quad 0")
+        codegen.asm.instr(f".quad {name_sym}")
+        codegen.asm.instr(".quad 0")
+        codegen.asm.instr(f".quad {pointer_offsets_sym}")
+        codegen.asm.instr(f".long {pointer_offsets_count}")
+        codegen.asm.instr(".long 0")
 
 
 def emit_runtime_panic_messages_section(codegen: CodeGenerator) -> None:
     if not codegen.runtime_panic_message_labels:
         return
 
-    codegen.out.append("")
-    codegen.out.append(".section .rodata")
+    codegen.asm.blank()
+    codegen.asm.directive(".section .rodata")
     for message, label in codegen.runtime_panic_message_labels.items():
-        codegen.out.append(f"{label}:")
-        codegen.out.append(f'    .asciz "{escape_c_string(message)}"')
+        codegen.asm.label(label)
+        codegen.asm.instr(f'.asciz "{escape_c_string(message)}"')
 
 
 def generate_module(codegen: CodeGenerator) -> str:

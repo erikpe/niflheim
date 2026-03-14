@@ -433,8 +433,8 @@ def test_emitter_expr_module_emits_integer_binary_expr() -> None:
     assert return_stmt.value is not None
     emit_expr_module(generator, return_stmt.value, ctx)
 
-    assert "    push rax" in generator.out
-    assert "    add rax, rcx" in generator.out
+    assert "    push rax" in generator.asm.lines
+    assert "    add rax, rcx" in generator.asm.lines
 
 
 def test_emitter_stmt_module_emits_while_control_flow() -> None:
@@ -468,10 +468,10 @@ fn loop_to(limit: i64) -> i64 {
 
     emit_statement_module(generator, fn.body.statements[1], ".Lf_epilogue", "i64", ctx, loop_labels=[])
 
-    assert any(line.startswith(".Lloop_to_while_start_") for line in generator.out)
-    assert any(line.startswith(".Lloop_to_while_end_") for line in generator.out)
-    assert "    je .Lloop_to_while_end_1" in generator.out or any(
-        line.startswith("    je .Lloop_to_while_end_") for line in generator.out
+    assert any(line.startswith(".Lloop_to_while_start_") for line in generator.asm.lines)
+    assert any(line.startswith(".Lloop_to_while_end_") for line in generator.asm.lines)
+    assert "    je .Lloop_to_while_end_1" in generator.asm.lines or any(
+        line.startswith("    je .Lloop_to_while_end_") for line in generator.asm.lines
     )
 
 
@@ -503,10 +503,10 @@ def test_emitter_fn_module_emits_function_prologue_and_epilogue() -> None:
 
     emit_function_module(generator, module.functions[0])
 
-    assert ".globl main" in generator.out
-    assert "main:" in generator.out
-    assert ".Lmain_epilogue:" in generator.out
-    assert "    ret" in generator.out
+    assert ".globl main" in generator.asm.lines
+    assert "main:" in generator.asm.lines
+    assert ".Lmain_epilogue:" in generator.asm.lines
+    assert "    ret" in generator.asm.lines
 
 
 def test_emitter_module_helper_orchestrates_sections_and_methods() -> None:

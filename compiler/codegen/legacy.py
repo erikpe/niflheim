@@ -86,7 +86,6 @@ class CodeGenerator:
     def __init__(self, module_ast: ModuleAst) -> None:
         self.module_ast = module_ast
         self.asm = AsmBuilder()
-        self.out = self.asm.lines
         self.method_labels: dict[tuple[str, str], str] = {}
         self.method_return_types: dict[tuple[str, str], str] = {}
         self.method_is_static: dict[tuple[str, str], bool] = {}
@@ -287,14 +286,14 @@ class CodeGenerator:
         if not layout.root_slot_names:
             return
 
-        self.out.append("    # spill reference-typed roots to root slots")
+        self.asm.comment("spill reference-typed roots to root slots")
         for name in layout.root_slot_names:
             value_offset = layout.slot_offsets[name]
             slot_index = layout.root_slot_indices[name]
-            self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-            self.out.append(f"    mov rdx, {offset_operand(value_offset)}")
-            self.out.append(f"    mov esi, {slot_index}")
-            self.out.append("    call rt_root_slot_store")
+            self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+            self.asm.instr(f"mov rdx, {offset_operand(value_offset)}")
+            self.asm.instr(f"mov esi, {slot_index}")
+            self.asm.instr("call rt_root_slot_store")
 
     def _emit_runtime_call_arg_temp_roots(
         self,
@@ -313,13 +312,13 @@ class CodeGenerator:
             _raise_codegen_error("insufficient temporary root slots for runtime call argument rooting", span=span)
 
         for temp_index, arg_index in enumerate(ref_indices):
-            self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+            self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
             if arg_index == 0:
-                self.out.append("    mov rdx, qword ptr [rsp]")
+                self.asm.instr("mov rdx, qword ptr [rsp]")
             else:
-                self.out.append(f"    mov rdx, qword ptr [rsp + {arg_index * 8}]")
-            self.out.append(f"    mov esi, {layout.temp_root_slot_start_index + temp_index}")
-            self.out.append("    call rt_root_slot_store")
+                self.asm.instr(f"mov rdx, qword ptr [rsp + {arg_index * 8}]")
+            self.asm.instr(f"mov esi, {layout.temp_root_slot_start_index + temp_index}")
+            self.asm.instr("call rt_root_slot_store")
         return len(ref_indices)
 
     def _emit_clear_runtime_call_arg_temp_roots(self, layout: FunctionLayout, rooted_count: int) -> None:
@@ -327,7 +326,7 @@ class CodeGenerator:
 
     def _emit_clear_temp_root_slots(self, layout: FunctionLayout, start_index: int, count: int) -> None:
         for temp_index in range(start_index, start_index + count):
-            self.out.append(f"    mov {offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
+            self.asm.instr(f"mov {offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
 
     def _emit_temp_arg_root_from_rsp(
         self,
@@ -342,15 +341,15 @@ class CodeGenerator:
         if temp_slot_index >= len(layout.temp_root_slot_offsets):
             _raise_codegen_error("insufficient temporary root slots for call argument rooting", span=span)
 
-        self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        self.out.append(f"    mov rdx, {stack_slot_operand('rsp', stack_byte_offset)}")
-        self.out.append(f"    mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
-        self.out.append("    call rt_root_slot_store")
+        self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+        self.asm.instr(f"mov rdx, {stack_slot_operand('rsp', stack_byte_offset)}")
+        self.asm.instr(f"mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
+        self.asm.instr("call rt_root_slot_store")
 
     def _emit_bool_normalize(self) -> None:
-        self.out.append("    cmp rax, 0")
-        self.out.append("    setne al")
-        self.out.append("    movzx rax, al")
+        self.asm.instr("cmp rax, 0")
+        self.asm.instr("setne al")
+        self.asm.instr("movzx rax, al")
 
     def generate(self) -> str:
         return generate_module(self)

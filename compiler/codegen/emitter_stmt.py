@@ -52,8 +52,8 @@ def emit_statement(
         if stmt.value is not None:
             emit_expr(codegen, stmt.value, ctx)
         if function_return_type_name == "double":
-            codegen.out.append("    movq xmm0, rax")
-        codegen.out.append(f"    jmp {epilogue_label}")
+            codegen.asm.instr("movq xmm0, rax")
+        codegen.asm.instr(f"jmp {epilogue_label}")
         return
 
     if isinstance(stmt, ForInStmt):
@@ -62,7 +62,7 @@ def emit_statement(
         loop_done = _next_label(fn_name, "for_in_done", label_counter)
 
         emit_expr(codegen, stmt.collection_expr, ctx)
-        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.coll_temp_name])}, rax")
+        codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[stmt.coll_temp_name])}, rax")
 
         iter_len_call = CallExpr(
             callee=FieldAccessExpr(
@@ -74,13 +74,13 @@ def emit_statement(
             span=stmt.span,
         )
         emit_expr(codegen, iter_len_call, ctx)
-        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.len_temp_name])}, rax")
-        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.index_temp_name])}, 0")
+        codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[stmt.len_temp_name])}, rax")
+        codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[stmt.index_temp_name])}, 0")
 
-        codegen.out.append(f"{loop_start}:")
-        codegen.out.append(f"    mov rax, {offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
-        codegen.out.append(f"    cmp rax, {offset_operand(layout.slot_offsets[stmt.len_temp_name])}")
-        codegen.out.append(f"    jge {loop_done}")
+        codegen.asm.label(loop_start)
+        codegen.asm.instr(f"mov rax, {offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
+        codegen.asm.instr(f"cmp rax, {offset_operand(layout.slot_offsets[stmt.len_temp_name])}")
+        codegen.asm.instr(f"jge {loop_done}")
 
         iter_get_call = CallExpr(
             callee=FieldAccessExpr(
@@ -92,19 +92,19 @@ def emit_statement(
             span=stmt.span,
         )
         emit_expr(codegen, iter_get_call, ctx)
-        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.element_name])}, rax")
+        codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[stmt.element_name])}, rax")
 
         loop_labels.append((loop_continue, loop_done))
         for nested in stmt.body.statements:
             emit_statement(codegen, nested, epilogue_label, function_return_type_name, ctx, loop_labels)
         loop_labels.pop()
 
-        codegen.out.append(f"{loop_continue}:")
-        codegen.out.append(f"    mov rax, {offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
-        codegen.out.append("    add rax, 1")
-        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.index_temp_name])}, rax")
-        codegen.out.append(f"    jmp {loop_start}")
-        codegen.out.append(f"{loop_done}:")
+        codegen.asm.label(loop_continue)
+        codegen.asm.instr(f"mov rax, {offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
+        codegen.asm.instr("add rax, 1")
+        codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[stmt.index_temp_name])}, rax")
+        codegen.asm.instr(f"jmp {loop_start}")
+        codegen.asm.label(loop_done)
         return
 
     if isinstance(stmt, VarDeclStmt):
@@ -116,10 +116,10 @@ def emit_statement(
             )
 
         if stmt.initializer is None:
-            codegen.out.append("    mov rax, 0")
+            codegen.asm.instr("mov rax, 0")
         else:
             emit_expr(codegen, stmt.initializer, ctx)
-        codegen.out.append(f"    mov {offset_operand(offset)}, rax")
+        codegen.asm.instr(f"mov {offset_operand(offset)}, rax")
         return
 
     if isinstance(stmt, AssignStmt):
@@ -148,10 +148,10 @@ def emit_statement(
                     span=stmt.span,
                 )
             emit_expr(codegen, stmt.target.object_expr, ctx)
-            codegen.out.append("    push rax")
+            codegen.asm.instr("push rax")
             emit_expr(codegen, stmt.value, ctx)
-            codegen.out.append("    pop rcx")
-            codegen.out.append(f"    mov qword ptr [rcx + {field_offset}], rax")
+            codegen.asm.instr("pop rcx")
+            codegen.asm.instr(f"mov qword ptr [rcx + {field_offset}], rax")
             return
 
         if not isinstance(stmt.target, IdentifierExpr):
@@ -166,7 +166,7 @@ def emit_statement(
                 span=stmt.span,
             )
         emit_expr(codegen, stmt.value, ctx)
-        codegen.out.append(f"    mov {offset_operand(offset)}, rax")
+        codegen.asm.instr(f"mov {offset_operand(offset)}, rax")
         return
 
     if isinstance(stmt, ExprStmt):
@@ -182,14 +182,14 @@ def emit_statement(
         if not loop_labels:
             _raise_codegen_error("break codegen requires enclosing while loop", span=stmt.span)
         _loop_continue_label, loop_end_label = loop_labels[-1]
-        codegen.out.append(f"    jmp {loop_end_label}")
+        codegen.asm.instr(f"jmp {loop_end_label}")
         return
 
     if isinstance(stmt, ContinueStmt):
         if not loop_labels:
             _raise_codegen_error("continue codegen requires enclosing while loop", span=stmt.span)
         loop_continue_label, _loop_end_label = loop_labels[-1]
-        codegen.out.append(f"    jmp {loop_continue_label}")
+        codegen.asm.instr(f"jmp {loop_continue_label}")
         return
 
     if isinstance(stmt, IfStmt):
@@ -197,29 +197,29 @@ def emit_statement(
         end_label = _next_label(fn_name, "if_end", label_counter)
 
         emit_expr(codegen, stmt.condition, ctx)
-        codegen.out.append("    cmp rax, 0")
-        codegen.out.append(f"    je {else_label}")
+        codegen.asm.instr("cmp rax, 0")
+        codegen.asm.instr(f"je {else_label}")
         emit_statement(codegen, stmt.then_branch, epilogue_label, function_return_type_name, ctx, loop_labels)
-        codegen.out.append(f"    jmp {end_label}")
-        codegen.out.append(f"{else_label}:")
+        codegen.asm.instr(f"jmp {end_label}")
+        codegen.asm.label(else_label)
         if stmt.else_branch is not None:
             emit_statement(codegen, stmt.else_branch, epilogue_label, function_return_type_name, ctx, loop_labels)
-        codegen.out.append(f"{end_label}:")
+        codegen.asm.label(end_label)
         return
 
     if isinstance(stmt, WhileStmt):
         start_label = _next_label(fn_name, "while_start", label_counter)
         end_label = _next_label(fn_name, "while_end", label_counter)
 
-        codegen.out.append(f"{start_label}:")
+        codegen.asm.label(start_label)
         emit_expr(codegen, stmt.condition, ctx)
-        codegen.out.append("    cmp rax, 0")
-        codegen.out.append(f"    je {end_label}")
+        codegen.asm.instr("cmp rax, 0")
+        codegen.asm.instr(f"je {end_label}")
         loop_labels.append((start_label, end_label))
         emit_statement(codegen, stmt.body, epilogue_label, function_return_type_name, ctx, loop_labels)
         loop_labels.pop()
-        codegen.out.append(f"    jmp {start_label}")
-        codegen.out.append(f"{end_label}:")
+        codegen.asm.instr(f"jmp {start_label}")
+        codegen.asm.label(end_label)
         return
 
     _raise_codegen_error(f"statement codegen not implemented for {type(stmt).__name__}", span=stmt.span)

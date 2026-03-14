@@ -26,14 +26,14 @@ def emit_debug_symbol_literals(
     safe_target = target_label.replace(".", "_").replace(":", "_")
     fn_label = f"__nif_dbg_fn_{safe_target}"
     file_label = f"__nif_dbg_file_{safe_target}"
-    codegen.out.append("")
-    codegen.out.append(".section .rodata")
-    codegen.out.append(f"{fn_label}:")
-    codegen.out.append(f'    .asciz "{escape_c_string(function_name)}"')
-    codegen.out.append(f"{file_label}:")
-    codegen.out.append(f'    .asciz "{escape_c_string(file_path)}"')
-    codegen.out.append("")
-    codegen.out.append(".text")
+    codegen.asm.blank()
+    codegen.asm.directive(".section .rodata")
+    codegen.asm.label(fn_label)
+    codegen.asm.instr(f'.asciz "{escape_c_string(function_name)}"')
+    codegen.asm.label(file_label)
+    codegen.asm.instr(f'.asciz "{escape_c_string(file_path)}"')
+    codegen.asm.blank()
+    codegen.asm.directive(".text")
     return fn_label, file_label
 
 
@@ -141,7 +141,7 @@ def emit_function(codegen: CodeGenerator, fn: FunctionDecl, *, label: str | None
     for stmt in fn.body.statements:
         emit_statement(codegen, stmt, epilogue, function_return_type_name, emit_ctx, loop_labels=[])
 
-    codegen.out.append(f"{epilogue}:")
+    codegen.asm.label(epilogue)
     codegen._emit_function_epilogue(layout, function_return_type_name)
 
 
@@ -184,17 +184,17 @@ def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
         label_counter=label_counter,
     )
     codegen._emit_root_slot_updates(layout)
-    codegen.out.append("    call rt_thread_state")
-    codegen.out.append("    mov rdi, rax")
-    codegen.out.append(f"    lea rsi, [rip + {ctor_layout.type_symbol}]")
-    codegen.out.append(f"    mov rdx, {ctor_layout.payload_bytes}")
-    codegen.out.append("    call rt_alloc_obj")
+    codegen.asm.instr("call rt_thread_state")
+    codegen.asm.instr("mov rdi, rax")
+    codegen.asm.instr(f"lea rsi, [rip + {ctor_layout.type_symbol}]")
+    codegen.asm.instr(f"mov rdx, {ctor_layout.payload_bytes}")
+    codegen.asm.instr("call rt_alloc_obj")
     codegen._emit_runtime_call_hook(
         fn_name=target_label,
         phase="after",
         label_counter=label_counter,
     )
-    codegen.out.append(f"    mov {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}, rax")
+    codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}, rax")
 
     emit_ctx = EmitContext(
         layout=layout,
@@ -218,17 +218,17 @@ def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
         field_decl = field_decl_by_name[field_name]
         if field_name in param_fields:
             value_offset = layout.slot_offsets[field_name]
-            codegen.out.append(f"    mov rcx, {offset_operand(value_offset)}")
+            codegen.asm.instr(f"mov rcx, {offset_operand(value_offset)}")
         else:
             if field_decl.initializer is None:
                 _raise_codegen_error("constructor default initializer missing", span=field_decl.span)
             emit_expr(codegen, field_decl.initializer, emit_ctx)
-            codegen.out.append("    mov rcx, rax")
+            codegen.asm.instr("mov rcx, rax")
 
-        codegen.out.append(f"    mov rax, {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}")
-        codegen.out.append(f"    mov qword ptr [rax + {field_offset}], rcx")
+        codegen.asm.instr(f"mov rax, {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}")
+        codegen.asm.instr(f"mov qword ptr [rax + {field_offset}], rcx")
 
-    codegen.out.append(f"    jmp {epilogue}")
+    codegen.asm.instr(f"jmp {epilogue}")
 
-    codegen.out.append(f"{epilogue}:")
+    codegen.asm.label(epilogue)
     codegen._emit_ref_epilogue(layout)
