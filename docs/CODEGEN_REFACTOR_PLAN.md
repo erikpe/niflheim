@@ -322,9 +322,9 @@ The later "Suggested Execution Order by Risk" section does not replace the phase
 
 ### Phase 6: Split Expression and Statement Emission
 
-- [ ] Extract expression emission into `emitter_expr.py`.
-- [ ] Extract statement/control-flow emission into `emitter_stmt.py`.
-- [ ] Keep label generation centralized instead of duplicating it between files.
+- [x] Extract expression emission into `emitter_expr.py`.
+- [x] Extract statement/control-flow emission into `emitter_stmt.py`.
+- [x] Keep label generation centralized instead of duplicating it between files.
 
 ### Phase 7: Split Function and Module Emission
 

@@ -2,6 +2,8 @@ from compiler.codegen import emit_asm
 from compiler.codegen.asm import AsmBuilder, _offset_operand, _stack_slot_operand
 from compiler.codegen.abi_sysv import _plan_sysv_arg_locations
 from compiler.codegen.call_resolution import _resolve_call_target_name, _resolve_callable_value_label
+from compiler.codegen.emitter_expr import emit_expr as emit_expr_module
+from compiler.codegen.emitter_stmt import emit_statement as emit_statement_module
 from compiler.codegen.layout import _build_layout
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
@@ -403,6 +405,72 @@ fn main() -> i64 {
     assert resolved.name == generator.method_labels[("Math", "inc")]
     assert resolved.receiver_expr is None
     assert _resolve_callable_value_label(call_expr.callee, ctx) == generator.method_labels[("Math", "inc")]
+
+
+def test_emitter_expr_module_emits_integer_binary_expr() -> None:
+    module = parse(lex("fn f(a: i64, b: i64) -> i64 { return a + b; }", source_path="examples/codegen_expr.nif"))
+    generator = CodeGenerator(module)
+    generator._build_symbol_tables()
+    fn = module.functions[0]
+    layout = _build_layout(fn)
+    ctx = EmitContext(
+        layout=layout,
+        fn_name=fn.name,
+        label_counter=[0],
+        method_labels=generator.method_labels,
+        method_return_types=generator.method_return_types,
+        method_is_static=generator.method_is_static,
+        constructor_labels=generator.constructor_labels,
+        function_return_types=generator.function_return_types,
+        string_literal_labels=generator.string_literal_labels,
+        class_field_type_names=generator.class_field_type_names,
+        temp_root_depth=[0],
+    )
+
+    return_stmt = fn.body.statements[0]
+    assert return_stmt.value is not None
+    emit_expr_module(generator, return_stmt.value, ctx)
+
+    assert "    push rax" in generator.out
+    assert "    add rax, rcx" in generator.out
+
+
+def test_emitter_stmt_module_emits_while_control_flow() -> None:
+    source = """
+fn loop_to(limit: i64) -> i64 {
+    var i: i64 = 0;
+    while i < limit {
+        i = i + 1;
+    }
+    return i;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_stmt.nif"))
+    generator = CodeGenerator(module)
+    generator._build_symbol_tables()
+    fn = module.functions[0]
+    layout = _build_layout(fn)
+    ctx = EmitContext(
+        layout=layout,
+        fn_name=fn.name,
+        label_counter=[0],
+        method_labels=generator.method_labels,
+        method_return_types=generator.method_return_types,
+        method_is_static=generator.method_is_static,
+        constructor_labels=generator.constructor_labels,
+        function_return_types=generator.function_return_types,
+        string_literal_labels=generator.string_literal_labels,
+        class_field_type_names=generator.class_field_type_names,
+        temp_root_depth=[0],
+    )
+
+    emit_statement_module(generator, fn.body.statements[1], ".Lf_epilogue", "i64", ctx, loop_labels=[])
+
+    assert any(line.startswith(".Lloop_to_while_start_") for line in generator.out)
+    assert any(line.startswith(".Lloop_to_while_end_") for line in generator.out)
+    assert "    je .Lloop_to_while_end_1" in generator.out or any(
+        line.startswith("    je .Lloop_to_while_end_") for line in generator.out
+    )
 
 
 def test_codegen_uses_builder_for_aligned_call_and_comments() -> None:
