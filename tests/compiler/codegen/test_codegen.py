@@ -3,6 +3,8 @@ from compiler.codegen.asm import AsmBuilder, _offset_operand, _stack_slot_operan
 from compiler.codegen.abi_sysv import _plan_sysv_arg_locations
 from compiler.codegen.call_resolution import _resolve_call_target_name, _resolve_callable_value_label
 from compiler.codegen.emitter_expr import emit_expr as emit_expr_module
+from compiler.codegen.emitter_fn import emit_function as emit_function_module
+from compiler.codegen.emitter_module import generate_module as generate_module_helper
 from compiler.codegen.emitter_stmt import emit_statement as emit_statement_module
 from compiler.codegen.layout import _build_layout
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
@@ -492,6 +494,45 @@ fn caller() -> i64 {
     assert any(line.startswith("    # ") for line in generator.asm.lines)
     assert "    test rsp, 8" in asm
     assert ".L__nif_aligned_call_0:" in asm
+
+
+def test_emitter_fn_module_emits_function_prologue_and_epilogue() -> None:
+    module = parse(lex("fn main() -> i64 { return 0; }", source_path="examples/codegen_fn.nif"))
+    generator = CodeGenerator(module)
+    generator._build_symbol_tables()
+
+    emit_function_module(generator, module.functions[0])
+
+    assert ".globl main" in generator.out
+    assert "main:" in generator.out
+    assert ".Lmain_epilogue:" in generator.out
+    assert "    ret" in generator.out
+
+
+def test_emitter_module_helper_orchestrates_sections_and_methods() -> None:
+    source = """
+class Box {
+    value: i64;
+
+    fn get(self: Box) -> i64 {
+        return self.value;
+    }
+}
+
+fn main() -> i64 {
+    return 0;
+}
+"""
+    module = parse(lex(source, source_path="examples/codegen_module.nif"))
+    generator = CodeGenerator(module)
+
+    asm = generate_module_helper(generator)
+
+    assert asm == generator.asm.build()
+    assert ".text" in asm
+    assert "__nif_method_Box_get" in asm
+    assert "__nif_ctor_Box" in asm
+    assert '.section .note.GNU-stack,"",@progbits' in asm
 
 
 def test_emit_asm_while_loop_control_flow() -> None:

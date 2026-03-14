@@ -58,6 +58,13 @@ from compiler.codegen.call_resolution import (
     _resolve_callable_value_label,
 )
 from compiler.codegen.emitter_expr import emit_expr
+from compiler.codegen.emitter_fn import emit_constructor_function, emit_debug_symbol_literals, emit_function
+from compiler.codegen.emitter_module import (
+    emit_runtime_panic_messages_section,
+    emit_string_literal_section,
+    emit_type_metadata_section,
+    generate_module,
+)
 from compiler.codegen.emitter_stmt import emit_statement
 from compiler.codegen.layout import _build_layout
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
@@ -496,6 +503,18 @@ class CodeGenerator:
     def _mangle_type_symbol_proxy(self, type_name: str) -> str:
         return _mangle_type_symbol(type_name)
 
+    def _mangle_type_name_symbol_proxy(self, type_name: str) -> str:
+        return _mangle_type_name_symbol(type_name)
+
+    def _escape_c_string_proxy(self, value: str) -> str:
+        return escape_c_string(value)
+
+    def _build_layout_proxy(self, fn: FunctionDecl) -> FunctionLayout:
+        return _build_layout(fn)
+
+    def _collect_reference_cast_types_proxy(self, module_ast: ModuleAst) -> list[str]:
+        return _collect_reference_cast_types(module_ast)
+
     def _emit_expr(self, expr: Expression, ctx: EmitContext) -> None:
         emit_expr(self, expr, ctx)
 
@@ -530,279 +549,30 @@ class CodeGenerator:
         function_name: str,
         file_path: str,
     ) -> tuple[str, str]:
-        safe_target = target_label.replace(".", "_").replace(":", "_")
-        fn_label = f"__nif_dbg_fn_{safe_target}"
-        file_label = f"__nif_dbg_file_{safe_target}"
-        self.out.append("")
-        self.out.append(".section .rodata")
-        self.out.append(f"{fn_label}:")
-        self.out.append(f'    .asciz "{escape_c_string(function_name)}"')
-        self.out.append(f"{file_label}:")
-        self.out.append(f'    .asciz "{escape_c_string(file_path)}"')
-        self.out.append("")
-        self.out.append(".text")
-        return fn_label, file_label
+        return emit_debug_symbol_literals(
+            self,
+            target_label=target_label,
+            function_name=function_name,
+            file_path=file_path,
+        )
 
     def _emit_function(self, fn: FunctionDecl, *, label: str | None = None) -> None:
-        target_label = label if label is not None else fn.name
-        epilogue = _epilogue_label(target_label)
-        layout = _build_layout(fn)
-        label_counter = [0]
-        fn_debug_name_label, fn_debug_file_label = self._emit_debug_symbol_literals(
-            target_label=target_label,
-            function_name=target_label,
-            file_path=fn.span.start.path,
-        )
-
-        self._emit_frame_prologue(target_label, layout, global_symbol=label is None and (fn.is_export or fn.name == "main"))
-        self._emit_location_comment(
-            file_path=fn.span.start.path,
-            line=fn.span.start.line,
-            column=fn.span.start.column,
-        )
-        self._emit_zero_slots(layout)
-        self._emit_param_spills(fn.params, layout)
-
-        if layout.root_slot_count > 0:
-            if layout.root_slot_names:
-                first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
-            else:
-                first_root_offset = layout.temp_root_slot_offsets[0]
-            self._emit_root_frame_setup(
-                layout,
-                root_count=layout.root_slot_count,
-                first_root_offset=first_root_offset,
-            )
-
-        self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
-
-        emit_ctx = EmitContext(
-            layout=layout,
-            fn_name=target_label,
-            label_counter=label_counter,
-            method_labels=self.method_labels,
-            method_return_types=self.method_return_types,
-            method_is_static=self.method_is_static,
-            constructor_labels=self.constructor_labels,
-            function_return_types=self.function_return_types,
-            string_literal_labels=self.string_literal_labels,
-            class_field_type_names=self.class_field_type_names,
-            temp_root_depth=[0],
-        )
-
-        for stmt in fn.body.statements:
-            self._emit_statement(stmt, epilogue, _type_ref_name(fn.return_type), emit_ctx, loop_labels=[])
-
-        self.out.append(f"{epilogue}:")
-        self._emit_function_epilogue(layout, _type_ref_name(fn.return_type))
+        emit_function(self, fn, label=label)
 
     def _emit_constructor_function(self, cls: ClassDecl) -> None:
-        ctor_layout = self.constructor_layouts[cls.name]
-        ctor_fn = _constructor_function_decl(cls, ctor_layout.label)
-        target_label = ctor_layout.label
-        epilogue = _epilogue_label(target_label)
-        layout = _build_layout(ctor_fn)
-        label_counter = [0]
-        fn_debug_name_label, fn_debug_file_label = self._emit_debug_symbol_literals(
-            target_label=target_label,
-            function_name=target_label,
-            file_path=cls.span.start.path,
-        )
-
-        self._emit_frame_prologue(target_label, layout, global_symbol=False)
-        self._emit_location_comment(
-            file_path=cls.span.start.path,
-            line=cls.span.start.line,
-            column=cls.span.start.column,
-        )
-        self._emit_zero_slots(layout)
-        self._emit_param_spills(ctor_fn.params, layout)
-
-        if layout.root_slot_names:
-            first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
-            self._emit_root_frame_setup(
-                layout,
-                root_count=len(layout.root_slot_names),
-                first_root_offset=first_root_offset,
-            )
-
-        self._emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
-
-        self._emit_runtime_call_hook(
-            fn_name=target_label,
-            phase="before",
-            label_counter=label_counter,
-        )
-        self._emit_root_slot_updates(layout)
-        self.out.append("    call rt_thread_state")
-        self.out.append("    mov rdi, rax")
-        self.out.append(f"    lea rsi, [rip + {ctor_layout.type_symbol}]")
-        self.out.append(f"    mov rdx, {ctor_layout.payload_bytes}")
-        self.out.append("    call rt_alloc_obj")
-        self._emit_runtime_call_hook(
-            fn_name=target_label,
-            phase="after",
-            label_counter=label_counter,
-        )
-        self.out.append(f"    mov {_offset_operand(layout.slot_offsets['__nif_ctor_obj'])}, rax")
-
-        emit_ctx = EmitContext(
-            layout=layout,
-            fn_name=target_label,
-            label_counter=label_counter,
-            method_labels=self.method_labels,
-            method_return_types=self.method_return_types,
-            method_is_static=self.method_is_static,
-            constructor_labels=self.constructor_labels,
-            function_return_types=self.function_return_types,
-            string_literal_labels=self.string_literal_labels,
-            class_field_type_names=self.class_field_type_names,
-            temp_root_depth=[0],
-        )
-
-        param_fields = set(ctor_layout.param_field_names)
-        field_decl_by_name = {field.name: field for field in cls.fields}
-
-        for field_index, field_name in enumerate(ctor_layout.field_names):
-            field_offset = 24 + (8 * field_index)
-            field_decl = field_decl_by_name[field_name]
-            if field_name in param_fields:
-                value_offset = layout.slot_offsets[field_name]
-                self.out.append(f"    mov rcx, {_offset_operand(value_offset)}")
-            else:
-                if field_decl.initializer is None:
-                    _raise_codegen_error("constructor default initializer missing", span=field_decl.span)
-                self._emit_expr(field_decl.initializer, emit_ctx)
-                self.out.append("    mov rcx, rax")
-
-            self.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets['__nif_ctor_obj'])}")
-            self.out.append(f"    mov qword ptr [rax + {field_offset}], rcx")
-
-        self.out.append(f"    jmp {epilogue}")
-
-        self.out.append(f"{epilogue}:")
-        self._emit_ref_epilogue(layout)
+        emit_constructor_function(self, cls)
 
     def _emit_string_literal_section(self) -> dict[str, tuple[str, int]]:
-        string_literals = collect_string_literals(self.module_ast)
-        labels: dict[str, tuple[str, int]] = {}
-        if not string_literals:
-            return labels
-
-        self.out.append("")
-        self.out.append(".section .rodata")
-        for index, literal in enumerate(string_literals):
-            label = f"__nif_str_lit_{index}"
-            data = decode_string_literal(literal)
-            labels[literal] = (label, len(data))
-            self.out.append(f"{label}:")
-            self.out.append(f'    .asciz "{escape_asm_string_bytes(data)}"')
-
-        return labels
+        return emit_string_literal_section(self)
 
     def _emit_type_metadata_section(self) -> None:
-        class_type_names = [cls.name for cls in self.module_ast.classes]
-        cast_type_names = _collect_reference_cast_types(self.module_ast)
-        type_names = sorted(set(class_type_names) | set(cast_type_names))
-        if not type_names:
-            return
-
-        class_decls_by_name = {cls.name: cls for cls in self.module_ast.classes}
-        pointer_offset_symbols: dict[str, tuple[str, list[int]]] = {}
-        for type_name in type_names:
-            class_decl = class_decls_by_name.get(type_name)
-            if class_decl is None:
-                continue
-            pointer_offsets = [
-                24 + (8 * field_index)
-                for field_index, field in enumerate(class_decl.fields)
-                if _is_reference_type_name(_type_ref_name(field.type_ref))
-            ]
-            if pointer_offsets:
-                pointer_offset_symbols[type_name] = (
-                    f"{_mangle_type_name_symbol(type_name)}__ptr_offsets",
-                    pointer_offsets,
-                )
-
-        self.out.append("")
-        self.out.append(".section .rodata")
-        for type_name in type_names:
-            self.out.append(f"{_mangle_type_name_symbol(type_name)}:")
-            self.out.append(f'    .asciz "{type_name}"')
-        for symbol, pointer_offsets in pointer_offset_symbols.values():
-            self.out.append(f"{symbol}:")
-            for offset in pointer_offsets:
-                self.out.append(f"    .long {offset}")
-
-        self.out.append("")
-        self.out.append(".data")
-        for type_name in type_names:
-            type_sym = _mangle_type_symbol(type_name)
-            name_sym = _mangle_type_name_symbol(type_name)
-            pointer_offsets_meta = pointer_offset_symbols.get(type_name)
-            if pointer_offsets_meta is None:
-                type_flags = 0
-                pointer_offsets_sym = "0"
-                pointer_offsets_count = 0
-            else:
-                pointer_offsets_sym = pointer_offsets_meta[0]
-                pointer_offsets_count = len(pointer_offsets_meta[1])
-                type_flags = 1
-            self.out.append("    .p2align 3")
-            self.out.append(f"{type_sym}:")
-            self.out.append("    .long 0")
-            self.out.append(f"    .long {type_flags}")
-            self.out.append("    .long 1")
-            self.out.append("    .long 8")
-            self.out.append("    .quad 0")
-            self.out.append(f"    .quad {name_sym}")
-            self.out.append("    .quad 0")
-            self.out.append(f"    .quad {pointer_offsets_sym}")
-            self.out.append(f"    .long {pointer_offsets_count}")
-            self.out.append("    .long 0")
+        emit_type_metadata_section(self)
 
     def _emit_runtime_panic_messages_section(self) -> None:
-        if not self.runtime_panic_message_labels:
-            return
-
-        self.out.append("")
-        self.out.append(".section .rodata")
-        for message, label in self.runtime_panic_message_labels.items():
-            self.out.append(f"{label}:")
-            self.out.append(f'    .asciz "{escape_c_string(message)}"')
+        emit_runtime_panic_messages_section(self)
 
     def generate(self) -> str:
-        self._emit_type_metadata_section()
-        self.string_literal_labels = self._emit_string_literal_section()
-
-        self.asm.blank()
-        self.asm.directive(".text")
-
-        self._build_symbol_tables()
-
-        for fn in self.module_ast.functions:
-            if fn.is_extern:
-                continue
-            self.asm.blank()
-            self._emit_function(fn)
-
-        for cls in self.module_ast.classes:
-            for method in cls.methods:
-                self.asm.blank()
-                method_label = self.method_labels[(cls.name, method.name)]
-                method_fn = _method_function_decl(cls, method, method_label)
-                self._emit_function(method_fn, label=method_label)
-
-        for cls in self.module_ast.classes:
-            self.asm.blank()
-            self._emit_constructor_function(cls)
-
-        self._emit_runtime_panic_messages_section()
-
-        self.asm.blank()
-        self.asm.directive('.section .note.GNU-stack,"",@progbits')
-        self.asm.blank()
-        return self.asm.build()
+        return generate_module(self)
 
 
 def emit_asm(module_ast: ModuleAst) -> str:

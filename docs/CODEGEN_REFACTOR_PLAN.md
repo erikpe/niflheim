@@ -328,9 +328,9 @@ The later "Suggested Execution Order by Risk" section does not replace the phase
 
 ### Phase 7: Split Function and Module Emission
 
-- [ ] Extract prologue/epilogue and per-function setup into `emitter_fn.py`.
-- [ ] Extract module-level assembly orchestration into `emitter_module.py`.
-- [ ] Keep constructor/method wrapper generation close to function emission.
+- [x] Extract prologue/epilogue and per-function setup into `emitter_fn.py`.
+- [x] Extract module-level assembly orchestration into `emitter_module.py`.
+- [x] Keep constructor/method wrapper generation close to function emission.
 
 ### Phase 8: Cleanup and Simplify
 
