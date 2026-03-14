@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 
-def _offset_operand(offset: int) -> str:
+def offset_operand(offset: int) -> str:
     sign = "+" if offset >= 0 else "-"
     return f"qword ptr [rbp {sign} {abs(offset)}]"
 
 
-def _stack_slot_operand(base_register: str, byte_offset: int) -> str:
+def stack_slot_operand(base_register: str, byte_offset: int) -> str:
     if byte_offset == 0:
         return f"qword ptr [{base_register}]"
     sign = "+" if byte_offset > 0 else "-"

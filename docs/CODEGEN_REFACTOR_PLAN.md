@@ -334,9 +334,9 @@ The later "Suggested Execution Order by Risk" section does not replace the phase
 
 ### Phase 8: Cleanup and Simplify
 
-- [ ] Remove dead compatibility wrappers after all imports are updated.
-- [ ] Rename helpers to remove historical underscore-heavy names where clarity improves.
-- [ ] Add a short backend structure summary to `docs/REPO_STRUCTURE.md` once the refactor lands.
+- [x] Remove dead compatibility wrappers after all imports are updated.
+- [x] Rename helpers to remove historical underscore-heavy names where clarity improves.
+- [x] Add a short backend structure summary to `docs/REPO_STRUCTURE.md` once the refactor lands.
 
 ## Suggested Extraction Order by Risk
 

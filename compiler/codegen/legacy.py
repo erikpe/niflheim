@@ -49,52 +49,29 @@ from compiler.codegen.model import (
     RUNTIME_REF_ARG_INDICES,
     RUNTIME_RETURN_TYPES,
 )
-from compiler.codegen.asm import AsmBuilder, _offset_operand, _stack_slot_operand
-from compiler.codegen.abi_sysv import _plan_sysv_arg_locations
+from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
+from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 from compiler.codegen.call_resolution import (
     _field_receiver_type_name,
     _infer_expression_type_name,
     _resolve_call_target_name,
     _resolve_callable_value_label,
 )
-from compiler.codegen.emitter_expr import emit_expr
-from compiler.codegen.emitter_fn import emit_constructor_function, emit_debug_symbol_literals, emit_function
+from compiler.codegen.emitter_fn import emit_constructor_function, emit_function
 from compiler.codegen.emitter_module import (
-    emit_runtime_panic_messages_section,
-    emit_string_literal_section,
-    emit_type_metadata_section,
     generate_module,
 )
-from compiler.codegen.emitter_stmt import emit_statement
 from compiler.codegen.layout import _build_layout
-from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
-from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.codegen.strings import (
-    STR_CLASS_NAME,
-    collect_string_literals,
-    decode_char_literal,
-    decode_string_literal,
-    escape_asm_string_bytes,
     escape_c_string,
-    is_str_type_name,
 )
 from compiler.codegen.symbols import (
-    _epilogue_label,
-    _is_runtime_call_name,
     _mangle_constructor_symbol,
     _mangle_method_symbol,
-    _mangle_type_name_symbol,
     _mangle_type_symbol,
     _next_label,
 )
 from compiler.codegen.types import (
-    _array_element_runtime_kind,
-    _array_element_type_name,
-    _double_literal_bits,
-    _function_type_return_type_name,
-    _is_array_type_name,
-    _is_double_literal_text,
-    _is_function_type_name,
     _is_reference_type_name,
     _raise_codegen_error,
     _type_ref_name,
@@ -103,131 +80,6 @@ from compiler.codegen.types import (
 
 def _align16(size: int) -> int:
     return (size + 15) & ~15
-
-
-def _collect_reference_cast_types_from_expr(expr: Expression, out: set[str]) -> None:
-    if isinstance(expr, CastExpr):
-        target_type_name = _type_ref_name(expr.type_ref)
-        if _is_reference_type_name(target_type_name):
-            out.add(target_type_name)
-        _collect_reference_cast_types_from_expr(expr.operand, out)
-        return
-
-    if isinstance(expr, BinaryExpr):
-        _collect_reference_cast_types_from_expr(expr.left, out)
-        _collect_reference_cast_types_from_expr(expr.right, out)
-        return
-
-    if isinstance(expr, UnaryExpr):
-        _collect_reference_cast_types_from_expr(expr.operand, out)
-        return
-
-    if isinstance(expr, CallExpr):
-        _collect_reference_cast_types_from_expr(expr.callee, out)
-        for arg in expr.arguments:
-            _collect_reference_cast_types_from_expr(arg, out)
-        return
-
-
-def _collect_reference_cast_types_from_stmt(stmt: Statement, out: set[str]) -> None:
-    if isinstance(stmt, VarDeclStmt):
-        if stmt.initializer is not None:
-            _collect_reference_cast_types_from_expr(stmt.initializer, out)
-        return
-
-    if isinstance(stmt, AssignStmt):
-        _collect_reference_cast_types_from_expr(stmt.value, out)
-        return
-
-    if isinstance(stmt, ExprStmt):
-        _collect_reference_cast_types_from_expr(stmt.expression, out)
-        return
-
-    if isinstance(stmt, ReturnStmt):
-        if stmt.value is not None:
-            _collect_reference_cast_types_from_expr(stmt.value, out)
-        return
-
-    if isinstance(stmt, BlockStmt):
-        for nested in stmt.statements:
-            _collect_reference_cast_types_from_stmt(nested, out)
-        return
-
-    if isinstance(stmt, IfStmt):
-        _collect_reference_cast_types_from_expr(stmt.condition, out)
-        _collect_reference_cast_types_from_stmt(stmt.then_branch, out)
-        if stmt.else_branch is not None:
-            _collect_reference_cast_types_from_stmt(stmt.else_branch, out)
-        return
-
-    if isinstance(stmt, WhileStmt):
-        _collect_reference_cast_types_from_expr(stmt.condition, out)
-        _collect_reference_cast_types_from_stmt(stmt.body, out)
-        return
-
-
-def _collect_reference_cast_types(module_ast: ModuleAst) -> list[str]:
-    names: set[str] = set()
-    for cls in module_ast.classes:
-        names.add(cls.name)
-    for fn in module_ast.functions:
-        if fn.body is None:
-            continue
-        for stmt in fn.body.statements:
-            _collect_reference_cast_types_from_stmt(stmt, names)
-    for cls in module_ast.classes:
-        for method in cls.methods:
-            for stmt in method.body.statements:
-                _collect_reference_cast_types_from_stmt(stmt, names)
-    return sorted(names)
-
-
-def _method_function_decl(class_decl: ClassDecl, method_decl: MethodDecl, label: str) -> FunctionDecl:
-    receiver_params: list[ParamDecl] = []
-    if not method_decl.is_static:
-        receiver_params.append(
-            ParamDecl(
-                name="__self",
-                type_ref=TypeRef(name=class_decl.name, span=method_decl.span),
-                span=method_decl.span,
-            )
-        )
-    return FunctionDecl(
-        name=label,
-        params=[*receiver_params, *method_decl.params],
-        return_type=method_decl.return_type,
-        body=method_decl.body,
-        is_export=False,
-        is_extern=False,
-        span=method_decl.span,
-    )
-
-
-def _constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDecl:
-    params = [
-        ParamDecl(name=field.name, type_ref=field.type_ref, span=field.span)
-        for field in class_decl.fields
-        if field.initializer is None
-    ]
-    return FunctionDecl(
-        name=label,
-        params=params,
-        return_type=TypeRef(name=class_decl.name, span=class_decl.span),
-        body=BlockStmt(
-            statements=[
-                VarDeclStmt(
-                    name="__nif_ctor_obj",
-                    type_ref=TypeRef(name=class_decl.name, span=class_decl.span),
-                    initializer=None,
-                    span=class_decl.span,
-                )
-            ],
-            span=class_decl.span,
-        ),
-        is_export=False,
-        is_extern=False,
-        span=class_decl.span,
-    )
 
 
 class CodeGenerator:
@@ -333,15 +185,15 @@ class CodeGenerator:
 
     def _emit_zero_slots(self, layout: FunctionLayout) -> None:
         for name in layout.slot_names:
-            self.asm.instr(f"mov {_offset_operand(layout.slot_offsets[name])}, 0")
+            self.asm.instr(f"mov {offset_operand(layout.slot_offsets[name])}, 0")
         for name in layout.root_slot_names:
-            self.asm.instr(f"mov {_offset_operand(layout.root_slot_offsets[name])}, 0")
+            self.asm.instr(f"mov {offset_operand(layout.root_slot_offsets[name])}, 0")
         for offset in layout.temp_root_slot_offsets:
-            self.asm.instr(f"mov {_offset_operand(offset)}, 0")
+            self.asm.instr(f"mov {offset_operand(offset)}, 0")
 
     def _emit_param_spills(self, params: list[ParamDecl], layout: FunctionLayout) -> None:
         param_type_names = [_type_ref_name(param.type_ref) for param in params]
-        arg_locations = _plan_sysv_arg_locations(param_type_names)
+        arg_locations = plan_sysv_arg_locations(param_type_names)
 
         for param, (location_kind, location_register, stack_index) in zip(params, arg_locations):
             offset = layout.slot_offsets.get(param.name)
@@ -349,11 +201,11 @@ class CodeGenerator:
                 continue
 
             if location_kind == "int_reg":
-                self.asm.instr(f"mov {_offset_operand(offset)}, {location_register}")
+                self.asm.instr(f"mov {offset_operand(offset)}, {location_register}")
                 continue
 
             if location_kind == "float_reg":
-                self.asm.instr(f"movq {_offset_operand(offset)}, {location_register}")
+                self.asm.instr(f"movq {offset_operand(offset)}, {location_register}")
                 continue
 
             if location_kind == "stack":
@@ -361,7 +213,7 @@ class CodeGenerator:
                     _raise_codegen_error("missing stack argument index while spilling parameters", span=param.span)
                 incoming_stack_offset = 16 + (stack_index * 8)
                 self.asm.instr(f"mov rax, qword ptr [rbp + {incoming_stack_offset}]")
-                self.asm.instr(f"mov {_offset_operand(offset)}, rax")
+                self.asm.instr(f"mov {offset_operand(offset)}, rax")
                 continue
 
             _raise_codegen_error(f"unsupported argument location kind '{location_kind}'", span=param.span)
@@ -375,12 +227,12 @@ class CodeGenerator:
 
     def _emit_root_frame_setup(self, layout: FunctionLayout, *, root_count: int, first_root_offset: int) -> None:
         self.asm.instr("call rt_thread_state")
-        self.asm.instr(f"mov {_offset_operand(layout.thread_state_offset)}, rax")
+        self.asm.instr(f"mov {offset_operand(layout.thread_state_offset)}, rax")
         self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
         self.asm.instr(f"lea rsi, [rbp - {abs(first_root_offset)}]")
         self.asm.instr(f"mov edx, {root_count}")
         self.asm.instr("call rt_root_frame_init")
-        self.asm.instr(f"mov rdi, {_offset_operand(layout.thread_state_offset)}")
+        self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
         self.asm.instr(f"lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
         self.asm.instr("call rt_push_roots")
 
@@ -391,7 +243,7 @@ class CodeGenerator:
         else:
             self.asm.instr("push rax")
         if layout.root_slot_count > 0:
-            self.asm.instr(f"mov rdi, {_offset_operand(layout.thread_state_offset)}")
+            self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
         self.asm.instr("call rt_trace_pop")
         if return_type_name == "double":
@@ -406,7 +258,7 @@ class CodeGenerator:
     def _emit_ref_epilogue(self, layout: FunctionLayout) -> None:
         self.asm.instr("push rax")
         if layout.root_slot_names:
-            self.asm.instr(f"mov rdi, {_offset_operand(layout.thread_state_offset)}")
+            self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
         self.asm.instr("call rt_trace_pop")
         self.asm.instr("pop rax")
@@ -440,7 +292,7 @@ class CodeGenerator:
             value_offset = layout.slot_offsets[name]
             slot_index = layout.root_slot_indices[name]
             self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-            self.out.append(f"    mov rdx, {_offset_operand(value_offset)}")
+            self.out.append(f"    mov rdx, {offset_operand(value_offset)}")
             self.out.append(f"    mov esi, {slot_index}")
             self.out.append("    call rt_root_slot_store")
 
@@ -475,7 +327,7 @@ class CodeGenerator:
 
     def _emit_clear_temp_root_slots(self, layout: FunctionLayout, start_index: int, count: int) -> None:
         for temp_index in range(start_index, start_index + count):
-            self.out.append(f"    mov {_offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
+            self.out.append(f"    mov {offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
 
     def _emit_temp_arg_root_from_rsp(
         self,
@@ -491,7 +343,7 @@ class CodeGenerator:
             _raise_codegen_error("insufficient temporary root slots for call argument rooting", span=span)
 
         self.out.append(f"    lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        self.out.append(f"    mov rdx, {_stack_slot_operand('rsp', stack_byte_offset)}")
+        self.out.append(f"    mov rdx, {stack_slot_operand('rsp', stack_byte_offset)}")
         self.out.append(f"    mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
         self.out.append("    call rt_root_slot_store")
 
@@ -499,77 +351,6 @@ class CodeGenerator:
         self.out.append("    cmp rax, 0")
         self.out.append("    setne al")
         self.out.append("    movzx rax, al")
-
-    def _mangle_type_symbol_proxy(self, type_name: str) -> str:
-        return _mangle_type_symbol(type_name)
-
-    def _mangle_type_name_symbol_proxy(self, type_name: str) -> str:
-        return _mangle_type_name_symbol(type_name)
-
-    def _escape_c_string_proxy(self, value: str) -> str:
-        return escape_c_string(value)
-
-    def _build_layout_proxy(self, fn: FunctionDecl) -> FunctionLayout:
-        return _build_layout(fn)
-
-    def _collect_reference_cast_types_proxy(self, module_ast: ModuleAst) -> list[str]:
-        return _collect_reference_cast_types(module_ast)
-
-    def _emit_expr(self, expr: Expression, ctx: EmitContext) -> None:
-        emit_expr(self, expr, ctx)
-
-    def _emit_call_expr(self, expr: CallExpr, ctx: EmitContext) -> None:
-        emit_expr(self, expr, ctx)
-
-    def _emit_unary_expr(self, expr: UnaryExpr, ctx: EmitContext) -> None:
-        emit_expr(self, expr, ctx)
-
-    def _emit_logical_binary_expr(self, expr: BinaryExpr, *, fn_name: str, label_counter: list[int], ctx: EmitContext) -> bool:
-        before = len(self.out)
-        emit_expr(self, expr, ctx)
-        return len(self.out) != before
-
-    def _emit_binary_expr(self, expr: BinaryExpr, ctx: EmitContext) -> None:
-        emit_expr(self, expr, ctx)
-
-    def _emit_statement(
-        self,
-        stmt: Statement,
-        epilogue_label: str,
-        function_return_type_name: str,
-        ctx: EmitContext,
-        loop_labels: list[tuple[str, str]],
-    ) -> None:
-        emit_statement(self, stmt, epilogue_label, function_return_type_name, ctx, loop_labels)
-
-    def _emit_debug_symbol_literals(
-        self,
-        *,
-        target_label: str,
-        function_name: str,
-        file_path: str,
-    ) -> tuple[str, str]:
-        return emit_debug_symbol_literals(
-            self,
-            target_label=target_label,
-            function_name=function_name,
-            file_path=file_path,
-        )
-
-    def _emit_function(self, fn: FunctionDecl, *, label: str | None = None) -> None:
-        emit_function(self, fn, label=label)
-
-    def _emit_constructor_function(self, cls: ClassDecl) -> None:
-        emit_constructor_function(self, cls)
-
-    def _emit_string_literal_section(self) -> dict[str, tuple[str, int]]:
-        return emit_string_literal_section(self)
-
-    def _emit_type_metadata_section(self) -> None:
-        emit_type_metadata_section(self)
-
-    def _emit_runtime_panic_messages_section(self) -> None:
-        emit_runtime_panic_messages_section(self)
 
     def generate(self) -> str:
         return generate_module(self)

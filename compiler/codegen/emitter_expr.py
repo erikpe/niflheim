@@ -15,8 +15,8 @@ from compiler.ast_nodes import (
     NullExpr,
     UnaryExpr,
 )
-from compiler.codegen.abi_sysv import _plan_sysv_arg_locations
-from compiler.codegen.asm import _offset_operand, _stack_slot_operand
+from compiler.codegen.abi_sysv import plan_sysv_arg_locations
+from compiler.codegen.asm import offset_operand, stack_slot_operand
 from compiler.codegen.call_resolution import (
     _field_receiver_type_name,
     _infer_expression_type_name,
@@ -27,7 +27,7 @@ from compiler.codegen.model import EmitContext, RUNTIME_REF_ARG_INDICES
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.codegen.strings import STR_CLASS_NAME, decode_char_literal, is_str_type_name
-from compiler.codegen.symbols import _is_runtime_call_name, _next_label
+from compiler.codegen.symbols import _is_runtime_call_name, _mangle_type_symbol, _next_label
 from compiler.codegen.types import (
     _array_element_runtime_kind,
     _array_element_type_name,
@@ -179,7 +179,7 @@ def emit_cast_expr(codegen: CodeGenerator, expr: CastExpr, ctx: EmitContext) -> 
         return
 
     if _is_reference_type_name(target_type):
-        type_symbol = codegen._mangle_type_symbol_proxy(target_type)
+        type_symbol = _mangle_type_symbol(target_type)
         codegen.out.append("    push rax")
         codegen._emit_runtime_call_hook(
             fn_name=ctx.fn_name,
@@ -292,7 +292,7 @@ def emit_expr(codegen: CodeGenerator, expr: Expression, ctx: EmitContext) -> Non
 
     if isinstance(expr, IdentifierExpr):
         if expr.name in layout.slot_offsets:
-            codegen.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[expr.name])}")
+            codegen.out.append(f"    mov rax, {offset_operand(layout.slot_offsets[expr.name])}")
             return
 
         callable_label = _resolve_callable_value_label(expr, ctx)
@@ -348,7 +348,7 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
         reference_arg_indices = {
             index for index, type_name in enumerate(call_argument_type_names) if _is_reference_type_name(type_name)
         }
-        arg_locations = _plan_sysv_arg_locations(call_argument_type_names)
+        arg_locations = plan_sysv_arg_locations(call_argument_type_names)
         stack_arg_indices = [
             index
             for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations)
@@ -379,7 +379,7 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
         codegen.out.append("    mov r10, rsp")
         for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
             arg_offset = arg_index * 8
-            arg_operand = _stack_slot_operand("r10", arg_offset)
+            arg_operand = stack_slot_operand("r10", arg_offset)
             if location_kind == "int_reg":
                 codegen.out.append(f"    mov {location_register}, {arg_operand}")
             elif location_kind == "float_reg":
@@ -387,7 +387,7 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
 
         for arg_index in reversed(stack_arg_indices):
             arg_offset = arg_index * 8
-            codegen.out.append(f"    mov rax, {_stack_slot_operand('r10', arg_offset)}")
+            codegen.out.append(f"    mov rax, {stack_slot_operand('r10', arg_offset)}")
             codegen.out.append("    push rax")
 
         codegen._emit_aligned_call("r11")
@@ -419,7 +419,7 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
     reference_arg_indices = {
         index for index, type_name in enumerate(call_argument_type_names) if _is_reference_type_name(type_name)
     }
-    arg_locations = _plan_sysv_arg_locations(call_argument_type_names)
+    arg_locations = plan_sysv_arg_locations(call_argument_type_names)
     stack_arg_indices = [
         index
         for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations)
@@ -457,7 +457,7 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
     codegen.out.append("    mov r10, rsp")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
         arg_offset = arg_index * 8
-        arg_operand = _stack_slot_operand("r10", arg_offset)
+        arg_operand = stack_slot_operand("r10", arg_offset)
         if location_kind == "int_reg":
             codegen.out.append(f"    mov {location_register}, {arg_operand}")
         elif location_kind == "float_reg":
@@ -465,7 +465,7 @@ def emit_call_expr(codegen: CodeGenerator, expr: CallExpr, ctx: EmitContext) -> 
 
     for arg_index in reversed(stack_arg_indices):
         arg_offset = arg_index * 8
-        codegen.out.append(f"    mov rax, {_stack_slot_operand('r10', arg_offset)}")
+        codegen.out.append(f"    mov rax, {stack_slot_operand('r10', arg_offset)}")
         codegen.out.append("    push rax")
 
     codegen._emit_aligned_call(target_name)

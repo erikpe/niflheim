@@ -3,9 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from compiler.ast_nodes import ClassDecl, FunctionDecl
-from compiler.codegen.asm import _offset_operand
+from compiler.codegen.asm import offset_operand
+from compiler.codegen.emitter_stmt import emit_statement
 from compiler.codegen.emitter_expr import emit_expr
+from compiler.codegen.layout import _build_layout
 from compiler.codegen.model import EmitContext
+from compiler.codegen.strings import escape_c_string
 from compiler.codegen.symbols import _epilogue_label
 from compiler.codegen.types import _raise_codegen_error, _type_ref_name
 
@@ -26,18 +29,70 @@ def emit_debug_symbol_literals(
     codegen.out.append("")
     codegen.out.append(".section .rodata")
     codegen.out.append(f"{fn_label}:")
-    codegen.out.append(f'    .asciz "{codegen._escape_c_string_proxy(function_name)}"')
+    codegen.out.append(f'    .asciz "{escape_c_string(function_name)}"')
     codegen.out.append(f"{file_label}:")
-    codegen.out.append(f'    .asciz "{codegen._escape_c_string_proxy(file_path)}"')
+    codegen.out.append(f'    .asciz "{escape_c_string(file_path)}"')
     codegen.out.append("")
     codegen.out.append(".text")
     return fn_label, file_label
 
 
+def method_function_decl(class_decl: ClassDecl, method_decl, label: str) -> FunctionDecl:
+    from compiler.ast_nodes import ParamDecl, TypeRef
+
+    receiver_params: list[ParamDecl] = []
+    if not method_decl.is_static:
+        receiver_params.append(
+            ParamDecl(
+                name="__self",
+                type_ref=TypeRef(name=class_decl.name, span=method_decl.span),
+                span=method_decl.span,
+            )
+        )
+    return FunctionDecl(
+        name=label,
+        params=[*receiver_params, *method_decl.params],
+        return_type=method_decl.return_type,
+        body=method_decl.body,
+        is_export=False,
+        is_extern=False,
+        span=method_decl.span,
+    )
+
+
+def constructor_function_decl(class_decl: ClassDecl, label: str) -> FunctionDecl:
+    from compiler.ast_nodes import BlockStmt, ParamDecl, TypeRef, VarDeclStmt
+
+    params = [
+        ParamDecl(name=field.name, type_ref=field.type_ref, span=field.span)
+        for field in class_decl.fields
+        if field.initializer is None
+    ]
+    return FunctionDecl(
+        name=label,
+        params=params,
+        return_type=TypeRef(name=class_decl.name, span=class_decl.span),
+        body=BlockStmt(
+            statements=[
+                VarDeclStmt(
+                    name="__nif_ctor_obj",
+                    type_ref=TypeRef(name=class_decl.name, span=class_decl.span),
+                    initializer=None,
+                    span=class_decl.span,
+                )
+            ],
+            span=class_decl.span,
+        ),
+        is_export=False,
+        is_extern=False,
+        span=class_decl.span,
+    )
+
+
 def emit_function(codegen: CodeGenerator, fn: FunctionDecl, *, label: str | None = None) -> None:
     target_label = label if label is not None else fn.name
     epilogue = _epilogue_label(target_label)
-    layout = codegen._build_layout_proxy(fn)
+    layout = _build_layout(fn)
     label_counter = [0]
     fn_debug_name_label, fn_debug_file_label = emit_debug_symbol_literals(
         codegen,
@@ -84,20 +139,18 @@ def emit_function(codegen: CodeGenerator, fn: FunctionDecl, *, label: str | None
 
     function_return_type_name = _type_ref_name(fn.return_type)
     for stmt in fn.body.statements:
-        codegen._emit_statement(stmt, epilogue, function_return_type_name, emit_ctx, loop_labels=[])
+        emit_statement(codegen, stmt, epilogue, function_return_type_name, emit_ctx, loop_labels=[])
 
     codegen.out.append(f"{epilogue}:")
     codegen._emit_function_epilogue(layout, function_return_type_name)
 
 
 def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
-    from compiler.codegen.legacy import _constructor_function_decl
-
     ctor_layout = codegen.constructor_layouts[cls.name]
-    ctor_fn = _constructor_function_decl(cls, ctor_layout.label)
+    ctor_fn = constructor_function_decl(cls, ctor_layout.label)
     target_label = ctor_layout.label
     epilogue = _epilogue_label(target_label)
-    layout = codegen._build_layout_proxy(ctor_fn)
+    layout = _build_layout(ctor_fn)
     label_counter = [0]
     fn_debug_name_label, fn_debug_file_label = emit_debug_symbol_literals(
         codegen,
@@ -141,7 +194,7 @@ def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
         phase="after",
         label_counter=label_counter,
     )
-    codegen.out.append(f"    mov {_offset_operand(layout.slot_offsets['__nif_ctor_obj'])}, rax")
+    codegen.out.append(f"    mov {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}, rax")
 
     emit_ctx = EmitContext(
         layout=layout,
@@ -165,14 +218,14 @@ def emit_constructor_function(codegen: CodeGenerator, cls: ClassDecl) -> None:
         field_decl = field_decl_by_name[field_name]
         if field_name in param_fields:
             value_offset = layout.slot_offsets[field_name]
-            codegen.out.append(f"    mov rcx, {_offset_operand(value_offset)}")
+            codegen.out.append(f"    mov rcx, {offset_operand(value_offset)}")
         else:
             if field_decl.initializer is None:
                 _raise_codegen_error("constructor default initializer missing", span=field_decl.span)
             emit_expr(codegen, field_decl.initializer, emit_ctx)
             codegen.out.append("    mov rcx, rax")
 
-        codegen.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets['__nif_ctor_obj'])}")
+        codegen.out.append(f"    mov rax, {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}")
         codegen.out.append(f"    mov qword ptr [rax + {field_offset}], rcx")
 
     codegen.out.append(f"    jmp {epilogue}")

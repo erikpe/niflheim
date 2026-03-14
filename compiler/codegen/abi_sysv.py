@@ -3,7 +3,7 @@ from __future__ import annotations
 from compiler.codegen.model import FLOAT_PARAM_REGISTERS, PARAM_REGISTERS
 
 
-def _plan_sysv_arg_locations(arg_type_names: list[str]) -> list[tuple[str, str | None, int | None]]:
+def plan_sysv_arg_locations(arg_type_names: list[str]) -> list[tuple[str, str | None, int | None]]:
     locations: list[tuple[str, str | None, int | None]] = []
     integer_reg_index = 0
     float_reg_index = 0

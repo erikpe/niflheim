@@ -21,7 +21,12 @@ Stage-0 compiler implementation in Python.
 - `typecheck.py` - typecheck entry points (`typecheck`, `typecheck_program`) and public typecheck exports.
 - `typecheck_model.py` - shared typechecker data model/constants/errors.
 - `typecheck_checker.py` - typechecker engine implementation.
-- `codegen.py` - codegen placeholder.
+- `codegen/` - backend package entry point and internal code generation modules.
+	- `__init__.py` - stable `emit_asm(module_ast)` public entry point.
+	- `legacy.py` - shared backend state and remaining coordination helpers.
+	- `model.py`, `strings.py`, `symbols.py`, `types.py`, `layout.py`, `call_resolution.py`, `abi_sysv.py` - shared backend helpers by responsibility.
+	- `asm.py`, `ops_int.py`, `ops_float.py` - assembly building and operator instruction selection.
+	- `emitter_expr.py`, `emitter_stmt.py`, `emitter_fn.py`, `emitter_module.py` - layered expression, statement, function, and module emission.
 - `cli.py` - minimal phase-oriented CLI scaffold.
 - `main.py` - package entry point.
 - `grammar/niflheim_v0_1.ebnf` - canonical grammar source.
@@ -69,3 +74,4 @@ Supporting documentation:
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.
 - [SUGARING_DESIGN.md](SUGARING_DESIGN.md) - canonical sugar protocols (indexing/slicing and for-in iteration).
 - [FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md](FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md) - implementation checklist for no-capture first-class function values MVP.
+- [CODEGEN_REFACTOR_PLAN.md](CODEGEN_REFACTOR_PLAN.md) - backend package split plan and phase history.

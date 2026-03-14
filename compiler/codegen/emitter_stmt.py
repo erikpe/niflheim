@@ -19,7 +19,7 @@ from compiler.ast_nodes import (
     VarDeclStmt,
     WhileStmt,
 )
-from compiler.codegen.asm import _offset_operand
+from compiler.codegen.asm import offset_operand
 from compiler.codegen.call_resolution import _field_receiver_type_name
 from compiler.codegen.emitter_expr import emit_call_expr, emit_expr
 from compiler.codegen.model import EmitContext
@@ -62,7 +62,7 @@ def emit_statement(
         loop_done = _next_label(fn_name, "for_in_done", label_counter)
 
         emit_expr(codegen, stmt.collection_expr, ctx)
-        codegen.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.coll_temp_name])}, rax")
+        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.coll_temp_name])}, rax")
 
         iter_len_call = CallExpr(
             callee=FieldAccessExpr(
@@ -74,12 +74,12 @@ def emit_statement(
             span=stmt.span,
         )
         emit_expr(codegen, iter_len_call, ctx)
-        codegen.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.len_temp_name])}, rax")
-        codegen.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.index_temp_name])}, 0")
+        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.len_temp_name])}, rax")
+        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.index_temp_name])}, 0")
 
         codegen.out.append(f"{loop_start}:")
-        codegen.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
-        codegen.out.append(f"    cmp rax, {_offset_operand(layout.slot_offsets[stmt.len_temp_name])}")
+        codegen.out.append(f"    mov rax, {offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
+        codegen.out.append(f"    cmp rax, {offset_operand(layout.slot_offsets[stmt.len_temp_name])}")
         codegen.out.append(f"    jge {loop_done}")
 
         iter_get_call = CallExpr(
@@ -92,7 +92,7 @@ def emit_statement(
             span=stmt.span,
         )
         emit_expr(codegen, iter_get_call, ctx)
-        codegen.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.element_name])}, rax")
+        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.element_name])}, rax")
 
         loop_labels.append((loop_continue, loop_done))
         for nested in stmt.body.statements:
@@ -100,9 +100,9 @@ def emit_statement(
         loop_labels.pop()
 
         codegen.out.append(f"{loop_continue}:")
-        codegen.out.append(f"    mov rax, {_offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
+        codegen.out.append(f"    mov rax, {offset_operand(layout.slot_offsets[stmt.index_temp_name])}")
         codegen.out.append("    add rax, 1")
-        codegen.out.append(f"    mov {_offset_operand(layout.slot_offsets[stmt.index_temp_name])}, rax")
+        codegen.out.append(f"    mov {offset_operand(layout.slot_offsets[stmt.index_temp_name])}, rax")
         codegen.out.append(f"    jmp {loop_start}")
         codegen.out.append(f"{loop_done}:")
         return
@@ -119,7 +119,7 @@ def emit_statement(
             codegen.out.append("    mov rax, 0")
         else:
             emit_expr(codegen, stmt.initializer, ctx)
-        codegen.out.append(f"    mov {_offset_operand(offset)}, rax")
+        codegen.out.append(f"    mov {offset_operand(offset)}, rax")
         return
 
     if isinstance(stmt, AssignStmt):
@@ -166,7 +166,7 @@ def emit_statement(
                 span=stmt.span,
             )
         emit_expr(codegen, stmt.value, ctx)
-        codegen.out.append(f"    mov {_offset_operand(offset)}, rax")
+        codegen.out.append(f"    mov {offset_operand(offset)}, rax")
         return
 
     if isinstance(stmt, ExprStmt):

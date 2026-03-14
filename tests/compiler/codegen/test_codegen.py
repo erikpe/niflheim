@@ -1,6 +1,6 @@
 from compiler.codegen import emit_asm
-from compiler.codegen.asm import AsmBuilder, _offset_operand, _stack_slot_operand
-from compiler.codegen.abi_sysv import _plan_sysv_arg_locations
+from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
+from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 from compiler.codegen.call_resolution import _resolve_call_target_name, _resolve_callable_value_label
 from compiler.codegen.emitter_expr import emit_expr as emit_expr_module
 from compiler.codegen.emitter_fn import emit_function as emit_function_module
@@ -232,8 +232,8 @@ def test_asm_builder_formats_operands_and_lines() -> None:
 
     builder.directive(".text")
     builder.label("main")
-    builder.instr(f"mov {_offset_operand(-8)}, 0")
-    builder.instr(f"mov rax, {_stack_slot_operand('rsp', 16)}")
+    builder.instr(f"mov {offset_operand(-8)}, 0")
+    builder.instr(f"mov rax, {stack_slot_operand('rsp', 16)}")
     builder.comment("generated")
     builder.blank()
 
@@ -346,7 +346,7 @@ def test_codegen_build_layout_tracks_reference_roots_and_temp_roots() -> None:
 
 
 def test_plan_sysv_arg_locations_mixes_float_int_and_stack() -> None:
-    locations = _plan_sysv_arg_locations([
+    locations = plan_sysv_arg_locations([
         "i64",
         "double",
         "u64",
