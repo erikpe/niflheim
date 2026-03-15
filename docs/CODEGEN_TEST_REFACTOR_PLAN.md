@@ -373,11 +373,11 @@ During implementation, keep the following rules:
 
 ### Phase 9: Final Cleanup
 
-- [ ] Remove now-empty or near-empty leftovers from `test_codegen.py`.
-- [ ] Delete `test_codegen.py` once all tests are moved.
-- [ ] Normalize import order and helper usage across the new files.
-- [ ] Run `pytest tests/compiler/codegen -q`.
-- [ ] Run the full test suite.
+- [x] Remove now-empty or near-empty leftovers from `test_codegen.py`.
+- [x] Delete `test_codegen.py` once all tests are moved.
+- [x] Normalize import order and helper usage across the new files.
+- [x] Run `pytest tests/compiler/codegen -q`.
+- [x] Run the full test suite.
 
 ## Recommended Execution Order
 
