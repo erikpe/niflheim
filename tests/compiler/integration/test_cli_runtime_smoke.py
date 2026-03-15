@@ -8,7 +8,7 @@ from tests.compiler.integration.helpers import compile_and_run, write
 from tests.compiler.integration.stdlib_fixtures import (
     install_std_error_fixture,
     install_std_io_fixture,
-    make_std_error_entry,
+    make_std_error_entry_with_call,
     make_std_io_entry,
 )
 
@@ -49,10 +49,11 @@ def test_cli_runtime_println_calls(tmp_path: Path, monkeypatch, call_lines: str)
     assert run.stdout == "23\n42\n255\ntrue\nfalse\n"
 
 
-def test_cli_runtime_panic_call_exits_with_error(tmp_path: Path, monkeypatch) -> None:
+@pytest.mark.parametrize("call_target", ["panic", "error.panic"])
+def test_cli_runtime_panic_call_exits_with_error(tmp_path: Path, monkeypatch, call_target: str) -> None:
     install_std_error_fixture(tmp_path)
     entry = tmp_path / "main.nif"
-    write(entry, make_std_error_entry("Panic at the disco!"))
+    write(entry, make_std_error_entry_with_call("Panic at the disco!", call_target))
     run = compile_and_run(
         monkeypatch,
         entry,

@@ -111,11 +111,15 @@ def _nif_string_literal(text: str) -> str:
 
 
 def make_std_error_entry(message: str) -> str:
+    return make_std_error_entry_with_call(message, "panic")
+
+
+def make_std_error_entry_with_call(message: str, call_target: str) -> str:
     return f"""
     import std.error;
 
     fn main() -> i64 {{
-        panic({_nif_string_literal(message)});
+        {call_target}({_nif_string_literal(message)});
         return 0;
     }}
     """
