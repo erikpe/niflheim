@@ -1,0 +1,19 @@
+import std.str;
+import std.bigint;
+import std.io;
+import std.range;
+
+fn factorial(value: u64) -> BigInt {
+    var acc: BigInt = BigInt.from_u64(1u);
+    for n in Range(2, (i64)value + 1) {
+        acc = acc.mul(BigInt.from_u64((u64)n));
+    }
+    return acc;
+}
+
+fn main() -> i64 {
+    var value: u64 = read_program_args()[1].to_u64();
+    var factorial: BigInt = factorial(value);
+    println(factorial.to_string());
+    return 0;
+}
