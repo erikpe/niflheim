@@ -73,6 +73,3 @@ Supporting documentation:
 - [ABI_NOTES.md](ABI_NOTES.md) - compiler/runtime ABI notes.
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.
 - [SUGARING_DESIGN.md](SUGARING_DESIGN.md) - canonical sugar protocols (indexing/slicing and for-in iteration).
-- [FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md](FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md) - implementation checklist for no-capture first-class function values MVP.
-- [CODEGEN_REFACTOR_PLAN.md](CODEGEN_REFACTOR_PLAN.md) - backend package split plan and phase history.
-- [CODEGEN_TEST_REFACTOR_PLAN.md](CODEGEN_TEST_REFACTOR_PLAN.md) - plan for splitting codegen tests by backend layer and feature.

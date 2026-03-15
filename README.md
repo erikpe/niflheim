@@ -6,15 +6,12 @@ Niflheim source files use the `.nif` extension.
 
 Key design docs:
 - [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md)
-- [docs/ARRAY_IMPLEMENTATION_CHECKLIST.md](docs/ARRAY_IMPLEMENTATION_CHECKLIST.md)
 - [docs/ROADMAP_v0.1.md](docs/ROADMAP_v0.1.md)
 - [docs/ABI_NOTES.md](docs/ABI_NOTES.md)
 - [docs/TEST_PLAN_v0.1.md](docs/TEST_PLAN_v0.1.md)
 - [docs/GRAMMAR_EBNF.md](docs/GRAMMAR_EBNF.md)
 - [docs/REPO_STRUCTURE.md](docs/REPO_STRUCTURE.md)
 - [docs/SUGARING_DESIGN.md](docs/SUGARING_DESIGN.md)
-- [docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md](docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md)
-- [docs/CODEGEN_REFACTOR_PLAN.md](docs/CODEGEN_REFACTOR_PLAN.md)
 
 ## Repository Areas
 
@@ -41,8 +38,7 @@ Recent backend/runtime updates:
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
 - `std.io` supports both stdin batch reads (`read_stdin`) and whole-file reads (`read_file(path)`) using minimal runtime open/read/close primitives.
 
-Planned near-term extension design now documented:
-- No-capture first-class function values MVP (`fn(T1, T2, ...) -> R`) is specified in [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md) and tracked via [docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md](docs/FUNCTION_VALUES_IMPLEMENTATION_CHECKLIST.md).
+Recent language/runtime additions are reflected directly in [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md).
 
 ## Policy Decisions (MVP)
 
