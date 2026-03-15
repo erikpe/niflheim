@@ -367,9 +367,9 @@ During implementation, keep the following rules:
 
 ### Phase 8: Extract Runtime Roots / Casts / Metadata
 
-- [ ] Move GC root-frame and safepoint tests into `test_emit_asm_runtime_roots.py`.
-- [ ] Move cast and type metadata tests into `test_emit_asm_casts_metadata.py`.
-- [ ] Run each subset.
+- [x] Move GC root-frame and safepoint tests into `test_emit_asm_runtime_roots.py`.
+- [x] Move cast and type metadata tests into `test_emit_asm_casts_metadata.py`.
+- [x] Run each subset.
 
 ### Phase 9: Final Cleanup
 
