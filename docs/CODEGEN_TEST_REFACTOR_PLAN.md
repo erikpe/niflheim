@@ -342,16 +342,16 @@ During implementation, keep the following rules:
 
 ### Phase 4: Extract End-to-End Basics
 
-- [ ] Move final-assembly basics into `test_emit_asm_basics.py`.
-- [ ] Keep simple literals, control flow, exports, and basic prologue/epilogue coverage there.
-- [ ] Run that subset.
+- [x] Move final-assembly basics into `test_emit_asm_basics.py`.
+- [x] Keep simple literals, control flow, exports, and basic prologue/epilogue coverage there.
+- [x] Run that subset.
 
 ### Phase 5: Extract Call Behavior
 
-- [ ] Move direct call tests into `test_emit_asm_calls.py`.
-- [ ] Move indirect/function-value call tests into `test_emit_asm_calls.py`.
-- [ ] Move register/stack argument order and alignment tests there.
-- [ ] Run that subset.
+- [x] Move direct call tests into `test_emit_asm_calls.py`.
+- [x] Move indirect/function-value call tests into `test_emit_asm_calls.py`.
+- [x] Move register/stack argument order and alignment tests there.
+- [x] Run that subset.
 
 ### Phase 6: Extract Arithmetic / Integer Behavior
 
