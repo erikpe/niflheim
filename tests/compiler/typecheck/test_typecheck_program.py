@@ -6,6 +6,7 @@ from compiler.resolver import resolve_program
 from compiler.typecheck import typecheck_program
 from compiler.typecheck_model import TypeCheckError
 
+
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content.strip() + "\n", encoding="utf-8")

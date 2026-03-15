@@ -545,7 +545,8 @@ class TypeChecker:
 
             if object_type.element_type is not None:
                 if expr.field_name not in ARRAY_METHOD_NAMES:
-                    raise TypeCheckError(f"Array type '{object_type.name}' has no member '{expr.field_name}'", expr.span)
+                    raise TypeCheckError(f"Array type '{object_type.name}' has no member '{
+                                         expr.field_name}'", expr.span)
                 return TypeInfo(name=f"__array_method__:{expr.field_name}", kind="callable")
 
             class_info = self._lookup_class_by_type_name(object_type.name)
@@ -616,7 +617,8 @@ class TypeChecker:
         self._require_member_visible(class_info, collection_type.name, "iter_len", "method", span)
         if iter_len_sig.is_static or len(iter_len_sig.params) != 0:
             raise TypeCheckError(
-                f"Type '{collection_type.name}' is not iterable (method 'iter_len' must be instance method with 0 args)",
+                f"Type '{
+                    collection_type.name}' is not iterable (method 'iter_len' must be instance method with 0 args)",
                 span,
             )
         iter_len_return = self._qualify_member_type_for_owner(iter_len_sig.return_type, collection_type.name)
@@ -714,7 +716,8 @@ class TypeChecker:
 
                 method_sig = class_info.methods.get(expr.callee.field_name)
                 if method_sig is None:
-                    raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
+                    raise TypeCheckError(f"Class '{class_info.name}' has no method '{
+                                         expr.callee.field_name}'", expr.span)
                 self._require_member_visible(class_info, class_type_name, expr.callee.field_name, "method", expr.span)
                 if not method_sig.is_static:
                     raise TypeCheckError(
@@ -787,7 +790,8 @@ class TypeChecker:
             if method_sig is None:
                 field_type = class_info.fields.get(expr.callee.field_name)
                 if field_type is not None:
-                    self._require_member_visible(class_info, object_type.name, expr.callee.field_name, "field", expr.span)
+                    self._require_member_visible(class_info, object_type.name,
+                                                 expr.callee.field_name, "field", expr.span)
                     qualified_field_type = self._qualify_member_type_for_owner(field_type, object_type.name)
                     if (
                         qualified_field_type.kind == "callable"
@@ -851,7 +855,7 @@ class TypeChecker:
     def _class_type_name_from_callable(self, callable_name: str) -> str:
         if not callable_name.startswith("__class__:"):
             raise ValueError(f"invalid class callable name: {callable_name}")
-        payload = callable_name[len("__class__:") :]
+        payload = callable_name[len("__class__:"):]
         if ":" not in payload:
             return payload
         owner_dotted, class_name = payload.rsplit(":", 1)
@@ -1014,7 +1018,8 @@ class TypeChecker:
         qualified_end_param = self._qualify_member_type_for_owner(method_sig.params[1], object_type.name)
         if qualified_begin_param.name != "i64" or qualified_end_param.name != "i64":
             raise TypeCheckError(
-                f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' first two parameters must be i64)",
+                f"Type '{
+                    object_type.name}' is not slice-assignable (method 'slice_set' first two parameters must be i64)",
                 span,
             )
 

@@ -146,7 +146,8 @@ def emit_statement(
             field_offset = codegen.class_field_offsets.get((receiver_type_name, stmt.target.field_name))
             if field_offset is None:
                 codegen_types.raise_codegen_error(
-                    f"field assignment codegen missing field '{stmt.target.field_name}' on class '{receiver_type_name}'",
+                    f"field assignment codegen missing field '{
+                        stmt.target.field_name}' on class '{receiver_type_name}'",
                     span=stmt.span,
                 )
             emit_expr(codegen, stmt.target.object_expr, ctx)

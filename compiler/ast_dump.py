@@ -5,7 +5,6 @@ import json
 from typing import Any
 
 
-
 def ast_to_debug_data(node: Any, *, include_spans: bool = False) -> Any:
     if node is None:
         return None
@@ -31,7 +30,6 @@ def ast_to_debug_data(node: Any, *, include_spans: bool = False) -> Any:
         return {str(k): ast_to_debug_data(v, include_spans=include_spans) for k, v in node.items()}
 
     raise TypeError(f"Unsupported AST debug serialization value: {type(node).__name__}")
-
 
 
 def ast_to_debug_json(node: Any, *, include_spans: bool = False) -> str:

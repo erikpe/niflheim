@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+from compiler.parser import parse, parse_expression
+from compiler.lexer import lex
+from compiler.ast_dump import ast_to_debug_json
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,10 +13,6 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-from compiler.ast_dump import ast_to_debug_json
-from compiler.lexer import lex
-from compiler.parser import parse, parse_expression
 
 
 @dataclass(frozen=True)

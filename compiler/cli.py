@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from compiler.ast_dump import ast_to_debug_json
-from compiler.codegen import emit_asm
+from compiler.codegen.generator import emit_asm
 from compiler.lexer import Token, lex
 from compiler.module_linker import build_codegen_module, require_main_function
 from compiler.parser import parse
@@ -34,7 +34,8 @@ def main() -> int:
     )
     parser.add_argument("input", help="Input .nif source file")
     parser.add_argument("-o", "--output", help="Output assembly file path (default: stdout)")
-    parser.add_argument("--project-root", help="Project root for multi-module resolution (default: input file directory)")
+    parser.add_argument(
+        "--project-root", help="Project root for multi-module resolution (default: input file directory)")
     parser.add_argument(
         "--stop-after",
         choices=STOP_PHASES,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from compiler.ast_nodes import FunctionDecl, ModuleAst
-from compiler.codegen import emit_asm
+from compiler.codegen.generator import emit_asm
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.layout import build_layout
 from compiler.codegen.model import EmitContext

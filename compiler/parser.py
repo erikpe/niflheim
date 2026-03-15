@@ -86,15 +86,18 @@ class Parser:
             if self.stream.match(TokenKind.EXPORT):
                 export_token = self.stream.previous()
                 if self.stream.match(TokenKind.IMPORT):
-                    imports.append(self._parse_import_decl(is_export=True, import_token=self.stream.previous(), export_token=export_token))
+                    imports.append(self._parse_import_decl(
+                        is_export=True, import_token=self.stream.previous(), export_token=export_token))
                     continue
 
                 if self.stream.match(TokenKind.CLASS):
-                    classes.append(self._parse_class_decl(is_export=True, class_token=self.stream.previous(), export_token=export_token))
+                    classes.append(self._parse_class_decl(
+                        is_export=True, class_token=self.stream.previous(), export_token=export_token))
                     continue
 
                 if self.stream.match(TokenKind.FN):
-                    functions.append(self._parse_function_decl(is_export=True, fn_token=self.stream.previous(), export_token=export_token))
+                    functions.append(self._parse_function_decl(
+                        is_export=True, fn_token=self.stream.previous(), export_token=export_token))
                     continue
 
                 if self.stream.match(TokenKind.EXTERN):
@@ -110,7 +113,8 @@ class Parser:
                     )
                     continue
 
-                raise ParserError("Expected 'import', 'class', 'fn', or 'extern fn' after 'export'", self.stream.peek().span)
+                raise ParserError("Expected 'import', 'class', 'fn', or 'extern fn' after 'export'",
+                                  self.stream.peek().span)
 
             if self.stream.match(TokenKind.EXTERN):
                 extern_token = self.stream.previous()
@@ -243,7 +247,8 @@ class Parser:
                 continue
 
             if self.stream.check(TokenKind.IDENT) and self.stream.peek(1).kind == TokenKind.COLON:
-                fields.append(self._parse_field_decl(is_private=is_private, is_final=is_final, start_token=modifier_start))
+                fields.append(self._parse_field_decl(is_private=is_private,
+                              is_final=is_final, start_token=modifier_start))
                 continue
 
             raise ParserError("Expected field or method declaration in class body", self.stream.peek().span)
@@ -294,7 +299,8 @@ class Parser:
             body=body,
             is_static=is_static,
             is_private=is_private,
-            span=SourceSpan(start=(start_token.span.start if start_token is not None else fn_token.span.start), end=body.span.end),
+            span=SourceSpan(
+                start=(start_token.span.start if start_token is not None else fn_token.span.start), end=body.span.end),
         )
 
     def _parse_function_decl(
