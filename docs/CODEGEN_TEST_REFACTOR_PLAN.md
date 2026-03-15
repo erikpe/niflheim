@@ -307,17 +307,17 @@ During implementation, keep the following rules:
 
 ### Phase 0: Preparation
 
-- [ ] Add this plan document to the docs set.
-- [ ] Identify repeated setup patterns in `test_codegen.py`.
-- [ ] Decide whether shared helpers live in `helpers.py` or `conftest.py`.
+- [x] Add this plan document to the docs set.
+- [x] Identify repeated setup patterns in `test_codegen.py`.
+- [x] Decide whether shared helpers live in `helpers.py` or `conftest.py`.
 
 ### Phase 1: Shared Test Helpers
 
-- [ ] Create `tests/compiler/codegen/helpers.py`.
-- [ ] Add a source-to-module helper.
-- [ ] Add a source-to-assembly helper.
-- [ ] Add a helper for constructing `CodeGenerator` + `EmitContext` for a selected function.
-- [ ] Keep helper APIs minimal and focused.
+- [x] Create `tests/compiler/codegen/helpers.py`.
+- [x] Add a source-to-module helper.
+- [x] Add a source-to-assembly helper.
+- [x] Add a helper for constructing `CodeGenerator` + `EmitContext` for a selected function.
+- [x] Keep helper APIs minimal and focused.
 
 ### Phase 2: Extract Pure Helper / Unit Tests
 
