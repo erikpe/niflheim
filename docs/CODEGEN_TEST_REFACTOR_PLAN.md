@@ -333,12 +333,12 @@ During implementation, keep the following rules:
 
 ### Phase 3: Extract Emitter / Generator Tests
 
-- [ ] Move generator coordination tests into `test_generator.py`.
-- [ ] Move focused expression emitter tests into `test_emitter_expr.py`.
-- [ ] Move focused statement emitter tests into `test_emitter_stmt.py`.
-- [ ] Move focused function emitter tests into `test_emitter_fn.py`.
-- [ ] Move focused module emitter tests into `test_emitter_module.py`.
-- [ ] Run the emitter-layer tests.
+- [x] Move generator coordination tests into `test_generator.py`.
+- [x] Move focused expression emitter tests into `test_emitter_expr.py`.
+- [x] Move focused statement emitter tests into `test_emitter_stmt.py`.
+- [x] Move focused function emitter tests into `test_emitter_fn.py`.
+- [x] Move focused module emitter tests into `test_emitter_module.py`.
+- [x] Run the emitter-layer tests.
 
 ### Phase 4: Extract End-to-End Basics
 

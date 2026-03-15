@@ -1,12 +1,6 @@
 from compiler.codegen import emit_asm
-from compiler.codegen.emitter_expr import emit_expr as emit_expr_module
-from compiler.codegen.emitter_fn import emit_function as emit_function_module
-from compiler.codegen.emitter_module import generate_module as generate_module_helper
-from compiler.codegen.emitter_stmt import emit_statement as emit_statement_module
 from compiler.lexer import lex
 from compiler.parser import parse
-from compiler.codegen.generator import CodeGenerator
-from tests.compiler.codegen.helpers import make_function_emit_context
 
 
 def test_emit_asm_emits_intel_text_header() -> None:
@@ -200,104 +194,6 @@ fn choose(flag: bool) -> i64 {
     assert ".Lchoose_if_else_" in asm
     assert ".Lchoose_if_end_" in asm
     assert "    je .Lchoose_if_else_" in asm
-
-
-def test_emitter_expr_module_emits_integer_binary_expr() -> None:
-    module, generator, fn, ctx = make_function_emit_context(
-        "fn f(a: i64, b: i64) -> i64 { return a + b; }",
-        source_path="examples/codegen_expr.nif",
-    )
-
-    return_stmt = fn.body.statements[0]
-    assert return_stmt.value is not None
-    emit_expr_module(generator, return_stmt.value, ctx)
-
-    assert "    push rax" in generator.asm.lines
-    assert "    add rax, rcx" in generator.asm.lines
-
-
-def test_emitter_stmt_module_emits_while_control_flow() -> None:
-    source = """
-fn loop_to(limit: i64) -> i64 {
-    var i: i64 = 0;
-    while i < limit {
-        i = i + 1;
-    }
-    return i;
-}
-"""
-    module, generator, fn, ctx = make_function_emit_context(
-        source,
-        source_path="examples/codegen_stmt.nif",
-    )
-
-    emit_statement_module(generator, fn.body.statements[1], ".Lf_epilogue", "i64", ctx, loop_labels=[])
-
-    assert any(line.startswith(".Lloop_to_while_start_") for line in generator.asm.lines)
-    assert any(line.startswith(".Lloop_to_while_end_") for line in generator.asm.lines)
-    assert "    je .Lloop_to_while_end_1" in generator.asm.lines or any(
-        line.startswith("    je .Lloop_to_while_end_") for line in generator.asm.lines
-    )
-
-
-def test_codegen_uses_builder_for_aligned_call_and_comments() -> None:
-    source = """
-fn callee() -> i64 {
-    return 7;
-}
-
-fn caller() -> i64 {
-    return callee();
-}
-"""
-    module = parse(lex(source, source_path="examples/codegen.nif"))
-    generator = CodeGenerator(module)
-
-    asm = generator.generate()
-
-    assert generator.asm.build() == asm
-    assert any(line.startswith("    # ") for line in generator.asm.lines)
-    assert "    test rsp, 8" in asm
-    assert ".L__nif_aligned_call_0:" in asm
-
-
-def test_emitter_fn_module_emits_function_prologue_and_epilogue() -> None:
-    module = parse(lex("fn main() -> i64 { return 0; }", source_path="examples/codegen_fn.nif"))
-    generator = CodeGenerator(module)
-    generator.build_symbol_tables()
-
-    emit_function_module(generator, module.functions[0])
-
-    assert ".globl main" in generator.asm.lines
-    assert "main:" in generator.asm.lines
-    assert ".Lmain_epilogue:" in generator.asm.lines
-    assert "    ret" in generator.asm.lines
-
-
-def test_emitter_module_helper_orchestrates_sections_and_methods() -> None:
-    source = """
-class Box {
-    value: i64;
-
-    fn get(self: Box) -> i64 {
-        return self.value;
-    }
-}
-
-fn main() -> i64 {
-    return 0;
-}
-"""
-    module = parse(lex(source, source_path="examples/codegen_module.nif"))
-    generator = CodeGenerator(module)
-
-    asm = generate_module_helper(generator)
-
-    assert asm == generator.asm.build()
-    assert ".text" in asm
-    assert "__nif_method_Box_get" in asm
-    assert "__nif_ctor_Box" in asm
-    assert '.section .note.GNU-stack,"",@progbits' in asm
 
 
 def test_emit_asm_while_loop_control_flow() -> None:
