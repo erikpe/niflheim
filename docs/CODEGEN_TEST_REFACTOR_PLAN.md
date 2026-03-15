@@ -321,15 +321,15 @@ During implementation, keep the following rules:
 
 ### Phase 2: Extract Pure Helper / Unit Tests
 
-- [ ] Move asm builder and operand helper tests into `test_asm.py`.
-- [ ] Move symbol helper tests into `test_symbols.py`.
-- [ ] Move type helper tests into `test_types.py`.
-- [ ] Move SysV argument planning tests into `test_abi_sysv.py`.
-- [ ] Move layout planning tests into `test_layout.py`.
-- [ ] Move call resolution tests into `test_call_resolution.py`.
-- [ ] Move float-op tests into `test_ops_float.py`.
-- [ ] Move integer-op tests into `test_ops_int.py`.
-- [ ] Run the extracted tests.
+- [x] Move asm builder and operand helper tests into `test_asm.py`.
+- [x] Move symbol helper tests into `test_symbols.py`.
+- [x] Move type helper tests into `test_types.py`.
+- [x] Move SysV argument planning tests into `test_abi_sysv.py`.
+- [x] Move layout planning tests into `test_layout.py`.
+- [x] Move call resolution tests into `test_call_resolution.py`.
+- [x] Move float-op tests into `test_ops_float.py`.
+- [x] Move integer-op tests into `test_ops_int.py`.
+- [x] Run the extracted tests.
 
 ### Phase 3: Extract Emitter / Generator Tests
 
