@@ -355,15 +355,15 @@ During implementation, keep the following rules:
 
 ### Phase 6: Extract Arithmetic / Integer Behavior
 
-- [ ] Move arithmetic, bitwise, shift, power, and signed div/mod tests into `test_emit_asm_int_ops.py`.
-- [ ] Run that subset.
+- [x] Move arithmetic, bitwise, shift, power, and signed div/mod tests into `test_emit_asm_int_ops.py`.
+- [x] Run that subset.
 
 ### Phase 7: Extract Strings, Arrays, Objects
 
-- [ ] Move string literal and `Str` behavior tests into `test_emit_asm_strings.py`.
-- [ ] Move array lowering tests into `test_emit_asm_arrays.py`.
-- [ ] Move constructor/field/method/object sugar tests into `test_emit_asm_objects.py`.
-- [ ] Run each subset.
+- [x] Move string literal and `Str` behavior tests into `test_emit_asm_strings.py`.
+- [x] Move array lowering tests into `test_emit_asm_arrays.py`.
+- [x] Move constructor/field/method/object sugar tests into `test_emit_asm_objects.py`.
+- [x] Run each subset.
 
 ### Phase 8: Extract Runtime Roots / Casts / Metadata
 

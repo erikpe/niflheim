@@ -1,0 +1,208 @@
+from tests.compiler.codegen.helpers import emit_source_asm
+
+
+def test_emit_asm_box_i64_constructor_and_value_method_lower_to_class_symbols() -> None:
+    source = """
+class BoxI64 {
+    _value: i64;
+
+    fn value() -> i64 {
+        return __self._value;
+    }
+}
+
+fn main() -> i64 {
+    var b: BoxI64 = BoxI64(7);
+    return b.value();
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call __nif_ctor_BoxI64" in asm
+    assert "    call __nif_method_BoxI64_value" in asm
+
+
+def test_emit_asm_user_defined_vec_class_uses_method_symbols_not_rt_vec_builtins() -> None:
+    source = """
+class Vec {
+    _len: i64;
+
+    static fn new() -> Vec {
+        return Vec(0);
+    }
+
+    fn len() -> i64 {
+        return __self._len;
+    }
+
+    fn push(value: Obj) -> unit {
+        __self._len = __self._len + 1;
+        return;
+    }
+}
+
+fn main() -> i64 {
+    var v: Vec = Vec.new();
+    v.push(null);
+    return v.len();
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call __nif_method_Vec_new" in asm
+    assert "    call __nif_method_Vec_push" in asm
+    assert "    call __nif_method_Vec_len" in asm
+    assert "rt_vec_" not in asm
+
+
+def test_emit_asm_structural_index_sugar_for_user_class_lowers_to_get_set_methods() -> None:
+    source = """
+class Bag {
+    values: i64[];
+
+    static fn new() -> Bag {
+        return Bag(i64[](2u));
+    }
+
+    fn index_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        __self.values[index] = value;
+        return;
+    }
+}
+
+fn main() -> i64 {
+    var b: Bag = Bag.new();
+    b[0] = 7;
+    return b[0];
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call __nif_method_Bag_index_set" in asm
+    assert "    call __nif_method_Bag_index_get" in asm
+
+
+def test_emit_asm_structural_slice_sugar_for_user_class_lowers_to_slice_method() -> None:
+    source = """
+class Window {
+    values: i64[];
+
+    static fn new() -> Window {
+        return Window(i64[](3u));
+    }
+
+    fn slice_get(begin: i64, end: i64) -> Window {
+        return __self;
+    }
+}
+
+fn main() -> i64 {
+    var w: Window = Window.new();
+    var part: Window = w[0:2];
+    if part == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call __nif_method_Window_slice_get" in asm
+
+
+def test_emit_asm_method_call_lowers_to_method_symbol_with_receiver_arg0() -> None:
+    source = """
+class Counter {
+    fn add(delta: i64) -> i64 {
+        return delta;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = null;
+    return c.add(7);
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "__nif_method_Counter_add:" in asm
+    assert "    call __nif_method_Counter_add" in asm
+    assert "    mov rdi, qword ptr [r10]" in asm
+    assert "    mov rsi, qword ptr [r10 + 8]" in asm
+
+
+def test_emit_asm_static_method_call_lowers_to_method_symbol_without_receiver_arg0() -> None:
+    source = """
+class Counter {
+    static fn add(delta: i64) -> i64 {
+        return delta;
+    }
+}
+
+fn main() -> i64 {
+    return Counter.add(7);
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "__nif_method_Counter_add:" in asm
+    assert "    call __nif_method_Counter_add" in asm
+
+
+def test_emit_asm_constructor_call_lowers_to_constructor_symbol() -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(7);
+    if c == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "__nif_ctor_Counter:" in asm
+    assert "    call __nif_ctor_Counter" in asm
+    assert "    call rt_alloc_obj" in asm
+
+
+def test_emit_asm_class_field_read_lowers_to_object_payload_load() -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(7);
+    return c.value;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    mov rax, qword ptr [rax + 24]" in asm
+
+
+def test_emit_asm_class_field_assignment_lowers_to_object_payload_store() -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(7);
+    c.value = 9;
+    return c.value;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    mov qword ptr [rcx + 24], rax" in asm
+    assert "    mov rax, qword ptr [rax + 24]" in asm

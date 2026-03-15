@@ -1,0 +1,237 @@
+from tests.compiler.codegen.helpers import emit_source_asm
+
+
+def test_emit_asm_array_constructor_lowers_to_runtime_symbol_by_element_kind() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var a: u8[] = u8[](4u);
+    var b: i64[] = i64[](2u);
+    var c: Person[] = Person[](3u);
+    return;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_new_u8" in asm
+    assert "    call rt_array_new_i64" in asm
+    assert "    call rt_array_new_ref" in asm
+
+
+def test_emit_asm_array_index_get_set_lowers_to_runtime_calls() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    nums[0] = (u8)1;
+    var x: u8 = nums[0];
+
+    var people: Person[] = Person[](1u);
+    people[0] = Person(7);
+    var p: Person = people[0];
+    return;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_set_u8" in asm
+    assert "    call rt_array_get_u8" in asm
+    assert "    call rt_array_set_ref" in asm
+    assert "    call rt_array_get_ref" in asm
+
+
+def test_emit_asm_array_len_and_slice_lower_to_runtime_calls() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var nums: u8[] = u8[](4u);
+    var n: u64 = nums.len();
+    var s: u8[] = nums[1:3];
+
+    var people: Person[] = Person[](2u);
+    var t: Person[] = people.slice_get(0, 1);
+    return;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_len" in asm
+    assert "    call rt_array_slice_u8" in asm
+    assert "    call rt_array_slice_ref" in asm
+
+
+def test_emit_asm_array_constructor_dispatch_covers_remaining_primitive_kinds() -> None:
+    source = """
+fn main() -> unit {
+    var a: u64[] = u64[](1u);
+    var b: bool[] = bool[](1u);
+    var c: double[] = double[](1u);
+    return;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_new_u64" in asm
+    assert "    call rt_array_new_bool" in asm
+    assert "    call rt_array_new_double" in asm
+
+
+def test_emit_asm_nested_array_uses_reference_array_runtime_paths() -> None:
+    source = """
+fn main() -> unit {
+    var mat: i64[][] = i64[][](2u);
+    var row: i64[] = i64[](3u);
+    mat[0] = row;
+    var x: i64 = mat[0][1];
+    return;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_new_ref" in asm
+    assert "    call rt_array_new_i64" in asm
+    assert "    call rt_array_set_ref" in asm
+    assert "    call rt_array_get_ref" in asm
+    assert "    call rt_array_get_i64" in asm
+
+
+def test_emit_asm_nested_array_chained_field_access_lowers() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> i64 {
+    var teams: Person[][] = Person[][](1u);
+    teams[0] = Person[](1u);
+    teams[0][0] = Person(42);
+    return teams[0][0].age;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert asm.count("    call rt_array_get_ref") >= 2
+    assert "    mov rax, qword ptr [rax + 24]" in asm
+
+
+def test_emit_asm_nested_index_assignment_target_lowers_to_array_set() -> None:
+    source = """
+fn main() -> unit {
+    var cube: u8[][][][] = u8[][][][](1u);
+    cube[0] = u8[][][](1u);
+    cube[0][0] = u8[][](1u);
+    cube[0][0][0] = u8[](2u);
+    cube[0][0][0][1] = (u8)9;
+    return;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_set_u8" in asm
+    assert asm.count("    call rt_array_get_ref") >= 3
+
+
+def test_emit_asm_array_method_form_get_set_slice_lowers_to_runtime_calls() -> None:
+    source = """
+fn main() -> unit {
+    var nums: u64[] = u64[](4u);
+    nums.index_set(1, 42u);
+    var x: u64 = nums.index_get(1);
+    var s: u64[] = nums.slice_get(0, 2);
+    nums.slice_set(1, 3, s);
+    return;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_set_u64" in asm
+    assert "    call rt_array_get_u64" in asm
+    assert "    call rt_array_slice_u64" in asm
+    assert "    call rt_array_set_slice_u64" in asm
+
+
+def test_emit_asm_for_in_over_array_lowers_to_array_iter_runtime_calls() -> None:
+    source = """
+fn main() -> i64 {
+    var values: i64[] = i64[](2u);
+    values[0] = 4;
+    values[1] = 6;
+
+    var sum: i64 = 0;
+    for value in values {
+        sum = sum + value;
+    }
+
+    return sum;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_len" in asm
+    assert "    call rt_array_get_i64" in asm
+
+
+def test_emit_asm_array_reference_set_roots_reference_value_argument_for_runtime_call() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var people: Person[] = Person[](1u);
+    var p: Person = Person(7);
+    people.index_set(0, p);
+    return;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_set_ref" in asm
+    assert "    mov esi, 2" in asm
+    assert asm.count("    call rt_root_slot_store") >= 3
+
+
+def test_emit_asm_array_index_assignment_roots_runtime_value_argument() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var people: Person[] = Person[](1u);
+    var p: Person = Person(7);
+    people[0] = p;
+    return;
+}
+"""
+    asm = emit_source_asm(source)
+
+    assert "    call rt_array_set_ref" in asm
+    assert "    mov esi, 2" in asm
+
+
+def test_emit_asm_array_ctor_runtime_call_dynamic_aligns_with_prior_pushed_arg() -> None:
+    source = """
+fn consume(a: Obj[], b: i64) -> u64 {
+    return a.len();
+}
+
+fn caller() -> u64 {
+    return consume(Obj[](1u), 7);
+}
+"""
+    asm = emit_source_asm(source, source_path="examples/codegen_array_ctor_align.nif")
+
+    assert "    call rt_array_new_ref" in asm
+    assert "    test rsp, 8" in asm
+    assert "    sub rsp, 8" in asm
+    assert "    add rsp, 8" in asm
