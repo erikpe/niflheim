@@ -20,3 +20,9 @@ def test_asm_builder_formats_operands_and_lines() -> None:
         "    # generated",
         "",
     ]
+
+
+def test_asm_operand_helpers_format_zero_positive_and_negative_offsets() -> None:
+    assert offset_operand(8) == "qword ptr [rbp + 8]"
+    assert stack_slot_operand("rsp", 0) == "qword ptr [rsp]"
+    assert stack_slot_operand("rsp", -16) == "qword ptr [rsp - 16]"
