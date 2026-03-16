@@ -1,7 +1,7 @@
 import pytest
 
 from compiler.typecheck.model import TypeCheckError
-from tests.compiler.typecheck.helpers import _parse_and_typecheck
+from tests.compiler.typecheck.helpers import parse_and_typecheck
 
 
 def test_typecheck_rejects_field_method_name_collision() -> None:
@@ -19,7 +19,56 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Duplicate member 'value'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_duplicate_class_and_function_declaration_name() -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn Counter() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate declaration 'Counter'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_duplicate_field_names() -> None:
+    source = """
+class Counter {
+    value: i64;
+    value: bool;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate field 'value'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_duplicate_method_names() -> None:
+    source = """
+class Counter {
+    fn tick() -> unit {
+        return;
+    }
+
+    fn tick() -> unit {
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate method 'tick'"):
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_public_implicit_constructor_for_public_final_fields() -> None:
@@ -34,7 +83,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_constructor_omits_default_initialized_fields_from_params() -> None:
@@ -49,7 +98,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_constructor_call_including_defaulted_field_argument() -> None:
@@ -65,7 +114,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 1 arguments, got 2"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_non_constant_class_field_initializer() -> None:
@@ -83,4 +132,4 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Class field initializer must be a constant expression in MVP"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)

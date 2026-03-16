@@ -1,7 +1,7 @@
 import pytest
 
 from compiler.typecheck.model import TypeCheckError
-from tests.compiler.typecheck.helpers import _parse_and_typecheck
+from tests.compiler.typecheck.helpers import parse_and_typecheck
 
 
 def test_typecheck_primitives_and_references_ok() -> None:
@@ -31,7 +31,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_str_plus_str() -> None:
@@ -46,7 +46,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_str_plus_non_str() -> None:
@@ -62,7 +62,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Operator '\\+' requires numeric operands or Str operands"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_reference_to_primitive_assignment() -> None:
@@ -78,7 +78,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'Person' to 'i64'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_primitive_to_reference_assignment() -> None:
@@ -93,7 +93,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'i64' to 'Person'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_explicit_primitive_casts() -> None:
@@ -106,7 +106,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_double_modulo_operator() -> None:
@@ -119,7 +119,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Operator '%' is not supported for 'double'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_u_suffix_integer_literal_is_u64() -> None:
@@ -130,7 +130,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_u64_literal_out_of_range() -> None:
@@ -141,7 +141,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="u64 literal out of range"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_u64_max_literal() -> None:
@@ -151,7 +151,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_u8_suffix_and_char_literals_are_u8() -> None:
@@ -163,7 +163,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_u8_literal_out_of_range() -> None:
@@ -174,7 +174,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="u8 literal out of range"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_assigning_u_suffix_literal_to_i64() -> None:
@@ -185,7 +185,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'u64' to 'i64'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_i64_literal_out_of_range() -> None:
@@ -196,7 +196,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="i64 literal out of range"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_i64_literal_out_of_range_negative() -> None:
@@ -207,7 +207,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="i64 literal out of range"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_i64_max_literal() -> None:
@@ -217,7 +217,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_i64_min_literal_via_unary_minus() -> None:
@@ -227,7 +227,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_unary_minus_on_u64() -> None:
@@ -239,7 +239,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Unary '-' requires signed numeric operand"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_unary_minus_on_u8() -> None:
@@ -251,7 +251,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Unary '-' requires signed numeric operand"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_bitwise_ops_for_matching_integer_types() -> None:
@@ -270,7 +270,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_bitwise_mixed_integer_types() -> None:
@@ -283,7 +283,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Operator '&' requires matching operand types"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_bitwise_on_double() -> None:
@@ -296,7 +296,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Operator '\\|' requires integer operands"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_unary_bitwise_not_on_double() -> None:
@@ -308,7 +308,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Unary '~' requires integer operand"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_shift_ops_with_u64_count() -> None:
@@ -326,7 +326,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_shift_non_u64_count() -> None:
@@ -338,7 +338,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Operator '<<' requires 'u64' shift count"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_shift_non_integer_left_operand() -> None:
@@ -350,7 +350,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Operator '>>' requires integer left operand"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_integer_power_with_u64_exponent() -> None:
@@ -362,7 +362,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_power_non_u64_exponent() -> None:
@@ -373,7 +373,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Operator '\*\*' requires 'u64' exponent"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_power_non_integer_left_operand() -> None:
@@ -384,7 +384,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Operator '\*\*' requires integer left operand"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_obj_upcast_and_explicit_downcast() -> None:
@@ -401,7 +401,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_null_cast_to_reference() -> None:
@@ -416,7 +416,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Invalid cast from 'null' to 'Person'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_obj_assignment_without_downcast() -> None:
@@ -432,7 +432,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'Obj' to 'Person'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_unrelated_reference_cast() -> None:
@@ -451,7 +451,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Invalid cast from 'Person' to 'Str'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_casts_involving_unit() -> None:
@@ -462,7 +462,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Casts involving 'unit' are not allowed"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_provably_null_field_and_method_deref_at_compile_time() -> None:
@@ -482,7 +482,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_provably_null_index_deref_at_compile_time() -> None:
@@ -493,7 +493,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_identity_cast_for_array_type() -> None:
@@ -504,7 +504,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_cross_element_array_cast() -> None:
@@ -520,7 +520,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Invalid cast from 'Person\[\]' to 'Obj\[\]'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_array_equality_for_different_element_types() -> None:
@@ -537,7 +537,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Operator '==' has incompatible operand types"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_array_equality_with_null() -> None:
@@ -553,4 +553,4 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)

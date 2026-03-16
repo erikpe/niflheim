@@ -1,7 +1,7 @@
 import pytest
 
 from compiler.typecheck.model import TypeCheckError
-from tests.compiler.typecheck.helpers import _parse_and_typecheck
+from tests.compiler.typecheck.helpers import parse_and_typecheck
 
 
 def test_typecheck_allows_private_members_inside_declaring_class() -> None:
@@ -31,7 +31,7 @@ fn main() -> i64 {
     return c.use_hidden(2);
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_private_field_access_outside_class() -> None:
@@ -50,7 +50,7 @@ fn main() -> i64 {
 }
 """
     with pytest.raises(TypeCheckError, match="Member 'Counter.value' is private"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_private_instance_method_call_outside_class() -> None:
@@ -67,7 +67,7 @@ fn main() -> i64 {
 }
 """
     with pytest.raises(TypeCheckError, match="Member 'Counter.hidden' is private"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_private_static_method_call_outside_class() -> None:
@@ -83,7 +83,7 @@ fn main() -> i64 {
 }
 """
     with pytest.raises(TypeCheckError, match="Member 'Counter.hidden' is private"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_private_field_access_from_other_class_same_module() -> None:
@@ -109,7 +109,7 @@ fn main() -> i64 {
 }
 """
     with pytest.raises(TypeCheckError, match="Member 'Counter.value' is private"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_assignment_to_final_field_inside_class() -> None:
@@ -130,7 +130,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Field 'Counter.value' is final"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_assignment_to_final_field_outside_class() -> None:
@@ -146,7 +146,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Field 'Counter.value' is final"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_private_implicit_constructor_call_outside_class() -> None:
@@ -166,7 +166,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Constructor for class 'Counter' is private"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_assignment_to_box_final_field() -> None:
@@ -186,4 +186,4 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Field 'BoxI64._value' is final"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)

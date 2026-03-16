@@ -4,11 +4,11 @@ import pytest
 
 from compiler.typecheck.api import typecheck_program
 from compiler.typecheck.model import TypeCheckError
-from tests.compiler.typecheck.helpers import _resolve_program_from_main, _write
+from tests.compiler.typecheck.helpers import resolve_program_from_main, write
 
 
 def test_typecheck_program_allows_imported_function_and_class_usage(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export fn add(a: i64, b: i64) -> i64 {
@@ -24,7 +24,7 @@ def test_typecheck_program_allows_imported_function_and_class_usage(tmp_path: Pa
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -38,12 +38,12 @@ def test_typecheck_program_allows_imported_function_and_class_usage(tmp_path: Pa
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_allows_imported_function_value(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export fn add(a: i64, b: i64) -> i64 {
@@ -51,7 +51,7 @@ def test_typecheck_program_allows_imported_function_value(tmp_path: Path) -> Non
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -63,12 +63,12 @@ def test_typecheck_program_allows_imported_function_value(tmp_path: Path) -> Non
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_allows_imported_static_method_value(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Math {
@@ -78,7 +78,7 @@ def test_typecheck_program_allows_imported_static_method_value(tmp_path: Path) -
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -90,12 +90,12 @@ def test_typecheck_program_allows_imported_static_method_value(tmp_path: Path) -
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_rejects_private_member_access_across_modules(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -107,7 +107,7 @@ def test_typecheck_program_rejects_private_member_access_across_modules(tmp_path
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -119,13 +119,13 @@ def test_typecheck_program_rejects_private_member_access_across_modules(tmp_path
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Member 'Counter.value' is private"):
         typecheck_program(program)
 
 
 def test_typecheck_program_rejects_private_method_call_across_modules(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -139,7 +139,7 @@ def test_typecheck_program_rejects_private_method_call_across_modules(tmp_path: 
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -151,13 +151,13 @@ def test_typecheck_program_rejects_private_method_call_across_modules(tmp_path: 
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Member 'Counter.hidden' is private"):
         typecheck_program(program)
 
 
 def test_typecheck_program_rejects_bad_imported_function_argument_type(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export fn add(a: i64, b: i64) -> i64 {
@@ -165,7 +165,7 @@ def test_typecheck_program_rejects_bad_imported_function_argument_type(tmp_path:
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -177,13 +177,13 @@ def test_typecheck_program_rejects_bad_imported_function_argument_type(tmp_path:
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Cannot assign 'bool' to 'i64'"):
         typecheck_program(program)
 
 
 def test_typecheck_program_allows_imported_std_vec_with_index_and_slice_sugar(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "std" / "vec.nif",
         """
         export class Vec {
@@ -212,7 +212,7 @@ def test_typecheck_program_allows_imported_std_vec_with_index_and_slice_sugar(tm
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import std.vec;
@@ -227,12 +227,12 @@ def test_typecheck_program_allows_imported_std_vec_with_index_and_slice_sugar(tm
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_rejects_bad_imported_constructor_argument_type(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -240,7 +240,7 @@ def test_typecheck_program_rejects_bad_imported_constructor_argument_type(tmp_pa
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -252,13 +252,13 @@ def test_typecheck_program_rejects_bad_imported_constructor_argument_type(tmp_pa
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Cannot assign 'bool' to 'i64'"):
         typecheck_program(program)
 
 
 def test_typecheck_program_rejects_private_implicit_constructor_call_across_modules(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -270,7 +270,7 @@ def test_typecheck_program_rejects_private_implicit_constructor_call_across_modu
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -283,13 +283,13 @@ def test_typecheck_program_rejects_private_implicit_constructor_call_across_modu
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Constructor for class 'Counter' is private"):
         typecheck_program(program)
 
 
 def test_typecheck_program_allows_imported_public_implicit_constructor_with_final_field(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class BoxI64 {
@@ -297,7 +297,7 @@ def test_typecheck_program_allows_imported_public_implicit_constructor_with_fina
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -310,12 +310,12 @@ def test_typecheck_program_allows_imported_public_implicit_constructor_with_fina
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_allows_unqualified_imported_exported_class_as_type(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -327,7 +327,7 @@ def test_typecheck_program_allows_unqualified_imported_exported_class_as_type(tm
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -340,12 +340,12 @@ def test_typecheck_program_allows_unqualified_imported_exported_class_as_type(tm
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_allows_unqualified_imported_class_static_method_call(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -357,7 +357,7 @@ def test_typecheck_program_allows_unqualified_imported_class_static_method_call(
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -369,12 +369,12 @@ def test_typecheck_program_allows_unqualified_imported_class_static_method_call(
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_rejects_ambiguous_unqualified_imported_type(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -382,7 +382,7 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_type(tmp_path:
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "model.nif",
         """
         export class Counter {
@@ -390,7 +390,7 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_type(tmp_path:
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -403,13 +403,13 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_type(tmp_path:
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Ambiguous imported type 'Counter'"):
         typecheck_program(program)
 
 
 def test_typecheck_program_allows_qualified_type_annotation_with_local_shadow(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -417,7 +417,7 @@ def test_typecheck_program_allows_qualified_type_annotation_with_local_shadow(tm
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -434,12 +434,12 @@ def test_typecheck_program_allows_qualified_type_annotation_with_local_shadow(tm
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_rejects_qualified_type_annotation_for_non_exported_class(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         class Hidden {
@@ -447,7 +447,7 @@ def test_typecheck_program_rejects_qualified_type_annotation_for_non_exported_cl
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -459,13 +459,13 @@ def test_typecheck_program_rejects_qualified_type_annotation_for_non_exported_cl
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="has no exported class 'Hidden'"):
         typecheck_program(program)
 
 
 def test_typecheck_program_rejects_assigning_local_class_to_qualified_imported_class_type(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -473,7 +473,7 @@ def test_typecheck_program_rejects_assigning_local_class_to_qualified_imported_c
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -491,13 +491,13 @@ def test_typecheck_program_rejects_assigning_local_class_to_qualified_imported_c
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Cannot assign 'Counter' to 'util::Counter'"):
         typecheck_program(program)
 
 
 def test_typecheck_program_allows_unqualified_imported_constructor_when_unique(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -505,7 +505,7 @@ def test_typecheck_program_allows_unqualified_imported_constructor_when_unique(t
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -517,12 +517,12 @@ def test_typecheck_program_allows_unqualified_imported_constructor_when_unique(t
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_rejects_ambiguous_unqualified_imported_constructor(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -530,7 +530,7 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_constructor(tm
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "model.nif",
         """
         export class Counter {
@@ -538,7 +538,7 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_constructor(tm
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -551,13 +551,13 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_constructor(tm
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Ambiguous imported type 'Counter'"):
         typecheck_program(program)
 
 
 def test_typecheck_program_allows_array_types_for_unqualified_and_qualified_imported_class(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -565,7 +565,7 @@ def test_typecheck_program_allows_array_types_for_unqualified_and_qualified_impo
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -580,12 +580,12 @@ def test_typecheck_program_allows_array_types_for_unqualified_and_qualified_impo
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_allows_unqualified_imported_function_when_unique(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export fn add(a: i64, b: i64) -> i64 {
@@ -593,7 +593,7 @@ def test_typecheck_program_allows_unqualified_imported_function_when_unique(tmp_
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -605,12 +605,12 @@ def test_typecheck_program_allows_unqualified_imported_function_when_unique(tmp_
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_rejects_ambiguous_unqualified_imported_function(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export fn add(a: i64, b: i64) -> i64 {
@@ -618,7 +618,7 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_function(tmp_p
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "math.nif",
         """
         export fn add(a: i64, b: i64) -> i64 {
@@ -626,7 +626,7 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_function(tmp_p
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -639,13 +639,13 @@ def test_typecheck_program_rejects_ambiguous_unqualified_imported_function(tmp_p
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Ambiguous imported function 'add'"):
         typecheck_program(program)
 
 
 def test_typecheck_program_imported_std_str_methods_on_unqualified_str(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "std" / "str.nif",
         """
         export class Str {
@@ -655,7 +655,7 @@ def test_typecheck_program_imported_std_str_methods_on_unqualified_str(tmp_path:
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import std.str;
@@ -668,12 +668,12 @@ def test_typecheck_program_imported_std_str_methods_on_unqualified_str(tmp_path:
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_imported_std_str_from_char_static_call(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "std" / "str.nif",
         """
         export class Str {
@@ -683,7 +683,7 @@ def test_typecheck_program_imported_std_str_from_char_static_call(tmp_path: Path
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import std.str;
@@ -695,12 +695,12 @@ def test_typecheck_program_imported_std_str_from_char_static_call(tmp_path: Path
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
 
 
 def test_typecheck_program_rejects_imported_array_equality_with_different_element_types(tmp_path: Path) -> None:
-    _write(
+    write(
         tmp_path / "util.nif",
         """
         export class Counter {
@@ -708,7 +708,7 @@ def test_typecheck_program_rejects_imported_array_equality_with_different_elemen
         }
         """,
     )
-    _write(
+    write(
         tmp_path / "main.nif",
         """
         import util;
@@ -722,6 +722,101 @@ def test_typecheck_program_rejects_imported_array_equality_with_different_elemen
         """,
     )
 
-    program = _resolve_program_from_main(tmp_path)
+    program = resolve_program_from_main(tmp_path)
     with pytest.raises(TypeCheckError, match="Operator '==' has incompatible operand types"):
+        typecheck_program(program)
+
+
+def test_typecheck_program_allows_access_through_reexported_nested_module(tmp_path: Path) -> None:
+    write(
+        tmp_path / "pkg" / "inner.nif",
+        """
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "util.nif",
+        """
+        export import pkg.inner;
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var c: util.inner.Counter = util.inner.Counter(1);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_rejects_missing_reexported_nested_module_segment(tmp_path: Path) -> None:
+    write(
+        tmp_path / "pkg" / "inner.nif",
+        """
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "util.nif",
+        """
+        export import pkg.inner;
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var c: util.missing.Counter = null;
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    with pytest.raises(TypeCheckError, match="Module 'util' has no exported module 'missing'"):
+        typecheck_program(program)
+
+
+def test_typecheck_program_rejects_calling_reexported_module_value(tmp_path: Path) -> None:
+    write(
+        tmp_path / "pkg" / "inner.nif",
+        """
+        export fn make() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    write(
+        tmp_path / "util.nif",
+        """
+        export import pkg.inner;
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            util.inner();
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    with pytest.raises(TypeCheckError, match="Module values are not callable"):
         typecheck_program(program)

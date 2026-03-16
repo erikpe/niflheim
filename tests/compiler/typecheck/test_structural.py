@@ -1,7 +1,7 @@
 import pytest
 
 from compiler.typecheck.model import TypeCheckError
-from tests.compiler.typecheck.helpers import _parse_and_typecheck
+from tests.compiler.typecheck.helpers import parse_and_typecheck
 
 
 def test_typecheck_allows_for_in_with_iter_protocol() -> None:
@@ -29,7 +29,7 @@ fn main() -> i64 {
     return out;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_for_in_over_primitive_array() -> None:
@@ -48,7 +48,7 @@ fn main() -> i64 {
     return sum;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_for_in_over_reference_array() -> None:
@@ -70,7 +70,7 @@ fn main() -> i64 {
     return sum;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_for_in_on_len_get_only_map_like_type() -> None:
@@ -94,7 +94,55 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"not iterable \(missing method 'iter_len\(\)'\)"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_for_in_when_iter_len_return_type_is_not_u64() -> None:
+    source = """
+class Seq {
+    fn iter_len() -> i64 {
+        return 0;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return index;
+    }
+}
+
+fn main() -> unit {
+    var s: Seq = Seq();
+    for elem in s {
+        return;
+    }
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"not iterable \(method 'iter_len' must return u64\)"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_for_in_when_iter_get_arity_is_wrong() -> None:
+    source = """
+class Seq {
+    fn iter_len() -> u64 {
+        return 0u;
+    }
+
+    fn iter_get(index: i64, other: i64) -> i64 {
+        return index + other;
+    }
+}
+
+fn main() -> unit {
+    var s: Seq = Seq();
+    for elem in s {
+        return;
+    }
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"not iterable \(method 'iter_get' must be instance method with 1 arg\)"):
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_structural_index_sugar_for_user_class() -> None:
@@ -123,7 +171,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_structural_index_sugar_for_wrong_get_signature() -> None:
@@ -147,7 +195,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'i64' to 'u64'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_structural_index_sugar_with_non_i64_key_type() -> None:
@@ -180,7 +228,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_mismatched_get_and_set_value_types_for_index_sugar() -> None:
@@ -204,7 +252,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_structural_slice_sugar_for_user_class() -> None:
@@ -231,7 +279,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_structural_slice_sugar_for_wrong_slice_signature() -> None:
@@ -255,7 +303,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="slice_get' parameters must be i64"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_structural_slice_write_sugar_for_user_class() -> None:
@@ -296,7 +344,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_structural_slice_write_sugar_for_wrong_set_slice_signature() -> None:
@@ -324,7 +372,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="slice_set' first two parameters must be i64"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_structural_index_and_slice_sugar_for_private_methods() -> None:
@@ -348,7 +396,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Member 'HiddenGet.index_get' is private"):
-        _parse_and_typecheck(source_get)
+        parse_and_typecheck(source_get)
 
     source_set = """
 class HiddenSet {
@@ -375,7 +423,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Member 'HiddenSet.index_set' is private"):
-        _parse_and_typecheck(source_set)
+        parse_and_typecheck(source_set)
 
     source_slice = """
 class HiddenSlice {
@@ -397,7 +445,60 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Member 'HiddenSlice.slice_get' is private"):
-        _parse_and_typecheck(source_slice)
+        parse_and_typecheck(source_slice)
+
+
+def test_typecheck_rejects_structural_index_assignment_when_index_set_returns_non_unit() -> None:
+    source = """
+class BadBag {
+    values: i64[];
+
+    fn index_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    fn index_set(index: i64, value: i64) -> i64 {
+        __self.values[index] = value;
+        return value;
+    }
+}
+
+fn main() -> unit {
+    var b: BadBag = BadBag(i64[](1u));
+    b[0] = 1;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"index-assignable \(method 'index_set' must return unit\)"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_structural_slice_assignment_when_slice_set_returns_non_unit() -> None:
+    source = """
+class BadWindow {
+    values: i64[];
+
+    fn len() -> u64 {
+        return __self.values.len();
+    }
+
+    fn index_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    fn slice_set(begin: i64, end: i64, value: BadWindow) -> i64 {
+        return 0;
+    }
+}
+
+fn main() -> unit {
+    var w: BadWindow = BadWindow(i64[](2u));
+    w[0:1] = BadWindow(i64[](1u));
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"slice-assignable \(method 'slice_set' must return unit\)"):
+        parse_and_typecheck(source)
 
 
 def test_typecheck_str_index_returns_u8() -> None:
@@ -414,7 +515,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_str_slice_syntax_desugars_and_typechecks() -> None:
@@ -438,7 +539,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_non_i64_str_index() -> None:
@@ -456,7 +557,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'bool' to 'i64'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_assignment_through_str_index() -> None:
@@ -474,7 +575,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="missing method 'index_set\\(K, V\\)'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_arrays_construct_get_set_slice_len_for_primitive_and_class_elements() -> None:
@@ -502,7 +603,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_nested_arrays_as_jagged_arrays() -> None:
@@ -519,7 +620,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_array_set_slice_value_type_mismatch() -> None:
@@ -531,7 +632,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Cannot assign 'bool' to 'u8\[\]'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_arrays_are_invariant() -> None:
@@ -547,7 +648,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Cannot assign 'Person\[\]' to 'Obj\[\]'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_wrong_array_element_assignment_type() -> None:
@@ -559,7 +660,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'i64' to 'u8'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_non_u64_array_constructor_length() -> None:
@@ -570,7 +671,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 'u64', got 'bool'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_non_i64_array_get_index() -> None:
@@ -582,7 +683,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 'i64', got 'bool'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_non_i64_array_set_index() -> None:
@@ -594,7 +695,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 'i64', got 'bool'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_non_i64_array_slice_end() -> None:
@@ -606,7 +707,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 'i64', got 'bool'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_array_method_wrong_arity() -> None:
@@ -618,7 +719,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 0 arguments, got 1"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_array_get_missing_index_argument() -> None:
@@ -630,7 +731,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 1 arguments, got 0"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_array_set_missing_value_argument() -> None:
@@ -642,7 +743,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 2 arguments, got 1"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_array_slice_missing_end_argument() -> None:
@@ -654,7 +755,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 2 arguments, got 1"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_unknown_array_member_access() -> None:
@@ -666,4 +767,4 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Array type 'u8\[\]' has no method 'foo'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)

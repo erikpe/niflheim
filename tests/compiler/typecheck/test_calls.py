@@ -1,7 +1,7 @@
 import pytest
 
 from compiler.typecheck.model import TypeCheckError
-from tests.compiler.typecheck.helpers import _parse_and_typecheck
+from tests.compiler.typecheck.helpers import parse_and_typecheck
 
 
 def test_typecheck_allows_static_method_class_call() -> None:
@@ -16,7 +16,7 @@ fn main() -> i64 {
     return Counter.add(2, 3);
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_static_method_called_on_instance() -> None:
@@ -33,7 +33,7 @@ fn main() -> i64 {
 }
 """
     with pytest.raises(TypeCheckError, match="Static method 'Counter.add' must be called on the class"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_instance_method_called_on_class() -> None:
@@ -49,7 +49,7 @@ fn main() -> i64 {
 }
 """
     with pytest.raises(TypeCheckError, match="Method 'Counter.add' is not static"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_top_level_function_value_and_indirect_call() -> None:
@@ -63,7 +63,7 @@ fn main() -> i64 {
     return f(20, 22);
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_allows_static_method_value_and_indirect_call() -> None:
@@ -79,7 +79,7 @@ fn main() -> i64 {
     return f(20, 22);
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_instance_method_value_in_mvp() -> None:
@@ -97,7 +97,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Instance methods are not first-class values in MVP"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_function_value_assignment_type_mismatch() -> None:
@@ -112,7 +112,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match=r"Cannot assign 'fn\(i64, i64\) -> i64' to 'fn\(i64\) -> i64'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_indirect_call_argument_type_mismatch() -> None:
@@ -127,7 +127,7 @@ fn main() -> i64 {
 }
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'bool' to 'i64'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_direct_callable_field_invocation() -> None:
@@ -149,7 +149,7 @@ fn main() -> i64 {
     return h.run(41);
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_direct_call_on_non_callable_field() -> None:
@@ -168,7 +168,7 @@ fn main() -> i64 {
 }
 """
     with pytest.raises(TypeCheckError, match="Expression of type 'i64' is not callable"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_call_to_extern_function() -> None:
@@ -181,7 +181,7 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_extern_call_with_wrong_argument_type() -> None:
@@ -194,7 +194,7 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Cannot assign 'i64' to 'Obj'"):
-        _parse_and_typecheck(source)
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_box_class_constructors_and_value_getters() -> None:
@@ -244,4 +244,4 @@ fn main() -> unit {
     return;
 }
 """
-    _parse_and_typecheck(source)
+    parse_and_typecheck(source)
