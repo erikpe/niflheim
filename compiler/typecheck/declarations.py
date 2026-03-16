@@ -10,16 +10,12 @@ from compiler.ast_nodes import (
     UnaryExpr,
     LiteralExpr,
 )
-from typing import TYPE_CHECKING
 
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
 from compiler.typecheck.relations import require_assignable
 from compiler.typecheck.type_resolution import resolve_type_ref
-
-if TYPE_CHECKING:
-    from compiler.typecheck.engine import TypeChecker
 
 
 def check_constant_field_initializer(expr: Expression) -> None:
@@ -65,10 +61,8 @@ def function_sig_from_decl(
 
 
 def collect_module_declarations(
-    checker: TypeChecker,
+    ctx: TypeCheckContext,
 ) -> None:
-    ctx = checker.ctx
-
     for class_decl in ctx.module_ast.classes:
         if class_decl.name in ctx.classes or class_decl.name in ctx.functions:
             raise TypeCheckError(f"Duplicate declaration '{class_decl.name}'", class_decl.span)
@@ -97,7 +91,7 @@ def collect_module_declarations(
             )
             if field_decl.initializer is not None:
                 check_constant_field_initializer(field_decl.initializer)
-                init_type = infer_expression_type(checker, field_decl.initializer)
+                init_type = infer_expression_type(ctx, field_decl.initializer)
                 require_assignable(ctx, field_type, init_type, field_decl.initializer.span)
             else:
                 constructor_param_order.append(field_decl.name)

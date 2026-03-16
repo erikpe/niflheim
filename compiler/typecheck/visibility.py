@@ -1,24 +1,19 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from compiler.lexer import SourceSpan
+from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.model import ClassInfo, TypeCheckError
 from compiler.typecheck.relations import canonicalize_reference_type_name
 
-if TYPE_CHECKING:
-    from compiler.typecheck.engine import TypeChecker
-
 
 def require_member_visible(
-    checker: TypeChecker,
+    ctx: TypeCheckContext,
     class_info: ClassInfo,
     owner_type_name: str,
     member_name: str,
     member_kind: str,
     span: SourceSpan,
 ) -> None:
-    ctx = checker.ctx
     is_private = (
         member_name in class_info.private_fields
         if member_kind == "field"

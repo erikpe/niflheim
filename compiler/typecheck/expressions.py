@@ -13,7 +13,6 @@ from compiler.ast_nodes import (
     NullExpr,
     UnaryExpr,
 )
-from typing import TYPE_CHECKING
 
 from compiler.codegen.strings import is_str_type_name
 from compiler.typecheck.constants import (
@@ -48,21 +47,18 @@ from compiler.typecheck.type_resolution import (
     resolve_type_ref,
 )
 from compiler.typecheck.visibility import require_member_visible
-
-if TYPE_CHECKING:
-    from compiler.typecheck.engine import TypeChecker
+from compiler.typecheck.context import TypeCheckContext
 
 
 def infer_expression_type(
-    checker: TypeChecker,
+    ctx: TypeCheckContext,
     expr: Expression,
 ) -> TypeInfo:
-    ctx = checker.ctx
     from compiler.typecheck.calls import callable_type_from_signature, class_type_name_from_callable, infer_call_type
     from compiler.typecheck.structural import resolve_index_expression_type
 
     def infer_nested(nested_expr: Expression) -> TypeInfo:
-        return infer_expression_type(checker, nested_expr)
+        return infer_expression_type(ctx, nested_expr)
 
     if isinstance(expr, IdentifierExpr):
         symbol_type = lookup_variable(ctx, expr.name)
@@ -215,7 +211,7 @@ def infer_expression_type(
         return target_type
 
     if isinstance(expr, CallExpr):
-        return infer_call_type(checker, expr)
+        return infer_call_type(ctx, expr)
 
     if isinstance(expr, ArrayCtorExpr):
         array_type = resolve_type_ref(ctx, expr.element_type_ref)
@@ -250,7 +246,7 @@ def infer_expression_type(
             method_sig = class_info.methods.get(expr.field_name)
             if method_sig is None:
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.field_name}'", expr.span)
-            require_member_visible(checker, class_info, class_type_name, expr.field_name, "method", expr.span)
+            require_member_visible(ctx, class_info, class_type_name, expr.field_name, "method", expr.span)
             if not method_sig.is_static:
                 raise TypeCheckError(
                     f"Method '{class_info.name}.{expr.field_name}' is not static",
@@ -280,12 +276,12 @@ def infer_expression_type(
 
         field_type = class_info.fields.get(expr.field_name)
         if field_type is not None:
-            require_member_visible(checker, class_info, object_type.name, expr.field_name, "field", expr.span)
+            require_member_visible(ctx, class_info, object_type.name, expr.field_name, "field", expr.span)
             return qualify_member_type_for_owner(ctx, field_type, object_type.name)
 
         method_sig = class_info.methods.get(expr.field_name)
         if method_sig is not None:
-            require_member_visible(checker, class_info, object_type.name, expr.field_name, "method", expr.span)
+            require_member_visible(ctx, class_info, object_type.name, expr.field_name, "method", expr.span)
             if not method_sig.is_static:
                 raise TypeCheckError("Instance methods are not first-class values in MVP", expr.span)
             qualified_params = [
@@ -306,7 +302,7 @@ def infer_expression_type(
         obj_type = infer_nested(expr.object_expr)
         index_type = infer_nested(expr.index_expr)
         return resolve_index_expression_type(
-            checker,
+            ctx,
             obj_type,
             index_type,
             expr.index_expr.span,
@@ -317,11 +313,10 @@ def infer_expression_type(
 
 
 def ensure_field_access_assignable(
-    checker: TypeChecker,
+    ctx: TypeCheckContext,
     expr: FieldAccessExpr,
 ) -> None:
-    ctx = checker.ctx
-    object_type = infer_expression_type(checker, expr.object_expr)
+    object_type = infer_expression_type(ctx, expr.object_expr)
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
@@ -330,7 +325,7 @@ def ensure_field_access_assignable(
     if field_type is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
 
-    require_member_visible(checker, class_info, object_type.name, expr.field_name, "field", expr.span)
+    require_member_visible(ctx, class_info, object_type.name, expr.field_name, "field", expr.span)
 
     if expr.field_name in class_info.final_fields:
         raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)

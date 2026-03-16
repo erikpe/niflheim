@@ -18,7 +18,6 @@ from compiler.ast_nodes import (
     VarDeclStmt,
     WhileStmt,
 )
-from typing import TYPE_CHECKING
 
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
 from compiler.typecheck.expressions import infer_expression_type
@@ -34,16 +33,13 @@ from compiler.typecheck.structural import (
 from compiler.typecheck.type_resolution import resolve_type_ref
 from compiler.typecheck.visibility import require_member_visible
 
-if TYPE_CHECKING:
-    from compiler.typecheck.engine import TypeChecker
-
 
 def ensure_field_access_assignable(
-    checker: TypeChecker,
+    ctx: TypeCheckContext,
     expr: FieldAccessExpr,
 ) -> None:
-    object_type = infer_expression_type(checker, expr.object_expr)
-    class_info = lookup_class_by_type_name(checker.ctx, object_type.name)
+    object_type = infer_expression_type(ctx, expr.object_expr)
+    class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
 
@@ -51,29 +47,29 @@ def ensure_field_access_assignable(
     if field_type is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
 
-    require_member_visible(checker, class_info, object_type.name, expr.field_name, "field", expr.span)
+    require_member_visible(ctx, class_info, object_type.name, expr.field_name, "field", expr.span)
 
     if expr.field_name in class_info.final_fields:
         raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)
 
 
 def ensure_assignable_target(
-    checker: TypeChecker,
+    ctx: TypeCheckContext,
     expr: Expression,
 ) -> None:
     if isinstance(expr, IdentifierExpr):
-        if lookup_variable(checker.ctx, expr.name) is None:
+        if lookup_variable(ctx, expr.name) is None:
             raise TypeCheckError("Invalid assignment target", expr.span)
         return
 
     if isinstance(expr, FieldAccessExpr):
-        ensure_field_access_assignable(checker, expr)
+        ensure_field_access_assignable(ctx, expr)
         return
 
     if isinstance(expr, IndexExpr):
-        object_type = infer_expression_type(checker, expr.object_expr)
+        object_type = infer_expression_type(ctx, expr.object_expr)
         if object_type.element_type is None:
-            ensure_structural_set_method_available_for_index_assignment(checker, object_type, expr.span)
+            ensure_structural_set_method_available_for_index_assignment(ctx, object_type, expr.span)
         return
 
     raise TypeCheckError("Invalid assignment target", expr.span)
@@ -104,45 +100,43 @@ def block_guarantees_return(block: BlockStmt) -> bool:
 
 
 def check_statement(
-    checker: TypeChecker,
+    ctx: TypeCheckContext,
     stmt: Statement,
     return_type: TypeInfo,
 ) -> None:
-    ctx = checker.ctx
-
     if isinstance(stmt, BlockStmt):
-        check_block(checker, stmt, return_type)
+        check_block(ctx, stmt, return_type)
         return
 
     if isinstance(stmt, VarDeclStmt):
         var_type = resolve_type_ref(ctx, stmt.type_ref)
         if stmt.initializer is not None:
-            init_type = infer_expression_type(checker, stmt.initializer)
+            init_type = infer_expression_type(ctx, stmt.initializer)
             require_assignable(ctx, var_type, init_type, stmt.initializer.span)
         declare_variable(ctx, stmt.name, var_type, stmt.span)
         return
 
     if isinstance(stmt, IfStmt):
-        cond_type = infer_expression_type(checker, stmt.condition)
+        cond_type = infer_expression_type(ctx, stmt.condition)
         require_type_name(cond_type, "bool", stmt.condition.span)
-        check_block(checker, stmt.then_branch, return_type)
+        check_block(ctx, stmt.then_branch, return_type)
         if isinstance(stmt.else_branch, BlockStmt):
-            check_block(checker, stmt.else_branch, return_type)
+            check_block(ctx, stmt.else_branch, return_type)
         elif isinstance(stmt.else_branch, IfStmt):
-            check_statement(checker, stmt.else_branch, return_type)
+            check_statement(ctx, stmt.else_branch, return_type)
         return
 
     if isinstance(stmt, WhileStmt):
-        cond_type = infer_expression_type(checker, stmt.condition)
+        cond_type = infer_expression_type(ctx, stmt.condition)
         require_type_name(cond_type, "bool", stmt.condition.span)
         ctx.loop_depth += 1
-        check_block(checker, stmt.body, return_type)
+        check_block(ctx, stmt.body, return_type)
         ctx.loop_depth -= 1
         return
 
     if isinstance(stmt, ForInStmt):
-        collection_type = infer_expression_type(checker, stmt.collection_expr)
-        element_type = resolve_for_in_element_type(checker, collection_type, stmt.span)
+        collection_type = infer_expression_type(ctx, stmt.collection_expr)
+        element_type = resolve_for_in_element_type(ctx, collection_type, stmt.span)
         object.__setattr__(stmt, "collection_type_name", collection_type.name)
         object.__setattr__(stmt, "element_type_name", element_type.name)
 
@@ -150,7 +144,7 @@ def check_statement(
         push_scope(ctx)
         try:
             declare_variable(ctx, stmt.element_name, element_type, stmt.span)
-            check_block(checker, stmt.body, return_type)
+            check_block(ctx, stmt.body, return_type)
         finally:
             pop_scope(ctx)
             ctx.loop_depth -= 1
@@ -171,43 +165,42 @@ def check_statement(
             if return_type.name != "unit":
                 raise TypeCheckError("Non-unit function must return a value", stmt.span)
         else:
-            value_type = infer_expression_type(checker, stmt.value)
+            value_type = infer_expression_type(ctx, stmt.value)
             require_assignable(ctx, return_type, value_type, stmt.value.span)
         return
 
     if isinstance(stmt, AssignStmt):
-        ensure_assignable_target(checker, stmt.target)
+        ensure_assignable_target(ctx, stmt.target)
         if isinstance(stmt.target, IndexExpr):
-            object_type = infer_expression_type(checker, stmt.target.object_expr)
-            value_type = infer_expression_type(checker, stmt.value)
-            ensure_index_assignment(checker, object_type, stmt.target.index_expr, value_type, stmt.value.span)
+            object_type = infer_expression_type(ctx, stmt.target.object_expr)
+            value_type = infer_expression_type(ctx, stmt.value)
+            ensure_index_assignment(ctx, object_type, stmt.target.index_expr, value_type, stmt.value.span)
             return
 
-        target_type = infer_expression_type(checker, stmt.target)
-        value_type = infer_expression_type(checker, stmt.value)
+        target_type = infer_expression_type(ctx, stmt.target)
+        value_type = infer_expression_type(ctx, stmt.value)
         require_assignable(ctx, target_type, value_type, stmt.value.span)
         return
 
     if isinstance(stmt, ExprStmt):
-        infer_expression_type(checker, stmt.expression)
+        infer_expression_type(ctx, stmt.expression)
 
 
-def check_block(checker: TypeChecker, block: BlockStmt, return_type: TypeInfo) -> None:
-    push_scope(checker.ctx)
+def check_block(ctx: TypeCheckContext, block: BlockStmt, return_type: TypeInfo) -> None:
+    push_scope(ctx)
     for stmt in block.statements:
-        check_statement(checker, stmt, return_type)
-    pop_scope(checker.ctx)
+        check_statement(ctx, stmt, return_type)
+    pop_scope(ctx)
 
 
 def check_function_like(
-    checker: TypeChecker,
+    ctx: TypeCheckContext,
     params: list[ParamDecl],
     body: BlockStmt,
     return_type: TypeInfo,
     receiver_type: TypeInfo | None = None,
     owner_class_name: str | None = None,
 ) -> None:
-    ctx = checker.ctx
     previous_owner = ctx.current_private_owner_type
     if owner_class_name is not None:
         ctx.current_private_owner_type = canonicalize_reference_type_name(ctx, owner_class_name)
@@ -221,7 +214,7 @@ def check_function_like(
             param_type = resolve_type_ref(ctx, param.type_ref)
             declare_variable(ctx, param.name, param_type, param.span)
 
-        check_block(checker, body, return_type)
+        check_block(ctx, body, return_type)
 
         if return_type.name != "unit" and not block_guarantees_return(body):
             raise TypeCheckError("Non-unit function must return on all paths", body.span)
