@@ -4,6 +4,13 @@ from compiler.ast_nodes import *
 from compiler.codegen.strings import STR_CLASS_NAME, is_str_type_name
 from compiler.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
+from compiler.typecheck.constants import (
+    ARRAY_METHOD_NAMES,
+    BITWISE_TYPE_NAMES,
+    I64_MAX_LITERAL,
+    I64_MIN_MAGNITUDE_LITERAL,
+    U64_MAX_LITERAL,
+)
 from compiler.typecheck.model import (
     ClassInfo,
     FunctionSig,
@@ -13,13 +20,19 @@ from compiler.typecheck.model import (
     TypeCheckError,
     TypeInfo,
 )
-
-ARRAY_METHOD_NAMES = {"len", "index_get", "index_set", "slice_get", "slice_set", "iter_len", "iter_get"}
-
-I64_MAX_LITERAL = 9223372036854775807
-I64_MIN_MAGNITUDE_LITERAL = 9223372036854775808
-U64_MAX_LITERAL = 18446744073709551615
-BITWISE_TYPE_NAMES = {"i64", "u64", "u8"}
+from compiler.typecheck.relations import (
+    canonicalize_reference_type_name as relation_canonicalize_reference_type_name,
+    check_explicit_cast as relation_check_explicit_cast,
+    display_type_name as relation_display_type_name,
+    format_function_type_name as relation_format_function_type_name,
+    is_comparable as relation_is_comparable,
+    require_array_index_type as relation_require_array_index_type,
+    require_array_size_type as relation_require_array_size_type,
+    require_assignable as relation_require_assignable,
+    require_type_name as relation_require_type_name,
+    type_infos_equal as relation_type_infos_equal,
+    type_names_equal as relation_type_names_equal,
+)
 
 
 class TypeChecker:
@@ -1314,106 +1327,68 @@ class TypeChecker:
         self.scope_stack.pop()
 
     def _require_type_name(self, actual: TypeInfo, expected_name: str, span: SourceSpan) -> None:
-        if actual.name != expected_name:
-            raise TypeCheckError(f"Expected '{expected_name}', got '{actual.name}'", span)
+        relation_require_type_name(actual, expected_name, span)
 
     def _require_array_size_type(self, actual: TypeInfo, span: SourceSpan) -> None:
-        if actual.name in {"u64", "i64"}:
-            return
-        raise TypeCheckError(f"Expected 'u64', got '{actual.name}'", span)
+        relation_require_array_size_type(actual, span)
 
     def _require_array_index_type(self, actual: TypeInfo, span: SourceSpan) -> None:
-        if actual.name == "i64":
-            return
-        raise TypeCheckError(f"Expected 'i64', got '{actual.name}'", span)
+        relation_require_array_index_type(actual, span)
 
     def _canonicalize_reference_type_name(self, type_name: str) -> str:
-        if "::" in type_name:
-            return type_name
-        if self.module_path is None:
-            return type_name
-        if type_name not in self.classes:
-            return type_name
-        owner_dotted = ".".join(self.module_path)
-        return f"{owner_dotted}::{type_name}"
+        return relation_canonicalize_reference_type_name(
+            type_name,
+            module_path=self.module_path,
+            local_class_names=set(self.classes),
+        )
 
     def _type_names_equal(self, left: str, right: str) -> bool:
-        if left == right:
-            return True
-        return self._canonicalize_reference_type_name(left) == self._canonicalize_reference_type_name(right)
+        return relation_type_names_equal(
+            left,
+            right,
+            module_path=self.module_path,
+            local_class_names=set(self.classes),
+        )
 
     def _type_infos_equal(self, left: TypeInfo, right: TypeInfo) -> bool:
-        if left.kind == "callable" or right.kind == "callable":
-            if left.kind != "callable" or right.kind != "callable":
-                return False
-            if left.callable_params is None or right.callable_params is None:
-                return False
-            if left.callable_return is None or right.callable_return is None:
-                return False
-            if len(left.callable_params) != len(right.callable_params):
-                return False
-            if not all(self._type_infos_equal(lp, rp) for lp, rp in zip(left.callable_params, right.callable_params)):
-                return False
-            return self._type_infos_equal(left.callable_return, right.callable_return)
-
-        if left.element_type is not None or right.element_type is not None:
-            if left.element_type is None or right.element_type is None:
-                return False
-            return self._type_infos_equal(left.element_type, right.element_type)
-        return self._type_names_equal(left.name, right.name)
+        return relation_type_infos_equal(
+            left,
+            right,
+            module_path=self.module_path,
+            local_class_names=set(self.classes),
+        )
 
     def _require_assignable(self, target: TypeInfo, value: TypeInfo, span: SourceSpan) -> None:
-        if self._type_infos_equal(target, value):
-            return
-        if target.kind == "reference" and value.kind == "null":
-            return
-        if target.name == "Obj" and value.kind == "reference":
-            return
-        raise TypeCheckError(
-            f"Cannot assign '{self._display_type_name(value)}' to '{self._display_type_name(target)}'",
+        relation_require_assignable(
+            target,
+            value,
             span,
+            module_path=self.module_path,
+            local_class_names=set(self.classes),
         )
 
     def _is_comparable(self, left: TypeInfo, right: TypeInfo) -> bool:
-        if self._type_infos_equal(left, right):
-            return True
-        if left.kind == "reference" and right.kind == "null":
-            return True
-        if right.kind == "reference" and left.kind == "null":
-            return True
-        return False
+        return relation_is_comparable(
+            left,
+            right,
+            module_path=self.module_path,
+            local_class_names=set(self.classes),
+        )
 
     def _check_explicit_cast(self, source: TypeInfo, target: TypeInfo, span: SourceSpan) -> None:
-        if source.kind == "callable" or target.kind == "callable":
-            raise TypeCheckError("Casts involving function types are not allowed in MVP", span)
-
-        if self._type_infos_equal(source, target):
-            return
-
-        if source.kind == "primitive" and target.kind == "primitive":
-            if source.name == "unit" or target.name == "unit":
-                raise TypeCheckError("Casts involving 'unit' are not allowed", span)
-            return
-
-        if source.kind == "reference" and target.name == "Obj":
-            return
-
-        if source.name == "Obj" and target.kind == "reference" and target.name != "Obj":
-            return
-
-        raise TypeCheckError(
-            f"Invalid cast from '{source.name}' to '{target.name}'",
+        relation_check_explicit_cast(
+            source,
+            target,
             span,
+            module_path=self.module_path,
+            local_class_names=set(self.classes),
         )
 
     def _format_function_type_name(self, params: list[TypeInfo], return_type: TypeInfo) -> str:
-        params_text = ", ".join(param.name for param in params)
-        return f"fn({params_text}) -> {return_type.name}"
+        return relation_format_function_type_name(params, return_type)
 
     def _display_type_name(self, type_info: TypeInfo) -> str:
-        if type_info.kind == "callable" and type_info.callable_params is not None and type_info.callable_return is not None:
-            return self._format_function_type_name(type_info.callable_params, type_info.callable_return)
-        return type_info.name
+        return relation_display_type_name(type_info)
 
     def _current_module_info(self) -> ModuleInfo | None:
         if self.modules is None or self.module_path is None:

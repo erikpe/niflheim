@@ -393,6 +393,10 @@ Outcome:
 - Move literal/operator sets and numeric bounds into `constants.py`.
 - Update checker implementation to call the extracted helpers.
 
+Status:
+
+- implemented
+
 Outcome:
 
 - biggest low-risk helper cluster removed from monolith
@@ -488,17 +492,17 @@ Outcome:
 
 - [x] Move `TypeInfo`, `FunctionSig`, `ClassInfo`, and `TypeCheckError` into `compiler/typecheck/model.py`.
 - [x] Move type-category sets into `compiler/typecheck/model.py` or `compiler/typecheck/constants.py` as appropriate.
-- [ ] Move `ARRAY_METHOD_NAMES`, literal bounds, and bitwise/operator sets into `compiler/typecheck/constants.py`.
-- [ ] Update imports without changing semantics.
+- [x] Move `ARRAY_METHOD_NAMES`, literal bounds, and bitwise/operator sets into `compiler/typecheck/constants.py`.
+- [x] Update imports without changing semantics.
 
 ## C. Relations
 
-- [ ] Extract type equality helpers.
-- [ ] Extract assignability helpers.
-- [ ] Extract comparability helpers.
-- [ ] Extract explicit-cast validation.
-- [ ] Extract display-format helpers for callable types.
-- [ ] Run `tests/compiler/typecheck -q` after the extraction.
+- [x] Extract type equality helpers.
+- [x] Extract assignability helpers.
+- [x] Extract comparability helpers.
+- [x] Extract explicit-cast validation.
+- [x] Extract display-format helpers for callable types.
+- [x] Run `tests/compiler/typecheck -q` after the extraction.
 
 ## D. Lookup and Resolution
 
