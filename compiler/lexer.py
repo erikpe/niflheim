@@ -1,12 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from compiler.tokens import (
-    KEYWORDS,
-    ONE_CHAR_TOKENS,
-    TWO_CHAR_TOKENS,
-    TokenKind,
-)
+from compiler.tokens import KEYWORDS, ONE_CHAR_TOKENS, TWO_CHAR_TOKENS, TokenKind
 
 
 @dataclass(frozen=True)
@@ -72,7 +67,7 @@ class Lexer:
                 tokens.append(self._read_char(start))
                 continue
 
-            two = self.source[self.index: self.index + 2]
+            two = self.source[self.index : self.index + 2]
             if two in TWO_CHAR_TOKENS:
                 self._advance()
                 self._advance()
@@ -112,7 +107,7 @@ class Lexer:
         while not self._is_at_end() and self._is_ident_part(self._peek()):
             self._advance()
 
-        lexeme = self.source[start.offset: self.index]
+        lexeme = self.source[start.offset : self.index]
         kind = KEYWORDS.get(lexeme, TokenKind.IDENT)
         return Token(kind, lexeme, SourceSpan(start, self._pos()))
 
@@ -121,11 +116,7 @@ class Lexer:
             self._advance()
 
         is_float = False
-        if (
-            not self._is_at_end()
-            and self._peek() == "."
-            and self._peek_next().isdigit()
-        ):
+        if not self._is_at_end() and self._peek() == "." and self._peek_next().isdigit():
             is_float = True
             self._advance()
             while not self._is_at_end() and self._peek().isdigit():
@@ -136,7 +127,7 @@ class Lexer:
             if not self._is_at_end() and self._peek() == "8":
                 self._advance()
 
-        lexeme = self.source[start.offset: self.index]
+        lexeme = self.source[start.offset : self.index]
         kind = TokenKind.FLOAT_LIT if is_float else TokenKind.INT_LIT
         return Token(kind, lexeme, SourceSpan(start, self._pos()))
 
@@ -175,7 +166,7 @@ class Lexer:
 
             if ch == '"':
                 self._advance()
-                lexeme = self.source[start.offset: self.index]
+                lexeme = self.source[start.offset : self.index]
                 return Token(TokenKind.STRING_LIT, lexeme, SourceSpan(start, self._pos()))
 
             self._advance()
@@ -216,7 +207,7 @@ class Lexer:
             raise LexerError("Character literal must contain exactly one byte", SourceSpan(start, self._pos()))
 
         self._advance()
-        lexeme = self.source[start.offset: self.index]
+        lexeme = self.source[start.offset : self.index]
         return Token(TokenKind.CHAR_LIT, lexeme, SourceSpan(start, self._pos()))
 
     def _is_at_end(self) -> bool:

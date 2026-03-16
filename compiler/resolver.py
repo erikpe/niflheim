@@ -151,12 +151,7 @@ def _build_import_tables(module_ast: ModuleAst) -> tuple[dict[str, ImportInfo], 
         if alias in imports:
             raise ResolveError(f"Duplicate import alias '{alias}'", span=import_decl.span)
 
-        info = ImportInfo(
-            alias=alias,
-            module_path=module_path,
-            is_export=import_decl.is_export,
-            span=import_decl.span,
-        )
+        info = ImportInfo(alias=alias, module_path=module_path, is_export=import_decl.is_export, span=import_decl.span)
         imports[alias] = info
 
         if import_decl.is_export:
@@ -251,9 +246,7 @@ def _validate_expression(expr: Expression, module_info: ModuleInfo, modules: dic
 
 
 def _resolve_module_chain(
-    expr: FieldAccessExpr,
-    module_info: ModuleInfo,
-    modules: dict[ModulePath, ModuleInfo],
+    expr: FieldAccessExpr, module_info: ModuleInfo, modules: dict[ModulePath, ModuleInfo]
 ) -> ModuleInfo | None:
     left = expr.object_expr
 
@@ -275,10 +268,7 @@ def _resolve_module_chain(
 
 
 def _resolve_exported_member(
-    target_module: ModuleInfo,
-    member_name: str,
-    span: SourceSpan,
-    modules: dict[ModulePath, ModuleInfo],
+    target_module: ModuleInfo, member_name: str, span: SourceSpan, modules: dict[ModulePath, ModuleInfo]
 ) -> ModuleInfo | None:
     if member_name in target_module.exported_symbols:
         return None

@@ -59,8 +59,49 @@ def test_lex_final_keyword() -> None:
     assert TokenKind.FINAL in kinds
 
 
+def test_lex_remaining_keywords_and_punctuation_tokens() -> None:
+    source = "import util; if true && false || !null { while a < b { break; } } else { continue; } [x, y].field == z != w <= q >= r"
+    kinds = [token.kind for token in lex(source)]
+    assert TokenKind.IMPORT in kinds
+    assert TokenKind.IF in kinds
+    assert TokenKind.TRUE in kinds
+    assert TokenKind.ANDAND in kinds
+    assert TokenKind.FALSE in kinds
+    assert TokenKind.OROR in kinds
+    assert TokenKind.BANG in kinds
+    assert TokenKind.NULL in kinds
+    assert TokenKind.WHILE in kinds
+    assert TokenKind.LT in kinds
+    assert TokenKind.BREAK in kinds
+    assert TokenKind.ELSE in kinds
+    assert TokenKind.CONTINUE in kinds
+    assert TokenKind.LBRACKET in kinds
+    assert TokenKind.COMMA in kinds
+    assert TokenKind.RBRACKET in kinds
+    assert TokenKind.DOT in kinds
+    assert TokenKind.EQEQ in kinds
+    assert TokenKind.NEQ in kinds
+    assert TokenKind.LTE in kinds
+    assert TokenKind.GTE in kinds
+
+
 def test_lex_skips_whitespace_and_line_comments() -> None:
     source = "// first\nvar x: i64 = 1; // second\n"
+    tokens = lex(source)
+    assert [t.kind for t in tokens] == [
+        TokenKind.VAR,
+        TokenKind.IDENT,
+        TokenKind.COLON,
+        TokenKind.I64,
+        TokenKind.ASSIGN,
+        TokenKind.INT_LIT,
+        TokenKind.SEMICOLON,
+        TokenKind.EOF,
+    ]
+
+
+def test_lex_skips_trailing_comment_without_newline() -> None:
+    source = "var x: i64 = 1; // trailing"
     tokens = lex(source)
     assert [t.kind for t in tokens] == [
         TokenKind.VAR,
@@ -159,6 +200,12 @@ def test_lex_error_includes_path_row_col() -> None:
     assert "examples/bad.nif:1:1" in str(error.value)
 
 
+def test_lex_identifier_allows_leading_underscore_and_digits_after_start() -> None:
+    tokens = lex("var _value2: i64 = 1;")
+    ident_token = next(token for token in tokens if token.kind == TokenKind.IDENT)
+    assert ident_token.lexeme == "_value2"
+
+
 def test_lex_vec_is_identifier_not_keyword() -> None:
     tokens = lex("var v: Vec = Vec.new();")
     vec_tokens = [token for token in tokens if token.lexeme == "Vec"]
@@ -194,3 +241,28 @@ def test_lex_power_operator_token() -> None:
     source = "var x: u64 = 2u ** 10u;"
     kinds = [token.kind for token in lex(source)]
     assert TokenKind.POW in kinds
+
+
+def test_lex_raises_on_unterminated_string_before_newline() -> None:
+    with pytest.raises(LexerError, match="Unterminated string literal"):
+        lex('var s: Str = "bad\nnext')
+
+
+def test_lex_raises_on_invalid_char_hex_escape() -> None:
+    with pytest.raises(LexerError, match="Invalid character escape sequence"):
+        lex("var c: u8 = '\\xG1';")
+
+
+def test_lex_raises_on_empty_char_literal() -> None:
+    with pytest.raises(LexerError, match="Empty character literal"):
+        lex("var c: u8 = '';")
+
+
+def test_lex_raises_on_unterminated_char_literal() -> None:
+    with pytest.raises(LexerError, match="Unterminated character literal"):
+        lex("var c: u8 = '")
+
+
+def test_lex_raises_on_unexpected_character() -> None:
+    with pytest.raises(LexerError, match="Unexpected character '@'"):
+        lex("@")

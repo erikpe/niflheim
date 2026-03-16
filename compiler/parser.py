@@ -86,18 +86,27 @@ class Parser:
             if self.stream.match(TokenKind.EXPORT):
                 export_token = self.stream.previous()
                 if self.stream.match(TokenKind.IMPORT):
-                    imports.append(self._parse_import_decl(
-                        is_export=True, import_token=self.stream.previous(), export_token=export_token))
+                    imports.append(
+                        self._parse_import_decl(
+                            is_export=True, import_token=self.stream.previous(), export_token=export_token
+                        )
+                    )
                     continue
 
                 if self.stream.match(TokenKind.CLASS):
-                    classes.append(self._parse_class_decl(
-                        is_export=True, class_token=self.stream.previous(), export_token=export_token))
+                    classes.append(
+                        self._parse_class_decl(
+                            is_export=True, class_token=self.stream.previous(), export_token=export_token
+                        )
+                    )
                     continue
 
                 if self.stream.match(TokenKind.FN):
-                    functions.append(self._parse_function_decl(
-                        is_export=True, fn_token=self.stream.previous(), export_token=export_token))
+                    functions.append(
+                        self._parse_function_decl(
+                            is_export=True, fn_token=self.stream.previous(), export_token=export_token
+                        )
+                    )
                     continue
 
                 if self.stream.match(TokenKind.EXTERN):
@@ -105,26 +114,20 @@ class Parser:
                     fn_token = self.stream.expect(TokenKind.FN, "Expected 'fn' after 'extern'")
                     functions.append(
                         self._parse_extern_function_decl(
-                            is_export=True,
-                            fn_token=fn_token,
-                            extern_token=extern_token,
-                            export_token=export_token,
+                            is_export=True, fn_token=fn_token, extern_token=extern_token, export_token=export_token
                         )
                     )
                     continue
 
-                raise ParserError("Expected 'import', 'class', 'fn', or 'extern fn' after 'export'",
-                                  self.stream.peek().span)
+                raise ParserError(
+                    "Expected 'import', 'class', 'fn', or 'extern fn' after 'export'", self.stream.peek().span
+                )
 
             if self.stream.match(TokenKind.EXTERN):
                 extern_token = self.stream.previous()
                 fn_token = self.stream.expect(TokenKind.FN, "Expected 'fn' after 'extern'")
                 functions.append(
-                    self._parse_extern_function_decl(
-                        is_export=False,
-                        fn_token=fn_token,
-                        extern_token=extern_token,
-                    )
+                    self._parse_extern_function_decl(is_export=False, fn_token=fn_token, extern_token=extern_token)
                 )
                 continue
 
@@ -139,12 +142,7 @@ class Parser:
             raise ParserError("Unexpected token at module scope", self.stream.peek().span)
 
         end = self.stream.peek().span.end
-        return ModuleAst(
-            imports=imports,
-            classes=classes,
-            functions=functions,
-            span=SourceSpan(start=start, end=end),
-        )
+        return ModuleAst(imports=imports, classes=classes, functions=functions, span=SourceSpan(start=start, end=end))
 
     def parse_expression_root(self) -> Expression:
         expr = self._parse_expression()
@@ -163,11 +161,7 @@ class Parser:
         raise ParserError(message, token.span)
 
     def _parse_import_decl(
-        self,
-        *,
-        is_export: bool,
-        import_token: Token,
-        export_token: Token | None = None,
+        self, *, is_export: bool, import_token: Token, export_token: Token | None = None
     ) -> ImportDecl:
         parts: list[str] = []
         first = self.stream.expect(TokenKind.IDENT, "Expected module path after import")
@@ -182,13 +176,7 @@ class Parser:
         span = SourceSpan(start=start_pos, end=semicolon.span.end)
         return ImportDecl(module_path=parts, is_export=is_export, span=span)
 
-    def _parse_class_decl(
-        self,
-        *,
-        is_export: bool,
-        class_token: Token,
-        export_token: Token | None = None,
-    ) -> ClassDecl:
+    def _parse_class_decl(self, *, is_export: bool, class_token: Token, export_token: Token | None = None) -> ClassDecl:
         name_token = self._expect_symbol_name("Expected class name")
         self.stream.expect(TokenKind.LBRACE, "Expected '{' after class name")
 
@@ -247,8 +235,9 @@ class Parser:
                 continue
 
             if self.stream.check(TokenKind.IDENT) and self.stream.peek(1).kind == TokenKind.COLON:
-                fields.append(self._parse_field_decl(is_private=is_private,
-                              is_final=is_final, start_token=modifier_start))
+                fields.append(
+                    self._parse_field_decl(is_private=is_private, is_final=is_final, start_token=modifier_start)
+                )
                 continue
 
             raise ParserError("Expected field or method declaration in class body", self.stream.peek().span)
@@ -256,13 +245,7 @@ class Parser:
         rbrace = self.stream.expect(TokenKind.RBRACE, "Expected '}' after class body")
         start_pos = export_token.span.start if export_token is not None else class_token.span.start
         span = SourceSpan(start=start_pos, end=rbrace.span.end)
-        return ClassDecl(
-            name=name_token.lexeme,
-            fields=fields,
-            methods=methods,
-            is_export=is_export,
-            span=span,
-        )
+        return ClassDecl(name=name_token.lexeme, fields=fields, methods=methods, is_export=is_export, span=span)
 
     def _parse_field_decl(self, *, is_private: bool, is_final: bool, start_token: Token | None = None) -> FieldDecl:
         name = self.stream.expect(TokenKind.IDENT, "Expected field name")
@@ -283,12 +266,7 @@ class Parser:
         )
 
     def _parse_method_decl(
-        self,
-        *,
-        fn_token: Token,
-        is_static: bool,
-        is_private: bool,
-        start_token: Token | None = None,
+        self, *, fn_token: Token, is_static: bool, is_private: bool, start_token: Token | None = None
     ) -> MethodDecl:
         name, params, return_type = self._parse_callable_signature()
         body = self._parse_block_stmt()
@@ -300,15 +278,12 @@ class Parser:
             is_static=is_static,
             is_private=is_private,
             span=SourceSpan(
-                start=(start_token.span.start if start_token is not None else fn_token.span.start), end=body.span.end),
+                start=(start_token.span.start if start_token is not None else fn_token.span.start), end=body.span.end
+            ),
         )
 
     def _parse_function_decl(
-        self,
-        *,
-        is_export: bool,
-        fn_token: Token,
-        export_token: Token | None = None,
+        self, *, is_export: bool, fn_token: Token, export_token: Token | None = None
     ) -> FunctionDecl:
         name, params, return_type = self._parse_callable_signature()
         body = self._parse_block_stmt()
@@ -324,12 +299,7 @@ class Parser:
         )
 
     def _parse_extern_function_decl(
-        self,
-        *,
-        is_export: bool,
-        fn_token: Token,
-        extern_token: Token,
-        export_token: Token | None = None,
+        self, *, is_export: bool, fn_token: Token, extern_token: Token, export_token: Token | None = None
     ) -> FunctionDecl:
         name, params, return_type = self._parse_callable_signature()
         semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after extern function declaration")
@@ -368,9 +338,7 @@ class Parser:
         self.stream.expect(TokenKind.COLON, "Expected ':' after parameter name")
         type_ref = self._parse_type_ref()
         return ParamDecl(
-            name=name.lexeme,
-            type_ref=type_ref,
-            span=SourceSpan(start=name.span.start, end=type_ref.span.end),
+            name=name.lexeme, type_ref=type_ref, span=SourceSpan(start=name.span.start, end=type_ref.span.end)
         )
 
     def _parse_type_ref(self) -> TypeRefNode:
@@ -413,17 +381,13 @@ class Parser:
                 parts.append(segment.lexeme)
                 end = segment.span.end
 
-            base_ref = TypeRef(
-                name=".".join(parts),
-                span=SourceSpan(start=token.span.start, end=end),
-            )
+            base_ref = TypeRef(name=".".join(parts), span=SourceSpan(start=token.span.start, end=end))
 
         type_ref: TypeRefNode = base_ref
         while self.stream.match(TokenKind.LBRACKET):
             self.stream.expect(TokenKind.RBRACKET, "Expected ']' after '[' in array type")
             type_ref = ArrayTypeRef(
-                element_type=type_ref,
-                span=SourceSpan(start=type_ref.span.start, end=self.stream.previous().span.end),
+                element_type=type_ref, span=SourceSpan(start=type_ref.span.start, end=self.stream.previous().span.end)
             )
 
         return type_ref
@@ -512,9 +476,7 @@ class Parser:
         condition = self._parse_expression()
         body = self._parse_block_stmt()
         return WhileStmt(
-            condition=condition,
-            body=body,
-            span=SourceSpan(start=while_token.span.start, end=body.span.end),
+            condition=condition, body=body, span=SourceSpan(start=while_token.span.start, end=body.span.end)
         )
 
     def _parse_for_in_stmt(self, *, for_token: Token) -> ForInStmt:
@@ -561,11 +523,7 @@ class Parser:
 
             if not self._is_assignable_target(expr):
                 raise ParserError("Invalid assignment target", expr.span)
-            return AssignStmt(
-                target=expr,
-                value=value,
-                span=SourceSpan(start=expr.span.start, end=semicolon.span.end),
-            )
+            return AssignStmt(target=expr, value=value, span=SourceSpan(start=expr.span.start, end=semicolon.span.end))
 
         semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after expression statement")
         return ExprStmt(expression=expr, span=SourceSpan(start=expr.span.start, end=semicolon.span.end))
@@ -586,9 +544,7 @@ class Parser:
             return None
 
         set_slice_callee = FieldAccessExpr(
-            object_expr=expr.callee.object_expr,
-            field_name="slice_set",
-            span=expr.callee.span,
+            object_expr=expr.callee.object_expr, field_name="slice_set", span=expr.callee.span
         )
         set_slice_call = CallExpr(
             callee=set_slice_callee,
@@ -606,10 +562,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_logical_and()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -619,10 +572,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_bitwise_or()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -632,10 +582,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_bitwise_xor()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -645,10 +592,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_bitwise_and()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -658,10 +602,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_equality()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -671,10 +612,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_comparison()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -684,10 +622,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_shift()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -697,10 +632,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_additive()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -710,10 +642,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_multiplicative()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -723,10 +652,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_power()
             expr = BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -736,10 +662,7 @@ class Parser:
             op = self.stream.previous()
             right = self._parse_power()
             return BinaryExpr(
-                left=expr,
-                operator=op.lexeme,
-                right=right,
-                span=SourceSpan(start=expr.span.start, end=right.span.end),
+                left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
             )
         return expr
 
@@ -748,9 +671,7 @@ class Parser:
             op = self.stream.previous()
             operand = self._parse_unary()
             return UnaryExpr(
-                operator=op.lexeme,
-                operand=operand,
-                span=SourceSpan(start=op.span.start, end=operand.span.end),
+                operator=op.lexeme, operand=operand, span=SourceSpan(start=op.span.start, end=operand.span.end)
             )
 
         if self._is_cast_start():
@@ -759,9 +680,7 @@ class Parser:
             self.stream.expect(TokenKind.RPAREN, "Expected ')' after cast type")
             operand = self._parse_unary()
             return CastExpr(
-                type_ref=type_ref,
-                operand=operand,
-                span=SourceSpan(start=lparen.span.start, end=operand.span.end),
+                type_ref=type_ref, operand=operand, span=SourceSpan(start=lparen.span.start, end=operand.span.end)
             )
 
         return self._parse_postfix()
@@ -780,9 +699,7 @@ class Parser:
 
                 rparen = self.stream.expect(TokenKind.RPAREN, "Expected ')' after arguments")
                 expr = CallExpr(
-                    callee=expr,
-                    arguments=args,
-                    span=SourceSpan(start=expr.span.start, end=rparen.span.end),
+                    callee=expr, arguments=args, span=SourceSpan(start=expr.span.start, end=rparen.span.end)
                 )
                 continue
 
@@ -802,10 +719,7 @@ class Parser:
                         end_expr = self._parse_expression()
                     rbracket = self.stream.expect(TokenKind.RBRACKET, "Expected ']' after slice expression")
                     expr = self._build_slice_expr(
-                        object_expr=expr,
-                        begin_expr=None,
-                        end_expr=end_expr,
-                        end_span=rbracket.span.end,
+                        object_expr=expr, begin_expr=None, end_expr=end_expr, end_span=rbracket.span.end
                     )
                     continue
 
@@ -816,10 +730,7 @@ class Parser:
                         end_expr = self._parse_expression()
                     rbracket = self.stream.expect(TokenKind.RBRACKET, "Expected ']' after slice expression")
                     expr = self._build_slice_expr(
-                        object_expr=expr,
-                        begin_expr=start_expr,
-                        end_expr=end_expr,
-                        end_span=rbracket.span.end,
+                        object_expr=expr, begin_expr=start_expr, end_expr=end_expr, end_span=rbracket.span.end
                     )
                     continue
 
@@ -835,17 +746,9 @@ class Parser:
             return expr
 
     def _build_slice_expr(
-        self,
-        *,
-        object_expr: Expression,
-        begin_expr: Expression | None,
-        end_expr: Expression | None,
-        end_span,
+        self, *, object_expr: Expression, begin_expr: Expression | None, end_expr: Expression | None, end_span
     ) -> Expression:
-        zero_literal = LiteralExpr(
-            value="0",
-            span=SourceSpan(start=object_expr.span.start, end=object_expr.span.start),
-        )
+        zero_literal = LiteralExpr(value="0", span=SourceSpan(start=object_expr.span.start, end=object_expr.span.start))
         begin_arg = begin_expr if begin_expr is not None else zero_literal
 
         if end_expr is None:
@@ -855,14 +758,10 @@ class Parser:
                 span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
             )
             len_call = CallExpr(
-                callee=len_field,
-                arguments=[],
-                span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
+                callee=len_field, arguments=[], span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end)
             )
             end_arg: Expression = CastExpr(
-                type_ref=TypeRef(name="i64", span=len_call.span),
-                operand=len_call,
-                span=len_call.span,
+                type_ref=TypeRef(name="i64", span=len_call.span), operand=len_call, span=len_call.span
             )
         else:
             end_arg = end_expr
@@ -882,7 +781,14 @@ class Parser:
         if self.stream.check(TokenKind.FN):
             raise ParserError("Function literals/closures are not supported in MVP", self.stream.peek().span)
 
-        if self.stream.match(TokenKind.INT_LIT, TokenKind.FLOAT_LIT, TokenKind.STRING_LIT, TokenKind.CHAR_LIT, TokenKind.TRUE, TokenKind.FALSE):
+        if self.stream.match(
+            TokenKind.INT_LIT,
+            TokenKind.FLOAT_LIT,
+            TokenKind.STRING_LIT,
+            TokenKind.CHAR_LIT,
+            TokenKind.TRUE,
+            TokenKind.FALSE,
+        ):
             token = self.stream.previous()
             return LiteralExpr(value=token.lexeme, span=token.span)
 

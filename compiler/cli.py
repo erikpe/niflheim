@@ -28,19 +28,14 @@ def _print_tokens(tokens: list[Token]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        prog="nifc",
-        description="Niflheim stage-0 compiler (default: emit assembly).",
-    )
+    parser = argparse.ArgumentParser(prog="nifc", description="Niflheim stage-0 compiler (default: emit assembly).")
     parser.add_argument("input", help="Input .nif source file")
     parser.add_argument("-o", "--output", help="Output assembly file path (default: stdout)")
     parser.add_argument(
-        "--project-root", help="Project root for multi-module resolution (default: input file directory)")
+        "--project-root", help="Project root for multi-module resolution (default: input file directory)"
+    )
     parser.add_argument(
-        "--stop-after",
-        choices=STOP_PHASES,
-        default="codegen",
-        help="Stop after a compiler phase for debugging",
+        "--stop-after", choices=STOP_PHASES, default="codegen", help="Stop after a compiler phase for debugging"
     )
     parser.add_argument("--skip-check", action="store_true", help="Skip type checking")
     parser.add_argument("--print-tokens", action="store_true", help="Print tokens after lexing")

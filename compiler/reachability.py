@@ -41,9 +41,7 @@ class WalkContext:
 
     def child_scope(self) -> WalkContext:
         return WalkContext(
-            local_types=self.local_types.copy(),
-            found_functions=self.found_functions,
-            found_classes=self.found_classes,
+            local_types=self.local_types.copy(), found_functions=self.found_functions, found_classes=self.found_classes
         )
 
 
@@ -302,12 +300,8 @@ def prune_unreachable(program: ProgramInfo) -> ProgramInfo:
     reachable_functions, reachable_classes = ReachabilityWalker(program).walk()
 
     for module_info in program.modules.values():
-        filtered_functions = [
-            fn_decl for fn_decl in module_info.ast.functions if fn_decl.name in reachable_functions
-        ]
-        filtered_classes = [
-            cls_decl for cls_decl in module_info.ast.classes if cls_decl.name in reachable_classes
-        ]
+        filtered_functions = [fn_decl for fn_decl in module_info.ast.functions if fn_decl.name in reachable_functions]
+        filtered_classes = [cls_decl for cls_decl in module_info.ast.classes if cls_decl.name in reachable_classes]
         module_info.ast = ModuleAst(
             imports=module_info.ast.imports,
             classes=filtered_classes,

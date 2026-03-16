@@ -28,9 +28,7 @@ def require_main_function(module_ast: ModuleAst) -> None:
 def build_codegen_module(program: ProgramInfo) -> ModuleAst:
     entry_module = program.modules[program.entry_module]
     ordered_module_paths = [
-        module_path
-        for module_path in sorted(program.modules)
-        if module_path != program.entry_module
+        module_path for module_path in sorted(program.modules) if module_path != program.entry_module
     ]
     ordered_module_paths.append(program.entry_module)
 
@@ -79,8 +77,5 @@ def build_codegen_module(program: ProgramInfo) -> ModuleAst:
                 function_owner_by_name[fn_decl.name] = module_path
 
     return ModuleAst(
-        imports=entry_module.ast.imports,
-        classes=merged_classes,
-        functions=merged_functions,
-        span=entry_module.ast.span,
+        imports=entry_module.ast.imports, classes=merged_classes, functions=merged_functions, span=entry_module.ast.span
     )
