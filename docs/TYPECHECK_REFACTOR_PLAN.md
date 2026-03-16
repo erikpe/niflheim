@@ -463,6 +463,10 @@ Outcome:
 - Move indexing, index assignment, slicing, slice assignment, and `for in` protocol rules into `structural.py`.
 - Keep array built-ins and user-defined structural methods covered by existing tests.
 
+Status:
+
+- implemented
+
 Outcome:
 
 - future protocol-like features have a natural home
@@ -549,8 +553,8 @@ Outcome:
 - [x] Extract constructor call validation.
 - [x] Extract function/static/instance/callable-field call rules.
 - [x] Extract array method call rules.
-- [ ] Extract structural indexing and slicing helpers.
-- [ ] Extract `for in` iterability validation.
+- [x] Extract structural indexing and slicing helpers.
+- [x] Extract `for in` iterability validation.
 - [x] Run `tests/compiler/typecheck -q` after the extraction.
 
 ## H. Expressions and Statements

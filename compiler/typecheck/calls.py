@@ -10,11 +10,8 @@ from compiler.typecheck.module_lookup import (
     resolve_imported_function_sig,
     resolve_module_member,
 )
-from compiler.typecheck.relations import (
-    canonicalize_reference_type_name,
-    require_array_index_type,
-    require_assignable,
-)
+from compiler.typecheck.relations import canonicalize_reference_type_name, require_assignable
+from compiler.typecheck.structural import infer_array_method_call_type
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner
 
 
@@ -179,52 +176,14 @@ def infer_call_type(
             return qualified_return_type
 
         if object_type.element_type is not None:
-            method_name = expr.callee.field_name
-            if method_name == "len":
-                check_call_arguments(ctx, [], expr.arguments, expr.span, infer_expression_type=infer_expression_type)
-                return TypeInfo(name="u64", kind="primitive")
-            if method_name == "iter_len":
-                check_call_arguments(ctx, [], expr.arguments, expr.span, infer_expression_type=infer_expression_type)
-                return TypeInfo(name="u64", kind="primitive")
-            if method_name == "index_get":
-                if len(expr.arguments) != 1:
-                    raise TypeCheckError(f"Expected 1 arguments, got {len(expr.arguments)}", expr.span)
-                index_type = infer_expression_type(expr.arguments[0])
-                require_array_index_type(index_type, expr.arguments[0].span)
-                return object_type.element_type
-            if method_name == "iter_get":
-                if len(expr.arguments) != 1:
-                    raise TypeCheckError(f"Expected 1 arguments, got {len(expr.arguments)}", expr.span)
-                index_type = infer_expression_type(expr.arguments[0])
-                require_array_index_type(index_type, expr.arguments[0].span)
-                return object_type.element_type
-            if method_name == "index_set":
-                if len(expr.arguments) != 2:
-                    raise TypeCheckError(f"Expected 2 arguments, got {len(expr.arguments)}", expr.span)
-                index_type = infer_expression_type(expr.arguments[0])
-                require_array_index_type(index_type, expr.arguments[0].span)
-                value_type = infer_expression_type(expr.arguments[1])
-                require_assignable(ctx, object_type.element_type, value_type, expr.arguments[1].span)
-                return TypeInfo(name="unit", kind="primitive")
-            if method_name == "slice_get":
-                if len(expr.arguments) != 2:
-                    raise TypeCheckError(f"Expected 2 arguments, got {len(expr.arguments)}", expr.span)
-                start_type = infer_expression_type(expr.arguments[0])
-                end_type = infer_expression_type(expr.arguments[1])
-                require_array_index_type(start_type, expr.arguments[0].span)
-                require_array_index_type(end_type, expr.arguments[1].span)
-                return object_type
-            if method_name == "slice_set":
-                if len(expr.arguments) != 3:
-                    raise TypeCheckError(f"Expected 3 arguments, got {len(expr.arguments)}", expr.span)
-                start_type = infer_expression_type(expr.arguments[0])
-                end_type = infer_expression_type(expr.arguments[1])
-                require_array_index_type(start_type, expr.arguments[0].span)
-                require_array_index_type(end_type, expr.arguments[1].span)
-                value_type = infer_expression_type(expr.arguments[2])
-                require_assignable(ctx, object_type, value_type, expr.arguments[2].span)
-                return TypeInfo(name="unit", kind="primitive")
-            raise TypeCheckError(f"Array type '{object_type.name}' has no method '{method_name}'", expr.span)
+            return infer_array_method_call_type(
+                ctx,
+                object_type,
+                expr.callee.field_name,
+                expr.arguments,
+                expr.span,
+                infer_expression_type=infer_expression_type,
+            )
 
         class_info = lookup_class_by_type_name(ctx, object_type.name)
         if class_info is None:
