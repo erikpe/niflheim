@@ -13,6 +13,7 @@ from compiler.typecheck.declarations import collect_module_declarations
 from compiler.typecheck.expressions import infer_expression_type as expressions_infer_expression_type
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import lookup_class_by_type_name as lookup_lookup_class_by_type_name
+from compiler.typecheck.ops import TypeCheckOps
 from compiler.typecheck.relations import (
     canonicalize_reference_type_name as relation_canonicalize_reference_type_name,
     check_explicit_cast as relation_check_explicit_cast,
@@ -72,14 +73,36 @@ class TypeChecker:
         )
         self.functions = self.ctx.functions
         self.classes = self.ctx.classes
+        self.ops = TypeCheckOps(
+            resolve_type_ref=self._resolve_type_ref,
+            declare_variable=self._declare_variable,
+            check_block=self._check_block,
+            block_guarantees_return=self._block_guarantees_return,
+            push_scope=self._push_scope,
+            pop_scope=self._pop_scope,
+            canonicalize_reference_type_name=self._canonicalize_reference_type_name,
+            check_statement=self._check_statement,
+            infer_expression_type=self._infer_expression_type,
+            require_assignable=self._require_assignable,
+            require_type_name=self._require_type_name,
+            resolve_for_in_element_type=self._resolve_for_in_element_type,
+            ensure_assignable_target=self._ensure_assignable_target,
+            ensure_index_assignment=self._ensure_index_assignment,
+            lookup_variable=self._lookup_variable,
+            require_array_size_type=self._require_array_size_type,
+            is_comparable=self._is_comparable,
+            check_explicit_cast=self._check_explicit_cast,
+            require_member_visible=self._require_member_visible,
+            ensure_field_access_assignable=self._ensure_field_access_assignable,
+            ensure_structural_set_method_available_for_index_assignment=self._ensure_structural_set_method_available_for_index_assignment,
+            lookup_class_by_type_name=self._lookup_class_by_type_name,
+            resolve_structural_slice_method_result_type=self._resolve_structural_slice_method_result_type,
+            resolve_structural_set_slice_method_result_type=self._resolve_structural_set_slice_method_result_type,
+        )
 
     def check(self) -> None:
         if not self.pre_collected:
-            collect_module_declarations(
-                self.ctx,
-                infer_expression_type=self._infer_expression_type,
-                require_assignable=self._require_assignable,
-            )
+            collect_module_declarations(self.ctx, self.ops)
 
         for fn_decl in self.ctx.module_ast.functions:
             if fn_decl.is_extern:
@@ -112,54 +135,19 @@ class TypeChecker:
     ) -> None:
         statements_check_function_like(
             self.ctx,
+            self.ops,
             params,
             body,
             return_type,
-            resolve_type_ref=self._resolve_type_ref,
-            declare_variable=self._declare_variable,
-            check_block=self._check_block,
-            block_guarantees_return=self._block_guarantees_return,
-            push_scope=self._push_scope,
-            pop_scope=self._pop_scope,
-            canonicalize_reference_type_name=self._canonicalize_reference_type_name,
             receiver_type=receiver_type,
             owner_class_name=owner_class_name,
         )
 
     def _check_block(self, block: BlockStmt, return_type: TypeInfo) -> None:
-        statements_check_block(
-            block,
-            return_type,
-            check_statement=self._check_statement,
-            push_scope=self._push_scope,
-            pop_scope=self._pop_scope,
-        )
+        statements_check_block(self.ops, block, return_type)
 
     def _check_statement(self, stmt: Statement, return_type: TypeInfo) -> None:
-        statements_check_statement(
-            self.ctx,
-            stmt,
-            return_type,
-            check_block=self._check_block,
-            infer_expression_type=self._infer_expression_type,
-            resolve_type_ref=self._resolve_type_ref,
-            require_assignable=self._require_assignable,
-            require_type_name=self._require_type_name,
-            resolve_for_in_element_type=self._resolve_for_in_element_type,
-            push_scope=self._push_scope,
-            pop_scope=self._pop_scope,
-            declare_variable=self._declare_variable,
-            ensure_assignable_target=self._ensure_assignable_target,
-            ensure_index_assignment=lambda object_type, index_expr, value_type, span: structural_ensure_index_assignment(
-                self.ctx,
-                object_type,
-                index_expr,
-                value_type,
-                span,
-                infer_expression_type=self._infer_expression_type,
-                require_member_visible=self._require_member_visible,
-            ),
-        )
+        statements_check_statement(self.ctx, self.ops, stmt, return_type)
 
     def _block_guarantees_return(self, block: BlockStmt) -> bool:
         return statements_block_guarantees_return(block)
@@ -171,33 +159,22 @@ class TypeChecker:
         )
 
     def _ensure_assignable_target(self, expr: Expression) -> None:
-        statements_ensure_assignable_target(
-            expr,
-            lookup_variable=self._lookup_variable,
-            infer_expression_type=self._infer_expression_type,
-            ensure_field_access_assignable=self._ensure_field_access_assignable,
-            ensure_structural_set_method_available_for_index_assignment=self._ensure_structural_set_method_available_for_index_assignment,
-        )
+        statements_ensure_assignable_target(self.ops, expr)
 
     def _infer_expression_type(self, expr: Expression) -> TypeInfo:
-        return expressions_infer_expression_type(
-            self.ctx,
-            expr,
-            lookup_variable=self._lookup_variable,
-            require_type_name=self._require_type_name,
-            require_array_size_type=self._require_array_size_type,
-            is_comparable=self._is_comparable,
-            check_explicit_cast=self._check_explicit_cast,
-            require_member_visible=self._require_member_visible,
-        )
+        return expressions_infer_expression_type(self.ctx, self.ops, expr)
 
     def _resolve_for_in_element_type(self, collection_type: TypeInfo, span: SourceSpan) -> TypeInfo:
-        return structural_resolve_for_in_element_type(
-            self.ctx,
-            collection_type,
-            span,
-            require_member_visible=self._require_member_visible,
-        )
+        return structural_resolve_for_in_element_type(self.ctx, self.ops, collection_type, span)
+
+    def _ensure_index_assignment(
+        self,
+        object_type: TypeInfo,
+        index_expr: Expression,
+        value_type: TypeInfo,
+        span: SourceSpan,
+    ) -> None:
+        structural_ensure_index_assignment(self.ctx, self.ops, object_type, index_expr, value_type, span)
 
     def _ensure_structural_set_method_available_for_index_assignment(
         self,
@@ -206,18 +183,13 @@ class TypeChecker:
     ) -> FunctionSig:
         return structural_ensure_structural_set_method_available_for_index_assignment(
             self.ctx,
+            self.ops,
             object_type,
             span,
-            require_member_visible=self._require_member_visible,
         )
 
     def _ensure_field_access_assignable(self, expr: FieldAccessExpr) -> None:
-        statements_ensure_field_access_assignable(
-            expr,
-            infer_expression_type=self._infer_expression_type,
-            lookup_class_by_type_name=self._lookup_class_by_type_name,
-            require_member_visible=self._require_member_visible,
-        )
+        statements_ensure_field_access_assignable(self.ops, expr)
 
     def _resolve_type_ref(self, type_ref: TypeRefNode) -> TypeInfo:
         return resolution_resolve_type_ref(self.ctx, type_ref)
@@ -265,10 +237,32 @@ class TypeChecker:
     ) -> None:
         statements_require_member_visible(
             self.ctx,
+            self.ops,
             class_info,
             owner_type_name,
             member_name,
             member_kind,
             span,
-            canonicalize_reference_type_name=self._canonicalize_reference_type_name,
         )
+
+    def _resolve_structural_slice_method_result_type(
+        self,
+        object_type: TypeInfo,
+        class_info: ClassInfo,
+        args: list[Expression],
+        span: SourceSpan,
+    ) -> TypeInfo:
+        from compiler.typecheck.structural import resolve_structural_slice_method_result_type
+
+        return resolve_structural_slice_method_result_type(self.ctx, self.ops, object_type, class_info, args, span)
+
+    def _resolve_structural_set_slice_method_result_type(
+        self,
+        object_type: TypeInfo,
+        class_info: ClassInfo,
+        args: list[Expression],
+        span: SourceSpan,
+    ) -> TypeInfo:
+        from compiler.typecheck.structural import resolve_structural_set_slice_method_result_type
+
+        return resolve_structural_set_slice_method_result_type(self.ctx, self.ops, object_type, class_info, args, span)

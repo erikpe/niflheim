@@ -17,11 +17,7 @@ def typecheck_program(program: ProgramInfo) -> None:
             module_path=module_path,
             modules=program.modules,
         )
-        collect_module_declarations(
-            checker.ctx,
-            infer_expression_type=checker._infer_expression_type,
-            require_assignable=checker._require_assignable,
-        )
+        collect_module_declarations(checker.ctx, checker.ops)
         module_function_sigs[module_path] = checker.functions
         module_class_infos[module_path] = checker.classes
 

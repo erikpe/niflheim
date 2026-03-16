@@ -39,11 +39,8 @@ from compiler.typecheck.module_lookup import (
     resolve_imported_function_sig,
     resolve_module_member,
 )
-from compiler.typecheck.structural import (
-    resolve_index_expression_type,
-    resolve_structural_set_slice_method_result_type,
-    resolve_structural_slice_method_result_type,
-)
+from compiler.typecheck.structural import resolve_index_expression_type
+from compiler.typecheck.ops import TypeCheckOps
 from compiler.typecheck.type_resolution import (
     qualify_member_type_for_owner,
     resolve_string_type,
@@ -53,29 +50,14 @@ from compiler.typecheck.type_resolution import (
 
 def infer_expression_type(
     ctx: TypeCheckContext,
+    ops: TypeCheckOps,
     expr: Expression,
-    *,
-    lookup_variable: callable,
-    require_type_name: callable,
-    require_array_size_type: callable,
-    is_comparable: callable,
-    check_explicit_cast: callable,
-    require_member_visible: callable,
 ) -> TypeInfo:
     def infer_nested(nested_expr: Expression) -> TypeInfo:
-        return infer_expression_type(
-            ctx,
-            nested_expr,
-            lookup_variable=lookup_variable,
-            require_type_name=require_type_name,
-            require_array_size_type=require_array_size_type,
-            is_comparable=is_comparable,
-            check_explicit_cast=check_explicit_cast,
-            require_member_visible=require_member_visible,
-        )
+        return infer_expression_type(ctx, ops, nested_expr)
 
     if isinstance(expr, IdentifierExpr):
-        symbol_type = lookup_variable(expr.name)
+        symbol_type = ops.lookup_variable(expr.name)
         if symbol_type is not None:
             return symbol_type
 
@@ -137,7 +119,7 @@ def infer_expression_type(
     if isinstance(expr, UnaryExpr):
         if expr.operator == "!":
             operand_type = infer_nested(expr.operand)
-            require_type_name(operand_type, "bool", expr.operand.span)
+            ops.require_type_name(operand_type, "bool", expr.operand.span)
             return TypeInfo(name="bool", kind="primitive")
 
         if expr.operator == "-":
@@ -207,13 +189,13 @@ def infer_expression_type(
             return TypeInfo(name="bool", kind="primitive")
 
         if op in {"==", "!="}:
-            if not is_comparable(left_type, right_type):
+            if not ops.is_comparable(left_type, right_type):
                 raise TypeCheckError(f"Operator '{op}' has incompatible operand types", expr.span)
             return TypeInfo(name="bool", kind="primitive")
 
         if op in {"&&", "||"}:
-            require_type_name(left_type, "bool", expr.left.span)
-            require_type_name(right_type, "bool", expr.right.span)
+            ops.require_type_name(left_type, "bool", expr.left.span)
+            ops.require_type_name(right_type, "bool", expr.right.span)
             return TypeInfo(name="bool", kind="primitive")
 
         raise TypeCheckError(f"Unknown binary operator '{op}'", expr.span)
@@ -221,41 +203,18 @@ def infer_expression_type(
     if isinstance(expr, CastExpr):
         source_type = infer_nested(expr.operand)
         target_type = resolve_type_ref(ctx, expr.type_ref)
-        check_explicit_cast(source_type, target_type, expr.span)
+        ops.check_explicit_cast(source_type, target_type, expr.span)
         return target_type
 
     if isinstance(expr, CallExpr):
-        return infer_call_type(
-            ctx,
-            expr,
-            infer_expression_type=infer_nested,
-            require_member_visible=require_member_visible,
-            resolve_structural_slice_method_result_type=lambda object_type, class_info, args, span: resolve_structural_slice_method_result_type(
-                ctx,
-                object_type,
-                class_info,
-                args,
-                span,
-                infer_expression_type=infer_nested,
-                require_member_visible=require_member_visible,
-            ),
-            resolve_structural_set_slice_method_result_type=lambda object_type, class_info, args, span: resolve_structural_set_slice_method_result_type(
-                ctx,
-                object_type,
-                class_info,
-                args,
-                span,
-                infer_expression_type=infer_nested,
-                require_member_visible=require_member_visible,
-            ),
-        )
+        return infer_call_type(ctx, ops, expr)
 
     if isinstance(expr, ArrayCtorExpr):
         array_type = resolve_type_ref(ctx, expr.element_type_ref)
         if array_type.element_type is None:
             raise TypeCheckError("Array constructor requires array element type", expr.element_type_ref.span)
         length_type = infer_nested(expr.length_expr)
-        require_array_size_type(length_type, expr.length_expr.span)
+        ops.require_array_size_type(length_type, expr.length_expr.span)
         return array_type
 
     if isinstance(expr, FieldAccessExpr):
@@ -283,7 +242,7 @@ def infer_expression_type(
             method_sig = class_info.methods.get(expr.field_name)
             if method_sig is None:
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.field_name}'", expr.span)
-            require_member_visible(class_info, class_type_name, expr.field_name, "method", expr.span)
+            ops.require_member_visible(class_info, class_type_name, expr.field_name, "method", expr.span)
             if not method_sig.is_static:
                 raise TypeCheckError(
                     f"Method '{class_info.name}.{expr.field_name}' is not static",
@@ -313,12 +272,12 @@ def infer_expression_type(
 
         field_type = class_info.fields.get(expr.field_name)
         if field_type is not None:
-            require_member_visible(class_info, object_type.name, expr.field_name, "field", expr.span)
+            ops.require_member_visible(class_info, object_type.name, expr.field_name, "field", expr.span)
             return qualify_member_type_for_owner(ctx, field_type, object_type.name)
 
         method_sig = class_info.methods.get(expr.field_name)
         if method_sig is not None:
-            require_member_visible(class_info, object_type.name, expr.field_name, "method", expr.span)
+            ops.require_member_visible(class_info, object_type.name, expr.field_name, "method", expr.span)
             if not method_sig.is_static:
                 raise TypeCheckError("Instance methods are not first-class values in MVP", expr.span)
             qualified_params = [
@@ -340,11 +299,11 @@ def infer_expression_type(
         index_type = infer_nested(expr.index_expr)
         return resolve_index_expression_type(
             ctx,
+            ops,
             obj_type,
             index_type,
             expr.index_expr.span,
             expr.span,
-            require_member_visible=require_member_visible,
         )
 
     raise TypeCheckError("Unsupported expression", expr.span)
@@ -352,12 +311,10 @@ def infer_expression_type(
 
 def ensure_field_access_assignable(
     ctx: TypeCheckContext,
+    ops: TypeCheckOps,
     expr: FieldAccessExpr,
-    *,
-    infer_expression_type: callable,
-    require_member_visible: callable,
 ) -> None:
-    object_type = infer_expression_type(expr.object_expr)
+    object_type = ops.infer_expression_type(expr.object_expr)
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
@@ -366,7 +323,7 @@ def ensure_field_access_assignable(
     if field_type is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
 
-    require_member_visible(class_info, object_type.name, expr.field_name, "field", expr.span)
+    ops.require_member_visible(class_info, object_type.name, expr.field_name, "field", expr.span)
 
     if expr.field_name in class_info.final_fields:
         raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)

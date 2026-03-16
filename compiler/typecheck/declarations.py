@@ -12,6 +12,7 @@ from compiler.ast_nodes import (
 )
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
+from compiler.typecheck.ops import TypeCheckOps
 from compiler.typecheck.type_resolution import resolve_type_ref
 
 
@@ -59,8 +60,7 @@ def function_sig_from_decl(
 
 def collect_module_declarations(
     ctx: TypeCheckContext,
-    infer_expression_type: callable,
-    require_assignable: callable,
+    ops: TypeCheckOps,
 ) -> None:
     for class_decl in ctx.module_ast.classes:
         if class_decl.name in ctx.classes or class_decl.name in ctx.functions:
@@ -90,8 +90,8 @@ def collect_module_declarations(
             )
             if field_decl.initializer is not None:
                 check_constant_field_initializer(field_decl.initializer)
-                init_type = infer_expression_type(field_decl.initializer)
-                require_assignable(field_type, init_type, field_decl.initializer.span)
+                init_type = ops.infer_expression_type(field_decl.initializer)
+                ops.require_assignable(field_type, init_type, field_decl.initializer.span)
             else:
                 constructor_param_order.append(field_decl.name)
             fields[field_decl.name] = field_type
