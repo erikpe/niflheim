@@ -4,7 +4,7 @@ from compiler.ast_nodes import *
 from compiler.codegen.strings import STR_CLASS_NAME, is_str_type_name
 from compiler.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
-from compiler.typecheck_model import (
+from compiler.typecheck.model import (
     ClassInfo,
     FunctionSig,
     NUMERIC_TYPE_NAMES,

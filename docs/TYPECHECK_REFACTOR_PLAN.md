@@ -6,7 +6,7 @@ The immediate goal is readability and maintainability. The medium-term goal is t
 
 ## Goals
 
-- Keep the public API stable through `compiler/typecheck.py`.
+- Keep the public API stable through the `compiler.typecheck` import path.
 - Separate semantic concerns from traversal/state management.
 - Move reusable type logic into small, testable helpers.
 - Make cross-module lookup and member-qualification rules explicit.
@@ -41,7 +41,7 @@ This makes the file difficult to navigate and increases coupling between unrelat
 
 ## 1. Keep One Public Entry Point
 
-`compiler/typecheck.py` should remain the stable public facade for:
+The `compiler.typecheck` import path should remain the stable public facade for:
 
 - `typecheck(module_ast)`
 - `typecheck_program(program)`
@@ -90,15 +90,14 @@ Existing error wording and span behavior should remain stable as much as practic
 
 ## Target Layout
 
-The recommended end state is a small `compiler/typecheck/` package plus a thin compatibility facade at `compiler/typecheck.py`.
+The recommended end state is a small `compiler/typecheck/` package whose `__init__.py` acts as the public facade.
 
 Suggested layout:
 
 ```text
 compiler/
-  typecheck.py                   # stable public facade
   typecheck/
-    __init__.py                  # optional internal re-exports only if useful
+    __init__.py                  # stable public facade for compiler.typecheck imports
     api.py                       # public orchestration helpers used by facade
     model.py                     # TypeInfo, FunctionSig, ClassInfo, TypeCheckError, constants
     context.py                   # mutable checking context and scope helpers
@@ -115,7 +114,7 @@ compiler/
 
 ## File Purposes
 
-## `compiler/typecheck.py`
+## `compiler/typecheck/__init__.py`
 
 Purpose:
 
@@ -345,7 +344,7 @@ Recommended functions:
 
 ## Compatibility Strategy
 
-- Keep `compiler/typecheck.py` stable from the first commit.
+- Keep the `compiler.typecheck` import path stable from the first commit.
 - Keep `compiler/typecheck_model.py` temporarily as a compatibility wrapper if needed while imports are migrated.
 - Move implementation in small phases and run the existing typecheck suites after each phase.
 
@@ -377,7 +376,7 @@ Recommended follow-up after the refactor stabilizes:
 
 ## Phase 1. Prepare Stable Surface
 
-- Keep `compiler/typecheck.py` as the only external API entry point.
+- Convert `compiler.typecheck` from a single module file into a package facade while keeping the import path stable.
 - Create `compiler/typecheck/` package skeleton.
 - Move model definitions and constants into package modules.
 - Add compatibility imports so callers still work during the transition.
@@ -480,15 +479,15 @@ Outcome:
 
 ## A. Scaffolding
 
-- [ ] Create `compiler/typecheck/` package.
-- [ ] Add `api.py`, `model.py`, `context.py`, and `constants.py` skeletons.
-- [ ] Keep `compiler/typecheck.py` as the stable facade.
-- [ ] Decide whether `compiler/typecheck_model.py` remains as a temporary compatibility shim during migration.
+- [x] Create `compiler/typecheck/` package.
+- [x] Add `api.py`, `model.py`, `context.py`, and `constants.py` skeletons.
+- [x] Keep the `compiler.typecheck` import path as the stable facade by using `compiler/typecheck/__init__.py`.
+- [x] Keep `compiler/typecheck_model.py` as a temporary compatibility shim during migration.
 
 ## B. Model and Constants
 
-- [ ] Move `TypeInfo`, `FunctionSig`, `ClassInfo`, and `TypeCheckError` into `compiler/typecheck/model.py`.
-- [ ] Move type-category sets into `compiler/typecheck/model.py` or `compiler/typecheck/constants.py` as appropriate.
+- [x] Move `TypeInfo`, `FunctionSig`, `ClassInfo`, and `TypeCheckError` into `compiler/typecheck/model.py`.
+- [x] Move type-category sets into `compiler/typecheck/model.py` or `compiler/typecheck/constants.py` as appropriate.
 - [ ] Move `ARRAY_METHOD_NAMES`, literal bounds, and bitwise/operator sets into `compiler/typecheck/constants.py`.
 - [ ] Update imports without changing semantics.
 
@@ -556,7 +555,7 @@ Outcome:
 
 At the end of this refactor:
 
-- `compiler/typecheck.py` remains the stable public entry point.
+- `compiler.typecheck` remains the stable public entry point.
 - core semantic policies live in focused modules instead of one large class.
 - expression, call, statement, lookup, and type-relation logic have clear homes.
 - future type-system extensions can be added by extending small modules instead of editing one giant file.
