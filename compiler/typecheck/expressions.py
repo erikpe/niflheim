@@ -254,8 +254,7 @@ def infer_expression_type(
                 )
 
             qualified_params = [
-                qualify_member_type_for_owner(ctx, param_type, class_type_name)
-                for param_type in method_sig.params
+                qualify_member_type_for_owner(ctx, param_type, class_type_name) for param_type in method_sig.params
             ]
             qualified_return = qualify_member_type_for_owner(ctx, method_sig.return_type, class_type_name)
             return TypeInfo(
@@ -285,8 +284,7 @@ def infer_expression_type(
             if not method_sig.is_static:
                 raise TypeCheckError("Instance methods are not first-class values in MVP", expr.span)
             qualified_params = [
-                qualify_member_type_for_owner(ctx, param_type, object_type.name)
-                for param_type in method_sig.params
+                qualify_member_type_for_owner(ctx, param_type, object_type.name) for param_type in method_sig.params
             ]
             qualified_return = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
             return TypeInfo(

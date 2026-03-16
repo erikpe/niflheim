@@ -26,13 +26,7 @@ def type_names_equal(
 ) -> bool:
     if left == right:
         return True
-    return canonicalize_reference_type_name(
-        ctx,
-        left,
-    ) == canonicalize_reference_type_name(
-        ctx,
-        right,
-    )
+    return canonicalize_reference_type_name(ctx, left) == canonicalize_reference_type_name(ctx, right)
 
 
 def type_infos_equal(

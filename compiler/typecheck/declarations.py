@@ -1,40 +1,13 @@
 from __future__ import annotations
 
 from compiler.ast_nodes import (
-    BinaryExpr,
-    CastExpr,
-    Expression,
     FunctionDecl,
     MethodDecl,
-    NullExpr,
-    UnaryExpr,
-    LiteralExpr,
 )
 
 from compiler.typecheck.context import TypeCheckContext
-from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
-from compiler.typecheck.relations import require_assignable
 from compiler.typecheck.type_resolution import resolve_type_ref
-
-
-def check_constant_field_initializer(expr: Expression) -> None:
-    if isinstance(expr, (LiteralExpr, NullExpr)):
-        return
-    if isinstance(expr, UnaryExpr):
-        check_constant_field_initializer(expr.operand)
-        return
-    if isinstance(expr, BinaryExpr):
-        check_constant_field_initializer(expr.left)
-        check_constant_field_initializer(expr.right)
-        return
-    if isinstance(expr, CastExpr):
-        check_constant_field_initializer(expr.operand)
-        return
-    raise TypeCheckError(
-        "Class field initializer must be a constant expression in MVP",
-        expr.span,
-    )
 
 
 def function_sig_from_decl(
@@ -89,11 +62,7 @@ def collect_module_declarations(
                 ctx,
                 field_decl.type_ref,
             )
-            if field_decl.initializer is not None:
-                check_constant_field_initializer(field_decl.initializer)
-                init_type = infer_expression_type(ctx, field_decl.initializer)
-                require_assignable(ctx, field_type, init_type, field_decl.initializer.span)
-            else:
+            if field_decl.initializer is None:
                 constructor_param_order.append(field_decl.name)
             fields[field_decl.name] = field_type
             field_order.append(field_decl.name)
