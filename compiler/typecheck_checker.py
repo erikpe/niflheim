@@ -20,6 +20,17 @@ from compiler.typecheck.model import (
     TypeCheckError,
     TypeInfo,
 )
+from compiler.typecheck.module_lookup import (
+    current_module_info as lookup_current_module_info,
+    flatten_field_chain as lookup_flatten_field_chain,
+    lookup_class_by_type_name as lookup_lookup_class_by_type_name,
+    resolve_imported_class_name as lookup_resolve_imported_class_name,
+    resolve_imported_function_sig as lookup_resolve_imported_function_sig,
+    resolve_module_member as lookup_resolve_module_member,
+    resolve_qualified_imported_class_name as lookup_resolve_qualified_imported_class_name,
+    resolve_unique_global_class_name as lookup_resolve_unique_global_class_name,
+    resolve_unique_imported_class_module as lookup_resolve_unique_imported_class_module,
+)
 from compiler.typecheck.relations import (
     canonicalize_reference_type_name as relation_canonicalize_reference_type_name,
     check_explicit_cast as relation_check_explicit_cast,
@@ -32,6 +43,11 @@ from compiler.typecheck.relations import (
     require_type_name as relation_require_type_name,
     type_infos_equal as relation_type_infos_equal,
     type_names_equal as relation_type_names_equal,
+)
+from compiler.typecheck.type_resolution import (
+    qualify_member_type_for_owner as resolution_qualify_member_type_for_owner,
+    resolve_string_type as resolution_resolve_string_type,
+    resolve_type_ref as resolution_resolve_type_ref,
 )
 
 
@@ -1055,33 +1071,13 @@ class TypeChecker:
         return TypeInfo(name="unit", kind="primitive")
 
     def _resolve_imported_function_sig(self, fn_name: str, span: SourceSpan) -> FunctionSig | None:
-        current_module = self._current_module_info()
-        if (
-            current_module is None
-            or self.modules is None
-            or self.module_function_sigs is None
-        ):
-            return None
-
-        matches: list[ModulePath] = []
-        for import_info in current_module.imports.values():
-            module_path = import_info.module_path
-            module_info = self.modules[module_path]
-            symbol = module_info.exported_symbols.get(fn_name)
-            if symbol is not None and symbol.kind == "function":
-                matches.append(module_path)
-
-        if not matches:
-            return None
-
-        if len(matches) > 1:
-            candidates = ", ".join(sorted(".".join(path) for path in matches))
-            raise TypeCheckError(
-                f"Ambiguous imported function '{fn_name}' (matches: {candidates})",
-                span,
-            )
-
-        return self.module_function_sigs[matches[0]][fn_name]
+        return lookup_resolve_imported_function_sig(
+            fn_name,
+            span,
+            modules=self.modules,
+            module_path=self.module_path,
+            module_function_sigs=self.module_function_sigs,
+        )
 
     def _check_call_arguments(self, params: list[TypeInfo], args: list[Expression], span: SourceSpan) -> None:
         if len(params) != len(args):
@@ -1123,108 +1119,50 @@ class TypeChecker:
             raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)
 
     def _resolve_type_ref(self, type_ref: TypeRefNode) -> TypeInfo:
-        if isinstance(type_ref, ArrayTypeRef):
-            element_type = self._resolve_type_ref(type_ref.element_type)
-            return TypeInfo(name=f"{element_type.name}[]", kind="reference", element_type=element_type)
-
-        if isinstance(type_ref, FunctionTypeRef):
-            param_types = [self._resolve_type_ref(param_type) for param_type in type_ref.param_types]
-            return_type = self._resolve_type_ref(type_ref.return_type)
-            return TypeInfo(
-                name=self._format_function_type_name(param_types, return_type),
-                kind="callable",
-                callable_params=param_types,
-                callable_return=return_type,
-            )
-
-        name = type_ref.name
-        if name in PRIMITIVE_TYPE_NAMES:
-            return TypeInfo(name=name, kind="primitive")
-
-        if "." in name:
-            qualified = self._resolve_qualified_imported_class_type(name, type_ref.span)
-            if qualified is not None:
-                return qualified
-
-        if name in self.classes:
-            return TypeInfo(name=name, kind="reference")
-
-        imported_class_type = self._resolve_imported_class_type(name, type_ref.span)
-        if imported_class_type is not None:
-            return imported_class_type
-
-        if name in REFERENCE_BUILTIN_TYPE_NAMES:
-            return TypeInfo(name=name, kind="reference")
-
-        raise TypeCheckError(f"Unknown type '{name}'", type_ref.span)
+        return resolution_resolve_type_ref(
+            type_ref,
+            local_classes=self.classes,
+            module_path=self.module_path,
+            modules=self.modules,
+            module_class_infos=self.module_class_infos,
+        )
 
     def _resolve_string_type(self, span: SourceSpan) -> TypeInfo:
-        if STR_CLASS_NAME in self.classes:
-            return TypeInfo(name=STR_CLASS_NAME, kind="reference")
-
-        imported_class_type = self._resolve_imported_class_type(STR_CLASS_NAME, span)
-        if imported_class_type is not None:
-            return imported_class_type
-
-        global_class_type = self._resolve_unique_global_class_type(STR_CLASS_NAME, span)
-        if global_class_type is not None:
-            return global_class_type
-
-        raise TypeCheckError(f"Unknown type '{STR_CLASS_NAME}'", span)
+        return resolution_resolve_string_type(
+            span,
+            local_classes=self.classes,
+            module_path=self.module_path,
+            modules=self.modules,
+            module_class_infos=self.module_class_infos,
+        )
 
     def _resolve_unique_global_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
-        if self.module_class_infos is None:
-            return None
-
-        matches: list[ModulePath] = []
-        for module_path, classes in self.module_class_infos.items():
-            if class_name in classes:
-                matches.append(module_path)
-
-        if not matches:
-            return None
-
-        if len(matches) > 1:
-            candidates = ", ".join(sorted(".".join(path) for path in matches))
-            raise TypeCheckError(
-                f"Ambiguous global class '{class_name}' (matches: {candidates})",
-                span,
-            )
-
-        owner_dotted = ".".join(matches[0])
-        return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
-
-    def _resolve_imported_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
-        matched_module = self._resolve_unique_imported_class_module(
+        resolved_name = lookup_resolve_unique_global_class_name(
             class_name,
             span,
-            ambiguity_label="type",
+            module_class_infos=self.module_class_infos,
         )
-        if matched_module is None:
+        if resolved_name is None:
             return None
+        return TypeInfo(name=resolved_name, kind="reference")
 
-        owner_dotted = ".".join(matched_module)
-        return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
+    def _resolve_imported_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
+        resolved_name = lookup_resolve_imported_class_name(
+            class_name,
+            span,
+            modules=self.modules,
+            module_path=self.module_path,
+        )
+        if resolved_name is None:
+            return None
+        return TypeInfo(name=resolved_name, kind="reference")
 
     def _qualify_member_type_for_owner(self, member_type: TypeInfo, owner_type_name: str) -> TypeInfo:
-        if member_type.element_type is not None:
-            qualified_element_type = self._qualify_member_type_for_owner(member_type.element_type, owner_type_name)
-            if qualified_element_type == member_type.element_type:
-                return member_type
-            return TypeInfo(name=f"{qualified_element_type.name}[]", kind="reference", element_type=qualified_element_type)
-
-        if member_type.kind != "reference" or "::" in member_type.name:
-            return member_type
-        if "::" not in owner_type_name or self.module_class_infos is None:
-            return member_type
-
-        owner_dotted, _owner_class_name = owner_type_name.split("::", 1)
-        owner_module = tuple(owner_dotted.split("."))
-        owner_classes = self.module_class_infos.get(owner_module)
-        if owner_classes is None or member_type.name not in owner_classes:
-            return member_type
-
-        return TypeInfo(name=f"{owner_dotted}::{member_type.name}", kind="reference")
+        return resolution_qualify_member_type_for_owner(
+            member_type,
+            owner_type_name,
+            module_class_infos=self.module_class_infos,
+        )
 
     def _resolve_unique_imported_class_module(
         self,
@@ -1233,74 +1171,24 @@ class TypeChecker:
         *,
         ambiguity_label: str,
     ) -> ModulePath | None:
-        current_module = self._current_module_info()
-        if (
-            current_module is None
-            or self.modules is None
-        ):
-            return None
-
-        matches: list[ModulePath] = []
-        for import_info in current_module.imports.values():
-            module_path = import_info.module_path
-            module_info = self.modules[module_path]
-            symbol = module_info.exported_symbols.get(class_name)
-            if symbol is not None and symbol.kind == "class":
-                matches.append(module_path)
-
-        if not matches:
-            return None
-
-        if len(matches) > 1:
-            candidates = ", ".join(sorted(".".join(path) for path in matches))
-            raise TypeCheckError(
-                f"Ambiguous imported {ambiguity_label} '{class_name}' (matches: {candidates})",
-                span,
-            )
-
-        return matches[0]
+        return lookup_resolve_unique_imported_class_module(
+            class_name,
+            span,
+            ambiguity_label=ambiguity_label,
+            modules=self.modules,
+            module_path=self.module_path,
+        )
 
     def _resolve_qualified_imported_class_type(self, qualified_name: str, span: SourceSpan) -> TypeInfo | None:
-        current_module = self._current_module_info()
-        if (
-            current_module is None
-            or self.modules is None
-        ):
+        resolved_name = lookup_resolve_qualified_imported_class_name(
+            qualified_name,
+            span,
+            modules=self.modules,
+            module_path=self.module_path,
+        )
+        if resolved_name is None:
             return None
-
-        parts = qualified_name.split(".")
-        if len(parts) < 2:
-            return None
-
-        import_alias = parts[0]
-        import_info = current_module.imports.get(import_alias)
-        if import_info is None:
-            return None
-
-        module_path = import_info.module_path
-        for segment in parts[1:-1]:
-            module_info = self.modules[module_path]
-            next_module = module_info.exported_modules.get(segment)
-            if next_module is None:
-                dotted = ".".join(module_path)
-                raise TypeCheckError(
-                    f"Module '{dotted}' has no exported module '{segment}'",
-                    span,
-                )
-            module_path = next_module
-
-        class_name = parts[-1]
-        module_info = self.modules[module_path]
-        symbol = module_info.exported_symbols.get(class_name)
-        if symbol is None or symbol.kind != "class":
-            dotted = ".".join(module_path)
-            raise TypeCheckError(
-                f"Module '{dotted}' has no exported class '{class_name}'",
-                span,
-            )
-
-        owner_dotted = ".".join(module_path)
-        return TypeInfo(name=f"{owner_dotted}::{class_name}", kind="reference")
+        return TypeInfo(name=resolved_name, kind="reference")
 
     def _declare_variable(self, name: str, var_type: TypeInfo, span: SourceSpan) -> None:
         if self.function_local_names_stack:
@@ -1391,87 +1279,26 @@ class TypeChecker:
         return relation_display_type_name(type_info)
 
     def _current_module_info(self) -> ModuleInfo | None:
-        if self.modules is None or self.module_path is None:
-            return None
-        return self.modules[self.module_path]
+        return lookup_current_module_info(self.modules, self.module_path)
 
     def _lookup_class_by_type_name(self, type_name: str) -> ClassInfo | None:
-        local = self.classes.get(type_name)
-        if local is not None:
-            return local
-
-        if "::" not in type_name or self.module_class_infos is None:
-            return None
-
-        owner_dotted, class_name = type_name.split("::", 1)
-        owner_module = tuple(owner_dotted.split("."))
-        owner_classes = self.module_class_infos.get(owner_module)
-        if owner_classes is None:
-            return None
-        return owner_classes.get(class_name)
+        return lookup_lookup_class_by_type_name(
+            type_name,
+            local_classes=self.classes,
+            module_class_infos=self.module_class_infos,
+        )
 
     def _resolve_module_member(self, expr: FieldAccessExpr) -> tuple[str, ModulePath, str] | None:
-        if self.modules is None or self.module_path is None:
-            return None
-
-        chain = self._flatten_field_chain(expr)
-        if chain is None or len(chain) < 2:
-            return None
-
-        current_module = self.modules[self.module_path]
-        import_info = current_module.imports.get(chain[0])
-        if import_info is None:
-            return None
-
-        module_path = import_info.module_path
-        for index, segment in enumerate(chain[1:]):
-            module_info = self.modules[module_path]
-            is_last = index == len(chain[1:]) - 1
-
-            reexported = module_info.exported_modules.get(segment)
-            if reexported is not None:
-                module_path = reexported
-                if is_last:
-                    return ("module", module_path, segment)
-                continue
-
-            exported_symbol = module_info.exported_symbols.get(segment)
-
-            if (
-                self.module_function_sigs is not None
-                and segment in self.module_function_sigs[module_path]
-                and exported_symbol is not None
-                and exported_symbol.kind == "function"
-            ):
-                if is_last:
-                    return ("function", module_path, segment)
-                return None
-
-            if (
-                self.module_class_infos is not None
-                and segment in self.module_class_infos[module_path]
-                and exported_symbol is not None
-                and exported_symbol.kind == "class"
-            ):
-                if is_last:
-                    return ("class", module_path, segment)
-                return None
-
-            return None
-
-        return None
+        return lookup_resolve_module_member(
+            expr,
+            modules=self.modules,
+            module_path=self.module_path,
+            module_function_sigs=self.module_function_sigs,
+            module_class_infos=self.module_class_infos,
+        )
 
     def _flatten_field_chain(self, expr: Expression) -> list[str] | None:
-        if isinstance(expr, IdentifierExpr):
-            return [expr.name]
-
-        if isinstance(expr, FieldAccessExpr):
-            left = self._flatten_field_chain(expr.object_expr)
-            if left is None:
-                return None
-            return [*left, expr.field_name]
-
-        return None
+        return lookup_flatten_field_chain(expr)
 
     def _require_member_visible(
         self,

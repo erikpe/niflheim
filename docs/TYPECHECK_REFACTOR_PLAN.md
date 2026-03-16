@@ -221,7 +221,6 @@ Recommended functions:
 - `resolve_type_ref(ctx, type_ref)`
 - `resolve_string_type(ctx, span)`
 - `qualify_member_type_for_owner(ctx, member_type, owner_type_name)`
-- `format_function_type_name(params, return_type)`
 
 Future extension point:
 
@@ -408,6 +407,10 @@ Outcome:
 - Move `TypeRefNode` resolution and owner qualification into `type_resolution.py`.
 - Keep tests green before touching expression logic.
 
+Status:
+
+- implemented
+
 Outcome:
 
 - cross-module semantics become explicit
@@ -506,12 +509,12 @@ Outcome:
 
 ## D. Lookup and Resolution
 
-- [ ] Extract current-module and import lookup helpers.
-- [ ] Extract class/function/module member resolution helpers.
-- [ ] Extract field-chain flattening helper.
-- [ ] Extract `TypeRefNode` resolution into `type_resolution.py`.
-- [ ] Extract owner-based member type qualification.
-- [ ] Run `tests/compiler/typecheck -q` after the extraction.
+- [x] Extract current-module and import lookup helpers.
+- [x] Extract class/function/module member resolution helpers.
+- [x] Extract field-chain flattening helper.
+- [x] Extract `TypeRefNode` resolution into `type_resolution.py`.
+- [x] Extract owner-based member type qualification.
+- [x] Run `tests/compiler/typecheck -q` after the extraction.
 
 ## E. Declaration Pass
 

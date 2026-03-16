@@ -22,7 +22,9 @@ Stage-0 compiler implementation in Python.
 	- `__init__.py` - stable `compiler.typecheck` public entry point.
 	- `api.py` - current typecheck entry points (`typecheck`, `typecheck_program`).
 	- `model.py` - shared typechecker data model/constants/errors.
-	- `context.py`, `constants.py` - phase-1 scaffolding for later internal splits.
+	- `context.py`, `constants.py` - shared state scaffolding and extracted checker constants.
+	- `relations.py` - extracted type relation helpers.
+	- `module_lookup.py`, `type_resolution.py` - extracted lookup and type resolution helpers.
 - `typecheck_model.py` - temporary compatibility shim re-exporting typechecker model symbols.
 - `typecheck_checker.py` - typechecker engine implementation.
 - `codegen/` - backend package entry point and internal code generation modules.
