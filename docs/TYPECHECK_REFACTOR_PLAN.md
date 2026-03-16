@@ -422,6 +422,10 @@ Outcome:
 - Keep the two-pass program behavior unchanged.
 - Keep field-initializer constant-expression checks in this phase.
 
+Status:
+
+- implemented
+
 Outcome:
 
 - declaration pass becomes independently readable and testable
@@ -431,6 +435,10 @@ Outcome:
 - Replace hidden mutable checker fields with `TypeCheckContext`.
 - Move scope push/pop and variable declare/lookup helpers into `context.py`.
 - Convert extracted helpers to accept `ctx` explicitly.
+
+Status:
+
+- implemented
 
 Outcome:
 
@@ -518,18 +526,18 @@ Outcome:
 
 ## E. Declaration Pass
 
-- [ ] Extract declaration pre-collection into `declarations.py`.
-- [ ] Extract field-initializer constant-expression validation.
-- [ ] Keep the two-pass `typecheck_program` flow unchanged.
-- [ ] Run `tests/compiler/typecheck -q` after the extraction.
+- [x] Extract declaration pre-collection into `declarations.py`.
+- [x] Extract field-initializer constant-expression validation.
+- [x] Keep the two-pass `typecheck_program` flow unchanged.
+- [x] Run `tests/compiler/typecheck -q` after the extraction.
 
 ## F. Context Conversion
 
-- [ ] Introduce `TypeCheckContext` dataclass.
-- [ ] Move scope stack operations into `context.py`.
-- [ ] Move variable declaration and lookup into `context.py`.
-- [ ] Convert extracted helpers to accept explicit `ctx`.
-- [ ] Run `tests/compiler/typecheck -q` after the extraction.
+- [x] Introduce `TypeCheckContext` dataclass.
+- [x] Move scope stack operations into `context.py`.
+- [x] Move variable declaration and lookup into `context.py`.
+- [x] Convert extracted helpers to accept explicit `ctx`.
+- [x] Run `tests/compiler/typecheck -q` after the extraction.
 
 ## G. Calls and Structural Protocols
 

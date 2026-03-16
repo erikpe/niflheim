@@ -11,6 +11,18 @@ from compiler.typecheck.constants import (
     I64_MIN_MAGNITUDE_LITERAL,
     U64_MAX_LITERAL,
 )
+from compiler.typecheck.context import (
+    TypeCheckContext,
+    declare_variable as context_declare_variable,
+    lookup_variable as context_lookup_variable,
+    pop_scope as context_pop_scope,
+    push_scope as context_push_scope,
+)
+from compiler.typecheck.declarations import (
+    check_constant_field_initializer as declarations_check_constant_field_initializer,
+    collect_module_declarations as declarations_collect_module_declarations,
+    function_sig_from_decl as declarations_function_sig_from_decl,
+)
 from compiler.typecheck.model import (
     ClassInfo,
     FunctionSig,
@@ -69,17 +81,27 @@ class TypeChecker:
         self.module_class_infos = module_class_infos
         self.pre_collected = pre_collected
 
+        functions: dict[str, FunctionSig]
+        classes: dict[str, ClassInfo]
         if module_path is not None and module_function_sigs is not None and module_class_infos is not None:
-            self.functions = module_function_sigs[module_path]
-            self.classes = module_class_infos[module_path]
+            functions = module_function_sigs[module_path]
+            classes = module_class_infos[module_path]
         else:
-            self.functions: dict[str, FunctionSig] = {}
-            self.classes: dict[str, ClassInfo] = {}
+            functions = {}
+            classes = {}
 
-        self.scope_stack: list[dict[str, TypeInfo]] = []
-        self.function_local_names_stack: list[set[str]] = []
-        self.loop_depth: int = 0
-        self.current_private_owner_type: str | None = None
+        self.ctx = TypeCheckContext(
+            module_ast=module_ast,
+            module_path=module_path,
+            modules=modules,
+            module_function_sigs=module_function_sigs,
+            module_class_infos=module_class_infos,
+            pre_collected=pre_collected,
+            functions=functions,
+            classes=classes,
+        )
+        self.functions = self.ctx.functions
+        self.classes = self.ctx.classes
 
     def check(self) -> None:
         if not self.pre_collected:
@@ -106,97 +128,19 @@ class TypeChecker:
                 )
 
     def _collect_declarations(self) -> None:
-        for class_decl in self.module_ast.classes:
-            if class_decl.name in self.classes or class_decl.name in self.functions:
-                raise TypeCheckError(f"Duplicate declaration '{class_decl.name}'", class_decl.span)
-            self.classes[class_decl.name] = ClassInfo(
-                name=class_decl.name,
-                fields={},
-                field_order=[],
-                constructor_param_order=[],
-                methods={},
-                private_fields=set(),
-                final_fields=set(),
-                private_methods=set(),
-                constructor_is_private=False,
-            )
-
-        for class_decl in self.module_ast.classes:
-            fields: dict[str, TypeInfo] = {}
-            field_order: list[str] = []
-            constructor_param_order: list[str] = []
-            for field_decl in class_decl.fields:
-                if field_decl.name in fields:
-                    raise TypeCheckError(f"Duplicate field '{field_decl.name}'", field_decl.span)
-                field_type = self._resolve_type_ref(field_decl.type_ref)
-                if field_decl.initializer is not None:
-                    self._check_field_initializer_expr(field_decl.initializer)
-                    init_type = self._infer_expression_type(field_decl.initializer)
-                    self._require_assignable(field_type, init_type, field_decl.initializer.span)
-                else:
-                    constructor_param_order.append(field_decl.name)
-                fields[field_decl.name] = field_type
-                field_order.append(field_decl.name)
-
-            methods: dict[str, FunctionSig] = {}
-            for method_decl in class_decl.methods:
-                if method_decl.name in methods:
-                    raise TypeCheckError(f"Duplicate method '{method_decl.name}'", method_decl.span)
-                if method_decl.name in fields:
-                    raise TypeCheckError(f"Duplicate member '{method_decl.name}'", method_decl.span)
-                methods[method_decl.name] = self._function_sig_from_decl(method_decl)
-
-            private_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_private}
-            final_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_final}
-            private_methods = {method_decl.name for method_decl in class_decl.methods if method_decl.is_private}
-
-            self.classes[class_decl.name] = ClassInfo(
-                name=class_decl.name,
-                fields=fields,
-                field_order=field_order,
-                constructor_param_order=constructor_param_order,
-                methods=methods,
-                private_fields=private_fields,
-                final_fields=final_fields,
-                private_methods=private_methods,
-                constructor_is_private=len(private_fields) > 0,
-            )
-
-        for fn_decl in self.module_ast.functions:
-            if fn_decl.is_extern and fn_decl.body is not None:
-                raise TypeCheckError("Extern function must not have a body", fn_decl.span)
-            if not fn_decl.is_extern and fn_decl.body is None:
-                raise TypeCheckError("Function declaration missing body", fn_decl.span)
-            if fn_decl.name in self.functions or fn_decl.name in self.classes:
-                raise TypeCheckError(f"Duplicate declaration '{fn_decl.name}'", fn_decl.span)
-            self.functions[fn_decl.name] = self._function_sig_from_decl(fn_decl)
-
-    def _check_field_initializer_expr(self, expr: Expression) -> None:
-        if isinstance(expr, (LiteralExpr, NullExpr)):
-            return
-        if isinstance(expr, UnaryExpr):
-            self._check_field_initializer_expr(expr.operand)
-            return
-        if isinstance(expr, BinaryExpr):
-            self._check_field_initializer_expr(expr.left)
-            self._check_field_initializer_expr(expr.right)
-            return
-        if isinstance(expr, CastExpr):
-            self._check_field_initializer_expr(expr.operand)
-            return
-        raise TypeCheckError(
-            "Class field initializer must be a constant expression in MVP",
-            expr.span,
+        declarations_collect_module_declarations(
+            self.ctx,
+            infer_expression_type=self._infer_expression_type,
+            require_assignable=self._require_assignable,
         )
 
+    def _check_field_initializer_expr(self, expr: Expression) -> None:
+        declarations_check_constant_field_initializer(expr)
+
     def _function_sig_from_decl(self, decl: FunctionDecl | MethodDecl) -> FunctionSig:
-        params = [self._resolve_type_ref(param.type_ref) for param in decl.params]
-        return FunctionSig(
-            name=decl.name,
-            params=params,
-            return_type=self._resolve_type_ref(decl.return_type),
-            is_static=decl.is_static if isinstance(decl, MethodDecl) else False,
-            is_private=decl.is_private if isinstance(decl, MethodDecl) else False,
+        return declarations_function_sig_from_decl(
+            self.ctx,
+            decl,
         )
 
     def _check_function_like(
@@ -208,12 +152,12 @@ class TypeChecker:
         receiver_type: TypeInfo | None = None,
         owner_class_name: str | None = None,
     ) -> None:
-        previous_owner = self.current_private_owner_type
+        previous_owner = self.ctx.current_private_owner_type
         if owner_class_name is not None:
-            self.current_private_owner_type = self._canonicalize_reference_type_name(owner_class_name)
+            self.ctx.current_private_owner_type = self._canonicalize_reference_type_name(owner_class_name)
 
         self._push_scope()
-        self.function_local_names_stack.append(set())
+        self.ctx.function_local_names_stack.append(set())
         try:
             if receiver_type is not None:
                 self._declare_variable("__self", receiver_type, body.span)
@@ -226,9 +170,9 @@ class TypeChecker:
             if return_type.name != "unit" and not self._block_guarantees_return(body):
                 raise TypeCheckError("Non-unit function must return on all paths", body.span)
         finally:
-            self.function_local_names_stack.pop()
+            self.ctx.function_local_names_stack.pop()
             self._pop_scope()
-            self.current_private_owner_type = previous_owner
+            self.ctx.current_private_owner_type = previous_owner
 
     def _check_block(self, block: BlockStmt, return_type: TypeInfo) -> None:
         self._push_scope()
@@ -262,9 +206,9 @@ class TypeChecker:
         if isinstance(stmt, WhileStmt):
             cond_type = self._infer_expression_type(stmt.condition)
             self._require_type_name(cond_type, "bool", stmt.condition.span)
-            self.loop_depth += 1
+            self.ctx.loop_depth += 1
             self._check_block(stmt.body, return_type)
-            self.loop_depth -= 1
+            self.ctx.loop_depth -= 1
             return
 
         if isinstance(stmt, ForInStmt):
@@ -273,23 +217,23 @@ class TypeChecker:
             object.__setattr__(stmt, "collection_type_name", collection_type.name)
             object.__setattr__(stmt, "element_type_name", element_type.name)
 
-            self.loop_depth += 1
+            self.ctx.loop_depth += 1
             self._push_scope()
             try:
                 self._declare_variable(stmt.element_name, element_type, stmt.span)
                 self._check_block(stmt.body, return_type)
             finally:
                 self._pop_scope()
-                self.loop_depth -= 1
+                self.ctx.loop_depth -= 1
             return
 
         if isinstance(stmt, BreakStmt):
-            if self.loop_depth <= 0:
+            if self.ctx.loop_depth <= 0:
                 raise TypeCheckError("'break' is only allowed inside while loops", stmt.span)
             return
 
         if isinstance(stmt, ContinueStmt):
-            if self.loop_depth <= 0:
+            if self.ctx.loop_depth <= 0:
                 raise TypeCheckError("'continue' is only allowed inside while loops", stmt.span)
             return
 
@@ -1072,11 +1016,9 @@ class TypeChecker:
 
     def _resolve_imported_function_sig(self, fn_name: str, span: SourceSpan) -> FunctionSig | None:
         return lookup_resolve_imported_function_sig(
+            self.ctx,
             fn_name,
             span,
-            modules=self.modules,
-            module_path=self.module_path,
-            module_function_sigs=self.module_function_sigs,
         )
 
     def _check_call_arguments(self, params: list[TypeInfo], args: list[Expression], span: SourceSpan) -> None:
@@ -1096,7 +1038,7 @@ class TypeChecker:
     ) -> TypeInfo:
         if class_info.constructor_is_private:
             owner_canonical = self._canonicalize_reference_type_name(result_type.name)
-            if self.current_private_owner_type != owner_canonical:
+            if self.ctx.current_private_owner_type != owner_canonical:
                 raise TypeCheckError(f"Constructor for class '{class_info.name}' is private", span)
 
         ctor_params = [class_info.fields[field_name] for field_name in class_info.constructor_param_order]
@@ -1120,27 +1062,21 @@ class TypeChecker:
 
     def _resolve_type_ref(self, type_ref: TypeRefNode) -> TypeInfo:
         return resolution_resolve_type_ref(
+            self.ctx,
             type_ref,
-            local_classes=self.classes,
-            module_path=self.module_path,
-            modules=self.modules,
-            module_class_infos=self.module_class_infos,
         )
 
     def _resolve_string_type(self, span: SourceSpan) -> TypeInfo:
         return resolution_resolve_string_type(
+            self.ctx,
             span,
-            local_classes=self.classes,
-            module_path=self.module_path,
-            modules=self.modules,
-            module_class_infos=self.module_class_infos,
         )
 
     def _resolve_unique_global_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
         resolved_name = lookup_resolve_unique_global_class_name(
+            self.ctx,
             class_name,
             span,
-            module_class_infos=self.module_class_infos,
         )
         if resolved_name is None:
             return None
@@ -1148,10 +1084,9 @@ class TypeChecker:
 
     def _resolve_imported_class_type(self, class_name: str, span: SourceSpan) -> TypeInfo | None:
         resolved_name = lookup_resolve_imported_class_name(
+            self.ctx,
             class_name,
             span,
-            modules=self.modules,
-            module_path=self.module_path,
         )
         if resolved_name is None:
             return None
@@ -1159,9 +1094,9 @@ class TypeChecker:
 
     def _qualify_member_type_for_owner(self, member_type: TypeInfo, owner_type_name: str) -> TypeInfo:
         return resolution_qualify_member_type_for_owner(
+            self.ctx,
             member_type,
             owner_type_name,
-            module_class_infos=self.module_class_infos,
         )
 
     def _resolve_unique_imported_class_module(
@@ -1172,47 +1107,33 @@ class TypeChecker:
         ambiguity_label: str,
     ) -> ModulePath | None:
         return lookup_resolve_unique_imported_class_module(
+            self.ctx,
             class_name,
             span,
             ambiguity_label=ambiguity_label,
-            modules=self.modules,
-            module_path=self.module_path,
         )
 
     def _resolve_qualified_imported_class_type(self, qualified_name: str, span: SourceSpan) -> TypeInfo | None:
         resolved_name = lookup_resolve_qualified_imported_class_name(
+            self.ctx,
             qualified_name,
             span,
-            modules=self.modules,
-            module_path=self.module_path,
         )
         if resolved_name is None:
             return None
         return TypeInfo(name=resolved_name, kind="reference")
 
     def _declare_variable(self, name: str, var_type: TypeInfo, span: SourceSpan) -> None:
-        if self.function_local_names_stack:
-            function_local_names = self.function_local_names_stack[-1]
-            if name in function_local_names:
-                raise TypeCheckError(f"Duplicate local variable '{name}'", span)
-            function_local_names.add(name)
-
-        scope = self.scope_stack[-1]
-        if name in scope:
-            raise TypeCheckError(f"Duplicate local variable '{name}'", span)
-        scope[name] = var_type
+        context_declare_variable(self.ctx, name, var_type, span)
 
     def _lookup_variable(self, name: str) -> TypeInfo | None:
-        for scope in reversed(self.scope_stack):
-            if name in scope:
-                return scope[name]
-        return None
+        return context_lookup_variable(self.ctx, name)
 
     def _push_scope(self) -> None:
-        self.scope_stack.append({})
+        context_push_scope(self.ctx)
 
     def _pop_scope(self) -> None:
-        self.scope_stack.pop()
+        context_pop_scope(self.ctx)
 
     def _require_type_name(self, actual: TypeInfo, expected_name: str, span: SourceSpan) -> None:
         relation_require_type_name(actual, expected_name, span)
@@ -1225,51 +1146,45 @@ class TypeChecker:
 
     def _canonicalize_reference_type_name(self, type_name: str) -> str:
         return relation_canonicalize_reference_type_name(
+            self.ctx,
             type_name,
-            module_path=self.module_path,
-            local_class_names=set(self.classes),
         )
 
     def _type_names_equal(self, left: str, right: str) -> bool:
         return relation_type_names_equal(
+            self.ctx,
             left,
             right,
-            module_path=self.module_path,
-            local_class_names=set(self.classes),
         )
 
     def _type_infos_equal(self, left: TypeInfo, right: TypeInfo) -> bool:
         return relation_type_infos_equal(
+            self.ctx,
             left,
             right,
-            module_path=self.module_path,
-            local_class_names=set(self.classes),
         )
 
     def _require_assignable(self, target: TypeInfo, value: TypeInfo, span: SourceSpan) -> None:
         relation_require_assignable(
+            self.ctx,
             target,
             value,
             span,
-            module_path=self.module_path,
-            local_class_names=set(self.classes),
         )
 
     def _is_comparable(self, left: TypeInfo, right: TypeInfo) -> bool:
         return relation_is_comparable(
+            self.ctx,
             left,
             right,
-            module_path=self.module_path,
-            local_class_names=set(self.classes),
         )
 
     def _check_explicit_cast(self, source: TypeInfo, target: TypeInfo, span: SourceSpan) -> None:
         relation_check_explicit_cast(
+            self.ctx,
             source,
             target,
             span,
-            module_path=self.module_path,
-            local_class_names=set(self.classes),
         )
 
     def _format_function_type_name(self, params: list[TypeInfo], return_type: TypeInfo) -> str:
@@ -1279,22 +1194,18 @@ class TypeChecker:
         return relation_display_type_name(type_info)
 
     def _current_module_info(self) -> ModuleInfo | None:
-        return lookup_current_module_info(self.modules, self.module_path)
+        return lookup_current_module_info(self.ctx)
 
     def _lookup_class_by_type_name(self, type_name: str) -> ClassInfo | None:
         return lookup_lookup_class_by_type_name(
+            self.ctx,
             type_name,
-            local_classes=self.classes,
-            module_class_infos=self.module_class_infos,
         )
 
     def _resolve_module_member(self, expr: FieldAccessExpr) -> tuple[str, ModulePath, str] | None:
         return lookup_resolve_module_member(
+            self.ctx,
             expr,
-            modules=self.modules,
-            module_path=self.module_path,
-            module_function_sigs=self.module_function_sigs,
-            module_class_infos=self.module_class_infos,
         )
 
     def _flatten_field_chain(self, expr: Expression) -> list[str] | None:
@@ -1317,7 +1228,7 @@ class TypeChecker:
             return
 
         owner_canonical = self._canonicalize_reference_type_name(owner_type_name)
-        if self.current_private_owner_type == owner_canonical:
+        if self.ctx.current_private_owner_type == owner_canonical:
             return
 
         raise TypeCheckError(f"Member '{class_info.name}.{member_name}' is private", span)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from compiler.ast_nodes import ModuleAst
 from compiler.resolver import ModulePath, ProgramInfo
+from compiler.typecheck.declarations import collect_module_declarations
 from compiler.typecheck.model import ClassInfo, FunctionSig
 from compiler.typecheck_checker import TypeChecker
 
@@ -16,7 +17,11 @@ def typecheck_program(program: ProgramInfo) -> None:
             module_path=module_path,
             modules=program.modules,
         )
-        checker._collect_declarations()
+        collect_module_declarations(
+            checker.ctx,
+            infer_expression_type=checker._infer_expression_type,
+            require_assignable=checker._require_assignable,
+        )
         module_function_sigs[module_path] = checker.functions
         module_class_infos[module_path] = checker.classes
 

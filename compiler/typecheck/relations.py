@@ -1,52 +1,44 @@
 from __future__ import annotations
 
+from compiler.typecheck.context import TypeCheckContext
 from compiler.lexer import SourceSpan
-from compiler.resolver import ModulePath
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 
 
 def canonicalize_reference_type_name(
+    ctx: TypeCheckContext,
     type_name: str,
-    *,
-    module_path: ModulePath | None,
-    local_class_names: set[str],
 ) -> str:
     if "::" in type_name:
         return type_name
-    if module_path is None:
+    if ctx.module_path is None:
         return type_name
-    if type_name not in local_class_names:
+    if type_name not in ctx.classes:
         return type_name
-    owner_dotted = ".".join(module_path)
+    owner_dotted = ".".join(ctx.module_path)
     return f"{owner_dotted}::{type_name}"
 
 
 def type_names_equal(
+    ctx: TypeCheckContext,
     left: str,
     right: str,
-    *,
-    module_path: ModulePath | None,
-    local_class_names: set[str],
 ) -> bool:
     if left == right:
         return True
     return canonicalize_reference_type_name(
+        ctx,
         left,
-        module_path=module_path,
-        local_class_names=local_class_names,
     ) == canonicalize_reference_type_name(
+        ctx,
         right,
-        module_path=module_path,
-        local_class_names=local_class_names,
     )
 
 
 def type_infos_equal(
+    ctx: TypeCheckContext,
     left: TypeInfo,
     right: TypeInfo,
-    *,
-    module_path: ModulePath | None,
-    local_class_names: set[str],
 ) -> bool:
     if left.kind == "callable" or right.kind == "callable":
         if left.kind != "callable" or right.kind != "callable":
@@ -59,36 +51,32 @@ def type_infos_equal(
             return False
         if not all(
             type_infos_equal(
+                ctx,
                 left_param,
                 right_param,
-                module_path=module_path,
-                local_class_names=local_class_names,
             )
             for left_param, right_param in zip(left.callable_params, right.callable_params)
         ):
             return False
         return type_infos_equal(
+            ctx,
             left.callable_return,
             right.callable_return,
-            module_path=module_path,
-            local_class_names=local_class_names,
         )
 
     if left.element_type is not None or right.element_type is not None:
         if left.element_type is None or right.element_type is None:
             return False
         return type_infos_equal(
+            ctx,
             left.element_type,
             right.element_type,
-            module_path=module_path,
-            local_class_names=local_class_names,
         )
 
     return type_names_equal(
+        ctx,
         left.name,
         right.name,
-        module_path=module_path,
-        local_class_names=local_class_names,
     )
 
 
@@ -121,18 +109,15 @@ def require_array_index_type(actual: TypeInfo, span: SourceSpan) -> None:
 
 
 def require_assignable(
+    ctx: TypeCheckContext,
     target: TypeInfo,
     value: TypeInfo,
     span: SourceSpan,
-    *,
-    module_path: ModulePath | None,
-    local_class_names: set[str],
 ) -> None:
     if type_infos_equal(
+        ctx,
         target,
         value,
-        module_path=module_path,
-        local_class_names=local_class_names,
     ):
         return
     if target.kind == "reference" and value.kind == "null":
@@ -146,17 +131,14 @@ def require_assignable(
 
 
 def is_comparable(
+    ctx: TypeCheckContext,
     left: TypeInfo,
     right: TypeInfo,
-    *,
-    module_path: ModulePath | None,
-    local_class_names: set[str],
 ) -> bool:
     if type_infos_equal(
+        ctx,
         left,
         right,
-        module_path=module_path,
-        local_class_names=local_class_names,
     ):
         return True
     if left.kind == "reference" and right.kind == "null":
@@ -167,21 +149,18 @@ def is_comparable(
 
 
 def check_explicit_cast(
+    ctx: TypeCheckContext,
     source: TypeInfo,
     target: TypeInfo,
     span: SourceSpan,
-    *,
-    module_path: ModulePath | None,
-    local_class_names: set[str],
 ) -> None:
     if source.kind == "callable" or target.kind == "callable":
         raise TypeCheckError("Casts involving function types are not allowed in MVP", span)
 
     if type_infos_equal(
+        ctx,
         source,
         target,
-        module_path=module_path,
-        local_class_names=local_class_names,
     ):
         return
 
