@@ -489,6 +489,10 @@ Outcome:
 - Move block, statement, assignment-target, return-path, and visibility enforcement into `statements.py`.
 - Keep privacy and final-field behavior intact.
 
+Status:
+
+- implemented
+
 Outcome:
 
 - remaining coordinator logic becomes small and understandable
@@ -564,10 +568,10 @@ Outcome:
 ## H. Expressions and Statements
 
 - [x] Extract non-call expression inference into `expressions.py`.
-- [ ] Extract statement checking into `statements.py`.
-- [ ] Extract return-path analysis into `statements.py`.
-- [ ] Extract assignment-target validation into `statements.py`.
-- [ ] Keep visibility/final-member checks stable.
+- [x] Extract statement checking into `statements.py`.
+- [x] Extract return-path analysis into `statements.py`.
+- [x] Extract assignment-target validation into `statements.py`.
+- [x] Keep visibility/final-member checks stable.
 - [x] Run `tests/compiler/typecheck -q` after the extraction.
 
 ## I. Final Cleanup

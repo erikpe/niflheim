@@ -77,6 +77,16 @@ from compiler.typecheck.structural import (
     resolve_structural_set_slice_method_result_type as structural_resolve_structural_set_slice_method_result_type,
     resolve_structural_slice_method_result_type as structural_resolve_structural_slice_method_result_type,
 )
+from compiler.typecheck.statements import (
+    block_guarantees_return as statements_block_guarantees_return,
+    check_block as statements_check_block,
+    check_function_like as statements_check_function_like,
+    check_statement as statements_check_statement,
+    ensure_assignable_target as statements_ensure_assignable_target,
+    ensure_field_access_assignable as statements_ensure_field_access_assignable,
+    require_member_visible as statements_require_member_visible,
+    statement_guarantees_return as statements_statement_guarantees_return,
+)
 from compiler.typecheck.type_resolution import (
     qualify_member_type_for_owner as resolution_qualify_member_type_for_owner,
     resolve_string_type as resolution_resolve_string_type,
@@ -173,163 +183,74 @@ class TypeChecker:
         receiver_type: TypeInfo | None = None,
         owner_class_name: str | None = None,
     ) -> None:
-        previous_owner = self.ctx.current_private_owner_type
-        if owner_class_name is not None:
-            self.ctx.current_private_owner_type = self._canonicalize_reference_type_name(owner_class_name)
-
-        self._push_scope()
-        self.ctx.function_local_names_stack.append(set())
-        try:
-            if receiver_type is not None:
-                self._declare_variable("__self", receiver_type, body.span)
-            for param in params:
-                param_type = self._resolve_type_ref(param.type_ref)
-                self._declare_variable(param.name, param_type, param.span)
-
-            self._check_block(body, return_type)
-
-            if return_type.name != "unit" and not self._block_guarantees_return(body):
-                raise TypeCheckError("Non-unit function must return on all paths", body.span)
-        finally:
-            self.ctx.function_local_names_stack.pop()
-            self._pop_scope()
-            self.ctx.current_private_owner_type = previous_owner
+        statements_check_function_like(
+            self.ctx,
+            params,
+            body,
+            return_type,
+            resolve_type_ref=self._resolve_type_ref,
+            declare_variable=self._declare_variable,
+            check_block=self._check_block,
+            block_guarantees_return=self._block_guarantees_return,
+            push_scope=self._push_scope,
+            pop_scope=self._pop_scope,
+            canonicalize_reference_type_name=self._canonicalize_reference_type_name,
+            receiver_type=receiver_type,
+            owner_class_name=owner_class_name,
+        )
 
     def _check_block(self, block: BlockStmt, return_type: TypeInfo) -> None:
-        self._push_scope()
-        for stmt in block.statements:
-            self._check_statement(stmt, return_type)
-        self._pop_scope()
+        statements_check_block(
+            block,
+            return_type,
+            check_statement=self._check_statement,
+            push_scope=self._push_scope,
+            pop_scope=self._pop_scope,
+        )
 
     def _check_statement(self, stmt: Statement, return_type: TypeInfo) -> None:
-        if isinstance(stmt, BlockStmt):
-            self._check_block(stmt, return_type)
-            return
-
-        if isinstance(stmt, VarDeclStmt):
-            var_type = self._resolve_type_ref(stmt.type_ref)
-            if stmt.initializer is not None:
-                init_type = self._infer_expression_type(stmt.initializer)
-                self._require_assignable(var_type, init_type, stmt.initializer.span)
-            self._declare_variable(stmt.name, var_type, stmt.span)
-            return
-
-        if isinstance(stmt, IfStmt):
-            cond_type = self._infer_expression_type(stmt.condition)
-            self._require_type_name(cond_type, "bool", stmt.condition.span)
-            self._check_block(stmt.then_branch, return_type)
-            if isinstance(stmt.else_branch, BlockStmt):
-                self._check_block(stmt.else_branch, return_type)
-            elif isinstance(stmt.else_branch, IfStmt):
-                self._check_statement(stmt.else_branch, return_type)
-            return
-
-        if isinstance(stmt, WhileStmt):
-            cond_type = self._infer_expression_type(stmt.condition)
-            self._require_type_name(cond_type, "bool", stmt.condition.span)
-            self.ctx.loop_depth += 1
-            self._check_block(stmt.body, return_type)
-            self.ctx.loop_depth -= 1
-            return
-
-        if isinstance(stmt, ForInStmt):
-            collection_type = self._infer_expression_type(stmt.collection_expr)
-            element_type = self._resolve_for_in_element_type(collection_type, stmt.span)
-            object.__setattr__(stmt, "collection_type_name", collection_type.name)
-            object.__setattr__(stmt, "element_type_name", element_type.name)
-
-            self.ctx.loop_depth += 1
-            self._push_scope()
-            try:
-                self._declare_variable(stmt.element_name, element_type, stmt.span)
-                self._check_block(stmt.body, return_type)
-            finally:
-                self._pop_scope()
-                self.ctx.loop_depth -= 1
-            return
-
-        if isinstance(stmt, BreakStmt):
-            if self.ctx.loop_depth <= 0:
-                raise TypeCheckError("'break' is only allowed inside while loops", stmt.span)
-            return
-
-        if isinstance(stmt, ContinueStmt):
-            if self.ctx.loop_depth <= 0:
-                raise TypeCheckError("'continue' is only allowed inside while loops", stmt.span)
-            return
-
-        if isinstance(stmt, ReturnStmt):
-            if stmt.value is None:
-                if return_type.name != "unit":
-                    raise TypeCheckError("Non-unit function must return a value", stmt.span)
-            else:
-                value_type = self._infer_expression_type(stmt.value)
-                self._require_assignable(return_type, value_type, stmt.value.span)
-            return
-
-        if isinstance(stmt, AssignStmt):
-            self._ensure_assignable_target(stmt.target)
-            if isinstance(stmt.target, IndexExpr):
-                object_type = self._infer_expression_type(stmt.target.object_expr)
-                value_type = self._infer_expression_type(stmt.value)
-                structural_ensure_index_assignment(
-                    self.ctx,
-                    object_type,
-                    stmt.target.index_expr,
-                    value_type,
-                    stmt.value.span,
-                    infer_expression_type=self._infer_expression_type,
-                    require_member_visible=self._require_member_visible,
-                )
-                return
-
-            target_type = self._infer_expression_type(stmt.target)
-            value_type = self._infer_expression_type(stmt.value)
-            self._require_assignable(target_type, value_type, stmt.value.span)
-            return
-
-        if isinstance(stmt, ExprStmt):
-            self._infer_expression_type(stmt.expression)
+        statements_check_statement(
+            self.ctx,
+            stmt,
+            return_type,
+            check_block=self._check_block,
+            infer_expression_type=self._infer_expression_type,
+            resolve_type_ref=self._resolve_type_ref,
+            require_assignable=self._require_assignable,
+            require_type_name=self._require_type_name,
+            resolve_for_in_element_type=self._resolve_for_in_element_type,
+            push_scope=self._push_scope,
+            pop_scope=self._pop_scope,
+            declare_variable=self._declare_variable,
+            ensure_assignable_target=self._ensure_assignable_target,
+            ensure_index_assignment=lambda object_type, index_expr, value_type, span: structural_ensure_index_assignment(
+                self.ctx,
+                object_type,
+                index_expr,
+                value_type,
+                span,
+                infer_expression_type=self._infer_expression_type,
+                require_member_visible=self._require_member_visible,
+            ),
+        )
 
     def _block_guarantees_return(self, block: BlockStmt) -> bool:
-        for stmt in block.statements:
-            if self._statement_guarantees_return(stmt):
-                return True
-        return False
+        return statements_block_guarantees_return(block)
 
     def _statement_guarantees_return(self, stmt: Statement) -> bool:
-        if isinstance(stmt, ReturnStmt):
-            return True
-
-        if isinstance(stmt, BlockStmt):
-            return self._block_guarantees_return(stmt)
-
-        if isinstance(stmt, IfStmt):
-            if stmt.else_branch is None:
-                return False
-            then_returns = self._block_guarantees_return(stmt.then_branch)
-            else_returns = self._statement_guarantees_return(stmt.else_branch)
-            return then_returns and else_returns
-
-        return False
+        return statements_statement_guarantees_return(
+            stmt,
+            block_guarantees_return=self._block_guarantees_return,
+        )
 
     def _ensure_assignable_target(self, expr: Expression) -> None:
-        if isinstance(expr, IdentifierExpr):
-            if self._lookup_variable(expr.name) is None:
-                raise TypeCheckError("Invalid assignment target", expr.span)
-            return
-
-        if isinstance(expr, FieldAccessExpr):
-            self._ensure_field_access_assignable(expr)
-            return
-
-        if isinstance(expr, IndexExpr):
-            object_type = self._infer_expression_type(expr.object_expr)
-            if object_type.element_type is None:
-                self._ensure_structural_set_method_available_for_index_assignment(object_type, expr.span)
-            return
-
-        raise TypeCheckError("Invalid assignment target", expr.span)
+        statements_ensure_assignable_target(
+            expr,
+            lookup_variable=self._lookup_variable,
+            infer_expression_type=self._infer_expression_type,
+            ensure_field_access_assignable=self._ensure_field_access_assignable,
+            ensure_structural_set_method_available_for_index_assignment=self._ensure_structural_set_method_available_for_index_assignment,
+        )
 
     def _infer_expression_type(self, expr: Expression) -> TypeInfo:
         return expressions_infer_expression_type(
@@ -481,10 +402,10 @@ class TypeChecker:
         )
 
     def _ensure_field_access_assignable(self, expr: FieldAccessExpr) -> None:
-        expressions_ensure_field_access_assignable(
-            self.ctx,
+        statements_ensure_field_access_assignable(
             expr,
             infer_expression_type=self._infer_expression_type,
+            lookup_class_by_type_name=self._lookup_class_by_type_name,
             require_member_visible=self._require_member_visible,
         )
 
@@ -647,16 +568,12 @@ class TypeChecker:
         member_kind: str,
         span: SourceSpan,
     ) -> None:
-        is_private = (
-            member_name in class_info.private_fields
-            if member_kind == "field"
-            else member_name in class_info.private_methods
+        statements_require_member_visible(
+            self.ctx,
+            class_info,
+            owner_type_name,
+            member_name,
+            member_kind,
+            span,
+            canonicalize_reference_type_name=self._canonicalize_reference_type_name,
         )
-        if not is_private:
-            return
-
-        owner_canonical = self._canonicalize_reference_type_name(owner_type_name)
-        if self.ctx.current_private_owner_type == owner_canonical:
-            return
-
-        raise TypeCheckError(f"Member '{class_info.name}.{member_name}' is private", span)
