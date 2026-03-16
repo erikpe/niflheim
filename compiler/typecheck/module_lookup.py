@@ -7,18 +7,13 @@ from compiler.resolver import ModuleInfo, ModulePath
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError
 
 
-def current_module_info(
-    ctx: TypeCheckContext,
-) -> ModuleInfo | None:
+def current_module_info(ctx: TypeCheckContext) -> ModuleInfo | None:
     if ctx.modules is None or ctx.module_path is None:
         return None
     return ctx.modules[ctx.module_path]
 
 
-def lookup_class_by_type_name(
-    ctx: TypeCheckContext,
-    type_name: str,
-) -> ClassInfo | None:
+def lookup_class_by_type_name(ctx: TypeCheckContext, type_name: str) -> ClassInfo | None:
     local = ctx.classes.get(type_name)
     if local is not None:
         return local
@@ -47,11 +42,7 @@ def flatten_field_chain(expr: Expression) -> list[str] | None:
     return None
 
 
-def resolve_imported_function_sig(
-    ctx: TypeCheckContext,
-    fn_name: str,
-    span: SourceSpan,
-) -> FunctionSig | None:
+def resolve_imported_function_sig(ctx: TypeCheckContext, fn_name: str, span: SourceSpan) -> FunctionSig | None:
     current_module = current_module_info(ctx)
     if current_module is None or ctx.modules is None or ctx.module_function_sigs is None:
         return None
@@ -69,19 +60,12 @@ def resolve_imported_function_sig(
 
     if len(matches) > 1:
         candidates = ", ".join(sorted(".".join(path) for path in matches))
-        raise TypeCheckError(
-            f"Ambiguous imported function '{fn_name}' (matches: {candidates})",
-            span,
-        )
+        raise TypeCheckError(f"Ambiguous imported function '{fn_name}' (matches: {candidates})", span)
 
     return ctx.module_function_sigs[matches[0]][fn_name]
 
 
-def resolve_unique_global_class_name(
-    ctx: TypeCheckContext,
-    class_name: str,
-    span: SourceSpan,
-) -> str | None:
+def resolve_unique_global_class_name(ctx: TypeCheckContext, class_name: str, span: SourceSpan) -> str | None:
     if ctx.module_class_infos is None:
         return None
 
@@ -95,21 +79,14 @@ def resolve_unique_global_class_name(
 
     if len(matches) > 1:
         candidates = ", ".join(sorted(".".join(path) for path in matches))
-        raise TypeCheckError(
-            f"Ambiguous global class '{class_name}' (matches: {candidates})",
-            span,
-        )
+        raise TypeCheckError(f"Ambiguous global class '{class_name}' (matches: {candidates})", span)
 
     owner_dotted = ".".join(matches[0])
     return f"{owner_dotted}::{class_name}"
 
 
 def resolve_unique_imported_class_module(
-    ctx: TypeCheckContext,
-    class_name: str,
-    span: SourceSpan,
-    *,
-    ambiguity_label: str,
+    ctx: TypeCheckContext, class_name: str, span: SourceSpan, *, ambiguity_label: str
 ) -> ModulePath | None:
     current_module = current_module_info(ctx)
     if current_module is None or ctx.modules is None:
@@ -128,25 +105,13 @@ def resolve_unique_imported_class_module(
 
     if len(matches) > 1:
         candidates = ", ".join(sorted(".".join(path) for path in matches))
-        raise TypeCheckError(
-            f"Ambiguous imported {ambiguity_label} '{class_name}' (matches: {candidates})",
-            span,
-        )
+        raise TypeCheckError(f"Ambiguous imported {ambiguity_label} '{class_name}' (matches: {candidates})", span)
 
     return matches[0]
 
 
-def resolve_imported_class_name(
-    ctx: TypeCheckContext,
-    class_name: str,
-    span: SourceSpan,
-) -> str | None:
-    matched_module = resolve_unique_imported_class_module(
-        ctx,
-        class_name,
-        span,
-        ambiguity_label="type",
-    )
+def resolve_imported_class_name(ctx: TypeCheckContext, class_name: str, span: SourceSpan) -> str | None:
+    matched_module = resolve_unique_imported_class_module(ctx, class_name, span, ambiguity_label="type")
     if matched_module is None:
         return None
 
@@ -154,11 +119,7 @@ def resolve_imported_class_name(
     return f"{owner_dotted}::{class_name}"
 
 
-def resolve_qualified_imported_class_name(
-    ctx: TypeCheckContext,
-    qualified_name: str,
-    span: SourceSpan,
-) -> str | None:
+def resolve_qualified_imported_class_name(ctx: TypeCheckContext, qualified_name: str, span: SourceSpan) -> str | None:
     current_module = current_module_info(ctx)
     if current_module is None or ctx.modules is None:
         return None
@@ -178,10 +139,7 @@ def resolve_qualified_imported_class_name(
         next_module = module_info.exported_modules.get(segment)
         if next_module is None:
             dotted = ".".join(current_path)
-            raise TypeCheckError(
-                f"Module '{dotted}' has no exported module '{segment}'",
-                span,
-            )
+            raise TypeCheckError(f"Module '{dotted}' has no exported module '{segment}'", span)
         current_path = next_module
 
     class_name = parts[-1]
@@ -189,19 +147,13 @@ def resolve_qualified_imported_class_name(
     symbol = module_info.exported_symbols.get(class_name)
     if symbol is None or symbol.kind != "class":
         dotted = ".".join(current_path)
-        raise TypeCheckError(
-            f"Module '{dotted}' has no exported class '{class_name}'",
-            span,
-        )
+        raise TypeCheckError(f"Module '{dotted}' has no exported class '{class_name}'", span)
 
     owner_dotted = ".".join(current_path)
     return f"{owner_dotted}::{class_name}"
 
 
-def resolve_module_member(
-    ctx: TypeCheckContext,
-    expr: FieldAccessExpr,
-) -> tuple[str, ModulePath, str] | None:
+def resolve_module_member(ctx: TypeCheckContext, expr: FieldAccessExpr) -> tuple[str, ModulePath, str] | None:
     if ctx.modules is None or ctx.module_path is None:
         return None
 

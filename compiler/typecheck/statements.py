@@ -34,10 +34,7 @@ from compiler.typecheck.type_resolution import resolve_type_ref
 from compiler.typecheck.visibility import require_member_visible
 
 
-def ensure_field_access_assignable(
-    ctx: TypeCheckContext,
-    expr: FieldAccessExpr,
-) -> None:
+def ensure_field_access_assignable(ctx: TypeCheckContext, expr: FieldAccessExpr) -> None:
     object_type = infer_expression_type(ctx, expr.object_expr)
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:
@@ -53,10 +50,7 @@ def ensure_field_access_assignable(
         raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)
 
 
-def ensure_assignable_target(
-    ctx: TypeCheckContext,
-    expr: Expression,
-) -> None:
+def ensure_assignable_target(ctx: TypeCheckContext, expr: Expression) -> None:
     if isinstance(expr, IdentifierExpr):
         if lookup_variable(ctx, expr.name) is None:
             raise TypeCheckError("Invalid assignment target", expr.span)
@@ -99,11 +93,7 @@ def block_guarantees_return(block: BlockStmt) -> bool:
     return False
 
 
-def check_statement(
-    ctx: TypeCheckContext,
-    stmt: Statement,
-    return_type: TypeInfo,
-) -> None:
+def check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeInfo) -> None:
     if isinstance(stmt, BlockStmt):
         check_block(ctx, stmt, return_type)
         return

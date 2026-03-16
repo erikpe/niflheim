@@ -23,11 +23,7 @@ from compiler.typecheck.constants import (
     U64_MAX_LITERAL,
 )
 from compiler.typecheck.context import lookup_variable
-from compiler.typecheck.model import (
-    NUMERIC_TYPE_NAMES,
-    TypeCheckError,
-    TypeInfo,
-)
+from compiler.typecheck.model import NUMERIC_TYPE_NAMES, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     current_module_info,
     lookup_class_by_type_name,
@@ -35,25 +31,13 @@ from compiler.typecheck.module_lookup import (
     resolve_imported_function_sig,
     resolve_module_member,
 )
-from compiler.typecheck.relations import (
-    check_explicit_cast,
-    is_comparable,
-    require_array_size_type,
-    require_type_name,
-)
-from compiler.typecheck.type_resolution import (
-    qualify_member_type_for_owner,
-    resolve_string_type,
-    resolve_type_ref,
-)
+from compiler.typecheck.relations import check_explicit_cast, is_comparable, require_array_size_type, require_type_name
+from compiler.typecheck.type_resolution import qualify_member_type_for_owner, resolve_string_type, resolve_type_ref
 from compiler.typecheck.visibility import require_member_visible
 from compiler.typecheck.context import TypeCheckContext
 
 
-def infer_expression_type(
-    ctx: TypeCheckContext,
-    expr: Expression,
-) -> TypeInfo:
+def infer_expression_type(ctx: TypeCheckContext, expr: Expression) -> TypeInfo:
     from compiler.typecheck.calls import callable_type_from_signature, class_type_name_from_callable, infer_call_type
     from compiler.typecheck.structural import resolve_index_expression_type
 
@@ -112,8 +96,7 @@ def infer_expression_type(
             value = int(expr.value)
             if value > I64_MAX_LITERAL:
                 raise TypeCheckError(
-                    "i64 literal out of range (expected -9223372036854775808..9223372036854775807)",
-                    expr.span,
+                    "i64 literal out of range (expected -9223372036854775808..9223372036854775807)", expr.span
                 )
         return TypeInfo(name="i64", kind="primitive")
 
@@ -248,10 +231,7 @@ def infer_expression_type(
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.field_name}'", expr.span)
             require_member_visible(ctx, class_info, class_type_name, expr.field_name, "method", expr.span)
             if not method_sig.is_static:
-                raise TypeCheckError(
-                    f"Method '{class_info.name}.{expr.field_name}' is not static",
-                    expr.span,
-                )
+                raise TypeCheckError(f"Method '{class_info.name}.{expr.field_name}' is not static", expr.span)
 
             qualified_params = [
                 qualify_member_type_for_owner(ctx, param_type, class_type_name) for param_type in method_sig.params
@@ -299,21 +279,12 @@ def infer_expression_type(
     if isinstance(expr, IndexExpr):
         obj_type = infer_nested(expr.object_expr)
         index_type = infer_nested(expr.index_expr)
-        return resolve_index_expression_type(
-            ctx,
-            obj_type,
-            index_type,
-            expr.index_expr.span,
-            expr.span,
-        )
+        return resolve_index_expression_type(ctx, obj_type, index_type, expr.index_expr.span, expr.span)
 
     raise TypeCheckError("Unsupported expression", expr.span)
 
 
-def ensure_field_access_assignable(
-    ctx: TypeCheckContext,
-    expr: FieldAccessExpr,
-) -> None:
+def ensure_field_access_assignable(ctx: TypeCheckContext, expr: FieldAccessExpr) -> None:
     object_type = infer_expression_type(ctx, expr.object_expr)
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:

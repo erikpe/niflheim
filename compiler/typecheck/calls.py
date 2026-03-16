@@ -23,18 +23,13 @@ from compiler.typecheck.visibility import require_member_visible
 
 
 def callable_type_from_signature(name: str, signature: FunctionSig) -> TypeInfo:
-    return TypeInfo(
-        name=name,
-        kind="callable",
-        callable_params=signature.params,
-        callable_return=signature.return_type,
-    )
+    return TypeInfo(name=name, kind="callable", callable_params=signature.params, callable_return=signature.return_type)
 
 
 def class_type_name_from_callable(callable_name: str) -> str:
     if not callable_name.startswith("__class__:"):
         raise ValueError(f"invalid class callable name: {callable_name}")
-    payload = callable_name[len("__class__:"):]
+    payload = callable_name[len("__class__:") :]
     if ":" not in payload:
         return payload
     owner_dotted, class_name = payload.rsplit(":", 1)
@@ -42,10 +37,7 @@ def class_type_name_from_callable(callable_name: str) -> str:
 
 
 def check_call_arguments(
-    ctx: TypeCheckContext,
-    params: list[TypeInfo],
-    args: list[Expression],
-    span: SourceSpan,
+    ctx: TypeCheckContext, params: list[TypeInfo], args: list[Expression], span: SourceSpan
 ) -> None:
     if len(params) != len(args):
         raise TypeCheckError(f"Expected {len(params)} arguments, got {len(args)}", span)
@@ -56,11 +48,7 @@ def check_call_arguments(
 
 
 def infer_constructor_call_type(
-    ctx: TypeCheckContext,
-    class_info: ClassInfo,
-    args: list[Expression],
-    span: SourceSpan,
-    result_type: TypeInfo,
+    ctx: TypeCheckContext, class_info: ClassInfo, args: list[Expression], span: SourceSpan, result_type: TypeInfo
 ) -> TypeInfo:
     if class_info.constructor_is_private:
         owner_canonical = canonicalize_reference_type_name(ctx, result_type.name)
@@ -72,10 +60,7 @@ def infer_constructor_call_type(
     return result_type
 
 
-def infer_call_type(
-    ctx: TypeCheckContext,
-    expr: CallExpr,
-) -> TypeInfo:
+def infer_call_type(ctx: TypeCheckContext, expr: CallExpr) -> TypeInfo:
     if isinstance(expr.callee, IdentifierExpr):
         name = expr.callee.name
 
@@ -92,11 +77,7 @@ def infer_call_type(
         class_info = ctx.classes.get(name)
         if class_info is not None:
             return infer_constructor_call_type(
-                ctx,
-                class_info,
-                expr.arguments,
-                expr.span,
-                TypeInfo(name=class_info.name, kind="reference"),
+                ctx, class_info, expr.arguments, expr.span, TypeInfo(name=class_info.name, kind="reference")
             )
 
         imported_class_name = resolve_imported_class_name(ctx, name, expr.callee.span)
@@ -147,14 +128,10 @@ def infer_call_type(
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
             require_member_visible(ctx, class_info, class_type_name, expr.callee.field_name, "method", expr.span)
             if not method_sig.is_static:
-                raise TypeCheckError(
-                    f"Method '{class_info.name}.{expr.callee.field_name}' is not static",
-                    expr.span,
-                )
+                raise TypeCheckError(f"Method '{class_info.name}.{expr.callee.field_name}' is not static", expr.span)
 
             qualified_params = [
-                qualify_member_type_for_owner(ctx, param_type, class_type_name)
-                for param_type in method_sig.params
+                qualify_member_type_for_owner(ctx, param_type, class_type_name) for param_type in method_sig.params
             ]
             qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, class_type_name)
 
@@ -162,13 +139,7 @@ def infer_call_type(
             return qualified_return_type
 
         if object_type.element_type is not None:
-            return infer_array_method_call_type(
-                ctx,
-                object_type,
-                expr.callee.field_name,
-                expr.arguments,
-                expr.span,
-            )
+            return infer_array_method_call_type(ctx, object_type, expr.callee.field_name, expr.arguments, expr.span)
 
         class_info = lookup_class_by_type_name(ctx, object_type.name)
         if class_info is None:
@@ -178,8 +149,7 @@ def infer_call_type(
         if method_sig is None:
             field_type = class_info.fields.get(expr.callee.field_name)
             if field_type is not None:
-                require_member_visible(ctx, class_info, object_type.name,
-                                       expr.callee.field_name, "field", expr.span)
+                require_member_visible(ctx, class_info, object_type.name, expr.callee.field_name, "field", expr.span)
                 qualified_field_type = qualify_member_type_for_owner(ctx, field_type, object_type.name)
                 if (
                     qualified_field_type.kind == "callable"
@@ -189,39 +159,26 @@ def infer_call_type(
                     check_call_arguments(ctx, qualified_field_type.callable_params, expr.arguments, expr.span)
                     return qualified_field_type.callable_return
                 raise TypeCheckError(
-                    f"Expression of type '{qualified_field_type.name}' is not callable",
-                    expr.callee.span,
+                    f"Expression of type '{qualified_field_type.name}' is not callable", expr.callee.span
                 )
             raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
         require_member_visible(ctx, class_info, object_type.name, expr.callee.field_name, "method", expr.span)
 
         if expr.callee.field_name == "slice_get":
-            return resolve_structural_slice_method_result_type(
-                ctx,
-                object_type,
-                class_info,
-                expr.arguments,
-                expr.span,
-            )
+            return resolve_structural_slice_method_result_type(ctx, object_type, class_info, expr.arguments, expr.span)
 
         if expr.callee.field_name == "slice_set":
             return resolve_structural_set_slice_method_result_type(
-                ctx,
-                object_type,
-                class_info,
-                expr.arguments,
-                expr.span,
+                ctx, object_type, class_info, expr.arguments, expr.span
             )
 
         if method_sig.is_static:
             raise TypeCheckError(
-                f"Static method '{class_info.name}.{expr.callee.field_name}' must be called on the class",
-                expr.span,
+                f"Static method '{class_info.name}.{expr.callee.field_name}' must be called on the class", expr.span
             )
 
         qualified_params = [
-            qualify_member_type_for_owner(ctx, param_type, object_type.name)
-            for param_type in method_sig.params
+            qualify_member_type_for_owner(ctx, param_type, object_type.name) for param_type in method_sig.params
         ]
         qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
 
@@ -229,7 +186,11 @@ def infer_call_type(
         return qualified_return_type
 
     callee_type = infer_expression_type(ctx, expr.callee)
-    if callee_type.kind == "callable" and callee_type.callable_params is not None and callee_type.callable_return is not None:
+    if (
+        callee_type.kind == "callable"
+        and callee_type.callable_params is not None
+        and callee_type.callable_return is not None
+    ):
         check_call_arguments(ctx, callee_type.callable_params, expr.arguments, expr.span)
         return callee_type.callable_return
     raise TypeCheckError(f"Expression of type '{callee_type.name}' is not callable", expr.callee.span)

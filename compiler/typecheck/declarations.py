@@ -1,41 +1,24 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import (
-    FunctionDecl,
-    MethodDecl,
-)
+from compiler.ast_nodes import FunctionDecl, MethodDecl
 
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
 from compiler.typecheck.type_resolution import resolve_type_ref
 
 
-def function_sig_from_decl(
-    ctx: TypeCheckContext,
-    decl: FunctionDecl | MethodDecl,
-) -> FunctionSig:
-    params = [
-        resolve_type_ref(
-            ctx,
-            param.type_ref,
-        )
-        for param in decl.params
-    ]
+def function_sig_from_decl(ctx: TypeCheckContext, decl: FunctionDecl | MethodDecl) -> FunctionSig:
+    params = [resolve_type_ref(ctx, param.type_ref) for param in decl.params]
     return FunctionSig(
         name=decl.name,
         params=params,
-        return_type=resolve_type_ref(
-            ctx,
-            decl.return_type,
-        ),
+        return_type=resolve_type_ref(ctx, decl.return_type),
         is_static=decl.is_static if isinstance(decl, MethodDecl) else False,
         is_private=decl.is_private if isinstance(decl, MethodDecl) else False,
     )
 
 
-def collect_module_declarations(
-    ctx: TypeCheckContext,
-) -> None:
+def collect_module_declarations(ctx: TypeCheckContext) -> None:
     for class_decl in ctx.module_ast.classes:
         if class_decl.name in ctx.classes or class_decl.name in ctx.functions:
             raise TypeCheckError(f"Duplicate declaration '{class_decl.name}'", class_decl.span)
@@ -58,10 +41,7 @@ def collect_module_declarations(
         for field_decl in class_decl.fields:
             if field_decl.name in fields:
                 raise TypeCheckError(f"Duplicate field '{field_decl.name}'", field_decl.span)
-            field_type = resolve_type_ref(
-                ctx,
-                field_decl.type_ref,
-            )
+            field_type = resolve_type_ref(ctx, field_decl.type_ref)
             if field_decl.initializer is None:
                 constructor_param_order.append(field_decl.name)
             fields[field_decl.name] = field_type
@@ -73,10 +53,7 @@ def collect_module_declarations(
                 raise TypeCheckError(f"Duplicate method '{method_decl.name}'", method_decl.span)
             if method_decl.name in fields:
                 raise TypeCheckError(f"Duplicate member '{method_decl.name}'", method_decl.span)
-            methods[method_decl.name] = function_sig_from_decl(
-                ctx,
-                method_decl,
-            )
+            methods[method_decl.name] = function_sig_from_decl(ctx, method_decl)
 
         private_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_private}
         final_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_final}
@@ -101,7 +78,4 @@ def collect_module_declarations(
             raise TypeCheckError("Function declaration missing body", fn_decl.span)
         if fn_decl.name in ctx.functions or fn_decl.name in ctx.classes:
             raise TypeCheckError(f"Duplicate declaration '{fn_decl.name}'", fn_decl.span)
-        ctx.functions[fn_decl.name] = function_sig_from_decl(
-            ctx,
-            fn_decl,
-        )
+        ctx.functions[fn_decl.name] = function_sig_from_decl(ctx, fn_decl)

@@ -21,10 +21,7 @@ def check_constant_field_initializer(expr: Expression) -> None:
     if isinstance(expr, CastExpr):
         check_constant_field_initializer(expr.operand)
         return
-    raise TypeCheckError(
-        "Class field initializer must be a constant expression in MVP",
-        expr.span,
-    )
+    raise TypeCheckError("Class field initializer must be a constant expression in MVP", expr.span)
 
 
 def check_class_field_initializers(ctx: TypeCheckContext) -> None:

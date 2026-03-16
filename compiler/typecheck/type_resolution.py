@@ -4,12 +4,7 @@ from compiler.ast_nodes import ArrayTypeRef, FunctionTypeRef, TypeRefNode
 from compiler.codegen.strings import STR_CLASS_NAME
 from compiler.typecheck.context import TypeCheckContext
 from compiler.lexer import SourceSpan
-from compiler.typecheck.model import (
-    PRIMITIVE_TYPE_NAMES,
-    REFERENCE_BUILTIN_TYPE_NAMES,
-    TypeCheckError,
-    TypeInfo,
-)
+from compiler.typecheck.model import PRIMITIVE_TYPE_NAMES, REFERENCE_BUILTIN_TYPE_NAMES, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     resolve_imported_class_name,
     resolve_qualified_imported_class_name,
@@ -18,29 +13,14 @@ from compiler.typecheck.module_lookup import (
 from compiler.typecheck.relations import format_function_type_name
 
 
-def resolve_type_ref(
-    ctx: TypeCheckContext,
-    type_ref: TypeRefNode,
-) -> TypeInfo:
+def resolve_type_ref(ctx: TypeCheckContext, type_ref: TypeRefNode) -> TypeInfo:
     if isinstance(type_ref, ArrayTypeRef):
-        element_type = resolve_type_ref(
-            ctx,
-            type_ref.element_type,
-        )
+        element_type = resolve_type_ref(ctx, type_ref.element_type)
         return TypeInfo(name=f"{element_type.name}[]", kind="reference", element_type=element_type)
 
     if isinstance(type_ref, FunctionTypeRef):
-        param_types = [
-            resolve_type_ref(
-                ctx,
-                param_type,
-            )
-            for param_type in type_ref.param_types
-        ]
-        return_type = resolve_type_ref(
-            ctx,
-            type_ref.return_type,
-        )
+        param_types = [resolve_type_ref(ctx, param_type) for param_type in type_ref.param_types]
+        return_type = resolve_type_ref(ctx, type_ref.return_type)
         return TypeInfo(
             name=format_function_type_name(param_types, return_type),
             kind="callable",
@@ -53,22 +33,14 @@ def resolve_type_ref(
         return TypeInfo(name=name, kind="primitive")
 
     if "." in name:
-        qualified_name = resolve_qualified_imported_class_name(
-            ctx,
-            name,
-            type_ref.span,
-        )
+        qualified_name = resolve_qualified_imported_class_name(ctx, name, type_ref.span)
         if qualified_name is not None:
             return TypeInfo(name=qualified_name, kind="reference")
 
     if name in ctx.classes:
         return TypeInfo(name=name, kind="reference")
 
-    imported_name = resolve_imported_class_name(
-        ctx,
-        name,
-        type_ref.span,
-    )
+    imported_name = resolve_imported_class_name(ctx, name, type_ref.span)
     if imported_name is not None:
         return TypeInfo(name=imported_name, kind="reference")
 
@@ -78,43 +50,24 @@ def resolve_type_ref(
     raise TypeCheckError(f"Unknown type '{name}'", type_ref.span)
 
 
-def resolve_string_type(
-    ctx: TypeCheckContext,
-    span: SourceSpan,
-) -> TypeInfo:
+def resolve_string_type(ctx: TypeCheckContext, span: SourceSpan) -> TypeInfo:
     if STR_CLASS_NAME in ctx.classes:
         return TypeInfo(name=STR_CLASS_NAME, kind="reference")
 
-    imported_name = resolve_imported_class_name(
-        ctx,
-        STR_CLASS_NAME,
-        span,
-    )
+    imported_name = resolve_imported_class_name(ctx, STR_CLASS_NAME, span)
     if imported_name is not None:
         return TypeInfo(name=imported_name, kind="reference")
 
-    global_name = resolve_unique_global_class_name(
-        ctx,
-        STR_CLASS_NAME,
-        span,
-    )
+    global_name = resolve_unique_global_class_name(ctx, STR_CLASS_NAME, span)
     if global_name is not None:
         return TypeInfo(name=global_name, kind="reference")
 
     raise TypeCheckError(f"Unknown type '{STR_CLASS_NAME}'", span)
 
 
-def qualify_member_type_for_owner(
-    ctx: TypeCheckContext,
-    member_type: TypeInfo,
-    owner_type_name: str,
-) -> TypeInfo:
+def qualify_member_type_for_owner(ctx: TypeCheckContext, member_type: TypeInfo, owner_type_name: str) -> TypeInfo:
     if member_type.element_type is not None:
-        qualified_element_type = qualify_member_type_for_owner(
-            ctx,
-            member_type.element_type,
-            owner_type_name,
-        )
+        qualified_element_type = qualify_member_type_for_owner(ctx, member_type.element_type, owner_type_name)
         if qualified_element_type == member_type.element_type:
             return member_type
         return TypeInfo(name=f"{qualified_element_type.name}[]", kind="reference", element_type=qualified_element_type)
