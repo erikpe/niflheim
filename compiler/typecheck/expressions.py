@@ -13,6 +13,8 @@ from compiler.ast_nodes import (
     NullExpr,
     UnaryExpr,
 )
+from typing import TYPE_CHECKING
+
 from compiler.codegen.strings import is_str_type_name
 from compiler.typecheck.calls import (
     callable_type_from_signature,
@@ -40,24 +42,28 @@ from compiler.typecheck.module_lookup import (
     resolve_module_member,
 )
 from compiler.typecheck.structural import resolve_index_expression_type
-from compiler.typecheck.ops import TypeCheckOps
+from compiler.typecheck.statements import require_member_visible
 from compiler.typecheck.type_resolution import (
     qualify_member_type_for_owner,
     resolve_string_type,
     resolve_type_ref,
 )
 
+if TYPE_CHECKING:
+    from compiler.typecheck.engine import TypeChecker
+
 
 def infer_expression_type(
-    ctx: TypeCheckContext,
-    ops: TypeCheckOps,
+    checker: TypeChecker,
     expr: Expression,
 ) -> TypeInfo:
+    ctx = checker.ctx
+
     def infer_nested(nested_expr: Expression) -> TypeInfo:
-        return infer_expression_type(ctx, ops, nested_expr)
+        return infer_expression_type(checker, nested_expr)
 
     if isinstance(expr, IdentifierExpr):
-        symbol_type = ops.lookup_variable(expr.name)
+        symbol_type = checker.lookup_variable(expr.name)
         if symbol_type is not None:
             return symbol_type
 
@@ -119,7 +125,7 @@ def infer_expression_type(
     if isinstance(expr, UnaryExpr):
         if expr.operator == "!":
             operand_type = infer_nested(expr.operand)
-            ops.require_type_name(operand_type, "bool", expr.operand.span)
+            checker.require_type_name(operand_type, "bool", expr.operand.span)
             return TypeInfo(name="bool", kind="primitive")
 
         if expr.operator == "-":
@@ -189,13 +195,13 @@ def infer_expression_type(
             return TypeInfo(name="bool", kind="primitive")
 
         if op in {"==", "!="}:
-            if not ops.is_comparable(left_type, right_type):
+            if not checker.is_comparable(left_type, right_type):
                 raise TypeCheckError(f"Operator '{op}' has incompatible operand types", expr.span)
             return TypeInfo(name="bool", kind="primitive")
 
         if op in {"&&", "||"}:
-            ops.require_type_name(left_type, "bool", expr.left.span)
-            ops.require_type_name(right_type, "bool", expr.right.span)
+            checker.require_type_name(left_type, "bool", expr.left.span)
+            checker.require_type_name(right_type, "bool", expr.right.span)
             return TypeInfo(name="bool", kind="primitive")
 
         raise TypeCheckError(f"Unknown binary operator '{op}'", expr.span)
@@ -203,18 +209,18 @@ def infer_expression_type(
     if isinstance(expr, CastExpr):
         source_type = infer_nested(expr.operand)
         target_type = resolve_type_ref(ctx, expr.type_ref)
-        ops.check_explicit_cast(source_type, target_type, expr.span)
+        checker.check_explicit_cast(source_type, target_type, expr.span)
         return target_type
 
     if isinstance(expr, CallExpr):
-        return infer_call_type(ctx, ops, expr)
+        return infer_call_type(checker, expr)
 
     if isinstance(expr, ArrayCtorExpr):
         array_type = resolve_type_ref(ctx, expr.element_type_ref)
         if array_type.element_type is None:
             raise TypeCheckError("Array constructor requires array element type", expr.element_type_ref.span)
         length_type = infer_nested(expr.length_expr)
-        ops.require_array_size_type(length_type, expr.length_expr.span)
+        checker.require_array_size_type(length_type, expr.length_expr.span)
         return array_type
 
     if isinstance(expr, FieldAccessExpr):
@@ -242,7 +248,7 @@ def infer_expression_type(
             method_sig = class_info.methods.get(expr.field_name)
             if method_sig is None:
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.field_name}'", expr.span)
-            ops.require_member_visible(class_info, class_type_name, expr.field_name, "method", expr.span)
+            require_member_visible(checker, class_info, class_type_name, expr.field_name, "method", expr.span)
             if not method_sig.is_static:
                 raise TypeCheckError(
                     f"Method '{class_info.name}.{expr.field_name}' is not static",
@@ -272,12 +278,12 @@ def infer_expression_type(
 
         field_type = class_info.fields.get(expr.field_name)
         if field_type is not None:
-            ops.require_member_visible(class_info, object_type.name, expr.field_name, "field", expr.span)
+            require_member_visible(checker, class_info, object_type.name, expr.field_name, "field", expr.span)
             return qualify_member_type_for_owner(ctx, field_type, object_type.name)
 
         method_sig = class_info.methods.get(expr.field_name)
         if method_sig is not None:
-            ops.require_member_visible(class_info, object_type.name, expr.field_name, "method", expr.span)
+            require_member_visible(checker, class_info, object_type.name, expr.field_name, "method", expr.span)
             if not method_sig.is_static:
                 raise TypeCheckError("Instance methods are not first-class values in MVP", expr.span)
             qualified_params = [
@@ -298,8 +304,7 @@ def infer_expression_type(
         obj_type = infer_nested(expr.object_expr)
         index_type = infer_nested(expr.index_expr)
         return resolve_index_expression_type(
-            ctx,
-            ops,
+            checker,
             obj_type,
             index_type,
             expr.index_expr.span,
@@ -310,11 +315,11 @@ def infer_expression_type(
 
 
 def ensure_field_access_assignable(
-    ctx: TypeCheckContext,
-    ops: TypeCheckOps,
+    checker: TypeChecker,
     expr: FieldAccessExpr,
 ) -> None:
-    object_type = ops.infer_expression_type(expr.object_expr)
+    ctx = checker.ctx
+    object_type = checker.infer_expression_type(expr.object_expr)
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
@@ -323,7 +328,7 @@ def ensure_field_access_assignable(
     if field_type is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
 
-    ops.require_member_visible(class_info, object_type.name, expr.field_name, "field", expr.span)
+    require_member_visible(checker, class_info, object_type.name, expr.field_name, "field", expr.span)
 
     if expr.field_name in class_info.final_fields:
         raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)

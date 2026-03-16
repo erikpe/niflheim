@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from compiler.ast_nodes import CallExpr, Expression, FieldAccessExpr, IdentifierExpr
-from compiler.typecheck.context import TypeCheckContext
+from typing import TYPE_CHECKING
+
 from compiler.lexer import SourceSpan
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
@@ -10,10 +11,13 @@ from compiler.typecheck.module_lookup import (
     resolve_imported_function_sig,
     resolve_module_member,
 )
-from compiler.typecheck.ops import TypeCheckOps
 from compiler.typecheck.relations import canonicalize_reference_type_name, require_assignable
+from compiler.typecheck.statements import require_member_visible
 from compiler.typecheck.structural import infer_array_method_call_type
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner
+
+if TYPE_CHECKING:
+    from compiler.typecheck.engine import TypeChecker
 
 
 def callable_type_from_signature(name: str, signature: FunctionSig) -> TypeInfo:
@@ -36,67 +40,60 @@ def class_type_name_from_callable(callable_name: str) -> str:
 
 
 def check_call_arguments(
-    ctx: TypeCheckContext,
-    ops: TypeCheckOps,
+    checker: TypeChecker,
     params: list[TypeInfo],
     args: list[Expression],
     span: SourceSpan,
 ) -> None:
+    ctx = checker.ctx
     if len(params) != len(args):
         raise TypeCheckError(f"Expected {len(params)} arguments, got {len(args)}", span)
 
     for param_type, arg_expr in zip(params, args):
-        arg_type = ops.infer_expression_type(arg_expr)
+        arg_type = checker.infer_expression_type(arg_expr)
         require_assignable(ctx, param_type, arg_type, arg_expr.span)
 
 
 def infer_constructor_call_type(
-    ctx: TypeCheckContext,
-    ops: TypeCheckOps,
+    checker: TypeChecker,
     class_info: ClassInfo,
     args: list[Expression],
     span: SourceSpan,
     result_type: TypeInfo,
 ) -> TypeInfo:
+    ctx = checker.ctx
     if class_info.constructor_is_private:
         owner_canonical = canonicalize_reference_type_name(ctx, result_type.name)
         if ctx.current_private_owner_type != owner_canonical:
             raise TypeCheckError(f"Constructor for class '{class_info.name}' is private", span)
 
     ctor_params = [class_info.fields[field_name] for field_name in class_info.constructor_param_order]
-    check_call_arguments(ctx, ops, ctor_params, args, span)
+    check_call_arguments(checker, ctor_params, args, span)
     return result_type
 
 
 def infer_call_type(
-    ctx: TypeCheckContext,
-    ops: TypeCheckOps,
+    checker: TypeChecker,
     expr: CallExpr,
 ) -> TypeInfo:
+    ctx = checker.ctx
     if isinstance(expr.callee, IdentifierExpr):
         name = expr.callee.name
 
         fn_sig = ctx.functions.get(name)
         if fn_sig is not None:
-            check_call_arguments(ctx, ops, fn_sig.params, expr.arguments, expr.span)
+            check_call_arguments(checker, fn_sig.params, expr.arguments, expr.span)
             return fn_sig.return_type
 
         imported_fn_sig = resolve_imported_function_sig(ctx, name, expr.callee.span)
         if imported_fn_sig is not None:
-            check_call_arguments(
-                ctx,
-                ops,
-                imported_fn_sig.params,
-                expr.arguments,
-                expr.span,
-            )
+            check_call_arguments(checker, imported_fn_sig.params, expr.arguments, expr.span)
             return imported_fn_sig.return_type
 
         class_info = ctx.classes.get(name)
         if class_info is not None:
             return infer_constructor_call_type(
-                ctx,
-                ops,
+                checker,
                 class_info,
                 expr.arguments,
                 expr.span,
@@ -109,8 +106,7 @@ def infer_call_type(
             if imported_class_info is None:
                 raise TypeCheckError(f"Unknown type '{imported_class_name}'", expr.callee.span)
             return infer_constructor_call_type(
-                ctx,
-                ops,
+                checker,
                 imported_class_info,
                 expr.arguments,
                 expr.span,
@@ -123,15 +119,14 @@ def infer_call_type(
             kind, owner_module, member_name = module_member
             if kind == "function":
                 fn_sig = ctx.module_function_sigs[owner_module][member_name]
-                check_call_arguments(ctx, ops, fn_sig.params, expr.arguments, expr.span)
+                check_call_arguments(checker, fn_sig.params, expr.arguments, expr.span)
                 return fn_sig.return_type
 
             if kind == "class":
                 class_info = ctx.module_class_infos[owner_module][member_name]
                 owner_dotted = ".".join(owner_module)
                 return infer_constructor_call_type(
-                    ctx,
-                    ops,
+                    checker,
                     class_info,
                     expr.arguments,
                     expr.span,
@@ -140,7 +135,7 @@ def infer_call_type(
 
             raise TypeCheckError("Module values are not callable", expr.callee.span)
 
-        object_type = ops.infer_expression_type(expr.callee.object_expr)
+        object_type = checker.infer_expression_type(expr.callee.object_expr)
 
         if object_type.kind == "callable" and object_type.name.startswith("__class__:"):
             class_type_name = class_type_name_from_callable(object_type.name)
@@ -151,7 +146,7 @@ def infer_call_type(
             method_sig = class_info.methods.get(expr.callee.field_name)
             if method_sig is None:
                 raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
-            ops.require_member_visible(class_info, class_type_name, expr.callee.field_name, "method", expr.span)
+            require_member_visible(checker, class_info, class_type_name, expr.callee.field_name, "method", expr.span)
             if not method_sig.is_static:
                 raise TypeCheckError(
                     f"Method '{class_info.name}.{expr.callee.field_name}' is not static",
@@ -164,13 +159,12 @@ def infer_call_type(
             ]
             qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, class_type_name)
 
-            check_call_arguments(ctx, ops, qualified_params, expr.arguments, expr.span)
+            check_call_arguments(checker, qualified_params, expr.arguments, expr.span)
             return qualified_return_type
 
         if object_type.element_type is not None:
             return infer_array_method_call_type(
-                ctx,
-                ops,
+                checker,
                 object_type,
                 expr.callee.field_name,
                 expr.arguments,
@@ -185,30 +179,25 @@ def infer_call_type(
         if method_sig is None:
             field_type = class_info.fields.get(expr.callee.field_name)
             if field_type is not None:
-                ops.require_member_visible(class_info, object_type.name, expr.callee.field_name, "field", expr.span)
+                require_member_visible(checker, class_info, object_type.name,
+                                       expr.callee.field_name, "field", expr.span)
                 qualified_field_type = qualify_member_type_for_owner(ctx, field_type, object_type.name)
                 if (
                     qualified_field_type.kind == "callable"
                     and qualified_field_type.callable_params is not None
                     and qualified_field_type.callable_return is not None
                 ):
-                    check_call_arguments(
-                        ctx,
-                        ops,
-                        qualified_field_type.callable_params,
-                        expr.arguments,
-                        expr.span,
-                    )
+                    check_call_arguments(checker, qualified_field_type.callable_params, expr.arguments, expr.span)
                     return qualified_field_type.callable_return
                 raise TypeCheckError(
                     f"Expression of type '{qualified_field_type.name}' is not callable",
                     expr.callee.span,
                 )
             raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
-        ops.require_member_visible(class_info, object_type.name, expr.callee.field_name, "method", expr.span)
+        require_member_visible(checker, class_info, object_type.name, expr.callee.field_name, "method", expr.span)
 
         if expr.callee.field_name == "slice_get":
-            return ops.resolve_structural_slice_method_result_type(
+            return checker.resolve_structural_slice_method_result_type(
                 object_type,
                 class_info,
                 expr.arguments,
@@ -216,7 +205,7 @@ def infer_call_type(
             )
 
         if expr.callee.field_name == "slice_set":
-            return ops.resolve_structural_set_slice_method_result_type(
+            return checker.resolve_structural_set_slice_method_result_type(
                 object_type,
                 class_info,
                 expr.arguments,
@@ -235,11 +224,11 @@ def infer_call_type(
         ]
         qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
 
-        check_call_arguments(ctx, ops, qualified_params, expr.arguments, expr.span)
+        check_call_arguments(checker, qualified_params, expr.arguments, expr.span)
         return qualified_return_type
 
-    callee_type = ops.infer_expression_type(expr.callee)
+    callee_type = checker.infer_expression_type(expr.callee)
     if callee_type.kind == "callable" and callee_type.callable_params is not None and callee_type.callable_return is not None:
-        check_call_arguments(ctx, ops, callee_type.callable_params, expr.arguments, expr.span)
+        check_call_arguments(checker, callee_type.callable_params, expr.arguments, expr.span)
         return callee_type.callable_return
     raise TypeCheckError(f"Expression of type '{callee_type.name}' is not callable", expr.callee.span)
