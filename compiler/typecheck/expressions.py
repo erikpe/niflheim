@@ -38,7 +38,7 @@ from compiler.typecheck.visibility import require_member_visible
 from compiler.typecheck.context import TypeCheckContext
 
 
-def infer_identifier_expression_type(ctx: TypeCheckContext, expr: IdentifierExpr) -> TypeInfo:
+def _infer_identifier_expression_type(ctx: TypeCheckContext, expr: IdentifierExpr) -> TypeInfo:
     symbol_type = lookup_variable(ctx, expr.name)
     if symbol_type is not None:
         return symbol_type
@@ -68,7 +68,7 @@ def infer_identifier_expression_type(ctx: TypeCheckContext, expr: IdentifierExpr
     raise TypeCheckError(f"Unknown identifier '{expr.name}'", expr.span)
 
 
-def infer_literal_expression_type(ctx: TypeCheckContext, expr: LiteralExpr) -> TypeInfo:
+def _infer_literal_expression_type(ctx: TypeCheckContext, expr: LiteralExpr) -> TypeInfo:
     if expr.value.startswith('"'):
         return resolve_string_type(ctx, expr.span)
     if expr.value.startswith("'"):
@@ -96,7 +96,7 @@ def infer_literal_expression_type(ctx: TypeCheckContext, expr: LiteralExpr) -> T
     return TypeInfo(name="i64", kind="primitive")
 
 
-def infer_unary_expression_type(ctx: TypeCheckContext, expr: UnaryExpr) -> TypeInfo:
+def _infer_unary_expression_type(ctx: TypeCheckContext, expr: UnaryExpr) -> TypeInfo:
     if expr.operator == "!":
         operand_type = infer_expression_type(ctx, expr.operand)
         require_type_name(operand_type, "bool", expr.operand.span)
@@ -121,7 +121,7 @@ def infer_unary_expression_type(ctx: TypeCheckContext, expr: UnaryExpr) -> TypeI
     raise TypeCheckError(f"Unknown unary operator '{expr.operator}'", expr.span)
 
 
-def infer_binary_expression_type(ctx: TypeCheckContext, expr: BinaryExpr) -> TypeInfo:
+def _infer_binary_expression_type(ctx: TypeCheckContext, expr: BinaryExpr) -> TypeInfo:
     left_type = infer_expression_type(ctx, expr.left)
     right_type = infer_expression_type(ctx, expr.right)
     op = expr.operator
@@ -181,7 +181,7 @@ def infer_binary_expression_type(ctx: TypeCheckContext, expr: BinaryExpr) -> Typ
     raise TypeCheckError(f"Unknown binary operator '{op}'", expr.span)
 
 
-def infer_module_member_field_access_type(ctx: TypeCheckContext, expr: FieldAccessExpr) -> TypeInfo | None:
+def _infer_module_member_field_access_type(ctx: TypeCheckContext, expr: FieldAccessExpr) -> TypeInfo | None:
     module_member = resolve_module_member(ctx, expr)
     if module_member is None:
         return None
@@ -198,7 +198,7 @@ def infer_module_member_field_access_type(ctx: TypeCheckContext, expr: FieldAcce
     return TypeInfo(name=f"__module__:{dotted}", kind="module")
 
 
-def infer_class_callable_field_access_type(
+def _infer_class_callable_field_access_type(
     ctx: TypeCheckContext, expr: FieldAccessExpr, class_type_name: str
 ) -> TypeInfo:
     class_info = lookup_class_by_type_name(ctx, class_type_name)
@@ -224,7 +224,7 @@ def infer_class_callable_field_access_type(
     )
 
 
-def infer_instance_field_access_type(ctx: TypeCheckContext, expr: FieldAccessExpr, object_type: TypeInfo) -> TypeInfo:
+def _infer_instance_field_access_type(ctx: TypeCheckContext, expr: FieldAccessExpr, object_type: TypeInfo) -> TypeInfo:
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:
         raise TypeCheckError(f"Type '{object_type.name}' has no fields/methods", expr.span)
@@ -253,22 +253,22 @@ def infer_instance_field_access_type(ctx: TypeCheckContext, expr: FieldAccessExp
     raise TypeCheckError(f"Class '{class_info.name}' has no member '{expr.field_name}'", expr.span)
 
 
-def infer_field_access_expression_type(ctx: TypeCheckContext, expr: FieldAccessExpr) -> TypeInfo:
-    module_member_result = infer_module_member_field_access_type(ctx, expr)
+def _infer_field_access_expression_type(ctx: TypeCheckContext, expr: FieldAccessExpr) -> TypeInfo:
+    module_member_result = _infer_module_member_field_access_type(ctx, expr)
     if module_member_result is not None:
         return module_member_result
 
     object_type = infer_expression_type(ctx, expr.object_expr)
 
     if object_type.kind == "callable" and object_type.name.startswith("__class__:"):
-        return infer_class_callable_field_access_type(ctx, expr, class_type_name_from_callable(object_type.name))
+        return _infer_class_callable_field_access_type(ctx, expr, class_type_name_from_callable(object_type.name))
 
     if object_type.element_type is not None:
         if expr.field_name not in ARRAY_METHOD_NAMES:
             raise TypeCheckError(f"Array type '{object_type.name}' has no member '{expr.field_name}'", expr.span)
         return TypeInfo(name=f"__array_method__:{expr.field_name}", kind="callable")
 
-    return infer_instance_field_access_type(ctx, expr, object_type)
+    return _infer_instance_field_access_type(ctx, expr, object_type)
 
 
 def infer_expression_type(ctx: TypeCheckContext, expr: Expression) -> TypeInfo:
@@ -276,19 +276,19 @@ def infer_expression_type(ctx: TypeCheckContext, expr: Expression) -> TypeInfo:
     from compiler.typecheck.structural import resolve_index_expression_type
 
     if isinstance(expr, IdentifierExpr):
-        return infer_identifier_expression_type(ctx, expr)
+        return _infer_identifier_expression_type(ctx, expr)
 
     if isinstance(expr, LiteralExpr):
-        return infer_literal_expression_type(ctx, expr)
+        return _infer_literal_expression_type(ctx, expr)
 
     if isinstance(expr, NullExpr):
         return TypeInfo(name="null", kind="null")
 
     if isinstance(expr, UnaryExpr):
-        return infer_unary_expression_type(ctx, expr)
+        return _infer_unary_expression_type(ctx, expr)
 
     if isinstance(expr, BinaryExpr):
-        return infer_binary_expression_type(ctx, expr)
+        return _infer_binary_expression_type(ctx, expr)
 
     if isinstance(expr, CastExpr):
         source_type = infer_expression_type(ctx, expr.operand)
@@ -308,7 +308,7 @@ def infer_expression_type(ctx: TypeCheckContext, expr: Expression) -> TypeInfo:
         return array_type
 
     if isinstance(expr, FieldAccessExpr):
-        return infer_field_access_expression_type(ctx, expr)
+        return _infer_field_access_expression_type(ctx, expr)
 
     if isinstance(expr, IndexExpr):
         obj_type = infer_expression_type(ctx, expr.object_expr)

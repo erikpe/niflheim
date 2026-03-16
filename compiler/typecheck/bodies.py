@@ -8,36 +8,36 @@ from compiler.typecheck.relations import require_assignable
 from compiler.typecheck.statements import check_function_like as statements_check_function_like
 
 
-def check_constant_field_initializer(expr: Expression) -> None:
+def _check_constant_field_initializer(expr: Expression) -> None:
     if isinstance(expr, (LiteralExpr, NullExpr)):
         return
     if isinstance(expr, UnaryExpr):
-        check_constant_field_initializer(expr.operand)
+        _check_constant_field_initializer(expr.operand)
         return
     if isinstance(expr, BinaryExpr):
-        check_constant_field_initializer(expr.left)
-        check_constant_field_initializer(expr.right)
+        _check_constant_field_initializer(expr.left)
+        _check_constant_field_initializer(expr.right)
         return
     if isinstance(expr, CastExpr):
-        check_constant_field_initializer(expr.operand)
+        _check_constant_field_initializer(expr.operand)
         return
     raise TypeCheckError("Class field initializer must be a constant expression in MVP", expr.span)
 
 
-def check_class_field_initializers(ctx: TypeCheckContext) -> None:
+def _check_class_field_initializers(ctx: TypeCheckContext) -> None:
     for class_decl in ctx.module_ast.classes:
         class_info = ctx.classes[class_decl.name]
         for field_decl in class_decl.fields:
             if field_decl.initializer is None:
                 continue
-            check_constant_field_initializer(field_decl.initializer)
+            _check_constant_field_initializer(field_decl.initializer)
             init_type = infer_expression_type(ctx, field_decl.initializer)
             field_type = class_info.fields[field_decl.name]
             require_assignable(ctx, field_type, init_type, field_decl.initializer.span)
 
 
 def check_bodies(ctx: TypeCheckContext) -> None:
-    check_class_field_initializers(ctx)
+    _check_class_field_initializers(ctx)
 
     for fn_decl in ctx.module_ast.functions:
         if fn_decl.is_extern:

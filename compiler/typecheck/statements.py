@@ -34,7 +34,7 @@ from compiler.typecheck.type_resolution import resolve_type_ref
 from compiler.typecheck.visibility import require_member_visible
 
 
-def ensure_field_access_assignable(ctx: TypeCheckContext, expr: FieldAccessExpr) -> None:
+def _ensure_field_access_assignable(ctx: TypeCheckContext, expr: FieldAccessExpr) -> None:
     object_type = infer_expression_type(ctx, expr.object_expr)
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:
@@ -50,14 +50,14 @@ def ensure_field_access_assignable(ctx: TypeCheckContext, expr: FieldAccessExpr)
         raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)
 
 
-def ensure_assignable_target(ctx: TypeCheckContext, expr: Expression) -> None:
+def _ensure_assignable_target(ctx: TypeCheckContext, expr: Expression) -> None:
     if isinstance(expr, IdentifierExpr):
         if lookup_variable(ctx, expr.name) is None:
             raise TypeCheckError("Invalid assignment target", expr.span)
         return
 
     if isinstance(expr, FieldAccessExpr):
-        ensure_field_access_assignable(ctx, expr)
+        _ensure_field_access_assignable(ctx, expr)
         return
 
     if isinstance(expr, IndexExpr):
@@ -69,7 +69,7 @@ def ensure_assignable_target(ctx: TypeCheckContext, expr: Expression) -> None:
     raise TypeCheckError("Invalid assignment target", expr.span)
 
 
-def statement_guarantees_return(stmt: Statement, *, block_guarantees_return: callable) -> bool:
+def _statement_guarantees_return(stmt: Statement, *, block_guarantees_return: callable) -> bool:
     if isinstance(stmt, ReturnStmt):
         return True
 
@@ -80,22 +80,22 @@ def statement_guarantees_return(stmt: Statement, *, block_guarantees_return: cal
         if stmt.else_branch is None:
             return False
         then_returns = block_guarantees_return(stmt.then_branch)
-        else_returns = statement_guarantees_return(stmt.else_branch, block_guarantees_return=block_guarantees_return)
+        else_returns = _statement_guarantees_return(stmt.else_branch, block_guarantees_return=block_guarantees_return)
         return then_returns and else_returns
 
     return False
 
 
-def block_guarantees_return(block: BlockStmt) -> bool:
+def _block_guarantees_return(block: BlockStmt) -> bool:
     for stmt in block.statements:
-        if statement_guarantees_return(stmt, block_guarantees_return=block_guarantees_return):
+        if _statement_guarantees_return(stmt, block_guarantees_return=_block_guarantees_return):
             return True
     return False
 
 
-def check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeInfo) -> None:
+def _check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeInfo) -> None:
     if isinstance(stmt, BlockStmt):
-        check_block(ctx, stmt, return_type)
+        _check_block(ctx, stmt, return_type)
         return
 
     if isinstance(stmt, VarDeclStmt):
@@ -109,18 +109,18 @@ def check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeInf
     if isinstance(stmt, IfStmt):
         cond_type = infer_expression_type(ctx, stmt.condition)
         require_type_name(cond_type, "bool", stmt.condition.span)
-        check_block(ctx, stmt.then_branch, return_type)
+        _check_block(ctx, stmt.then_branch, return_type)
         if isinstance(stmt.else_branch, BlockStmt):
-            check_block(ctx, stmt.else_branch, return_type)
+            _check_block(ctx, stmt.else_branch, return_type)
         elif isinstance(stmt.else_branch, IfStmt):
-            check_statement(ctx, stmt.else_branch, return_type)
+            _check_statement(ctx, stmt.else_branch, return_type)
         return
 
     if isinstance(stmt, WhileStmt):
         cond_type = infer_expression_type(ctx, stmt.condition)
         require_type_name(cond_type, "bool", stmt.condition.span)
         ctx.loop_depth += 1
-        check_block(ctx, stmt.body, return_type)
+        _check_block(ctx, stmt.body, return_type)
         ctx.loop_depth -= 1
         return
 
@@ -134,7 +134,7 @@ def check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeInf
         push_scope(ctx)
         try:
             declare_variable(ctx, stmt.element_name, element_type, stmt.span)
-            check_block(ctx, stmt.body, return_type)
+            _check_block(ctx, stmt.body, return_type)
         finally:
             pop_scope(ctx)
             ctx.loop_depth -= 1
@@ -160,7 +160,7 @@ def check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeInf
         return
 
     if isinstance(stmt, AssignStmt):
-        ensure_assignable_target(ctx, stmt.target)
+        _ensure_assignable_target(ctx, stmt.target)
         if isinstance(stmt.target, IndexExpr):
             object_type = infer_expression_type(ctx, stmt.target.object_expr)
             value_type = infer_expression_type(ctx, stmt.value)
@@ -176,10 +176,10 @@ def check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeInf
         infer_expression_type(ctx, stmt.expression)
 
 
-def check_block(ctx: TypeCheckContext, block: BlockStmt, return_type: TypeInfo) -> None:
+def _check_block(ctx: TypeCheckContext, block: BlockStmt, return_type: TypeInfo) -> None:
     push_scope(ctx)
     for stmt in block.statements:
-        check_statement(ctx, stmt, return_type)
+        _check_statement(ctx, stmt, return_type)
     pop_scope(ctx)
 
 
@@ -204,9 +204,9 @@ def check_function_like(
             param_type = resolve_type_ref(ctx, param.type_ref)
             declare_variable(ctx, param.name, param_type, param.span)
 
-        check_block(ctx, body, return_type)
+        _check_block(ctx, body, return_type)
 
-        if return_type.name != "unit" and not block_guarantees_return(body):
+        if return_type.name != "unit" and not _block_guarantees_return(body):
             raise TypeCheckError("Non-unit function must return on all paths", body.span)
     finally:
         ctx.function_local_names_stack.pop()

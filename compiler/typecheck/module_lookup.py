@@ -29,12 +29,12 @@ def lookup_class_by_type_name(ctx: TypeCheckContext, type_name: str) -> ClassInf
     return owner_classes.get(class_name)
 
 
-def flatten_field_chain(expr: Expression) -> list[str] | None:
+def _flatten_field_chain(expr: Expression) -> list[str] | None:
     if isinstance(expr, IdentifierExpr):
         return [expr.name]
 
     if isinstance(expr, FieldAccessExpr):
-        left = flatten_field_chain(expr.object_expr)
+        left = _flatten_field_chain(expr.object_expr)
         if left is None:
             return None
         return [*left, expr.field_name]
@@ -85,7 +85,7 @@ def resolve_unique_global_class_name(ctx: TypeCheckContext, class_name: str, spa
     return f"{owner_dotted}::{class_name}"
 
 
-def resolve_unique_imported_class_module(
+def _resolve_unique_imported_class_module(
     ctx: TypeCheckContext, class_name: str, span: SourceSpan, *, ambiguity_label: str
 ) -> ModulePath | None:
     current_module = current_module_info(ctx)
@@ -111,7 +111,7 @@ def resolve_unique_imported_class_module(
 
 
 def resolve_imported_class_name(ctx: TypeCheckContext, class_name: str, span: SourceSpan) -> str | None:
-    matched_module = resolve_unique_imported_class_module(ctx, class_name, span, ambiguity_label="type")
+    matched_module = _resolve_unique_imported_class_module(ctx, class_name, span, ambiguity_label="type")
     if matched_module is None:
         return None
 
@@ -157,7 +157,7 @@ def resolve_module_member(ctx: TypeCheckContext, expr: FieldAccessExpr) -> tuple
     if ctx.modules is None or ctx.module_path is None:
         return None
 
-    chain = flatten_field_chain(expr)
+    chain = _flatten_field_chain(expr)
     if chain is None or len(chain) < 2:
         return None
 

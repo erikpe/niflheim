@@ -63,12 +63,12 @@ def resolve_index_expression_type(
 
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is not None:
-        return resolve_structural_get_method_result_type(ctx, object_type, class_info, index_type, index_span, span)
+        return _resolve_structural_get_method_result_type(ctx, object_type, class_info, index_type, index_span, span)
 
     raise TypeCheckError(f"Type '{object_type.name}' is not indexable", span)
 
 
-def resolve_structural_get_method_result_type(
+def _resolve_structural_get_method_result_type(
     ctx: TypeCheckContext,
     object_type: TypeInfo,
     class_info: ClassInfo,
@@ -136,11 +136,11 @@ def ensure_index_assignment(
         require_assignable(ctx, object_type.element_type, value_type, span)
         return
 
-    method_sig = ensure_structural_set_method_for_index_assignment(ctx, object_type, index_expr, value_type, span)
+    method_sig = _ensure_structural_set_method_for_index_assignment(ctx, object_type, index_expr, value_type, span)
     _ = method_sig
 
 
-def ensure_structural_set_method_for_index_assignment(
+def _ensure_structural_set_method_for_index_assignment(
     ctx: TypeCheckContext, object_type: TypeInfo, index_expr: Expression, value_type: TypeInfo, span: SourceSpan
 ) -> FunctionSig:
     method_sig = ensure_structural_set_method_available_for_index_assignment(ctx, object_type, span)
@@ -152,7 +152,7 @@ def ensure_structural_set_method_for_index_assignment(
     return method_sig
 
 
-def resolve_structural_slice_method_result_type(
+def _resolve_structural_slice_method_result_type(
     ctx: TypeCheckContext, object_type: TypeInfo, class_info: ClassInfo, args: list[Expression], span: SourceSpan
 ) -> TypeInfo:
     method_sig = class_info.methods.get("slice_get")
@@ -184,7 +184,7 @@ def resolve_structural_slice_method_result_type(
     return qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
 
 
-def resolve_structural_set_slice_method_result_type(
+def _resolve_structural_set_slice_method_result_type(
     ctx: TypeCheckContext, object_type: TypeInfo, class_info: ClassInfo, args: list[Expression], span: SourceSpan
 ) -> TypeInfo:
     method_sig = class_info.methods.get("slice_set")
@@ -240,9 +240,9 @@ def infer_structural_special_method_call_type(
     span: SourceSpan,
 ) -> TypeInfo | None:
     if method_name == "slice_get":
-        return resolve_structural_slice_method_result_type(ctx, object_type, class_info, args, span)
+        return _resolve_structural_slice_method_result_type(ctx, object_type, class_info, args, span)
     if method_name == "slice_set":
-        return resolve_structural_set_slice_method_result_type(ctx, object_type, class_info, args, span)
+        return _resolve_structural_set_slice_method_result_type(ctx, object_type, class_info, args, span)
     return None
 
 

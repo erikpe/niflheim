@@ -7,7 +7,7 @@ from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, Typ
 from compiler.typecheck.type_resolution import resolve_type_ref
 
 
-def function_sig_from_decl(ctx: TypeCheckContext, decl: FunctionDecl | MethodDecl) -> FunctionSig:
+def _function_sig_from_decl(ctx: TypeCheckContext, decl: FunctionDecl | MethodDecl) -> FunctionSig:
     params = [resolve_type_ref(ctx, param.type_ref) for param in decl.params]
     return FunctionSig(
         name=decl.name,
@@ -53,7 +53,7 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
                 raise TypeCheckError(f"Duplicate method '{method_decl.name}'", method_decl.span)
             if method_decl.name in fields:
                 raise TypeCheckError(f"Duplicate member '{method_decl.name}'", method_decl.span)
-            methods[method_decl.name] = function_sig_from_decl(ctx, method_decl)
+            methods[method_decl.name] = _function_sig_from_decl(ctx, method_decl)
 
         private_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_private}
         final_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_final}
@@ -78,4 +78,4 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
             raise TypeCheckError("Function declaration missing body", fn_decl.span)
         if fn_decl.name in ctx.functions or fn_decl.name in ctx.classes:
             raise TypeCheckError(f"Duplicate declaration '{fn_decl.name}'", fn_decl.span)
-        ctx.functions[fn_decl.name] = function_sig_from_decl(ctx, fn_decl)
+        ctx.functions[fn_decl.name] = _function_sig_from_decl(ctx, fn_decl)
