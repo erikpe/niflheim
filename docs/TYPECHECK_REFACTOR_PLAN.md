@@ -450,6 +450,10 @@ Outcome:
 - Move all call inference and argument checking into `calls.py`.
 - Keep constructor, imported-call, callable-field, static-method, and array-method behavior intact.
 
+Status:
+
+- implemented
+
 Outcome:
 
 - one of the densest semantic areas becomes isolated
@@ -541,13 +545,13 @@ Outcome:
 
 ## G. Calls and Structural Protocols
 
-- [ ] Extract call argument checking.
-- [ ] Extract constructor call validation.
-- [ ] Extract function/static/instance/callable-field call rules.
-- [ ] Extract array method call rules.
+- [x] Extract call argument checking.
+- [x] Extract constructor call validation.
+- [x] Extract function/static/instance/callable-field call rules.
+- [x] Extract array method call rules.
 - [ ] Extract structural indexing and slicing helpers.
 - [ ] Extract `for in` iterability validation.
-- [ ] Run `tests/compiler/typecheck -q` after the extraction.
+- [x] Run `tests/compiler/typecheck -q` after the extraction.
 
 ## H. Expressions and Statements
 

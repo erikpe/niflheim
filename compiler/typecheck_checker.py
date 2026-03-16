@@ -11,6 +11,13 @@ from compiler.typecheck.constants import (
     I64_MIN_MAGNITUDE_LITERAL,
     U64_MAX_LITERAL,
 )
+from compiler.typecheck.calls import (
+    callable_type_from_signature as calls_callable_type_from_signature,
+    check_call_arguments as calls_check_call_arguments,
+    class_type_name_from_callable as calls_class_type_name_from_callable,
+    infer_call_type as calls_infer_call_type,
+    infer_constructor_call_type as calls_infer_constructor_call_type,
+)
 from compiler.typecheck.context import (
     TypeCheckContext,
     declare_variable as context_declare_variable,
@@ -624,215 +631,20 @@ class TypeChecker:
         return self._qualify_member_type_for_owner(iter_get_sig.return_type, collection_type.name)
 
     def _infer_call_type(self, expr: CallExpr) -> TypeInfo:
-        if isinstance(expr.callee, IdentifierExpr):
-            name = expr.callee.name
-
-            fn_sig = self.functions.get(name)
-            if fn_sig is not None:
-                self._check_call_arguments(fn_sig.params, expr.arguments, expr.span)
-                return fn_sig.return_type
-
-            imported_fn_sig = self._resolve_imported_function_sig(name, expr.callee.span)
-            if imported_fn_sig is not None:
-                self._check_call_arguments(imported_fn_sig.params, expr.arguments, expr.span)
-                return imported_fn_sig.return_type
-
-            class_info = self.classes.get(name)
-            if class_info is not None:
-                return self._infer_constructor_call_type(
-                    class_info,
-                    expr.arguments,
-                    expr.span,
-                    TypeInfo(name=class_info.name, kind="reference"),
-                )
-
-            imported_class_type = self._resolve_imported_class_type(name, expr.callee.span)
-            if imported_class_type is not None:
-                imported_class_info = self._lookup_class_by_type_name(imported_class_type.name)
-                if imported_class_info is None:
-                    raise TypeCheckError(f"Unknown type '{imported_class_type.name}'", expr.callee.span)
-                return self._infer_constructor_call_type(
-                    imported_class_info,
-                    expr.arguments,
-                    expr.span,
-                    imported_class_type,
-                )
-
-        if isinstance(expr.callee, FieldAccessExpr):
-            module_member = self._resolve_module_member(expr.callee)
-            if module_member is not None:
-                kind, owner_module, member_name = module_member
-                if kind == "function":
-                    fn_sig = self.module_function_sigs[owner_module][member_name]
-                    self._check_call_arguments(fn_sig.params, expr.arguments, expr.span)
-                    return fn_sig.return_type
-
-                if kind == "class":
-                    class_info = self.module_class_infos[owner_module][member_name]
-                    owner_dotted = ".".join(owner_module)
-                    return self._infer_constructor_call_type(
-                        class_info,
-                        expr.arguments,
-                        expr.span,
-                        TypeInfo(name=f"{owner_dotted}::{class_info.name}", kind="reference"),
-                    )
-
-                raise TypeCheckError("Module values are not callable", expr.callee.span)
-
-            object_type = self._infer_expression_type(expr.callee.object_expr)
-
-            if object_type.kind == "callable" and object_type.name.startswith("__class__:"):
-                class_type_name = self._class_type_name_from_callable(object_type.name)
-                class_info = self._lookup_class_by_type_name(class_type_name)
-                if class_info is None:
-                    raise TypeCheckError(f"Type '{class_type_name}' has no callable members", expr.span)
-
-                method_sig = class_info.methods.get(expr.callee.field_name)
-                if method_sig is None:
-                    raise TypeCheckError(f"Class '{class_info.name}' has no method '{
-                                         expr.callee.field_name}'", expr.span)
-                self._require_member_visible(class_info, class_type_name, expr.callee.field_name, "method", expr.span)
-                if not method_sig.is_static:
-                    raise TypeCheckError(
-                        f"Method '{class_info.name}.{expr.callee.field_name}' is not static",
-                        expr.span,
-                    )
-
-                qualified_params = [
-                    self._qualify_member_type_for_owner(param_type, class_type_name)
-                    for param_type in method_sig.params
-                ]
-                qualified_return_type = self._qualify_member_type_for_owner(method_sig.return_type, class_type_name)
-
-                self._check_call_arguments(qualified_params, expr.arguments, expr.span)
-                return qualified_return_type
-
-            if object_type.element_type is not None:
-                method_name = expr.callee.field_name
-                if method_name == "len":
-                    self._check_call_arguments([], expr.arguments, expr.span)
-                    return TypeInfo(name="u64", kind="primitive")
-                if method_name == "iter_len":
-                    self._check_call_arguments([], expr.arguments, expr.span)
-                    return TypeInfo(name="u64", kind="primitive")
-                if method_name == "index_get":
-                    if len(expr.arguments) != 1:
-                        raise TypeCheckError(f"Expected 1 arguments, got {len(expr.arguments)}", expr.span)
-                    index_type = self._infer_expression_type(expr.arguments[0])
-                    self._require_array_index_type(index_type, expr.arguments[0].span)
-                    return object_type.element_type
-                if method_name == "iter_get":
-                    if len(expr.arguments) != 1:
-                        raise TypeCheckError(f"Expected 1 arguments, got {len(expr.arguments)}", expr.span)
-                    index_type = self._infer_expression_type(expr.arguments[0])
-                    self._require_array_index_type(index_type, expr.arguments[0].span)
-                    return object_type.element_type
-                if method_name == "index_set":
-                    if len(expr.arguments) != 2:
-                        raise TypeCheckError(f"Expected 2 arguments, got {len(expr.arguments)}", expr.span)
-                    index_type = self._infer_expression_type(expr.arguments[0])
-                    self._require_array_index_type(index_type, expr.arguments[0].span)
-                    value_type = self._infer_expression_type(expr.arguments[1])
-                    self._require_assignable(object_type.element_type, value_type, expr.arguments[1].span)
-                    return TypeInfo(name="unit", kind="primitive")
-                if method_name == "slice_get":
-                    if len(expr.arguments) != 2:
-                        raise TypeCheckError(f"Expected 2 arguments, got {len(expr.arguments)}", expr.span)
-                    start_type = self._infer_expression_type(expr.arguments[0])
-                    end_type = self._infer_expression_type(expr.arguments[1])
-                    self._require_array_index_type(start_type, expr.arguments[0].span)
-                    self._require_array_index_type(end_type, expr.arguments[1].span)
-                    return object_type
-                if method_name == "slice_set":
-                    if len(expr.arguments) != 3:
-                        raise TypeCheckError(f"Expected 3 arguments, got {len(expr.arguments)}", expr.span)
-                    start_type = self._infer_expression_type(expr.arguments[0])
-                    end_type = self._infer_expression_type(expr.arguments[1])
-                    self._require_array_index_type(start_type, expr.arguments[0].span)
-                    self._require_array_index_type(end_type, expr.arguments[1].span)
-                    value_type = self._infer_expression_type(expr.arguments[2])
-                    self._require_assignable(object_type, value_type, expr.arguments[2].span)
-                    return TypeInfo(name="unit", kind="primitive")
-                raise TypeCheckError(f"Array type '{object_type.name}' has no method '{method_name}'", expr.span)
-
-            class_info = self._lookup_class_by_type_name(object_type.name)
-            if class_info is None:
-                raise TypeCheckError(f"Type '{object_type.name}' has no callable members", expr.span)
-
-            method_sig = class_info.methods.get(expr.callee.field_name)
-            if method_sig is None:
-                field_type = class_info.fields.get(expr.callee.field_name)
-                if field_type is not None:
-                    self._require_member_visible(class_info, object_type.name,
-                                                 expr.callee.field_name, "field", expr.span)
-                    qualified_field_type = self._qualify_member_type_for_owner(field_type, object_type.name)
-                    if (
-                        qualified_field_type.kind == "callable"
-                        and qualified_field_type.callable_params is not None
-                        and qualified_field_type.callable_return is not None
-                    ):
-                        self._check_call_arguments(qualified_field_type.callable_params, expr.arguments, expr.span)
-                        return qualified_field_type.callable_return
-                    raise TypeCheckError(
-                        f"Expression of type '{qualified_field_type.name}' is not callable",
-                        expr.callee.span,
-                    )
-                raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
-            self._require_member_visible(class_info, object_type.name, expr.callee.field_name, "method", expr.span)
-
-            if expr.callee.field_name == "slice_get":
-                return self._resolve_structural_slice_method_result_type(
-                    object_type,
-                    class_info,
-                    expr.arguments,
-                    expr.span,
-                )
-
-            if expr.callee.field_name == "slice_set":
-                return self._resolve_structural_set_slice_method_result_type(
-                    object_type,
-                    class_info,
-                    expr.arguments,
-                    expr.span,
-                )
-
-            if method_sig.is_static:
-                raise TypeCheckError(
-                    f"Static method '{class_info.name}.{expr.callee.field_name}' must be called on the class",
-                    expr.span,
-                )
-
-            qualified_params = [
-                self._qualify_member_type_for_owner(param_type, object_type.name)
-                for param_type in method_sig.params
-            ]
-            qualified_return_type = self._qualify_member_type_for_owner(method_sig.return_type, object_type.name)
-
-            self._check_call_arguments(qualified_params, expr.arguments, expr.span)
-            return qualified_return_type
-
-        callee_type = self._infer_expression_type(expr.callee)
-        if callee_type.kind == "callable" and callee_type.callable_params is not None and callee_type.callable_return is not None:
-            self._check_call_arguments(callee_type.callable_params, expr.arguments, expr.span)
-            return callee_type.callable_return
-        raise TypeCheckError(f"Expression of type '{callee_type.name}' is not callable", expr.callee.span)
-
-    def _callable_type_from_signature(self, name: str, signature: FunctionSig) -> TypeInfo:
-        return TypeInfo(
-            name=name,
-            kind="callable",
-            callable_params=signature.params,
-            callable_return=signature.return_type,
+        return calls_infer_call_type(
+            self.ctx,
+            expr,
+            infer_expression_type=self._infer_expression_type,
+            require_member_visible=self._require_member_visible,
+            resolve_structural_slice_method_result_type=self._resolve_structural_slice_method_result_type,
+            resolve_structural_set_slice_method_result_type=self._resolve_structural_set_slice_method_result_type,
         )
 
+    def _callable_type_from_signature(self, name: str, signature: FunctionSig) -> TypeInfo:
+        return calls_callable_type_from_signature(name, signature)
+
     def _class_type_name_from_callable(self, callable_name: str) -> str:
-        if not callable_name.startswith("__class__:"):
-            raise ValueError(f"invalid class callable name: {callable_name}")
-        payload = callable_name[len("__class__:"):]
-        if ":" not in payload:
-            return payload
-        owner_dotted, class_name = payload.rsplit(":", 1)
-        return f"{owner_dotted}::{class_name}"
+        return calls_class_type_name_from_callable(callable_name)
 
     def _resolve_structural_get_method_result_type(
         self,
@@ -1022,12 +834,13 @@ class TypeChecker:
         )
 
     def _check_call_arguments(self, params: list[TypeInfo], args: list[Expression], span: SourceSpan) -> None:
-        if len(params) != len(args):
-            raise TypeCheckError(f"Expected {len(params)} arguments, got {len(args)}", span)
-
-        for param_type, arg_expr in zip(params, args):
-            arg_type = self._infer_expression_type(arg_expr)
-            self._require_assignable(param_type, arg_type, arg_expr.span)
+        calls_check_call_arguments(
+            self.ctx,
+            params,
+            args,
+            span,
+            infer_expression_type=self._infer_expression_type,
+        )
 
     def _infer_constructor_call_type(
         self,
@@ -1036,14 +849,14 @@ class TypeChecker:
         span: SourceSpan,
         result_type: TypeInfo,
     ) -> TypeInfo:
-        if class_info.constructor_is_private:
-            owner_canonical = self._canonicalize_reference_type_name(result_type.name)
-            if self.ctx.current_private_owner_type != owner_canonical:
-                raise TypeCheckError(f"Constructor for class '{class_info.name}' is private", span)
-
-        ctor_params = [class_info.fields[field_name] for field_name in class_info.constructor_param_order]
-        self._check_call_arguments(ctor_params, args, span)
-        return result_type
+        return calls_infer_constructor_call_type(
+            self.ctx,
+            class_info,
+            args,
+            span,
+            result_type,
+            infer_expression_type=self._infer_expression_type,
+        )
 
     def _ensure_field_access_assignable(self, expr: FieldAccessExpr) -> None:
         object_type = self._infer_expression_type(expr.object_expr)
