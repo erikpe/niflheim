@@ -22,37 +22,19 @@ from typing import TYPE_CHECKING
 
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
 from compiler.lexer import SourceSpan
-from compiler.typecheck.model import ClassInfo, TypeCheckError, TypeInfo
+from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.typecheck.relations import canonicalize_reference_type_name, require_assignable, require_type_name
+from compiler.typecheck.structural import (
+    ensure_index_assignment,
+    ensure_structural_set_method_available_for_index_assignment,
+    resolve_for_in_element_type,
+)
 from compiler.typecheck.type_resolution import resolve_type_ref
+from compiler.typecheck.visibility import require_member_visible
 
 if TYPE_CHECKING:
     from compiler.typecheck.engine import TypeChecker
-
-
-def require_member_visible(
-    checker: TypeChecker,
-    class_info: ClassInfo,
-    owner_type_name: str,
-    member_name: str,
-    member_kind: str,
-    span: SourceSpan,
-) -> None:
-    ctx = checker.ctx
-    is_private = (
-        member_name in class_info.private_fields
-        if member_kind == "field"
-        else member_name in class_info.private_methods
-    )
-    if not is_private:
-        return
-
-    owner_canonical = canonicalize_reference_type_name(ctx, owner_type_name)
-    if ctx.current_private_owner_type == owner_canonical:
-        return
-
-    raise TypeCheckError(f"Member '{class_info.name}.{member_name}' is private", span)
 
 
 def ensure_field_access_assignable(
@@ -90,7 +72,7 @@ def ensure_assignable_target(
     if isinstance(expr, IndexExpr):
         object_type = checker.infer_expression_type(expr.object_expr)
         if object_type.element_type is None:
-            checker.ensure_structural_set_method_available_for_index_assignment(object_type, expr.span)
+            ensure_structural_set_method_available_for_index_assignment(checker, object_type, expr.span)
         return
 
     raise TypeCheckError("Invalid assignment target", expr.span)
@@ -158,7 +140,7 @@ def check_statement(
 
     if isinstance(stmt, ForInStmt):
         collection_type = checker.infer_expression_type(stmt.collection_expr)
-        element_type = checker.resolve_for_in_element_type(collection_type, stmt.span)
+        element_type = resolve_for_in_element_type(checker, collection_type, stmt.span)
         object.__setattr__(stmt, "collection_type_name", collection_type.name)
         object.__setattr__(stmt, "element_type_name", element_type.name)
 
@@ -196,7 +178,7 @@ def check_statement(
         if isinstance(stmt.target, IndexExpr):
             object_type = checker.infer_expression_type(stmt.target.object_expr)
             value_type = checker.infer_expression_type(stmt.value)
-            checker.ensure_index_assignment(object_type, stmt.target.index_expr, value_type, stmt.value.span)
+            ensure_index_assignment(checker, object_type, stmt.target.index_expr, value_type, stmt.value.span)
             return
 
         target_type = checker.infer_expression_type(stmt.target)

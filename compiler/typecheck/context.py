@@ -15,7 +15,6 @@ class TypeCheckContext:
     modules: dict[ModulePath, ModuleInfo] | None = None
     module_function_sigs: dict[ModulePath, dict[str, FunctionSig]] | None = None
     module_class_infos: dict[ModulePath, dict[str, ClassInfo]] | None = None
-    pre_collected: bool = False
     functions: dict[str, FunctionSig] = field(default_factory=dict)
     classes: dict[str, ClassInfo] = field(default_factory=dict)
     scope_stack: list[dict[str, TypeInfo]] = field(default_factory=list)

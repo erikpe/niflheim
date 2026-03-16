@@ -17,7 +17,7 @@ def typecheck_program(program: ProgramInfo) -> None:
             module_path=module_path,
             modules=program.modules,
         )
-        collect_module_declarations(checker.ctx, checker)
+        checker.collect_declarations()
         module_function_sigs[module_path] = checker.functions
         module_class_infos[module_path] = checker.classes
 
@@ -28,9 +28,8 @@ def typecheck_program(program: ProgramInfo) -> None:
             modules=program.modules,
             module_function_sigs=module_function_sigs,
             module_class_infos=module_class_infos,
-            pre_collected=True,
         )
-        checker.check()
+        checker.check_bodies()
 
 
 def typecheck(module_ast: ModuleAst) -> None:

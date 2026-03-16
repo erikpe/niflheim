@@ -7,8 +7,8 @@ from compiler.lexer import SourceSpan
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.typecheck.relations import require_array_index_type, require_assignable
-from compiler.typecheck.statements import require_member_visible
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner
+from compiler.typecheck.visibility import require_member_visible
 
 if TYPE_CHECKING:
     from compiler.typecheck.engine import TypeChecker

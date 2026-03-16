@@ -12,9 +12,13 @@ from compiler.typecheck.module_lookup import (
     resolve_module_member,
 )
 from compiler.typecheck.relations import canonicalize_reference_type_name, require_assignable
-from compiler.typecheck.statements import require_member_visible
-from compiler.typecheck.structural import infer_array_method_call_type
+from compiler.typecheck.structural import (
+    infer_array_method_call_type,
+    resolve_structural_set_slice_method_result_type,
+    resolve_structural_slice_method_result_type,
+)
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner
+from compiler.typecheck.visibility import require_member_visible
 
 if TYPE_CHECKING:
     from compiler.typecheck.engine import TypeChecker
@@ -197,7 +201,8 @@ def infer_call_type(
         require_member_visible(checker, class_info, object_type.name, expr.callee.field_name, "method", expr.span)
 
         if expr.callee.field_name == "slice_get":
-            return checker.resolve_structural_slice_method_result_type(
+            return resolve_structural_slice_method_result_type(
+                checker,
                 object_type,
                 class_info,
                 expr.arguments,
@@ -205,7 +210,8 @@ def infer_call_type(
             )
 
         if expr.callee.field_name == "slice_set":
-            return checker.resolve_structural_set_slice_method_result_type(
+            return resolve_structural_set_slice_method_result_type(
+                checker,
                 object_type,
                 class_info,
                 expr.arguments,

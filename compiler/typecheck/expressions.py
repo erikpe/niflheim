@@ -28,7 +28,7 @@ from compiler.typecheck.constants import (
     I64_MIN_MAGNITUDE_LITERAL,
     U64_MAX_LITERAL,
 )
-from compiler.typecheck.context import TypeCheckContext
+from compiler.typecheck.context import lookup_variable
 from compiler.typecheck.model import (
     NUMERIC_TYPE_NAMES,
     TypeCheckError,
@@ -41,13 +41,19 @@ from compiler.typecheck.module_lookup import (
     resolve_imported_function_sig,
     resolve_module_member,
 )
+from compiler.typecheck.relations import (
+    check_explicit_cast,
+    is_comparable,
+    require_array_size_type,
+    require_type_name,
+)
 from compiler.typecheck.structural import resolve_index_expression_type
-from compiler.typecheck.statements import require_member_visible
 from compiler.typecheck.type_resolution import (
     qualify_member_type_for_owner,
     resolve_string_type,
     resolve_type_ref,
 )
+from compiler.typecheck.visibility import require_member_visible
 
 if TYPE_CHECKING:
     from compiler.typecheck.engine import TypeChecker
@@ -63,7 +69,7 @@ def infer_expression_type(
         return infer_expression_type(checker, nested_expr)
 
     if isinstance(expr, IdentifierExpr):
-        symbol_type = checker.lookup_variable(expr.name)
+        symbol_type = lookup_variable(ctx, expr.name)
         if symbol_type is not None:
             return symbol_type
 
@@ -125,7 +131,7 @@ def infer_expression_type(
     if isinstance(expr, UnaryExpr):
         if expr.operator == "!":
             operand_type = infer_nested(expr.operand)
-            checker.require_type_name(operand_type, "bool", expr.operand.span)
+            require_type_name(operand_type, "bool", expr.operand.span)
             return TypeInfo(name="bool", kind="primitive")
 
         if expr.operator == "-":
@@ -195,13 +201,13 @@ def infer_expression_type(
             return TypeInfo(name="bool", kind="primitive")
 
         if op in {"==", "!="}:
-            if not checker.is_comparable(left_type, right_type):
+            if not is_comparable(ctx, left_type, right_type):
                 raise TypeCheckError(f"Operator '{op}' has incompatible operand types", expr.span)
             return TypeInfo(name="bool", kind="primitive")
 
         if op in {"&&", "||"}:
-            checker.require_type_name(left_type, "bool", expr.left.span)
-            checker.require_type_name(right_type, "bool", expr.right.span)
+            require_type_name(left_type, "bool", expr.left.span)
+            require_type_name(right_type, "bool", expr.right.span)
             return TypeInfo(name="bool", kind="primitive")
 
         raise TypeCheckError(f"Unknown binary operator '{op}'", expr.span)
@@ -209,7 +215,7 @@ def infer_expression_type(
     if isinstance(expr, CastExpr):
         source_type = infer_nested(expr.operand)
         target_type = resolve_type_ref(ctx, expr.type_ref)
-        checker.check_explicit_cast(source_type, target_type, expr.span)
+        check_explicit_cast(ctx, source_type, target_type, expr.span)
         return target_type
 
     if isinstance(expr, CallExpr):
@@ -220,7 +226,7 @@ def infer_expression_type(
         if array_type.element_type is None:
             raise TypeCheckError("Array constructor requires array element type", expr.element_type_ref.span)
         length_type = infer_nested(expr.length_expr)
-        checker.require_array_size_type(length_type, expr.length_expr.span)
+        require_array_size_type(length_type, expr.length_expr.span)
         return array_type
 
     if isinstance(expr, FieldAccessExpr):
