@@ -2,62 +2,47 @@ from __future__ import annotations
 
 from compiler.ast_nodes import CallExpr, Expression, FieldAccessExpr, IdentifierExpr
 
-from compiler.lexer import SourceSpan
+from compiler.typecheck.call_helpers import (
+    callable_type_from_signature,
+    check_call_argument_types,
+    class_type_name_from_callable,
+    infer_constructor_call_type as infer_constructor_call_type_from_types,
+)
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
-from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
+from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     lookup_class_by_type_name,
     resolve_imported_class_name,
     resolve_imported_function_sig,
     resolve_module_member,
 )
-from compiler.typecheck.relations import canonicalize_reference_type_name, require_assignable
-from compiler.typecheck.structural import (
-    infer_array_method_call_type,
-    resolve_structural_set_slice_method_result_type,
-    resolve_structural_slice_method_result_type,
-)
+from compiler.typecheck.structural import infer_array_method_call_type, infer_structural_special_method_call_type
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner
 from compiler.typecheck.visibility import require_member_visible
 
 
-def callable_type_from_signature(name: str, signature: FunctionSig) -> TypeInfo:
-    return TypeInfo(name=name, kind="callable", callable_params=signature.params, callable_return=signature.return_type)
-
-
-def class_type_name_from_callable(callable_name: str) -> str:
-    if not callable_name.startswith("__class__:"):
-        raise ValueError(f"invalid class callable name: {callable_name}")
-    payload = callable_name[len("__class__:") :]
-    if ":" not in payload:
-        return payload
-    owner_dotted, class_name = payload.rsplit(":", 1)
-    return f"{owner_dotted}::{class_name}"
-
-
-def check_call_arguments(
-    ctx: TypeCheckContext, params: list[TypeInfo], args: list[Expression], span: SourceSpan
-) -> None:
-    if len(params) != len(args):
-        raise TypeCheckError(f"Expected {len(params)} arguments, got {len(args)}", span)
-
-    for param_type, arg_expr in zip(params, args):
-        arg_type = infer_expression_type(ctx, arg_expr)
-        require_assignable(ctx, param_type, arg_type, arg_expr.span)
+def check_call_arguments(ctx: TypeCheckContext, params: list[TypeInfo], args: list[Expression], span) -> None:
+    check_call_argument_types(
+        ctx,
+        params,
+        [infer_expression_type(ctx, arg_expr) for arg_expr in args],
+        [arg_expr.span for arg_expr in args],
+        span,
+    )
 
 
 def infer_constructor_call_type(
-    ctx: TypeCheckContext, class_info: ClassInfo, args: list[Expression], span: SourceSpan, result_type: TypeInfo
+    ctx: TypeCheckContext, class_info, args: list[Expression], span, result_type: TypeInfo
 ) -> TypeInfo:
-    if class_info.constructor_is_private:
-        owner_canonical = canonicalize_reference_type_name(ctx, result_type.name)
-        if ctx.current_private_owner_type != owner_canonical:
-            raise TypeCheckError(f"Constructor for class '{class_info.name}' is private", span)
-
-    ctor_params = [class_info.fields[field_name] for field_name in class_info.constructor_param_order]
-    check_call_arguments(ctx, ctor_params, args, span)
-    return result_type
+    return infer_constructor_call_type_from_types(
+        ctx,
+        class_info,
+        [infer_expression_type(ctx, arg_expr) for arg_expr in args],
+        [arg_expr.span for arg_expr in args],
+        span,
+        result_type,
+    )
 
 
 def infer_call_type(ctx: TypeCheckContext, expr: CallExpr) -> TypeInfo:
@@ -164,13 +149,11 @@ def infer_call_type(ctx: TypeCheckContext, expr: CallExpr) -> TypeInfo:
             raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
         require_member_visible(ctx, class_info, object_type.name, expr.callee.field_name, "method", expr.span)
 
-        if expr.callee.field_name == "slice_get":
-            return resolve_structural_slice_method_result_type(ctx, object_type, class_info, expr.arguments, expr.span)
-
-        if expr.callee.field_name == "slice_set":
-            return resolve_structural_set_slice_method_result_type(
-                ctx, object_type, class_info, expr.arguments, expr.span
-            )
+        structural_result = infer_structural_special_method_call_type(
+            ctx, object_type, class_info, expr.callee.field_name, expr.arguments, expr.span
+        )
+        if structural_result is not None:
+            return structural_result
 
         if method_sig.is_static:
             raise TypeCheckError(

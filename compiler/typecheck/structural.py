@@ -231,6 +231,21 @@ def resolve_structural_set_slice_method_result_type(
     return TypeInfo(name="unit", kind="primitive")
 
 
+def infer_structural_special_method_call_type(
+    ctx: TypeCheckContext,
+    object_type: TypeInfo,
+    class_info: ClassInfo,
+    method_name: str,
+    args: list[Expression],
+    span: SourceSpan,
+) -> TypeInfo | None:
+    if method_name == "slice_get":
+        return resolve_structural_slice_method_result_type(ctx, object_type, class_info, args, span)
+    if method_name == "slice_set":
+        return resolve_structural_set_slice_method_result_type(ctx, object_type, class_info, args, span)
+    return None
+
+
 def infer_array_method_call_type(
     ctx: TypeCheckContext, object_type: TypeInfo, method_name: str, args: list[Expression], span: SourceSpan
 ) -> TypeInfo:

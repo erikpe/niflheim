@@ -15,6 +15,7 @@ from compiler.ast_nodes import (
 )
 
 from compiler.codegen.strings import is_str_type_name
+from compiler.typecheck.call_helpers import callable_type_from_signature, class_type_name_from_callable
 from compiler.typecheck.constants import (
     ARRAY_METHOD_NAMES,
     BITWISE_TYPE_NAMES,
@@ -38,7 +39,7 @@ from compiler.typecheck.context import TypeCheckContext
 
 
 def infer_expression_type(ctx: TypeCheckContext, expr: Expression) -> TypeInfo:
-    from compiler.typecheck.calls import callable_type_from_signature, class_type_name_from_callable, infer_call_type
+    from compiler.typecheck.calls import infer_call_type
     from compiler.typecheck.structural import resolve_index_expression_type
 
     def infer_nested(nested_expr: Expression) -> TypeInfo:
@@ -282,19 +283,3 @@ def infer_expression_type(ctx: TypeCheckContext, expr: Expression) -> TypeInfo:
         return resolve_index_expression_type(ctx, obj_type, index_type, expr.index_expr.span, expr.span)
 
     raise TypeCheckError("Unsupported expression", expr.span)
-
-
-def ensure_field_access_assignable(ctx: TypeCheckContext, expr: FieldAccessExpr) -> None:
-    object_type = infer_expression_type(ctx, expr.object_expr)
-    class_info = lookup_class_by_type_name(ctx, object_type.name)
-    if class_info is None:
-        raise TypeCheckError("Invalid assignment target", expr.span)
-
-    field_type = class_info.fields.get(expr.field_name)
-    if field_type is None:
-        raise TypeCheckError("Invalid assignment target", expr.span)
-
-    require_member_visible(ctx, class_info, object_type.name, expr.field_name, "field", expr.span)
-
-    if expr.field_name in class_info.final_fields:
-        raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)
