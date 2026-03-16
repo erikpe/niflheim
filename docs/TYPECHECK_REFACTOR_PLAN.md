@@ -476,6 +476,10 @@ Outcome:
 - Move non-call expression inference into `expressions.py`.
 - Keep call handling delegated to `calls.py`.
 
+Status:
+
+- implemented
+
 Outcome:
 
 - expression logic becomes readable because large branches are already gone
@@ -559,12 +563,12 @@ Outcome:
 
 ## H. Expressions and Statements
 
-- [ ] Extract non-call expression inference into `expressions.py`.
+- [x] Extract non-call expression inference into `expressions.py`.
 - [ ] Extract statement checking into `statements.py`.
 - [ ] Extract return-path analysis into `statements.py`.
 - [ ] Extract assignment-target validation into `statements.py`.
 - [ ] Keep visibility/final-member checks stable.
-- [ ] Run `tests/compiler/typecheck -q` after the extraction.
+- [x] Run `tests/compiler/typecheck -q` after the extraction.
 
 ## I. Final Cleanup
 

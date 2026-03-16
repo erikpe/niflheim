@@ -28,6 +28,7 @@ Stage-0 compiler implementation in Python.
 	- `declarations.py` - extracted declaration pre-pass and field-initializer validation helpers.
 	- `calls.py` - extracted call typing and call-argument validation helpers.
 	- `structural.py` - extracted indexing, slicing, and iteration protocol helpers.
+	- `expressions.py` - extracted non-call expression inference and field-assignability helpers.
 - `typecheck_model.py` - temporary compatibility shim re-exporting typechecker model symbols.
 - `typecheck_checker.py` - typechecker engine implementation.
 - `codegen/` - backend package entry point and internal code generation modules.
