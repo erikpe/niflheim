@@ -18,9 +18,8 @@ Stage-0 compiler implementation in Python.
 - `parser.py` - recursive-descent parser for modules/statements/expressions.
 - `ast_dump.py` - deterministic AST debug serialization used by golden tests.
 - `resolver.py` - module graph loading and import/export visibility resolution.
-- `typecheck/` - typecheck package facade and internal refactor target.
-	- `__init__.py` - stable `compiler.typecheck` public entry point.
-	- `api.py` - current typecheck entry points (`typecheck`, `typecheck_program`).
+- `typecheck/` - typecheck package modules.
+	- `api.py` - typecheck entry points (`typecheck`, `typecheck_program`).
 	- `model.py` - shared typechecker data model/constants/errors.
 	- `context.py`, `constants.py` - explicit checker context/state helpers and extracted constants.
 	- `relations.py` - extracted type relation helpers.
@@ -30,8 +29,7 @@ Stage-0 compiler implementation in Python.
 	- `structural.py` - extracted indexing, slicing, and iteration protocol helpers.
 	- `expressions.py` - extracted non-call expression inference and field-assignability helpers.
 	- `statements.py` - extracted statement checking, return analysis, assignment-target validation, and visibility helpers.
-- `typecheck_model.py` - temporary compatibility shim re-exporting typechecker model symbols.
-- `typecheck_checker.py` - typechecker engine implementation.
+	- `engine.py` - lean internal typecheck engine adapter composed from the extracted helper modules.
 - `codegen/` - backend package entry point and internal code generation modules.
 	- `__init__.py` - stable `emit_asm(module_ast)` public entry point.
 	- `generator.py` - shared backend state and remaining coordination helpers.

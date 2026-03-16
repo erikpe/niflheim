@@ -6,7 +6,7 @@ The immediate goal is readability and maintainability. The medium-term goal is t
 
 ## Goals
 
-- Keep the public API stable through the `compiler.typecheck` import path.
+- Keep the public typecheck entry points small and explicit.
 - Separate semantic concerns from traversal/state management.
 - Move reusable type logic into small, testable helpers.
 - Make cross-module lookup and member-qualification rules explicit.
@@ -41,7 +41,7 @@ This makes the file difficult to navigate and increases coupling between unrelat
 
 ## 1. Keep One Public Entry Point
 
-The `compiler.typecheck` import path should remain the stable public facade for:
+The public typecheck entry points should remain small and explicit:
 
 - `typecheck(module_ast)`
 - `typecheck_program(program)`
@@ -90,6 +90,8 @@ Existing error wording and span behavior should remain stable as much as practic
 
 ## Target Layout
 
+The recommended end state is a small `compiler/typecheck/` package with explicit entrypoints in `api.py`.
+
 The recommended end state is a small `compiler/typecheck/` package whose `__init__.py` acts as the public facade.
 
 Suggested layout:
@@ -97,8 +99,7 @@ Suggested layout:
 ```text
 compiler/
   typecheck/
-    __init__.py                  # stable public facade for compiler.typecheck imports
-    api.py                       # public orchestration helpers used by facade
+    api.py                       # public orchestration helpers for typechecking
     model.py                     # TypeInfo, FunctionSig, ClassInfo, TypeCheckError, constants
     context.py                   # mutable checking context and scope helpers
     constants.py                 # operator sets, literal bounds, array member names
@@ -114,25 +115,13 @@ compiler/
 
 ## File Purposes
 
-## `compiler/typecheck/__init__.py`
-
-Purpose:
-
-- Preserve the existing external API.
-- Import the real implementation from `compiler.typecheck.api`.
-- Keep all downstream imports stable during and after the refactor.
-
-Expected size:
-
-- very small
-
 ## `compiler/typecheck/api.py`
 
 Purpose:
 
-- Implement `typecheck` and `typecheck_program`.
-- Own the two-pass program workflow.
-- Construct per-module contexts and pass shared declaration tables into phase 2.
+ - Implement `typecheck` and `typecheck_program`.
+ - Own the two-pass program workflow.
+ - Construct per-module contexts and pass shared declaration tables into phase 2.
 
 This module should not contain expression or statement rules.
 
@@ -502,6 +491,10 @@ Outcome:
 - Convert `TypeChecker` into a thin compatibility wrapper around package-level functions, or remove it entirely if no longer useful.
 - Keep only minimal orchestration in `api.py`.
 
+Status:
+
+- implemented
+
 Outcome:
 
 - monolithic checker file disappears or becomes a tiny adapter
@@ -512,7 +505,6 @@ Outcome:
 
 - [x] Create `compiler/typecheck/` package.
 - [x] Add `api.py`, `model.py`, `context.py`, and `constants.py` skeletons.
-- [x] Keep the `compiler.typecheck` import path as the stable facade by using `compiler/typecheck/__init__.py`.
 - [x] Keep `compiler/typecheck_model.py` as a temporary compatibility shim during migration.
 
 ## B. Model and Constants
@@ -576,11 +568,11 @@ Outcome:
 
 ## I. Final Cleanup
 
-- [ ] Reduce `typecheck_checker.py` to a thin adapter or remove it entirely.
-- [ ] Remove temporary compatibility shims that are no longer needed.
-- [ ] Update repository docs that describe compiler layout.
-- [ ] Run the full test suite.
-- [ ] Confirm no semantic or diagnostic regressions before deleting transitional code.
+- [x] Reduce `typecheck_checker.py` to a thin adapter or remove it entirely.
+- [x] Remove temporary compatibility shims that are no longer needed.
+- [x] Update repository docs that describe compiler layout.
+- [x] Run the full test suite.
+- [x] Confirm no semantic or diagnostic regressions before deleting transitional code.
 
 ## Expected End State
 

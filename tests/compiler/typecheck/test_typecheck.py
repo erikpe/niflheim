@@ -2,8 +2,8 @@ import pytest
 
 from compiler.lexer import lex
 from compiler.parser import parse
-from compiler.typecheck import typecheck
-from compiler.typecheck_model import TypeCheckError
+from compiler.typecheck.api import typecheck
+from compiler.typecheck.model import TypeCheckError
 
 
 def _parse_and_typecheck(source: str) -> None:

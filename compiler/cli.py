@@ -11,7 +11,7 @@ from compiler.module_linker import build_codegen_module, require_main_function
 from compiler.parser import parse
 from compiler.reachability import prune_unreachable
 from compiler.resolver import resolve_program
-from compiler.typecheck import typecheck_program
+from compiler.typecheck.api import typecheck_program
 
 
 STOP_PHASES = ["lex", "parse", "check", "codegen"]

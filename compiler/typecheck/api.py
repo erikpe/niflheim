@@ -3,8 +3,8 @@ from __future__ import annotations
 from compiler.ast_nodes import ModuleAst
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.typecheck.declarations import collect_module_declarations
+from compiler.typecheck.engine import TypeChecker
 from compiler.typecheck.model import ClassInfo, FunctionSig
-from compiler.typecheck_checker import TypeChecker
 
 
 def typecheck_program(program: ProgramInfo) -> None:
