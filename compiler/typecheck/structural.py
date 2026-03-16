@@ -4,6 +4,7 @@ from compiler.ast_nodes import Expression
 from typing import TYPE_CHECKING
 
 from compiler.lexer import SourceSpan
+from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.typecheck.relations import require_array_index_type, require_assignable
@@ -177,8 +178,9 @@ def ensure_index_assignment(
     span: SourceSpan,
 ) -> None:
     ctx = checker.ctx
+
     if object_type.element_type is not None:
-        index_type = checker.infer_expression_type(index_expr)
+        index_type = infer_expression_type(checker, index_expr)
         require_array_index_type(index_type, index_expr.span)
         require_assignable(ctx, object_type.element_type, value_type, span)
         return
@@ -201,12 +203,13 @@ def ensure_structural_set_method_for_index_assignment(
     span: SourceSpan,
 ) -> FunctionSig:
     ctx = checker.ctx
+
     method_sig = ensure_structural_set_method_available_for_index_assignment(
         checker,
         object_type,
         span,
     )
-    index_type = checker.infer_expression_type(index_expr)
+    index_type = infer_expression_type(checker, index_expr)
     qualified_index_param = qualify_member_type_for_owner(ctx, method_sig.params[0], object_type.name)
     require_assignable(ctx, qualified_index_param, index_type, index_expr.span)
     qualified_value_param = qualify_member_type_for_owner(ctx, method_sig.params[1], object_type.name)
@@ -222,6 +225,7 @@ def resolve_structural_slice_method_result_type(
     span: SourceSpan,
 ) -> TypeInfo:
     ctx = checker.ctx
+
     method_sig = class_info.methods.get("slice_get")
     if method_sig is None:
         raise TypeCheckError(
@@ -250,8 +254,8 @@ def resolve_structural_slice_method_result_type(
             span,
         )
 
-    begin_arg_type = checker.infer_expression_type(args[0])
-    end_arg_type = checker.infer_expression_type(args[1])
+    begin_arg_type = infer_expression_type(checker, args[0])
+    end_arg_type = infer_expression_type(checker, args[1])
     require_array_index_type(begin_arg_type, args[0].span)
     require_array_index_type(end_arg_type, args[1].span)
     return qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
@@ -265,6 +269,7 @@ def resolve_structural_set_slice_method_result_type(
     span: SourceSpan,
 ) -> TypeInfo:
     ctx = checker.ctx
+
     method_sig = class_info.methods.get("slice_set")
     if method_sig is None:
         raise TypeCheckError(
@@ -293,13 +298,13 @@ def resolve_structural_set_slice_method_result_type(
             span,
         )
 
-    begin_arg_type = checker.infer_expression_type(args[0])
-    end_arg_type = checker.infer_expression_type(args[1])
+    begin_arg_type = infer_expression_type(checker, args[0])
+    end_arg_type = infer_expression_type(checker, args[1])
     require_array_index_type(begin_arg_type, args[0].span)
     require_array_index_type(end_arg_type, args[1].span)
 
     qualified_value_param = qualify_member_type_for_owner(ctx, method_sig.params[2], object_type.name)
-    value_arg_type = checker.infer_expression_type(args[2])
+    value_arg_type = infer_expression_type(checker, args[2])
     require_assignable(ctx, qualified_value_param, value_arg_type, args[2].span)
 
     qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
@@ -320,6 +325,7 @@ def infer_array_method_call_type(
     span: SourceSpan,
 ) -> TypeInfo:
     ctx = checker.ctx
+
     if method_name == "len":
         if args:
             raise TypeCheckError(f"Expected 0 arguments, got {len(args)}", span)
@@ -331,39 +337,39 @@ def infer_array_method_call_type(
     if method_name == "index_get":
         if len(args) != 1:
             raise TypeCheckError(f"Expected 1 arguments, got {len(args)}", span)
-        index_type = checker.infer_expression_type(args[0])
+        index_type = infer_expression_type(checker, args[0])
         require_array_index_type(index_type, args[0].span)
         return object_type.element_type
     if method_name == "iter_get":
         if len(args) != 1:
             raise TypeCheckError(f"Expected 1 arguments, got {len(args)}", span)
-        index_type = checker.infer_expression_type(args[0])
+        index_type = infer_expression_type(checker, args[0])
         require_array_index_type(index_type, args[0].span)
         return object_type.element_type
     if method_name == "index_set":
         if len(args) != 2:
             raise TypeCheckError(f"Expected 2 arguments, got {len(args)}", span)
-        index_type = checker.infer_expression_type(args[0])
+        index_type = infer_expression_type(checker, args[0])
         require_array_index_type(index_type, args[0].span)
-        value_type = checker.infer_expression_type(args[1])
+        value_type = infer_expression_type(checker, args[1])
         require_assignable(ctx, object_type.element_type, value_type, args[1].span)
         return TypeInfo(name="unit", kind="primitive")
     if method_name == "slice_get":
         if len(args) != 2:
             raise TypeCheckError(f"Expected 2 arguments, got {len(args)}", span)
-        start_type = checker.infer_expression_type(args[0])
-        end_type = checker.infer_expression_type(args[1])
+        start_type = infer_expression_type(checker, args[0])
+        end_type = infer_expression_type(checker, args[1])
         require_array_index_type(start_type, args[0].span)
         require_array_index_type(end_type, args[1].span)
         return object_type
     if method_name == "slice_set":
         if len(args) != 3:
             raise TypeCheckError(f"Expected 3 arguments, got {len(args)}", span)
-        start_type = checker.infer_expression_type(args[0])
-        end_type = checker.infer_expression_type(args[1])
+        start_type = infer_expression_type(checker, args[0])
+        end_type = infer_expression_type(checker, args[1])
         require_array_index_type(start_type, args[0].span)
         require_array_index_type(end_type, args[1].span)
-        value_type = checker.infer_expression_type(args[2])
+        value_type = infer_expression_type(checker, args[2])
         require_assignable(ctx, object_type, value_type, args[2].span)
         return TypeInfo(name="unit", kind="primitive")
 

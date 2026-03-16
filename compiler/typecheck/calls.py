@@ -4,6 +4,7 @@ from compiler.ast_nodes import CallExpr, Expression, FieldAccessExpr, Identifier
 from typing import TYPE_CHECKING
 
 from compiler.lexer import SourceSpan
+from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     lookup_class_by_type_name,
@@ -50,11 +51,12 @@ def check_call_arguments(
     span: SourceSpan,
 ) -> None:
     ctx = checker.ctx
+
     if len(params) != len(args):
         raise TypeCheckError(f"Expected {len(params)} arguments, got {len(args)}", span)
 
     for param_type, arg_expr in zip(params, args):
-        arg_type = checker.infer_expression_type(arg_expr)
+        arg_type = infer_expression_type(checker, arg_expr)
         require_assignable(ctx, param_type, arg_type, arg_expr.span)
 
 
@@ -81,6 +83,7 @@ def infer_call_type(
     expr: CallExpr,
 ) -> TypeInfo:
     ctx = checker.ctx
+
     if isinstance(expr.callee, IdentifierExpr):
         name = expr.callee.name
 
@@ -139,7 +142,7 @@ def infer_call_type(
 
             raise TypeCheckError("Module values are not callable", expr.callee.span)
 
-        object_type = checker.infer_expression_type(expr.callee.object_expr)
+        object_type = infer_expression_type(checker, expr.callee.object_expr)
 
         if object_type.kind == "callable" and object_type.name.startswith("__class__:"):
             class_type_name = class_type_name_from_callable(object_type.name)
@@ -233,7 +236,7 @@ def infer_call_type(
         check_call_arguments(checker, qualified_params, expr.arguments, expr.span)
         return qualified_return_type
 
-    callee_type = checker.infer_expression_type(expr.callee)
+    callee_type = infer_expression_type(checker, expr.callee)
     if callee_type.kind == "callable" and callee_type.callable_params is not None and callee_type.callable_return is not None:
         check_call_arguments(checker, callee_type.callable_params, expr.arguments, expr.span)
         return callee_type.callable_return

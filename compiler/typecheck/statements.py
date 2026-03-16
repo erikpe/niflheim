@@ -21,6 +21,7 @@ from compiler.ast_nodes import (
 from typing import TYPE_CHECKING
 
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
+from compiler.typecheck.expressions import infer_expression_type
 from compiler.lexer import SourceSpan
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
@@ -41,7 +42,7 @@ def ensure_field_access_assignable(
     checker: TypeChecker,
     expr: FieldAccessExpr,
 ) -> None:
-    object_type = checker.infer_expression_type(expr.object_expr)
+    object_type = infer_expression_type(checker, expr.object_expr)
     class_info = lookup_class_by_type_name(checker.ctx, object_type.name)
     if class_info is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
@@ -70,7 +71,7 @@ def ensure_assignable_target(
         return
 
     if isinstance(expr, IndexExpr):
-        object_type = checker.infer_expression_type(expr.object_expr)
+        object_type = infer_expression_type(checker, expr.object_expr)
         if object_type.element_type is None:
             ensure_structural_set_method_available_for_index_assignment(checker, object_type, expr.span)
         return
@@ -108,6 +109,7 @@ def check_statement(
     return_type: TypeInfo,
 ) -> None:
     ctx = checker.ctx
+
     if isinstance(stmt, BlockStmt):
         check_block(checker, stmt, return_type)
         return
@@ -115,13 +117,13 @@ def check_statement(
     if isinstance(stmt, VarDeclStmt):
         var_type = resolve_type_ref(ctx, stmt.type_ref)
         if stmt.initializer is not None:
-            init_type = checker.infer_expression_type(stmt.initializer)
+            init_type = infer_expression_type(checker, stmt.initializer)
             require_assignable(ctx, var_type, init_type, stmt.initializer.span)
         declare_variable(ctx, stmt.name, var_type, stmt.span)
         return
 
     if isinstance(stmt, IfStmt):
-        cond_type = checker.infer_expression_type(stmt.condition)
+        cond_type = infer_expression_type(checker, stmt.condition)
         require_type_name(cond_type, "bool", stmt.condition.span)
         check_block(checker, stmt.then_branch, return_type)
         if isinstance(stmt.else_branch, BlockStmt):
@@ -131,7 +133,7 @@ def check_statement(
         return
 
     if isinstance(stmt, WhileStmt):
-        cond_type = checker.infer_expression_type(stmt.condition)
+        cond_type = infer_expression_type(checker, stmt.condition)
         require_type_name(cond_type, "bool", stmt.condition.span)
         ctx.loop_depth += 1
         check_block(checker, stmt.body, return_type)
@@ -139,7 +141,7 @@ def check_statement(
         return
 
     if isinstance(stmt, ForInStmt):
-        collection_type = checker.infer_expression_type(stmt.collection_expr)
+        collection_type = infer_expression_type(checker, stmt.collection_expr)
         element_type = resolve_for_in_element_type(checker, collection_type, stmt.span)
         object.__setattr__(stmt, "collection_type_name", collection_type.name)
         object.__setattr__(stmt, "element_type_name", element_type.name)
@@ -169,25 +171,25 @@ def check_statement(
             if return_type.name != "unit":
                 raise TypeCheckError("Non-unit function must return a value", stmt.span)
         else:
-            value_type = checker.infer_expression_type(stmt.value)
+            value_type = infer_expression_type(checker, stmt.value)
             require_assignable(ctx, return_type, value_type, stmt.value.span)
         return
 
     if isinstance(stmt, AssignStmt):
         ensure_assignable_target(checker, stmt.target)
         if isinstance(stmt.target, IndexExpr):
-            object_type = checker.infer_expression_type(stmt.target.object_expr)
-            value_type = checker.infer_expression_type(stmt.value)
+            object_type = infer_expression_type(checker, stmt.target.object_expr)
+            value_type = infer_expression_type(checker, stmt.value)
             ensure_index_assignment(checker, object_type, stmt.target.index_expr, value_type, stmt.value.span)
             return
 
-        target_type = checker.infer_expression_type(stmt.target)
-        value_type = checker.infer_expression_type(stmt.value)
+        target_type = infer_expression_type(checker, stmt.target)
+        value_type = infer_expression_type(checker, stmt.value)
         require_assignable(ctx, target_type, value_type, stmt.value.span)
         return
 
     if isinstance(stmt, ExprStmt):
-        checker.infer_expression_type(stmt.expression)
+        infer_expression_type(checker, stmt.expression)
 
 
 def check_block(checker: TypeChecker, block: BlockStmt, return_type: TypeInfo) -> None:

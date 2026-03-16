@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import *
+from compiler.ast_nodes import ModuleAst
 from compiler.resolver import ModuleInfo, ModulePath
 from compiler.typecheck.context import TypeCheckContext
-from compiler.typecheck.declarations import collect_module_declarations
-from compiler.typecheck.expressions import infer_expression_type as expressions_infer_expression_type
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
 from compiler.typecheck.statements import check_function_like as statements_check_function_like
 
@@ -22,15 +20,12 @@ class TypeChecker:
         functions: dict[str, FunctionSig]
         classes: dict[str, ClassInfo]
         if module_path is not None and module_function_sigs is not None and module_class_infos is not None:
-            functions = module_function_sigs[module_path]
-            classes = module_class_infos[module_path]
+            functions = module_function_sigs.setdefault(module_path, {})
+            classes = module_class_infos.setdefault(module_path, {})
         else:
             functions = {}
             classes = {}
 
-        self.declarations_collected = (
-            module_path is not None and module_function_sigs is not None and module_class_infos is not None
-        )
         self.ctx = TypeCheckContext(
             module_ast=module_ast,
             module_path=module_path,
@@ -43,18 +38,7 @@ class TypeChecker:
         self.functions = self.ctx.functions
         self.classes = self.ctx.classes
 
-    def collect_declarations(self) -> None:
-        if self.declarations_collected:
-            return
-
-        collect_module_declarations(self.ctx, self)
-        self.declarations_collected = True
-
     def check_bodies(self) -> None:
-        if not self.declarations_collected:
-            collect_module_declarations(self.ctx, self)
-            self.declarations_collected = True
-
         for fn_decl in self.ctx.module_ast.functions:
             if fn_decl.is_extern:
                 continue
@@ -75,10 +59,3 @@ class TypeChecker:
                     receiver_type=None if method_sig.is_static else TypeInfo(name=class_info.name, kind="reference"),
                     owner_class_name=class_info.name,
                 )
-
-    def check(self) -> None:
-        self.collect_declarations()
-        self.check_bodies()
-
-    def infer_expression_type(self, expr: Expression) -> TypeInfo:
-        return expressions_infer_expression_type(self, expr)

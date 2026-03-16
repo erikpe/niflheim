@@ -16,11 +16,6 @@ from compiler.ast_nodes import (
 from typing import TYPE_CHECKING
 
 from compiler.codegen.strings import is_str_type_name
-from compiler.typecheck.calls import (
-    callable_type_from_signature,
-    class_type_name_from_callable,
-    infer_call_type,
-)
 from compiler.typecheck.constants import (
     ARRAY_METHOD_NAMES,
     BITWISE_TYPE_NAMES,
@@ -47,7 +42,6 @@ from compiler.typecheck.relations import (
     require_array_size_type,
     require_type_name,
 )
-from compiler.typecheck.structural import resolve_index_expression_type
 from compiler.typecheck.type_resolution import (
     qualify_member_type_for_owner,
     resolve_string_type,
@@ -64,6 +58,8 @@ def infer_expression_type(
     expr: Expression,
 ) -> TypeInfo:
     ctx = checker.ctx
+    from compiler.typecheck.calls import callable_type_from_signature, class_type_name_from_callable, infer_call_type
+    from compiler.typecheck.structural import resolve_index_expression_type
 
     def infer_nested(nested_expr: Expression) -> TypeInfo:
         return infer_expression_type(checker, nested_expr)
@@ -325,7 +321,7 @@ def ensure_field_access_assignable(
     expr: FieldAccessExpr,
 ) -> None:
     ctx = checker.ctx
-    object_type = checker.infer_expression_type(expr.object_expr)
+    object_type = infer_expression_type(checker, expr.object_expr)
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
