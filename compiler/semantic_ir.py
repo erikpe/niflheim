@@ -285,6 +285,14 @@ class ConstructorCallExpr:
 
 
 @dataclass(frozen=True)
+class CallableValueCallExpr:
+    callee: "SemanticExpr"
+    args: list["SemanticExpr"]
+    type_name: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class IndexReadExpr:
     target: "SemanticExpr"
     index: "SemanticExpr"
@@ -351,6 +359,7 @@ SemanticExpr = (
     | StaticMethodCallExpr
     | InstanceMethodCallExpr
     | ConstructorCallExpr
+    | CallableValueCallExpr
     | IndexReadExpr
     | SliceReadExpr
     | ArrayCtorExprS

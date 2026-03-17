@@ -35,6 +35,7 @@ from compiler.semantic_ir import (
     ArrayCtorExprS,
     BinaryExprS,
     CastExprS,
+    CallableValueCallExpr,
     ClassRefExpr,
     ConstructorCallExpr,
     FieldLValue,
@@ -551,7 +552,12 @@ def _lower_call_expr(lower_ctx: _ModuleLoweringContext, expr: CallExpr, result_t
             )
 
     infer_call_type(lower_ctx.typecheck_ctx, expr)
-    raise NotImplementedError("Pass 2 semantic lowering does not yet support this callable form")
+    return CallableValueCallExpr(
+        callee=_lower_expr(lower_ctx, expr.callee),
+        args=args,
+        type_name=result_type_name,
+        span=expr.span,
+    )
 
 
 def _resolved_type_name(typecheck_ctx: TypeCheckContext, type_ref) -> str:

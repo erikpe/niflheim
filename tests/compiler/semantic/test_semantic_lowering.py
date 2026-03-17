@@ -4,6 +4,7 @@ from pathlib import Path
 
 from compiler.semantic_ir import (
     BinaryExprS,
+    CallableValueCallExpr,
     ClassRefExpr,
     ConstructorCallExpr,
     FieldLValue,
@@ -14,6 +15,7 @@ from compiler.semantic_ir import (
     InstanceMethodCallExpr,
     LocalLValue,
     LocalRefExpr,
+    MethodRefExpr,
     SemanticAssign,
     SemanticExprStmt,
     SemanticIf,
@@ -196,3 +198,77 @@ def test_lower_program_handles_simple_function_constructor_method_and_index_form
 
     assert isinstance(statements[8], SemanticExprStmt)
     assert isinstance(statements[8].expr, ClassRefExpr)
+
+
+def test_lower_program_lowers_callable_value_calls_explicitly(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn inc(v: i64) -> i64 {
+            return v + 1;
+        }
+
+        fn dec(v: i64) -> i64 {
+            return v - 1;
+        }
+
+        fn choose(use_inc: bool) -> fn(i64) -> i64 {
+            if use_inc {
+                return inc;
+            }
+            return dec;
+        }
+
+        class Math {
+            static fn add(a: i64, b: i64) -> i64 {
+                return a + b;
+            }
+        }
+
+        class Holder {
+            f: fn(i64) -> i64;
+
+            fn run(v: i64) -> i64 {
+                return __self.f(v);
+            }
+        }
+
+        fn main() -> i64 {
+            var f: fn(i64) -> i64 = choose(true);
+            var g: fn(i64, i64) -> i64 = Math.add;
+            var h: Holder = Holder(inc);
+            var a: i64 = f(10);
+            var b: i64 = g(20, 22);
+            var c: i64 = h.f(41);
+            return a + b + c;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+
+    holder_method = semantic.modules[("main",)].classes[1].methods[0]
+    holder_return = holder_method.body.statements[0]
+    assert isinstance(holder_return, SemanticReturn)
+    assert isinstance(holder_return.value, CallableValueCallExpr)
+    assert isinstance(holder_return.value.callee, FieldReadExpr)
+    assert holder_return.value.type_name == "i64"
+
+    main_fn = semantic.modules[("main",)].functions[3]
+    statements = main_fn.body.statements
+
+    assert isinstance(statements[1], SemanticVarDecl)
+    assert isinstance(statements[1].initializer, MethodRefExpr)
+
+    assert isinstance(statements[3], SemanticVarDecl)
+    assert isinstance(statements[3].initializer, CallableValueCallExpr)
+    assert isinstance(statements[3].initializer.callee, LocalRefExpr)
+
+    assert isinstance(statements[4], SemanticVarDecl)
+    assert isinstance(statements[4].initializer, CallableValueCallExpr)
+    assert isinstance(statements[4].initializer.callee, LocalRefExpr)
+
+    assert isinstance(statements[5], SemanticVarDecl)
+    assert isinstance(statements[5].initializer, CallableValueCallExpr)
+    assert isinstance(statements[5].initializer.callee, FieldReadExpr)

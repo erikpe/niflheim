@@ -383,6 +383,14 @@ class ConstructorCallExpr:
 
 
 @dataclass(frozen=True)
+class CallableValueCallExpr:
+    callee: SemanticExpr
+    args: list[SemanticExpr]
+    type_name: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class IndexReadExpr:
     target: SemanticExpr
     index: SemanticExpr
@@ -471,6 +479,7 @@ Every call must be one of:
 - static method call
 - instance method call
 - constructor call
+- callable-value call
 - synthetic helper call
 
 ### 3. No Raw `FieldAccessExpr` For Methods
@@ -578,7 +587,9 @@ Mandatory in pass 3:
 - `StaticMethodCallExpr`
 - `InstanceMethodCallExpr`
 - `ConstructorCallExpr`
+- `CallableValueCallExpr`
 - `MethodRefExpr` if first-class callable values remain supported at this stage
+- `CallExpr` -> `FunctionCallExpr`, `StaticMethodCallExpr`, `InstanceMethodCallExpr`, `ConstructorCallExpr`, `CallableValueCallExpr`, or `SyntheticExpr`
 
 Wrappers in pass 3:
 
