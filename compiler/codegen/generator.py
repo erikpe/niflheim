@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
@@ -10,6 +11,9 @@ from compiler.codegen.model import ConstructorLayout, FunctionLayout, RUNTIME_RE
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 from compiler.codegen.emitter_module import generate_module
+
+if TYPE_CHECKING:
+    from compiler.semantic_ir import SemanticProgram
 
 
 class CodeGenerator:
@@ -315,3 +319,7 @@ class CodeGenerator:
 
 def emit_asm(module_ast: ModuleAst) -> str:
     return CodeGenerator(module_ast).generate()
+
+
+def emit_semantic_asm(semantic_program: SemanticProgram) -> str:
+    raise NotImplementedError("semantic codegen path is not implemented yet")

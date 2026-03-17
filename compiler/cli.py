@@ -5,12 +5,13 @@ import sys
 from pathlib import Path
 
 from compiler.ast_dump import ast_to_debug_json
-from compiler.codegen.generator import emit_asm
+from compiler.codegen.generator import emit_asm, emit_semantic_asm
 from compiler.lexer import Token, lex
 from compiler.module_linker import build_codegen_module, require_main_function
 from compiler.parser import parse
 from compiler.reachability import prune_unreachable
 from compiler.resolver import resolve_program
+from compiler.semantic_lowering import lower_program
 from compiler.typecheck.api import typecheck_program
 
 
@@ -42,6 +43,11 @@ def main() -> int:
     parser.add_argument("--print-ast", action="store_true", help="Print parsed AST as JSON")
     parser.add_argument("--print-ast-spans", action="store_true", help="Include spans in --print-ast output")
     parser.add_argument("--print-asm", action="store_true", help="Also print emitted assembly to stdout")
+    parser.add_argument(
+        "--semantic-codegen",
+        action="store_true",
+        help="Use the experimental semantic-lowering backend path",
+    )
     args = parser.parse_args()
 
     try:
@@ -60,20 +66,31 @@ def main() -> int:
         if args.stop_after == "parse":
             return 0
 
+        if args.semantic_codegen and args.skip_check:
+            raise ValueError("--semantic-codegen requires type checking; --skip-check is not supported")
+
         if not args.skip_check:
             program = resolve_program(input_path, project_root=args.project_root)
             typecheck_program(program)
-            program = prune_unreachable(program)
-            codegen_module = build_codegen_module(program)
+            require_main_function(program.modules[program.entry_module].ast)
+            if args.semantic_codegen:
+                semantic_program = lower_program(program)
+            else:
+                program = prune_unreachable(program)
+                codegen_module = build_codegen_module(program)
         if args.stop_after == "check":
             return 0
 
         if args.skip_check:
             codegen_module = module_ast
 
-        require_main_function(codegen_module)
-
-        asm = emit_asm(codegen_module)
+        if args.skip_check:
+            require_main_function(codegen_module)
+            asm = emit_asm(codegen_module)
+        elif args.semantic_codegen:
+            asm = emit_semantic_asm(semantic_program)
+        else:
+            asm = emit_asm(codegen_module)
         if args.output:
             Path(args.output).write_text(asm, encoding="utf-8")
         if args.print_asm or not args.output:
