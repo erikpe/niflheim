@@ -31,7 +31,12 @@ mkdir -p "$output_dir"
 
 asm_out="${output}.s"
 
-python3 -m compiler.main "$input" -o "$asm_out" --project-root "$repo_root"
+extra_nifc_args=()
+if [[ -n "${NIFC_BUILD_ARGS:-}" ]]; then
+  read -r -a extra_nifc_args <<< "$NIFC_BUILD_ARGS"
+fi
+
+python3 -m compiler.main "$input" -o "$asm_out" --project-root "$repo_root" "${extra_nifc_args[@]}"
 
 gcc \
   -O2 \

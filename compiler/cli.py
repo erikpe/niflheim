@@ -45,7 +45,14 @@ def main() -> int:
     parser.add_argument("--print-ast-spans", action="store_true", help="Include spans in --print-ast output")
     parser.add_argument("--print-asm", action="store_true", help="Also print emitted assembly to stdout")
     parser.add_argument(
-        "--semantic-codegen", action="store_true", help="Use the experimental semantic-lowering backend path"
+        "--semantic-codegen",
+        action="store_true",
+        help="Use the semantic-lowering backend path (default when type checking is enabled)",
+    )
+    parser.add_argument(
+        "--source-ast-codegen",
+        action="store_true",
+        help="Use the temporary legacy source-AST backend path",
     )
     args = parser.parse_args()
 
@@ -65,13 +72,18 @@ def main() -> int:
         if args.stop_after == "parse":
             return 0
 
+        if args.semantic_codegen and args.source_ast_codegen:
+            raise ValueError("--semantic-codegen and --source-ast-codegen are mutually exclusive")
+
         if args.semantic_codegen and args.skip_check:
             raise ValueError("--semantic-codegen requires type checking; --skip-check is not supported")
+
+        use_semantic_codegen = not args.skip_check and not args.source_ast_codegen
 
         if not args.skip_check:
             program = resolve_program(input_path, project_root=args.project_root)
             typecheck_program(program)
-            if args.semantic_codegen:
+            if use_semantic_codegen:
                 semantic_program = build_semantic_codegen_program(lower_program(program))
                 require_semantic_main_function(semantic_program)
             else:
@@ -87,7 +99,7 @@ def main() -> int:
         if args.skip_check:
             require_main_function(codegen_module)
             asm = emit_asm(codegen_module)
-        elif args.semantic_codegen:
+        elif use_semantic_codegen:
             asm = emit_semantic_asm(semantic_program)
         else:
             asm = emit_asm(codegen_module)

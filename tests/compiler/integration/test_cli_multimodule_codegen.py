@@ -86,7 +86,7 @@ def test_cli_codegen_imported_static_method_call_lowers(tmp_path: Path, monkeypa
     out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
-    assert "    call add" in asm
+    assert "    call __nif_method_Math_add" in asm
 
 
 def test_cli_codegen_resolves_nested_project_root_imports(tmp_path: Path, monkeypatch) -> None:

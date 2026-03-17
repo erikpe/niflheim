@@ -93,3 +93,21 @@ def test_cli_error_rejects_main_with_wrong_return_type(tmp_path: Path, monkeypat
 
     assert rc == 1
     assert "Invalid main signature: expected return type 'i64'" in captured.err
+
+
+def test_cli_error_rejects_conflicting_backend_flags(tmp_path: Path, monkeypatch, capsys) -> None:
+    source = tmp_path / "main.nif"
+    write(
+        source,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    rc = run_cli(monkeypatch, ["nifc", str(source), "--semantic-codegen", "--source-ast-codegen"])
+    captured = capsys.readouterr()
+
+    assert rc == 1
+    assert "--semantic-codegen and --source-ast-codegen are mutually exclusive" in captured.err

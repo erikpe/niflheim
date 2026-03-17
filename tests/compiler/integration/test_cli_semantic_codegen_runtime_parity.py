@@ -8,22 +8,22 @@ from tests.compiler.integration.helpers import compile_and_run, write
 def _run_both_backends(tmp_path: Path, monkeypatch, source: str):
     entry = tmp_path / "main.nif"
     write(entry, source)
-    source_run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        out_path=tmp_path / "source_out.s",
-        exe_path=tmp_path / "source_program",
-    )
     semantic_run = compile_and_run(
         monkeypatch,
         entry,
         project_root=tmp_path,
         out_path=tmp_path / "semantic_out.s",
         exe_path=tmp_path / "semantic_program",
-        extra_args=["--semantic-codegen"],
     )
-    return source_run, semantic_run
+    source_ast_run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        out_path=tmp_path / "source_ast_out.s",
+        exe_path=tmp_path / "source_ast_program",
+        extra_args=["--source-ast-codegen"],
+    )
+    return source_ast_run, semantic_run
 
 
 def test_cli_semantic_codegen_runtime_matches_source_backend_for_calls_and_objects(tmp_path: Path, monkeypatch) -> None:

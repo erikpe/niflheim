@@ -43,6 +43,7 @@ def test_cli_runtime_println_calls(tmp_path: Path, monkeypatch, call_lines: str)
         project_root=tmp_path,
         out_path=tmp_path / "out.s",
         exe_path=tmp_path / "program",
+        extra_args=["--source-ast-codegen"],
     )
 
     assert run.returncode == 0
@@ -60,6 +61,7 @@ def test_cli_runtime_panic_call_exits_with_error(tmp_path: Path, monkeypatch, ca
         project_root=tmp_path,
         out_path=tmp_path / "out.s",
         exe_path=tmp_path / "program",
+        extra_args=["--source-ast-codegen"],
     )
 
     assert run.returncode != 0

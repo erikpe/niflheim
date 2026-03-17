@@ -73,6 +73,9 @@ Runtime sources are split by responsibility:
 
 For quick local workflows, use scripts under `scripts/`:
 
+- Default CLI compilation now uses the semantic-lowering backend when type checking is enabled.
+- Use `--source-ast-codegen` only as a temporary fallback to the legacy backend during migration.
+
 - `scripts/build.sh <input.nif> <output-executable>`
 	- Compiles to assembly at `<output-executable>.s`
 	- Links the runtime and emits `<output-executable>`

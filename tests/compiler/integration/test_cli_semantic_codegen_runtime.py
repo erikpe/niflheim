@@ -39,7 +39,6 @@ def test_cli_semantic_codegen_runs_nontrivial_program(tmp_path: Path, monkeypatc
         project_root=tmp_path,
         out_path=tmp_path / "out.s",
         exe_path=tmp_path / "program",
-        extra_args=["--semantic-codegen"],
     )
 
     assert run.returncode == 0
