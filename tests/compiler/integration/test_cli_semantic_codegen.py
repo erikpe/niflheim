@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 import compiler.cli as cli
 
 from compiler.semantic_linker import SemanticCodegenProgram
@@ -48,11 +50,12 @@ def test_cli_source_ast_codegen_flag_is_rejected(tmp_path: Path, monkeypatch, ca
         """,
     )
 
-    rc = run_cli(monkeypatch, ["nifc", str(entry), "--source-ast-codegen"])
+    with pytest.raises(SystemExit) as exc_info:
+        run_cli(monkeypatch, ["nifc", str(entry), "--source-ast-codegen"])
     captured = capsys.readouterr()
 
-    assert rc == 1
-    assert "--source-ast-codegen is no longer supported" in captured.err
+    assert exc_info.value.code == 2
+    assert "unrecognized arguments: --source-ast-codegen" in captured.err
 
 
 def test_cli_default_codegen_prunes_dead_duplicate_class_symbols_before_link(

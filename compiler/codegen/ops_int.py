@@ -6,11 +6,7 @@ from compiler.codegen.asm import AsmBuilder
 
 
 def emit_integer_unary_op(
-    asm: AsmBuilder,
-    *,
-    operator: str,
-    operand_type_name: str,
-    emit_bool_normalize: Callable[[], None],
+    asm: AsmBuilder, *, operator: str, operand_type_name: str, emit_bool_normalize: Callable[[], None]
 ) -> bool:
     if operator == "-":
         asm.instr("neg rax")

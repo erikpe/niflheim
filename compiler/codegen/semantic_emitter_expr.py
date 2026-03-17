@@ -12,7 +12,7 @@ from compiler.codegen.model import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_GET_RUNTIME_CALLS,
     ARRAY_SLICE_RUNTIME_CALLS,
-    EmitContext,
+    FunctionLayout,
 )
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
@@ -46,9 +46,13 @@ if TYPE_CHECKING:
     from compiler.codegen.semantic_generator import SemanticDeclarationTables
 
 
-@dataclass(frozen=True)
+@dataclass
 class SemanticEmitContext:
-    emit_ctx: EmitContext
+    layout: FunctionLayout
+    fn_name: str
+    label_counter: list[int]
+    string_literal_labels: dict[str, tuple[str, int]]
+    temp_root_depth: list[int]
     declaration_tables: SemanticDeclarationTables
 
 
@@ -166,7 +170,7 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: SemanticEmitConte
 
 
 def _emit_local_ref_expr(codegen: CodeGenerator, expr: LocalRefExpr, ctx: SemanticEmitContext) -> None:
-    offset = ctx.emit_ctx.layout.slot_offsets.get(expr.name)
+    offset = ctx.layout.slot_offsets.get(expr.name)
     if offset is None:
         codegen_types.raise_codegen_error(f"identifier '{expr.name}' is not materialized in stack layout", span=expr.span)
     codegen.asm.instr(f"mov rax, {offset_operand(offset)}")
@@ -270,17 +274,17 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Sem
     emit_expr(codegen, expr.length_expr, ctx)
     codegen.asm.instr("push rax")
     _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-    codegen.emit_root_slot_updates(ctx.emit_ctx.layout)
-    rooted_runtime_arg_count = codegen.emit_runtime_call_arg_temp_roots(ctx.emit_ctx.layout, runtime_ctor, 1, span=expr.span)
+    codegen.emit_root_slot_updates(ctx.layout)
+    rooted_runtime_arg_count = codegen.emit_runtime_call_arg_temp_roots(ctx.layout, runtime_ctor, 1, span=expr.span)
     codegen.asm.instr("pop rdi")
     codegen.emit_aligned_call(runtime_ctor)
     if rooted_runtime_arg_count > 0:
-        codegen.emit_clear_runtime_call_arg_temp_roots(ctx.emit_ctx.layout, rooted_runtime_arg_count)
+        codegen.emit_clear_runtime_call_arg_temp_roots(ctx.layout, rooted_runtime_arg_count)
     _emit_runtime_call_hooks_after(codegen, ctx)
 
 
 def _emit_callable_value_call(codegen: CodeGenerator, expr: CallableValueCallExpr, ctx: SemanticEmitContext) -> None:
-    layout = ctx.emit_ctx.layout
+    layout = ctx.layout
     call_argument_type_names = [infer_expression_type_name(arg) for arg in expr.args]
     reference_arg_indices = {
         index for index, type_name in enumerate(call_argument_type_names) if codegen_types.is_reference_type_name(type_name)
@@ -289,7 +293,7 @@ def _emit_callable_value_call(codegen: CodeGenerator, expr: CallableValueCallExp
     stack_arg_indices = [
         index for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations) if location_kind == "stack"
     ]
-    temp_root_base = ctx.emit_ctx.temp_root_depth[0]
+    temp_root_base = ctx.temp_root_depth[0]
     rooted_temp_arg_count = 0
     for arg_index in range(len(expr.args) - 1, -1, -1):
         emit_expr(codegen, expr.args[arg_index], ctx)
@@ -297,7 +301,7 @@ def _emit_callable_value_call(codegen: CodeGenerator, expr: CallableValueCallExp
         if arg_index in reference_arg_indices:
             codegen.emit_temp_arg_root_from_rsp(layout, temp_root_base + rooted_temp_arg_count, 0, span=expr.span)
             rooted_temp_arg_count += 1
-            ctx.emit_ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
+            ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
     emit_expr(codegen, expr.callee, ctx)
     codegen.asm.instr("mov r11, rax")
     codegen.emit_root_slot_updates(layout)
@@ -321,7 +325,7 @@ def _emit_callable_value_call(codegen: CodeGenerator, expr: CallableValueCallExp
         codegen.asm.instr("mov rax, 0")
     if rooted_temp_arg_count > 0:
         codegen.emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
-    ctx.emit_ctx.temp_root_depth[0] = temp_root_base
+    ctx.temp_root_depth[0] = temp_root_base
 
 
 def _emit_named_call(
@@ -331,7 +335,7 @@ def _emit_named_call(
     return_type_name: str,
     ctx: SemanticEmitContext,
 ) -> None:
-    layout = ctx.emit_ctx.layout
+    layout = ctx.layout
     call_argument_type_names = [infer_expression_type_name(arg) for arg in call_arguments]
     reference_arg_indices = {
         index for index, type_name in enumerate(call_argument_type_names) if codegen_types.is_reference_type_name(type_name)
@@ -340,7 +344,7 @@ def _emit_named_call(
     stack_arg_indices = [
         index for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations) if location_kind == "stack"
     ]
-    temp_root_base = ctx.emit_ctx.temp_root_depth[0]
+    temp_root_base = ctx.temp_root_depth[0]
     is_runtime_call = codegen_symbols.is_runtime_call_name(target_name)
     if is_runtime_call:
         _emit_runtime_call_hooks_before(codegen, call_arguments[0].span.start.line if call_arguments else 0, call_arguments[0].span.start.column if call_arguments else 0, ctx)
@@ -351,7 +355,7 @@ def _emit_named_call(
         if arg_index in reference_arg_indices:
             codegen.emit_temp_arg_root_from_rsp(layout, temp_root_base + rooted_temp_arg_count, 0, span=call_arguments[arg_index].span)
             rooted_temp_arg_count += 1
-            ctx.emit_ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
+            ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
     codegen.emit_root_slot_updates(layout)
     codegen.asm.instr("mov r10, rsp")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
@@ -373,7 +377,7 @@ def _emit_named_call(
         codegen.asm.instr("mov rax, 0")
     if rooted_temp_arg_count > 0:
         codegen.emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
-    ctx.emit_ctx.temp_root_depth[0] = temp_root_base
+    ctx.temp_root_depth[0] = temp_root_base
     if is_runtime_call:
         _emit_runtime_call_hooks_after(codegen, ctx)
 
@@ -403,12 +407,12 @@ def _emit_synthetic_expr(codegen: CodeGenerator, expr: SyntheticExpr, ctx: Seman
         codegen_types.raise_codegen_error(
             f"synthetic expression codegen not implemented for kind '{expr.synthetic_id.kind}'", span=expr.span
         )
-    label_and_len = ctx.emit_ctx.string_literal_labels.get(expr.synthetic_id.name)
+    label_and_len = ctx.string_literal_labels.get(expr.synthetic_id.name)
     if label_and_len is None:
         codegen_types.raise_codegen_error("missing string literal lowering metadata", span=expr.span)
     data_label, data_len = label_and_len
     _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-    codegen.emit_root_slot_updates(ctx.emit_ctx.layout)
+    codegen.emit_root_slot_updates(ctx.layout)
     codegen.asm.instr(f"lea rdi, [rip + {data_label}]")
     codegen.asm.instr(f"mov rsi, {data_len}")
     codegen.emit_aligned_call("rt_array_from_bytes_u8")
@@ -453,8 +457,8 @@ def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: SemanticEm
         codegen.asm,
         operator=expr.operator,
         operand_type_name=left_type_name,
-        fn_name=ctx.emit_ctx.fn_name,
-        label_counter=ctx.emit_ctx.label_counter,
+        fn_name=ctx.fn_name,
+        label_counter=ctx.label_counter,
         next_label=codegen_symbols.next_label,
         runtime_panic_message_label=codegen.runtime_panic_message_label,
         emit_aligned_call=codegen.emit_aligned_call,
@@ -468,10 +472,10 @@ def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: SemanticEm
 def _emit_logical_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: SemanticEmitContext) -> bool:
     if expr.operator not in ("&&", "||"):
         return False
-    branch_id = ctx.emit_ctx.label_counter[0]
-    ctx.emit_ctx.label_counter[0] += 1
-    rhs_label = f".L{ctx.emit_ctx.fn_name}_logic_rhs_{branch_id}"
-    done_label = f".L{ctx.emit_ctx.fn_name}_logic_done_{branch_id}"
+    branch_id = ctx.label_counter[0]
+    ctx.label_counter[0] += 1
+    rhs_label = f".L{ctx.fn_name}_logic_rhs_{branch_id}"
+    done_label = f".L{ctx.fn_name}_logic_done_{branch_id}"
     emit_expr(codegen, expr.left, ctx)
     codegen.emit_bool_normalize()
     codegen.asm.instr("cmp rax, 0")
@@ -491,9 +495,9 @@ def _emit_logical_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: Se
 
 def _emit_runtime_call_hooks_before(codegen: CodeGenerator, line: int, column: int, ctx: SemanticEmitContext) -> None:
     codegen.emit_runtime_call_hook(
-        fn_name=ctx.emit_ctx.fn_name,
+        fn_name=ctx.fn_name,
         phase="before",
-        label_counter=ctx.emit_ctx.label_counter,
+        label_counter=ctx.label_counter,
         line=line,
         column=column,
     )
@@ -501,9 +505,9 @@ def _emit_runtime_call_hooks_before(codegen: CodeGenerator, line: int, column: i
 
 def _emit_runtime_call_hooks_after(codegen: CodeGenerator, ctx: SemanticEmitContext) -> None:
     codegen.emit_runtime_call_hook(
-        fn_name=ctx.emit_ctx.fn_name,
+        fn_name=ctx.fn_name,
         phase="after",
-        label_counter=ctx.emit_ctx.label_counter,
+        label_counter=ctx.label_counter,
     )
 
 

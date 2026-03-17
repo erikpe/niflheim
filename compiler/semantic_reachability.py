@@ -259,7 +259,9 @@ class _SemanticReachabilityWalker:
                 self._walk_expr(module_path, arg)
             return
         if isinstance(expr, ConstructorCallExpr):
-            self._enqueue_class(ClassId(module_path=expr.constructor_id.module_path, name=expr.constructor_id.class_name))
+            self._enqueue_class(
+                ClassId(module_path=expr.constructor_id.module_path, name=expr.constructor_id.class_name)
+            )
             for arg in expr.args:
                 self._walk_expr(module_path, arg)
             return

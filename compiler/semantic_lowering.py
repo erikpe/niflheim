@@ -103,7 +103,10 @@ from compiler.typecheck.module_lookup import (
     resolve_module_member,
 )
 from compiler.typecheck.relations import canonicalize_reference_type_name
-from compiler.typecheck.structural import ensure_structural_set_method_available_for_index_assignment, resolve_for_in_element_type
+from compiler.typecheck.structural import (
+    ensure_structural_set_method_available_for_index_assignment,
+    resolve_for_in_element_type,
+)
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner, resolve_type_ref
 
 
@@ -503,7 +506,9 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
 
     if isinstance(expr, LiteralExpr):
         if expr.value.startswith('"'):
-            return _lower_string_literal_expr(lower_ctx, expr, infer_expression_type(lower_ctx.typecheck_ctx, expr).name)
+            return _lower_string_literal_expr(
+                lower_ctx, expr, infer_expression_type(lower_ctx.typecheck_ctx, expr).name
+            )
         return LiteralExprS(value=expr.value, type_name=_literal_type_name(expr), span=expr.span)
 
     if isinstance(expr, NullExpr):
@@ -998,7 +1003,9 @@ def _resolve_index_assignment_value_type_name(lower_ctx: _ModuleLoweringContext,
     if object_type.element_type is not None:
         return object_type.element_type.name
 
-    method_sig = ensure_structural_set_method_available_for_index_assignment(lower_ctx.typecheck_ctx, object_type, expr.span)
+    method_sig = ensure_structural_set_method_available_for_index_assignment(
+        lower_ctx.typecheck_ctx, object_type, expr.span
+    )
     return qualify_member_type_for_owner(lower_ctx.typecheck_ctx, method_sig.params[1], object_type.name).name
 
 
@@ -1006,9 +1013,7 @@ def _resolve_index_method_id(
     lower_ctx: _ModuleLoweringContext, target_expr: Expression, method_name: str
 ) -> MethodId | None:
     return _resolve_instance_method_id(
-        lower_ctx,
-        infer_expression_type(lower_ctx.typecheck_ctx, target_expr).name,
-        method_name,
+        lower_ctx, infer_expression_type(lower_ctx.typecheck_ctx, target_expr).name, method_name
     )
 
 

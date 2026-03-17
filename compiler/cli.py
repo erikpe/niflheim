@@ -43,9 +43,6 @@ def main() -> int:
     parser.add_argument("--print-ast", action="store_true", help="Print parsed AST as JSON")
     parser.add_argument("--print-ast-spans", action="store_true", help="Include spans in --print-ast output")
     parser.add_argument("--print-asm", action="store_true", help="Also print emitted assembly to stdout")
-    parser.add_argument(
-        "--source-ast-codegen", action="store_true", help="Use the temporary legacy source-AST backend path"
-    )
     args = parser.parse_args()
 
     try:
@@ -63,9 +60,6 @@ def main() -> int:
             print(ast_to_debug_json(module_ast, include_spans=args.print_ast_spans))
         if args.stop_after == "parse":
             return 0
-
-        if args.source_ast_codegen:
-            raise ValueError("--source-ast-codegen is no longer supported")
 
         if args.skip_check and args.stop_after not in {"lex", "parse"}:
             raise ValueError("--skip-check only supports lex/parse inspection; codegen requires type checking")

@@ -29,15 +29,6 @@ class ConstructorLayout:
     param_field_names: list[str]
 
 
-@dataclass
-class EmitContext:
-    layout: FunctionLayout
-    fn_name: str
-    label_counter: list[int]
-    string_literal_labels: dict[str, tuple[str, int]]
-    temp_root_depth: list[int]
-
-
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 FLOAT_PARAM_REGISTERS = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"]
 PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
@@ -57,14 +48,6 @@ ARRAY_GET_RUNTIME_CALLS = {
     "double": "rt_array_get_double",
     "ref": "rt_array_get_ref",
 }
-ARRAY_SET_RUNTIME_CALLS = {
-    "i64": "rt_array_set_i64",
-    "u64": "rt_array_set_u64",
-    "u8": "rt_array_set_u8",
-    "bool": "rt_array_set_bool",
-    "double": "rt_array_set_double",
-    "ref": "rt_array_set_ref",
-}
 ARRAY_SLICE_RUNTIME_CALLS = {
     "i64": "rt_array_slice_i64",
     "u64": "rt_array_slice_u64",
@@ -72,14 +55,6 @@ ARRAY_SLICE_RUNTIME_CALLS = {
     "bool": "rt_array_slice_bool",
     "double": "rt_array_slice_double",
     "ref": "rt_array_slice_ref",
-}
-ARRAY_SET_SLICE_RUNTIME_CALLS = {
-    "i64": "rt_array_set_slice_i64",
-    "u64": "rt_array_set_slice_u64",
-    "u8": "rt_array_set_slice_u8",
-    "bool": "rt_array_set_slice_bool",
-    "double": "rt_array_set_slice_double",
-    "ref": "rt_array_set_slice_ref",
 }
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
@@ -110,21 +85,4 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_array_set_slice_double": (0, 3),
     "rt_array_set_slice_ref": (0, 3),
     "rt_panic_null_term_array": (0,),
-}
-RUNTIME_RETURN_TYPES: dict[str, str] = {
-    "rt_array_len": "u64",
-    "rt_array_get_i64": "i64",
-    "rt_array_get_u64": "u64",
-    "rt_array_get_u8": "u8",
-    "rt_array_get_bool": "bool",
-    "rt_array_get_double": "double",
-    "rt_array_get_ref": "Obj",
-    "rt_array_set_slice_i64": "unit",
-    "rt_array_set_slice_u64": "unit",
-    "rt_array_set_slice_u8": "unit",
-    "rt_array_set_slice_bool": "unit",
-    "rt_array_set_slice_double": "unit",
-    "rt_array_set_slice_ref": "unit",
-    "rt_checked_cast": "Obj",
-    "rt_panic_null_term_array": "unit",
 }

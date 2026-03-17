@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from compiler.codegen.asm import offset_operand
-from compiler.codegen.model import EmitContext
 from compiler.codegen.semantic_emitter_expr import SemanticEmitContext, emit_expr
 from compiler.codegen.semantic_emitter_stmt import emit_statement
 from compiler.codegen.semantic_layout import build_layout
@@ -65,13 +64,11 @@ def emit_function(codegen, declaration_tables, fn: SemanticFunction, *, label: s
     codegen.emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
 
     emit_ctx = SemanticEmitContext(
-        emit_ctx=EmitContext(
-            layout=layout,
-            fn_name=target_label,
-            label_counter=label_counter,
-            string_literal_labels=codegen.string_literal_labels,
-            temp_root_depth=[0],
-        ),
+        layout=layout,
+        fn_name=target_label,
+        label_counter=label_counter,
+        string_literal_labels=codegen.string_literal_labels,
+        temp_root_depth=[0],
         declaration_tables=declaration_tables,
     )
 
@@ -151,13 +148,11 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}, rax")
 
     emit_ctx = SemanticEmitContext(
-        emit_ctx=EmitContext(
-            layout=layout,
-            fn_name=target_label,
-            label_counter=label_counter,
-            string_literal_labels=codegen.string_literal_labels,
-            temp_root_depth=[0],
-        ),
+        layout=layout,
+        fn_name=target_label,
+        label_counter=label_counter,
+        string_literal_labels=codegen.string_literal_labels,
+        temp_root_depth=[0],
         declaration_tables=declaration_tables,
     )
 

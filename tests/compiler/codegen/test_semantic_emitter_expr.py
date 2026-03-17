@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.codegen.generator import CodeGenerator
-from compiler.codegen.model import EmitContext
 from compiler.codegen.semantic_emitter_expr import SemanticEmitContext, emit_expr
 from compiler.codegen.semantic_generator import SemanticCodeGenerator
 from compiler.codegen.semantic_layout import build_layout
@@ -42,14 +41,15 @@ def _build_semantic_emit_fixture(tmp_path: Path, files: dict[str, str], *, funct
     generator = CodeGenerator()
     tables = SemanticCodeGenerator(semantic_program).build_declaration_tables()
     layout = build_layout(semantic_fn)
-    emit_ctx = EmitContext(
+    emit_ctx = SemanticEmitContext(
         layout=layout,
         fn_name=function_name,
         label_counter=[0],
         string_literal_labels={},
         temp_root_depth=[0],
+        declaration_tables=tables,
     )
-    return semantic_fn, generator, SemanticEmitContext(emit_ctx=emit_ctx, declaration_tables=tables)
+    return semantic_fn, generator, emit_ctx
 
 
 def test_semantic_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None:
@@ -196,7 +196,7 @@ def test_semantic_emitter_expr_emits_string_literal_helper_form_and_slice_reads(
             """
         },
     )
-    ctx.emit_ctx.string_literal_labels = {'"hi"': ("__nif_str_lit_0", 2), '" there"': ("__nif_str_lit_1", 6)}
+    ctx.string_literal_labels = {'"hi"': ("__nif_str_lit_0", 2), '" there"': ("__nif_str_lit_1", 6)}
 
     var_inits = [
         stmt.initializer

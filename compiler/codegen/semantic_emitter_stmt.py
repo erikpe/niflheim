@@ -33,9 +33,9 @@ def emit_statement(
     ctx: SemanticEmitContext,
     loop_labels: list[tuple[str, str]],
 ) -> None:
-    layout = ctx.emit_ctx.layout
-    fn_name = ctx.emit_ctx.fn_name
-    label_counter = ctx.emit_ctx.label_counter
+    layout = ctx.layout
+    fn_name = ctx.fn_name
+    label_counter = ctx.label_counter
 
     codegen.emit_location_comment(
         file_path=stmt.span.start.path,
@@ -126,7 +126,7 @@ def emit_statement(
 
 def _emit_assign(codegen, stmt: SemanticAssign, ctx: SemanticEmitContext) -> None:
     target = stmt.target
-    layout = ctx.emit_ctx.layout
+    layout = ctx.layout
     if isinstance(target, LocalLValue):
         offset = layout.slot_offsets.get(target.name)
         if offset is None:
@@ -176,14 +176,14 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: SemanticEmitContext) -> Non
 
 
 def _emit_for_in(codegen, stmt: SemanticForIn, epilogue_label: str, function_return_type_name: str, ctx: SemanticEmitContext, loop_labels: list[tuple[str, str]]) -> None:
-    layout = ctx.emit_ctx.layout
+    layout = ctx.layout
     coll_name = for_in_temp_name("coll", stmt)
     len_name = for_in_temp_name("len", stmt)
     index_name = for_in_temp_name("index", stmt)
 
-    loop_start = codegen_symbols.next_label(ctx.emit_ctx.fn_name, "for_in_start", ctx.emit_ctx.label_counter)
-    loop_continue = codegen_symbols.next_label(ctx.emit_ctx.fn_name, "for_in_continue", ctx.emit_ctx.label_counter)
-    loop_done = codegen_symbols.next_label(ctx.emit_ctx.fn_name, "for_in_done", ctx.emit_ctx.label_counter)
+    loop_start = codegen_symbols.next_label(ctx.fn_name, "for_in_start", ctx.label_counter)
+    loop_continue = codegen_symbols.next_label(ctx.fn_name, "for_in_continue", ctx.label_counter)
+    loop_done = codegen_symbols.next_label(ctx.fn_name, "for_in_done", ctx.label_counter)
 
     emit_expr(codegen, stmt.collection, ctx)
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[coll_name])}, rax")
