@@ -4,7 +4,11 @@ from dataclasses import dataclass
 
 import compiler.codegen.symbols as codegen_symbols
 
+from compiler.ast_nodes import ModuleAst
+from compiler.codegen.generator import CodeGenerator
+from compiler.codegen.semantic_emitter_module import generate_module
 from compiler.codegen.model import ConstructorLayout
+from compiler.lexer import SourceSpan
 from compiler.semantic_linker import SemanticCodegenProgram
 from compiler.semantic_symbols import ClassId, ConstructorId, FunctionId, MethodId
 
@@ -21,8 +25,9 @@ class SemanticDeclarationTables:
     class_field_type_names_by_id: dict[tuple[ClassId, str], str]
 
 
-class SemanticCodeGenerator:
+class SemanticCodeGenerator(CodeGenerator):
     def __init__(self, program: SemanticCodegenProgram) -> None:
+        super().__init__(ModuleAst(imports=[], classes=[], functions=[], span=program.span))
         self.program = program
         self.declaration_tables: SemanticDeclarationTables | None = None
 
@@ -80,7 +85,7 @@ class SemanticCodeGenerator:
 
     def generate(self) -> str:
         self.build_declaration_tables()
-        raise NotImplementedError("semantic codegen emission is not implemented yet")
+        return generate_module(self, self.program)
 
 
 def emit_semantic_program(program: SemanticCodegenProgram) -> str:

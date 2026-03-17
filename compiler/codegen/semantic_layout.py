@@ -10,10 +10,14 @@ from compiler.semantic_ir import (
     CastExprS,
     ConstructorCallExpr,
     FieldReadExpr,
+    FieldLValue,
     FunctionCallExpr,
     IndexReadExpr,
+    IndexLValue,
     InstanceMethodCallExpr,
+    LocalLValue,
     SemanticBlock,
+    SemanticAssign,
     SemanticExpr,
     SemanticExprStmt,
     SemanticForIn,
@@ -23,11 +27,17 @@ from compiler.semantic_ir import (
     SemanticStmt,
     SemanticVarDecl,
     SemanticWhile,
+    SliceLValue,
     SliceReadExpr,
     StaticMethodCallExpr,
     SyntheticExpr,
     UnaryExprS,
 )
+
+
+def for_in_temp_name(kind: str, stmt: SemanticForIn) -> str:
+    start = stmt.span.start
+    return f"__nif_forin_{kind}_{start.line}_{start.column}"
 
 
 def _align16(size: int) -> int:
@@ -51,8 +61,27 @@ def _collect_locals(stmt: SemanticStmt, local_types_by_name: dict[str, str]) -> 
         _collect_locals(stmt.body, local_types_by_name)
         return
     if isinstance(stmt, SemanticForIn):
+        local_types_by_name.setdefault(for_in_temp_name("coll", stmt), infer_expression_type_name(stmt.collection))
+        local_types_by_name.setdefault(for_in_temp_name("len", stmt), "u64")
+        local_types_by_name.setdefault(for_in_temp_name("index", stmt), "i64")
         local_types_by_name.setdefault(stmt.element_name, stmt.element_type_name)
         _collect_locals(stmt.body, local_types_by_name)
+
+
+def infer_expression_type_name(expr: SemanticExpr) -> str:
+    return getattr(expr, "type_name", getattr(expr, "result_type_name", getattr(expr, "field_type_name", "null")))
+
+
+def _lvalue_needs_temp_runtime_roots(target) -> bool:
+    if isinstance(target, LocalLValue):
+        return False
+    if isinstance(target, FieldLValue):
+        return _expr_needs_temp_runtime_roots(target.receiver)
+    if isinstance(target, IndexLValue):
+        return True
+    if isinstance(target, SliceLValue):
+        return True
+    return False
 
 
 def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
@@ -87,6 +116,8 @@ def _stmt_needs_temp_runtime_roots(stmt: SemanticStmt) -> bool:
         return any(_stmt_needs_temp_runtime_roots(nested) for nested in stmt.statements)
     if isinstance(stmt, SemanticVarDecl):
         return stmt.initializer is not None and _expr_needs_temp_runtime_roots(stmt.initializer)
+    if isinstance(stmt, SemanticAssign):
+        return _lvalue_needs_temp_runtime_roots(stmt.target) or _expr_needs_temp_runtime_roots(stmt.value)
     if isinstance(stmt, SemanticExprStmt):
         return _expr_needs_temp_runtime_roots(stmt.expr)
     if isinstance(stmt, SemanticReturn):
@@ -150,6 +181,22 @@ def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt) -> int:
         return max((_max_call_temp_root_slots_in_stmt(nested) for nested in stmt.statements), default=0)
     if isinstance(stmt, SemanticVarDecl):
         return _max_call_temp_root_slots_in_expr(stmt.initializer) if stmt.initializer is not None else 0
+    if isinstance(stmt, SemanticAssign):
+        target_slots = 0
+        if isinstance(stmt.target, FieldLValue):
+            target_slots = _max_call_temp_root_slots_in_expr(stmt.target.receiver)
+        elif isinstance(stmt.target, IndexLValue):
+            target_slots = max(
+                _max_call_temp_root_slots_in_expr(stmt.target.target),
+                _max_call_temp_root_slots_in_expr(stmt.target.index),
+            )
+        elif isinstance(stmt.target, SliceLValue):
+            target_slots = max(
+                _max_call_temp_root_slots_in_expr(stmt.target.target),
+                _max_call_temp_root_slots_in_expr(stmt.target.begin),
+                _max_call_temp_root_slots_in_expr(stmt.target.end),
+            )
+        return max(target_slots, _max_call_temp_root_slots_in_expr(stmt.value))
     if isinstance(stmt, SemanticExprStmt):
         return _max_call_temp_root_slots_in_expr(stmt.expr)
     if isinstance(stmt, SemanticReturn):

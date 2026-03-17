@@ -11,7 +11,6 @@ from compiler.codegen.model import ConstructorLayout, FunctionLayout, RUNTIME_RE
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 from compiler.codegen.emitter_module import generate_module
-from compiler.codegen.semantic_generator import emit_semantic_program
 
 if TYPE_CHECKING:
     from compiler.semantic_linker import SemanticCodegenProgram
@@ -323,4 +322,6 @@ def emit_asm(module_ast: ModuleAst) -> str:
 
 
 def emit_semantic_asm(semantic_program: SemanticCodegenProgram) -> str:
+    from compiler.codegen.semantic_generator import emit_semantic_program
+
     return emit_semantic_program(semantic_program)

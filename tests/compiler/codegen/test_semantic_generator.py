@@ -102,7 +102,7 @@ def test_semantic_generator_tracks_extern_and_entry_function_return_types(tmp_pa
     assert tables.function_return_types_by_id[FunctionId(module_path=("main",), name="main")] == "i64"
 
 
-def test_semantic_generator_builds_tables_before_stub_emit_failure(tmp_path: Path) -> None:
+def test_semantic_generator_generate_builds_semantic_module_output(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -119,8 +119,9 @@ def test_semantic_generator_builds_tables_before_stub_emit_failure(tmp_path: Pat
     semantic_program = build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     generator = SemanticCodeGenerator(semantic_program)
 
-    with pytest.raises(NotImplementedError, match="semantic codegen emission is not implemented yet"):
-        generator.generate()
+    asm = generator.generate()
 
     assert generator.declaration_tables is not None
     assert ConstructorId(module_path=("main",), class_name="Box") in generator.declaration_tables.constructor_labels_by_id
+    assert "__nif_ctor_Box" in asm
+    assert "main:" in asm
