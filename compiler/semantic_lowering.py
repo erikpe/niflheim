@@ -131,12 +131,51 @@ class _ResolvedCallableValueCallTarget:
     callee: Expression
 
 
+@dataclass(frozen=True)
+class _ResolvedLocalRefTarget:
+    name: str
+    type_name: str
+
+
+@dataclass(frozen=True)
+class _ResolvedFunctionRefTarget:
+    function_id: object
+
+
+@dataclass(frozen=True)
+class _ResolvedClassRefTarget:
+    class_id: ClassId
+
+
+@dataclass(frozen=True)
+class _ResolvedMethodRefTarget:
+    method_id: MethodId
+    receiver: Expression | None
+
+
+@dataclass(frozen=True)
+class _ResolvedFieldReadTarget:
+    receiver: Expression
+    receiver_type_name: str
+    field_name: str
+    field_type_name: str
+
+
 ResolvedCallTarget = (
     _ResolvedFunctionCallTarget
     | _ResolvedConstructorCallTarget
     | _ResolvedStaticMethodCallTarget
     | _ResolvedInstanceMethodCallTarget
     | _ResolvedCallableValueCallTarget
+)
+
+
+ResolvedRefTarget = (
+    _ResolvedLocalRefTarget
+    | _ResolvedFunctionRefTarget
+    | _ResolvedClassRefTarget
+    | _ResolvedMethodRefTarget
+    | _ResolvedFieldReadTarget
 )
 
 
@@ -386,27 +425,7 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
     expr_type = infer_expression_type(lower_ctx.typecheck_ctx, expr)
 
     if isinstance(expr, IdentifierExpr):
-        local_type = lookup_variable(lower_ctx.typecheck_ctx, expr.name)
-        if local_type is not None:
-            return LocalRefExpr(name=expr.name, type_name=local_type.name, span=expr.span)
-
-        local_function = lower_ctx.typecheck_ctx.functions.get(expr.name)
-        if local_function is not None:
-            function_id = _function_id_for_local_name(lower_ctx, expr.name)
-            return FunctionRefExpr(function_id=function_id, type_name=expr_type.name, span=expr.span)
-
-        imported_function = resolve_imported_function_sig(lower_ctx.typecheck_ctx, expr.name, expr.span)
-        if imported_function is not None:
-            function_id = _function_id_for_imported_name(lower_ctx, expr.name)
-            return FunctionRefExpr(function_id=function_id, type_name=expr_type.name, span=expr.span)
-
-        imported_class_name = resolve_imported_class_name(lower_ctx.typecheck_ctx, expr.name, expr.span)
-        if expr.name in lower_ctx.typecheck_ctx.classes or imported_class_name is not None:
-            type_name = expr.name if imported_class_name is None else imported_class_name
-            class_id = _class_id_from_type_name(lower_ctx.typecheck_ctx.module_path, type_name)
-            return ClassRefExpr(class_id=class_id, type_name=expr_type.name, span=expr.span)
-
-        raise TypeError(f"Unsupported identifier expression for semantic lowering: {expr.name}")
+        return _lower_resolved_ref(lower_ctx, _resolve_identifier_ref_target(lower_ctx, expr), expr_type.name, expr.span)
 
     if isinstance(expr, LiteralExpr):
         return LiteralExprS(value=expr.value, type_name=expr_type.name, span=expr.span)
@@ -450,60 +469,7 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
         )
 
     if isinstance(expr, FieldAccessExpr):
-        module_member = resolve_module_member(lower_ctx.typecheck_ctx, expr)
-        if module_member is not None:
-            kind, owner_module, member_name = module_member
-            if kind == "function":
-                return FunctionRefExpr(
-                    function_id=_function_id_for_module_member(lower_ctx, owner_module, member_name),
-                    type_name=expr_type.name,
-                    span=expr.span,
-                )
-            if kind == "class":
-                return ClassRefExpr(
-                    class_id=_class_id_for_module_member(owner_module, member_name),
-                    type_name=expr_type.name,
-                    span=expr.span,
-                )
-            raise TypeError("Module references are not first-class semantic expressions")
-
-        receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.object_expr)
-        if receiver_type.kind == "callable" and receiver_type.name.startswith("__class__:"):
-            return MethodRefExpr(
-                method_id=_method_id_for_type_name(
-                    lower_ctx.typecheck_ctx.module_path,
-                    class_type_name_from_callable(receiver_type.name),
-                    expr.field_name,
-                ),
-                receiver=None,
-                type_name=expr_type.name,
-                span=expr.span,
-            )
-
-        class_info = lookup_class_by_type_name(lower_ctx.typecheck_ctx, receiver_type.name)
-        if class_info is not None and expr.field_name in class_info.fields:
-            field_type = qualify_member_type_for_owner(
-                lower_ctx.typecheck_ctx, class_info.fields[expr.field_name], receiver_type.name
-            )
-            return FieldReadExpr(
-                receiver=_lower_expr(lower_ctx, expr.object_expr),
-                receiver_type_name=receiver_type.name,
-                field_name=expr.field_name,
-                field_type_name=field_type.name,
-                span=expr.span,
-            )
-
-        if class_info is not None and expr.field_name in class_info.methods:
-            return MethodRefExpr(
-                method_id=_method_id_for_type_name(
-                    lower_ctx.typecheck_ctx.module_path, receiver_type.name, expr.field_name
-                ),
-                receiver=_lower_expr(lower_ctx, expr.object_expr),
-                type_name=expr_type.name,
-                span=expr.span,
-            )
-
-        raise TypeError(f"Unsupported field access for semantic lowering: {expr.field_name}")
+        return _lower_resolved_ref(lower_ctx, _resolve_field_access_ref_target(lower_ctx, expr), expr_type.name, expr.span)
 
     if isinstance(expr, IndexExpr):
         return IndexReadExpr(
@@ -577,6 +543,104 @@ def _resolve_call_target(lower_ctx: _ModuleLoweringContext, expr: CallExpr) -> R
 
     infer_call_type(lower_ctx.typecheck_ctx, expr)
     return _ResolvedCallableValueCallTarget(callee=expr.callee)
+
+
+def _resolve_identifier_ref_target(
+    lower_ctx: _ModuleLoweringContext, expr: IdentifierExpr
+) -> ResolvedRefTarget:
+    local_type = lookup_variable(lower_ctx.typecheck_ctx, expr.name)
+    if local_type is not None:
+        return _ResolvedLocalRefTarget(name=expr.name, type_name=local_type.name)
+
+    if expr.name in lower_ctx.typecheck_ctx.functions:
+        return _ResolvedFunctionRefTarget(function_id=_function_id_for_local_name(lower_ctx, expr.name))
+
+    if resolve_imported_function_sig(lower_ctx.typecheck_ctx, expr.name, expr.span) is not None:
+        return _ResolvedFunctionRefTarget(function_id=_function_id_for_imported_name(lower_ctx, expr.name))
+
+    imported_class_name = resolve_imported_class_name(lower_ctx.typecheck_ctx, expr.name, expr.span)
+    if expr.name in lower_ctx.typecheck_ctx.classes or imported_class_name is not None:
+        type_name = expr.name if imported_class_name is None else imported_class_name
+        return _ResolvedClassRefTarget(class_id=_class_id_from_type_name(lower_ctx.typecheck_ctx.module_path, type_name))
+
+    raise TypeError(f"Unsupported identifier expression for semantic lowering: {expr.name}")
+
+
+def _resolve_field_access_ref_target(
+    lower_ctx: _ModuleLoweringContext, expr: FieldAccessExpr
+) -> ResolvedRefTarget:
+    module_member = resolve_module_member(lower_ctx.typecheck_ctx, expr)
+    if module_member is not None:
+        kind, owner_module, member_name = module_member
+        if kind == "function":
+            return _ResolvedFunctionRefTarget(function_id=_function_id_for_module_member(lower_ctx, owner_module, member_name))
+        if kind == "class":
+            return _ResolvedClassRefTarget(class_id=_class_id_for_module_member(owner_module, member_name))
+        raise TypeError("Module references are not first-class semantic expressions")
+
+    receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.object_expr)
+    if receiver_type.kind == "callable" and receiver_type.name.startswith("__class__:"):
+        return _ResolvedMethodRefTarget(
+            method_id=_method_id_for_type_name(
+                lower_ctx.typecheck_ctx.module_path,
+                class_type_name_from_callable(receiver_type.name),
+                expr.field_name,
+            ),
+            receiver=None,
+        )
+
+    class_info = lookup_class_by_type_name(lower_ctx.typecheck_ctx, receiver_type.name)
+    if class_info is None:
+        raise TypeError(f"Unsupported field access for semantic lowering: {expr.field_name}")
+
+    if expr.field_name in class_info.fields:
+        field_type = qualify_member_type_for_owner(
+            lower_ctx.typecheck_ctx, class_info.fields[expr.field_name], receiver_type.name
+        )
+        return _ResolvedFieldReadTarget(
+            receiver=expr.object_expr,
+            receiver_type_name=receiver_type.name,
+            field_name=expr.field_name,
+            field_type_name=field_type.name,
+        )
+
+    if expr.field_name in class_info.methods:
+        return _ResolvedMethodRefTarget(
+            method_id=_method_id_for_type_name(
+                lower_ctx.typecheck_ctx.module_path, receiver_type.name, expr.field_name
+            ),
+            receiver=expr.object_expr,
+        )
+
+    raise TypeError(f"Unsupported field access for semantic lowering: {expr.field_name}")
+
+
+def _lower_resolved_ref(
+    lower_ctx: _ModuleLoweringContext,
+    resolved_target: ResolvedRefTarget,
+    type_name: str,
+    span,
+) -> SemanticExpr:
+    if isinstance(resolved_target, _ResolvedLocalRefTarget):
+        return LocalRefExpr(name=resolved_target.name, type_name=resolved_target.type_name, span=span)
+
+    if isinstance(resolved_target, _ResolvedFunctionRefTarget):
+        return FunctionRefExpr(function_id=resolved_target.function_id, type_name=type_name, span=span)
+
+    if isinstance(resolved_target, _ResolvedClassRefTarget):
+        return ClassRefExpr(class_id=resolved_target.class_id, type_name=type_name, span=span)
+
+    if isinstance(resolved_target, _ResolvedMethodRefTarget):
+        receiver = None if resolved_target.receiver is None else _lower_expr(lower_ctx, resolved_target.receiver)
+        return MethodRefExpr(method_id=resolved_target.method_id, receiver=receiver, type_name=type_name, span=span)
+
+    return FieldReadExpr(
+        receiver=_lower_expr(lower_ctx, resolved_target.receiver),
+        receiver_type_name=resolved_target.receiver_type_name,
+        field_name=resolved_target.field_name,
+        field_type_name=resolved_target.field_type_name,
+        span=span,
+    )
 
 
 def _resolve_identifier_call_target(
