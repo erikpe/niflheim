@@ -9,7 +9,6 @@ from compiler.codegen.generator import emit_asm, emit_semantic_asm
 from compiler.lexer import Token, lex
 from compiler.module_linker import build_codegen_module, require_main_function
 from compiler.parser import parse
-from compiler.reachability import prune_unreachable
 from compiler.resolver import resolve_program
 from compiler.semantic_linker import build_semantic_codegen_program, require_semantic_main_function
 from compiler.semantic_lowering import lower_program
@@ -89,7 +88,6 @@ def main() -> int:
                 require_semantic_main_function(semantic_program)
             else:
                 require_main_function(program.modules[program.entry_module].ast)
-                program = prune_unreachable(program)
                 codegen_module = build_codegen_module(program)
         if args.stop_after == "check":
             return 0

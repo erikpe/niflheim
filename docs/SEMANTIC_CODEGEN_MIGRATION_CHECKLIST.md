@@ -193,6 +193,13 @@ Exit criteria:
 - reachability is no longer a blocker for semantic codegen migration
 - pruning is once again available, but now at the correct abstraction level
 
+Implementation status:
+
+- complete for the checked semantic path
+- semantic pruning now runs after lowering and before semantic linking/codegen
+- the old source-AST reachability pass has been removed instead of being kept in sync with semantic pruning
+- `--source-ast-codegen` still exists as a temporary codegen fallback, but it now links the full checked source program directly without a separate AST-pruning phase
+
 ## Phase 9: Remove The Old Source-AST Backend Path
 
 1. Delete the old source-AST-specific codegen entrypoint.
