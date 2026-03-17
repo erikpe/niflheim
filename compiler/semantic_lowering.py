@@ -161,6 +161,27 @@ class _ResolvedFieldReadTarget:
     field_type_name: str
 
 
+@dataclass(frozen=True)
+class _ResolvedLocalLValueTarget:
+    name: str
+    type_name: str
+
+
+@dataclass(frozen=True)
+class _ResolvedFieldLValueTarget:
+    receiver: Expression
+    receiver_type_name: str
+    field_name: str
+    field_type_name: str
+
+
+@dataclass(frozen=True)
+class _ResolvedIndexLValueTarget:
+    target: Expression
+    index: Expression
+    value_type_name: str
+
+
 ResolvedCallTarget = (
     _ResolvedFunctionCallTarget
     | _ResolvedConstructorCallTarget
@@ -177,6 +198,9 @@ ResolvedRefTarget = (
     | _ResolvedMethodRefTarget
     | _ResolvedFieldReadTarget
 )
+
+
+ResolvedLValueTarget = _ResolvedLocalLValueTarget | _ResolvedFieldLValueTarget | _ResolvedIndexLValueTarget
 
 
 def lower_program(program: ProgramInfo) -> SemanticProgram:
@@ -394,28 +418,49 @@ def _lower_stmt(lower_ctx: _ModuleLoweringContext, stmt: Statement) -> SemanticS
 
 
 def _lower_lvalue(lower_ctx: _ModuleLoweringContext, expr: Expression):
+    resolved_target = _resolve_lvalue_target(lower_ctx, expr)
+
+    if isinstance(resolved_target, _ResolvedLocalLValueTarget):
+        return LocalLValue(name=resolved_target.name, type_name=resolved_target.type_name, span=expr.span)
+
+    if isinstance(resolved_target, _ResolvedFieldLValueTarget):
+        return FieldLValue(
+            receiver=_lower_expr(lower_ctx, resolved_target.receiver),
+            receiver_type_name=resolved_target.receiver_type_name,
+            field_name=resolved_target.field_name,
+            field_type_name=resolved_target.field_type_name,
+            span=expr.span,
+        )
+
+    return IndexLValue(
+        target=_lower_expr(lower_ctx, resolved_target.target),
+        index=_lower_expr(lower_ctx, resolved_target.index),
+        value_type_name=resolved_target.value_type_name,
+        set_method=None,
+        span=expr.span,
+    )
+
+
+def _resolve_lvalue_target(lower_ctx: _ModuleLoweringContext, expr: Expression) -> ResolvedLValueTarget:
     if isinstance(expr, IdentifierExpr):
         local_type = lookup_variable(lower_ctx.typecheck_ctx, expr.name)
         if local_type is None:
             raise ValueError(f"Unknown local assignment target '{expr.name}'")
-        return LocalLValue(name=expr.name, type_name=local_type.name, span=expr.span)
+        return _ResolvedLocalLValueTarget(name=expr.name, type_name=local_type.name)
 
     if isinstance(expr, FieldAccessExpr):
-        return FieldLValue(
-            receiver=_lower_expr(lower_ctx, expr.object_expr),
+        return _ResolvedFieldLValueTarget(
+            receiver=expr.object_expr,
             receiver_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr.object_expr).name,
             field_name=expr.field_name,
             field_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
-            span=expr.span,
         )
 
     if isinstance(expr, IndexExpr):
-        return IndexLValue(
-            target=_lower_expr(lower_ctx, expr.object_expr),
-            index=_lower_expr(lower_ctx, expr.index_expr),
+        return _ResolvedIndexLValueTarget(
+            target=expr.object_expr,
+            index=expr.index_expr,
             value_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
-            set_method=None,
-            span=expr.span,
         )
 
     raise TypeError(f"Unsupported lvalue for semantic lowering: {type(expr).__name__}")

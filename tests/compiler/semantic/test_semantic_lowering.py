@@ -272,3 +272,137 @@ def test_lower_program_lowers_callable_value_calls_explicitly(tmp_path: Path) ->
     assert isinstance(statements[5], SemanticVarDecl)
     assert isinstance(statements[5].initializer, CallableValueCallExpr)
     assert isinstance(statements[5].initializer.callee, FieldReadExpr)
+
+
+def test_lower_program_assigns_imported_canonical_ids_to_refs_and_calls(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export fn twice(x: i64) -> i64 {
+            return x + x;
+        }
+
+        export class Box {
+            value: i64;
+
+            static fn from_i64(value: i64) -> Box {
+                return Box(value);
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> i64 {
+            var f: fn(i64) -> i64 = util.twice;
+            var ctor: fn(i64) -> util.Box = util.Box.from_i64;
+            var box: util.Box = util.Box(7);
+            var a: i64 = util.twice(9);
+            var b: util.Box = util.Box.from_i64(a);
+            util.Box;
+            return a + b.value;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    statements = semantic.modules[("main",)].functions[0].body.statements
+
+    function_ref = statements[0]
+    assert isinstance(function_ref, SemanticVarDecl)
+    assert isinstance(function_ref.initializer, FunctionRefExpr)
+    assert function_ref.initializer.function_id.module_path == ("util",)
+    assert function_ref.initializer.function_id.name == "twice"
+
+    method_ref = statements[1]
+    assert isinstance(method_ref, SemanticVarDecl)
+    assert isinstance(method_ref.initializer, MethodRefExpr)
+    assert method_ref.initializer.method_id.module_path == ("util",)
+    assert method_ref.initializer.method_id.class_name == "Box"
+    assert method_ref.initializer.method_id.name == "from_i64"
+    assert method_ref.initializer.receiver is None
+
+    constructor_call = statements[2]
+    assert isinstance(constructor_call, SemanticVarDecl)
+    assert isinstance(constructor_call.initializer, ConstructorCallExpr)
+    assert constructor_call.initializer.constructor_id.module_path == ("util",)
+    assert constructor_call.initializer.constructor_id.class_name == "Box"
+
+    function_call = statements[3]
+    assert isinstance(function_call, SemanticVarDecl)
+    assert isinstance(function_call.initializer, FunctionCallExpr)
+    assert function_call.initializer.function_id.module_path == ("util",)
+    assert function_call.initializer.function_id.name == "twice"
+
+    static_method_call = statements[4]
+    assert isinstance(static_method_call, SemanticVarDecl)
+    assert isinstance(static_method_call.initializer, StaticMethodCallExpr)
+    assert static_method_call.initializer.method_id.module_path == ("util",)
+    assert static_method_call.initializer.method_id.class_name == "Box"
+    assert static_method_call.initializer.method_id.name == "from_i64"
+
+    class_ref = statements[5]
+    assert isinstance(class_ref, SemanticExprStmt)
+    assert isinstance(class_ref.expr, ClassRefExpr)
+    assert class_ref.expr.class_id.module_path == ("util",)
+    assert class_ref.expr.class_id.name == "Box"
+
+
+def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Leaf {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+
+        class Mid {
+            fn leaf() -> Leaf {
+                return Leaf(7);
+            }
+        }
+
+        class Root {
+            fn mid() -> Mid {
+                return Mid();
+            }
+        }
+
+        fn main() -> i64 {
+            var root: Root = Root();
+            return root.mid().leaf().read();
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    return_stmt = semantic.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, InstanceMethodCallExpr)
+    assert return_stmt.value.method_id.class_name == "Leaf"
+    assert return_stmt.value.method_id.name == "read"
+    assert return_stmt.value.receiver_type_name == "Leaf"
+
+    leaf_call = return_stmt.value.receiver
+    assert isinstance(leaf_call, InstanceMethodCallExpr)
+    assert leaf_call.method_id.class_name == "Mid"
+    assert leaf_call.method_id.name == "leaf"
+    assert leaf_call.receiver_type_name == "Mid"
+
+    mid_call = leaf_call.receiver
+    assert isinstance(mid_call, InstanceMethodCallExpr)
+    assert mid_call.method_id.class_name == "Root"
+    assert mid_call.method_id.name == "mid"
+    assert mid_call.receiver_type_name == "Root"
+    assert isinstance(mid_call.receiver, LocalRefExpr)
+    assert mid_call.receiver.name == "root"
