@@ -55,7 +55,9 @@ def test_build_semantic_codegen_program_orders_non_entry_modules_before_entry(tm
         """,
     )
 
-    program = build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = build_semantic_codegen_program(
+        lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    )
 
     assert [module.module_path for module in program.ordered_modules] == [("alpha",), ("zeta",), ("main",)]
     assert [cls.class_id.name for cls in program.classes] == ["Alpha", "Zed", "MainBox"]
@@ -84,7 +86,9 @@ def test_build_semantic_codegen_program_prefers_body_over_extern_duplicate(tmp_p
         """,
     )
 
-    program = build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = build_semantic_codegen_program(
+        lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    )
 
     helper = next(fn for fn in program.functions if fn.function_id.name == "helper")
     assert helper.function_id.module_path == ("main",)
@@ -137,7 +141,9 @@ def test_require_semantic_main_function_validates_semantic_entrypoint(tmp_path: 
         """,
     )
 
-    program = build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = build_semantic_codegen_program(
+        lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    )
 
     with pytest.raises(ValueError, match="Invalid main signature: expected return type 'i64'"):
         require_semantic_main_function(program)

@@ -8,7 +8,7 @@ from compiler.semantic_linker import SemanticCodegenProgram
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write, write_project
 
 
-def test_cli_defaults_to_semantic_codegen_path(tmp_path: Path, monkeypatch) -> None:
+def test_cli_defaults_to_codegen_path(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
     write(
@@ -24,14 +24,14 @@ def test_cli_defaults_to_semantic_codegen_path(tmp_path: Path, monkeypatch) -> N
 
     def _fake_emit_semantic_asm(semantic_program: SemanticCodegenProgram) -> str:
         seen["semantic_program"] = semantic_program
-        return "; semantic backend selected\n"
+        return "; codegen backend selected\n"
 
     monkeypatch.setattr(cli, "emit_semantic_asm", _fake_emit_semantic_asm)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "-o", str(out_file)])
 
     assert rc == 0
-    assert out_file.read_text(encoding="utf-8") == "; semantic backend selected\n"
+    assert out_file.read_text(encoding="utf-8") == "; codegen backend selected\n"
     semantic_program = seen["semantic_program"]
     assert isinstance(semantic_program, SemanticCodegenProgram)
     assert semantic_program.entry_module == ("main",)
@@ -55,7 +55,9 @@ def test_cli_source_ast_codegen_flag_is_rejected(tmp_path: Path, monkeypatch, ca
     assert "--source-ast-codegen is no longer supported" in captured.err
 
 
-def test_cli_default_semantic_codegen_prunes_dead_duplicate_class_symbols_before_link(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_codegen_prunes_dead_duplicate_class_symbols_before_link(
+    tmp_path: Path, monkeypatch
+) -> None:
     write_project(
         tmp_path,
         {
@@ -85,7 +87,9 @@ def test_cli_default_semantic_codegen_prunes_dead_duplicate_class_symbols_before
     assert out_file.exists()
 
 
-def test_cli_default_semantic_codegen_prunes_dead_semantic_declarations_from_assembly(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_codegen_prunes_dead_semantic_declarations_from_assembly(
+    tmp_path: Path, monkeypatch
+) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,

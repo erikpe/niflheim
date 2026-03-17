@@ -44,14 +44,7 @@ def main() -> int:
     parser.add_argument("--print-ast-spans", action="store_true", help="Include spans in --print-ast output")
     parser.add_argument("--print-asm", action="store_true", help="Also print emitted assembly to stdout")
     parser.add_argument(
-        "--semantic-codegen",
-        action="store_true",
-        help="Use the semantic-lowering backend path (default when type checking is enabled)",
-    )
-    parser.add_argument(
-        "--source-ast-codegen",
-        action="store_true",
-        help="Use the temporary legacy source-AST backend path",
+        "--source-ast-codegen", action="store_true", help="Use the temporary legacy source-AST backend path"
     )
     args = parser.parse_args()
 

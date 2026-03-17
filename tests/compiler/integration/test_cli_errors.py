@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 import compiler.cli as cli
 
 from tests.compiler.integration.helpers import run_cli, write
@@ -113,6 +115,25 @@ def test_cli_error_rejects_removed_source_ast_backend_flag(tmp_path: Path, monke
 
     assert rc == 1
     assert "--source-ast-codegen is no longer supported" in captured.err
+
+
+def test_cli_error_rejects_removed_semantic_codegen_flag(tmp_path: Path, monkeypatch, capsys) -> None:
+    source = tmp_path / "main.nif"
+    write(
+        source,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_cli(monkeypatch, ["nifc", str(source), "--semantic-codegen"])
+    captured = capsys.readouterr()
+
+    assert exc_info.value.code == 2
+    assert "unrecognized arguments: --semantic-codegen" in captured.err
 
 
 def test_cli_error_rejects_skip_check_for_codegen(tmp_path: Path, monkeypatch, capsys) -> None:

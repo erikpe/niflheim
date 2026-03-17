@@ -38,11 +38,7 @@ def test_cli_runtime_println_calls(tmp_path: Path, monkeypatch, call_lines: str)
     entry = tmp_path / "main.nif"
     write(entry, make_std_io_entry(call_lines))
     run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        out_path=tmp_path / "out.s",
-        exe_path=tmp_path / "program",
+        monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s", exe_path=tmp_path / "program"
     )
 
     assert run.returncode == 0
@@ -55,11 +51,7 @@ def test_cli_runtime_panic_call_exits_with_error(tmp_path: Path, monkeypatch, ca
     entry = tmp_path / "main.nif"
     write(entry, make_std_error_entry_with_call("Panic at the disco!", call_target))
     run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        out_path=tmp_path / "out.s",
-        exe_path=tmp_path / "program",
+        monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s", exe_path=tmp_path / "program"
     )
 
     assert run.returncode != 0

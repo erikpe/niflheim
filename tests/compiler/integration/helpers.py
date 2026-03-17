@@ -26,10 +26,7 @@ def write_project(root: Path, files: Mapping[str, str]) -> None:
 
 
 def install_std_modules(
-    project_root: Path,
-    module_names: list[str],
-    *,
-    overrides: Mapping[str, str] | None = None,
+    project_root: Path, module_names: list[str], *, overrides: Mapping[str, str] | None = None
 ) -> None:
     overrides = {} if overrides is None else dict(overrides)
     std_root = project_root / "std"
@@ -128,11 +125,7 @@ def compile_and_run(
     extra_args: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     asm_path = compile_to_asm(
-        monkeypatch,
-        entry_path,
-        project_root=project_root,
-        out_path=out_path,
-        extra_args=extra_args,
+        monkeypatch, entry_path, project_root=project_root, out_path=out_path, extra_args=extra_args
     )
     built_exe_path = build_executable(asm_path, exe_path=exe_path)
     return run_executable(built_exe_path)

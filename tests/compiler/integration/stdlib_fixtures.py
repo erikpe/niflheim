@@ -76,21 +76,14 @@ export fn panic(msg: Str) -> unit {
 
 
 def install_std_io_fixture(project_root: Path) -> None:
-    install_std_modules(
-        project_root,
-        ["str", "object", "error", "vec"],
-        overrides={"std/io.nif": STD_IO_MODULE_SOURCE},
-    )
+    install_std_modules(project_root, ["str", "object", "error", "vec"], overrides={"std/io.nif": STD_IO_MODULE_SOURCE})
 
 
 def install_std_error_fixture(project_root: Path) -> None:
     install_std_modules(
         project_root,
         ["str"],
-        overrides={
-            "std/str.nif": MINIMAL_STR_MODULE_SOURCE,
-            "std/error.nif": STD_ERROR_MODULE_SOURCE,
-        },
+        overrides={"std/str.nif": MINIMAL_STR_MODULE_SOURCE, "std/error.nif": STD_ERROR_MODULE_SOURCE},
     )
 
 
@@ -106,7 +99,7 @@ def make_std_io_entry(call_lines: str) -> str:
 
 
 def _nif_string_literal(text: str) -> str:
-    escaped = text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
     return f'"{escaped}"'
 
 

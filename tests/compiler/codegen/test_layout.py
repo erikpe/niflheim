@@ -1,11 +1,30 @@
-from compiler.codegen.layout import build_layout
-from compiler.lexer import lex
-from compiler.parser import parse
+from compiler.codegen.semantic_layout import build_layout
+from compiler.resolver import resolve_program
+from compiler.semantic_linker import build_semantic_codegen_program
+from compiler.semantic_lowering import lower_program
 
 
-def test_codegen_build_layout_tracks_reference_roots_and_temp_roots() -> None:
-    module = parse(lex("fn f(a: Obj) -> unit { g(a); }", source_path="examples/codegen.nif"))
-    fn = module.functions[0]
+def test_semantic_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        fn g(value: Obj) -> unit {
+            return;
+        }
+
+        fn f(a: Obj) -> unit {
+            g(a);
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = build_semantic_codegen_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "f")
 
     layout = build_layout(fn)
 
