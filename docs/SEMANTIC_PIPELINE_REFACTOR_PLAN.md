@@ -137,6 +137,18 @@ The exact function names can differ, but the stage ownership should match this s
 
 The ordered implementation checklist for bypassing reachability during backend migration now lives in `docs/SEMANTIC_CODEGEN_MIGRATION_CHECKLIST.md`.
 
+Current implementation state:
+
+- semantic codegen is now the default checked backend path
+- the semantic path currently runs:
+    - resolve
+    - typecheck
+    - lower to semantic IR
+    - semantic codegen
+- reachability is still intentionally bypassed on that path
+- the legacy source-AST backend remains behind `--source-ast-codegen` only as a temporary rollback path
+- compiler pytest, golden tests, runtime smoke tests, and runtime harness validation are green with the semantic backend as the preferred path
+
 ## Core Design
 
 ### 1. Introduce A Semantic IR Layer

@@ -13,6 +13,7 @@ from compiler.reachability import prune_unreachable
 from compiler.resolver import resolve_program
 from compiler.semantic_linker import build_semantic_codegen_program, require_semantic_main_function
 from compiler.semantic_lowering import lower_program
+from compiler.semantic_reachability import prune_unreachable_semantic
 from compiler.typecheck.api import typecheck_program
 
 
@@ -84,7 +85,7 @@ def main() -> int:
             program = resolve_program(input_path, project_root=args.project_root)
             typecheck_program(program)
             if use_semantic_codegen:
-                semantic_program = build_semantic_codegen_program(lower_program(program))
+                semantic_program = build_semantic_codegen_program(prune_unreachable_semantic(lower_program(program)))
                 require_semantic_main_function(semantic_program)
             else:
                 require_main_function(program.modules[program.entry_module].ast)

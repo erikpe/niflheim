@@ -2,6 +2,13 @@
 
 This checklist gives the recommended implementation order for temporarily bypassing reachability while migrating codegen onto the lowered semantic program.
 
+Status update as of 2026-03-17:
+
+- default checked compilation now uses the semantic backend
+- `--source-ast-codegen` remains available only as a temporary rollback path
+- compiler pytest, golden tests, runtime smoke tests, and runtime harness validation all pass with semantic codegen as the default path
+- smoke and golden flows no longer depend on the legacy backend fallback
+
 The intent is:
 
 - keep the current source-AST pipeline working while the new path is built
@@ -144,6 +151,18 @@ Exit criteria:
 3. Run the full unit, integration, golden, and runtime suites on both paths at least once before removing the fallback.
 4. Fix any remaining regressions that are due to backend parity rather than reachability.
 
+Implementation status:
+
+- complete in practice
+- default checked CLI compilation now lowers to semantic IR and emits through the semantic backend
+- the legacy backend is still reachable through `--source-ast-codegen`, but smoke/golden validation no longer relies on it
+- representative source-vs-semantic backend parity coverage exists in the compiler test suite
+- full validation has been run successfully with the semantic backend as the preferred path:
+   - `pytest`
+   - `./scripts/golden.sh`
+   - integration runtime smoke tests
+   - `make -C runtime test-all`
+
 Exit criteria:
 
 - default compilation uses lowered semantic IR
@@ -162,6 +181,12 @@ Exit criteria:
 3. Add semantic pruning after lowering and before semantic codegen.
 4. Validate that pruning removes dead declarations without changing runtime behavior.
 5. Remove the temporary semantic-path bypass once the semantic reachability pass is trusted.
+
+Current entry condition for Phase 8:
+
+- Phase 7 validation is satisfied
+- the remaining reason to keep the legacy backend is rollback safety, not test coverage gaps
+- the next major compiler migration step is semantic reachability, not more semantic-default stabilization
 
 Exit criteria:
 
