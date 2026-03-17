@@ -1,0 +1,250 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from compiler.codegen.emitter_expr import emit_expr as emit_source_expr
+from compiler.codegen.generator import CodeGenerator
+from compiler.codegen.model import EmitContext
+from compiler.codegen.semantic_emitter_expr import SemanticEmitContext, emit_expr
+from compiler.codegen.semantic_generator import SemanticCodeGenerator
+from compiler.codegen.semantic_layout import build_layout
+from compiler.resolver import resolve_program
+from compiler.semantic_ir import (
+    CallableValueCallExpr,
+    ConstructorCallExpr,
+    FunctionCallExpr,
+    IndexReadExpr,
+    InstanceMethodCallExpr,
+    SemanticReturn,
+    SliceReadExpr,
+    StaticMethodCallExpr,
+)
+from compiler.semantic_linker import build_semantic_codegen_program
+from compiler.semantic_lowering import lower_program
+from tests.compiler.codegen.helpers import parse_module
+
+
+def _write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content.strip() + "\n", encoding="utf-8")
+
+
+def _build_semantic_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name: str = "main"):
+    for relative_path, content in files.items():
+        _write(tmp_path / relative_path, content)
+
+    semantic_program = build_semantic_codegen_program(
+        lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    )
+    semantic_fn = next(
+        fn
+        for fn in semantic_program.functions
+        if fn.function_id.module_path == ("main",) and fn.function_id.name == function_name
+    )
+    generator = CodeGenerator(parse_module("fn dummy() -> i64 { return 0; }", source_path="examples/semantic_expr.nif"))
+    tables = SemanticCodeGenerator(semantic_program).build_declaration_tables()
+    layout = build_layout(semantic_fn)
+    emit_ctx = EmitContext(
+        layout=layout,
+        fn_name=function_name,
+        label_counter=[0],
+        method_labels={},
+        method_return_types={},
+        method_is_static={},
+        constructor_labels={},
+        function_return_types={},
+        string_literal_labels={},
+        class_field_type_names={},
+        temp_root_depth=[0],
+    )
+    return semantic_fn, generator, SemanticEmitContext(emit_ctx=emit_ctx, declaration_tables=tables)
+
+
+def test_semantic_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None:
+    semantic_fn, generator, ctx = _build_semantic_emit_fixture(
+        tmp_path,
+        {
+            "main.nif": """
+            class Math {
+                static fn add(a: i64, b: i64) -> i64 {
+                    return a + b;
+                }
+            }
+
+            class Box {
+                value: i64;
+
+                fn get() -> i64 {
+                    return __self.value;
+                }
+            }
+
+            fn inc(v: i64) -> i64 {
+                return v + 1;
+            }
+
+            fn choose(flag: bool) -> fn(i64) -> i64 {
+                if flag {
+                    return inc;
+                }
+                return inc;
+            }
+
+            fn main() -> i64 {
+                var f: fn(i64) -> i64 = choose(true);
+                var a: i64 = inc(1);
+                var b: i64 = Math.add(a, 2);
+                var box: Box = Box(b);
+                var c: i64 = box.get();
+                var d: i64 = f(c);
+                return a + b + c + d;
+            }
+            """
+        },
+    )
+
+    returns = [stmt for stmt in semantic_fn.body.statements if isinstance(stmt, SemanticReturn)]
+    var_inits = [
+        stmt.initializer
+        for stmt in semantic_fn.body.statements
+        if hasattr(stmt, "initializer") and stmt.initializer is not None
+    ]
+
+    assert isinstance(var_inits[1], FunctionCallExpr)
+    emit_expr(generator, var_inits[1], ctx)
+    assert "    call inc" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    assert isinstance(var_inits[2], StaticMethodCallExpr)
+    emit_expr(generator, var_inits[2], ctx)
+    assert "    call __nif_method_Math_add" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    assert isinstance(var_inits[3], ConstructorCallExpr)
+    emit_expr(generator, var_inits[3], ctx)
+    assert "    call __nif_ctor_Box" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    assert isinstance(var_inits[4], InstanceMethodCallExpr)
+    emit_expr(generator, var_inits[4], ctx)
+    assert "    call __nif_method_Box_get" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    assert isinstance(var_inits[5], CallableValueCallExpr)
+    emit_expr(generator, var_inits[5], ctx)
+    assert "    mov r11, rax" in generator.asm.lines
+    assert "    call r11" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    emit_expr(generator, returns[0].value, ctx)
+    assert "    add rax, rcx" in generator.asm.lines
+
+
+def test_semantic_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path) -> None:
+    semantic_fn, generator, ctx = _build_semantic_emit_fixture(
+        tmp_path,
+        {
+            "main.nif": """
+            fn main() -> i64 {
+                var arr: i64[] = i64[](4u);
+                var x: i64 = arr[0];
+                var y: double = (double)x;
+                return (i64)y;
+            }
+            """
+        },
+    )
+
+    var_inits = [
+        stmt.initializer
+        for stmt in semantic_fn.body.statements
+        if hasattr(stmt, "initializer") and stmt.initializer is not None
+    ]
+    assert isinstance(var_inits[0], object)
+
+    emit_expr(generator, var_inits[0], ctx)
+    assert "    call rt_array_new_i64" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    assert isinstance(var_inits[1], IndexReadExpr)
+    emit_expr(generator, var_inits[1], ctx)
+    assert "    call rt_array_get_i64" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    emit_expr(generator, var_inits[2], ctx)
+    assert "    cvtsi2sd xmm0, rax" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    return_stmt = semantic_fn.body.statements[-1]
+    assert isinstance(return_stmt, SemanticReturn)
+    emit_expr(generator, return_stmt.value, ctx)
+    assert "    cvttsd2si rax, xmm0" in generator.asm.lines
+
+
+def test_semantic_emitter_expr_emits_string_literal_helper_form_and_slice_reads(tmp_path: Path) -> None:
+    semantic_fn, generator, ctx = _build_semantic_emit_fixture(
+        tmp_path,
+        {
+            "main.nif": """
+            class Str {
+                static fn from_u8_array(value: u8[]) -> Str {
+                    return Str();
+                }
+
+                static fn concat(left: Str, right: Str) -> Str {
+                    return Str();
+                }
+            }
+
+            fn main() -> Str {
+                var arr: i64[] = i64[](4u);
+                var part: i64[] = arr[1:3];
+                return "hi" + " there";
+            }
+            """
+        },
+    )
+    ctx.emit_ctx.string_literal_labels = {'"hi"': ("__nif_str_lit_0", 2), '" there"': ("__nif_str_lit_1", 6)}
+
+    var_inits = [
+        stmt.initializer
+        for stmt in semantic_fn.body.statements
+        if hasattr(stmt, "initializer") and stmt.initializer is not None
+    ]
+
+    assert isinstance(var_inits[1], SliceReadExpr)
+    emit_expr(generator, var_inits[1], ctx)
+    assert "    call rt_array_slice_i64" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    return_stmt = semantic_fn.body.statements[-1]
+    assert isinstance(return_stmt, SemanticReturn)
+    emit_expr(generator, return_stmt.value, ctx)
+    assert "    call rt_array_from_bytes_u8" in generator.asm.lines
+    assert "    call __nif_method_Str_from_u8_array" in generator.asm.lines
+    assert "    call __nif_method_Str_concat" in generator.asm.lines
+
+
+def test_semantic_emitter_expr_emits_class_structural_index_reads(tmp_path: Path) -> None:
+    semantic_fn, generator, ctx = _build_semantic_emit_fixture(
+        tmp_path,
+        {
+            "main.nif": """
+            class Buffer {
+                fn index_get(index: i64) -> i64 {
+                    return 1;
+                }
+            }
+
+            fn main(buffer: Buffer) -> i64 {
+                return buffer[0];
+            }
+            """
+        },
+    )
+
+    return_stmt = semantic_fn.body.statements[-1]
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, IndexReadExpr)
+    emit_expr(generator, return_stmt.value, ctx)
+    assert "    call __nif_method_Buffer_index_get" in generator.asm.lines
