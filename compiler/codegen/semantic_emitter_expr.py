@@ -26,6 +26,7 @@ from compiler.semantic_ir import (
     FieldReadExpr,
     FunctionCallExpr,
     FunctionRefExpr,
+    ArrayLenExpr,
     IndexReadExpr,
     InstanceMethodCallExpr,
     LiteralExprS,
@@ -38,7 +39,7 @@ from compiler.semantic_ir import (
     SyntheticExpr,
     UnaryExprS,
 )
-from compiler.semantic_symbols import ClassId, MethodId
+from compiler.semantic_symbols import MethodId
 
 if TYPE_CHECKING:
     from compiler.codegen.generator import CodeGenerator
@@ -82,6 +83,8 @@ def infer_expression_type_name(expr: SemanticExpr) -> str:
         return expr.type_name
     if isinstance(expr, CallableValueCallExpr):
         return expr.type_name
+    if isinstance(expr, ArrayLenExpr):
+        return "u64"
     if isinstance(expr, IndexReadExpr):
         return expr.result_type_name
     if isinstance(expr, SliceReadExpr):
@@ -140,6 +143,9 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: SemanticEmitConte
         return
     if isinstance(expr, CallableValueCallExpr):
         _emit_callable_value_call(codegen, expr, ctx)
+        return
+    if isinstance(expr, ArrayLenExpr):
+        _emit_named_call(codegen, "rt_array_len", [expr.target], "u64", ctx)
         return
     if isinstance(expr, IndexReadExpr):
         _emit_index_read_expr(codegen, expr, ctx)
@@ -201,8 +207,7 @@ def _emit_literal_expr(codegen: CodeGenerator, expr: LiteralExprS) -> None:
 
 def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: SemanticEmitContext) -> None:
     emit_expr(codegen, expr.receiver, ctx)
-    class_id = _class_id_from_type_name(expr.receiver_type_name)
-    field_offset = ctx.declaration_tables.class_field_offsets_by_id.get((class_id, expr.field_name))
+    field_offset = _resolve_field_offset(ctx, expr.receiver_type_name, expr.field_name)
     if field_offset is None:
         codegen_types.raise_codegen_error(
             f"field access codegen missing field '{expr.field_name}' on class '{expr.receiver_type_name}'",
@@ -513,8 +518,21 @@ def _constructor_label(class_name: str) -> str:
     return codegen_symbols.mangle_constructor_symbol(class_name)
 
 
-def _class_id_from_type_name(type_name: str) -> ClassId:
-    if "::" in type_name:
-        owner_dotted, class_name = type_name.split("::", 1)
-        return ClassId(module_path=tuple(owner_dotted.split(".")), name=class_name)
-    return ClassId(module_path=("main",), name=type_name)
+def _resolve_field_offset(ctx: SemanticEmitContext, receiver_type_name: str, field_name: str) -> int | None:
+    if "::" in receiver_type_name:
+        _owner_dotted, class_name = receiver_type_name.split("::", 1)
+    else:
+        class_name = receiver_type_name
+
+    matches = [
+        offset
+        for (class_id, candidate_field_name), offset in ctx.declaration_tables.class_field_offsets_by_id.items()
+        if candidate_field_name == field_name and class_id.name == class_name
+    ]
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise ValueError(
+            f"Ambiguous semantic field offset resolution for '{receiver_type_name}.{field_name}'"
+        )
+    return matches[0]

@@ -293,6 +293,12 @@ class CallableValueCallExpr:
 
 
 @dataclass(frozen=True)
+class ArrayLenExpr:
+    target: "SemanticExpr"
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class IndexReadExpr:
     target: "SemanticExpr"
     index: "SemanticExpr"
@@ -360,6 +366,7 @@ SemanticExpr = (
     | InstanceMethodCallExpr
     | ConstructorCallExpr
     | CallableValueCallExpr
+    | ArrayLenExpr
     | IndexReadExpr
     | SliceReadExpr
     | ArrayCtorExprS

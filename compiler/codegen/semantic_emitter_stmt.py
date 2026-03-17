@@ -139,7 +139,7 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: SemanticEmitContext) -> Non
         codegen.asm.instr("push rax")
         emit_expr(codegen, stmt.value, ctx)
         codegen.asm.instr("pop rcx")
-        field_offset = ctx.declaration_tables.class_field_offsets_by_id.get((_class_id_from_type_name(target.receiver_type_name), target.field_name))
+        field_offset = _resolve_field_offset(ctx, target.receiver_type_name, target.field_name)
         if field_offset is None:
             codegen_types.raise_codegen_error(
                 f"field assignment codegen missing field '{target.field_name}' on class '{target.receiver_type_name}'",
@@ -226,10 +226,21 @@ def _emit_for_in(codegen, stmt: SemanticForIn, epilogue_label: str, function_ret
     codegen.asm.label(loop_done)
 
 
-def _class_id_from_type_name(type_name: str):
-    from compiler.semantic_symbols import ClassId
+def _resolve_field_offset(ctx: SemanticEmitContext, receiver_type_name: str, field_name: str) -> int | None:
+    if "::" in receiver_type_name:
+        _owner_dotted, class_name = receiver_type_name.split("::", 1)
+    else:
+        class_name = receiver_type_name
 
-    if "::" in type_name:
-        owner_dotted, class_name = type_name.split("::", 1)
-        return ClassId(module_path=tuple(owner_dotted.split(".")), name=class_name)
-    return ClassId(module_path=("main",), name=type_name)
+    matches = [
+        offset
+        for (class_id, candidate_field_name), offset in ctx.declaration_tables.class_field_offsets_by_id.items()
+        if candidate_field_name == field_name and class_id.name == class_name
+    ]
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise ValueError(
+            f"Ambiguous semantic field offset resolution for '{receiver_type_name}.{field_name}'"
+        )
+    return matches[0]

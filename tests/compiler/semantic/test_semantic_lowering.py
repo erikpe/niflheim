@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.semantic_ir import (
+    ArrayLenExpr,
     BinaryExprS,
+    CastExprS,
     CallableValueCallExpr,
     ClassRefExpr,
     ConstructorCallExpr,
@@ -14,6 +16,7 @@ from compiler.semantic_ir import (
     IndexLValue,
     IndexReadExpr,
     InstanceMethodCallExpr,
+    LiteralExprS,
     LocalLValue,
     LocalRefExpr,
     MethodRefExpr,
@@ -28,6 +31,7 @@ from compiler.semantic_ir import (
     SliceReadExpr,
     StaticMethodCallExpr,
     SyntheticExpr,
+    UnaryExprS,
 )
 from compiler.resolver import resolve_program
 from compiler.semantic_lowering import lower_program
@@ -506,6 +510,82 @@ def test_lower_program_resolves_structural_index_slice_and_for_in_methods(tmp_pa
     assert array_for_in.iter_get_method is None
 
 
+def test_lower_program_lowers_explicit_array_structural_calls_and_assignments(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(values: i64[]) -> i64 {
+            var first: i64 = values.index_get(0);
+            values.index_set(0, 7);
+            var part: i64[] = values.slice_get(0, 1);
+            values.slice_set(0, 1, part);
+            return values.iter_get(0) + (i64)values.iter_len();
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    statements = semantic.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[0], SemanticVarDecl)
+    assert isinstance(statements[0].initializer, IndexReadExpr)
+    assert statements[0].initializer.get_method is None
+
+    assert isinstance(statements[1], SemanticAssign)
+    assert isinstance(statements[1].target, IndexLValue)
+    assert statements[1].target.set_method is None
+
+    assert isinstance(statements[2], SemanticVarDecl)
+    assert isinstance(statements[2].initializer, SliceReadExpr)
+    assert statements[2].initializer.get_method is None
+
+    assert isinstance(statements[3], SemanticAssign)
+    assert isinstance(statements[3].target, SliceLValue)
+    assert statements[3].target.set_method is None
+
+    assert isinstance(statements[4], SemanticReturn)
+    assert isinstance(statements[4].value, BinaryExprS)
+    assert isinstance(statements[4].value.left, IndexReadExpr)
+    assert isinstance(statements[4].value.right, CastExprS)
+    assert isinstance(statements[4].value.right.operand, ArrayLenExpr)
+
+
+def test_lower_program_uses_index_set_value_type_for_structural_assignment_targets(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class WeirdStore {
+            stored: bool;
+
+            fn index_get(index: i64) -> bool {
+                return __self.stored;
+            }
+
+            fn index_set(index: i64, value: i64) -> unit {
+                __self.stored = value > 0;
+            }
+        }
+
+        fn main() -> unit {
+            var w: WeirdStore = WeirdStore(false);
+            w[0] = 7;
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    assign_stmt = semantic.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(assign_stmt, SemanticAssign)
+    assert isinstance(assign_stmt.target, IndexLValue)
+    assert assign_stmt.target.value_type_name == "i64"
+    assert assign_stmt.target.set_method is not None
+    assert assign_stmt.target.set_method.name == "index_set"
+
+
 def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
@@ -548,3 +628,66 @@ def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp
     assert isinstance(return_stmt.value.args[0], LocalRefExpr)
     assert isinstance(return_stmt.value.args[1], StaticMethodCallExpr)
     assert return_stmt.value.args[1].method_id.name == "from_u8_array"
+
+
+def test_lower_program_lowers_array_len_calls_to_explicit_array_len_expr(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(values: i64[]) -> u64 {
+            return values.len();
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    return_stmt = semantic.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, ArrayLenExpr)
+    assert isinstance(return_stmt.value.target, LocalRefExpr)
+    assert return_stmt.value.target.name == "values"
+
+
+def test_lower_program_preserves_private_owner_context_for_in_class_constructor_calls(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Str {
+            private _bytes: u8[];
+
+            static fn from_u8_array(value: u8[]) -> Str {
+                return Str(value[:]);
+            }
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    return_stmt = semantic.modules[("main",)].classes[0].methods[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, ConstructorCallExpr)
+    assert return_stmt.value.constructor_id.class_name == "Str"
+
+
+def test_lower_program_preserves_min_i64_literal_inside_unary_negation(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            return -9223372036854775808;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    return_stmt = semantic.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, UnaryExprS)
+    assert isinstance(return_stmt.value.operand, LiteralExprS)
+    assert return_stmt.value.operand.value == "9223372036854775808"

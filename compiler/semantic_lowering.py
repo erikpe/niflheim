@@ -34,6 +34,7 @@ from compiler.codegen.strings import decode_string_literal, is_str_type_name
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic_ir import (
     ArrayCtorExprS,
+    ArrayLenExpr,
     BinaryExprS,
     CastExprS,
     CallableValueCallExpr,
@@ -91,6 +92,7 @@ from compiler.typecheck.bodies import check_bodies
 from compiler.typecheck.call_helpers import class_type_name_from_callable
 from compiler.typecheck.calls import infer_call_type
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
+from compiler.typecheck.constants import I64_MAX_LITERAL
 from compiler.typecheck.declarations import collect_module_declarations
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeInfo
@@ -100,7 +102,8 @@ from compiler.typecheck.module_lookup import (
     resolve_imported_function_sig,
     resolve_module_member,
 )
-from compiler.typecheck.structural import resolve_for_in_element_type
+from compiler.typecheck.relations import canonicalize_reference_type_name
+from compiler.typecheck.structural import ensure_structural_set_method_available_for_index_assignment, resolve_for_in_element_type
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner, resolve_type_ref
 
 
@@ -290,7 +293,7 @@ def _lower_function(
     body = None
     if function_decl.body is not None:
         body = _lower_function_like_body(
-            lower_ctx, params=function_decl.params, body=function_decl.body, receiver_type=None
+            lower_ctx, params=function_decl.params, body=function_decl.body, receiver_type=None, owner_class_name=None
         )
 
     return SemanticFunction(
@@ -312,7 +315,11 @@ def _lower_method(
         receiver_type = TypeInfo(name=class_decl.name, kind="reference")
 
     body = _lower_function_like_body(
-        lower_ctx, params=method_decl.params, body=method_decl.body, receiver_type=receiver_type
+        lower_ctx,
+        params=method_decl.params,
+        body=method_decl.body,
+        receiver_type=receiver_type,
+        owner_class_name=class_decl.name,
     )
     return SemanticMethod(
         method_id=method_id_for_decl(module_path, class_decl, method_decl),
@@ -330,9 +337,17 @@ def _lower_param(typecheck_ctx: TypeCheckContext, param: ParamDecl) -> SemanticP
 
 
 def _lower_function_like_body(
-    lower_ctx: _ModuleLoweringContext, *, params: list[ParamDecl], body: BlockStmt, receiver_type: TypeInfo | None
+    lower_ctx: _ModuleLoweringContext,
+    *,
+    params: list[ParamDecl],
+    body: BlockStmt,
+    receiver_type: TypeInfo | None,
+    owner_class_name: str | None,
 ) -> SemanticBlock:
     typecheck_ctx = lower_ctx.typecheck_ctx
+    previous_owner = typecheck_ctx.current_private_owner_type
+    if owner_class_name is not None:
+        typecheck_ctx.current_private_owner_type = canonicalize_reference_type_name(typecheck_ctx, owner_class_name)
     push_scope(typecheck_ctx)
     typecheck_ctx.function_local_names_stack.append(set())
     try:
@@ -344,6 +359,7 @@ def _lower_function_like_body(
     finally:
         typecheck_ctx.function_local_names_stack.pop()
         pop_scope(typecheck_ctx)
+        typecheck_ctx.current_private_owner_type = previous_owner
 
 
 def _lower_block(lower_ctx: _ModuleLoweringContext, block: BlockStmt) -> SemanticBlock:
@@ -470,24 +486,25 @@ def _resolve_lvalue_target(lower_ctx: _ModuleLoweringContext, expr: Expression) 
         return _ResolvedIndexLValueTarget(
             target=expr.object_expr,
             index=expr.index_expr,
-            value_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
+            value_type_name=_resolve_index_assignment_value_type_name(lower_ctx, expr),
         )
 
     raise TypeError(f"Unsupported lvalue for semantic lowering: {type(expr).__name__}")
 
 
 def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> SemanticExpr:
-    expr_type = infer_expression_type(lower_ctx.typecheck_ctx, expr)
-
     if isinstance(expr, IdentifierExpr):
         return _lower_resolved_ref(
-            lower_ctx, _resolve_identifier_ref_target(lower_ctx, expr), expr_type.name, expr.span
+            lower_ctx,
+            _resolve_identifier_ref_target(lower_ctx, expr),
+            infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
+            expr.span,
         )
 
     if isinstance(expr, LiteralExpr):
         if expr.value.startswith('"'):
-            return _lower_string_literal_expr(lower_ctx, expr, expr_type.name)
-        return LiteralExprS(value=expr.value, type_name=expr_type.name, span=expr.span)
+            return _lower_string_literal_expr(lower_ctx, expr, infer_expression_type(lower_ctx.typecheck_ctx, expr).name)
+        return LiteralExprS(value=expr.value, type_name=_literal_type_name(expr), span=expr.span)
 
     if isinstance(expr, NullExpr):
         return NullExprS(span=expr.span)
@@ -496,19 +513,20 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
         return UnaryExprS(
             operator=expr.operator,
             operand=_lower_expr(lower_ctx, expr.operand),
-            type_name=expr_type.name,
+            type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
             span=expr.span,
         )
 
     if isinstance(expr, BinaryExpr):
-        string_concat = _try_lower_string_concat_expr(lower_ctx, expr, expr_type.name)
+        result_type_name = infer_expression_type(lower_ctx.typecheck_ctx, expr).name
+        string_concat = _try_lower_string_concat_expr(lower_ctx, expr, result_type_name)
         if string_concat is not None:
             return string_concat
         return BinaryExprS(
             operator=expr.operator,
             left=_lower_expr(lower_ctx, expr.left),
             right=_lower_expr(lower_ctx, expr.right),
-            type_name=expr_type.name,
+            type_name=result_type_name,
             span=expr.span,
         )
 
@@ -516,7 +534,7 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
         return CastExprS(
             operand=_lower_expr(lower_ctx, expr.operand),
             target_type_name=_resolved_type_name(lower_ctx.typecheck_ctx, expr.type_ref),
-            type_name=expr_type.name,
+            type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
             span=expr.span,
         )
 
@@ -532,25 +550,32 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
 
     if isinstance(expr, FieldAccessExpr):
         return _lower_resolved_ref(
-            lower_ctx, _resolve_field_access_ref_target(lower_ctx, expr), expr_type.name, expr.span
+            lower_ctx,
+            _resolve_field_access_ref_target(lower_ctx, expr),
+            infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
+            expr.span,
         )
 
     if isinstance(expr, IndexExpr):
         return IndexReadExpr(
             target=_lower_expr(lower_ctx, expr.object_expr),
             index=_lower_expr(lower_ctx, expr.index_expr),
-            result_type_name=expr_type.name,
+            result_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
             get_method=_resolve_index_method_id(lower_ctx, expr.object_expr, "index_get"),
             span=expr.span,
         )
 
     if isinstance(expr, CallExpr):
-        return _lower_call_expr(lower_ctx, expr, expr_type.name)
+        return _lower_call_expr(lower_ctx, expr, infer_expression_type(lower_ctx.typecheck_ctx, expr).name)
 
     raise TypeError(f"Unsupported expression for semantic lowering: {type(expr).__name__}")
 
 
 def _lower_call_expr(lower_ctx: _ModuleLoweringContext, expr: CallExpr, result_type_name: str) -> SemanticExpr:
+    array_structural_expr = _try_lower_array_structural_call_expr(lower_ctx, expr, result_type_name)
+    if array_structural_expr is not None:
+        return array_structural_expr
+
     slice_read = _try_lower_slice_read_expr(lower_ctx, expr, result_type_name)
     if slice_read is not None:
         return slice_read
@@ -588,7 +613,56 @@ def _lower_call_expr(lower_ctx: _ModuleLoweringContext, expr: CallExpr, result_t
     )
 
 
+def _try_lower_array_structural_call_expr(
+    lower_ctx: _ModuleLoweringContext, expr: CallExpr, result_type_name: str
+) -> SemanticExpr | None:
+    if not isinstance(expr.callee, FieldAccessExpr):
+        return None
+
+    receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
+    if receiver_type.element_type is None:
+        return None
+
+    if expr.callee.field_name in {"len", "iter_len"}:
+        if expr.arguments:
+            return None
+        return ArrayLenExpr(target=_lower_expr(lower_ctx, expr.callee.object_expr), span=expr.span)
+
+    if expr.callee.field_name in {"index_get", "iter_get"}:
+        if len(expr.arguments) != 1:
+            return None
+        return IndexReadExpr(
+            target=_lower_expr(lower_ctx, expr.callee.object_expr),
+            index=_lower_expr(lower_ctx, expr.arguments[0]),
+            result_type_name=result_type_name,
+            get_method=None,
+            span=expr.span,
+        )
+
+    if expr.callee.field_name == "slice_get":
+        if len(expr.arguments) != 2:
+            return None
+        return SliceReadExpr(
+            target=_lower_expr(lower_ctx, expr.callee.object_expr),
+            begin=_lower_expr(lower_ctx, expr.arguments[0]),
+            end=_lower_expr(lower_ctx, expr.arguments[1]),
+            result_type_name=result_type_name,
+            get_method=None,
+            span=expr.span,
+        )
+
+    return None
+
+
 def _try_lower_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: ExprStmt) -> SemanticAssign | None:
+    array_index_assign = _try_lower_array_index_assign_stmt(lower_ctx, stmt)
+    if array_index_assign is not None:
+        return array_index_assign
+
+    array_slice_assign = _try_lower_array_slice_assign_stmt(lower_ctx, stmt)
+    if array_slice_assign is not None:
+        return array_slice_assign
+
     expr = stmt.expression
     if not isinstance(expr, CallExpr):
         return None
@@ -605,6 +679,59 @@ def _try_lower_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: ExprSt
             end=_lower_expr(lower_ctx, expr.arguments[1]),
             value_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr.arguments[2]).name,
             set_method=_resolve_instance_method_id(lower_ctx, receiver_type.name, "slice_set"),
+            span=expr.span,
+        ),
+        value=_lower_expr(lower_ctx, expr.arguments[2]),
+        span=stmt.span,
+    )
+
+
+def _try_lower_array_index_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: ExprStmt) -> SemanticAssign | None:
+    expr = stmt.expression
+    if not isinstance(expr, CallExpr):
+        return None
+    if not isinstance(expr.callee, FieldAccessExpr):
+        return None
+    if expr.callee.field_name != "index_set" or len(expr.arguments) != 2:
+        return None
+
+    receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
+    if receiver_type.element_type is None:
+        return None
+
+    return SemanticAssign(
+        target=IndexLValue(
+            target=_lower_expr(lower_ctx, expr.callee.object_expr),
+            index=_lower_expr(lower_ctx, expr.arguments[0]),
+            value_type_name=receiver_type.element_type.name,
+            set_method=None,
+            span=expr.span,
+        ),
+        value=_lower_expr(lower_ctx, expr.arguments[1]),
+        span=stmt.span,
+    )
+
+
+def _try_lower_array_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: ExprStmt) -> SemanticAssign | None:
+    expr = stmt.expression
+    if not isinstance(expr, CallExpr):
+        return None
+    if not isinstance(expr.callee, FieldAccessExpr):
+        return None
+    if expr.callee.field_name != "slice_set" or len(expr.arguments) != 3:
+        return None
+
+    receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
+    if receiver_type.element_type is None:
+        return None
+
+    return SemanticAssign(
+        target=SliceLValue(
+            target=_lower_expr(lower_ctx, expr.callee.object_expr),
+            begin=_lower_expr(lower_ctx, expr.arguments[0]),
+            end=_lower_expr(lower_ctx, expr.arguments[1]),
+            value_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr.arguments[2]).name,
+            set_method=None,
             span=expr.span,
         ),
         value=_lower_expr(lower_ctx, expr.arguments[2]),
@@ -846,6 +973,33 @@ def _resolve_module_member_call_target(
 
 def _resolved_type_name(typecheck_ctx: TypeCheckContext, type_ref) -> str:
     return resolve_type_ref(typecheck_ctx, type_ref).name
+
+
+def _literal_type_name(expr: LiteralExpr) -> str:
+    if expr.value in {"true", "false"}:
+        return "bool"
+    if expr.value.startswith("'"):
+        return "u8"
+    if "." in expr.value:
+        return "double"
+    if expr.value.endswith("u8") and expr.value[:-2].isdigit():
+        return "u8"
+    if expr.value.endswith("u") and expr.value[:-1].isdigit():
+        return "u64"
+    if expr.value.isdigit():
+        if int(expr.value) > I64_MAX_LITERAL:
+            return "i64"
+        return "i64"
+    raise ValueError(f"Unsupported literal syntax for semantic lowering: {expr.value}")
+
+
+def _resolve_index_assignment_value_type_name(lower_ctx: _ModuleLoweringContext, expr: IndexExpr) -> str:
+    object_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.object_expr)
+    if object_type.element_type is not None:
+        return object_type.element_type.name
+
+    method_sig = ensure_structural_set_method_available_for_index_assignment(lower_ctx.typecheck_ctx, object_type, expr.span)
+    return qualify_member_type_for_owner(lower_ctx.typecheck_ctx, method_sig.params[1], object_type.name).name
 
 
 def _resolve_index_method_id(

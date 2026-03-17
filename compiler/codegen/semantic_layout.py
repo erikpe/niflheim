@@ -5,6 +5,7 @@ import compiler.codegen.types as codegen_types
 from compiler.codegen.model import FunctionLayout, TEMP_RUNTIME_ROOT_SLOT_COUNT
 from compiler.semantic_ir import (
     ArrayCtorExprS,
+    ArrayLenExpr,
     BinaryExprS,
     CallableValueCallExpr,
     CastExprS,
@@ -96,6 +97,7 @@ def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
             IndexReadExpr,
             SliceReadExpr,
             ArrayCtorExprS,
+            ArrayLenExpr,
             SyntheticExpr,
         ),
     ):
@@ -136,31 +138,33 @@ def _stmt_needs_temp_runtime_roots(stmt: SemanticStmt) -> bool:
 
 
 def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
+    def _max_rooted_sequence(call_arguments: list[SemanticExpr], *, trailing_expr: SemanticExpr | None = None) -> int:
+        rooted_after = 0
+        max_slots = 0
+
+        for arg in reversed(call_arguments):
+            max_slots = max(max_slots, rooted_after + _max_call_temp_root_slots_in_expr(arg))
+            if codegen_types.is_reference_type_name(infer_expression_type_name(arg)):
+                rooted_after += 1
+                max_slots = max(max_slots, rooted_after)
+
+        if trailing_expr is not None:
+            max_slots = max(max_slots, rooted_after + _max_call_temp_root_slots_in_expr(trailing_expr))
+
+        return max(max_slots, rooted_after)
+
     if isinstance(expr, CallableValueCallExpr):
-        max_slots = len(expr.args)
-        max_slots = max(max_slots, _max_call_temp_root_slots_in_expr(expr.callee))
-        for arg in expr.args:
-            max_slots = max(max_slots, _max_call_temp_root_slots_in_expr(arg))
-        return max_slots
+        return _max_rooted_sequence(expr.args, trailing_expr=expr.callee)
     if isinstance((expr), (FunctionCallExpr, StaticMethodCallExpr, ConstructorCallExpr)):
-        max_slots = len(expr.args)
-        for arg in expr.args:
-            max_slots = max(max_slots, _max_call_temp_root_slots_in_expr(arg))
-        return max_slots
+        return _max_rooted_sequence(expr.args)
     if isinstance(expr, InstanceMethodCallExpr):
-        max_slots = len(expr.args) + 1
-        max_slots = max(max_slots, _max_call_temp_root_slots_in_expr(expr.receiver))
-        for arg in expr.args:
-            max_slots = max(max_slots, _max_call_temp_root_slots_in_expr(arg))
-        return max_slots
+        return _max_rooted_sequence([expr.receiver, *expr.args])
+    if isinstance(expr, ArrayLenExpr):
+        return _max_rooted_sequence([expr.target])
     if isinstance(expr, IndexReadExpr):
-        return max(_max_call_temp_root_slots_in_expr(expr.target), _max_call_temp_root_slots_in_expr(expr.index))
+        return _max_rooted_sequence([expr.target, expr.index])
     if isinstance(expr, SliceReadExpr):
-        return max(
-            _max_call_temp_root_slots_in_expr(expr.target),
-            _max_call_temp_root_slots_in_expr(expr.begin),
-            _max_call_temp_root_slots_in_expr(expr.end),
-        )
+        return _max_rooted_sequence([expr.target, expr.begin, expr.end])
     if isinstance(expr, ArrayCtorExprS):
         return _max_call_temp_root_slots_in_expr(expr.length_expr)
     if isinstance(expr, SyntheticExpr):

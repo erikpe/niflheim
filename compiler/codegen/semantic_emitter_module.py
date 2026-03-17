@@ -80,28 +80,51 @@ def emit_string_literal_section(codegen, program) -> dict[str, tuple[str, int]]:
 
 
 def emit_type_metadata_section(codegen, program) -> None:
-    class_type_names = [cls.class_id.name for cls in program.classes]
+    class_aliases_by_name: dict[str, tuple[object, list[str], str]] = {}
+    for cls in program.classes:
+        qualified_name = _qualified_class_type_name(cls)
+        aliases = [cls.class_id.name]
+        if qualified_name != cls.class_id.name:
+            aliases.append(qualified_name)
+        display_name = qualified_name if qualified_name != cls.class_id.name else cls.class_id.name
+        for alias in aliases:
+            class_aliases_by_name[alias] = (cls, aliases, display_name)
+
     cast_type_names = collect_reference_cast_types(program)
-    type_names = sorted(set(class_type_names) | set(cast_type_names))
-    if not type_names:
+    extra_type_names = sorted(name for name in cast_type_names if name not in class_aliases_by_name)
+    if not class_aliases_by_name and not extra_type_names:
         return
-    class_decls_by_name = {cls.class_id.name: cls for cls in program.classes}
+
     pointer_offset_symbols: dict[str, tuple[str, list[int]]] = {}
-    for type_name in type_names:
-        class_decl = class_decls_by_name.get(type_name)
-        if class_decl is None:
+    emitted_classes: set[tuple[tuple[str, ...], str]] = set()
+    for cls, aliases, _display_name in class_aliases_by_name.values():
+        class_key = (cls.class_id.module_path, cls.class_id.name)
+        if class_key in emitted_classes:
             continue
+        emitted_classes.add(class_key)
         pointer_offsets = [
             24 + (8 * field_index)
-            for field_index, field in enumerate(class_decl.fields)
+            for field_index, field in enumerate(cls.fields)
             if codegen_types.is_reference_type_name(field.type_name)
         ]
         if pointer_offsets:
-            pointer_offset_symbols[type_name] = (f"{codegen_symbols.mangle_type_name_symbol(type_name)}__ptr_offsets", pointer_offsets)
+            pointer_offset_symbols[_qualified_class_type_name(cls)] = (
+                f"{codegen_symbols.mangle_type_name_symbol(_qualified_class_type_name(cls))}__ptr_offsets",
+                pointer_offsets,
+            )
 
     codegen.asm.blank()
     codegen.asm.directive(".section .rodata")
-    for type_name in type_names:
+    emitted_name_records: set[tuple[tuple[str, ...], str]] = set()
+    for cls, aliases, display_name in class_aliases_by_name.values():
+        class_key = (cls.class_id.module_path, cls.class_id.name)
+        if class_key in emitted_name_records:
+            continue
+        emitted_name_records.add(class_key)
+        for alias in aliases:
+            codegen.asm.label(codegen_symbols.mangle_type_name_symbol(alias))
+        codegen.asm.asciz(display_name)
+    for type_name in extra_type_names:
         codegen.asm.label(codegen_symbols.mangle_type_name_symbol(type_name))
         codegen.asm.asciz(type_name)
     for symbol, pointer_offsets in pointer_offset_symbols.values():
@@ -111,10 +134,17 @@ def emit_type_metadata_section(codegen, program) -> None:
 
     codegen.asm.blank()
     codegen.asm.directive(".data")
-    for type_name in type_names:
-        type_sym = codegen_symbols.mangle_type_symbol(type_name)
-        name_sym = codegen_symbols.mangle_type_name_symbol(type_name)
-        pointer_offsets_meta = pointer_offset_symbols.get(type_name)
+    emitted_type_records: set[tuple[tuple[str, ...], str]] = set()
+    for cls, aliases, display_name in class_aliases_by_name.values():
+        class_key = (cls.class_id.module_path, cls.class_id.name)
+        if class_key in emitted_type_records:
+            continue
+        emitted_type_records.add(class_key)
+        codegen.asm.instr(".p2align 3")
+        for alias in aliases:
+            codegen.asm.label(codegen_symbols.mangle_type_symbol(alias))
+        name_sym = codegen_symbols.mangle_type_name_symbol(display_name)
+        pointer_offsets_meta = pointer_offset_symbols.get(_qualified_class_type_name(cls))
         if pointer_offsets_meta is None:
             type_flags = 0
             pointer_offsets_sym = "0"
@@ -123,8 +153,6 @@ def emit_type_metadata_section(codegen, program) -> None:
             pointer_offsets_sym = pointer_offsets_meta[0]
             pointer_offsets_count = len(pointer_offsets_meta[1])
             type_flags = 1
-        codegen.asm.instr(".p2align 3")
-        codegen.asm.label(type_sym)
         codegen.asm.instr(".long 0")
         codegen.asm.instr(f".long {type_flags}")
         codegen.asm.instr(".long 1")
@@ -134,6 +162,22 @@ def emit_type_metadata_section(codegen, program) -> None:
         codegen.asm.instr(".quad 0")
         codegen.asm.instr(f".quad {pointer_offsets_sym}")
         codegen.asm.instr(f".long {pointer_offsets_count}")
+        codegen.asm.instr(".long 0")
+
+    for type_name in extra_type_names:
+        type_sym = codegen_symbols.mangle_type_symbol(type_name)
+        name_sym = codegen_symbols.mangle_type_name_symbol(type_name)
+        codegen.asm.instr(".p2align 3")
+        codegen.asm.label(type_sym)
+        codegen.asm.instr(".long 0")
+        codegen.asm.instr(".long 0")
+        codegen.asm.instr(".long 1")
+        codegen.asm.instr(".long 8")
+        codegen.asm.instr(".quad 0")
+        codegen.asm.instr(f".quad {name_sym}")
+        codegen.asm.instr(".quad 0")
+        codegen.asm.instr(".quad 0")
+        codegen.asm.instr(".long 0")
         codegen.asm.instr(".long 0")
 
 
@@ -251,6 +295,11 @@ def collect_reference_cast_types(program) -> list[str]:
         for method in cls.methods:
             _collect_reference_cast_types_from_block(method.body, names)
     return sorted(names)
+
+
+def _qualified_class_type_name(cls) -> str:
+    owner_dotted = ".".join(cls.class_id.module_path)
+    return f"{owner_dotted}::{cls.class_id.name}"
 
 
 def _collect_reference_cast_types_from_block(block: SemanticBlock, out: set[str]) -> None:
