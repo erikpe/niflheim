@@ -79,7 +79,6 @@ from compiler.semantic_symbols import (
     ProgramSymbolIndex,
     build_program_symbol_index,
     class_id_for_decl,
-    constructor_id_for_class,
     function_id_for_decl,
     method_id_for_decl,
 )
@@ -103,6 +102,42 @@ from compiler.typecheck.type_resolution import qualify_member_type_for_owner, re
 class _ModuleLoweringContext:
     typecheck_ctx: TypeCheckContext
     symbol_index: ProgramSymbolIndex
+
+
+@dataclass(frozen=True)
+class _ResolvedFunctionCallTarget:
+    function_id: object
+
+
+@dataclass(frozen=True)
+class _ResolvedConstructorCallTarget:
+    constructor_id: ConstructorId
+
+
+@dataclass(frozen=True)
+class _ResolvedStaticMethodCallTarget:
+    method_id: MethodId
+
+
+@dataclass(frozen=True)
+class _ResolvedInstanceMethodCallTarget:
+    method_id: MethodId
+    receiver: Expression
+    receiver_type_name: str
+
+
+@dataclass(frozen=True)
+class _ResolvedCallableValueCallTarget:
+    callee: Expression
+
+
+ResolvedCallTarget = (
+    _ResolvedFunctionCallTarget
+    | _ResolvedConstructorCallTarget
+    | _ResolvedStaticMethodCallTarget
+    | _ResolvedInstanceMethodCallTarget
+    | _ResolvedCallableValueCallTarget
+)
 
 
 def lower_program(program: ProgramInfo) -> SemanticProgram:
@@ -486,78 +521,136 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
 
 
 def _lower_call_expr(lower_ctx: _ModuleLoweringContext, expr: CallExpr, result_type_name: str) -> SemanticExpr:
+    resolved_target = _resolve_call_target(lower_ctx, expr)
     args = [_lower_expr(lower_ctx, arg) for arg in expr.arguments]
 
-    if isinstance(expr.callee, IdentifierExpr):
-        if (
-            expr.callee.name in lower_ctx.typecheck_ctx.functions
-            or resolve_imported_function_sig(lower_ctx.typecheck_ctx, expr.callee.name, expr.callee.span) is not None
-        ):
-            function_id = _function_id_for_identifier_call(lower_ctx, expr.callee.name)
-            return FunctionCallExpr(function_id=function_id, args=args, type_name=result_type_name, span=expr.span)
+    if isinstance(resolved_target, _ResolvedFunctionCallTarget):
+        return FunctionCallExpr(
+            function_id=resolved_target.function_id,
+            args=args,
+            type_name=result_type_name,
+            span=expr.span,
+        )
 
-        imported_class_name = resolve_imported_class_name(lower_ctx.typecheck_ctx, expr.callee.name, expr.callee.span)
-        if expr.callee.name in lower_ctx.typecheck_ctx.classes or imported_class_name is not None:
-            type_name = expr.callee.name if imported_class_name is None else imported_class_name
-            return ConstructorCallExpr(
-                constructor_id=_constructor_id_from_type_name(lower_ctx.typecheck_ctx.module_path, type_name),
-                args=args,
-                type_name=result_type_name,
-                span=expr.span,
-            )
+    if isinstance(resolved_target, _ResolvedConstructorCallTarget):
+        return ConstructorCallExpr(
+            constructor_id=resolved_target.constructor_id,
+            args=args,
+            type_name=result_type_name,
+            span=expr.span,
+        )
 
-    if isinstance(expr.callee, FieldAccessExpr):
-        module_member = resolve_module_member(lower_ctx.typecheck_ctx, expr.callee)
-        if module_member is not None:
-            kind, owner_module, member_name = module_member
-            if kind == "function":
-                return FunctionCallExpr(
-                    function_id=_function_id_for_module_member(lower_ctx, owner_module, member_name),
-                    args=args,
-                    type_name=result_type_name,
-                    span=expr.span,
-                )
-            if kind == "class":
-                return ConstructorCallExpr(
-                    constructor_id=_constructor_id_for_module_member(owner_module, member_name),
-                    args=args,
-                    type_name=result_type_name,
-                    span=expr.span,
-                )
+    if isinstance(resolved_target, _ResolvedStaticMethodCallTarget):
+        return StaticMethodCallExpr(
+            method_id=resolved_target.method_id,
+            args=args,
+            type_name=result_type_name,
+            span=expr.span,
+        )
 
-        receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
-        if receiver_type.kind == "callable" and receiver_type.name.startswith("__class__:"):
-            return StaticMethodCallExpr(
-                method_id=_method_id_for_type_name(
-                    lower_ctx.typecheck_ctx.module_path,
-                    class_type_name_from_callable(receiver_type.name),
-                    expr.callee.field_name,
-                ),
-                args=args,
-                type_name=result_type_name,
-                span=expr.span,
-            )
+    if isinstance(resolved_target, _ResolvedInstanceMethodCallTarget):
+        return InstanceMethodCallExpr(
+            method_id=resolved_target.method_id,
+            receiver=_lower_expr(lower_ctx, resolved_target.receiver),
+            receiver_type_name=resolved_target.receiver_type_name,
+            args=args,
+            type_name=result_type_name,
+            span=expr.span,
+        )
 
-        class_info = lookup_class_by_type_name(lower_ctx.typecheck_ctx, receiver_type.name)
-        if class_info is not None and expr.callee.field_name in class_info.methods:
-            return InstanceMethodCallExpr(
-                method_id=_method_id_for_type_name(
-                    lower_ctx.typecheck_ctx.module_path, receiver_type.name, expr.callee.field_name
-                ),
-                receiver=_lower_expr(lower_ctx, expr.callee.object_expr),
-                receiver_type_name=receiver_type.name,
-                args=args,
-                type_name=result_type_name,
-                span=expr.span,
-            )
-
-    infer_call_type(lower_ctx.typecheck_ctx, expr)
     return CallableValueCallExpr(
-        callee=_lower_expr(lower_ctx, expr.callee),
+        callee=_lower_expr(lower_ctx, resolved_target.callee),
         args=args,
         type_name=result_type_name,
         span=expr.span,
     )
+
+
+def _resolve_call_target(lower_ctx: _ModuleLoweringContext, expr: CallExpr) -> ResolvedCallTarget:
+    identifier_target = _resolve_identifier_call_target(lower_ctx, expr)
+    if identifier_target is not None:
+        return identifier_target
+
+    field_access_target = _resolve_field_access_call_target(lower_ctx, expr)
+    if field_access_target is not None:
+        return field_access_target
+
+    infer_call_type(lower_ctx.typecheck_ctx, expr)
+    return _ResolvedCallableValueCallTarget(callee=expr.callee)
+
+
+def _resolve_identifier_call_target(
+    lower_ctx: _ModuleLoweringContext, expr: CallExpr
+) -> ResolvedCallTarget | None:
+    if not isinstance(expr.callee, IdentifierExpr):
+        return None
+
+    name = expr.callee.name
+    if name in lower_ctx.typecheck_ctx.functions:
+        return _ResolvedFunctionCallTarget(function_id=_function_id_for_local_name(lower_ctx, name))
+
+    imported_function = resolve_imported_function_sig(lower_ctx.typecheck_ctx, name, expr.callee.span)
+    if imported_function is not None:
+        return _ResolvedFunctionCallTarget(function_id=_function_id_for_imported_name(lower_ctx, name))
+
+    imported_class_name = resolve_imported_class_name(lower_ctx.typecheck_ctx, name, expr.callee.span)
+    if name in lower_ctx.typecheck_ctx.classes or imported_class_name is not None:
+        type_name = name if imported_class_name is None else imported_class_name
+        return _ResolvedConstructorCallTarget(
+            constructor_id=_constructor_id_from_type_name(lower_ctx.typecheck_ctx.module_path, type_name)
+        )
+
+    return None
+
+
+def _resolve_field_access_call_target(
+    lower_ctx: _ModuleLoweringContext, expr: CallExpr
+) -> ResolvedCallTarget | None:
+    if not isinstance(expr.callee, FieldAccessExpr):
+        return None
+
+    module_member_target = _resolve_module_member_call_target(lower_ctx, expr.callee)
+    if module_member_target is not None:
+        return module_member_target
+
+    receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
+    if receiver_type.kind == "callable" and receiver_type.name.startswith("__class__:"):
+        return _ResolvedStaticMethodCallTarget(
+            method_id=_method_id_for_type_name(
+                lower_ctx.typecheck_ctx.module_path,
+                class_type_name_from_callable(receiver_type.name),
+                expr.callee.field_name,
+            )
+        )
+
+    class_info = lookup_class_by_type_name(lower_ctx.typecheck_ctx, receiver_type.name)
+    if class_info is not None and expr.callee.field_name in class_info.methods:
+        return _ResolvedInstanceMethodCallTarget(
+            method_id=_method_id_for_type_name(
+                lower_ctx.typecheck_ctx.module_path, receiver_type.name, expr.callee.field_name
+            ),
+            receiver=expr.callee.object_expr,
+            receiver_type_name=receiver_type.name,
+        )
+
+    return None
+
+
+def _resolve_module_member_call_target(
+    lower_ctx: _ModuleLoweringContext, callee: FieldAccessExpr
+) -> ResolvedCallTarget | None:
+    module_member = resolve_module_member(lower_ctx.typecheck_ctx, callee)
+    if module_member is None:
+        return None
+
+    kind, owner_module, member_name = module_member
+    if kind == "function":
+        return _ResolvedFunctionCallTarget(
+            function_id=_function_id_for_module_member(lower_ctx, owner_module, member_name)
+        )
+    if kind == "class":
+        return _ResolvedConstructorCallTarget(constructor_id=_constructor_id_for_module_member(owner_module, member_name))
+    return None
 
 
 def _resolved_type_name(typecheck_ctx: TypeCheckContext, type_ref) -> str:
