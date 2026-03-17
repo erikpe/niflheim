@@ -135,6 +135,8 @@ emit_asm(codegen_module)
 
 The exact function names can differ, but the stage ownership should match this shape.
 
+The ordered implementation checklist for bypassing reachability during backend migration now lives in `docs/SEMANTIC_CODEGEN_MIGRATION_CHECKLIST.md`.
+
 ## Core Design
 
 ### 1. Introduce A Semantic IR Layer
