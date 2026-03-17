@@ -5,9 +5,8 @@ import sys
 from pathlib import Path
 
 from compiler.ast_dump import ast_to_debug_json
-from compiler.codegen.generator import emit_asm, emit_semantic_asm
+from compiler.codegen.generator import emit_semantic_asm
 from compiler.lexer import Token, lex
-from compiler.module_linker import build_codegen_module, require_main_function
 from compiler.parser import parse
 from compiler.resolver import resolve_program
 from compiler.semantic_linker import build_semantic_codegen_program, require_semantic_main_function
@@ -72,36 +71,23 @@ def main() -> int:
         if args.stop_after == "parse":
             return 0
 
-        if args.semantic_codegen and args.source_ast_codegen:
-            raise ValueError("--semantic-codegen and --source-ast-codegen are mutually exclusive")
+        if args.source_ast_codegen:
+            raise ValueError("--source-ast-codegen is no longer supported")
 
-        if args.semantic_codegen and args.skip_check:
-            raise ValueError("--semantic-codegen requires type checking; --skip-check is not supported")
+        if args.skip_check and args.stop_after not in {"lex", "parse"}:
+            raise ValueError("--skip-check only supports lex/parse inspection; codegen requires type checking")
 
-        use_semantic_codegen = not args.skip_check and not args.source_ast_codegen
+        if args.skip_check:
+            return 0
 
-        if not args.skip_check:
-            program = resolve_program(input_path, project_root=args.project_root)
-            typecheck_program(program)
-            if use_semantic_codegen:
-                semantic_program = build_semantic_codegen_program(prune_unreachable_semantic(lower_program(program)))
-                require_semantic_main_function(semantic_program)
-            else:
-                require_main_function(program.modules[program.entry_module].ast)
-                codegen_module = build_codegen_module(program)
+        program = resolve_program(input_path, project_root=args.project_root)
+        typecheck_program(program)
+        semantic_program = build_semantic_codegen_program(prune_unreachable_semantic(lower_program(program)))
+        require_semantic_main_function(semantic_program)
         if args.stop_after == "check":
             return 0
 
-        if args.skip_check:
-            codegen_module = module_ast
-
-        if args.skip_check:
-            require_main_function(codegen_module)
-            asm = emit_asm(codegen_module)
-        elif use_semantic_codegen:
-            asm = emit_semantic_asm(semantic_program)
-        else:
-            asm = emit_asm(codegen_module)
+        asm = emit_semantic_asm(semantic_program)
         if args.output:
             Path(args.output).write_text(asm, encoding="utf-8")
         if args.print_asm or not args.output:

@@ -5,7 +5,7 @@ This checklist gives the recommended implementation order for temporarily bypass
 Status update as of 2026-03-17:
 
 - default checked compilation now uses the semantic backend
-- `--source-ast-codegen` remains available only as a temporary rollback path
+- `--source-ast-codegen` has been retired from the checked CLI path
 - compiler pytest, golden tests, runtime smoke tests, and runtime harness validation all pass with semantic codegen as the default path
 - smoke and golden flows no longer depend on the legacy backend fallback
 
@@ -155,7 +155,7 @@ Implementation status:
 
 - complete in practice
 - default checked CLI compilation now lowers to semantic IR and emits through the semantic backend
-- the legacy backend is still reachable through `--source-ast-codegen`, but smoke/golden validation no longer relies on it
+- the checked legacy backend entry path has been removed from `compiler/cli.py`
 - representative source-vs-semantic backend parity coverage exists in the compiler test suite
 - full validation has been run successfully with the semantic backend as the preferred path:
    - `pytest`
@@ -167,7 +167,7 @@ Exit criteria:
 
 - default compilation uses lowered semantic IR
 - reachability is still bypassed on the semantic path
-- the old backend is retained only as a temporary rollback option
+- the old checked backend entry path is gone
 
 ## Phase 8: Reintroduce Reachability On Semantic IR
 
@@ -198,7 +198,8 @@ Implementation status:
 - complete for the checked semantic path
 - semantic pruning now runs after lowering and before semantic linking/codegen
 - the old source-AST reachability pass has been removed instead of being kept in sync with semantic pruning
-- `--source-ast-codegen` still exists as a temporary codegen fallback, but it now links the full checked source program directly without a separate AST-pruning phase
+- `--source-ast-codegen` is now rejected by the CLI
+- `--skip-check` is restricted to lex/parse inspection and no longer reaches codegen
 
 ## Phase 9: Remove The Old Source-AST Backend Path
 

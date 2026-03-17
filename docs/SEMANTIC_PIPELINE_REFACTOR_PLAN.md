@@ -129,8 +129,8 @@ typed_program = typecheck_program(program)
 semantic_program = lower_program(typed_program)
 reachability = analyze_reachability(semantic_program)
 pruned_program = prune_unreachable(semantic_program, reachability)
-codegen_module = build_codegen_module(pruned_program)
-emit_asm(codegen_module)
+semantic_codegen_program = build_semantic_codegen_program(pruned_program)
+emit_semantic_asm(semantic_codegen_program)
 ```
 
 The exact function names can differ, but the stage ownership should match this shape.
@@ -146,7 +146,8 @@ Current implementation state:
     - lower to semantic IR
     - semantic codegen
 - reachability is still intentionally bypassed on that path
-- the legacy source-AST backend remains behind `--source-ast-codegen` only as a temporary rollback path
+- the checked source-AST backend entry path has been removed from the CLI
+- unchecked `--skip-check` usage is now limited to lex/parse inspection and no longer emits assembly
 - compiler pytest, golden tests, runtime smoke tests, and runtime harness validation are green with the semantic backend as the preferred path
 
 ## Core Design
@@ -278,7 +279,7 @@ Likely existing modules to update:
 
 - `compiler/cli.py`
 - `compiler/typecheck/api.py`
-- `compiler/module_linker.py`
+- old source-AST merge/link step removed; semantic linking now owns checked codegen input shaping
 - `compiler/codegen/generator.py`
 - `compiler/codegen/call_resolution.py`
 - `compiler/codegen/emitter_expr.py`
@@ -474,7 +475,7 @@ Expected files not to change in this pass:
 
 - `compiler/codegen/*`
 - `compiler/typecheck/*`
-- `compiler/module_linker.py`
+- old source-AST merge/link step removed from production checked compilation
 
 ### Pass 1 Recommended Order
 
