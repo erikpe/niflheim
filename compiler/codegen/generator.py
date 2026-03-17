@@ -6,28 +6,17 @@ from typing import TYPE_CHECKING
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
-from compiler.ast_nodes import ModuleAst, ParamDecl
-from compiler.codegen.model import ConstructorLayout, FunctionLayout, RUNTIME_REF_ARG_INDICES
+from compiler.codegen.model import FunctionLayout, RUNTIME_REF_ARG_INDICES
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
-from compiler.codegen.emitter_module import generate_module
 
 if TYPE_CHECKING:
     from compiler.semantic_linker import SemanticCodegenProgram
 
 
 class CodeGenerator:
-    def __init__(self, module_ast: ModuleAst) -> None:
-        self.module_ast = module_ast
+    def __init__(self) -> None:
         self.asm = AsmBuilder()
-        self.method_labels: dict[tuple[str, str], str] = {}
-        self.method_return_types: dict[tuple[str, str], str] = {}
-        self.method_is_static: dict[tuple[str, str], bool] = {}
-        self.function_return_types: dict[str, str] = {}
-        self.constructor_layouts: dict[str, ConstructorLayout] = {}
-        self.constructor_labels: dict[str, str] = {}
-        self.class_field_offsets: dict[tuple[str, str], int] = {}
-        self.class_field_type_names: dict[tuple[str, str], str] = {}
         self.string_literal_labels: dict[str, tuple[str, int]] = {}
         self.runtime_panic_message_labels: dict[str, str] = {}
         self.source_lines_by_path: dict[str, list[str] | None] = {}
@@ -82,39 +71,6 @@ class CodeGenerator:
         self.asm.comment(f"{file_path}:{line}:{column} | {source_line}")
         self.last_emitted_comment_location = location_key
 
-    def build_symbol_tables(self) -> None:
-        for cls in self.module_ast.classes:
-            for method in cls.methods:
-                self.method_labels[(cls.name, method.name)] = codegen_symbols.mangle_method_symbol(
-                    cls.name, method.name)
-                self.method_return_types[(cls.name, method.name)] = codegen_types.type_ref_name(
-                    method.return_type)
-                self.method_is_static[(cls.name, method.name)
-                                      ] = method.is_static
-
-        for fn in self.module_ast.functions:
-            self.function_return_types[fn.name] = codegen_types.type_ref_name(
-                fn.return_type)
-
-        for cls in self.module_ast.classes:
-            ctor_label = codegen_symbols.mangle_constructor_symbol(cls.name)
-            ctor_layout = ConstructorLayout(
-                class_name=cls.name,
-                label=ctor_label,
-                type_symbol=codegen_symbols.mangle_type_symbol(cls.name),
-                payload_bytes=len(cls.fields) * 8,
-                field_names=[field.name for field in cls.fields],
-                param_field_names=[
-                    field.name for field in cls.fields if field.initializer is None],
-            )
-            self.constructor_layouts[cls.name] = ctor_layout
-            self.constructor_labels[cls.name] = ctor_label
-            for field_index, field in enumerate(cls.fields):
-                self.class_field_offsets[(
-                    cls.name, field.name)] = 24 + (8 * field_index)
-                self.class_field_type_names[(
-                    cls.name, field.name)] = codegen_types.type_ref_name(field.type_ref)
-
     def emit_frame_prologue(self, target_label: str, layout: FunctionLayout, *, global_symbol: bool) -> None:
         if global_symbol:
             self.asm.directive(f".globl {target_label}")
@@ -134,13 +90,12 @@ class CodeGenerator:
         for offset in layout.temp_root_slot_offsets:
             self.asm.instr(f"mov {offset_operand(offset)}, 0")
 
-    def emit_param_spills(self, params: list[ParamDecl], layout: FunctionLayout) -> None:
-        param_type_names = [codegen_types.type_ref_name(
-            param.type_ref) for param in params]
+    def emit_param_spills(self, params: list[tuple[str, str, object | None]], layout: FunctionLayout) -> None:
+        param_type_names = [type_name for _name, type_name, _span in params]
         arg_locations = plan_sysv_arg_locations(param_type_names)
 
-        for param, (location_kind, location_register, stack_index) in zip(params, arg_locations):
-            offset = layout.slot_offsets.get(param.name)
+        for (param_name, _param_type_name, param_span), (location_kind, location_register, stack_index) in zip(params, arg_locations):
+            offset = layout.slot_offsets.get(param_name)
             if offset is None:
                 continue
 
@@ -157,7 +112,7 @@ class CodeGenerator:
             if location_kind == "stack":
                 if stack_index is None:
                     codegen_types.raise_codegen_error(
-                        "missing stack argument index while spilling parameters", span=param.span)
+                        "missing stack argument index while spilling parameters", span=param_span)
                 incoming_stack_offset = 16 + (stack_index * 8)
                 self.asm.instr(
                     f"mov rax, qword ptr [rbp + {incoming_stack_offset}]")
@@ -165,7 +120,7 @@ class CodeGenerator:
                 continue
 
             codegen_types.raise_codegen_error(
-                f"unsupported argument location kind '{location_kind}'", span=param.span)
+                f"unsupported argument location kind '{location_kind}'", span=param_span)
 
     def emit_trace_push(self, fn_debug_name_label: str, fn_debug_file_label: str, line: int, column: int) -> None:
         self.asm.instr(f"lea rdi, [rip + {fn_debug_name_label}]")
@@ -312,13 +267,6 @@ class CodeGenerator:
         self.asm.instr("cmp rax, 0")
         self.asm.instr("setne al")
         self.asm.instr("movzx rax, al")
-
-    def generate(self) -> str:
-        return generate_module(self)
-
-
-def emit_asm(module_ast: ModuleAst) -> str:
-    return CodeGenerator(module_ast).generate()
 
 
 def emit_semantic_asm(semantic_program: SemanticCodegenProgram) -> str:

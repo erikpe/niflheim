@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.ast_nodes import Expression
-
 
 @dataclass
 class FunctionLayout:
@@ -22,13 +20,6 @@ class FunctionLayout:
 
 
 @dataclass(frozen=True)
-class ResolvedCallTarget:
-    name: str
-    receiver_expr: Expression | None
-    return_type_name: str
-
-
-@dataclass(frozen=True)
 class ConstructorLayout:
     class_name: str
     label: str
@@ -43,13 +34,7 @@ class EmitContext:
     layout: FunctionLayout
     fn_name: str
     label_counter: list[int]
-    method_labels: dict[tuple[str, str], str]
-    method_return_types: dict[tuple[str, str], str]
-    method_is_static: dict[tuple[str, str], bool]
-    constructor_labels: dict[str, str]
-    function_return_types: dict[str, str]
     string_literal_labels: dict[str, tuple[str, int]]
-    class_field_type_names: dict[tuple[str, str], str]
     temp_root_depth: list[int]
 
 

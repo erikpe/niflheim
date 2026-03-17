@@ -1,14 +1,38 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import ImportDecl, ModuleAst
 from compiler.codegen.asm import offset_operand
-from compiler.codegen.emitter_fn import emit_debug_symbol_literals
 from compiler.codegen.model import EmitContext
 from compiler.codegen.semantic_emitter_expr import SemanticEmitContext, emit_expr
 from compiler.codegen.semantic_emitter_stmt import emit_statement
 from compiler.codegen.semantic_layout import build_layout
+from compiler.codegen.strings import escape_c_string
 from compiler.semantic_ir import SemanticBlock, SemanticClass, SemanticFunction, SemanticMethod, SemanticParam, SemanticVarDecl
 from compiler.semantic_symbols import FunctionId
+
+
+def _emit_debug_symbol_literals(
+    codegen,
+    *,
+    target_label: str,
+    function_name: str,
+    file_path: str,
+) -> tuple[str, str]:
+    safe_target = target_label.replace(".", "_").replace(":", "_")
+    fn_label = f"__nif_dbg_fn_{safe_target}"
+    file_label = f"__nif_dbg_file_{safe_target}"
+    codegen.asm.blank()
+    codegen.asm.directive(".section .rodata")
+    codegen.asm.label(fn_label)
+    codegen.asm.asciz(escape_c_string(function_name))
+    codegen.asm.label(file_label)
+    codegen.asm.asciz(escape_c_string(file_path))
+    codegen.asm.blank()
+    codegen.asm.directive(".text")
+    return fn_label, file_label
+
+
+def _param_specs(params: list[SemanticParam]) -> list[tuple[str, str, object]]:
+    return [(param.name, param.type_name, param.span) for param in params]
 
 
 def emit_function(codegen, declaration_tables, fn: SemanticFunction, *, label: str | None = None, global_symbol: bool | None = None) -> None:
@@ -18,7 +42,7 @@ def emit_function(codegen, declaration_tables, fn: SemanticFunction, *, label: s
     epilogue = f".L{target_label}_epilogue"
     layout = build_layout(fn)
     label_counter = [0]
-    fn_debug_name_label, fn_debug_file_label = emit_debug_symbol_literals(
+    fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
         codegen,
         target_label=target_label,
         function_name=target_label,
@@ -32,7 +56,7 @@ def emit_function(codegen, declaration_tables, fn: SemanticFunction, *, label: s
     )
     codegen.emit_location_comment(file_path=fn.span.start.path, line=fn.span.start.line, column=fn.span.start.column)
     codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_to_ast_params(fn.params), layout)
+    codegen.emit_param_spills(_param_specs(fn.params), layout)
 
     if layout.root_slot_count > 0:
         first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]] if layout.root_slot_names else layout.temp_root_slot_offsets[0]
@@ -45,13 +69,7 @@ def emit_function(codegen, declaration_tables, fn: SemanticFunction, *, label: s
             layout=layout,
             fn_name=target_label,
             label_counter=label_counter,
-            method_labels={},
-            method_return_types={},
-            method_is_static={},
-            constructor_labels={},
-            function_return_types={},
             string_literal_labels=codegen.string_literal_labels,
-            class_field_type_names={},
             temp_root_depth=[0],
         ),
         declaration_tables=declaration_tables,
@@ -105,7 +123,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     epilogue = f".L{target_label}_epilogue"
     layout = build_layout(ctor_fn)
     label_counter = [0]
-    fn_debug_name_label, fn_debug_file_label = emit_debug_symbol_literals(
+    fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
         codegen,
         target_label=target_label,
         function_name=target_label,
@@ -115,7 +133,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     codegen.emit_frame_prologue(target_label, layout, global_symbol=False)
     codegen.emit_location_comment(file_path=cls.span.start.path, line=cls.span.start.line, column=cls.span.start.column)
     codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_to_ast_params(ctor_fn.params), layout)
+    codegen.emit_param_spills(_param_specs(ctor_fn.params), layout)
 
     if layout.root_slot_names:
         first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
@@ -137,13 +155,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
             layout=layout,
             fn_name=target_label,
             label_counter=label_counter,
-            method_labels={},
-            method_return_types={},
-            method_is_static={},
-            constructor_labels={},
-            function_return_types={},
             string_literal_labels=codegen.string_literal_labels,
-            class_field_type_names={},
             temp_root_depth=[0],
         ),
         declaration_tables=declaration_tables,
@@ -172,9 +184,3 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
 
 def _receiver_param(cls: SemanticClass, method: SemanticMethod) -> list[SemanticParam]:
     return [SemanticParam(name="__self", type_name=cls.class_id.name, span=method.span)]
-
-
-def _to_ast_params(params: list[SemanticParam]):
-    from compiler.ast_nodes import ParamDecl, TypeRef
-
-    return [ParamDecl(name=param.name, type_ref=TypeRef(name=param.type_name, span=param.span), span=param.span) for param in params]

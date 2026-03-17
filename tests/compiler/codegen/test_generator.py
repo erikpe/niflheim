@@ -81,3 +81,53 @@ def test_semantic_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
     assert tables.class_field_offsets_by_id[(box_id, "value")] == 24
     assert tables.class_field_type_names_by_id[(box_id, "next")] == "Obj"
     assert tables.constructor_layouts_by_id[ctor_id].param_field_names == ["value", "next"]
+
+
+def test_semantic_codegen_emits_main_prologue_and_epilogue(tmp_path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+    generator = SemanticCodeGenerator(
+        build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+
+    asm = generator.generate()
+
+    assert ".globl main" in asm
+    assert "main:" in asm
+    assert ".Lmain_epilogue:" in asm
+    assert "    ret" in asm
+
+
+def test_semantic_codegen_orchestrates_sections_and_class_symbols(tmp_path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Box {
+            value: i64;
+
+            fn get() -> i64 {
+                return __self.value;
+            }
+        }
+
+        fn main() -> i64 {
+            return Box(0).get();
+        }
+        """,
+    )
+    generator = SemanticCodeGenerator(
+        build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+
+    asm = generator.generate()
+
+    assert ".text" in asm
+    assert "__nif_method_Box_get" in asm
+    assert "__nif_ctor_Box" in asm
+    assert '.section .note.GNU-stack,"",@progbits' in asm

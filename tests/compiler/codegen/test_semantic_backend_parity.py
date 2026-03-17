@@ -120,3 +120,91 @@ def test_semantic_backend_emits_expected_object_fields_and_control_flow(tmp_path
         ".Lmain_if_else_",
     ]:
         assert expected in semantic_asm
+
+
+def test_semantic_backend_emits_integer_binary_expr_shape(tmp_path) -> None:
+    semantic_asm = emit_semantic_source_asm(
+        tmp_path,
+        """
+        fn f(a: i64, b: i64) -> i64 { return a + b; }
+
+        fn main() -> i64 { return f(20, 22); }
+        """,
+        source_path="main.nif",
+    )
+
+    assert "    push rax" in semantic_asm
+    assert "    add rax, rcx" in semantic_asm
+
+
+def test_semantic_backend_emits_numeric_cast_conversion_shape(tmp_path) -> None:
+    semantic_asm = emit_semantic_source_asm(
+        tmp_path,
+        """
+        fn to_double(x: i64) -> double { return (double)x; }
+
+        fn to_bool(x: double) -> bool { return (bool)x; }
+
+        fn main() -> i64 {
+            var d: double = to_double(7);
+            if to_bool(d) {
+                return 0;
+            }
+            return 1;
+        }
+        """,
+    )
+
+    assert "    cvtsi2sd xmm0, rax" in semantic_asm
+    assert "    movq rax, xmm0" in semantic_asm
+    assert "    movq xmm0, rax" in semantic_asm
+    assert "    cvttsd2si rax, xmm0" in semantic_asm
+    assert "    cmp rax, 0" in semantic_asm
+    assert "    setne al" in semantic_asm
+
+
+def test_semantic_backend_emits_while_control_flow_shape(tmp_path) -> None:
+    semantic_asm = emit_semantic_source_asm(
+        tmp_path,
+        """
+        fn loop_to(limit: i64) -> i64 {
+            var i: i64 = 0;
+            while i < limit {
+                i = i + 1;
+            }
+            return i;
+        }
+
+        fn main() -> i64 {
+            return loop_to(4);
+        }
+        """,
+    )
+
+    assert ".Lloop_to_while_start_" in semantic_asm
+    assert ".Lloop_to_while_end_" in semantic_asm
+    assert "    je .Lloop_to_while_end_" in semantic_asm
+
+
+def test_semantic_backend_emits_if_else_control_flow_shape(tmp_path) -> None:
+    semantic_asm = emit_semantic_source_asm(
+        tmp_path,
+        """
+        fn choose(flag: bool) -> i64 {
+            if flag {
+                return 1;
+            } else {
+                return 2;
+            }
+        }
+
+        fn main() -> i64 {
+            return choose(true);
+        }
+        """,
+    )
+
+    assert ".Lchoose_if_else_" in semantic_asm
+    assert ".Lchoose_if_end_" in semantic_asm
+    assert "    je .Lchoose_if_else_" in semantic_asm
+    assert "    jmp .Lchoose_if_end_" in semantic_asm

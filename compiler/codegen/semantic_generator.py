@@ -4,11 +4,9 @@ from dataclasses import dataclass
 
 import compiler.codegen.symbols as codegen_symbols
 
-from compiler.ast_nodes import ModuleAst
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.semantic_emitter_module import generate_module
 from compiler.codegen.model import ConstructorLayout
-from compiler.lexer import SourceSpan
 from compiler.semantic_linker import SemanticCodegenProgram
 from compiler.semantic_symbols import ClassId, ConstructorId, FunctionId, MethodId
 
@@ -27,7 +25,7 @@ class SemanticDeclarationTables:
 
 class SemanticCodeGenerator(CodeGenerator):
     def __init__(self, program: SemanticCodegenProgram) -> None:
-        super().__init__(ModuleAst(imports=[], classes=[], functions=[], span=program.span))
+        super().__init__()
         self.program = program
         self.declaration_tables: SemanticDeclarationTables | None = None
 

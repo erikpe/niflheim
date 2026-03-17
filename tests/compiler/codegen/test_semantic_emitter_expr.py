@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.ast_nodes import ModuleAst
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.model import EmitContext
 from compiler.codegen.semantic_emitter_expr import SemanticEmitContext, emit_expr
 from compiler.codegen.semantic_generator import SemanticCodeGenerator
 from compiler.codegen.semantic_layout import build_layout
-from compiler.lexer import SourcePos, SourceSpan
 from compiler.resolver import resolve_program
 from compiler.semantic_ir import (
     CallableValueCallExpr,
@@ -29,12 +27,6 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content.strip() + "\n", encoding="utf-8")
 
 
-def _dummy_module_ast() -> ModuleAst:
-    pos = SourcePos(path="examples/semantic_expr.nif", offset=0, line=1, column=1)
-    span = SourceSpan(start=pos, end=pos)
-    return ModuleAst(imports=[], classes=[], functions=[], span=span)
-
-
 def _build_semantic_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name: str = "main"):
     for relative_path, content in files.items():
         _write(tmp_path / relative_path, content)
@@ -47,20 +39,14 @@ def _build_semantic_emit_fixture(tmp_path: Path, files: dict[str, str], *, funct
         for fn in semantic_program.functions
         if fn.function_id.module_path == ("main",) and fn.function_id.name == function_name
     )
-    generator = CodeGenerator(_dummy_module_ast())
+    generator = CodeGenerator()
     tables = SemanticCodeGenerator(semantic_program).build_declaration_tables()
     layout = build_layout(semantic_fn)
     emit_ctx = EmitContext(
         layout=layout,
         fn_name=function_name,
         label_counter=[0],
-        method_labels={},
-        method_return_types={},
-        method_is_static={},
-        constructor_labels={},
-        function_return_types={},
         string_literal_labels={},
-        class_field_type_names={},
         temp_root_depth=[0],
     )
     return semantic_fn, generator, SemanticEmitContext(emit_ctx=emit_ctx, declaration_tables=tables)
