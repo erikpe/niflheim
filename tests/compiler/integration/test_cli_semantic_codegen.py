@@ -4,7 +4,7 @@ from pathlib import Path
 
 import compiler.cli as cli
 
-from compiler.semantic_ir import SemanticProgram
+from compiler.semantic_linker import SemanticCodegenProgram
 from tests.compiler.integration.helpers import run_cli, write
 
 
@@ -25,7 +25,7 @@ def test_cli_semantic_codegen_flag_selects_lowered_program_path(tmp_path: Path, 
     def _unexpected_old_backend(*_args, **_kwargs):
         raise AssertionError("old AST backend should not be used when --semantic-codegen is set")
 
-    def _fake_emit_semantic_asm(semantic_program: SemanticProgram) -> str:
+    def _fake_emit_semantic_asm(semantic_program: SemanticCodegenProgram) -> str:
         seen["semantic_program"] = semantic_program
         return "; semantic backend selected\n"
 
@@ -37,5 +37,5 @@ def test_cli_semantic_codegen_flag_selects_lowered_program_path(tmp_path: Path, 
     assert rc == 0
     assert out_file.read_text(encoding="utf-8") == "; semantic backend selected\n"
     semantic_program = seen["semantic_program"]
-    assert isinstance(semantic_program, SemanticProgram)
+    assert isinstance(semantic_program, SemanticCodegenProgram)
     assert semantic_program.entry_module == ("main",)

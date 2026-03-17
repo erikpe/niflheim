@@ -13,7 +13,7 @@ from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 from compiler.codegen.emitter_module import generate_module
 
 if TYPE_CHECKING:
-    from compiler.semantic_ir import SemanticProgram
+    from compiler.semantic_linker import SemanticCodegenProgram
 
 
 class CodeGenerator:
@@ -321,5 +321,5 @@ def emit_asm(module_ast: ModuleAst) -> str:
     return CodeGenerator(module_ast).generate()
 
 
-def emit_semantic_asm(semantic_program: SemanticProgram) -> str:
+def emit_semantic_asm(semantic_program: SemanticCodegenProgram) -> str:
     raise NotImplementedError("semantic codegen path is not implemented yet")

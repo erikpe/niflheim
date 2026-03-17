@@ -11,6 +11,7 @@ from compiler.module_linker import build_codegen_module, require_main_function
 from compiler.parser import parse
 from compiler.reachability import prune_unreachable
 from compiler.resolver import resolve_program
+from compiler.semantic_linker import build_semantic_codegen_program, require_semantic_main_function
 from compiler.semantic_lowering import lower_program
 from compiler.typecheck.api import typecheck_program
 
@@ -44,9 +45,7 @@ def main() -> int:
     parser.add_argument("--print-ast-spans", action="store_true", help="Include spans in --print-ast output")
     parser.add_argument("--print-asm", action="store_true", help="Also print emitted assembly to stdout")
     parser.add_argument(
-        "--semantic-codegen",
-        action="store_true",
-        help="Use the experimental semantic-lowering backend path",
+        "--semantic-codegen", action="store_true", help="Use the experimental semantic-lowering backend path"
     )
     args = parser.parse_args()
 
@@ -72,10 +71,11 @@ def main() -> int:
         if not args.skip_check:
             program = resolve_program(input_path, project_root=args.project_root)
             typecheck_program(program)
-            require_main_function(program.modules[program.entry_module].ast)
             if args.semantic_codegen:
-                semantic_program = lower_program(program)
+                semantic_program = build_semantic_codegen_program(lower_program(program))
+                require_semantic_main_function(semantic_program)
             else:
+                require_main_function(program.modules[program.entry_module].ast)
                 program = prune_unreachable(program)
                 codegen_module = build_codegen_module(program)
         if args.stop_after == "check":
