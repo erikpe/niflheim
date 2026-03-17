@@ -30,6 +30,7 @@ from compiler.ast_nodes import (
     VarDeclStmt,
     WhileStmt,
 )
+from compiler.codegen.strings import decode_string_literal, is_str_type_name
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic_ir import (
     ArrayCtorExprS,
@@ -69,7 +70,10 @@ from compiler.semantic_ir import (
     SemanticStmt,
     SemanticVarDecl,
     SemanticWhile,
+    SliceLValue,
+    SliceReadExpr,
     StaticMethodCallExpr,
+    SyntheticExpr,
     UnaryExprS,
 )
 from compiler.semantic_symbols import (
@@ -77,6 +81,7 @@ from compiler.semantic_symbols import (
     ConstructorId,
     MethodId,
     ProgramSymbolIndex,
+    SyntheticId,
     build_program_symbol_index,
     class_id_for_decl,
     function_id_for_decl,
@@ -95,6 +100,7 @@ from compiler.typecheck.module_lookup import (
     resolve_imported_function_sig,
     resolve_module_member,
 )
+from compiler.typecheck.structural import resolve_for_in_element_type
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner, resolve_type_ref
 
 
@@ -379,7 +385,8 @@ def _lower_stmt(lower_ctx: _ModuleLoweringContext, stmt: Statement) -> SemanticS
         )
 
     if isinstance(stmt, ForInStmt):
-        element_type = TypeInfo(name=stmt.element_type_name, kind="reference")
+        collection_type = infer_expression_type(lower_ctx.typecheck_ctx, stmt.collection_expr)
+        element_type = resolve_for_in_element_type(lower_ctx.typecheck_ctx, collection_type, stmt.span)
         push_scope(lower_ctx.typecheck_ctx)
         try:
             declare_variable(lower_ctx.typecheck_ctx, stmt.element_name, element_type, stmt.span)
@@ -389,9 +396,9 @@ def _lower_stmt(lower_ctx: _ModuleLoweringContext, stmt: Statement) -> SemanticS
         return SemanticForIn(
             element_name=stmt.element_name,
             collection=_lower_expr(lower_ctx, stmt.collection_expr),
-            iter_len_method=None,
-            iter_get_method=None,
-            element_type_name=stmt.element_type_name,
+            iter_len_method=_resolve_instance_method_id(lower_ctx, collection_type.name, "iter_len"),
+            iter_get_method=_resolve_instance_method_id(lower_ctx, collection_type.name, "iter_get"),
+            element_type_name=element_type.name,
             body=body,
             span=stmt.span,
         )
@@ -412,6 +419,9 @@ def _lower_stmt(lower_ctx: _ModuleLoweringContext, stmt: Statement) -> SemanticS
         )
 
     if isinstance(stmt, ExprStmt):
+        slice_assign = _try_lower_slice_assign_stmt(lower_ctx, stmt)
+        if slice_assign is not None:
+            return slice_assign
         return SemanticExprStmt(expr=_lower_expr(lower_ctx, stmt.expression), span=stmt.span)
 
     raise TypeError(f"Unsupported statement for semantic lowering: {type(stmt).__name__}")
@@ -436,7 +446,7 @@ def _lower_lvalue(lower_ctx: _ModuleLoweringContext, expr: Expression):
         target=_lower_expr(lower_ctx, resolved_target.target),
         index=_lower_expr(lower_ctx, resolved_target.index),
         value_type_name=resolved_target.value_type_name,
-        set_method=None,
+        set_method=_resolve_index_method_id(lower_ctx, resolved_target.target, "index_set"),
         span=expr.span,
     )
 
@@ -470,9 +480,13 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
     expr_type = infer_expression_type(lower_ctx.typecheck_ctx, expr)
 
     if isinstance(expr, IdentifierExpr):
-        return _lower_resolved_ref(lower_ctx, _resolve_identifier_ref_target(lower_ctx, expr), expr_type.name, expr.span)
+        return _lower_resolved_ref(
+            lower_ctx, _resolve_identifier_ref_target(lower_ctx, expr), expr_type.name, expr.span
+        )
 
     if isinstance(expr, LiteralExpr):
+        if expr.value.startswith('"'):
+            return _lower_string_literal_expr(lower_ctx, expr, expr_type.name)
         return LiteralExprS(value=expr.value, type_name=expr_type.name, span=expr.span)
 
     if isinstance(expr, NullExpr):
@@ -487,6 +501,9 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
         )
 
     if isinstance(expr, BinaryExpr):
+        string_concat = _try_lower_string_concat_expr(lower_ctx, expr, expr_type.name)
+        if string_concat is not None:
+            return string_concat
         return BinaryExprS(
             operator=expr.operator,
             left=_lower_expr(lower_ctx, expr.left),
@@ -514,14 +531,16 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
         )
 
     if isinstance(expr, FieldAccessExpr):
-        return _lower_resolved_ref(lower_ctx, _resolve_field_access_ref_target(lower_ctx, expr), expr_type.name, expr.span)
+        return _lower_resolved_ref(
+            lower_ctx, _resolve_field_access_ref_target(lower_ctx, expr), expr_type.name, expr.span
+        )
 
     if isinstance(expr, IndexExpr):
         return IndexReadExpr(
             target=_lower_expr(lower_ctx, expr.object_expr),
             index=_lower_expr(lower_ctx, expr.index_expr),
             result_type_name=expr_type.name,
-            get_method=None,
+            get_method=_resolve_index_method_id(lower_ctx, expr.object_expr, "index_get"),
             span=expr.span,
         )
 
@@ -532,31 +551,26 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
 
 
 def _lower_call_expr(lower_ctx: _ModuleLoweringContext, expr: CallExpr, result_type_name: str) -> SemanticExpr:
+    slice_read = _try_lower_slice_read_expr(lower_ctx, expr, result_type_name)
+    if slice_read is not None:
+        return slice_read
+
     resolved_target = _resolve_call_target(lower_ctx, expr)
     args = [_lower_expr(lower_ctx, arg) for arg in expr.arguments]
 
     if isinstance(resolved_target, _ResolvedFunctionCallTarget):
         return FunctionCallExpr(
-            function_id=resolved_target.function_id,
-            args=args,
-            type_name=result_type_name,
-            span=expr.span,
+            function_id=resolved_target.function_id, args=args, type_name=result_type_name, span=expr.span
         )
 
     if isinstance(resolved_target, _ResolvedConstructorCallTarget):
         return ConstructorCallExpr(
-            constructor_id=resolved_target.constructor_id,
-            args=args,
-            type_name=result_type_name,
-            span=expr.span,
+            constructor_id=resolved_target.constructor_id, args=args, type_name=result_type_name, span=expr.span
         )
 
     if isinstance(resolved_target, _ResolvedStaticMethodCallTarget):
         return StaticMethodCallExpr(
-            method_id=resolved_target.method_id,
-            args=args,
-            type_name=result_type_name,
-            span=expr.span,
+            method_id=resolved_target.method_id, args=args, type_name=result_type_name, span=expr.span
         )
 
     if isinstance(resolved_target, _ResolvedInstanceMethodCallTarget):
@@ -570,8 +584,83 @@ def _lower_call_expr(lower_ctx: _ModuleLoweringContext, expr: CallExpr, result_t
         )
 
     return CallableValueCallExpr(
-        callee=_lower_expr(lower_ctx, resolved_target.callee),
-        args=args,
+        callee=_lower_expr(lower_ctx, resolved_target.callee), args=args, type_name=result_type_name, span=expr.span
+    )
+
+
+def _try_lower_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: ExprStmt) -> SemanticAssign | None:
+    expr = stmt.expression
+    if not isinstance(expr, CallExpr):
+        return None
+    if not isinstance(expr.callee, FieldAccessExpr):
+        return None
+    if expr.callee.field_name != "slice_set" or len(expr.arguments) != 3:
+        return None
+
+    receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
+    return SemanticAssign(
+        target=SliceLValue(
+            target=_lower_expr(lower_ctx, expr.callee.object_expr),
+            begin=_lower_expr(lower_ctx, expr.arguments[0]),
+            end=_lower_expr(lower_ctx, expr.arguments[1]),
+            value_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr.arguments[2]).name,
+            set_method=_resolve_instance_method_id(lower_ctx, receiver_type.name, "slice_set"),
+            span=expr.span,
+        ),
+        value=_lower_expr(lower_ctx, expr.arguments[2]),
+        span=stmt.span,
+    )
+
+
+def _try_lower_slice_read_expr(
+    lower_ctx: _ModuleLoweringContext, expr: CallExpr, result_type_name: str
+) -> SliceReadExpr | None:
+    if not isinstance(expr.callee, FieldAccessExpr):
+        return None
+    if expr.callee.field_name != "slice_get" or len(expr.arguments) != 2:
+        return None
+
+    receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
+    return SliceReadExpr(
+        target=_lower_expr(lower_ctx, expr.callee.object_expr),
+        begin=_lower_expr(lower_ctx, expr.arguments[0]),
+        end=_lower_expr(lower_ctx, expr.arguments[1]),
+        result_type_name=result_type_name,
+        get_method=_resolve_instance_method_id(lower_ctx, receiver_type.name, "slice_get"),
+        span=expr.span,
+    )
+
+
+def _lower_string_literal_expr(
+    lower_ctx: _ModuleLoweringContext, expr: LiteralExpr, result_type_name: str
+) -> StaticMethodCallExpr:
+    decode_string_literal(expr.value)
+    return StaticMethodCallExpr(
+        method_id=_resolve_static_method_id(lower_ctx, result_type_name, "from_u8_array"),
+        args=[
+            SyntheticExpr(
+                synthetic_id=SyntheticId(kind="string_literal_bytes", owner=result_type_name, name=expr.value),
+                args=[],
+                type_name="u8[]",
+                span=expr.span,
+            )
+        ],
+        type_name=result_type_name,
+        span=expr.span,
+    )
+
+
+def _try_lower_string_concat_expr(
+    lower_ctx: _ModuleLoweringContext, expr: BinaryExpr, result_type_name: str
+) -> StaticMethodCallExpr | None:
+    left_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.left)
+    right_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.right)
+    if expr.operator != "+" or not is_str_type_name(left_type.name) or not is_str_type_name(right_type.name):
+        return None
+
+    return StaticMethodCallExpr(
+        method_id=_resolve_static_method_id(lower_ctx, result_type_name, "concat"),
+        args=[_lower_expr(lower_ctx, expr.left), _lower_expr(lower_ctx, expr.right)],
         type_name=result_type_name,
         span=expr.span,
     )
@@ -590,9 +679,7 @@ def _resolve_call_target(lower_ctx: _ModuleLoweringContext, expr: CallExpr) -> R
     return _ResolvedCallableValueCallTarget(callee=expr.callee)
 
 
-def _resolve_identifier_ref_target(
-    lower_ctx: _ModuleLoweringContext, expr: IdentifierExpr
-) -> ResolvedRefTarget:
+def _resolve_identifier_ref_target(lower_ctx: _ModuleLoweringContext, expr: IdentifierExpr) -> ResolvedRefTarget:
     local_type = lookup_variable(lower_ctx.typecheck_ctx, expr.name)
     if local_type is not None:
         return _ResolvedLocalRefTarget(name=expr.name, type_name=local_type.name)
@@ -606,19 +693,21 @@ def _resolve_identifier_ref_target(
     imported_class_name = resolve_imported_class_name(lower_ctx.typecheck_ctx, expr.name, expr.span)
     if expr.name in lower_ctx.typecheck_ctx.classes or imported_class_name is not None:
         type_name = expr.name if imported_class_name is None else imported_class_name
-        return _ResolvedClassRefTarget(class_id=_class_id_from_type_name(lower_ctx.typecheck_ctx.module_path, type_name))
+        return _ResolvedClassRefTarget(
+            class_id=_class_id_from_type_name(lower_ctx.typecheck_ctx.module_path, type_name)
+        )
 
     raise TypeError(f"Unsupported identifier expression for semantic lowering: {expr.name}")
 
 
-def _resolve_field_access_ref_target(
-    lower_ctx: _ModuleLoweringContext, expr: FieldAccessExpr
-) -> ResolvedRefTarget:
+def _resolve_field_access_ref_target(lower_ctx: _ModuleLoweringContext, expr: FieldAccessExpr) -> ResolvedRefTarget:
     module_member = resolve_module_member(lower_ctx.typecheck_ctx, expr)
     if module_member is not None:
         kind, owner_module, member_name = module_member
         if kind == "function":
-            return _ResolvedFunctionRefTarget(function_id=_function_id_for_module_member(lower_ctx, owner_module, member_name))
+            return _ResolvedFunctionRefTarget(
+                function_id=_function_id_for_module_member(lower_ctx, owner_module, member_name)
+            )
         if kind == "class":
             return _ResolvedClassRefTarget(class_id=_class_id_for_module_member(owner_module, member_name))
         raise TypeError("Module references are not first-class semantic expressions")
@@ -627,9 +716,7 @@ def _resolve_field_access_ref_target(
     if receiver_type.kind == "callable" and receiver_type.name.startswith("__class__:"):
         return _ResolvedMethodRefTarget(
             method_id=_method_id_for_type_name(
-                lower_ctx.typecheck_ctx.module_path,
-                class_type_name_from_callable(receiver_type.name),
-                expr.field_name,
+                lower_ctx.typecheck_ctx.module_path, class_type_name_from_callable(receiver_type.name), expr.field_name
             ),
             receiver=None,
         )
@@ -661,10 +748,7 @@ def _resolve_field_access_ref_target(
 
 
 def _lower_resolved_ref(
-    lower_ctx: _ModuleLoweringContext,
-    resolved_target: ResolvedRefTarget,
-    type_name: str,
-    span,
+    lower_ctx: _ModuleLoweringContext, resolved_target: ResolvedRefTarget, type_name: str, span
 ) -> SemanticExpr:
     if isinstance(resolved_target, _ResolvedLocalRefTarget):
         return LocalRefExpr(name=resolved_target.name, type_name=resolved_target.type_name, span=span)
@@ -688,9 +772,7 @@ def _lower_resolved_ref(
     )
 
 
-def _resolve_identifier_call_target(
-    lower_ctx: _ModuleLoweringContext, expr: CallExpr
-) -> ResolvedCallTarget | None:
+def _resolve_identifier_call_target(lower_ctx: _ModuleLoweringContext, expr: CallExpr) -> ResolvedCallTarget | None:
     if not isinstance(expr.callee, IdentifierExpr):
         return None
 
@@ -712,9 +794,7 @@ def _resolve_identifier_call_target(
     return None
 
 
-def _resolve_field_access_call_target(
-    lower_ctx: _ModuleLoweringContext, expr: CallExpr
-) -> ResolvedCallTarget | None:
+def _resolve_field_access_call_target(lower_ctx: _ModuleLoweringContext, expr: CallExpr) -> ResolvedCallTarget | None:
     if not isinstance(expr.callee, FieldAccessExpr):
         return None
 
@@ -758,12 +838,55 @@ def _resolve_module_member_call_target(
             function_id=_function_id_for_module_member(lower_ctx, owner_module, member_name)
         )
     if kind == "class":
-        return _ResolvedConstructorCallTarget(constructor_id=_constructor_id_for_module_member(owner_module, member_name))
+        return _ResolvedConstructorCallTarget(
+            constructor_id=_constructor_id_for_module_member(owner_module, member_name)
+        )
     return None
 
 
 def _resolved_type_name(typecheck_ctx: TypeCheckContext, type_ref) -> str:
     return resolve_type_ref(typecheck_ctx, type_ref).name
+
+
+def _resolve_index_method_id(
+    lower_ctx: _ModuleLoweringContext, target_expr: Expression, method_name: str
+) -> MethodId | None:
+    return _resolve_instance_method_id(
+        lower_ctx,
+        infer_expression_type(lower_ctx.typecheck_ctx, target_expr).name,
+        method_name,
+    )
+
+
+def _resolve_instance_method_id(
+    lower_ctx: _ModuleLoweringContext, receiver_type_name: str, method_name: str
+) -> MethodId | None:
+    if receiver_type_name.endswith("[]"):
+        return None
+
+    class_info = lookup_class_by_type_name(lower_ctx.typecheck_ctx, receiver_type_name)
+    if class_info is None:
+        raise ValueError(f"Cannot resolve structural method '{method_name}' on non-class type '{receiver_type_name}'")
+
+    method_sig = class_info.methods.get(method_name)
+    if method_sig is None:
+        raise ValueError(f"Missing instance method '{method_name}' on type '{receiver_type_name}'")
+    if method_sig.is_static:
+        raise ValueError(f"Expected instance method '{method_name}' on type '{receiver_type_name}'")
+    return _method_id_for_type_name(lower_ctx.typecheck_ctx.module_path, receiver_type_name, method_name)
+
+
+def _resolve_static_method_id(lower_ctx: _ModuleLoweringContext, owner_type_name: str, method_name: str) -> MethodId:
+    class_info = lookup_class_by_type_name(lower_ctx.typecheck_ctx, owner_type_name)
+    if class_info is None:
+        raise ValueError(f"Cannot resolve static method '{method_name}' on non-class type '{owner_type_name}'")
+
+    method_sig = class_info.methods.get(method_name)
+    if method_sig is None:
+        raise ValueError(f"Missing static method '{method_name}' on type '{owner_type_name}'")
+    if not method_sig.is_static:
+        raise ValueError(f"Expected static method '{method_name}' on type '{owner_type_name}'")
+    return _method_id_for_type_name(lower_ctx.typecheck_ctx.module_path, owner_type_name, method_name)
 
 
 def _function_id_for_local_name(lower_ctx: _ModuleLoweringContext, name: str):

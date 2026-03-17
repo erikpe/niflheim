@@ -11,6 +11,7 @@ from compiler.semantic_ir import (
     FieldReadExpr,
     FunctionCallExpr,
     FunctionRefExpr,
+    IndexLValue,
     IndexReadExpr,
     InstanceMethodCallExpr,
     LocalLValue,
@@ -18,11 +19,15 @@ from compiler.semantic_ir import (
     MethodRefExpr,
     SemanticAssign,
     SemanticExprStmt,
+    SemanticForIn,
     SemanticIf,
     SemanticReturn,
     SemanticVarDecl,
     SemanticWhile,
+    SliceLValue,
+    SliceReadExpr,
     StaticMethodCallExpr,
+    SyntheticExpr,
 )
 from compiler.resolver import resolve_program
 from compiler.semantic_lowering import lower_program
@@ -406,3 +411,140 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     assert mid_call.receiver_type_name == "Root"
     assert isinstance(mid_call.receiver, LocalRefExpr)
     assert mid_call.receiver.name == "root"
+
+
+def test_lower_program_resolves_structural_index_slice_and_for_in_methods(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Buffer {
+            fn index_get(index: i64) -> i64 {
+                return 1;
+            }
+
+            fn index_set(index: i64, value: i64) -> unit {
+                return;
+            }
+
+            fn slice_get(begin: i64, end: i64) -> Buffer {
+                return Buffer();
+            }
+
+            fn slice_set(begin: i64, end: i64, value: Buffer) -> unit {
+                return;
+            }
+
+            fn iter_len() -> u64 {
+                return 0u;
+            }
+
+            fn iter_get(index: i64) -> i64 {
+                return 0;
+            }
+        }
+
+        fn main(buffer: Buffer, values: i64[]) -> i64 {
+            var first: i64 = buffer[0];
+            buffer[0] = first;
+            var part: Buffer = buffer[0:1];
+            buffer[0:1] = part;
+            for value in buffer {
+                return value;
+            }
+            for item in values {
+                return item;
+            }
+            return first;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    statements = semantic.modules[("main",)].functions[0].body.statements
+
+    first_decl = statements[0]
+    assert isinstance(first_decl, SemanticVarDecl)
+    assert isinstance(first_decl.initializer, IndexReadExpr)
+    assert first_decl.initializer.get_method is not None
+    assert first_decl.initializer.get_method.class_name == "Buffer"
+    assert first_decl.initializer.get_method.name == "index_get"
+
+    index_assign = statements[1]
+    assert isinstance(index_assign, SemanticAssign)
+    assert isinstance(index_assign.target, IndexLValue)
+    assert index_assign.target.set_method is not None
+    assert index_assign.target.set_method.class_name == "Buffer"
+    assert index_assign.target.set_method.name == "index_set"
+
+    slice_decl = statements[2]
+    assert isinstance(slice_decl, SemanticVarDecl)
+    assert isinstance(slice_decl.initializer, SliceReadExpr)
+    assert slice_decl.initializer.get_method is not None
+    assert slice_decl.initializer.get_method.class_name == "Buffer"
+    assert slice_decl.initializer.get_method.name == "slice_get"
+
+    slice_assign = statements[3]
+    assert isinstance(slice_assign, SemanticAssign)
+    assert isinstance(slice_assign.target, SliceLValue)
+    assert slice_assign.target.set_method is not None
+    assert slice_assign.target.set_method.class_name == "Buffer"
+    assert slice_assign.target.set_method.name == "slice_set"
+
+    structural_for_in = statements[4]
+    assert isinstance(structural_for_in, SemanticForIn)
+    assert structural_for_in.iter_len_method is not None
+    assert structural_for_in.iter_get_method is not None
+    assert structural_for_in.iter_len_method.class_name == "Buffer"
+    assert structural_for_in.iter_len_method.name == "iter_len"
+    assert structural_for_in.iter_get_method.class_name == "Buffer"
+    assert structural_for_in.iter_get_method.name == "iter_get"
+
+    array_for_in = statements[5]
+    assert isinstance(array_for_in, SemanticForIn)
+    assert array_for_in.iter_len_method is None
+    assert array_for_in.iter_get_method is None
+
+
+def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Str {
+            static fn from_u8_array(value: u8[]) -> Str {
+                return Str();
+            }
+
+            static fn concat(left: Str, right: Str) -> Str {
+                return Str();
+            }
+        }
+
+        fn main() -> Str {
+            var prefix: Str = "hi";
+            return prefix + " there";
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    statements = semantic.modules[("main",)].functions[0].body.statements
+
+    prefix_decl = statements[0]
+    assert isinstance(prefix_decl, SemanticVarDecl)
+    assert isinstance(prefix_decl.initializer, StaticMethodCallExpr)
+    assert prefix_decl.initializer.method_id.class_name == "Str"
+    assert prefix_decl.initializer.method_id.name == "from_u8_array"
+    assert isinstance(prefix_decl.initializer.args[0], SyntheticExpr)
+    assert prefix_decl.initializer.args[0].synthetic_id.kind == "string_literal_bytes"
+    assert prefix_decl.initializer.args[0].synthetic_id.name == '"hi"'
+
+    return_stmt = statements[1]
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, StaticMethodCallExpr)
+    assert return_stmt.value.method_id.class_name == "Str"
+    assert return_stmt.value.method_id.name == "concat"
+    assert isinstance(return_stmt.value.args[0], LocalRefExpr)
+    assert isinstance(return_stmt.value.args[1], StaticMethodCallExpr)
+    assert return_stmt.value.args[1].method_id.name == "from_u8_array"
