@@ -1,7 +1,7 @@
-from tests.compiler.codegen.helpers import emit_source_asm
+from tests.compiler.codegen.helpers import emit_semantic_source_asm
 
 
-def test_emit_asm_string_literal_lowers_via_u8_array_and_str_factory() -> None:
+def test_emit_asm_string_literal_lowers_via_u8_array_and_str_factory(tmp_path) -> None:
     source = """
 class Str {
     _bytes: u8[];
@@ -19,14 +19,14 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_source_asm(source)
+    asm = emit_semantic_source_asm(tmp_path, source)
 
     assert "__nif_str_lit_0:" in asm
     assert "    call rt_array_from_bytes_u8" in asm
     assert "    call __nif_method_Str_from_u8_array" in asm
 
 
-def test_emit_asm_string_literal_inside_for_in_is_collected() -> None:
+def test_emit_asm_string_literal_inside_for_in_is_collected(tmp_path) -> None:
     source = """
 class Str {
     _bytes: u8[];
@@ -37,8 +37,8 @@ class Str {
 }
 
 class Vec {
-    fn iter_len() -> i64 {
-        return 0;
+    fn iter_len() -> u64 {
+        return 0u;
     }
 
     fn iter_get(index: i64) -> Str {
@@ -59,13 +59,13 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_source_asm(source, source_path="examples/codegen_for_in_string_literal.nif")
+    asm = emit_semantic_source_asm(tmp_path, source)
 
     assert "__nif_str_lit_0:" in asm
     assert "    call rt_array_from_bytes_u8" in asm
 
 
-def test_emit_asm_str_index_lowers_via_structural_get_call() -> None:
+def test_emit_asm_str_index_lowers_via_structural_get_call(tmp_path) -> None:
     source = """
 class Str {
     _bytes: u8[];
@@ -81,6 +81,6 @@ fn main() -> i64 {
     return (i64)b;
 }
 """
-    asm = emit_source_asm(source)
+    asm = emit_semantic_source_asm(tmp_path, source)
 
     assert "    call __nif_method_Str_index_get" in asm

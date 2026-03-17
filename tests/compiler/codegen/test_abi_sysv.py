@@ -6,20 +6,9 @@ def test_plan_sysv_arg_locations_handles_empty_parameter_list() -> None:
 
 
 def test_plan_sysv_arg_locations_mixes_float_int_and_stack() -> None:
-    locations = plan_sysv_arg_locations([
-        "i64",
-        "double",
-        "u64",
-        "double",
-        "u8",
-        "double",
-        "bool",
-        "double",
-        "i64",
-        "double",
-        "u64",
-        "i64",
-    ])
+    locations = plan_sysv_arg_locations(
+        ["i64", "double", "u64", "double", "u8", "double", "bool", "double", "i64", "double", "u64", "i64"]
+    )
 
     assert locations[0] == ("int_reg", "rdi", None)
     assert locations[1] == ("float_reg", "xmm0", None)

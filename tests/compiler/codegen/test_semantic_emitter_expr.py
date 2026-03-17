@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.codegen.emitter_expr import emit_expr as emit_source_expr
+from compiler.ast_nodes import ModuleAst
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.model import EmitContext
 from compiler.codegen.semantic_emitter_expr import SemanticEmitContext, emit_expr
 from compiler.codegen.semantic_generator import SemanticCodeGenerator
 from compiler.codegen.semantic_layout import build_layout
+from compiler.lexer import SourcePos, SourceSpan
 from compiler.resolver import resolve_program
 from compiler.semantic_ir import (
     CallableValueCallExpr,
@@ -21,12 +22,17 @@ from compiler.semantic_ir import (
 )
 from compiler.semantic_linker import build_semantic_codegen_program
 from compiler.semantic_lowering import lower_program
-from tests.compiler.codegen.helpers import parse_module
 
 
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content.strip() + "\n", encoding="utf-8")
+
+
+def _dummy_module_ast() -> ModuleAst:
+    pos = SourcePos(path="examples/semantic_expr.nif", offset=0, line=1, column=1)
+    span = SourceSpan(start=pos, end=pos)
+    return ModuleAst(imports=[], classes=[], functions=[], span=span)
 
 
 def _build_semantic_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name: str = "main"):
@@ -41,7 +47,7 @@ def _build_semantic_emit_fixture(tmp_path: Path, files: dict[str, str], *, funct
         for fn in semantic_program.functions
         if fn.function_id.module_path == ("main",) and fn.function_id.name == function_name
     )
-    generator = CodeGenerator(parse_module("fn dummy() -> i64 { return 0; }", source_path="examples/semantic_expr.nif"))
+    generator = CodeGenerator(_dummy_module_ast())
     tables = SemanticCodeGenerator(semantic_program).build_declaration_tables()
     layout = build_layout(semantic_fn)
     emit_ctx = EmitContext(
