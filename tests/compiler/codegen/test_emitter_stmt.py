@@ -1,9 +1,7 @@
-from compiler.codegen.asm import offset_operand
-from compiler.codegen.emitter_stmt import emit_statement
-from tests.compiler.codegen.helpers import make_function_emit_context
+from tests.compiler.codegen.helpers import emit_semantic_source_asm
 
 
-def test_emitter_stmt_module_emits_while_control_flow() -> None:
+def test_semantic_emitter_stmt_emits_while_control_flow(tmp_path) -> None:
     source = """
 fn loop_to(limit: i64) -> i64 {
     var i: i64 = 0;
@@ -12,34 +10,33 @@ fn loop_to(limit: i64) -> i64 {
     }
     return i;
 }
+
+fn main() -> i64 {
+    return loop_to(4);
+}
 """
-    _, generator, fn, ctx = make_function_emit_context(
-        source,
-        source_path="examples/codegen_stmt.nif",
+    asm = emit_semantic_source_asm(tmp_path, source)
+
+    assert ".Lloop_to_while_start_" in asm
+    assert ".Lloop_to_while_end_" in asm
+    assert "    je .Lloop_to_while_end_" in asm
+
+
+def test_semantic_emitter_stmt_initializes_uninitialized_var_decls(tmp_path) -> None:
+    asm = emit_semantic_source_asm(
+        tmp_path,
+        """
+        fn f() -> i64 { var x: i64; return 0; }
+
+        fn main() -> i64 { return f(); }
+        """,
     )
 
-    emit_statement(generator, fn.body.statements[1], ".Lf_epilogue", "i64", ctx, loop_labels=[])
-
-    assert any(line.startswith(".Lloop_to_while_start_") for line in generator.asm.lines)
-    assert any(line.startswith(".Lloop_to_while_end_") for line in generator.asm.lines)
-    assert "    je .Lloop_to_while_end_1" in generator.asm.lines or any(
-        line.startswith("    je .Lloop_to_while_end_") for line in generator.asm.lines
-    )
+    assert "    mov rax, 0" in asm
+    assert "    mov qword ptr [rbp - 8], rax" in asm
 
 
-def test_emitter_stmt_module_initializes_uninitialized_var_decls() -> None:
-    _, generator, fn, ctx = make_function_emit_context(
-        "fn f() -> i64 { var x: i64; return 0; }",
-        source_path="examples/codegen_stmt.nif",
-    )
-
-    emit_statement(generator, fn.body.statements[0], ".Lf_epilogue", "i64", ctx, loop_labels=[])
-
-    assert "    mov rax, 0" in generator.asm.lines
-    assert f"    mov {offset_operand(ctx.layout.slot_offsets['x'])}, rax" in generator.asm.lines
-
-
-def test_emitter_stmt_module_emits_if_else_control_flow_labels() -> None:
+def test_semantic_emitter_stmt_emits_if_else_control_flow_labels(tmp_path) -> None:
     source = """
 fn choose(flag: bool) -> i64 {
     if flag {
@@ -48,16 +45,14 @@ fn choose(flag: bool) -> i64 {
         return 2;
     }
 }
+
+fn main() -> i64 {
+    return choose(true);
+}
 """
-    _, generator, fn, ctx = make_function_emit_context(
-        source,
-        source_path="examples/codegen_stmt.nif",
-        function_name="choose",
-    )
+    asm = emit_semantic_source_asm(tmp_path, source)
 
-    emit_statement(generator, fn.body.statements[0], ".Lchoose_epilogue", "i64", ctx, loop_labels=[])
-
-    assert any(line.startswith(".Lchoose_if_else_") for line in generator.asm.lines)
-    assert any(line.startswith(".Lchoose_if_end_") for line in generator.asm.lines)
-    assert any(line.startswith("    je .Lchoose_if_else_") for line in generator.asm.lines)
-    assert any(line.startswith("    jmp .Lchoose_if_end_") for line in generator.asm.lines)
+    assert ".Lchoose_if_else_" in asm
+    assert ".Lchoose_if_end_" in asm
+    assert "    je .Lchoose_if_else_" in asm
+    assert "    jmp .Lchoose_if_end_" in asm

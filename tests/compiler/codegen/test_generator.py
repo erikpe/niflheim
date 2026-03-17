@@ -1,17 +1,35 @@
-from tests.compiler.codegen.helpers import build_generator, parse_module
+from compiler.codegen.semantic_generator import SemanticCodeGenerator
+from compiler.resolver import resolve_program
+from compiler.semantic_linker import build_semantic_codegen_program
+from compiler.semantic_lowering import lower_program
+from compiler.semantic_symbols import ClassId, ConstructorId, MethodId
 
 
-def test_codegen_uses_builder_for_aligned_call_and_comments() -> None:
-    source = """
-fn callee() -> i64 {
-    return 7;
-}
+def _write(path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content.strip() + "\n", encoding="utf-8")
 
-fn caller() -> i64 {
-    return callee();
-}
-"""
-    generator = build_generator(parse_module(source, source_path="examples/codegen.nif"), build_symbols=False)
+
+def test_semantic_codegen_uses_builder_for_aligned_call_and_comments(tmp_path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn callee() -> i64 {
+            return 7;
+        }
+
+        fn caller() -> i64 {
+            return callee();
+        }
+
+        fn main() -> i64 {
+            return caller();
+        }
+        """,
+    )
+    generator = SemanticCodeGenerator(
+        build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
 
     asm = generator.generate()
 
@@ -21,37 +39,45 @@ fn caller() -> i64 {
     assert ".L__nif_aligned_call_0:" in asm
 
 
-def test_codegen_build_symbol_tables_tracks_functions_methods_and_fields() -> None:
-    source = """
-class Box {
-    value: i64;
-    next: Obj;
+def test_semantic_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Box {
+            value: i64;
+            next: Obj;
 
-    static fn make(value: i64) -> Box {
-        return Box(value, null);
-    }
+            static fn make(value: i64) -> Box {
+                return Box(value, null);
+            }
 
-    fn get() -> i64 {
-        return __self.value;
-    }
-}
+            fn get() -> i64 {
+                return __self.value;
+            }
+        }
 
-fn helper() -> bool {
-    return true;
-}
-"""
-    generator = build_generator(parse_module(source, source_path="examples/codegen.nif"), build_symbols=False)
+        fn helper() -> bool {
+            return true;
+        }
 
-    generator.build_symbol_tables()
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+    generator = SemanticCodeGenerator(
+        build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
 
-    assert generator.method_labels[("Box", "make")] == "__nif_method_Box_make"
-    assert generator.method_labels[("Box", "get")] == "__nif_method_Box_get"
-    assert generator.method_return_types[("Box", "get")] == "i64"
-    assert generator.method_is_static[("Box", "make")] is True
-    assert generator.method_is_static[("Box", "get")] is False
-    assert generator.function_return_types["helper"] == "bool"
-    assert generator.constructor_labels["Box"] == "__nif_ctor_Box"
-    assert generator.class_field_offsets[("Box", "value")] == 24
-    assert generator.class_field_offsets[("Box", "next")] == 32
-    assert generator.class_field_type_names[("Box", "next")] == "Obj"
-    assert generator.constructor_layouts["Box"].param_field_names == ["value", "next"]
+    tables = generator.build_declaration_tables()
+    box_id = ClassId(module_path=("main",), name="Box")
+    ctor_id = ConstructorId(module_path=("main",), class_name="Box")
+    make_id = MethodId(module_path=("main",), class_name="Box", name="make")
+    get_id = MethodId(module_path=("main",), class_name="Box", name="get")
+
+    assert tables.method_labels_by_id[make_id] == "__nif_method_Box_make"
+    assert tables.method_labels_by_id[get_id] == "__nif_method_Box_get"
+    assert tables.constructor_labels_by_id[ctor_id] == "__nif_ctor_Box"
+    assert tables.class_field_offsets_by_id[(box_id, "value")] == 24
+    assert tables.class_field_type_names_by_id[(box_id, "next")] == "Obj"
+    assert tables.constructor_layouts_by_id[ctor_id].param_field_names == ["value", "next"]

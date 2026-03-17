@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-from tests.compiler.codegen.helpers import emit_semantic_source_asm, emit_source_asm
+from tests.compiler.codegen.helpers import emit_semantic_source_asm
 
 
-def test_semantic_backend_parity_for_calls(tmp_path: Path) -> None:
+def test_semantic_backend_emits_expected_call_shapes(tmp_path) -> None:
     source = """
     fn add(a: i64, b: i64) -> i64 {
         return a + b;
@@ -31,7 +29,6 @@ def test_semantic_backend_parity_for_calls(tmp_path: Path) -> None:
     }
     """
 
-    source_asm = emit_source_asm(source)
     semantic_asm = emit_semantic_source_asm(tmp_path, source)
 
     for expected in [
@@ -40,11 +37,10 @@ def test_semantic_backend_parity_for_calls(tmp_path: Path) -> None:
         "    call __nif_ctor_Box",
         "    call __nif_method_Box_get",
     ]:
-        assert expected in source_asm
         assert expected in semantic_asm
 
 
-def test_semantic_backend_parity_for_arrays_strings_and_casts(tmp_path: Path) -> None:
+def test_semantic_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
     source = """
     class Str {
         _bytes: u8[];
@@ -77,7 +73,6 @@ def test_semantic_backend_parity_for_arrays_strings_and_casts(tmp_path: Path) ->
     }
     """
 
-    source_asm = emit_source_asm(source)
     semantic_asm = emit_semantic_source_asm(tmp_path, source)
 
     for expected in [
@@ -92,11 +87,10 @@ def test_semantic_backend_parity_for_arrays_strings_and_casts(tmp_path: Path) ->
         "__nif_type_name_Person:",
         "__nif_type_Person:",
     ]:
-        assert expected in source_asm
         assert expected in semantic_asm
 
 
-def test_semantic_backend_parity_for_object_fields_and_control_flow(tmp_path: Path) -> None:
+def test_semantic_backend_emits_expected_object_fields_and_control_flow(tmp_path) -> None:
     source = """
     class Counter {
         value: i64;
@@ -116,7 +110,6 @@ def test_semantic_backend_parity_for_object_fields_and_control_flow(tmp_path: Pa
     }
     """
 
-    source_asm = emit_source_asm(source)
     semantic_asm = emit_semantic_source_asm(tmp_path, source)
 
     for expected in [
@@ -126,5 +119,4 @@ def test_semantic_backend_parity_for_object_fields_and_control_flow(tmp_path: Pa
         ".Lmain_while_end_",
         ".Lmain_if_else_",
     ]:
-        assert expected in source_asm
         assert expected in semantic_asm
