@@ -1,24 +1,6 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import (
-    AssignStmt,
-    BlockStmt,
-    BreakStmt,
-    ContinueStmt,
-    ExprStmt,
-    Expression,
-    FieldAccessExpr,
-    ForInStmt,
-    IdentifierExpr,
-    IfStmt,
-    IndexExpr,
-    ParamDecl,
-    ReturnStmt,
-    Statement,
-    VarDeclStmt,
-    WhileStmt,
-)
-
+from compiler.ast_nodes import *
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.lexer import SourceSpan

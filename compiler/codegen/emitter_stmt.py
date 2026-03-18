@@ -4,25 +4,9 @@ import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.asm import offset_operand
-from compiler.codegen.emitter_expr import EmitContext, emit_expr, infer_expression_type_name
+from compiler.codegen.emitter_expr import EmitContext, _resolve_field_offset, emit_expr, infer_expression_type_name
 from compiler.codegen.layout import for_in_temp_name
-from compiler.semantic.ir import (
-    FieldLValue,
-    IndexLValue,
-    LocalLValue,
-    SemanticAssign,
-    SemanticBlock,
-    SemanticBreak,
-    SemanticContinue,
-    SemanticExprStmt,
-    SemanticForIn,
-    SemanticIf,
-    SemanticReturn,
-    SemanticStmt,
-    SemanticVarDecl,
-    SemanticWhile,
-    SliceLValue,
-)
+from compiler.semantic.ir import *
 
 
 def emit_statement(
@@ -245,21 +229,3 @@ def _emit_for_in(
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[index_name])}, rax")
     codegen.asm.instr(f"jmp {loop_start}")
     codegen.asm.label(loop_done)
-
-
-def _resolve_field_offset(ctx: EmitContext, receiver_type_name: str, field_name: str) -> int | None:
-    if "::" in receiver_type_name:
-        _owner_dotted, class_name = receiver_type_name.split("::", 1)
-    else:
-        class_name = receiver_type_name
-
-    matches = [
-        offset
-        for (class_id, candidate_field_name), offset in ctx.declaration_tables.class_field_offsets_by_id.items()
-        if candidate_field_name == field_name and class_id.name == class_name
-    ]
-    if not matches:
-        return None
-    if len(matches) != 1:
-        raise ValueError(f"Ambiguous semantic field offset resolution for '{receiver_type_name}.{field_name}'")
-    return matches[0]

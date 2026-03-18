@@ -1,25 +1,6 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import (
-    AssignStmt,
-    BinaryExpr,
-    BlockStmt,
-    CallExpr,
-    CastExpr,
-    ExprStmt,
-    Expression,
-    FieldAccessExpr,
-    ForInStmt,
-    IfStmt,
-    IndexExpr,
-    LiteralExpr,
-    ModuleAst,
-    ReturnStmt,
-    Statement,
-    UnaryExpr,
-    VarDeclStmt,
-    WhileStmt,
-)
+from compiler.semantic.ir import *
 
 
 STR_CLASS_NAME = "Str"
@@ -144,97 +125,112 @@ def decode_char_literal(lexeme: str) -> int:
     raise ValueError(f"invalid char literal payload: {lexeme!r}")
 
 
-def collect_string_literals_from_expr(expr: Expression, out: list[str], seen: set[str]) -> None:
-    if isinstance(expr, LiteralExpr):
-        if expr.value.startswith('"'):
-            if expr.value not in seen:
-                seen.add(expr.value)
-                out.append(expr.value)
-        return
-
-    if isinstance(expr, CastExpr):
-        collect_string_literals_from_expr(expr.operand, out, seen)
-        return
-
-    if isinstance(expr, UnaryExpr):
-        collect_string_literals_from_expr(expr.operand, out, seen)
-        return
-
-    if isinstance(expr, BinaryExpr):
-        collect_string_literals_from_expr(expr.left, out, seen)
-        collect_string_literals_from_expr(expr.right, out, seen)
-        return
-
-    if isinstance(expr, CallExpr):
-        collect_string_literals_from_expr(expr.callee, out, seen)
-        for arg in expr.arguments:
-            collect_string_literals_from_expr(arg, out, seen)
-        return
-
-    if isinstance(expr, FieldAccessExpr):
-        collect_string_literals_from_expr(expr.object_expr, out, seen)
-        return
-
-    if isinstance(expr, IndexExpr):
-        collect_string_literals_from_expr(expr.object_expr, out, seen)
-        collect_string_literals_from_expr(expr.index_expr, out, seen)
+def emit_string_literal_section(codegen, program: SemanticProgram) -> dict[str, tuple[str, int]]:
+    string_literals = collect_string_literals(program)
+    labels: dict[str, tuple[str, int]] = {}
+    if not string_literals:
+        return labels
+    codegen.asm.blank()
+    codegen.asm.directive(".section .rodata")
+    for index, literal in enumerate(string_literals):
+        label = f"__nif_str_lit_{index}"
+        data = decode_string_literal(literal)
+        labels[literal] = (label, len(data))
+        codegen.asm.label(label)
+        codegen.asm.asciz(escape_asm_string_bytes(data))
+    return labels
 
 
-def collect_string_literals_from_stmt(stmt: Statement, out: list[str], seen: set[str]) -> None:
-    if isinstance(stmt, VarDeclStmt):
-        if stmt.initializer is not None:
-            collect_string_literals_from_expr(stmt.initializer, out, seen)
-        return
-
-    if isinstance(stmt, AssignStmt):
-        collect_string_literals_from_expr(stmt.target, out, seen)
-        collect_string_literals_from_expr(stmt.value, out, seen)
-        return
-
-    if isinstance(stmt, ExprStmt):
-        collect_string_literals_from_expr(stmt.expression, out, seen)
-        return
-
-    if isinstance(stmt, ReturnStmt):
-        if stmt.value is not None:
-            collect_string_literals_from_expr(stmt.value, out, seen)
-        return
-
-    if isinstance(stmt, BlockStmt):
-        for nested in stmt.statements:
-            collect_string_literals_from_stmt(nested, out, seen)
-        return
-
-    if isinstance(stmt, IfStmt):
-        collect_string_literals_from_expr(stmt.condition, out, seen)
-        collect_string_literals_from_stmt(stmt.then_branch, out, seen)
-        if stmt.else_branch is not None:
-            collect_string_literals_from_stmt(stmt.else_branch, out, seen)
-        return
-
-    if isinstance(stmt, WhileStmt):
-        collect_string_literals_from_expr(stmt.condition, out, seen)
-        collect_string_literals_from_stmt(stmt.body, out, seen)
-        return
-
-    if isinstance(stmt, ForInStmt):
-        collect_string_literals_from_expr(stmt.collection_expr, out, seen)
-        collect_string_literals_from_stmt(stmt.body, out, seen)
-
-
-def collect_string_literals(module_ast: ModuleAst) -> list[str]:
-    literals: list[str] = []
+def collect_string_literals(program: SemanticProgram) -> list[str]:
     seen: set[str] = set()
-
-    for fn in module_ast.functions:
-        if fn.body is None:
-            continue
-        for stmt in fn.body.statements:
-            collect_string_literals_from_stmt(stmt, literals, seen)
-
-    for cls in module_ast.classes:
+    out: list[str] = []
+    for fn in program.functions:
+        if fn.body is not None:
+            _collect_string_literals_from_block(fn.body, out, seen)
+    for cls in program.classes:
+        for field in cls.fields:
+            if field.initializer is not None:
+                _collect_string_literals_from_expr(field.initializer, out, seen)
         for method in cls.methods:
-            for stmt in method.body.statements:
-                collect_string_literals_from_stmt(stmt, literals, seen)
+            _collect_string_literals_from_block(method.body, out, seen)
+    return out
 
-    return literals
+
+def _collect_string_literals_from_block(block: SemanticBlock, out: list[str], seen: set[str]) -> None:
+    for stmt in block.statements:
+        _collect_string_literals_from_stmt(stmt, out, seen)
+
+
+def _collect_string_literals_from_stmt(stmt: SemanticStmt, out: list[str], seen: set[str]) -> None:
+    if isinstance(stmt, SemanticBlock):
+        _collect_string_literals_from_block(stmt, out, seen)
+        return
+    if isinstance(stmt, SemanticVarDecl):
+        if stmt.initializer is not None:
+            _collect_string_literals_from_expr(stmt.initializer, out, seen)
+        return
+    if isinstance(stmt, SemanticAssign):
+        _collect_string_literals_from_expr(stmt.value, out, seen)
+        return
+    if isinstance(stmt, SemanticExprStmt):
+        _collect_string_literals_from_expr(stmt.expr, out, seen)
+        return
+    if isinstance(stmt, SemanticReturn):
+        if stmt.value is not None:
+            _collect_string_literals_from_expr(stmt.value, out, seen)
+        return
+    if isinstance(stmt, SemanticIf):
+        _collect_string_literals_from_expr(stmt.condition, out, seen)
+        _collect_string_literals_from_block(stmt.then_block, out, seen)
+        if stmt.else_block is not None:
+            _collect_string_literals_from_block(stmt.else_block, out, seen)
+        return
+    if isinstance(stmt, SemanticWhile):
+        _collect_string_literals_from_expr(stmt.condition, out, seen)
+        _collect_string_literals_from_block(stmt.body, out, seen)
+        return
+    if isinstance(stmt, SemanticForIn):
+        _collect_string_literals_from_expr(stmt.collection, out, seen)
+        _collect_string_literals_from_block(stmt.body, out, seen)
+
+
+def _collect_string_literals_from_expr(expr: SemanticExpr, out: list[str], seen: set[str]) -> None:
+    if isinstance(expr, SyntheticExpr) and expr.synthetic_id.kind == "string_literal_bytes":
+        if expr.synthetic_id.name not in seen:
+            seen.add(expr.synthetic_id.name)
+            out.append(expr.synthetic_id.name)
+        return
+    if isinstance(expr, CastExprS):
+        _collect_string_literals_from_expr(expr.operand, out, seen)
+        return
+    if isinstance(expr, UnaryExprS):
+        _collect_string_literals_from_expr(expr.operand, out, seen)
+        return
+    if isinstance(expr, BinaryExprS):
+        _collect_string_literals_from_expr(expr.left, out, seen)
+        _collect_string_literals_from_expr(expr.right, out, seen)
+        return
+    if isinstance(expr, FieldReadExpr):
+        _collect_string_literals_from_expr(expr.receiver, out, seen)
+        return
+    if isinstance(expr, FunctionCallExpr | StaticMethodCallExpr | ConstructorCallExpr | CallableValueCallExpr):
+        args = expr.args if hasattr(expr, "args") else []
+        for arg in args:
+            _collect_string_literals_from_expr(arg, out, seen)
+        if isinstance(expr, CallableValueCallExpr):
+            _collect_string_literals_from_expr(expr.callee, out, seen)
+        return
+    if isinstance(expr, InstanceMethodCallExpr):
+        _collect_string_literals_from_expr(expr.receiver, out, seen)
+        for arg in expr.args:
+            _collect_string_literals_from_expr(arg, out, seen)
+        return
+    if isinstance(expr, IndexReadExpr):
+        _collect_string_literals_from_expr(expr.target, out, seen)
+        _collect_string_literals_from_expr(expr.index, out, seen)
+        return
+    if isinstance(expr, SliceReadExpr):
+        _collect_string_literals_from_expr(expr.target, out, seen)
+        _collect_string_literals_from_expr(expr.begin, out, seen)
+        _collect_string_literals_from_expr(expr.end, out, seen)
+        return

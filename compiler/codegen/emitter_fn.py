@@ -5,14 +5,7 @@ from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.emitter_stmt import emit_statement
 from compiler.codegen.layout import build_layout
 from compiler.codegen.strings import escape_c_string
-from compiler.semantic.ir import (
-    SemanticBlock,
-    SemanticClass,
-    SemanticFunction,
-    SemanticMethod,
-    SemanticParam,
-    SemanticVarDecl,
-)
+from compiler.semantic.ir import *
 from compiler.semantic.symbols import FunctionId
 
 

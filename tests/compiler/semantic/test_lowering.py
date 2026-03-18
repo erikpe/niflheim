@@ -2,37 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.semantic.ir import (
-    ArrayLenExpr,
-    BinaryExprS,
-    CastExprS,
-    CallableValueCallExpr,
-    ClassRefExpr,
-    ConstructorCallExpr,
-    FieldLValue,
-    FieldReadExpr,
-    FunctionCallExpr,
-    FunctionRefExpr,
-    IndexLValue,
-    IndexReadExpr,
-    InstanceMethodCallExpr,
-    LiteralExprS,
-    LocalLValue,
-    LocalRefExpr,
-    MethodRefExpr,
-    SemanticAssign,
-    SemanticExprStmt,
-    SemanticForIn,
-    SemanticIf,
-    SemanticReturn,
-    SemanticVarDecl,
-    SemanticWhile,
-    SliceLValue,
-    SliceReadExpr,
-    StaticMethodCallExpr,
-    SyntheticExpr,
-    UnaryExprS,
-)
+from compiler.semantic.ir import *
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering import lower_program
 

@@ -4,45 +4,7 @@ from collections import deque
 from dataclasses import dataclass, replace
 
 from compiler.resolver import ModulePath
-from compiler.semantic.ir import (
-    ArrayCtorExprS,
-    ArrayLenExpr,
-    BinaryExprS,
-    CallableValueCallExpr,
-    CastExprS,
-    ClassRefExpr,
-    ConstructorCallExpr,
-    FieldLValue,
-    FieldReadExpr,
-    FunctionCallExpr,
-    FunctionRefExpr,
-    IndexLValue,
-    IndexReadExpr,
-    InstanceMethodCallExpr,
-    MethodRefExpr,
-    SemanticAssign,
-    SemanticBlock,
-    SemanticBreak,
-    SemanticClass,
-    SemanticContinue,
-    SemanticExpr,
-    SemanticExprStmt,
-    SemanticForIn,
-    SemanticFunction,
-    SemanticMethod,
-    SemanticIf,
-    SemanticModule,
-    SemanticProgram,
-    SemanticReturn,
-    SemanticStmt,
-    SemanticVarDecl,
-    SemanticWhile,
-    SliceLValue,
-    SliceReadExpr,
-    StaticMethodCallExpr,
-    SyntheticExpr,
-    UnaryExprS,
-)
+from compiler.semantic.ir import *
 from compiler.semantic.symbols import ClassId, FunctionId, MethodId
 
 

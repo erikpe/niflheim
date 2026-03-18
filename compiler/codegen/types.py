@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import struct
 
-from compiler.ast_nodes import ArrayTypeRef, FunctionTypeRef, TypeRef, TypeRefNode
 from compiler.codegen.model import PRIMITIVE_TYPE_NAMES
 
 
@@ -75,17 +74,6 @@ def array_element_runtime_kind(element_type_name: str) -> str:
     if element_type_name in {"i64", "u64", "u8", "bool", "double"}:
         return element_type_name
     return "ref"
-
-
-def type_ref_name(type_ref: TypeRefNode) -> str:
-    if isinstance(type_ref, TypeRef):
-        return type_ref.name
-    if isinstance(type_ref, ArrayTypeRef):
-        return f"{type_ref_name(type_ref.element_type)}[]"
-    if isinstance(type_ref, FunctionTypeRef):
-        params_text = ",".join(type_ref_name(param_type) for param_type in type_ref.param_types)
-        return f"fn({params_text})->{type_ref_name(type_ref.return_type)}"
-    raise_codegen_error(f"unsupported type ref node: {type(type_ref).__name__}", span=getattr(type_ref, "span", None))
 
 
 def is_double_literal_text(text: str) -> bool:

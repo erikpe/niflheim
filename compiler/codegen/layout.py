@@ -3,37 +3,7 @@ from __future__ import annotations
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.model import FunctionLayout, TEMP_RUNTIME_ROOT_SLOT_COUNT
-from compiler.semantic.ir import (
-    ArrayCtorExprS,
-    ArrayLenExpr,
-    BinaryExprS,
-    CallableValueCallExpr,
-    CastExprS,
-    ConstructorCallExpr,
-    FieldReadExpr,
-    FieldLValue,
-    FunctionCallExpr,
-    IndexReadExpr,
-    IndexLValue,
-    InstanceMethodCallExpr,
-    LocalLValue,
-    SemanticBlock,
-    SemanticAssign,
-    SemanticExpr,
-    SemanticExprStmt,
-    SemanticForIn,
-    SemanticFunction,
-    SemanticIf,
-    SemanticReturn,
-    SemanticStmt,
-    SemanticVarDecl,
-    SemanticWhile,
-    SliceLValue,
-    SliceReadExpr,
-    StaticMethodCallExpr,
-    SyntheticExpr,
-    UnaryExprS,
-)
+from compiler.semantic.ir import *
 
 
 def for_in_temp_name(kind: str, stmt: SemanticForIn) -> str:
