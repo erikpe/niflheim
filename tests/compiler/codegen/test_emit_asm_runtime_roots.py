@@ -1,4 +1,4 @@
-from tests.compiler.codegen.helpers import emit_semantic_source_asm
+from tests.compiler.codegen.helpers import emit_source_asm
 
 
 def test_emit_asm_runtime_call_has_safepoint_hooks(tmp_path) -> None:
@@ -15,7 +15,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert ".Lf_rt_safepoint_before_" in asm
     assert ".Lf_rt_safepoint_after_" in asm
@@ -32,7 +32,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "rt_gc_collect:" not in asm
     assert "    call rt_gc_collect" in asm
@@ -53,7 +53,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
     f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
 
     assert "    mov qword ptr [rbp - 8], rdi" in f_body
@@ -75,7 +75,7 @@ fn main() -> i64 {
     return f(7);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
     f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
 
     assert "    mov qword ptr [rbp - 8], 0" in f_body
@@ -97,7 +97,7 @@ fn main() -> i64 {
     return 1;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_thread_state" in asm
     assert "    call rt_root_frame_init" in asm
@@ -112,7 +112,7 @@ fn f(x: Obj) -> Obj {
 }
 """
     source += "\nfn main() -> i64 { if f(null) == null { return 0; } return 1; }\n"
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     push_roots_i = asm.index("    call rt_push_roots")
     trace_push_i = asm.index("    call rt_trace_push")
@@ -126,7 +126,7 @@ fn f(a: i64) -> i64 {
 }
 """
     source += "\nfn main() -> i64 { return f(7); }\n"
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_trace_push" in asm
     assert "    call rt_trace_pop" in asm
@@ -145,7 +145,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     ctor_label = "__nif_ctor_Boxed:"
     assert ctor_label in asm
@@ -167,7 +167,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
     f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
 
     assert "rt_root_frame_init" not in f_body
@@ -191,7 +191,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
     f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
 
     assert "    mov esi, 0" in f_body
@@ -207,7 +207,7 @@ fn sum(a: i64, b: i64) -> i64 {
 }
 """
     source += "\nfn main() -> i64 { return sum(20, 22); }\n"
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
     sum_body = asm[asm.index("sum:") : asm.index(".Lsum_epilogue:")]
 
     assert "rt_root_frame_init" not in sum_body
@@ -222,7 +222,7 @@ fn f(x: Obj) -> Obj {
 }
 """
     source += "\nfn main() -> i64 { if f(null) == null { return 0; } return 1; }\n"
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     push_i = asm.index("    push rax")
     pop_call_i = asm.index("    call rt_pop_roots")
@@ -244,7 +244,7 @@ fn main() -> i64 {
     return f();
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call callee" in asm
     assert "rt_safepoint_before" not in asm
@@ -269,7 +269,7 @@ fn main() -> i64 {
     return 1;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call callee" in asm
     assert "    call rt_root_slot_store" in asm
@@ -290,7 +290,7 @@ fn main() -> i64 {
     return (i64)caller();
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     caller_start = asm.index("caller:")
     caller_end = asm.index(".Lcaller_epilogue:")

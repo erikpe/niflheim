@@ -1,4 +1,4 @@
-from tests.compiler.codegen.helpers import emit_semantic_source_asm
+from tests.compiler.codegen.helpers import emit_source_asm
 
 
 def test_emit_asm_emits_array_type_metadata_symbols_for_reference_casts(tmp_path) -> None:
@@ -18,7 +18,7 @@ fn main() -> i64 {
     return 1;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_type_name_Person__:" in asm
     assert '.asciz "Person[]"' in asm
@@ -42,7 +42,7 @@ fn main() -> i64 {
     return 1;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_checked_cast" in asm
     assert "    lea rsi, [rip + __nif_type_Person]" in asm
@@ -67,7 +67,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "rt_checked_cast" not in asm
 
@@ -85,7 +85,7 @@ fn main() -> i64 {
     return 1;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_checked_cast_array_kind" in asm
     assert "    mov rsi, 2" in asm
@@ -101,7 +101,7 @@ fn main() -> i64 {
     return f(7);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "rt_checked_cast" not in asm
 
@@ -119,7 +119,7 @@ fn main() -> i64 {
     return 1;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert ".section .rodata" in asm
     assert "__nif_type_name_Obj:" in asm
@@ -146,7 +146,7 @@ fn main() -> i64 {
     return 1;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_type_name_main__Holder__ptr_offsets:" in asm
     assert "__nif_type_name_main__Holder__ptr_offsets:\n    .long 24" in asm
@@ -175,7 +175,7 @@ fn main() -> i64 {
     return 1;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_type_name_main__Counter__ptr_offsets:" not in asm
     assert "__nif_type_Counter:" in asm
@@ -198,7 +198,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_type_name_Holder:" in asm
     assert "__nif_type_Holder:" in asm

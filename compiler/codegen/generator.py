@@ -11,7 +11,7 @@ from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 
 if TYPE_CHECKING:
-    from compiler.semantic_linker import SemanticCodegenProgram
+    from compiler.codegen_linker import CodegenProgram
 
 
 class CodeGenerator:
@@ -54,8 +54,7 @@ class CodeGenerator:
         lines = self.source_lines_by_path.get(file_path)
         if lines is None and file_path not in self.source_lines_by_path:
             try:
-                lines = Path(file_path).read_text(
-                    encoding="utf-8", errors="replace").splitlines()
+                lines = Path(file_path).read_text(encoding="utf-8", errors="replace").splitlines()
             except OSError:
                 lines = None
             self.source_lines_by_path[file_path] = lines
@@ -82,11 +81,9 @@ class CodeGenerator:
 
     def emit_zero_slots(self, layout: FunctionLayout) -> None:
         for name in layout.slot_names:
-            self.asm.instr(
-                f"mov {offset_operand(layout.slot_offsets[name])}, 0")
+            self.asm.instr(f"mov {offset_operand(layout.slot_offsets[name])}, 0")
         for name in layout.root_slot_names:
-            self.asm.instr(
-                f"mov {offset_operand(layout.root_slot_offsets[name])}, 0")
+            self.asm.instr(f"mov {offset_operand(layout.root_slot_offsets[name])}, 0")
         for offset in layout.temp_root_slot_offsets:
             self.asm.instr(f"mov {offset_operand(offset)}, 0")
 
@@ -94,33 +91,32 @@ class CodeGenerator:
         param_type_names = [type_name for _name, type_name, _span in params]
         arg_locations = plan_sysv_arg_locations(param_type_names)
 
-        for (param_name, _param_type_name, param_span), (location_kind, location_register, stack_index) in zip(params, arg_locations):
+        for (param_name, _param_type_name, param_span), (location_kind, location_register, stack_index) in zip(
+            params, arg_locations
+        ):
             offset = layout.slot_offsets.get(param_name)
             if offset is None:
                 continue
 
             if location_kind == "int_reg":
-                self.asm.instr(
-                    f"mov {offset_operand(offset)}, {location_register}")
+                self.asm.instr(f"mov {offset_operand(offset)}, {location_register}")
                 continue
 
             if location_kind == "float_reg":
-                self.asm.instr(
-                    f"movq {offset_operand(offset)}, {location_register}")
+                self.asm.instr(f"movq {offset_operand(offset)}, {location_register}")
                 continue
 
             if location_kind == "stack":
                 if stack_index is None:
                     codegen_types.raise_codegen_error(
-                        "missing stack argument index while spilling parameters", span=param_span)
+                        "missing stack argument index while spilling parameters", span=param_span
+                    )
                 incoming_stack_offset = 16 + (stack_index * 8)
-                self.asm.instr(
-                    f"mov rax, qword ptr [rbp + {incoming_stack_offset}]")
+                self.asm.instr(f"mov rax, qword ptr [rbp + {incoming_stack_offset}]")
                 self.asm.instr(f"mov {offset_operand(offset)}, rax")
                 continue
 
-            codegen_types.raise_codegen_error(
-                f"unsupported argument location kind '{location_kind}'", span=param_span)
+            codegen_types.raise_codegen_error(f"unsupported argument location kind '{location_kind}'", span=param_span)
 
     def emit_trace_push(self, fn_debug_name_label: str, fn_debug_file_label: str, line: int, column: int) -> None:
         self.asm.instr(f"lea rdi, [rip + {fn_debug_name_label}]")
@@ -131,14 +127,12 @@ class CodeGenerator:
 
     def emit_root_frame_setup(self, layout: FunctionLayout, *, root_count: int, first_root_offset: int) -> None:
         self.asm.instr("call rt_thread_state")
-        self.asm.instr(
-            f"mov {offset_operand(layout.thread_state_offset)}, rax")
+        self.asm.instr(f"mov {offset_operand(layout.thread_state_offset)}, rax")
         self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
         self.asm.instr(f"lea rsi, [rbp - {abs(first_root_offset)}]")
         self.asm.instr(f"mov edx, {root_count}")
         self.asm.instr("call rt_root_frame_init")
-        self.asm.instr(
-            f"mov rdi, {offset_operand(layout.thread_state_offset)}")
+        self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
         self.asm.instr(f"lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
         self.asm.instr("call rt_push_roots")
 
@@ -149,8 +143,7 @@ class CodeGenerator:
         else:
             self.asm.instr("push rax")
         if layout.root_slot_count > 0:
-            self.asm.instr(
-                f"mov rdi, {offset_operand(layout.thread_state_offset)}")
+            self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
         self.asm.instr("call rt_trace_pop")
         if return_type_name == "double":
@@ -165,8 +158,7 @@ class CodeGenerator:
     def emit_ref_epilogue(self, layout: FunctionLayout) -> None:
         self.asm.instr("push rax")
         if layout.root_slot_names:
-            self.asm.instr(
-                f"mov rdi, {offset_operand(layout.thread_state_offset)}")
+            self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
         self.asm.instr("call rt_trace_pop")
         self.asm.instr("pop rax")
@@ -175,16 +167,9 @@ class CodeGenerator:
         self.asm.instr("ret")
 
     def emit_runtime_call_hook(
-        self,
-        *,
-        fn_name: str,
-        phase: str,
-        label_counter: list[int],
-        line: int | None = None,
-        column: int | None = None,
+        self, *, fn_name: str, phase: str, label_counter: list[int], line: int | None = None, column: int | None = None
     ) -> None:
-        label = codegen_symbols.next_label(
-            fn_name, f"rt_safepoint_{phase}", label_counter)
+        label = codegen_symbols.next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
         self.asm.label(label)
         self.asm.comment("runtime safepoint hook")
         if phase == "before" and line is not None and column is not None:
@@ -206,22 +191,17 @@ class CodeGenerator:
             self.asm.instr("call rt_root_slot_store")
 
     def emit_runtime_call_arg_temp_roots(
-        self,
-        layout: FunctionLayout,
-        target_name: str,
-        arg_count: int,
-        *,
-        span: object | None = None,
+        self, layout: FunctionLayout, target_name: str, arg_count: int, *, span: object | None = None
     ) -> int:
         if layout.root_slot_count <= 0:
             return 0
-        ref_indices = [index for index in RUNTIME_REF_ARG_INDICES.get(
-            target_name, ()) if index < arg_count]
+        ref_indices = [index for index in RUNTIME_REF_ARG_INDICES.get(target_name, ()) if index < arg_count]
         if not ref_indices:
             return 0
         if len(ref_indices) > len(layout.temp_root_slot_offsets):
             codegen_types.raise_codegen_error(
-                "insufficient temporary root slots for runtime call argument rooting", span=span)
+                "insufficient temporary root slots for runtime call argument rooting", span=span
+            )
 
         for temp_index, arg_index in enumerate(ref_indices):
             self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
@@ -229,8 +209,7 @@ class CodeGenerator:
                 self.asm.instr("mov rdx, qword ptr [rsp]")
             else:
                 self.asm.instr(f"mov rdx, qword ptr [rsp + {arg_index * 8}]")
-            self.asm.instr(
-                f"mov esi, {layout.temp_root_slot_start_index + temp_index}")
+            self.asm.instr(f"mov esi, {layout.temp_root_slot_start_index + temp_index}")
             self.asm.instr("call rt_root_slot_store")
         return len(ref_indices)
 
@@ -239,28 +218,19 @@ class CodeGenerator:
 
     def emit_clear_temp_root_slots(self, layout: FunctionLayout, start_index: int, count: int) -> None:
         for temp_index in range(start_index, start_index + count):
-            self.asm.instr(
-                f"mov {offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
+            self.asm.instr(f"mov {offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
 
     def emit_temp_arg_root_from_rsp(
-        self,
-        layout: FunctionLayout,
-        temp_slot_index: int,
-        stack_byte_offset: int,
-        *,
-        span: object | None = None,
+        self, layout: FunctionLayout, temp_slot_index: int, stack_byte_offset: int, *, span: object | None = None
     ) -> None:
         if not layout.temp_root_slot_offsets:
             return
         if temp_slot_index >= len(layout.temp_root_slot_offsets):
-            codegen_types.raise_codegen_error(
-                "insufficient temporary root slots for call argument rooting", span=span)
+            codegen_types.raise_codegen_error("insufficient temporary root slots for call argument rooting", span=span)
 
         self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        self.asm.instr(
-            f"mov rdx, {stack_slot_operand('rsp', stack_byte_offset)}")
-        self.asm.instr(
-            f"mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
+        self.asm.instr(f"mov rdx, {stack_slot_operand('rsp', stack_byte_offset)}")
+        self.asm.instr(f"mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
         self.asm.instr("call rt_root_slot_store")
 
     def emit_bool_normalize(self) -> None:
@@ -269,7 +239,7 @@ class CodeGenerator:
         self.asm.instr("movzx rax, al")
 
 
-def emit_semantic_asm(semantic_program: SemanticCodegenProgram) -> str:
-    from compiler.codegen.semantic_generator import emit_semantic_program
+def emit_asm(program: CodegenProgram) -> str:
+    from compiler.codegen.program_generator import emit_program
 
-    return emit_semantic_program(semantic_program)
+    return emit_program(program)

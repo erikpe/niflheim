@@ -6,7 +6,7 @@ import pytest
 
 import compiler.cli as cli
 
-from compiler.semantic_linker import SemanticCodegenProgram
+from compiler.codegen_linker import CodegenProgram
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write, write_project
 
 
@@ -24,19 +24,19 @@ def test_cli_defaults_to_codegen_path(tmp_path: Path, monkeypatch) -> None:
 
     seen: dict[str, object] = {}
 
-    def _fake_emit_semantic_asm(semantic_program: SemanticCodegenProgram) -> str:
-        seen["semantic_program"] = semantic_program
+    def _fake_emit_asm(program: CodegenProgram) -> str:
+        seen["program"] = program
         return "; codegen backend selected\n"
 
-    monkeypatch.setattr(cli, "emit_semantic_asm", _fake_emit_semantic_asm)
+    monkeypatch.setattr(cli, "emit_asm", _fake_emit_asm)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "-o", str(out_file)])
 
     assert rc == 0
     assert out_file.read_text(encoding="utf-8") == "; codegen backend selected\n"
-    semantic_program = seen["semantic_program"]
-    assert isinstance(semantic_program, SemanticCodegenProgram)
-    assert semantic_program.entry_module == ("main",)
+    program = seen["program"]
+    assert isinstance(program, CodegenProgram)
+    assert program.entry_module == ("main",)
 
 
 def test_cli_source_ast_codegen_flag_is_rejected(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -90,7 +90,7 @@ def test_cli_default_codegen_prunes_dead_duplicate_class_symbols_before_link(
     assert out_file.exists()
 
 
-def test_cli_default_codegen_prunes_dead_semantic_declarations_from_assembly(
+def test_cli_default_codegen_prunes_dead_declarations_from_assembly(
     tmp_path: Path, monkeypatch
 ) -> None:
     entry = tmp_path / "main.nif"

@@ -5,14 +5,14 @@ from dataclasses import dataclass
 import compiler.codegen.symbols as codegen_symbols
 
 from compiler.codegen.generator import CodeGenerator
-from compiler.codegen.semantic_emitter_module import generate_module
+from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.model import ConstructorLayout
-from compiler.semantic_linker import SemanticCodegenProgram
+from compiler.codegen_linker import CodegenProgram
 from compiler.semantic_symbols import ClassId, ConstructorId, FunctionId, MethodId
 
 
 @dataclass(frozen=True)
-class SemanticDeclarationTables:
+class DeclarationTables:
     method_labels_by_id: dict[MethodId, str]
     method_return_types_by_id: dict[MethodId, str]
     method_is_static_by_id: dict[MethodId, bool]
@@ -23,13 +23,13 @@ class SemanticDeclarationTables:
     class_field_type_names_by_id: dict[tuple[ClassId, str], str]
 
 
-class SemanticCodeGenerator(CodeGenerator):
-    def __init__(self, program: SemanticCodegenProgram) -> None:
+class ProgramGenerator(CodeGenerator):
+    def __init__(self, program: CodegenProgram) -> None:
         super().__init__()
         self.program = program
-        self.declaration_tables: SemanticDeclarationTables | None = None
+        self.declaration_tables: DeclarationTables | None = None
 
-    def build_declaration_tables(self) -> SemanticDeclarationTables:
+    def build_declaration_tables(self) -> DeclarationTables:
         if self.declaration_tables is not None:
             return self.declaration_tables
 
@@ -62,14 +62,16 @@ class SemanticCodeGenerator(CodeGenerator):
                 class_field_type_names_by_id[field_key] = field.type_name
 
             for method in cls.methods:
-                method_labels_by_id[method.method_id] = codegen_symbols.mangle_method_symbol(class_name, method.method_id.name)
+                method_labels_by_id[method.method_id] = codegen_symbols.mangle_method_symbol(
+                    class_name, method.method_id.name
+                )
                 method_return_types_by_id[method.method_id] = method.return_type_name
                 method_is_static_by_id[method.method_id] = method.is_static
 
         for fn in self.program.functions:
             function_return_types_by_id[fn.function_id] = fn.return_type_name
 
-        self.declaration_tables = SemanticDeclarationTables(
+        self.declaration_tables = DeclarationTables(
             method_labels_by_id=method_labels_by_id,
             method_return_types_by_id=method_return_types_by_id,
             method_is_static_by_id=method_is_static_by_id,
@@ -86,5 +88,5 @@ class SemanticCodeGenerator(CodeGenerator):
         return generate_module(self, self.program)
 
 
-def emit_semantic_program(program: SemanticCodegenProgram) -> str:
-    return SemanticCodeGenerator(program).generate()
+def emit_program(program: CodegenProgram) -> str:
+    return ProgramGenerator(program).generate()

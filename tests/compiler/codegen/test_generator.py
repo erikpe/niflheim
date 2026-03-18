@@ -1,6 +1,6 @@
-from compiler.codegen.semantic_generator import SemanticCodeGenerator
+from compiler.codegen.program_generator import ProgramGenerator
+from compiler.codegen_linker import build_codegen_program
 from compiler.resolver import resolve_program
-from compiler.semantic_linker import build_semantic_codegen_program
 from compiler.semantic_lowering import lower_program
 from compiler.semantic_symbols import ClassId, ConstructorId, MethodId
 
@@ -10,7 +10,7 @@ def _write(path, content: str) -> None:
     path.write_text(content.strip() + "\n", encoding="utf-8")
 
 
-def test_semantic_codegen_uses_builder_for_aligned_call_and_comments(tmp_path) -> None:
+def test_codegen_uses_builder_for_aligned_call_and_comments(tmp_path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -27,8 +27,8 @@ def test_semantic_codegen_uses_builder_for_aligned_call_and_comments(tmp_path) -
         }
         """,
     )
-    generator = SemanticCodeGenerator(
-        build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    generator = ProgramGenerator(
+        build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     )
 
     asm = generator.generate()
@@ -39,7 +39,7 @@ def test_semantic_codegen_uses_builder_for_aligned_call_and_comments(tmp_path) -
     assert ".L__nif_aligned_call_0:" in asm
 
 
-def test_semantic_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
+def test_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -65,8 +65,8 @@ def test_semantic_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
         }
         """,
     )
-    generator = SemanticCodeGenerator(
-        build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    generator = ProgramGenerator(
+        build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     )
 
     tables = generator.build_declaration_tables()
@@ -83,7 +83,7 @@ def test_semantic_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
     assert tables.constructor_layouts_by_id[ctor_id].param_field_names == ["value", "next"]
 
 
-def test_semantic_codegen_emits_main_prologue_and_epilogue(tmp_path) -> None:
+def test_codegen_emits_main_prologue_and_epilogue(tmp_path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -92,8 +92,8 @@ def test_semantic_codegen_emits_main_prologue_and_epilogue(tmp_path) -> None:
         }
         """,
     )
-    generator = SemanticCodeGenerator(
-        build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    generator = ProgramGenerator(
+        build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     )
 
     asm = generator.generate()
@@ -104,7 +104,7 @@ def test_semantic_codegen_emits_main_prologue_and_epilogue(tmp_path) -> None:
     assert "    ret" in asm
 
 
-def test_semantic_codegen_orchestrates_sections_and_class_symbols(tmp_path) -> None:
+def test_codegen_orchestrates_sections_and_class_symbols(tmp_path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -121,8 +121,8 @@ def test_semantic_codegen_orchestrates_sections_and_class_symbols(tmp_path) -> N
         }
         """,
     )
-    generator = SemanticCodeGenerator(
-        build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    generator = ProgramGenerator(
+        build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     )
 
     asm = generator.generate()

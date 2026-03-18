@@ -4,8 +4,8 @@ import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.asm import offset_operand
-from compiler.codegen.semantic_emitter_expr import SemanticEmitContext, emit_expr, infer_expression_type_name
-from compiler.codegen.semantic_layout import for_in_temp_name
+from compiler.codegen.emitter_expr import EmitContext, emit_expr, infer_expression_type_name
+from compiler.codegen.layout import for_in_temp_name
 from compiler.semantic_ir import (
     FieldLValue,
     IndexLValue,
@@ -30,7 +30,7 @@ def emit_statement(
     stmt: SemanticStmt,
     epilogue_label: str,
     function_return_type_name: str,
-    ctx: SemanticEmitContext,
+    ctx: EmitContext,
     loop_labels: list[tuple[str, str]],
 ) -> None:
     layout = ctx.layout
@@ -38,9 +38,7 @@ def emit_statement(
     label_counter = ctx.label_counter
 
     codegen.emit_location_comment(
-        file_path=stmt.span.start.path,
-        line=stmt.span.start.line,
-        column=stmt.span.start.column,
+        file_path=stmt.span.start.path, line=stmt.span.start.line, column=stmt.span.start.column
     )
 
     if isinstance(stmt, SemanticReturn):
@@ -54,7 +52,9 @@ def emit_statement(
     if isinstance(stmt, SemanticVarDecl):
         offset = layout.slot_offsets.get(stmt.name)
         if offset is None:
-            codegen_types.raise_codegen_error(f"variable '{stmt.name}' is not materialized in stack layout", span=stmt.span)
+            codegen_types.raise_codegen_error(
+                f"variable '{stmt.name}' is not materialized in stack layout", span=stmt.span
+            )
         if stmt.initializer is None:
             codegen.asm.instr("mov rax, 0")
         else:
@@ -121,16 +121,20 @@ def emit_statement(
         _emit_for_in(codegen, stmt, epilogue_label, function_return_type_name, ctx, loop_labels)
         return
 
-    codegen_types.raise_codegen_error(f"semantic statement codegen not implemented for {type(stmt).__name__}", span=stmt.span)
+    codegen_types.raise_codegen_error(
+        f"semantic statement codegen not implemented for {type(stmt).__name__}", span=stmt.span
+    )
 
 
-def _emit_assign(codegen, stmt: SemanticAssign, ctx: SemanticEmitContext) -> None:
+def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
     target = stmt.target
     layout = ctx.layout
     if isinstance(target, LocalLValue):
         offset = layout.slot_offsets.get(target.name)
         if offset is None:
-            codegen_types.raise_codegen_error(f"identifier '{target.name}' is not materialized in stack layout", span=stmt.span)
+            codegen_types.raise_codegen_error(
+                f"identifier '{target.name}' is not materialized in stack layout", span=stmt.span
+            )
         emit_expr(codegen, stmt.value, ctx)
         codegen.asm.instr(f"mov {offset_operand(offset)}, rax")
         return
@@ -152,30 +156,45 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: SemanticEmitContext) -> Non
             target_type = infer_expression_type_name(target.target)
             element_type = codegen_types.array_element_type_name(target_type, span=target.span)
             runtime_name = f"rt_array_set_{codegen_types.array_element_runtime_kind(element_type)}"
-            from compiler.codegen.semantic_emitter_expr import _emit_named_call
+            from compiler.codegen.emitter_expr import _emit_named_call
 
             _emit_named_call(codegen, runtime_name, [target.target, target.index, stmt.value], "unit", ctx)
             return
-        from compiler.codegen.semantic_emitter_expr import _emit_named_call, _method_label
+        from compiler.codegen.emitter_expr import _emit_named_call, _method_label
 
-        _emit_named_call(codegen, _method_label(target.set_method, ctx), [target.target, target.index, stmt.value], "unit", ctx)
+        _emit_named_call(
+            codegen, _method_label(target.set_method, ctx), [target.target, target.index, stmt.value], "unit", ctx
+        )
         return
     if isinstance(target, SliceLValue):
         if target.set_method is None:
             target_type = infer_expression_type_name(target.target)
             element_type = codegen_types.array_element_type_name(target_type, span=target.span)
             runtime_name = f"rt_array_set_slice_{codegen_types.array_element_runtime_kind(element_type)}"
-            from compiler.codegen.semantic_emitter_expr import _emit_named_call
+            from compiler.codegen.emitter_expr import _emit_named_call
 
             _emit_named_call(codegen, runtime_name, [target.target, target.begin, target.end, stmt.value], "unit", ctx)
             return
-        from compiler.codegen.semantic_emitter_expr import _emit_named_call, _method_label
+        from compiler.codegen.emitter_expr import _emit_named_call, _method_label
 
-        _emit_named_call(codegen, _method_label(target.set_method, ctx), [target.target, target.begin, target.end, stmt.value], "unit", ctx)
+        _emit_named_call(
+            codegen,
+            _method_label(target.set_method, ctx),
+            [target.target, target.begin, target.end, stmt.value],
+            "unit",
+            ctx,
+        )
         return
 
 
-def _emit_for_in(codegen, stmt: SemanticForIn, epilogue_label: str, function_return_type_name: str, ctx: SemanticEmitContext, loop_labels: list[tuple[str, str]]) -> None:
+def _emit_for_in(
+    codegen,
+    stmt: SemanticForIn,
+    epilogue_label: str,
+    function_return_type_name: str,
+    ctx: EmitContext,
+    loop_labels: list[tuple[str, str]],
+) -> None:
     layout = ctx.layout
     coll_name = for_in_temp_name("coll", stmt)
     len_name = for_in_temp_name("len", stmt)
@@ -188,7 +207,7 @@ def _emit_for_in(codegen, stmt: SemanticForIn, epilogue_label: str, function_ret
     emit_expr(codegen, stmt.collection, ctx)
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[coll_name])}, rax")
 
-    from compiler.codegen.semantic_emitter_expr import _emit_named_call, _method_label
+    from compiler.codegen.emitter_expr import _emit_named_call, _method_label
     from compiler.semantic_ir import LocalRefExpr
 
     coll_ref = LocalRefExpr(name=coll_name, type_name=infer_expression_type_name(stmt.collection), span=stmt.span)
@@ -211,7 +230,9 @@ def _emit_for_in(codegen, stmt: SemanticForIn, epilogue_label: str, function_ret
         runtime_name = f"rt_array_get_{codegen_types.array_element_runtime_kind(element_type)}"
         _emit_named_call(codegen, runtime_name, [coll_ref, index_ref], stmt.element_type_name, ctx)
     else:
-        _emit_named_call(codegen, _method_label(stmt.iter_get_method, ctx), [coll_ref, index_ref], stmt.element_type_name, ctx)
+        _emit_named_call(
+            codegen, _method_label(stmt.iter_get_method, ctx), [coll_ref, index_ref], stmt.element_type_name, ctx
+        )
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[stmt.element_name])}, rax")
 
     loop_labels.append((loop_continue, loop_done))
@@ -226,7 +247,7 @@ def _emit_for_in(codegen, stmt: SemanticForIn, epilogue_label: str, function_ret
     codegen.asm.label(loop_done)
 
 
-def _resolve_field_offset(ctx: SemanticEmitContext, receiver_type_name: str, field_name: str) -> int | None:
+def _resolve_field_offset(ctx: EmitContext, receiver_type_name: str, field_name: str) -> int | None:
     if "::" in receiver_type_name:
         _owner_dotted, class_name = receiver_type_name.split("::", 1)
     else:
@@ -240,7 +261,5 @@ def _resolve_field_offset(ctx: SemanticEmitContext, receiver_type_name: str, fie
     if not matches:
         return None
     if len(matches) != 1:
-        raise ValueError(
-            f"Ambiguous semantic field offset resolution for '{receiver_type_name}.{field_name}'"
-        )
+        raise ValueError(f"Ambiguous semantic field offset resolution for '{receiver_type_name}.{field_name}'")
     return matches[0]

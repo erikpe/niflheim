@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
+from compiler.codegen_linker import build_codegen_program, require_main_function
 from compiler.resolver import resolve_program
-from compiler.semantic_linker import build_semantic_codegen_program, require_semantic_main_function
 from compiler.semantic_lowering import lower_program
 
 
@@ -14,7 +14,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content.strip() + "\n", encoding="utf-8")
 
 
-def test_build_semantic_codegen_program_orders_non_entry_modules_before_entry(tmp_path: Path) -> None:
+def test_build_codegen_program_orders_non_entry_modules_before_entry(tmp_path: Path) -> None:
     _write(
         tmp_path / "zeta.nif",
         """
@@ -55,7 +55,7 @@ def test_build_semantic_codegen_program_orders_non_entry_modules_before_entry(tm
         """,
     )
 
-    program = build_semantic_codegen_program(
+    program = build_codegen_program(
         lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
     )
 
@@ -64,7 +64,7 @@ def test_build_semantic_codegen_program_orders_non_entry_modules_before_entry(tm
     assert [fn.function_id.name for fn in program.functions] == ["helper_a", "helper_z", "main"]
 
 
-def test_build_semantic_codegen_program_prefers_body_over_extern_duplicate(tmp_path: Path) -> None:
+def test_build_codegen_program_prefers_body_over_extern_duplicate(tmp_path: Path) -> None:
     _write(
         tmp_path / "decls.nif",
         """
@@ -86,7 +86,7 @@ def test_build_semantic_codegen_program_prefers_body_over_extern_duplicate(tmp_p
         """,
     )
 
-    program = build_semantic_codegen_program(
+    program = build_codegen_program(
         lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
     )
 
@@ -96,7 +96,7 @@ def test_build_semantic_codegen_program_prefers_body_over_extern_duplicate(tmp_p
     assert helper.is_extern is False
 
 
-def test_build_semantic_codegen_program_rejects_duplicate_class_symbols(tmp_path: Path) -> None:
+def test_build_codegen_program_rejects_duplicate_class_symbols(tmp_path: Path) -> None:
     _write(
         tmp_path / "left.nif",
         """
@@ -128,10 +128,10 @@ def test_build_semantic_codegen_program_rejects_duplicate_class_symbols(tmp_path
     semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
 
     with pytest.raises(ValueError, match="Duplicate class symbol 'Box'"):
-        build_semantic_codegen_program(semantic)
+        build_codegen_program(semantic)
 
 
-def test_require_semantic_main_function_validates_semantic_entrypoint(tmp_path: Path) -> None:
+def test_require_main_function_validates_entrypoint(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -141,9 +141,9 @@ def test_require_semantic_main_function_validates_semantic_entrypoint(tmp_path: 
         """,
     )
 
-    program = build_semantic_codegen_program(
+    program = build_codegen_program(
         lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
     )
 
     with pytest.raises(ValueError, match="Invalid main signature: expected return type 'i64'"):
-        require_semantic_main_function(program)
+        require_main_function(program)

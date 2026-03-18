@@ -1,4 +1,4 @@
-from tests.compiler.codegen.helpers import emit_semantic_source_asm
+from tests.compiler.codegen.helpers import emit_source_asm
 
 
 def test_emit_asm_box_i64_constructor_and_value_method_lower_to_class_symbols(tmp_path) -> None:
@@ -16,7 +16,7 @@ fn main() -> i64 {
     return b.value();
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call __nif_ctor_BoxI64" in asm
     assert "    call __nif_method_BoxI64_value" in asm
@@ -47,7 +47,7 @@ fn main() -> i64 {
     return v.len();
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call __nif_method_Vec_new" in asm
     assert "    call __nif_method_Vec_push" in asm
@@ -80,7 +80,7 @@ fn main() -> i64 {
     return b[0];
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call __nif_method_Bag_index_set" in asm
     assert "    call __nif_method_Bag_index_get" in asm
@@ -109,7 +109,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call __nif_method_Window_slice_get" in asm
 
@@ -127,7 +127,7 @@ fn main() -> i64 {
     return c.add(7);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_method_Counter_add:" in asm
     assert "    call __nif_method_Counter_add" in asm
@@ -147,7 +147,7 @@ fn main() -> i64 {
     return Counter.add(7);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_method_Counter_add:" in asm
     assert "    call __nif_method_Counter_add" in asm
@@ -167,7 +167,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_ctor_Counter:" in asm
     assert "    call __nif_ctor_Counter" in asm
@@ -185,7 +185,7 @@ fn main() -> i64 {
     return c.value;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    mov rax, qword ptr [rax + 24]" in asm
 
@@ -202,7 +202,7 @@ fn main() -> i64 {
     return c.value;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    mov qword ptr [rcx + 24], rax" in asm
     assert "    mov rax, qword ptr [rax + 24]" in asm

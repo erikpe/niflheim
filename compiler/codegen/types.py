@@ -55,7 +55,7 @@ def function_type_return_type_name(type_name: str, *, span: object | None = None
     if close_index < 0:
         raise_codegen_error(f"malformed function type name: {type_name}", span=span)
 
-    tail = type_name[close_index + 1:].lstrip()
+    tail = type_name[close_index + 1 :].lstrip()
     if not tail.startswith("->"):
         raise_codegen_error(f"malformed function type name: {type_name}", span=span)
     return tail[2:].strip()
@@ -85,10 +85,7 @@ def type_ref_name(type_ref: TypeRefNode) -> str:
     if isinstance(type_ref, FunctionTypeRef):
         params_text = ",".join(type_ref_name(param_type) for param_type in type_ref.param_types)
         return f"fn({params_text})->{type_ref_name(type_ref.return_type)}"
-    raise_codegen_error(
-        f"unsupported type ref node: {type(type_ref).__name__}",
-        span=getattr(type_ref, "span", None),
-    )
+    raise_codegen_error(f"unsupported type ref node: {type(type_ref).__name__}", span=getattr(type_ref, "span", None))
 
 
 def is_double_literal_text(text: str) -> bool:

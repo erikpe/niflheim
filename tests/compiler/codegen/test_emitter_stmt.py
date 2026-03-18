@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.codegen.generator import emit_semantic_asm
-from compiler.semantic_linker import build_semantic_codegen_program
-from compiler.semantic_lowering import lower_program
 from compiler.resolver import resolve_program
+from compiler.codegen.generator import emit_asm
+from compiler.codegen_linker import build_codegen_program
+from compiler.semantic_lowering import lower_program
 
 
 def _write(path: Path, content: str) -> None:
@@ -16,11 +16,11 @@ def _write(path: Path, content: str) -> None:
 def _emit(tmp_path: Path, files: dict[str, str]) -> str:
     for relative_path, content in files.items():
         _write(tmp_path / relative_path, content)
-    program = build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
-    return emit_semantic_asm(program)
+    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return emit_asm(program)
 
 
-def test_semantic_emitter_stmt_emits_control_flow_and_assignments(tmp_path: Path) -> None:
+def test_emitter_stmt_emits_control_flow_and_assignments(tmp_path: Path) -> None:
     asm = _emit(
         tmp_path,
         {
@@ -61,7 +61,7 @@ def test_semantic_emitter_stmt_emits_control_flow_and_assignments(tmp_path: Path
     assert "jmp .Lmain_while_start_" in asm
 
 
-def test_semantic_emitter_stmt_emits_for_in_and_structural_writes(tmp_path: Path) -> None:
+def test_emitter_stmt_emits_for_in_and_structural_writes(tmp_path: Path) -> None:
     asm = _emit(
         tmp_path,
         {

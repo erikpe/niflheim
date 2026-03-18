@@ -1,4 +1,4 @@
-from tests.compiler.codegen.helpers import emit_semantic_source_asm
+from tests.compiler.codegen.helpers import emit_source_asm
 
 
 def test_emit_asm_array_constructor_lowers_to_runtime_symbol_by_element_kind(tmp_path) -> None:
@@ -14,7 +14,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_new_u8" in asm
     assert "    call rt_array_new_i64" in asm
@@ -41,7 +41,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_set_u8" in asm
     assert "    call rt_array_get_u8" in asm
@@ -68,7 +68,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_len" in asm
     assert "    call rt_array_slice_u8" in asm
@@ -84,7 +84,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_new_u64" in asm
     assert "    call rt_array_new_bool" in asm
@@ -101,7 +101,7 @@ fn main() -> i64 {
     return x;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_new_ref" in asm
     assert "    call rt_array_new_i64" in asm
@@ -123,7 +123,7 @@ fn main() -> i64 {
     return teams[0][0].age;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert asm.count("    call rt_array_get_ref") >= 2
     assert "    mov rax, qword ptr [rax + 24]" in asm
@@ -140,7 +140,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_set_u8" in asm
     assert asm.count("    call rt_array_get_ref") >= 3
@@ -157,7 +157,7 @@ fn main() -> i64 {
     return (i64)x;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_set_u64" in asm
     assert "    call rt_array_get_u64" in asm
@@ -180,7 +180,7 @@ fn main() -> i64 {
     return sum;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_len" in asm
     assert "    call rt_array_get_i64" in asm
@@ -199,7 +199,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_set_ref" in asm
     assert "    mov esi, 2" in asm
@@ -219,7 +219,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_set_ref" in asm
     assert "    mov esi, 2" in asm
@@ -239,7 +239,7 @@ fn main() -> i64 {
     return (i64)caller();
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_array_new_ref" in asm
     assert "    test rsp, 8" in asm

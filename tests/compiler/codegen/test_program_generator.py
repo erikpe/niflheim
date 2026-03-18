@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from compiler.codegen.semantic_generator import SemanticCodeGenerator
+from compiler.codegen.program_generator import ProgramGenerator
+from compiler.codegen_linker import build_codegen_program
 from compiler.resolver import resolve_program
-from compiler.semantic_linker import build_semantic_codegen_program
 from compiler.semantic_lowering import lower_program
 from compiler.semantic_symbols import ClassId, ConstructorId, FunctionId, MethodId
 
@@ -16,7 +16,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content.strip() + "\n", encoding="utf-8")
 
 
-def test_semantic_generator_builds_declaration_tables_from_semantic_program(tmp_path: Path) -> None:
+def test_program_generator_builds_declaration_tables_from_program(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",
         """
@@ -49,8 +49,8 @@ def test_semantic_generator_builds_declaration_tables_from_semantic_program(tmp_
         """,
     )
 
-    semantic_program = build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
-    generator = SemanticCodeGenerator(semantic_program)
+    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    generator = ProgramGenerator(program)
 
     tables = generator.build_declaration_tables()
 
@@ -73,7 +73,7 @@ def test_semantic_generator_builds_declaration_tables_from_semantic_program(tmp_
     assert tables.constructor_layouts_by_id[ctor_id].param_field_names == ["value", "next"]
 
 
-def test_semantic_generator_tracks_extern_and_entry_function_return_types(tmp_path: Path) -> None:
+def test_program_generator_tracks_extern_and_entry_function_return_types(tmp_path: Path) -> None:
     _write(
         tmp_path / "decls.nif",
         """
@@ -95,14 +95,14 @@ def test_semantic_generator_tracks_extern_and_entry_function_return_types(tmp_pa
         """,
     )
 
-    semantic_program = build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
-    tables = SemanticCodeGenerator(semantic_program).build_declaration_tables()
+    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    tables = ProgramGenerator(program).build_declaration_tables()
 
     assert tables.function_return_types_by_id[FunctionId(module_path=("main",), name="helper")] == "i64"
     assert tables.function_return_types_by_id[FunctionId(module_path=("main",), name="main")] == "i64"
 
 
-def test_semantic_generator_generate_builds_semantic_module_output(tmp_path: Path) -> None:
+def test_program_generator_generate_builds_module_output(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -116,8 +116,8 @@ def test_semantic_generator_generate_builds_semantic_module_output(tmp_path: Pat
         """,
     )
 
-    semantic_program = build_semantic_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
-    generator = SemanticCodeGenerator(semantic_program)
+    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    generator = ProgramGenerator(program)
 
     asm = generator.generate()
 

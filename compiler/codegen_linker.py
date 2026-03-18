@@ -8,7 +8,7 @@ from compiler.semantic_ir import SemanticClass, SemanticFunction, SemanticModule
 
 
 @dataclass(frozen=True)
-class SemanticCodegenProgram:
+class CodegenProgram:
     entry_module: ModulePath
     ordered_modules: tuple[SemanticModule, ...]
     classes: tuple[SemanticClass, ...]
@@ -16,7 +16,7 @@ class SemanticCodegenProgram:
     span: SourceSpan
 
 
-def require_semantic_main_function(program: SemanticCodegenProgram) -> None:
+def require_main_function(program: CodegenProgram) -> None:
     main_decl = next(
         (
             fn
@@ -35,7 +35,7 @@ def require_semantic_main_function(program: SemanticCodegenProgram) -> None:
         raise ValueError("Invalid main signature: expected return type 'i64'")
 
 
-def build_semantic_codegen_program(program: SemanticProgram) -> SemanticCodegenProgram:
+def build_codegen_program(program: SemanticProgram) -> CodegenProgram:
     entry_module = program.modules[program.entry_module]
     ordered_module_paths = [
         module_path for module_path in sorted(program.modules) if module_path != program.entry_module
@@ -91,7 +91,7 @@ def build_semantic_codegen_program(program: SemanticProgram) -> SemanticCodegenP
                 function_has_body[fn_name] = True
                 function_owner_by_name[fn_name] = module_path
 
-    return SemanticCodegenProgram(
+    return CodegenProgram(
         entry_module=program.entry_module,
         ordered_modules=tuple(ordered_modules),
         classes=tuple(merged_classes),

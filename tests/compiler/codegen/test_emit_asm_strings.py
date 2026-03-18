@@ -1,4 +1,4 @@
-from tests.compiler.codegen.helpers import emit_semantic_source_asm
+from tests.compiler.codegen.helpers import emit_source_asm
 
 
 def test_emit_asm_string_literal_lowers_via_u8_array_and_str_factory(tmp_path) -> None:
@@ -19,7 +19,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_str_lit_0:" in asm
     assert "    call rt_array_from_bytes_u8" in asm
@@ -59,7 +59,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_str_lit_0:" in asm
     assert "    call rt_array_from_bytes_u8" in asm
@@ -81,6 +81,6 @@ fn main() -> i64 {
     return (i64)b;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call __nif_method_Str_index_get" in asm

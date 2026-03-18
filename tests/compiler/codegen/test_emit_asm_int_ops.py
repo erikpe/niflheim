@@ -1,4 +1,4 @@
-from tests.compiler.codegen.helpers import emit_semantic_source_asm
+from tests.compiler.codegen.helpers import emit_source_asm
 
 
 def test_emit_asm_masks_u8_arithmetic_results(tmp_path) -> None:
@@ -14,7 +14,7 @@ fn main() -> i64 {
     return (i64)f(7u8, 3u8);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    add rax, rcx" in asm
     assert "    sub rax, rcx" in asm
@@ -35,7 +35,7 @@ fn main() -> i64 {
     return f(7u8, 3u8, 12, 5);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    and rax, rcx" in asm
     assert "    or rax, rcx" in asm
@@ -57,7 +57,7 @@ fn main() -> i64 {
     return f(8u, 12, 7u8);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    shl rax, cl" in asm
     assert "    sar rax, cl" in asm
@@ -79,7 +79,7 @@ fn main() -> i64 {
     return (i64)f(2u, 3u8);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    test rcx, rcx" in asm
     assert "    test rcx, 1" in asm
@@ -100,7 +100,7 @@ fn main() -> i64 {
     return f(-7, 3);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    cqo" in asm
     assert "    idiv rcx" in asm
@@ -119,7 +119,7 @@ fn main() -> i64 {
     return f(-7, 3);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    cqo" in asm
     assert "    idiv rcx" in asm

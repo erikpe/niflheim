@@ -171,14 +171,14 @@ def test_cli_skip_check_allows_parse_only_inspection(tmp_path: Path, monkeypatch
     def _unexpected_resolve_program(*_args, **_kwargs):
         raise AssertionError("--skip-check --stop-after parse should not resolve modules")
 
-    def _unexpected_emit_semantic_asm(*_args, **_kwargs):
+    def _unexpected_emit_asm(*_args, **_kwargs):
         raise AssertionError("--skip-check --stop-after parse should not emit assembly")
 
     def _fake_print(*args, **kwargs):
         seen["printed"] = (args, kwargs)
 
     monkeypatch.setattr(cli, "resolve_program", _unexpected_resolve_program)
-    monkeypatch.setattr(cli, "emit_semantic_asm", _unexpected_emit_semantic_asm)
+    monkeypatch.setattr(cli, "emit_asm", _unexpected_emit_asm)
     monkeypatch.setattr("builtins.print", _fake_print)
 
     rc = run_cli(monkeypatch, ["nifc", str(source), "--skip-check", "--stop-after", "parse", "--print-ast"])

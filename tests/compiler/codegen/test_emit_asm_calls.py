@@ -1,4 +1,4 @@
-from tests.compiler.codegen.helpers import emit_semantic_source_asm
+from tests.compiler.codegen.helpers import emit_source_asm
 from tests.compiler.integration.stdlib_fixtures import install_std_io_fixture
 
 
@@ -16,7 +16,7 @@ fn main() -> i64 {
     return caller();
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call callee" in asm
     assert "    test rsp, 8" in asm
@@ -34,7 +34,7 @@ fn main() -> i64 {
     return sum3(1, 2, 3);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    mov rax, 3" in asm
     assert "    mov rax, 2" in asm
@@ -55,7 +55,7 @@ fn main() -> i64 {
     return sum7(1, 2, 3, 4, 5, 6, 7);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call sum7" in asm
     assert "    mov rax, qword ptr [r10 + 48]" in asm
@@ -73,7 +73,7 @@ fn main() -> i64 {
     return sum7(1, 2, 3, 4, 5, 6, 7);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "sum7:" in asm
     assert "    mov rax, qword ptr [rbp + 16]" in asm
@@ -91,7 +91,7 @@ fn main() -> i64 {
     return (i64)out;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call sum9" in asm
     assert "    movq xmm7, qword ptr [r10 + 56]" in asm
@@ -110,7 +110,7 @@ fn main() -> i64 {
     return id(41);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    call id" in asm
     assert "    test rsp, 8" in asm
@@ -129,7 +129,7 @@ fn main() -> i64 {
     return f(20, 22);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    lea rax, [rip + add]" in asm
     assert "    mov r11, rax" in asm
@@ -147,7 +147,7 @@ fn main() -> i64 {
     return f(41);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
@@ -169,7 +169,7 @@ fn main() -> i64 {
     return f(20, 22);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    lea rax, [rip + __nif_method_Math_add]" in asm
     assert "    mov r11, rax" in asm
@@ -188,7 +188,7 @@ fn main() -> i64 {
     return (i64)(out * 4.0);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
@@ -214,7 +214,7 @@ fn main() -> i64 {
     return h.f(41);
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
@@ -230,6 +230,6 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_semantic_source_asm(tmp_path, source, project_root=tmp_path)
+    asm = emit_source_asm(tmp_path, source, project_root=tmp_path)
 
     assert "    call println_i64" in asm

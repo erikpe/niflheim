@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 from compiler.codegen.asm import offset_operand
-from compiler.codegen.semantic_emitter_expr import SemanticEmitContext, emit_expr
-from compiler.codegen.semantic_emitter_stmt import emit_statement
-from compiler.codegen.semantic_layout import build_layout
+from compiler.codegen.emitter_expr import EmitContext, emit_expr
+from compiler.codegen.emitter_stmt import emit_statement
+from compiler.codegen.layout import build_layout
 from compiler.codegen.strings import escape_c_string
-from compiler.semantic_ir import SemanticBlock, SemanticClass, SemanticFunction, SemanticMethod, SemanticParam, SemanticVarDecl
+from compiler.semantic_ir import (
+    SemanticBlock,
+    SemanticClass,
+    SemanticFunction,
+    SemanticMethod,
+    SemanticParam,
+    SemanticVarDecl,
+)
 from compiler.semantic_symbols import FunctionId
 
 
-def _emit_debug_symbol_literals(
-    codegen,
-    *,
-    target_label: str,
-    function_name: str,
-    file_path: str,
-) -> tuple[str, str]:
+def _emit_debug_symbol_literals(codegen, *, target_label: str, function_name: str, file_path: str) -> tuple[str, str]:
     safe_target = target_label.replace(".", "_").replace(":", "_")
     fn_label = f"__nif_dbg_fn_{safe_target}"
     file_label = f"__nif_dbg_file_{safe_target}"
@@ -34,7 +35,9 @@ def _param_specs(params: list[SemanticParam]) -> list[tuple[str, str, object]]:
     return [(param.name, param.type_name, param.span) for param in params]
 
 
-def emit_function(codegen, declaration_tables, fn: SemanticFunction, *, label: str | None = None, global_symbol: bool | None = None) -> None:
+def emit_function(
+    codegen, declaration_tables, fn: SemanticFunction, *, label: str | None = None, global_symbol: bool | None = None
+) -> None:
     if fn.body is None:
         raise ValueError("semantic function emission requires a concrete body")
     target_label = label if label is not None else fn.function_id.name
@@ -42,10 +45,7 @@ def emit_function(codegen, declaration_tables, fn: SemanticFunction, *, label: s
     layout = build_layout(fn)
     label_counter = [0]
     fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
-        codegen,
-        target_label=target_label,
-        function_name=target_label,
-        file_path=fn.span.start.path,
+        codegen, target_label=target_label, function_name=target_label, file_path=fn.span.start.path
     )
 
     codegen.emit_frame_prologue(
@@ -58,12 +58,16 @@ def emit_function(codegen, declaration_tables, fn: SemanticFunction, *, label: s
     codegen.emit_param_spills(_param_specs(fn.params), layout)
 
     if layout.root_slot_count > 0:
-        first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]] if layout.root_slot_names else layout.temp_root_slot_offsets[0]
+        first_root_offset = (
+            layout.root_slot_offsets[layout.root_slot_names[0]]
+            if layout.root_slot_names
+            else layout.temp_root_slot_offsets[0]
+        )
         codegen.emit_root_frame_setup(layout, root_count=layout.root_slot_count, first_root_offset=first_root_offset)
 
     codegen.emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
 
-    emit_ctx = SemanticEmitContext(
+    emit_ctx = EmitContext(
         layout=layout,
         fn_name=target_label,
         label_counter=label_counter,
@@ -81,7 +85,9 @@ def emit_function(codegen, declaration_tables, fn: SemanticFunction, *, label: s
 
 def emit_method(codegen, declaration_tables, cls: SemanticClass, method: SemanticMethod) -> None:
     method_fn = SemanticFunction(
-        function_id=FunctionId(module_path=method.method_id.module_path, name=declaration_tables.method_labels_by_id[method.method_id]),
+        function_id=FunctionId(
+            module_path=method.method_id.module_path, name=declaration_tables.method_labels_by_id[method.method_id]
+        ),
         params=[*(_receiver_param(cls, method) if not method.is_static else []), *method.params],
         return_type_name=method.return_type_name,
         body=method.body,
@@ -89,7 +95,13 @@ def emit_method(codegen, declaration_tables, cls: SemanticClass, method: Semanti
         is_extern=False,
         span=method.span,
     )
-    emit_function(codegen, declaration_tables, method_fn, label=declaration_tables.method_labels_by_id[method.method_id], global_symbol=False)
+    emit_function(
+        codegen,
+        declaration_tables,
+        method_fn,
+        label=declaration_tables.method_labels_by_id[method.method_id],
+        global_symbol=False,
+    )
 
 
 def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
@@ -121,10 +133,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     layout = build_layout(ctor_fn)
     label_counter = [0]
     fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
-        codegen,
-        target_label=target_label,
-        function_name=target_label,
-        file_path=cls.span.start.path,
+        codegen, target_label=target_label, function_name=target_label, file_path=cls.span.start.path
     )
 
     codegen.emit_frame_prologue(target_label, layout, global_symbol=False)
@@ -134,7 +143,9 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
 
     if layout.root_slot_names:
         first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
-        codegen.emit_root_frame_setup(layout, root_count=len(layout.root_slot_names), first_root_offset=first_root_offset)
+        codegen.emit_root_frame_setup(
+            layout, root_count=len(layout.root_slot_names), first_root_offset=first_root_offset
+        )
 
     codegen.emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
     codegen.emit_runtime_call_hook(fn_name=target_label, phase="before", label_counter=label_counter)
@@ -147,7 +158,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     codegen.emit_runtime_call_hook(fn_name=target_label, phase="after", label_counter=label_counter)
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}, rax")
 
-    emit_ctx = SemanticEmitContext(
+    emit_ctx = EmitContext(
         layout=layout,
         fn_name=target_label,
         label_counter=label_counter,

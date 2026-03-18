@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.codegen.generator import CodeGenerator
-from compiler.codegen.semantic_emitter_expr import SemanticEmitContext, emit_expr
-from compiler.codegen.semantic_generator import SemanticCodeGenerator
-from compiler.codegen.semantic_layout import build_layout
+from compiler.codegen.emitter_expr import EmitContext, emit_expr
+from compiler.codegen.program_generator import ProgramGenerator
+from compiler.codegen.layout import build_layout
+from compiler.codegen_linker import build_codegen_program
 from compiler.resolver import resolve_program
 from compiler.semantic_ir import (
     CallableValueCallExpr,
@@ -17,7 +18,6 @@ from compiler.semantic_ir import (
     SliceReadExpr,
     StaticMethodCallExpr,
 )
-from compiler.semantic_linker import build_semantic_codegen_program
 from compiler.semantic_lowering import lower_program
 
 
@@ -26,22 +26,22 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content.strip() + "\n", encoding="utf-8")
 
 
-def _build_semantic_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name: str = "main"):
+def _build_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name: str = "main"):
     for relative_path, content in files.items():
         _write(tmp_path / relative_path, content)
 
-    semantic_program = build_semantic_codegen_program(
+    program = build_codegen_program(
         lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
     )
-    semantic_fn = next(
+    fn = next(
         fn
-        for fn in semantic_program.functions
+        for fn in program.functions
         if fn.function_id.module_path == ("main",) and fn.function_id.name == function_name
     )
     generator = CodeGenerator()
-    tables = SemanticCodeGenerator(semantic_program).build_declaration_tables()
-    layout = build_layout(semantic_fn)
-    emit_ctx = SemanticEmitContext(
+    tables = ProgramGenerator(program).build_declaration_tables()
+    layout = build_layout(fn)
+    emit_ctx = EmitContext(
         layout=layout,
         fn_name=function_name,
         label_counter=[0],
@@ -49,11 +49,11 @@ def _build_semantic_emit_fixture(tmp_path: Path, files: dict[str, str], *, funct
         temp_root_depth=[0],
         declaration_tables=tables,
     )
-    return semantic_fn, generator, emit_ctx
+    return fn, generator, emit_ctx
 
 
-def test_semantic_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None:
-    semantic_fn, generator, ctx = _build_semantic_emit_fixture(
+def test_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None:
+    fn, generator, ctx = _build_emit_fixture(
         tmp_path,
         {
             "main.nif": """
@@ -95,10 +95,10 @@ def test_semantic_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None
         },
     )
 
-    returns = [stmt for stmt in semantic_fn.body.statements if isinstance(stmt, SemanticReturn)]
+    returns = [stmt for stmt in fn.body.statements if isinstance(stmt, SemanticReturn)]
     var_inits = [
         stmt.initializer
-        for stmt in semantic_fn.body.statements
+        for stmt in fn.body.statements
         if hasattr(stmt, "initializer") and stmt.initializer is not None
     ]
 
@@ -132,8 +132,8 @@ def test_semantic_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None
     assert "    add rax, rcx" in generator.asm.lines
 
 
-def test_semantic_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path) -> None:
-    semantic_fn, generator, ctx = _build_semantic_emit_fixture(
+def test_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path) -> None:
+    fn, generator, ctx = _build_emit_fixture(
         tmp_path,
         {
             "main.nif": """
@@ -149,7 +149,7 @@ def test_semantic_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path)
 
     var_inits = [
         stmt.initializer
-        for stmt in semantic_fn.body.statements
+        for stmt in fn.body.statements
         if hasattr(stmt, "initializer") and stmt.initializer is not None
     ]
     assert isinstance(var_inits[0], object)
@@ -167,14 +167,14 @@ def test_semantic_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path)
     assert "    cvtsi2sd xmm0, rax" in generator.asm.lines
 
     generator.asm.lines.clear()
-    return_stmt = semantic_fn.body.statements[-1]
+    return_stmt = fn.body.statements[-1]
     assert isinstance(return_stmt, SemanticReturn)
     emit_expr(generator, return_stmt.value, ctx)
     assert "    cvttsd2si rax, xmm0" in generator.asm.lines
 
 
-def test_semantic_emitter_expr_emits_string_literal_helper_form_and_slice_reads(tmp_path: Path) -> None:
-    semantic_fn, generator, ctx = _build_semantic_emit_fixture(
+def test_emitter_expr_emits_string_literal_helper_form_and_slice_reads(tmp_path: Path) -> None:
+    fn, generator, ctx = _build_emit_fixture(
         tmp_path,
         {
             "main.nif": """
@@ -200,7 +200,7 @@ def test_semantic_emitter_expr_emits_string_literal_helper_form_and_slice_reads(
 
     var_inits = [
         stmt.initializer
-        for stmt in semantic_fn.body.statements
+        for stmt in fn.body.statements
         if hasattr(stmt, "initializer") and stmt.initializer is not None
     ]
 
@@ -209,7 +209,7 @@ def test_semantic_emitter_expr_emits_string_literal_helper_form_and_slice_reads(
     assert "    call rt_array_slice_i64" in generator.asm.lines
 
     generator.asm.lines.clear()
-    return_stmt = semantic_fn.body.statements[-1]
+    return_stmt = fn.body.statements[-1]
     assert isinstance(return_stmt, SemanticReturn)
     emit_expr(generator, return_stmt.value, ctx)
     assert "    call rt_array_from_bytes_u8" in generator.asm.lines
@@ -217,8 +217,8 @@ def test_semantic_emitter_expr_emits_string_literal_helper_form_and_slice_reads(
     assert "    call __nif_method_Str_concat" in generator.asm.lines
 
 
-def test_semantic_emitter_expr_emits_class_structural_index_reads(tmp_path: Path) -> None:
-    semantic_fn, generator, ctx = _build_semantic_emit_fixture(
+def test_emitter_expr_emits_class_structural_index_reads(tmp_path: Path) -> None:
+    fn, generator, ctx = _build_emit_fixture(
         tmp_path,
         {
             "main.nif": """
@@ -235,7 +235,7 @@ def test_semantic_emitter_expr_emits_class_structural_index_reads(tmp_path: Path
         },
     )
 
-    return_stmt = semantic_fn.body.statements[-1]
+    return_stmt = fn.body.statements[-1]
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, IndexReadExpr)
     emit_expr(generator, return_stmt.value, ctx)

@@ -99,7 +99,7 @@ def decode_string_literal(lexeme: str) -> bytes:
         if esc == "x":
             if index + 2 >= len(payload):
                 raise ValueError("invalid \\x escape in string literal")
-            hex_text = payload[index + 1: index + 3]
+            hex_text = payload[index + 1 : index + 3]
             out.append(int(hex_text, 16))
             index += 3
             continue

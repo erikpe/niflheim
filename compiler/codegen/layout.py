@@ -241,7 +241,9 @@ def build_layout(fn: SemanticFunction) -> FunctionLayout:
             ordered_slot_names.append(name)
 
     slot_offsets = {name: -(8 * index) for index, name in enumerate(ordered_slot_names, start=1)}
-    root_slot_names = [name for name in ordered_slot_names if codegen_types.is_reference_type_name(local_types_by_name[name])]
+    root_slot_names = [
+        name for name in ordered_slot_names if codegen_types.is_reference_type_name(local_types_by_name[name])
+    ]
     root_slot_indices = {name: index for index, name in enumerate(root_slot_names)}
 
     needs_temp_runtime_roots = any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)

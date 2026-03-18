@@ -3,7 +3,7 @@ from __future__ import annotations
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.semantic_emitter_fn import emit_constructor, emit_function, emit_method
+from compiler.codegen.emitter_fn import emit_constructor, emit_function, emit_method
 from compiler.codegen.strings import decode_string_literal, escape_asm_string_bytes, escape_c_string
 from compiler.semantic_ir import (
     BinaryExprS,

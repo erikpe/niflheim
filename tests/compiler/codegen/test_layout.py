@@ -1,10 +1,10 @@
-from compiler.codegen.semantic_layout import build_layout
+from compiler.codegen.layout import build_layout
+from compiler.codegen_linker import build_codegen_program
 from compiler.resolver import resolve_program
-from compiler.semantic_linker import build_semantic_codegen_program
 from compiler.semantic_lowering import lower_program
 
 
-def test_semantic_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) -> None:
+def test_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) -> None:
     source = tmp_path / "main.nif"
     source.write_text(
         """
@@ -23,7 +23,7 @@ def test_semantic_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp
         + "\n",
         encoding="utf-8",
     )
-    program = build_semantic_codegen_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    program = build_codegen_program(lower_program(resolve_program(source, project_root=tmp_path)))
     fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "f")
 
     layout = build_layout(fn)

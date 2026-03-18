@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from tests.compiler.codegen.helpers import emit_semantic_source_asm
+from tests.compiler.codegen.helpers import emit_source_asm
 
 
-def test_semantic_backend_emits_expected_call_shapes(tmp_path) -> None:
+def test_backend_emits_expected_call_shapes(tmp_path) -> None:
     source = """
     fn add(a: i64, b: i64) -> i64 {
         return a + b;
@@ -29,7 +29,7 @@ def test_semantic_backend_emits_expected_call_shapes(tmp_path) -> None:
     }
     """
 
-    semantic_asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     for expected in [
         "    call add",
@@ -37,10 +37,10 @@ def test_semantic_backend_emits_expected_call_shapes(tmp_path) -> None:
         "    call __nif_ctor_Box",
         "    call __nif_method_Box_get",
     ]:
-        assert expected in semantic_asm
+        assert expected in asm
 
 
-def test_semantic_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
+def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
     source = """
     class Str {
         _bytes: u8[];
@@ -73,7 +73,7 @@ def test_semantic_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> N
     }
     """
 
-    semantic_asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     for expected in [
         "    call rt_array_new_u8",
@@ -87,10 +87,10 @@ def test_semantic_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> N
         "__nif_type_name_Person:",
         "__nif_type_Person:",
     ]:
-        assert expected in semantic_asm
+        assert expected in asm
 
 
-def test_semantic_backend_emits_expected_object_fields_and_control_flow(tmp_path) -> None:
+def test_backend_emits_expected_object_fields_and_control_flow(tmp_path) -> None:
     source = """
     class Counter {
         value: i64;
@@ -110,7 +110,7 @@ def test_semantic_backend_emits_expected_object_fields_and_control_flow(tmp_path
     }
     """
 
-    semantic_asm = emit_semantic_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source)
 
     for expected in [
         "    mov qword ptr [rcx + 24], rax",
@@ -119,11 +119,11 @@ def test_semantic_backend_emits_expected_object_fields_and_control_flow(tmp_path
         ".Lmain_while_end_",
         ".Lmain_if_else_",
     ]:
-        assert expected in semantic_asm
+        assert expected in asm
 
 
-def test_semantic_backend_emits_integer_binary_expr_shape(tmp_path) -> None:
-    semantic_asm = emit_semantic_source_asm(
+def test_backend_emits_integer_binary_expr_shape(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
         """
         fn f(a: i64, b: i64) -> i64 { return a + b; }
@@ -133,12 +133,12 @@ def test_semantic_backend_emits_integer_binary_expr_shape(tmp_path) -> None:
         source_path="main.nif",
     )
 
-    assert "    push rax" in semantic_asm
-    assert "    add rax, rcx" in semantic_asm
+    assert "    push rax" in asm
+    assert "    add rax, rcx" in asm
 
 
-def test_semantic_backend_emits_numeric_cast_conversion_shape(tmp_path) -> None:
-    semantic_asm = emit_semantic_source_asm(
+def test_backend_emits_numeric_cast_conversion_shape(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
         """
         fn to_double(x: i64) -> double { return (double)x; }
@@ -155,16 +155,16 @@ def test_semantic_backend_emits_numeric_cast_conversion_shape(tmp_path) -> None:
         """,
     )
 
-    assert "    cvtsi2sd xmm0, rax" in semantic_asm
-    assert "    movq rax, xmm0" in semantic_asm
-    assert "    movq xmm0, rax" in semantic_asm
-    assert "    cvttsd2si rax, xmm0" in semantic_asm
-    assert "    cmp rax, 0" in semantic_asm
-    assert "    setne al" in semantic_asm
+    assert "    cvtsi2sd xmm0, rax" in asm
+    assert "    movq rax, xmm0" in asm
+    assert "    movq xmm0, rax" in asm
+    assert "    cvttsd2si rax, xmm0" in asm
+    assert "    cmp rax, 0" in asm
+    assert "    setne al" in asm
 
 
-def test_semantic_backend_emits_while_control_flow_shape(tmp_path) -> None:
-    semantic_asm = emit_semantic_source_asm(
+def test_backend_emits_while_control_flow_shape(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
         """
         fn loop_to(limit: i64) -> i64 {
@@ -181,13 +181,13 @@ def test_semantic_backend_emits_while_control_flow_shape(tmp_path) -> None:
         """,
     )
 
-    assert ".Lloop_to_while_start_" in semantic_asm
-    assert ".Lloop_to_while_end_" in semantic_asm
-    assert "    je .Lloop_to_while_end_" in semantic_asm
+    assert ".Lloop_to_while_start_" in asm
+    assert ".Lloop_to_while_end_" in asm
+    assert "    je .Lloop_to_while_end_" in asm
 
 
-def test_semantic_backend_emits_if_else_control_flow_shape(tmp_path) -> None:
-    semantic_asm = emit_semantic_source_asm(
+def test_backend_emits_if_else_control_flow_shape(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
         """
         fn choose(flag: bool) -> i64 {
@@ -204,7 +204,7 @@ def test_semantic_backend_emits_if_else_control_flow_shape(tmp_path) -> None:
         """,
     )
 
-    assert ".Lchoose_if_else_" in semantic_asm
-    assert ".Lchoose_if_end_" in semantic_asm
-    assert "    je .Lchoose_if_else_" in semantic_asm
-    assert "    jmp .Lchoose_if_end_" in semantic_asm
+    assert ".Lchoose_if_else_" in asm
+    assert ".Lchoose_if_end_" in asm
+    assert "    je .Lchoose_if_else_" in asm
+    assert "    jmp .Lchoose_if_end_" in asm
