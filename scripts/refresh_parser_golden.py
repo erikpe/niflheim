@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-from compiler.parser import parse, parse_expression
-from compiler.lexer import lex
-from compiler.ast_dump import ast_to_debug_json
+from compiler.frontend.parser import parse, parse_expression
+from compiler.frontend.lexer import lex
+from compiler.frontend.ast_dump import ast_to_debug_json
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -92,7 +92,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--golden-dir",
-        default="tests/compiler/parser/golden",
+        default="tests/compiler/frontend/parser/golden",
         help="Directory containing parser golden .nif and .golden.json files.",
     )
     parser.add_argument(

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.lexer import lex
-from compiler.parser import parse
+from compiler.frontend.lexer import lex
+from compiler.frontend.parser import parse
 from compiler.resolver import resolve_program
 from compiler.typecheck.api import typecheck
 

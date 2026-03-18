@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from compiler.typecheck.context import TypeCheckContext
-from compiler.lexer import SourceSpan
+from compiler.frontend.lexer import SourceSpan
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 
 

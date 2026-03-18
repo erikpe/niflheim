@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.ast_nodes import *
+from compiler.frontend.ast_nodes import *
 from compiler.codegen.strings import decode_string_literal, is_str_type_name
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic.ir import *

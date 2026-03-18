@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from compiler.ast_nodes import *
-from compiler.lexer import SourceSpan, lex
-from compiler.parser import parse
+from compiler.frontend.ast_nodes import *
+from compiler.frontend.lexer import SourceSpan, lex
+from compiler.frontend.parser import parse
 
 
 ModulePath = tuple[str, ...]

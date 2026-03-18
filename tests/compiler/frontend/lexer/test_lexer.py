@@ -1,6 +1,6 @@
 import pytest
 
-from compiler.lexer import LexerError, TokenKind, lex
+from compiler.frontend.lexer import LexerError, TokenKind, lex
 
 
 def test_lex_basic_function_signature_and_keywords() -> None:

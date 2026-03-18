@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from compiler.ast_nodes import ClassDecl, FunctionDecl, MethodDecl
+from compiler.frontend.ast_nodes import ClassDecl, FunctionDecl, MethodDecl
 from compiler.resolver import ModulePath, ProgramInfo
 
 

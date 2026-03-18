@@ -1,6 +1,6 @@
 import pytest
 
-from compiler.ast_nodes import (
+from compiler.frontend.ast_nodes import (
     BlockStmt,
     CastExpr,
     FunctionDecl,
@@ -13,7 +13,7 @@ from compiler.ast_nodes import (
     TypeRef,
     VarDeclStmt,
 )
-from compiler.lexer import SourcePos, SourceSpan
+from compiler.frontend.lexer import SourcePos, SourceSpan
 from compiler.typecheck.api import typecheck
 from compiler.typecheck.model import TypeCheckError
 from tests.compiler.typecheck.helpers import parse_and_typecheck

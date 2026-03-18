@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import ModuleAst
+from compiler.frontend.ast_nodes import ModuleAst
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.typecheck.bodies import check_bodies
 from compiler.typecheck.context import TypeCheckContext

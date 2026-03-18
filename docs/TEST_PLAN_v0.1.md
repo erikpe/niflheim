@@ -271,8 +271,8 @@ Diagnostics are part of MVP quality.
 
 Suggested repository structure:
 
-- `tests/compiler/lexer/`
-- `tests/compiler/parser/`
+- `tests/compiler/frontend/lexer/`
+- `tests/compiler/frontend/parser/`
 - `tests/compiler/resolver/`
 - `tests/compiler/typecheck/`
 - `tests/compiler/codegen/`

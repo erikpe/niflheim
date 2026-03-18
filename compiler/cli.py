@@ -4,11 +4,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from compiler.ast_dump import ast_to_debug_json
+from compiler.frontend.ast_dump import ast_to_debug_json
 from compiler.codegen.generator import emit_asm
 from compiler.codegen.linker import build_codegen_program, require_main_function
-from compiler.lexer import Token, lex
-from compiler.parser import parse
+from compiler.frontend.lexer import Token, lex
+from compiler.frontend.parser import parse
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering import lower_program
 from compiler.semantic.reachability import prune_unreachable_semantic

@@ -16,6 +16,7 @@ Key design docs:
 ## Repository Areas
 
 - `compiler/` - Python stage-0 compiler
+	- `compiler/frontend/` contains the syntax-layer modules: lexer, tokens, parser, AST nodes, and AST debug dumping helpers.
 - `runtime/` - C runtime and GC
 - `tests/` - unit, golden, integration, and stress tests
 - `examples/` - small language programs

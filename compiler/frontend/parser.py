@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.ast_nodes import *
-from compiler.lexer import SourceSpan, Token
-from compiler.tokens import TYPE_NAME_TOKENS, UNARY_START_TOKENS, TokenKind
+from compiler.frontend.ast_nodes import *
+from compiler.frontend.lexer import SourceSpan, Token
+from compiler.frontend.tokens import TYPE_NAME_TOKENS, UNARY_START_TOKENS, TokenKind
 
 
 class ParserError(ValueError):

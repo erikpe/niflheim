@@ -2,10 +2,10 @@ from dataclasses import fields, is_dataclass
 
 import pytest
 
-from compiler.ast_nodes import *
-from compiler.lexer import SourceSpan, lex
-from compiler.parser import ParserError, TokenStream, parse, parse_expression
-from compiler.tokens import TokenKind
+from compiler.frontend.ast_nodes import *
+from compiler.frontend.lexer import SourceSpan, lex
+from compiler.frontend.parser import ParserError, TokenStream, parse, parse_expression
+from compiler.frontend.tokens import TokenKind
 
 
 def _assert_ast_nodes_have_spans(node: object) -> None:
@@ -32,7 +32,7 @@ def _assert_ast_nodes_have_spans(node: object) -> None:
         return
 
     if is_dataclass(node):
-        if type(node).__module__ == "compiler.ast_nodes":
+        if type(node).__module__ == "compiler.frontend.ast_nodes":
             assert hasattr(node, "span"), f"{type(node).__name__} is missing span"
             span = getattr(node, "span")
             assert isinstance(span, SourceSpan), f"{type(node).__name__}.span must be SourceSpan"

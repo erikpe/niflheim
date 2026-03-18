@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from compiler.lexer import SourceSpan
+from compiler.frontend.lexer import SourceSpan
 from compiler.resolver import ModulePath
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId, SyntheticId
 

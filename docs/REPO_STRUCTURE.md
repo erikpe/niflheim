@@ -11,12 +11,12 @@ This document summarizes the current repository layout for MVP v0.1 work.
 
 Stage-0 compiler implementation in Python.
 
-- `tokens.py` - token kinds and lexer token tables.
-- `lexer.py` - lexical analysis with source spans and diagnostics.
-- `ast_nodes.py` - canonical AST dataclasses.
-- `ast.py` - compatibility re-export of `ast_nodes` symbols.
-- `parser.py` - recursive-descent parser for modules/statements/expressions.
-- `ast_dump.py` - deterministic AST debug serialization used by golden tests.
+- `frontend/` - syntax-layer package.
+	- `tokens.py` - token kinds and lexer token tables.
+	- `lexer.py` - lexical analysis with source spans, token objects, and diagnostics.
+	- `ast_nodes.py` - canonical AST dataclasses.
+	- `parser.py` - recursive-descent parser for modules/statements/expressions.
+	- `ast_dump.py` - deterministic AST debug serialization used by golden tests.
 - `resolver.py` - module graph loading and import/export visibility resolution.
 - `typecheck/` - typecheck package modules.
 	- `api.py` - typecheck entry points (`typecheck`, `typecheck_program`).

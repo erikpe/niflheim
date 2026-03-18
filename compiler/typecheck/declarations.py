@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import FunctionDecl, MethodDecl
+from compiler.frontend.ast_nodes import FunctionDecl, MethodDecl
 
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo

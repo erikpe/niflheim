@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import CallExpr, Expression, FieldAccessExpr, IdentifierExpr
+from compiler.frontend.ast_nodes import CallExpr, Expression, FieldAccessExpr, IdentifierExpr
 
 from compiler.typecheck.call_helpers import (
     callable_type_from_signature,

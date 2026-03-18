@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import Expression, FieldAccessExpr, IdentifierExpr
+from compiler.frontend.ast_nodes import Expression, FieldAccessExpr, IdentifierExpr
 from compiler.typecheck.context import TypeCheckContext
-from compiler.lexer import SourceSpan
+from compiler.frontend.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError
 

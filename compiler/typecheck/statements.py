@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import *
+from compiler.frontend.ast_nodes import *
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
 from compiler.typecheck.expressions import infer_expression_type
-from compiler.lexer import SourceSpan
+from compiler.frontend.lexer import SourceSpan
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.typecheck.relations import canonicalize_reference_type_name, require_assignable, require_type_name

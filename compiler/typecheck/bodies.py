@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.ast_nodes import BinaryExpr, CastExpr, Expression, LiteralExpr, NullExpr, UnaryExpr
+from compiler.frontend.ast_nodes import BinaryExpr, CastExpr, Expression, LiteralExpr, NullExpr, UnaryExpr
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import TypeCheckError, TypeInfo

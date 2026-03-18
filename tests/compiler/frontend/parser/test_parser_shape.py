@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from compiler.ast_dump import ast_to_debug_json
-from compiler.lexer import lex
-from compiler.parser import parse, parse_expression
+from compiler.frontend.ast_dump import ast_to_debug_json
+from compiler.frontend.lexer import lex
+from compiler.frontend.parser import parse, parse_expression
 
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
