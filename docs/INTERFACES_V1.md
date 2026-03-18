@@ -80,6 +80,19 @@ The first version should solve the general mechanism once:
 
 More advanced features can layer on later.
 
+### 6) Interface Values Use The Same Runtime Representation As Object References
+
+For v1, interface-typed values are represented at runtime as the same single object pointer used for class references and `Obj`.
+
+That means:
+
+- class-to-interface upcast is a runtime representation no-op
+- interface-to-`Obj` upcast is a runtime representation no-op
+- checked interface casts return the original object pointer on success
+- interface dispatch performs lookup from the concrete object's runtime type metadata
+
+v1 does not use fat pointers or `(object, interface)` pairs.
+
 ## Surface Syntax
 
 ### Interface Declaration
@@ -143,6 +156,14 @@ For v1:
 - interface type -> class type: explicit cast only
 - interface type -> interface type: explicit cast only unless identical
 
+Interfaces are allowed anywhere ordinary reference types are allowed:
+
+- locals
+- parameters
+- returns
+- fields
+- arrays of interface type
+
 ### Cast Rules
 
 The existing cast model should be extended as follows:
@@ -152,7 +173,19 @@ The existing cast model should be extended as follows:
 - `Obj` -> class/interface/reference: allowed only as explicit runtime-checked cast
 - interface -> interface: allowed only as explicit runtime-checked cast
 
+For v1, direct explicit interface-to-interface casts are allowed and runtime-checked. A detour through `Obj` is not required.
+
 Primitive and callable cast rules remain unchanged.
+
+### Equality, Identity, And Null
+
+Interface values follow the same reference semantics as class values:
+
+- equality/inequality compares underlying object identity
+- casting between class/interface/`Obj` does not change identity
+- interface-typed values are nullable
+- interface-typed locals and fields default to `null`
+- null dereference through an interface value follows the same runtime failure policy as any other reference dereference
 
 ## Frontend AST Shape
 
@@ -188,6 +221,8 @@ And extend `ModuleAst`:
 ```python
 interfaces: list[InterfaceDecl]
 ```
+
+Interfaces are exportable and importable exactly like classes in v1. Unqualified imported interface names follow the same local-first and ambiguity rules already used for classes.
 
 ## Canonical Symbol Identity
 
@@ -234,6 +269,8 @@ The typecheck context and declaration pass should collect:
 - imported interfaces
 - interface conformance for classes declaring `implements`
 
+For v1, private methods do not satisfy interface conformance. Interface requirements must be implemented by public instance methods.
+
 ## Semantic IR Decisions
 
 ### Why New Nodes Are Needed
@@ -264,6 +301,8 @@ class InterfaceMethodCallExpr:
 ```
 
 If first-class interface method values become necessary later, add a corresponding `InterfaceMethodRefExpr`. That is not required for v1.
+
+For v1, interface method references are out of scope. Only interface method calls are supported. Attempting to use an interface method as a first-class callable value should be rejected by the typechecker.
 
 ### Cast Nodes
 
@@ -322,6 +361,8 @@ const RtInterfaceImpl* interfaces;
 uint32_t interface_count;
 ```
 
+Because interface values are represented as raw object pointers, no separate runtime wrapper or adjusted receiver representation is introduced in v1.
+
 ### Dispatch Table Shape
 
 For v1, interface method dispatch should use stable slot order, not method-name lookup at runtime.
@@ -357,6 +398,8 @@ Expected behavior:
 - object implementing interface returns object unchanged
 - non-implementing object panics with bad-cast diagnostics
 
+The returned value is the original object pointer, not a wrapped interface object.
+
 ## Codegen Shape
 
 ### Metadata Emission
@@ -387,6 +430,14 @@ void* rt_lookup_interface_method(void* obj, const RtInterfaceType* iface, uint32
 ```
 
 Then codegen only needs to prepare the arguments and indirect-call the returned function pointer.
+
+For v1, the lookup strategy should be locked as:
+
+- linear scan over the concrete runtime type's implemented-interface table
+- match by interface descriptor pointer
+- dispatch by stable slot index within the matched interface method table
+
+`rt_lookup_interface_method(...)` should assume the object already implements the interface, with cast-validation handled separately by checked-cast logic. It may still panic on corrupted metadata.
 
 ## Standard Library Use Case: `Map`
 
@@ -420,7 +471,12 @@ This matches the intended `Map` use case without needing generics in v1.
 3. Interface dispatch is represented explicitly in semantic IR.
 4. Runtime casts use metadata, not compiler-only guesses.
 5. Interface dispatch uses slot-based method tables, not string lookup.
-6. v1 stays narrow: no inheritance, no defaults, no generics.
+6. Interface values are represented as raw object pointers, not fat pointers.
+7. Interfaces are exportable/importable exactly like classes.
+8. Private methods do not satisfy interface conformance.
+9. Direct explicit interface-to-interface casts are allowed and runtime-checked.
+10. Interface method references are out of scope for v1.
+11. v1 stays narrow: no inheritance, no defaults, no generics.
 
 ## Implementation Outline
 
@@ -470,10 +526,13 @@ Integration:
 
 ## Open Questions Deferred From v1
 
-- Should interface-to-interface casts be allowed directly, or only via `Obj`?
 - Should built-in reference types like `Str` be able to declare interfaces immediately?
-- Should private methods be allowed to satisfy interface conformance? Recommended answer: no.
-- Should interfaces be exportable/importable exactly like classes? Recommended answer: yes.
+- Should interface values be allowed in extern function signatures immediately, or deferred until the FFI ABI is documented explicitly?
+
+Recommended follow-up direction for externs:
+
+- if interface values remain raw object pointers, they can later ABI-lower exactly like `Obj`
+- v1 implementation may still choose to reject interfaces in extern signatures until that is documented and tested explicitly
 
 ## Summary
 

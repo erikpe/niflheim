@@ -28,6 +28,14 @@ This plan does not include:
 - generic interfaces
 - built-in automatic interface implementation for arrays or runtime container types
 
+Locked v1 decisions inherited from [INTERFACES_V1.md](INTERFACES_V1.md):
+
+- interface values use the same raw object-pointer runtime representation as class references and `Obj`
+- interfaces are exportable/importable exactly like classes
+- private methods do not satisfy interface conformance
+- direct explicit interface-to-interface casts are allowed and runtime-checked
+- interface method references are out of scope for v1
+
 ## Overall Milestones
 
 - frontend understands interface syntax
@@ -104,6 +112,7 @@ Suggested tests for this step:
 - distinguish duplicate leaf interface names across modules
 - collect interface methods by canonical ID
 - verify local module interface lookup by unqualified name
+- verify imported interface lookup follows the same local-first and ambiguity rules as classes
 
 What should be achieved at the end of this step:
 
@@ -142,7 +151,7 @@ What should be achieved at the end of this step:
 - [ ] Extend class declaration checking to validate `implements` lists
 - [ ] Require every interface method to be implemented by the class
 - [ ] Require exact method signature matching in v1
-- [ ] Reject static/private methods as satisfying interface requirements if that is the chosen policy
+- [ ] Reject static/private methods as satisfying interface requirements
 - [ ] Produce clear diagnostics for missing or mismatched methods
 
 Suggested code areas:
@@ -159,6 +168,8 @@ Suggested tests for this step:
 - extra class methods allowed
 - multiple implemented interfaces checked together
 - imported interface in `implements` list resolved correctly
+- private method cannot satisfy interface requirement
+- static method cannot satisfy interface requirement
 
 What should be achieved at the end of this step:
 
@@ -170,8 +181,10 @@ What should be achieved at the end of this step:
 - [ ] Extend type resolution to resolve interface names in annotations
 - [ ] Extend assignability rules so implementing classes are assignable to interfaces
 - [ ] Extend cast legality rules for `Obj -> Interface`
-- [ ] Extend cast legality rules for interface-to-interface and interface-to-class policy
+- [ ] Extend cast legality rules for direct explicit interface-to-interface casts
+- [ ] Extend cast legality rules for interface-to-class policy
 - [ ] Keep callable/primitive rules unchanged
+- [ ] Decide and document whether interfaces are allowed in extern signatures for v1
 
 Suggested code areas:
 
@@ -187,7 +200,9 @@ Suggested tests for this step:
 - class instance assignable to implemented interface
 - non-implementing class not assignable to interface
 - explicit `Obj -> Interface` cast accepted by typechecker
+- explicit `InterfaceA -> InterfaceB` cast accepted by typechecker
 - invalid primitive/interface casts rejected
+- interface types allowed in locals, fields, params, returns, and arrays if v1 keeps that capability
 
 What should be achieved at the end of this step:
 
@@ -196,7 +211,7 @@ What should be achieved at the end of this step:
 ## Step 6: Extend Semantic IR For Interface Dispatch
 
 - [ ] Add `InterfaceMethodCallExpr`
-- [ ] Add any corresponding interface method reference node only if truly needed for v1
+- [ ] Explicitly reject interface method references in v1 instead of adding a reference node by default
 - [ ] Extend semantic IR unions and invariants documentation if needed
 - [ ] Keep concrete class dispatch separate from interface dispatch
 
@@ -210,6 +225,7 @@ Suggested tests for this step:
 
 - semantic IR construction accepts the new node shape
 - any helper/walker code over semantic expressions stays correct with the new node kind
+- interface method references are rejected if the language surface can express them
 
 What should be achieved at the end of this step:
 
@@ -245,6 +261,7 @@ What should be achieved at the end of this step:
 - [ ] Add implemented-interface table support to runtime type metadata
 - [ ] Define stable interface method slot order
 - [ ] Define per-class interface method table shape
+- [ ] Lock and document that interface values are raw object pointers, not fat pointers
 
 Suggested code areas:
 
@@ -260,6 +277,7 @@ Suggested tests for this step:
 What should be achieved at the end of this step:
 
 - each concrete runtime type can describe which interfaces it implements and how interface methods should dispatch
+- interface-typed values have a fixed runtime representation compatible with existing reference/root handling
 
 ## Step 9: Add Runtime Interface Cast Support
 
@@ -278,7 +296,7 @@ Suggested tests for this step:
 - cast `null` to interface returns `null`
 - cast implementing object to interface succeeds
 - cast non-implementing object to interface fails with runtime panic
-- cast from interface value to another unsupported interface fails
+- cast from interface value to another interface is checked at runtime
 
 What should be achieved at the end of this step:
 
@@ -302,6 +320,7 @@ Suggested tests for this step:
 - emitted assembly contains interface metadata records
 - emitted assembly contains interface method tables for implementing classes
 - existing class type metadata tests still pass unchanged
+- interface cast target metadata is emitted for interface targets just as class cast target metadata is emitted for class targets
 
 What should be achieved at the end of this step:
 
@@ -311,6 +330,7 @@ What should be achieved at the end of this step:
 
 - [ ] Add codegen support for `InterfaceMethodCallExpr`
 - [ ] Decide whether dispatch lookup is emitted inline or via a runtime helper
+- [ ] If a runtime helper is used, lock its ABI and responsibility split relative to checked-cast logic
 - [ ] Preserve current calling convention and root-handling behavior
 - [ ] Ensure receiver is passed correctly as the first argument
 
@@ -325,6 +345,7 @@ Suggested tests for this step:
 - integer and reference return paths both work
 - interface dispatch preserves argument ordering and receiver passing
 - runtime safepoint/root handling remains correct around interface calls
+- interface dispatch lookup uses slot-based method table order, not method-name lookup
 
 What should be achieved at the end of this step:
 
@@ -349,6 +370,31 @@ Suggested tests for this step:
 - class implementing two interfaces works end-to-end
 - interface cast failure panics at runtime
 - interface-based `Map` key path works in golden/integration coverage
+- imported interface use across modules works end-to-end
+- interface-typed fields/arrays/returns work end-to-end if v1 keeps those capabilities
+
+## Step 13: Update Reachability And Codegen Walkers/Collectors
+
+- [ ] Update semantic reachability for interface dispatch edges if interface dispatch introduces new semantic node kinds that carry interface or method identity
+- [ ] Update codegen walkers/collectors to recognize `InterfaceMethodCallExpr`
+- [ ] Update any metadata collectors that inspect cast targets or expression kinds
+
+Suggested code areas:
+
+- `compiler/semantic/reachability.py`
+- `compiler/codegen/walk.py`
+- `compiler/codegen/emitter_module.py`
+- `compiler/codegen/strings.py` if relevant expression-kind switches are extended there
+
+Suggested tests for this step:
+
+- reachability keeps interface-dispatch-dependent declarations alive if needed by the final design
+- codegen collectors continue to traverse all relevant expressions after adding interface call nodes
+- existing walker-based codegen helpers remain correct with the new expression kind
+
+What should be achieved at the end of this step:
+
+- auxiliary semantic/codegen passes remain aligned with the expanded semantic IR
 
 What should be achieved at the end of this step:
 
@@ -369,6 +415,7 @@ Before considering interfaces v1 complete, verify all of the following:
 - [ ] classes cannot claim interface conformance without exact method coverage
 - [ ] `Obj -> Interface` casts are runtime-checked, not compile-time-only assumptions
 - [ ] interface dispatch does not reuse concrete-method call nodes incorrectly
+- [ ] interface values use the same raw object-pointer runtime representation everywhere
 - [ ] existing class-cast and class-method behavior remains stable
 - [ ] at least one real motivating use case is covered end-to-end
 
