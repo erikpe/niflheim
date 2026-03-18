@@ -79,7 +79,6 @@ Supporting documentation:
 - [GRAMMAR_EBNF.md](GRAMMAR_EBNF.md) - grammar conventions and parser-facing notes.
 - [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) - canonical language and implementation checklist.
 - [ROADMAP_v0.1.md](ROADMAP_v0.1.md) - milestone/iteration plan.
-- [TYPECHECK_REFACTOR_PLAN.md](TYPECHECK_REFACTOR_PLAN.md) - concrete module split and migration plan for the typechecker.
 - [ABI_NOTES.md](ABI_NOTES.md) - compiler/runtime ABI notes.
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.
 - [SUGARING_DESIGN.md](SUGARING_DESIGN.md) - canonical sugar protocols (indexing/slicing and for-in iteration).
