@@ -6,8 +6,8 @@ import compiler.codegen.symbols as codegen_symbols
 
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_module import generate_module
+from compiler.codegen.linker import CodegenProgram
 from compiler.codegen.model import ConstructorLayout
-from compiler.codegen_linker import CodegenProgram
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId
 
 

@@ -1,5 +1,5 @@
 from compiler.codegen.program_generator import ProgramGenerator
-from compiler.codegen_linker import build_codegen_program
+from compiler.codegen.linker import build_codegen_program
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering import lower_program
 from compiler.semantic.symbols import ClassId, ConstructorId, MethodId

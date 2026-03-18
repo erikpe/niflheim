@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from compiler.codegen.generator import emit_asm
-from compiler.codegen_linker import build_codegen_program
+from compiler.codegen.linker import build_codegen_program
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering import lower_program
 from compiler.semantic.reachability import prune_unreachable_semantic

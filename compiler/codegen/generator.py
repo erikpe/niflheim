@@ -11,7 +11,7 @@ from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 
 if TYPE_CHECKING:
-    from compiler.codegen_linker import CodegenProgram
+    from compiler.codegen.linker import CodegenProgram
 
 
 class CodeGenerator:

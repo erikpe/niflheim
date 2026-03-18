@@ -6,7 +6,7 @@ from pathlib import Path
 
 from compiler.ast_dump import ast_to_debug_json
 from compiler.codegen.generator import emit_asm
-from compiler.codegen_linker import build_codegen_program, require_main_function
+from compiler.codegen.linker import build_codegen_program, require_main_function
 from compiler.lexer import Token, lex
 from compiler.parser import parse
 from compiler.resolver import resolve_program

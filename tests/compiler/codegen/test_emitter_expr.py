@@ -6,7 +6,7 @@ from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.codegen.layout import build_layout
-from compiler.codegen_linker import build_codegen_program
+from compiler.codegen.linker import build_codegen_program
 from compiler.resolver import resolve_program
 from compiler.semantic.ir import (
     CallableValueCallExpr,

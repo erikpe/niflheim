@@ -1,5 +1,5 @@
 from compiler.codegen.layout import build_layout
-from compiler.codegen_linker import build_codegen_program
+from compiler.codegen.linker import build_codegen_program
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering import lower_program
 

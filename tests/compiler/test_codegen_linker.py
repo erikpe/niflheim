@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from compiler.codegen_linker import build_codegen_program, require_main_function
+from compiler.codegen.linker import build_codegen_program, require_main_function
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering import lower_program
 

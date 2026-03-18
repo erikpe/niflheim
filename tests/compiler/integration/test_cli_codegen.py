@@ -6,7 +6,7 @@ import pytest
 
 import compiler.cli as cli
 
-from compiler.codegen_linker import CodegenProgram
+from compiler.codegen.linker import CodegenProgram
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write, write_project
 
 
