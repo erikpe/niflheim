@@ -3,8 +3,8 @@ from __future__ import annotations
 from compiler.codegen.generator import emit_asm
 from compiler.codegen_linker import build_codegen_program
 from compiler.resolver import resolve_program
-from compiler.semantic_lowering import lower_program
-from compiler.semantic_reachability import prune_unreachable_semantic
+from compiler.semantic.lowering import lower_program
+from compiler.semantic.reachability import prune_unreachable_semantic
 
 
 def emit_source_asm(tmp_path, source: str, *, source_path: str = "main.nif", project_root=None) -> str:

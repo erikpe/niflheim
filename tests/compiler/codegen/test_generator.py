@@ -1,8 +1,8 @@
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.codegen_linker import build_codegen_program
 from compiler.resolver import resolve_program
-from compiler.semantic_lowering import lower_program
-from compiler.semantic_symbols import ClassId, ConstructorId, MethodId
+from compiler.semantic.lowering import lower_program
+from compiler.semantic.symbols import ClassId, ConstructorId, MethodId
 
 
 def _write(path, content: str) -> None:

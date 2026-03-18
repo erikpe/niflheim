@@ -3,7 +3,7 @@ from __future__ import annotations
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.model import FunctionLayout, TEMP_RUNTIME_ROOT_SLOT_COUNT
-from compiler.semantic_ir import (
+from compiler.semantic.ir import (
     ArrayCtorExprS,
     ArrayLenExpr,
     BinaryExprS,

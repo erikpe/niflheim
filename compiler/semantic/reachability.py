@@ -4,7 +4,7 @@ from collections import deque
 from dataclasses import dataclass, replace
 
 from compiler.resolver import ModulePath
-from compiler.semantic_ir import (
+from compiler.semantic.ir import (
     ArrayCtorExprS,
     ArrayLenExpr,
     BinaryExprS,
@@ -43,7 +43,7 @@ from compiler.semantic_ir import (
     SyntheticExpr,
     UnaryExprS,
 )
-from compiler.semantic_symbols import ClassId, FunctionId, MethodId
+from compiler.semantic.symbols import ClassId, FunctionId, MethodId
 
 
 _NON_CLASS_TYPE_NAMES = {"Obj", "bool", "double", "i64", "null", "u64", "u8", "unit"}

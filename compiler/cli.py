@@ -10,8 +10,8 @@ from compiler.codegen_linker import build_codegen_program, require_main_function
 from compiler.lexer import Token, lex
 from compiler.parser import parse
 from compiler.resolver import resolve_program
-from compiler.semantic_lowering import lower_program
-from compiler.semantic_reachability import prune_unreachable_semantic
+from compiler.semantic.lowering import lower_program
+from compiler.semantic.reachability import prune_unreachable_semantic
 from compiler.typecheck.api import typecheck_program
 
 

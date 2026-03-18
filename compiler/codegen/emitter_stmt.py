@@ -6,7 +6,7 @@ import compiler.codegen.types as codegen_types
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr, infer_expression_type_name
 from compiler.codegen.layout import for_in_temp_name
-from compiler.semantic_ir import (
+from compiler.semantic.ir import (
     FieldLValue,
     IndexLValue,
     LocalLValue,
@@ -208,7 +208,7 @@ def _emit_for_in(
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[coll_name])}, rax")
 
     from compiler.codegen.emitter_expr import _emit_named_call, _method_label
-    from compiler.semantic_ir import LocalRefExpr
+    from compiler.semantic.ir import LocalRefExpr
 
     coll_ref = LocalRefExpr(name=coll_name, type_name=infer_expression_type_name(stmt.collection), span=stmt.span)
     if stmt.iter_len_method is None:

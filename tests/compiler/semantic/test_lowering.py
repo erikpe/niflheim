@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.semantic_ir import (
+from compiler.semantic.ir import (
     ArrayLenExpr,
     BinaryExprS,
     CastExprS,
@@ -34,7 +34,7 @@ from compiler.semantic_ir import (
     UnaryExprS,
 )
 from compiler.resolver import resolve_program
-from compiler.semantic_lowering import lower_program
+from compiler.semantic.lowering import lower_program
 
 
 def _write(path: Path, content: str) -> None:

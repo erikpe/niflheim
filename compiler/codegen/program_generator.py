@@ -8,7 +8,7 @@ from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.model import ConstructorLayout
 from compiler.codegen_linker import CodegenProgram
-from compiler.semantic_symbols import ClassId, ConstructorId, FunctionId, MethodId
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId
 
 
 @dataclass(frozen=True)

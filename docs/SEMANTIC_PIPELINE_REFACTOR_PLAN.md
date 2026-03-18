@@ -169,8 +169,8 @@ It should be a normalized semantic tree or graph with:
 
 Suggested location:
 
-- `compiler/semantic_ir.py`
-- `compiler/semantic_lowering.py`
+- `compiler/semantic/ir.py`
+- `compiler/semantic/lowering.py`
 
 ### 2. Canonical Symbol Identity
 
@@ -269,9 +269,10 @@ Suggested new modules:
 
 ```text
 compiler/
-  semantic_symbols.py          # canonical symbol IDs
-  semantic_ir.py               # lowered semantic node dataclasses
-  semantic_lowering.py         # source AST + typecheck data -> semantic IR
+    semantic/
+        symbols.py                 # canonical symbol IDs
+        ir.py                      # lowered semantic node dataclasses
+        lowering.py                # source AST + typecheck data -> semantic IR
   reachability.py              # rewritten later to consume semantic IR
 ```
 
@@ -317,7 +318,7 @@ This pass should be implemented as a small, behavior-preserving extraction. The 
 
 Primary file:
 
-- `compiler/semantic_symbols.py`
+- `compiler/semantic/symbols.py`
 
 Tasks:
 
@@ -335,7 +336,7 @@ Exit criteria:
 
 Primary file:
 
-- `compiler/semantic_symbols.py`
+- `compiler/semantic/symbols.py`
 
 Inputs:
 
@@ -369,7 +370,7 @@ Exit criteria:
 
 Primary file:
 
-- `compiler/semantic_symbols.py`
+- `compiler/semantic/symbols.py`
 
 Tasks:
 
@@ -420,7 +421,7 @@ Primary files:
 
 Recommended files:
 
-- `tests/compiler/semantic/test_semantic_symbols.py`
+- `tests/compiler/semantic/test_symbols.py`
 
 Tasks:
 
@@ -451,7 +452,7 @@ Primary files:
 
 Tasks:
 
-1. Decide whether `semantic_symbols` should be imported directly by internal callers or surfaced through a package facade.
+1. Decide whether `compiler.semantic.symbols` should be imported directly by internal callers or surfaced through a package facade.
 2. Prefer direct internal imports unless there is already a stable facade pattern.
 
 Exit criteria:
@@ -462,8 +463,8 @@ Exit criteria:
 
 Expected new files:
 
-- `compiler/semantic_symbols.py`
-- `tests/compiler/semantic/test_semantic_symbols.py`
+- `compiler/semantic/symbols.py`
+- `tests/compiler/semantic/test_symbols.py`
 
 Expected existing files touched lightly or not at all:
 

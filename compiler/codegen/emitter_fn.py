@@ -5,7 +5,7 @@ from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.emitter_stmt import emit_statement
 from compiler.codegen.layout import build_layout
 from compiler.codegen.strings import escape_c_string
-from compiler.semantic_ir import (
+from compiler.semantic.ir import (
     SemanticBlock,
     SemanticClass,
     SemanticFunction,
@@ -13,7 +13,7 @@ from compiler.semantic_ir import (
     SemanticParam,
     SemanticVarDecl,
 )
-from compiler.semantic_symbols import FunctionId
+from compiler.semantic.symbols import FunctionId
 
 
 def _emit_debug_symbol_literals(codegen, *, target_label: str, function_name: str, file_path: str) -> tuple[str, str]:
@@ -105,7 +105,7 @@ def emit_method(codegen, declaration_tables, cls: SemanticClass, method: Semanti
 
 
 def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
-    from compiler.semantic_symbols import ConstructorId
+    from compiler.semantic.symbols import ConstructorId
 
     ctor_id = ConstructorId(module_path=cls.class_id.module_path, class_name=cls.class_id.name)
     ctor_layout = declaration_tables.constructor_layouts_by_id[ctor_id]

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.resolver import resolve_program
-from compiler.semantic_symbols import ClassId, ConstructorId, FunctionId, MethodId, build_program_symbol_index
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId, build_program_symbol_index
 
 
 def _write(path: Path, content: str) -> None:

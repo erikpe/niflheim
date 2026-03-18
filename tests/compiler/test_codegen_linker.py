@@ -6,7 +6,7 @@ import pytest
 
 from compiler.codegen_linker import build_codegen_program, require_main_function
 from compiler.resolver import resolve_program
-from compiler.semantic_lowering import lower_program
+from compiler.semantic.lowering import lower_program
 
 
 def _write(path: Path, content: str) -> None:

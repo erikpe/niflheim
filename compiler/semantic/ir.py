@@ -5,7 +5,7 @@ from pathlib import Path
 
 from compiler.lexer import SourceSpan
 from compiler.resolver import ModulePath
-from compiler.semantic_symbols import ClassId, ConstructorId, FunctionId, MethodId, SyntheticId
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId, SyntheticId
 
 
 @dataclass(frozen=True)

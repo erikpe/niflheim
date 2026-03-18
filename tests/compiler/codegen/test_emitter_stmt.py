@@ -5,7 +5,7 @@ from pathlib import Path
 from compiler.resolver import resolve_program
 from compiler.codegen.generator import emit_asm
 from compiler.codegen_linker import build_codegen_program
-from compiler.semantic_lowering import lower_program
+from compiler.semantic.lowering import lower_program
 
 
 def _write(path: Path, content: str) -> None:

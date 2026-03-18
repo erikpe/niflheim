@@ -5,7 +5,7 @@ import compiler.codegen.types as codegen_types
 
 from compiler.codegen.emitter_fn import emit_constructor, emit_function, emit_method
 from compiler.codegen.strings import decode_string_literal, escape_asm_string_bytes, escape_c_string
-from compiler.semantic_ir import (
+from compiler.semantic.ir import (
     BinaryExprS,
     CallableValueCallExpr,
     CastExprS,

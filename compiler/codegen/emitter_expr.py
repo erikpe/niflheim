@@ -16,7 +16,7 @@ from compiler.codegen.model import (
 )
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
-from compiler.semantic_ir import (
+from compiler.semantic.ir import (
     ArrayCtorExprS,
     BinaryExprS,
     CallableValueCallExpr,
@@ -39,7 +39,7 @@ from compiler.semantic_ir import (
     SyntheticExpr,
     UnaryExprS,
 )
-from compiler.semantic_symbols import MethodId
+from compiler.semantic.symbols import MethodId
 
 if TYPE_CHECKING:
     from compiler.codegen.generator import CodeGenerator

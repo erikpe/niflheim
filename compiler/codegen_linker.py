@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from compiler.lexer import SourceSpan
 from compiler.resolver import ModulePath
-from compiler.semantic_ir import SemanticClass, SemanticFunction, SemanticModule, SemanticProgram
+from compiler.semantic.ir import SemanticClass, SemanticFunction, SemanticModule, SemanticProgram
 
 
 @dataclass(frozen=True)

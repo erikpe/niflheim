@@ -32,7 +32,7 @@ from compiler.ast_nodes import (
 )
 from compiler.codegen.strings import decode_string_literal, is_str_type_name
 from compiler.resolver import ModulePath, ProgramInfo
-from compiler.semantic_ir import (
+from compiler.semantic.ir import (
     ArrayCtorExprS,
     ArrayLenExpr,
     BinaryExprS,
@@ -77,7 +77,7 @@ from compiler.semantic_ir import (
     SyntheticExpr,
     UnaryExprS,
 )
-from compiler.semantic_symbols import (
+from compiler.semantic.symbols import (
     ClassId,
     ConstructorId,
     MethodId,

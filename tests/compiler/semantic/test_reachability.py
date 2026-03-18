@@ -4,9 +4,9 @@ from pathlib import Path
 
 from compiler.resolver import resolve_program
 from compiler.codegen_linker import build_codegen_program
-from compiler.semantic_lowering import lower_program
-from compiler.semantic_reachability import analyze_semantic_reachability, prune_unreachable_semantic
-from compiler.semantic_symbols import ClassId, FunctionId, MethodId
+from compiler.semantic.lowering import lower_program
+from compiler.semantic.reachability import analyze_semantic_reachability, prune_unreachable_semantic
+from compiler.semantic.symbols import ClassId, FunctionId, MethodId
 
 
 def _write(path: Path, content: str) -> None:
