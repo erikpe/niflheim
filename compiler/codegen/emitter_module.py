@@ -5,8 +5,8 @@ import compiler.codegen.types as codegen_types
 
 from compiler.codegen.emitter_fn import emit_constructor, emit_function, emit_method
 from compiler.codegen.strings import emit_string_literal_section, escape_c_string
+from compiler.codegen.walk import walk_codegen_program_expressions
 from compiler.semantic.ir import *
-from compiler.semantic.walk import walk_program_expressions
 
 
 def generate_module(codegen, program) -> str:
@@ -154,7 +154,7 @@ def emit_runtime_panic_messages_section(codegen) -> None:
 
 def collect_reference_cast_types(program) -> list[str]:
     names: set[str] = {cls.class_id.name for cls in program.classes}
-    walk_program_expressions(program, lambda expr: _collect_reference_cast_type(expr, names))
+    walk_codegen_program_expressions(program, lambda expr: _collect_reference_cast_type(expr, names))
     return sorted(names)
 
 

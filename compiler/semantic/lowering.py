@@ -921,8 +921,6 @@ def _literal_type_name(expr: LiteralExpr) -> str:
     if expr.value.endswith("u") and expr.value[:-1].isdigit():
         return "u64"
     if expr.value.isdigit():
-        if int(expr.value) > I64_MAX_LITERAL:
-            return "i64"
         return "i64"
     raise ValueError(f"Unsupported literal syntax for semantic lowering: {expr.value}")
 

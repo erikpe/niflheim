@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from compiler.codegen.linker import CodegenProgram
+from compiler.codegen.walk import walk_codegen_program_expressions
 from compiler.semantic.ir import *
-from compiler.semantic.walk import walk_program_expressions
 
 
 STR_CLASS_NAME = "Str"
@@ -126,7 +127,7 @@ def decode_char_literal(lexeme: str) -> int:
     raise ValueError(f"invalid char literal payload: {lexeme!r}")
 
 
-def emit_string_literal_section(codegen, program: SemanticProgram) -> dict[str, tuple[str, int]]:
+def emit_string_literal_section(codegen, program: CodegenProgram) -> dict[str, tuple[str, int]]:
     string_literals = collect_string_literals(program)
     labels: dict[str, tuple[str, int]] = {}
     if not string_literals:
@@ -142,10 +143,10 @@ def emit_string_literal_section(codegen, program: SemanticProgram) -> dict[str, 
     return labels
 
 
-def collect_string_literals(program: SemanticProgram) -> list[str]:
+def collect_string_literals(program: CodegenProgram) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
-    walk_program_expressions(program, lambda expr: _collect_string_literal(expr, out, seen))
+    walk_codegen_program_expressions(program, lambda expr: _collect_string_literal(expr, out, seen))
     return out
 
 
