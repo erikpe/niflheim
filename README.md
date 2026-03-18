@@ -8,6 +8,8 @@ Key design docs:
 - [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md)
 - [docs/ROADMAP_v0.1.md](docs/ROADMAP_v0.1.md)
 - [docs/ABI_NOTES.md](docs/ABI_NOTES.md)
+- [docs/INTERFACES_V1.md](docs/INTERFACES_V1.md)
+- [docs/INTERFACES_V1_IMPLEMENTATION_PLAN.md](docs/INTERFACES_V1_IMPLEMENTATION_PLAN.md)
 - [docs/TEST_PLAN_v0.1.md](docs/TEST_PLAN_v0.1.md)
 - [docs/GRAMMAR_EBNF.md](docs/GRAMMAR_EBNF.md)
 - [docs/REPO_STRUCTURE.md](docs/REPO_STRUCTURE.md)
