@@ -260,52 +260,14 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Emi
 
 
 def _emit_callable_value_call(codegen: CodeGenerator, expr: CallableValueCallExpr, ctx: EmitContext) -> None:
-    layout = ctx.layout
-    call_argument_type_names = [infer_expression_type_name(arg) for arg in expr.args]
-    reference_arg_indices = {
-        index
-        for index, type_name in enumerate(call_argument_type_names)
-        if codegen_types.is_reference_type_name(type_name)
-    }
-    arg_locations = plan_sysv_arg_locations(call_argument_type_names)
-    stack_arg_indices = [
-        index
-        for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations)
-        if location_kind == "stack"
-    ]
-    temp_root_base = ctx.temp_root_depth[0]
-    rooted_temp_arg_count = 0
-    for arg_index in range(len(expr.args) - 1, -1, -1):
-        emit_expr(codegen, expr.args[arg_index], ctx)
-        codegen.asm.instr("push rax")
-        if arg_index in reference_arg_indices:
-            codegen.emit_temp_arg_root_from_rsp(layout, temp_root_base + rooted_temp_arg_count, 0, span=expr.span)
-            rooted_temp_arg_count += 1
-            ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
-    emit_expr(codegen, expr.callee, ctx)
-    codegen.asm.instr("mov r11, rax")
-    codegen.emit_root_slot_updates(layout)
-    codegen.asm.instr("mov r10, rsp")
-    for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
-        arg_operand = stack_slot_operand("r10", arg_index * 8)
-        if location_kind == "int_reg":
-            codegen.asm.instr(f"mov {location_register}, {arg_operand}")
-        elif location_kind == "float_reg":
-            codegen.asm.instr(f"movq {location_register}, {arg_operand}")
-    for arg_index in reversed(stack_arg_indices):
-        codegen.asm.instr(f"mov rax, {stack_slot_operand('r10', arg_index * 8)}")
-        codegen.asm.instr("push rax")
-    codegen.emit_aligned_call("r11")
-    cleanup_slot_count = len(expr.args) + len(stack_arg_indices)
-    if cleanup_slot_count > 0:
-        codegen.asm.instr(f"add rsp, {cleanup_slot_count * 8}")
-    if expr.type_name == "double":
-        codegen.asm.instr("movq rax, xmm0")
-    elif expr.type_name == "unit":
-        codegen.asm.instr("mov rax, 0")
-    if rooted_temp_arg_count > 0:
-        codegen.emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
-    ctx.temp_root_depth[0] = temp_root_base
+    _emit_call_sequence(
+        codegen,
+        call_arguments=expr.args,
+        return_type_name=expr.type_name,
+        ctx=ctx,
+        callee_expr=expr.callee,
+        temp_root_spans=[expr.span] * len(expr.args),
+    )
 
 
 def _emit_named_call(
@@ -315,6 +277,32 @@ def _emit_named_call(
     return_type_name: str,
     ctx: EmitContext,
 ) -> None:
+    runtime_hook_span = call_arguments[0].span if codegen_symbols.is_runtime_call_name(target_name) and call_arguments else None
+    _emit_call_sequence(
+        codegen,
+        call_arguments=call_arguments,
+        return_type_name=return_type_name,
+        ctx=ctx,
+        target_name=target_name,
+        temp_root_spans=[arg.span for arg in call_arguments],
+        runtime_hook_span=runtime_hook_span,
+    )
+
+
+def _emit_call_sequence(
+    codegen: CodeGenerator,
+    call_arguments: list[SemanticExpr],
+    return_type_name: str,
+    ctx: EmitContext,
+    *,
+    target_name: str | None = None,
+    callee_expr: SemanticExpr | None = None,
+    temp_root_spans: list[object | None],
+    runtime_hook_span: object | None = None,
+) -> None:
+    if (target_name is None) == (callee_expr is None):
+        raise ValueError("call emission requires exactly one of target_name or callee_expr")
+
     layout = ctx.layout
     call_argument_type_names = [infer_expression_type_name(arg) for arg in call_arguments]
     reference_arg_indices = {
@@ -329,12 +317,11 @@ def _emit_named_call(
         if location_kind == "stack"
     ]
     temp_root_base = ctx.temp_root_depth[0]
-    is_runtime_call = codegen_symbols.is_runtime_call_name(target_name)
-    if is_runtime_call:
+    if runtime_hook_span is not None:
         _emit_runtime_call_hooks_before(
             codegen,
-            call_arguments[0].span.start.line if call_arguments else 0,
-            call_arguments[0].span.start.column if call_arguments else 0,
+            runtime_hook_span.start.line,
+            runtime_hook_span.start.column,
             ctx,
         )
     rooted_temp_arg_count = 0
@@ -343,10 +330,15 @@ def _emit_named_call(
         codegen.asm.instr("push rax")
         if arg_index in reference_arg_indices:
             codegen.emit_temp_arg_root_from_rsp(
-                layout, temp_root_base + rooted_temp_arg_count, 0, span=call_arguments[arg_index].span
+                layout, temp_root_base + rooted_temp_arg_count, 0, span=temp_root_spans[arg_index]
             )
             rooted_temp_arg_count += 1
             ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
+    call_target = target_name
+    if callee_expr is not None:
+        emit_expr(codegen, callee_expr, ctx)
+        codegen.asm.instr("mov r11, rax")
+        call_target = "r11"
     codegen.emit_root_slot_updates(layout)
     codegen.asm.instr("mov r10, rsp")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
@@ -358,7 +350,7 @@ def _emit_named_call(
     for arg_index in reversed(stack_arg_indices):
         codegen.asm.instr(f"mov rax, {stack_slot_operand('r10', arg_index * 8)}")
         codegen.asm.instr("push rax")
-    codegen.emit_aligned_call(target_name)
+    codegen.emit_aligned_call(call_target)
     cleanup_slot_count = len(call_arguments) + len(stack_arg_indices)
     if cleanup_slot_count > 0:
         codegen.asm.instr(f"add rsp, {cleanup_slot_count * 8}")
@@ -369,7 +361,7 @@ def _emit_named_call(
     if rooted_temp_arg_count > 0:
         codegen.emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
     ctx.temp_root_depth[0] = temp_root_base
-    if is_runtime_call:
+    if runtime_hook_span is not None:
         _emit_runtime_call_hooks_after(codegen, ctx)
 
 
