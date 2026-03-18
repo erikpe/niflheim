@@ -6,6 +6,7 @@ import compiler.codegen.types as codegen_types
 from compiler.codegen.emitter_fn import emit_constructor, emit_function, emit_method
 from compiler.codegen.strings import emit_string_literal_section, escape_c_string
 from compiler.semantic.ir import *
+from compiler.semantic.walk import walk_program_expressions
 
 
 def generate_module(codegen, program) -> str:
@@ -37,6 +38,8 @@ def generate_module(codegen, program) -> str:
     codegen.asm.directive('.section .note.GNU-stack,"",@progbits')
     codegen.asm.blank()
     return codegen.asm.build()
+
+
 def emit_type_metadata_section(codegen, program) -> None:
     class_aliases_by_name: dict[str, tuple[object, list[str], str]] = {}
     for cls in program.classes:
@@ -147,14 +150,11 @@ def emit_runtime_panic_messages_section(codegen) -> None:
     for message, label in codegen.runtime_panic_message_labels.items():
         codegen.asm.label(label)
         codegen.asm.asciz(escape_c_string(message))
+
+
 def collect_reference_cast_types(program) -> list[str]:
     names: set[str] = {cls.class_id.name for cls in program.classes}
-    for fn in program.functions:
-        if fn.body is not None:
-            _collect_reference_cast_types_from_block(fn.body, names)
-    for cls in program.classes:
-        for method in cls.methods:
-            _collect_reference_cast_types_from_block(method.body, names)
+    walk_program_expressions(program, lambda expr: _collect_reference_cast_type(expr, names))
     return sorted(names)
 
 
@@ -163,80 +163,7 @@ def _qualified_class_type_name(cls) -> str:
     return f"{owner_dotted}::{cls.class_id.name}"
 
 
-def _collect_reference_cast_types_from_block(block: SemanticBlock, out: set[str]) -> None:
-    for stmt in block.statements:
-        _collect_reference_cast_types_from_stmt(stmt, out)
-
-
-def _collect_reference_cast_types_from_stmt(stmt: SemanticStmt, out: set[str]) -> None:
-    if isinstance(stmt, SemanticBlock):
-        _collect_reference_cast_types_from_block(stmt, out)
-        return
-    if isinstance(stmt, SemanticVarDecl):
-        if stmt.initializer is not None:
-            _collect_reference_cast_types_from_expr(stmt.initializer, out)
-        return
-    if isinstance(stmt, SemanticAssign):
-        _collect_reference_cast_types_from_expr(stmt.value, out)
-        return
-    if isinstance(stmt, SemanticExprStmt):
-        _collect_reference_cast_types_from_expr(stmt.expr, out)
-        return
-    if isinstance(stmt, SemanticReturn):
-        if stmt.value is not None:
-            _collect_reference_cast_types_from_expr(stmt.value, out)
-        return
-    if isinstance(stmt, SemanticIf):
-        _collect_reference_cast_types_from_expr(stmt.condition, out)
-        _collect_reference_cast_types_from_block(stmt.then_block, out)
-        if stmt.else_block is not None:
-            _collect_reference_cast_types_from_block(stmt.else_block, out)
-        return
-    if isinstance(stmt, SemanticWhile):
-        _collect_reference_cast_types_from_expr(stmt.condition, out)
-        _collect_reference_cast_types_from_block(stmt.body, out)
-        return
-    if isinstance(stmt, SemanticForIn):
-        _collect_reference_cast_types_from_expr(stmt.collection, out)
-        _collect_reference_cast_types_from_block(stmt.body, out)
-
-
-def _collect_reference_cast_types_from_expr(expr: SemanticExpr, out: set[str]) -> None:
+def _collect_reference_cast_type(expr: SemanticExpr, out: set[str]) -> None:
     if isinstance(expr, CastExprS):
         if codegen_types.is_reference_type_name(expr.target_type_name):
             out.add(expr.target_type_name)
-        _collect_reference_cast_types_from_expr(expr.operand, out)
-        return
-    if isinstance(expr, UnaryExprS):
-        _collect_reference_cast_types_from_expr(expr.operand, out)
-        return
-    if isinstance(expr, BinaryExprS):
-        _collect_reference_cast_types_from_expr(expr.left, out)
-        _collect_reference_cast_types_from_expr(expr.right, out)
-        return
-    if isinstance(expr, FieldReadExpr):
-        _collect_reference_cast_types_from_expr(expr.receiver, out)
-        return
-    if isinstance(expr, FunctionCallExpr | StaticMethodCallExpr | ConstructorCallExpr):
-        for arg in expr.args:
-            _collect_reference_cast_types_from_expr(arg, out)
-        return
-    if isinstance(expr, CallableValueCallExpr):
-        _collect_reference_cast_types_from_expr(expr.callee, out)
-        for arg in expr.args:
-            _collect_reference_cast_types_from_expr(arg, out)
-        return
-    if isinstance(expr, InstanceMethodCallExpr):
-        _collect_reference_cast_types_from_expr(expr.receiver, out)
-        for arg in expr.args:
-            _collect_reference_cast_types_from_expr(arg, out)
-        return
-    if isinstance(expr, IndexReadExpr):
-        _collect_reference_cast_types_from_expr(expr.target, out)
-        _collect_reference_cast_types_from_expr(expr.index, out)
-        return
-    if isinstance(expr, SliceReadExpr):
-        _collect_reference_cast_types_from_expr(expr.target, out)
-        _collect_reference_cast_types_from_expr(expr.begin, out)
-        _collect_reference_cast_types_from_expr(expr.end, out)
-        return
