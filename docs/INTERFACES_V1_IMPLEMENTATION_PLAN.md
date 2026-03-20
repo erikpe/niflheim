@@ -13,10 +13,11 @@ In progress.
 Completed so far:
 
 - Step 1 is implemented and validated.
+- Step 2 is implemented and validated.
 
 Not started yet:
 
-- Step 2 and later.
+- Step 3 and later.
 
 ## Scope
 
@@ -123,11 +124,11 @@ Step 1 objective check:
 
 ## Step 2: Add Canonical Interface Symbol IDs And Inventory
 
-- [ ] Add `InterfaceId`
-- [ ] Add `InterfaceMethodId`
-- [ ] Extend semantic symbol indexing to inventory interfaces and interface methods
-- [ ] Add module-local interface lookup maps
-- [ ] Add imported-interface lookup support if inventory layer is the right place for it
+- [x] Add `InterfaceId`
+- [x] Add `InterfaceMethodId`
+- [x] Extend semantic symbol indexing to inventory interfaces and interface methods
+- [x] Add module-local interface lookup maps
+- [x] Add imported-interface lookup support if inventory layer is the right place for it
 
 Suggested code areas:
 
@@ -146,6 +147,29 @@ What should be achieved at the end of this step:
 
 - interfaces have canonical post-typecheck identity just like classes/functions/methods
 - later passes do not need to use ad hoc string parsing for interface ownership
+
+Validation for this step:
+
+- Implemented in `compiler/semantic/symbols.py`
+- Resolver symbol inventory was extended in `compiler/resolver.py` so interfaces participate in exported/imported module symbol visibility just like classes
+- Added focused tests covering:
+	- canonical interface IDs across modules
+	- canonical interface method IDs across modules
+	- module-local interface lookup maps
+	- imported interface lookup with local-first behavior
+	- ambiguous imported interface lookup rejection
+	- exported interface symbol visibility in resolver
+- Validation run results:
+	- focused resolver and semantic symbol tests: `12 passed`
+	- full suite: `430 passed`
+
+Step 2 objective check:
+
+- fulfilled: interfaces now have canonical `InterfaceId` identity keyed by module path and leaf name
+- fulfilled: interface methods now have canonical `InterfaceMethodId` identity keyed by module path, owning interface, and method name
+- fulfilled: the semantic symbol index inventories interfaces and interface methods explicitly
+- fulfilled: module-local interface lookup maps are available in the symbol index
+- fulfilled: imported interface lookup support was added at the inventory layer with local-first and ambiguity behavior
 
 ## Step 3: Add Typecheck Interface Declaration Collection
 

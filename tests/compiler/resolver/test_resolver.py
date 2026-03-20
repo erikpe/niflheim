@@ -46,6 +46,33 @@ def test_resolve_program_builds_module_graph_and_symbol_tables(tmp_path: Path) -
     assert "hidden" not in math_module.exported_symbols
 
 
+def test_resolve_program_exports_interface_symbols(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "contracts.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import contracts;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    contracts_module = program.modules[("contracts",)]
+
+    assert "Hashable" in contracts_module.exported_symbols
+    assert contracts_module.exported_symbols["Hashable"].kind == "interface"
+
+
 def test_resolve_program_rejects_access_to_non_exported_member(tmp_path: Path) -> None:
     _write(
         tmp_path / "math_utils.nif",

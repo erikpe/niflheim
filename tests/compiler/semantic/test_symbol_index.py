@@ -2,8 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from compiler.resolver import resolve_program
-from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId, build_program_symbol_index
+from compiler.semantic.symbols import (
+    ClassId,
+    ConstructorId,
+    FunctionId,
+    InterfaceId,
+    InterfaceMethodId,
+    MethodId,
+    build_program_symbol_index,
+    resolve_visible_interface_id,
+)
 
 
 def _write(path: Path, content: str) -> None:
@@ -156,3 +167,132 @@ def test_build_program_symbol_index_maps_constructors_back_to_class_decls(tmp_pa
 
     assert index.constructors[public_box_ctor].name == "PublicBox"
     assert index.constructors[with_default_ctor].name == "WithDefault"
+
+
+def test_build_program_symbol_index_collects_interface_ids_across_modules(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "pkg" / "alpha.nif",
+        """
+        export interface Shared {
+            fn hash_code() -> u64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "pkg" / "beta.nif",
+        """
+        export interface Shared {
+            fn equals(other: Obj) -> bool;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import pkg.alpha;
+        import pkg.beta;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    index = build_program_symbol_index(program)
+
+    alpha_interface = InterfaceId(module_path=("pkg", "alpha"), name="Shared")
+    beta_interface = InterfaceId(module_path=("pkg", "beta"), name="Shared")
+    alpha_method = InterfaceMethodId(module_path=("pkg", "alpha"), interface_name="Shared", name="hash_code")
+    beta_method = InterfaceMethodId(module_path=("pkg", "beta"), interface_name="Shared", name="equals")
+
+    assert alpha_interface in index.interfaces
+    assert beta_interface in index.interfaces
+    assert alpha_method in index.interface_methods
+    assert beta_method in index.interface_methods
+    assert index.interface_ids_by_name["Shared"] == {alpha_interface, beta_interface}
+
+
+def test_build_program_symbol_index_tracks_local_and_imported_interface_lookup(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        interface Hashable {
+            fn local_hash() -> u64;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    index = build_program_symbol_index(program)
+
+    assert index.local_interfaces_by_module[("main",)]["Hashable"] == InterfaceId(("main",), "Hashable")
+    assert index.local_interfaces_by_module[("util",)]["Hashable"] == InterfaceId(("util",), "Hashable")
+    assert resolve_visible_interface_id(index, program, ("main",), "Hashable") == InterfaceId(("main",), "Hashable")
+
+    _write(
+        tmp_path / "consumer.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    consumer_program = resolve_program(tmp_path / "consumer.nif", project_root=tmp_path)
+    consumer_index = build_program_symbol_index(consumer_program)
+    assert resolve_visible_interface_id(consumer_index, consumer_program, ("consumer",), "Hashable") == InterfaceId(
+        ("util",), "Hashable"
+    )
+
+
+def test_build_program_symbol_index_rejects_ambiguous_imported_interface_lookup(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "pkg" / "left.nif",
+        """
+        export interface Shared {
+            fn left() -> u64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "pkg" / "right.nif",
+        """
+        export interface Shared {
+            fn right() -> u64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import pkg.left;
+        import pkg.right;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    index = build_program_symbol_index(program)
+
+    with pytest.raises(ValueError, match="Ambiguous imported interface 'Shared'"):
+        resolve_visible_interface_id(index, program, ("main",), "Shared")

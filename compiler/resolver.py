@@ -135,6 +135,9 @@ def _build_symbol_tables(module_ast: ModuleAst) -> tuple[dict[str, SymbolInfo], 
     for class_decl in module_ast.classes:
         add_symbol(class_decl.name, "class", class_decl.is_export, class_decl.span)
 
+    for interface_decl in module_ast.interfaces:
+        add_symbol(interface_decl.name, "interface", interface_decl.is_export, interface_decl.span)
+
     for fn_decl in module_ast.functions:
         add_symbol(fn_decl.name, "function", fn_decl.is_export, fn_decl.span)
 
