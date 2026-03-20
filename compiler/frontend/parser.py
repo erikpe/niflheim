@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.frontend.ast_nodes import *
-from compiler.frontend.literals import parse_float_literal_text, parse_int_literal_text
+from compiler.frontend.literals import int_literal_expr, literal_expr_from_token
 from compiler.frontend.lexer import SourceSpan, Token
 from compiler.frontend.tokens import TYPE_NAME_TOKENS, UNARY_START_TOKENS, TokenKind
 
@@ -71,31 +71,6 @@ class Parser:
         value = self._sugar_symbol_counter
         self._sugar_symbol_counter += 1
         return f"__nif_sugar_{stem}_{value}"
-
-    def _parse_numeric_literal(self, token: Token) -> IntLiteralValue | FloatLiteralValue:
-        try:
-            if token.kind == TokenKind.INT_LIT:
-                return parse_int_literal_text(token.lexeme)
-            if token.kind == TokenKind.FLOAT_LIT:
-                return parse_float_literal_text(token.lexeme)
-        except ValueError as exc:
-            raise ParserError(str(exc), token.span) from exc
-        raise ParserError("Expected numeric literal token", token.span)
-
-    def _make_literal_expr(self, token: Token) -> LiteralExpr:
-        if token.kind == TokenKind.INT_LIT or token.kind == TokenKind.FLOAT_LIT:
-            literal = self._parse_numeric_literal(token)
-        elif token.kind == TokenKind.STRING_LIT:
-            literal = StringLiteralValue(raw_text=token.lexeme)
-        elif token.kind == TokenKind.CHAR_LIT:
-            literal = CharLiteralValue(raw_text=token.lexeme)
-        elif token.kind == TokenKind.TRUE:
-            literal = BoolLiteralValue(value=True, raw_text=token.lexeme)
-        elif token.kind == TokenKind.FALSE:
-            literal = BoolLiteralValue(value=False, raw_text=token.lexeme)
-        else:
-            raise ParserError("Expected literal token", token.span)
-        return LiteralExpr(literal=literal, span=token.span)
 
     def parse_module(self) -> ModuleAst:
         imports: list[ImportDecl] = []
@@ -722,9 +697,7 @@ class Parser:
         if self.stream.match(TokenKind.IS):
             type_ref = self._parse_type_ref()
             return TypeTestExpr(
-                operand=expr,
-                type_ref=type_ref,
-                span=SourceSpan(start=expr.span.start, end=type_ref.span.end),
+                operand=expr, type_ref=type_ref, span=SourceSpan(start=expr.span.start, end=type_ref.span.end)
             )
         return expr
 
@@ -850,10 +823,7 @@ class Parser:
     def _build_slice_expr(
         self, *, object_expr: Expression, begin_expr: Expression | None, end_expr: Expression | None, end_span
     ) -> Expression:
-        zero_literal = LiteralExpr(
-            literal=IntLiteralValue(raw_text="0", magnitude=0, base=10, suffix=None),
-            span=SourceSpan(start=object_expr.span.start, end=object_expr.span.start),
-        )
+        zero_literal = int_literal_expr("0", SourceSpan(start=object_expr.span.start, end=object_expr.span.start))
         begin_arg = begin_expr if begin_expr is not None else zero_literal
 
         if end_expr is None:
@@ -895,7 +865,10 @@ class Parser:
             TokenKind.FALSE,
         ):
             token = self.stream.previous()
-            return self._make_literal_expr(token)
+            try:
+                return literal_expr_from_token(token)
+            except ValueError as exc:
+                raise ParserError(str(exc), token.span) from exc
 
         if self.stream.match(TokenKind.NULL):
             return NullExpr(span=self.stream.previous().span)
