@@ -858,4 +858,7 @@ def test_lower_program_preserves_min_i64_literal_inside_unary_negation(tmp_path:
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, UnaryExprS)
     assert isinstance(return_stmt.value.operand, LiteralExprS)
+    assert isinstance(return_stmt.value.operand.constant, IntConstant)
+    assert return_stmt.value.operand.constant.type_name == "i64"
+    assert return_stmt.value.operand.constant.value == 9223372036854775808
     assert return_stmt.value.operand.value == "9223372036854775808"
