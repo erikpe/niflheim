@@ -153,6 +153,27 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
     return (void*)obj;
 }
 
+
+const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const RtInterfaceType* interface_type) {
+    if (concrete_type == NULL || interface_type == NULL) {
+        return NULL;
+    }
+
+    const RtInterfaceImpl* interfaces = concrete_type->interfaces;
+    if (interfaces == NULL || concrete_type->interface_count == 0u) {
+        return NULL;
+    }
+
+    for (uint32_t index = 0; index < concrete_type->interface_count; index++) {
+        const RtInterfaceImpl* impl = &interfaces[index];
+        if (impl->interface_type == interface_type) {
+            return impl;
+        }
+    }
+
+    return NULL;
+}
+
 void* rt_checked_cast(void* obj, const RtType* expected_type) {
     if (obj == NULL) {
         return NULL;

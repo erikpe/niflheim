@@ -203,3 +203,25 @@ fn main() -> i64 {
     assert "__nif_type_name_Holder:" in asm
     assert "__nif_type_Holder:" in asm
     assert "__nif_type_name_main__Holder__ptr_offsets:" in asm
+
+
+def test_emit_asm_reserves_interface_metadata_slots_in_rt_type_records(tmp_path) -> None:
+    source = """
+class Holder {
+    value: Obj;
+}
+
+fn main() -> i64 {
+    var h: Holder = Holder(null);
+    if h == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "__nif_type_Holder:" in asm
+    assert "    .quad __nif_type_name_main__Holder" in asm
+    assert "    .quad __nif_type_name_main__Holder__ptr_offsets" in asm
+    assert "    .quad 0\n    .long 0\n    .long 0" in asm

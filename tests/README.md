@@ -24,3 +24,5 @@ Runtime/GC tests are C harnesses under `tests/runtime/` and are executed via mak
 - `make -C runtime test-all` → all runtime harnesses
 
 These runtime harnesses complement Python tests and focus on collector/root ABI behavior directly.
+
+- `make -C runtime test-interface-metadata` → interface metadata layout/helper checks

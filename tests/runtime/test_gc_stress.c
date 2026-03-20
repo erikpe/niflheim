@@ -37,6 +37,9 @@ static const RtType NODE_TYPE = {
     .pointer_offsets = NODE_POINTER_OFFSETS,
     .pointer_offsets_count = 1,
     .reserved0 = 0,
+    .interfaces = NULL,
+    .interface_count = 0,
+    .reserved1 = 0,
 };
 
 
@@ -51,6 +54,9 @@ static const RtType LEAF_TYPE = {
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0,
     .reserved0 = 0,
+    .interfaces = NULL,
+    .interface_count = 0,
+    .reserved1 = 0,
 };
 
 

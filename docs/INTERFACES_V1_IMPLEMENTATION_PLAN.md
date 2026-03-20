@@ -18,10 +18,11 @@ Completed so far:
 - Step 4 is implemented and validated.
 - Step 5 is implemented and validated.
 - Step 6 is implemented and validated.
+- Step 8 is implemented and validated.
 
 Not started yet:
 
-- Step 7 and later.
+- Step 7, Step 9, and later.
 
 ## Scope
 
@@ -423,11 +424,11 @@ What should be achieved at the end of this step:
 
 ## Step 8: Extend Runtime Metadata For Interfaces
 
-- [ ] Add interface metadata structs to the runtime headers
-- [ ] Add implemented-interface table support to runtime type metadata
-- [ ] Define stable interface method slot order
-- [ ] Define per-class interface method table shape
-- [ ] Lock and document that interface values are raw object pointers, not fat pointers
+- [x] Add interface metadata structs to the runtime headers
+- [x] Add implemented-interface table support to runtime type metadata
+- [x] Define stable interface method slot order
+- [x] Define per-class interface method table shape
+- [x] Lock and document that interface values are raw object pointers, not fat pointers
 
 Suggested code areas:
 
@@ -444,6 +445,31 @@ What should be achieved at the end of this step:
 
 - each concrete runtime type can describe which interfaces it implements and how interface methods should dispatch
 - interface-typed values have a fixed runtime representation compatible with existing reference/root handling
+
+Validation for this step:
+
+- Implemented in `runtime/include/runtime.h`, `runtime/src/runtime.c`, `runtime/src/array.c`, `compiler/codegen/emitter_module.py`, and `docs/ABI_NOTES.md`
+- Added explicit runtime ABI structs for `RtInterfaceType` and `RtInterfaceImpl`
+- Extended `RtType` with implemented-interface table fields so runtime metadata can describe interface conformance without changing object representation
+- Added `rt_find_interface_impl(...)` as the runtime metadata scan helper for future cast/dispatch support
+- Extended emitted `RtType` records to reserve interface metadata slots with zero values until Step 10 emits concrete interface descriptors and per-class interface tables
+- ABI notes now explicitly document that interface values remain raw object pointers rather than fat pointers
+- Added focused tests covering:
+	- runtime metadata helper lookup via `tests/runtime/test_interface_metadata.c`
+	- runtime harness coverage via `make -C runtime test-all`
+	- codegen emission of the extended `RtType` record layout
+- Validation run results:
+	- focused Python metadata/integration tests: `11 passed`
+	- runtime harnesses: `make -C runtime test-all` passed
+	- full compiler suite: `455 passed`
+
+Step 8 objective check:
+
+- fulfilled: runtime headers now define explicit interface metadata structs
+- fulfilled: `RtType` now has implemented-interface table fields for interface metadata
+- fulfilled: stable slot-ordered interface method tables are now documented as the runtime metadata contract
+- fulfilled: the per-class interface table shape is now defined at the runtime ABI/documentation layer
+- fulfilled: interface values are explicitly documented and preserved as raw object pointers rather than fat pointers
 
 ## Step 9: Add Runtime Interface Cast Support
 

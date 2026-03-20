@@ -114,32 +114,36 @@ def emit_type_metadata_section(codegen, program) -> None:
             pointer_offsets_sym = pointer_offsets_meta[0]
             pointer_offsets_count = len(pointer_offsets_meta[1])
             type_flags = 1
-        codegen.asm.instr(".long 0")
-        codegen.asm.instr(f".long {type_flags}")
-        codegen.asm.instr(".long 1")
-        codegen.asm.instr(".long 8")
-        codegen.asm.instr(".quad 0")
-        codegen.asm.instr(f".quad {name_sym}")
-        codegen.asm.instr(".quad 0")
-        codegen.asm.instr(f".quad {pointer_offsets_sym}")
-        codegen.asm.instr(f".long {pointer_offsets_count}")
-        codegen.asm.instr(".long 0")
+        _emit_rt_type_record(
+            codegen,
+            flags=type_flags,
+            name_sym=name_sym,
+            pointer_offsets_sym=pointer_offsets_sym,
+            pointer_offsets_count=pointer_offsets_count,
+        )
 
     for type_name in extra_type_names:
         type_sym = codegen_symbols.mangle_type_symbol(type_name)
         name_sym = codegen_symbols.mangle_type_name_symbol(type_name)
         codegen.asm.instr(".p2align 3")
         codegen.asm.label(type_sym)
-        codegen.asm.instr(".long 0")
-        codegen.asm.instr(".long 0")
-        codegen.asm.instr(".long 1")
-        codegen.asm.instr(".long 8")
-        codegen.asm.instr(".quad 0")
-        codegen.asm.instr(f".quad {name_sym}")
-        codegen.asm.instr(".quad 0")
-        codegen.asm.instr(".quad 0")
-        codegen.asm.instr(".long 0")
-        codegen.asm.instr(".long 0")
+        _emit_rt_type_record(codegen, flags=0, name_sym=name_sym, pointer_offsets_sym="0", pointer_offsets_count=0)
+
+
+def _emit_rt_type_record(codegen, *, flags: int, name_sym: str, pointer_offsets_sym: str, pointer_offsets_count: int) -> None:
+    codegen.asm.instr(".long 0")
+    codegen.asm.instr(f".long {flags}")
+    codegen.asm.instr(".long 1")
+    codegen.asm.instr(".long 8")
+    codegen.asm.instr(".quad 0")
+    codegen.asm.instr(f".quad {name_sym}")
+    codegen.asm.instr(".quad 0")
+    codegen.asm.instr(f".quad {pointer_offsets_sym}")
+    codegen.asm.instr(f".long {pointer_offsets_count}")
+    codegen.asm.instr(".long 0")
+    codegen.asm.instr(".quad 0")
+    codegen.asm.instr(".long 0")
+    codegen.asm.instr(".long 0")
 
 
 def emit_runtime_panic_messages_section(codegen) -> None:

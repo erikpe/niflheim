@@ -57,6 +57,9 @@ RtType rt_type_array_primitive_desc = {
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
+    .interfaces = NULL,
+    .interface_count = 0u,
+    .reserved1 = 0u,
 };
 
 RtType rt_type_array_reference_desc = {
@@ -70,6 +73,9 @@ RtType rt_type_array_reference_desc = {
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
+    .interfaces = NULL,
+    .interface_count = 0u,
+    .reserved1 = 0u,
 };
 
 

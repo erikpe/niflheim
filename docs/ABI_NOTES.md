@@ -226,7 +226,24 @@ Because all references can cast to/from `Obj`, runtime type checks are required 
 Suggested helper:
 
 ```c
+typedef struct RtInterfaceType RtInterfaceType;
+typedef struct RtInterfaceImpl RtInterfaceImpl;
+
+struct RtInterfaceType {
+    const char* debug_name;
+    uint32_t method_count;
+    uint32_t reserved0;
+};
+
+struct RtInterfaceImpl {
+    const RtInterfaceType* interface_type;
+    const void* method_table;
+    uint32_t method_count;
+    uint32_t reserved0;
+};
+
 void* rt_checked_cast(void* obj, const RtType* expected_type);
+const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const RtInterfaceType* interface_type);
 ```
 
 Behavior:
@@ -236,7 +253,12 @@ Behavior:
 
 Type identity in v0.1:
 - Exact type match only.
-- No subtype checks (no inheritance/interfaces in v0.1).
+- No subtype checks in `rt_checked_cast` yet.
+
+Interface metadata support now present in the runtime ABI:
+- `RtType` carries `interfaces` and `interface_count` fields for future interface cast/dispatch support.
+- `rt_find_interface_impl(...)` performs a linear scan over a concrete type's implemented-interface table.
+- Interface-typed values still use the same raw object-pointer representation as other references; no fat-pointer ABI is introduced.
 
 ---
 

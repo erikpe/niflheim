@@ -14,6 +14,8 @@ ARRAY_RUNTIME_BIN := $(TEST_DIR)/test_array_runtime
 ARRAY_RUNTIME_SRC := $(TEST_DIR)/test_array_runtime.c
 ARRAY_NEGATIVE_BIN := $(TEST_DIR)/test_array_negative
 ARRAY_NEGATIVE_SRC := $(TEST_DIR)/test_array_negative.c
+INTERFACE_METADATA_BIN := $(TEST_DIR)/test_interface_metadata
+INTERFACE_METADATA_SRC := $(TEST_DIR)/test_interface_metadata.c
 NEGATIVE_DRIVER := $(TEST_DIR)/run_negative_driver.sh
 
 all: libruntime.a
@@ -35,6 +37,9 @@ $(ARRAY_RUNTIME_BIN): $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC) include/runtime.h
 
 $(ARRAY_NEGATIVE_BIN): $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
 	$(CC) $(CFLAGS) -o $@ $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC)
+
+$(INTERFACE_METADATA_BIN): $(INTERFACE_METADATA_SRC) $(RUNTIME_SRC) include/runtime.h
+	$(CC) $(CFLAGS) -o $@ $(INTERFACE_METADATA_SRC) $(RUNTIME_SRC)
 
 test: $(GC_STRESS_BIN)
 	./$(GC_STRESS_BIN)
@@ -58,7 +63,10 @@ test-array-negative: $(ARRAY_NEGATIVE_BIN) $(NEGATIVE_DRIVER)
 		"get_negative::panic: rt_array_get_u8: index out of bounds" \
 		"slice_negative::panic: rt_array_slice_u8: invalid slice range"
 
-test-all: test test-positive test-negative test-array test-array-negative
+test-interface-metadata: $(INTERFACE_METADATA_BIN)
+	./$(INTERFACE_METADATA_BIN)
+
+test-all: test test-positive test-negative test-array test-array-negative test-interface-metadata
 
 clean:
-	rm -f $(RUNTIME_OBJ) libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN)
+	rm -f $(RUNTIME_OBJ) libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(INTERFACE_METADATA_BIN)

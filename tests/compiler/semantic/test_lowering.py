@@ -471,6 +471,80 @@ def test_lower_program_uses_imported_interface_ids_for_interface_receiver_calls(
     assert return_stmt.value.receiver_type_name == "util::Hashable"
 
 
+def test_lower_program_preserves_explicit_obj_to_interface_casts(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main() -> Hashable {
+            var value: Obj = Key();
+            return (Hashable)value;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    return_stmt = semantic.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CastExprS)
+    assert return_stmt.value.target_type_name == "Hashable"
+    assert return_stmt.value.type_name == "Hashable"
+    assert isinstance(return_stmt.value.operand, LocalRefExpr)
+    assert return_stmt.value.operand.name == "value"
+    assert return_stmt.value.operand.type_name == "Obj"
+
+
+def test_lower_program_preserves_imported_interface_cast_target_names(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        export class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> util.Hashable {
+            var value: Obj = util.Key();
+            return (util.Hashable)value;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    return_stmt = semantic.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CastExprS)
+    assert return_stmt.value.target_type_name == "util::Hashable"
+    assert return_stmt.value.type_name == "util::Hashable"
+    assert isinstance(return_stmt.value.operand, LocalRefExpr)
+    assert return_stmt.value.operand.name == "value"
+    assert return_stmt.value.operand.type_name == "Obj"
+
+
 def test_lower_program_resolves_structural_index_slice_and_for_in_methods(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",

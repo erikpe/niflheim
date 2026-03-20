@@ -13,6 +13,8 @@ extern "C" {
 #endif
 
 typedef struct RtType RtType;
+typedef struct RtInterfaceType RtInterfaceType;
+typedef struct RtInterfaceImpl RtInterfaceImpl;
 typedef struct RtObjHeader RtObjHeader;
 typedef struct RtRootFrame RtRootFrame;
 typedef struct RtThreadState RtThreadState;
@@ -36,6 +38,19 @@ struct RtObjHeader {
     uint32_t reserved0;
 };
 
+struct RtInterfaceType {
+    const char* debug_name;
+    uint32_t method_count;
+    uint32_t reserved0;
+};
+
+struct RtInterfaceImpl {
+    const RtInterfaceType* interface_type;
+    const void* method_table;
+    uint32_t method_count;
+    uint32_t reserved0;
+};
+
 struct RtType {
     uint32_t type_id;
     uint32_t flags;
@@ -47,6 +62,9 @@ struct RtType {
     const uint32_t* pointer_offsets;
     uint32_t pointer_offsets_count;
     uint32_t reserved0;
+    const RtInterfaceImpl* interfaces;
+    uint32_t interface_count;
+    uint32_t reserved1;
 };
 
 struct RtRootFrame {
@@ -85,6 +103,7 @@ void rt_trace_pop(void);
 void rt_trace_set_location(uint32_t line, uint32_t column);
 
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
+const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const RtInterfaceType* interface_type);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
 uint64_t rt_obj_same_type(void* lhs, void* rhs);
 
