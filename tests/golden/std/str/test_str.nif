@@ -121,7 +121,7 @@ fn test_strbuf_append() -> unit {
 
     assert(buf.len() == 6u);
     var out: Str = buf.to_str();
-    assert(out.compareTo("foobar") == 0);
+    assert(out.compare_to("foobar") == 0);
 }
 
 
@@ -130,7 +130,7 @@ fn test_strbuf_append_u64() -> unit {
     buf.append_u64(0u).append("-").append_u64(42u).append("-").append_u64(18446744073709551615u);
 
     var out: Str = buf.to_str();
-    assert(out.compareTo("0-42-18446744073709551615") == 0);
+    assert(out.compare_to("0-42-18446744073709551615") == 0);
 }
 
 
@@ -139,7 +139,7 @@ fn test_strbuf_append_i64() -> unit {
     buf.append_i64(0).append("-").append_i64(-42).append("-").append_i64(9223372036854775807).append("-").append_i64(-9223372036854775808);
 
     var out: Str = buf.to_str();
-    assert(out.compareTo("0--42-9223372036854775807--9223372036854775808") == 0);
+    assert(out.compare_to("0--42-9223372036854775807--9223372036854775808") == 0);
 }
 
 
@@ -320,13 +320,13 @@ fn test_merge_e2e_str_strip_whitespace() -> unit {
 
 fn test_from_u64_edges() -> unit {
     var zero: Str = Str.from_u64(0u);
-    assert(zero.compareTo("0") == 0);
+    assert(zero.compare_to("0") == 0);
 
     var one: Str = Str.from_u64(1u);
-    assert(one.compareTo("1") == 0);
+    assert(one.compare_to("1") == 0);
 
     var max: Str = Str.from_u64(18446744073709551615u);
-    assert(max.compareTo("18446744073709551615") == 0);
+    assert(max.compare_to("18446744073709551615") == 0);
 }
 
 
@@ -340,23 +340,23 @@ fn test_from_u64_roundtrip() -> unit {
 
 
 fn test_compare_to() -> unit {
-    assert("abc".compareTo("abc") == 0);
-    assert("abc".compareTo("abd") < 0);
-    assert("abd".compareTo("abc") > 0);
+    assert("abc".compare_to("abc") == 0);
+    assert("abc".compare_to("abd") < 0);
+    assert("abd".compare_to("abc") > 0);
 
-    assert("ab".compareTo("abc") == -99);
-    assert("abc".compareTo("ab") == 99);
-    assert("A".compareTo("a") == -32);
+    assert("ab".compare_to("abc") == -99);
+    assert("abc".compare_to("ab") == 99);
+    assert("A".compare_to("a") == -32);
 }
 
 
 fn test_from_i64_edges() -> unit {
-    assert(Str.from_i64(0).compareTo("0") == 0);
-    assert(Str.from_i64(1).compareTo("1") == 0);
-    assert(Str.from_i64(-1).compareTo("-1") == 0);
-    assert(Str.from_i64(9223372036854775807).compareTo("9223372036854775807") == 0);
-    assert(Str.from_i64(-9223372036854775808).compareTo("-9223372036854775808") == 0);
-    assert(Str.from_i64(-9223372036854775807).compareTo("-9223372036854775807") == 0);
+    assert(Str.from_i64(0).compare_to("0") == 0);
+    assert(Str.from_i64(1).compare_to("1") == 0);
+    assert(Str.from_i64(-1).compare_to("-1") == 0);
+    assert(Str.from_i64(9223372036854775807).compare_to("9223372036854775807") == 0);
+    assert(Str.from_i64(-9223372036854775808).compare_to("-9223372036854775808") == 0);
+    assert(Str.from_i64(-9223372036854775807).compare_to("-9223372036854775807") == 0);
 }
 
 
@@ -372,16 +372,16 @@ fn test_from_i64_roundtrip() -> unit {
 
 
 fn test_from_misc_scalars() -> unit {
-    assert(Str.from_u8(0u8).compareTo("0") == 0);
-    assert(Str.from_u8(255u8).compareTo("255") == 0);
+    assert(Str.from_u8(0u8).compare_to("0") == 0);
+    assert(Str.from_u8(255u8).compare_to("255") == 0);
 
-    assert(Str.from_bool(true).compareTo("true") == 0);
-    assert(Str.from_bool(false).compareTo("false") == 0);
+    assert(Str.from_bool(true).compare_to("true") == 0);
+    assert(Str.from_bool(false).compare_to("false") == 0);
 
-    assert(Str.from_double(0.0).compareTo("0.000000") == 0);
-    assert(Str.from_double(1.5).compareTo("1.500000") == 0);
-    assert(Str.from_double(-2.25).compareTo("-2.250000") == 0);
-    assert(Str.from_double(123456.125).compareTo("123456.125000") == 0);
+    assert(Str.from_double(0.0).compare_to("0.000000") == 0);
+    assert(Str.from_double(1.5).compare_to("1.500000") == 0);
+    assert(Str.from_double(-2.25).compare_to("-2.250000") == 0);
+    assert(Str.from_double(123456.125).compare_to("123456.125000") == 0);
 }
 
 
@@ -396,71 +396,71 @@ fn test_strbuf_append_scalars() -> unit {
         .append_double(-2.25);
 
     var out: Str = buf.to_str();
-    assert(out.compareTo("255|true|false|-2.250000") == 0);
+    assert(out.compare_to("255|true|false|-2.250000") == 0);
 }
 
 
 fn test_splitlines() -> unit {
     var lines1: Vec = "a\nb\r\nc\n".splitlines();
     assert(lines1.len() == 3u);
-    assert(((Str)lines1[0]).compareTo("a") == 0);
-    assert(((Str)lines1[1]).compareTo("b") == 0);
-    assert(((Str)lines1[2]).compareTo("c") == 0);
+    assert(((Str)lines1[0]).compare_to("a") == 0);
+    assert(((Str)lines1[1]).compare_to("b") == 0);
+    assert(((Str)lines1[2]).compare_to("c") == 0);
 
     var lines2: Vec = "x\r\ny".splitlines();
     assert(lines2.len() == 2u);
-    assert(((Str)lines2[0]).compareTo("x") == 0);
-    assert(((Str)lines2[1]).compareTo("y") == 0);
+    assert(((Str)lines2[0]).compare_to("x") == 0);
+    assert(((Str)lines2[1]).compare_to("y") == 0);
 
     var lines3: Vec = "p\rq".splitlines();
     assert(lines3.len() == 2u);
-    assert(((Str)lines3[0]).compareTo("p") == 0);
-    assert(((Str)lines3[1]).compareTo("q") == 0);
+    assert(((Str)lines3[0]).compare_to("p") == 0);
+    assert(((Str)lines3[1]).compare_to("q") == 0);
 
     var lines4: Vec = "\r\na\r\rb\n\n".splitlines();
     assert(lines4.len() == 5u);
-    assert(((Str)lines4[0]).compareTo("") == 0);
-    assert(((Str)lines4[1]).compareTo("a") == 0);
-    assert(((Str)lines4[2]).compareTo("") == 0);
-    assert(((Str)lines4[3]).compareTo("b") == 0);
-    assert(((Str)lines4[4]).compareTo("") == 0);
+    assert(((Str)lines4[0]).compare_to("") == 0);
+    assert(((Str)lines4[1]).compare_to("a") == 0);
+    assert(((Str)lines4[2]).compare_to("") == 0);
+    assert(((Str)lines4[3]).compare_to("b") == 0);
+    assert(((Str)lines4[4]).compare_to("") == 0);
 }
 
 
 fn test_split_trailing_delimiter() -> unit {
     var parts0: Vec = "".split(',');
     assert(parts0.len() == 1u);
-    assert(((Str)parts0[0]).compareTo("") == 0);
+    assert(((Str)parts0[0]).compare_to("") == 0);
 
     var parts1: Vec = "a,b,".split(',');
     assert(parts1.len() == 3u);
-    assert(((Str)parts1[0]).compareTo("a") == 0);
-    assert(((Str)parts1[1]).compareTo("b") == 0);
-    assert(((Str)parts1[2]).compareTo("") == 0);
+    assert(((Str)parts1[0]).compare_to("a") == 0);
+    assert(((Str)parts1[1]).compare_to("b") == 0);
+    assert(((Str)parts1[2]).compare_to("") == 0);
 
     var parts2: Vec = ",".split(',');
     assert(parts2.len() == 2u);
-    assert(((Str)parts2[0]).compareTo("") == 0);
-    assert(((Str)parts2[1]).compareTo("") == 0);
+    assert(((Str)parts2[0]).compare_to("") == 0);
+    assert(((Str)parts2[1]).compare_to("") == 0);
 
     var parts3: Vec = "x,,".split(',');
     assert(parts3.len() == 3u);
-    assert(((Str)parts3[0]).compareTo("x") == 0);
-    assert(((Str)parts3[1]).compareTo("") == 0);
-    assert(((Str)parts3[2]).compareTo("") == 0);
+    assert(((Str)parts3[0]).compare_to("x") == 0);
+    assert(((Str)parts3[1]).compare_to("") == 0);
+    assert(((Str)parts3[2]).compare_to("") == 0);
 }
 
 
 fn test_concat_operator() -> unit {
     var merged: Str = "hello, " + "world";
-    assert(merged.compareTo("hello, world") == 0);
+    assert(merged.compare_to("hello, world") == 0);
 
     var left: Str = "x";
     var right: Str = "";
-    assert((left + right).compareTo("x") == 0);
+    assert((left + right).compare_to("x") == 0);
 
     var chain: Str = "a" + "b" + "c";
-    assert(chain.compareTo("abc") == 0);
+    assert(chain.compare_to("abc") == 0);
 }
 
 

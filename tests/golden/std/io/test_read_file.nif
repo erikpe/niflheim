@@ -11,7 +11,7 @@ fn main() -> i64 {
     var path: Str = args[1];
     var text: Str = read_file(path);
 
-    if args.len() > 2u && args[2].compareTo("len") == 0 {
+    if args.len() > 2u && args[2].compare_to("len") == 0 {
         println_u64(text.len());
         return 0;
     }

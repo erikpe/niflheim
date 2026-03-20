@@ -1,7 +1,14 @@
-export interface Hashable {
+export interface Hashable
+{
     fn hash_code() -> u64;
 }
 
-export interface Equalable {
+export interface Equalable
+{
     fn equals(other: Obj) -> bool;
+}
+
+export interface Comparable
+{
+    fn compare_to(other: Obj) -> i64;
 }

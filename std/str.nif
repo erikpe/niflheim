@@ -107,7 +107,11 @@ export class Str implements Hashable, Equalable
         return Str(__self._bytes[start:stop]);
     }
 
-    fn compareTo(other: Str) -> i64 {
+    fn compare_to(otherObj: Obj) -> i64 {
+        if !(otherObj is Str) {
+            panic("Str.compare_to: other is not a Str");
+        }
+        var other: Str = (Str)otherObj;
         var self_len: u64 = __self.len();
         var other_len: u64 = other.len();
         var common_len: u64 = self_len;

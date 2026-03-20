@@ -102,17 +102,17 @@ fn test_multi_limb_carry_and_borrow() -> unit {
 
 
 fn test_to_string() -> unit {
-    assert(BigInt.zero().to_string().compareTo("0") == 0);
-    assert(BigInt.from_u64(42u).to_string().compareTo("42") == 0);
-    assert(BigInt.from_i64(-42).to_string().compareTo("-42") == 0);
-    assert(BigInt.from_i64(-9223372036854775808).to_string().compareTo("-9223372036854775808") == 0);
+    assert(BigInt.zero().to_string().compare_to("0") == 0);
+    assert(BigInt.from_u64(42u).to_string().compare_to("42") == 0);
+    assert(BigInt.from_i64(-42).to_string().compare_to("-42") == 0);
+    assert(BigInt.from_i64(-9223372036854775808).to_string().compare_to("-9223372036854775808") == 0);
 
     var max_u64: BigInt = BigInt.from_u64(18446744073709551615u);
     var one: BigInt = BigInt.from_u64(1u);
     var wrapped: BigInt = max_u64.add(one);
-    assert(wrapped.to_string().compareTo("18446744073709551616") == 0);
-    assert(two_pow_64_plus(42u).to_string().compareTo("18446744073709551658") == 0);
-    assert(two_pow_64_plus(42u).negated().to_string().compareTo("-18446744073709551658") == 0);
+    assert(wrapped.to_string().compare_to("18446744073709551616") == 0);
+    assert(two_pow_64_plus(42u).to_string().compare_to("18446744073709551658") == 0);
+    assert(two_pow_64_plus(42u).negated().to_string().compare_to("-18446744073709551658") == 0);
 }
 
 
@@ -120,8 +120,8 @@ fn test_parse() -> unit {
     assert(BigInt.parse("0").compareTo(BigInt.zero()) == 0);
     assert(BigInt.parse("42").compareTo(BigInt.from_u64(42u)) == 0);
     assert(BigInt.parse("-42").compareTo(BigInt.from_i64(-42)) == 0);
-    assert(BigInt.parse("1844674407370955161618446744073709551616").to_string().compareTo("1844674407370955161618446744073709551616") == 0);
-    assert(BigInt.parse("-18446744073709551616").to_string().compareTo("-18446744073709551616") == 0);
+    assert(BigInt.parse("1844674407370955161618446744073709551616").to_string().compare_to("1844674407370955161618446744073709551616") == 0);
+    assert(BigInt.parse("-18446744073709551616").to_string().compare_to("-18446744073709551616") == 0);
     assert(BigInt.parse("18446744073709551658").compareTo(two_pow_64_plus(42u)) == 0);
     assert(BigInt.parse("-18446744073709551658").compareTo(two_pow_64_plus(42u).negated()) == 0);
     assert(BigInt.parse("-0").compareTo(BigInt.zero()) == 0);
@@ -136,9 +136,9 @@ fn test_mul() -> unit {
 
     var left: BigInt = two_pow_64_plus(3u);
     var right: BigInt = two_pow_64_plus(5u);
-    assert(left.mul(BigInt.from_u64(10u)).to_string().compareTo("184467440737095516190") == 0);
-    assert(left.mul(right).to_string().compareTo("340282366920938463610948560021444624399") == 0);
-    assert(left.negated().mul(right).to_string().compareTo("-340282366920938463610948560021444624399") == 0);
+    assert(left.mul(BigInt.from_u64(10u)).to_string().compare_to("184467440737095516190") == 0);
+    assert(left.mul(right).to_string().compare_to("340282366920938463610948560021444624399") == 0);
+    assert(left.negated().mul(right).to_string().compare_to("-340282366920938463610948560021444624399") == 0);
 }
 
 
@@ -150,7 +150,7 @@ fn test_factorial_50() -> unit {
         i = i + 1u;
     }
 
-    assert(acc.to_string().compareTo("30414093201713378043612608166064768844377641568960512000000000000") == 0);
+    assert(acc.to_string().compare_to("30414093201713378043612608166064768844377641568960512000000000000") == 0);
 }
 
 
