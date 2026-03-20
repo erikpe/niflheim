@@ -8,7 +8,7 @@ Use [INTERFACES_V1.md](INTERFACES_V1.md) as the source of truth for design inten
 
 ## Status
 
-Implemented and validated, with the motivating stdlib/integration example intentionally deferred.
+Implemented and validated.
 
 Completed so far:
 
@@ -23,16 +23,16 @@ Completed so far:
 - Step 9 is implemented and validated.
 - Step 10 is implemented and validated.
 - Step 11 is implemented and validated.
-- Step 12 is implemented and validated except for the intentionally deferred motivating stdlib example.
+- Step 12 is implemented and validated.
 - Step 13 is implemented and validated.
 
 In progress now:
 
-- motivating stdlib/integration example remains intentionally deferred by user request
+- none
 
 Not started yet:
 
-- no remaining implementation steps in this plan; only final validation and deferred follow-up work remain.
+- none in this plan
 
 ## Scope
 
@@ -659,11 +659,7 @@ Step 11 objective check:
 - [x] Add parser/typecheck/lowering/codegen integration tests for interfaces
 - [x] Add a runtime smoke test for successful interface dispatch
 - [x] Add a runtime failure test for invalid interface cast
-- [ ] Add at least one motivating stdlib/integration example, such as `Map` using `Hashable` and `Comparable`
-
-Scope note for the current pass:
-
-- the motivating stdlib/integration example is intentionally deferred to a later stage by user request
+- [x] Add at least one motivating stdlib/integration example, such as `Map` using `Hashable` and `Equalable`
 
 Suggested code areas:
 
@@ -680,7 +676,7 @@ Suggested tests for this step:
 - imported interface use across modules works end-to-end
 - interface-typed fields/arrays/returns work end-to-end if v1 keeps those capabilities
 
-Validation for the implemented portion of this step:
+Validation for this step:
 
 - Added end-to-end integration coverage in `tests/compiler/integration/test_cli_interfaces_runtime.py`, including:
 	- successful interface dispatch
@@ -689,17 +685,21 @@ Validation for the implemented portion of this step:
 	- interface-typed fields, arrays, and returns
 	- imported interface use across modules
 - Added golden coverage in `tests/golden/lang/test_interfaces_end_to_end.nif` and `tests/golden/error/test_interface_cast_errors.nif`
+- Added interface cast-matrix coverage in `tests/golden/lang/test_interface_casts.nif`, imported-interface coverage in `tests/golden/lang/test_interface_imports/test_interface_imports.nif`, and motivating stdlib coverage in `tests/golden/std/map/test_map.nif`
+- Added `Hashable` and `Equalable` interface definitions plus `Map2` to `std/map.nif`, using interface-based hashing and equality instead of injected hash/equals functions
 - Validation run results:
 	- focused interface integration pytest run: `4 passed`
 	- focused interface golden runner: `2/2 test files passed; 2 runs total`
+	- focused imported-interface golden: `1/1 test files passed; 3 runs total`
+	- focused std.map motivating golden: `1/1 test files passed; 12 runs total`
 
-Step 12 objective check for the implemented portion:
+Step 12 objective check:
 
 - fulfilled: the feature is now covered end-to-end through compiler integration tests
 - fulfilled: successful interface dispatch is now covered by generated-code runtime smoke testing
 - fulfilled: invalid runtime interface casts are now covered end-to-end
 - fulfilled: imported interface use and interface-typed storage/returns are now exercised end-to-end
-- deferred: motivating stdlib/integration example will be added in a later stage
+- fulfilled: a motivating stdlib use case now exists end-to-end via `std.map.Map2` using `Hashable` and `Equalable`
 
 ## Step 13: Update Reachability And Codegen Walkers/Collectors
 
@@ -750,19 +750,20 @@ Final validation results:
 
 - full pytest suite: `478 passed`
 - interface golden suite (`**/test_interface*.nif`): `4/4 test files passed; 20 runs total`
+- motivating stdlib golden (`std/map/test_map.nif`): `1/1 test files passed; 12 runs total`
 - runtime interface harness: `test-interface-metadata`, `test-interface-casts`, `test-interface-casts-negative`, `test-interface-dispatch`, and `test-interface-dispatch-negative` all passed
 
 ## Review Checklist
 
 Before considering interfaces v1 complete, verify all of the following:
 
-- [ ] interfaces are represented explicitly in the frontend, typechecker, semantic IR, runtime metadata, and codegen
-- [ ] classes cannot claim interface conformance without exact method coverage
-- [ ] `Obj -> Interface` casts are runtime-checked, not compile-time-only assumptions
-- [ ] interface dispatch does not reuse concrete-method call nodes incorrectly
-- [ ] interface values use the same raw object-pointer runtime representation everywhere
-- [ ] existing class-cast and class-method behavior remains stable
-- [ ] at least one real motivating use case is covered end-to-end
+- [x] interfaces are represented explicitly in the frontend, typechecker, semantic IR, runtime metadata, and codegen
+- [x] classes cannot claim interface conformance without exact method coverage
+- [x] `Obj -> Interface` casts are runtime-checked, not compile-time-only assumptions
+- [x] interface dispatch does not reuse concrete-method call nodes incorrectly
+- [x] interface values use the same raw object-pointer runtime representation everywhere
+- [x] existing class-cast and class-method behavior remains stable
+- [x] at least one real motivating use case is covered end-to-end
 
 ## Out-Of-Scope Follow-Ups
 

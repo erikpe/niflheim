@@ -451,11 +451,11 @@ interface Hashable {
     fn hash_code() -> u64;
 }
 
-interface Comparable {
+interface Equalable {
     fn equals(other: Obj) -> bool;
 }
 
-class Key implements Hashable, Comparable {
+class Key implements Hashable, Equalable {
     fn hash_code() -> u64 {
         return 1u;
     }
@@ -467,7 +467,7 @@ class Key implements Hashable, Comparable {
 
 fn main() -> unit {
     var hashable: Hashable = Key();
-    var comparable: Comparable = (Comparable)hashable;
+    var equalable: Equalable = (Equalable)hashable;
     var key: Key = (Key)hashable;
     return;
 }

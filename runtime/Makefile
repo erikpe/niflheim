@@ -92,7 +92,7 @@ test-interface-casts: $(INTERFACE_CASTS_BIN)
 test-interface-casts-negative: $(INTERFACE_CASTS_NEGATIVE_BIN) $(NEGATIVE_DRIVER)
 	@$(NEGATIVE_DRIVER) test_interface_casts_negative ./$(INTERFACE_CASTS_NEGATIVE_BIN) \
 		"non_implementing_object::panic: bad cast (Plain -> Hashable)" \
-		"interface_to_interface_failure::panic: bad cast (HashOnly -> Comparable)"
+		"interface_to_interface_failure::panic: bad cast (HashOnly -> Equalable)"
 
 test-interface-dispatch: $(INTERFACE_DISPATCH_BIN)
 	./$(INTERFACE_DISPATCH_BIN)

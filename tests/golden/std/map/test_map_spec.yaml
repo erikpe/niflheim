@@ -6,3 +6,8 @@ runs:
   - { name: null_key_support, input: { stdin: "5" }, expect: { exit_code: 0 } }
   - { name: get_missing_panics, input: { stdin: "6" }, expect: { panic: "Map.index_get: key not found" } }
   - { name: str_keys_under_load, input: { stdin: "7" }, expect: { exit_code: 0 } }
+  - { name: map2_put_get_contains, input: { stdin: "8" }, expect: { exit_code: 0 } }
+  - { name: map2_growth_and_overwrite, input: { stdin: "9" }, expect: { exit_code: 0 } }
+  - { name: map2_get_missing_panics, input: { stdin: "10" }, expect: { panic: "Map2.index_get: key not found" } }
+  - { name: map2_non_hashable_key_panics, input: { stdin: "11" }, expect: { panic: "bad cast (tests.golden.std.map.test_map::Plain -> std.lang::Hashable)" } }
+  - { name: map2_non_equalable_key_panics, input: { stdin: "12" }, expect: { panic: "bad cast (tests.golden.std.map.test_map::HashOnly -> std.lang::Equalable)" } }

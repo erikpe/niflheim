@@ -10,8 +10,8 @@ static const RtInterfaceType HASHABLE_INTERFACE = {
     .reserved0 = 0u,
 };
 
-static const RtInterfaceType COMPARABLE_INTERFACE = {
-    .debug_name = "Comparable",
+static const RtInterfaceType EQUALABLE_INTERFACE = {
+    .debug_name = "Equalable",
     .method_count = 1u,
     .reserved0 = 0u,
 };
@@ -20,7 +20,7 @@ static const void* KEY_HASHABLE_METHODS[1] = {
     (const void*)0x1111,
 };
 
-static const void* KEY_COMPARABLE_METHODS[1] = {
+static const void* KEY_EQUALABLE_METHODS[1] = {
     (const void*)0x2222,
 };
 
@@ -32,8 +32,8 @@ static const RtInterfaceImpl KEY_INTERFACES[2] = {
         .reserved0 = 0u,
     },
     {
-        .interface_type = &COMPARABLE_INTERFACE,
-        .method_table = KEY_COMPARABLE_METHODS,
+        .interface_type = &EQUALABLE_INTERFACE,
+        .method_table = KEY_EQUALABLE_METHODS,
         .method_count = 1u,
         .reserved0 = 0u,
     },

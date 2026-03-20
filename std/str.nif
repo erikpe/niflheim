@@ -1,8 +1,9 @@
 import std.error;
+import std.lang;
 import std.object;
 import std.vec;
 
-export class Str
+export class Str implements Hashable, Equalable
 {
     private final _bytes: u8[];
     private _hash_cached: bool = false;

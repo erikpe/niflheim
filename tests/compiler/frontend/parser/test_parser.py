@@ -237,11 +237,11 @@ export interface Hashable {
     fn hash_code() -> u64;
 }
 
-interface Comparable {
+interface Equalable {
     fn equals(other: Obj) -> bool;
 }
 
-class MyKey implements Hashable, Comparable {
+class MyKey implements Hashable, Equalable {
     fn hash_code() -> u64 {
         return 42u;
     }
@@ -255,7 +255,7 @@ class MyKey implements Hashable, Comparable {
 
     assert len(module.interfaces) == 2
     hashable = module.interfaces[0]
-    comparable = module.interfaces[1]
+    equalable = module.interfaces[1]
 
     assert isinstance(hashable, InterfaceDecl)
     assert hashable.name == "Hashable"
@@ -266,18 +266,18 @@ class MyKey implements Hashable, Comparable {
     assert hashable.methods[0].params == []
     assert hashable.methods[0].return_type.name == "u64"
 
-    assert comparable.name == "Comparable"
-    assert comparable.is_export is False
-    assert len(comparable.methods) == 1
-    assert comparable.methods[0].name == "equals"
-    assert len(comparable.methods[0].params) == 1
-    assert comparable.methods[0].params[0].name == "other"
-    assert comparable.methods[0].params[0].type_ref.name == "Obj"
-    assert comparable.methods[0].return_type.name == "bool"
+    assert equalable.name == "Equalable"
+    assert equalable.is_export is False
+    assert len(equalable.methods) == 1
+    assert equalable.methods[0].name == "equals"
+    assert len(equalable.methods[0].params) == 1
+    assert equalable.methods[0].params[0].name == "other"
+    assert equalable.methods[0].params[0].type_ref.name == "Obj"
+    assert equalable.methods[0].return_type.name == "bool"
 
     assert len(module.classes) == 1
     cls = module.classes[0]
-    assert [type_ref.name for type_ref in cls.implements] == ["Hashable", "Comparable"]
+    assert [type_ref.name for type_ref in cls.implements] == ["Hashable", "Equalable"]
 
 
 def test_parse_rejects_interface_method_body() -> None:

@@ -10,8 +10,8 @@ static const RtInterfaceType HASHABLE_INTERFACE = {
     .reserved0 = 0u,
 };
 
-static const RtInterfaceType COMPARABLE_INTERFACE = {
-    .debug_name = "Comparable",
+static const RtInterfaceType EQUALABLE_INTERFACE = {
+    .debug_name = "Equalable",
     .method_count = 1u,
     .reserved0 = 0u,
 };
@@ -24,7 +24,7 @@ static const void* KEY_HASHABLE_METHODS[1] = {
     (const void*)0x2222,
 };
 
-static const void* KEY_COMPARABLE_METHODS[1] = {
+static const void* KEY_EQUALABLE_METHODS[1] = {
     (const void*)0x3333,
 };
 
@@ -45,8 +45,8 @@ static const RtInterfaceImpl KEY_INTERFACES[2] = {
         .reserved0 = 0u,
     },
     {
-        .interface_type = &COMPARABLE_INTERFACE,
-        .method_table = KEY_COMPARABLE_METHODS,
+        .interface_type = &EQUALABLE_INTERFACE,
+        .method_table = KEY_EQUALABLE_METHODS,
         .method_count = 1u,
         .reserved0 = 0u,
     },
@@ -110,7 +110,7 @@ static void test_checked_cast_interface_accepts_implementing_object(void) {
 static void test_checked_cast_interface_checks_interface_value_at_runtime(void) {
     void* obj = alloc_leaf(&KEY_TYPE);
     void* hashable_value = rt_checked_cast_interface(obj, &HASHABLE_INTERFACE);
-    if (rt_checked_cast_interface(hashable_value, &COMPARABLE_INTERFACE) != obj) {
+    if (rt_checked_cast_interface(hashable_value, &EQUALABLE_INTERFACE) != obj) {
         fail("interface-to-interface cast should preserve the original object pointer");
     }
 }

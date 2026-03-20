@@ -1,0 +1,7 @@
+export interface Hashable {
+    fn hash_code() -> u64;
+}
+
+export interface Equalable {
+    fn equals(other: Obj) -> bool;
+}

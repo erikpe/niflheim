@@ -287,11 +287,11 @@ fn main() -> unit {
 
 def test_typecheck_rejects_wrong_interface_method_parameter_type() -> None:
     source = """
-interface Comparable {
+interface Equalable {
     fn equals(other: Obj) -> bool;
 }
 
-class Key implements Comparable {
+class Key implements Equalable {
     fn equals(other: i64) -> bool {
         return false;
     }
@@ -301,7 +301,7 @@ fn main() -> unit {
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="parameter 1 has type 'i64' but interface 'Comparable.equals' requires 'Obj'"):
+    with pytest.raises(TypeCheckError, match="parameter 1 has type 'i64' but interface 'Equalable.equals' requires 'Obj'"):
         parse_and_typecheck(source)
 
 
@@ -334,11 +334,11 @@ interface Hashable {
     fn hash_code() -> u64;
 }
 
-interface Comparable {
+interface Equalable {
     fn equals(other: Obj) -> bool;
 }
 
-class Key implements Hashable, Comparable {
+class Key implements Hashable, Equalable {
     fn hash_code() -> u64 {
         return 1u;
     }

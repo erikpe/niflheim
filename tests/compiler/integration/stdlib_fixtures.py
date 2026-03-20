@@ -76,7 +76,7 @@ export fn panic(msg: Str) -> unit {
 
 
 def install_std_io_fixture(project_root: Path) -> None:
-    install_std_modules(project_root, ["str", "object", "error", "vec"], overrides={"std/io.nif": STD_IO_MODULE_SOURCE})
+    install_std_modules(project_root, ["lang", "str", "object", "error", "vec"], overrides={"std/io.nif": STD_IO_MODULE_SOURCE})
 
 
 def install_std_error_fixture(project_root: Path) -> None:

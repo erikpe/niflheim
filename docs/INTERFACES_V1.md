@@ -102,7 +102,7 @@ interface Hashable {
     fn hash_code() -> u64;
 }
 
-interface Comparable {
+interface Equalable {
     fn equals(other: Obj) -> bool;
 }
 ```
@@ -110,7 +110,7 @@ interface Comparable {
 ### Class Implementation
 
 ```nif
-class MyKey implements Hashable, Comparable {
+class MyKey implements Hashable, Equalable {
     fn hash_code() -> u64 {
         return 42u;
     }
@@ -450,7 +450,7 @@ interface Hashable {
     fn hash_code() -> u64;
 }
 
-interface Comparable {
+interface Equalable {
     fn equals(other: Obj) -> bool;
 }
 ```
@@ -458,7 +458,7 @@ interface Comparable {
 Then `Map` can:
 
 - cast key object to `Hashable` before hashing
-- cast candidate key to `Comparable` before equality checks
+- cast candidate key to `Equalable` before equality checks
 
 If a key does not implement the required interface, the cast fails at runtime.
 
@@ -492,7 +492,7 @@ Recommended order:
 8. Add runtime checked interface cast support.
 9. Emit interface metadata in codegen.
 10. Emit interface dispatch calls in codegen.
-11. Add stdlib/integration coverage using `Hashable` and `Comparable`.
+11. Add stdlib/integration coverage using `Hashable` and `Equalable`.
 
 ## Testing Requirements
 

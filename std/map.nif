@@ -1,4 +1,5 @@
 import std.error;
+import std.lang;
 
 export class Map
 {
@@ -129,6 +130,137 @@ export class Map
         }
 
         panic("Map: table full");
+        return false;
+    }
+}
+
+export class Map2
+{
+    private _len: u64 = 0u;
+    private _capacity: u64;
+    private _keys: Obj[];
+    private _values: Obj[];
+    private _occupied: bool[];
+
+    static fn new() -> Map2 {
+        return Map2.with_capacity(8u);
+    }
+
+    static fn with_capacity(min_capacity: u64) -> Map2 {
+        var capacity: u64 = 8u;
+        while capacity < min_capacity {
+            capacity = capacity * 2u;
+        }
+        return Map2(capacity, Obj[](capacity), Obj[](capacity), bool[](capacity));
+    }
+
+    fn len() -> u64 {
+        return __self._len;
+    }
+
+    fn contains(key: Obj) -> bool {
+        return __self._find_existing_index(key) >= 0;
+    }
+
+    fn index_get(key: Obj) -> Obj {
+        var index: i64 = __self._find_existing_index(key);
+        if index < 0 {
+            panic("Map2.index_get: key not found");
+        }
+        return __self._values[index];
+    }
+
+    fn put(key: Obj, value: Obj) -> unit {
+        __self._maybe_grow_for_insert();
+        if __self._insert_or_assign(key, value) {
+            __self._len = __self._len + 1u;
+        }
+    }
+
+    fn index_set(key: Obj, value: Obj) -> unit {
+        __self.put(key, value);
+    }
+
+    private fn _maybe_grow_for_insert() -> unit {
+        if ((__self._len + 1u) * 10u) < (__self._capacity * 7u) {
+            return;
+        }
+        __self._rehash(__self._capacity * 2u);
+    }
+
+    private fn _rehash(new_capacity: u64) -> unit {
+        var old_capacity: i64 = (i64)__self._capacity;
+        var old_keys: Obj[] = __self._keys;
+        var old_values: Obj[] = __self._values;
+        var old_occupied: bool[] = __self._occupied;
+
+        __self._capacity = new_capacity;
+        __self._keys = Obj[](new_capacity);
+        __self._values = Obj[](new_capacity);
+        __self._occupied = bool[](new_capacity);
+        __self._len = 0u;
+
+        var i: i64 = 0;
+        while i < old_capacity {
+            if old_occupied[i] {
+                if __self._insert_or_assign(old_keys[i], old_values[i]) {
+                    __self._len = __self._len + 1u;
+                }
+            }
+            i = i + 1;
+        }
+    }
+
+    private fn _find_existing_index(key: Obj) -> i64 {
+        var capacity_i64: i64 = (i64)__self._capacity;
+        var index: i64 = (i64)(((Hashable)key).hash_code() % __self._capacity);
+        var probes: i64 = 0;
+
+        while probes < capacity_i64 {
+            if !__self._occupied[index] {
+                return -1;
+            }
+
+            if ((lang.Equalable)__self._keys[index]).equals(key) {
+                return index;
+            }
+
+            index = index + 1;
+            if index >= capacity_i64 {
+                index = 0;
+            }
+            probes = probes + 1;
+        }
+
+        return -1;
+    }
+
+    private fn _insert_or_assign(key: Obj, value: Obj) -> bool {
+        var capacity_i64: i64 = (i64)__self._capacity;
+        var index: i64 = (i64)(((Hashable)key).hash_code() % __self._capacity);
+        var probes: i64 = 0;
+
+        while probes < capacity_i64 {
+            if !__self._occupied[index] {
+                __self._occupied[index] = true;
+                __self._keys[index] = key;
+                __self._values[index] = value;
+                return true;
+            }
+
+            if ((Equalable)__self._keys[index]).equals(key) {
+                __self._values[index] = value;
+                return false;
+            }
+
+            index = index + 1;
+            if index >= capacity_i64 {
+                index = 0;
+            }
+            probes = probes + 1;
+        }
+
+        panic("Map2: table full");
         return false;
     }
 }

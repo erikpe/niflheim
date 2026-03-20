@@ -11,8 +11,8 @@ static const RtInterfaceType HASHABLE_INTERFACE = {
     .reserved0 = 0u,
 };
 
-static const RtInterfaceType COMPARABLE_INTERFACE = {
-    .debug_name = "Comparable",
+static const RtInterfaceType EQUALABLE_INTERFACE = {
+    .debug_name = "Equalable",
     .method_count = 1u,
     .reserved0 = 0u,
 };
@@ -22,7 +22,7 @@ static const void* KEY_HASHABLE_METHODS[2] = {
     (const void*)0x2222,
 };
 
-static const void* KEY_COMPARABLE_METHODS[1] = {
+static const void* KEY_EQUALABLE_METHODS[1] = {
     (const void*)0x3333,
 };
 
@@ -34,8 +34,8 @@ static const RtInterfaceImpl KEY_INTERFACES[2] = {
         .reserved0 = 0u,
     },
     {
-        .interface_type = &COMPARABLE_INTERFACE,
-        .method_table = KEY_COMPARABLE_METHODS,
+        .interface_type = &EQUALABLE_INTERFACE,
+        .method_table = KEY_EQUALABLE_METHODS,
         .method_count = 1u,
         .reserved0 = 0u,
     },
@@ -76,8 +76,8 @@ static void test_lookup_interface_method_returns_slot_ordered_entries(void) {
     if (rt_lookup_interface_method(obj, &HASHABLE_INTERFACE, 1u) != (void*)0x2222) {
         fail("expected Hashable slot 1 method pointer");
     }
-    if (rt_lookup_interface_method(obj, &COMPARABLE_INTERFACE, 0u) != (void*)0x3333) {
-        fail("expected Comparable slot 0 method pointer");
+    if (rt_lookup_interface_method(obj, &EQUALABLE_INTERFACE, 0u) != (void*)0x3333) {
+        fail("expected Equalable slot 0 method pointer");
     }
 }
 

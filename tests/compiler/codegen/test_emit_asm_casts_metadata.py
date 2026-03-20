@@ -334,7 +334,7 @@ fn main() -> i64 {
 
 def test_emit_asm_collects_reference_cast_metadata_nested_under_interface_dispatch(tmp_path) -> None:
     source = """
-interface Comparable {
+interface Equalable {
     fn equals(other: Obj) -> bool;
 }
 
@@ -342,13 +342,13 @@ class Person {
     age: i64;
 }
 
-class Key implements Comparable {
+class Key implements Equalable {
     fn equals(other: Obj) -> bool {
         return other != null;
     }
 }
 
-fn call_equals(value: Comparable, other: Obj) -> bool {
+fn call_equals(value: Equalable, other: Obj) -> bool {
     return value.equals((Obj)(Person)other);
 }
 

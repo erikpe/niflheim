@@ -10,8 +10,8 @@ static const RtInterfaceType HASHABLE_INTERFACE = {
     .reserved0 = 0u,
 };
 
-static const RtInterfaceType COMPARABLE_INTERFACE = {
-    .debug_name = "Comparable",
+static const RtInterfaceType EQUALABLE_INTERFACE = {
+    .debug_name = "Equalable",
     .method_count = 1u,
     .reserved0 = 0u,
 };
@@ -76,7 +76,7 @@ static int run_case(const char* name) {
     if (strcmp(name, "interface_to_interface_failure") == 0) {
         void* obj = alloc_leaf(&HASH_ONLY_TYPE);
         void* hashable_value = rt_checked_cast_interface(obj, &HASHABLE_INTERFACE);
-        (void)rt_checked_cast_interface(hashable_value, &COMPARABLE_INTERFACE);
+        (void)rt_checked_cast_interface(hashable_value, &EQUALABLE_INTERFACE);
         return 0;
     }
 
