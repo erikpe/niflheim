@@ -8,41 +8,6 @@ from compiler.resolver import ModulePath
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId, SyntheticId
 
 
-def _decode_char_literal(lexeme: str) -> int:
-    if len(lexeme) < 3 or not lexeme.startswith("'") or not lexeme.endswith("'"):
-        raise ValueError(f"invalid char literal lexeme: {lexeme!r}")
-
-    payload = lexeme[1:-1]
-    if len(payload) == 1:
-        return ord(payload)
-
-    if not payload.startswith("\\"):
-        raise ValueError(f"invalid char literal payload: {lexeme!r}")
-
-    if len(payload) == 2:
-        esc = payload[1]
-        if esc == "n":
-            return 0x0A
-        if esc == "r":
-            return 0x0D
-        if esc == "t":
-            return 0x09
-        if esc == "0":
-            return 0x00
-        if esc == "\\":
-            return 0x5C
-        if esc == "'":
-            return 0x27
-        if esc == '"':
-            return 0x22
-        raise ValueError(f"unsupported char escape: {lexeme!r}")
-
-    if len(payload) == 4 and payload[1] == "x":
-        return int(payload[2:], 16)
-
-    raise ValueError(f"invalid char literal payload: {lexeme!r}")
-
-
 @dataclass(frozen=True)
 class SemanticProgram:
     entry_module: ModulePath
@@ -284,80 +249,11 @@ class CharConstant:
 SemanticConstant = IntConstant | FloatConstant | BoolConstant | CharConstant
 
 
-def _constant_from_legacy_literal(*, value: str, type_name: str) -> SemanticConstant:
-    if type_name == "bool":
-        if value == "true":
-            return BoolConstant(value=True, type_name=type_name)
-        if value == "false":
-            return BoolConstant(value=False, type_name=type_name)
-        raise ValueError(f"invalid bool literal: {value}")
-
-    if type_name == "double":
-        return FloatConstant(value=float(value), type_name=type_name)
-
-    if type_name == "u8" and value.startswith("'"):
-        return CharConstant(value=_decode_char_literal(value), type_name=type_name)
-
-    if type_name in {"i64", "u64", "u8"}:
-        text = value
-        if text.endswith("u8"):
-            text = text[:-2]
-        elif text.endswith("u"):
-            text = text[:-1]
-        return IntConstant(value=int(text), type_name=type_name)
-
-    raise ValueError(f"unsupported semantic literal for type '{type_name}': {value}")
-
-
-def _legacy_literal_text(constant: SemanticConstant) -> str:
-    if isinstance(constant, BoolConstant):
-        return "true" if constant.value else "false"
-    if isinstance(constant, FloatConstant):
-        return str(constant.value)
-    if isinstance(constant, IntConstant):
-        if constant.type_name == "u8":
-            return str(constant.value)
-        if constant.type_name == "u64":
-            return f"{constant.value}u"
-        return str(constant.value)
-    return str(constant.value)
-
-
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True)
 class LiteralExprS:
     constant: SemanticConstant
     type_name: str
     span: SourceSpan
-    raw_text: str | None
-
-    def __init__(
-        self,
-        *,
-        constant: SemanticConstant | None = None,
-        type_name: str,
-        span: SourceSpan,
-        value: str | None = None,
-        raw_text: str | None = None,
-    ) -> None:
-        if constant is None:
-            if value is None:
-                raise TypeError("LiteralExprS requires either 'constant' or legacy 'value'")
-            constant = _constant_from_legacy_literal(value=value, type_name=type_name)
-            if raw_text is None:
-                raw_text = value
-        elif value is not None:
-            raise TypeError("LiteralExprS accepts either 'constant' or 'value', not both")
-
-        object.__setattr__(self, "constant", constant)
-        object.__setattr__(self, "type_name", type_name)
-        object.__setattr__(self, "span", span)
-        object.__setattr__(self, "raw_text", raw_text)
-
-    @property
-    def value(self) -> str:
-        if self.raw_text is not None:
-            return self.raw_text
-        return _legacy_literal_text(self.constant)
 
 
 @dataclass(frozen=True)

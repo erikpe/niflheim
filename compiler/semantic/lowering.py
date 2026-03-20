@@ -1007,20 +1007,16 @@ def _lower_non_string_literal_expr(lower_ctx: _ModuleLoweringContext, expr: Lite
 
     if isinstance(literal, BoolLiteralValue):
         constant: SemanticConstant = BoolConstant(value=literal.value, type_name=type_name)
-        raw_text = literal.raw_text
     elif isinstance(literal, CharLiteralValue):
         constant = CharConstant(value=decode_char_literal(literal.raw_text), type_name=type_name)
-        raw_text = literal.raw_text
     elif isinstance(literal, FloatLiteralValue):
         constant = FloatConstant(value=literal.value, type_name=type_name)
-        raw_text = literal.raw_text
     elif isinstance(literal, IntLiteralValue):
         constant = IntConstant(value=literal.magnitude, type_name=type_name)
-        raw_text = literal.raw_text
     else:
         raise TypeError(f"Unsupported non-string literal for semantic lowering: {type(literal).__name__}")
 
-    return LiteralExprS(constant=constant, type_name=type_name, span=expr.span, raw_text=raw_text)
+    return LiteralExprS(constant=constant, type_name=type_name, span=expr.span)
 
 
 def _lowered_literal_type_name(lower_ctx: _ModuleLoweringContext, expr: LiteralExpr) -> str:

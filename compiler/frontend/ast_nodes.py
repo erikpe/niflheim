@@ -152,19 +152,6 @@ class LiteralExpr:
     literal: LiteralValueNode
     span: SourceSpan
 
-    @property
-    def value(self) -> str:
-        literal = self.literal
-        if isinstance(literal, IntLiteralValue):
-            return literal.raw_text
-        if isinstance(literal, FloatLiteralValue):
-            return literal.raw_text
-        if isinstance(literal, BoolLiteralValue):
-            return literal.raw_text
-        if isinstance(literal, CharLiteralValue):
-            return literal.raw_text
-        return literal.raw_text
-
 
 @dataclass(frozen=True)
 class NullExpr:

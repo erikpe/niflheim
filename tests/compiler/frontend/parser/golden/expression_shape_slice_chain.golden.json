@@ -18,8 +18,14 @@
     {
       "arguments": [
         {
-          "node": "LiteralExpr",
-          "value": "0"
+          "literal": {
+            "base": 10,
+            "magnitude": 0,
+            "node": "IntLiteralValue",
+            "raw_text": "0",
+            "suffix": null
+          },
+          "node": "LiteralExpr"
         },
         {
           "node": "CastExpr",
@@ -55,8 +61,14 @@
       "index_expr": {
         "node": "UnaryExpr",
         "operand": {
-          "node": "LiteralExpr",
-          "value": "1"
+          "literal": {
+            "base": 10,
+            "magnitude": 1,
+            "node": "IntLiteralValue",
+            "raw_text": "1",
+            "suffix": null
+          },
+          "node": "LiteralExpr"
         },
         "operator": "-"
       },
@@ -72,15 +84,27 @@
     "node": "FieldAccessExpr",
     "object_expr": {
       "index_expr": {
-        "node": "LiteralExpr",
-        "value": "0"
+        "literal": {
+          "base": 10,
+          "magnitude": 0,
+          "node": "IntLiteralValue",
+          "raw_text": "0",
+          "suffix": null
+        },
+        "node": "LiteralExpr"
       },
       "node": "IndexExpr",
       "object_expr": {
         "arguments": [
           {
-            "node": "LiteralExpr",
-            "value": "1"
+            "literal": {
+              "base": 10,
+              "magnitude": 1,
+              "node": "IntLiteralValue",
+              "raw_text": "1",
+              "suffix": null
+            },
+            "node": "LiteralExpr"
           },
           {
             "node": "CastExpr",

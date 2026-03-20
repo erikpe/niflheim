@@ -2,8 +2,14 @@
   "node": "CastExpr",
   "operand": {
     "index_expr": {
-      "node": "LiteralExpr",
-      "value": "3"
+      "literal": {
+        "base": 10,
+        "magnitude": 3,
+        "node": "IntLiteralValue",
+        "raw_text": "3",
+        "suffix": null
+      },
+      "node": "LiteralExpr"
     },
     "node": "IndexExpr",
     "object_expr": {
@@ -13,14 +19,26 @@
         "arguments": [
           {
             "left": {
-              "node": "LiteralExpr",
-              "value": "1"
+              "literal": {
+                "base": 10,
+                "magnitude": 1,
+                "node": "IntLiteralValue",
+                "raw_text": "1",
+                "suffix": null
+              },
+              "node": "LiteralExpr"
             },
             "node": "BinaryExpr",
             "operator": "+",
             "right": {
-              "node": "LiteralExpr",
-              "value": "2"
+              "literal": {
+                "base": 10,
+                "magnitude": 2,
+                "node": "IntLiteralValue",
+                "raw_text": "2",
+                "suffix": null
+              },
+              "node": "LiteralExpr"
             }
           }
         ],

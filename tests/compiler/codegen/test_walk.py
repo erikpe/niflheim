@@ -23,8 +23,14 @@ def _describe_expr(expr: SemanticExpr) -> str:
     if isinstance(expr, LocalRefExpr):
         return f"LocalRefExpr:{expr.name}"
     if isinstance(expr, LiteralExprS):
-        return f"LiteralExprS:{expr.value}"
+        return f"LiteralExprS:{_describe_constant(expr.constant)}"
     return type(expr).__name__
+
+
+def _describe_constant(constant: SemanticConstant) -> str:
+    if isinstance(constant, BoolConstant):
+        return "true" if constant.value else "false"
+    return str(constant.value)
 
 
 def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
@@ -41,7 +47,7 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
             CastExprS(
                 operand=BinaryExprS(
                     operator="+",
-                    left=LiteralExprS(value="1", type_name="i64", span=span),
+                    left=LiteralExprS(constant=IntConstant(value=1, type_name="i64"), type_name="i64", span=span),
                     right=LocalRefExpr(name="arg", type_name="i64", span=span),
                     type_name="i64",
                     span=span,
@@ -74,7 +80,7 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
     expr = TypeTestExprS(
         operand=BinaryExprS(
             operator="+",
-            left=LiteralExprS(value="1", type_name="i64", span=span),
+            left=LiteralExprS(constant=IntConstant(value=1, type_name="i64"), type_name="i64", span=span),
             right=LocalRefExpr(name="arg", type_name="i64", span=span),
             type_name="i64",
             span=span,
@@ -107,7 +113,7 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
         ),
         value=FunctionCallExpr(
             function_id=FunctionId(module_path=("main",), name="compute"),
-            args=[LiteralExprS(value="7", type_name="i64", span=span)],
+            args=[LiteralExprS(constant=IntConstant(value=7, type_name="i64"), type_name="i64", span=span)],
             type_name="i64",
             span=span,
         ),
@@ -203,7 +209,9 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
             SemanticField(
                 name="value",
                 type_name="i64",
-                initializer=LiteralExprS(value="3", type_name="i64", span=span),
+                initializer=LiteralExprS(
+                    constant=IntConstant(value=3, type_name="i64"), type_name="i64", span=span
+                ),
                 is_private=False,
                 is_final=False,
                 span=span,

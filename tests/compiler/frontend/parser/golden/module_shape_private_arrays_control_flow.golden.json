@@ -84,8 +84,14 @@
                   "node": "BinaryExpr",
                   "operator": "+",
                   "right": {
-                    "node": "LiteralExpr",
-                    "value": "1"
+                    "literal": {
+                      "base": 10,
+                      "magnitude": 1,
+                      "node": "IntLiteralValue",
+                      "raw_text": "1",
+                      "suffix": null
+                    },
+                    "node": "LiteralExpr"
                   }
                 }
               },
@@ -234,8 +240,14 @@
         "statements": [
           {
             "initializer": {
-              "node": "LiteralExpr",
-              "value": "0"
+              "literal": {
+                "base": 10,
+                "magnitude": 0,
+                "node": "IntLiteralValue",
+                "raw_text": "0",
+                "suffix": null
+              },
+              "node": "LiteralExpr"
             },
             "name": "i",
             "node": "VarDeclStmt",
@@ -246,8 +258,14 @@
           },
           {
             "initializer": {
-              "node": "LiteralExpr",
-              "value": "0"
+              "literal": {
+                "base": 10,
+                "magnitude": 0,
+                "node": "IntLiteralValue",
+                "raw_text": "0",
+                "suffix": null
+              },
+              "node": "LiteralExpr"
             },
             "name": "total",
             "node": "VarDeclStmt",
@@ -269,8 +287,14 @@
                     "node": "BinaryExpr",
                     "operator": "==",
                     "right": {
-                      "node": "LiteralExpr",
-                      "value": "2"
+                      "literal": {
+                        "base": 10,
+                        "magnitude": 2,
+                        "node": "IntLiteralValue",
+                        "raw_text": "2",
+                        "suffix": null
+                      },
+                      "node": "LiteralExpr"
                     }
                   },
                   "else_branch": null,
@@ -292,8 +316,14 @@
                           "node": "BinaryExpr",
                           "operator": "+",
                           "right": {
-                            "node": "LiteralExpr",
-                            "value": "1"
+                            "literal": {
+                              "base": 10,
+                              "magnitude": 1,
+                              "node": "IntLiteralValue",
+                              "raw_text": "1",
+                              "suffix": null
+                            },
+                            "node": "LiteralExpr"
                           }
                         }
                       },
@@ -338,8 +368,14 @@
                     "node": "BinaryExpr",
                     "operator": ">",
                     "right": {
-                      "node": "LiteralExpr",
-                      "value": "50"
+                      "literal": {
+                        "base": 10,
+                        "magnitude": 50,
+                        "node": "IntLiteralValue",
+                        "raw_text": "50",
+                        "suffix": null
+                      },
+                      "node": "LiteralExpr"
                     }
                   },
                   "else_branch": null,
@@ -367,8 +403,14 @@
                     "node": "BinaryExpr",
                     "operator": "+",
                     "right": {
-                      "node": "LiteralExpr",
-                      "value": "1"
+                      "literal": {
+                        "base": 10,
+                        "magnitude": 1,
+                        "node": "IntLiteralValue",
+                        "raw_text": "1",
+                        "suffix": null
+                      },
+                      "node": "LiteralExpr"
                     }
                   }
                 }
@@ -448,8 +490,14 @@
                 "node": "ArrayTypeRef"
               },
               "length_expr": {
-                "node": "LiteralExpr",
-                "value": "4"
+                "literal": {
+                  "base": 10,
+                  "magnitude": 4,
+                  "node": "IntLiteralValue",
+                  "raw_text": "4",
+                  "suffix": null
+                },
+                "node": "LiteralExpr"
               },
               "node": "ArrayCtorExpr"
             },
@@ -467,8 +515,14 @@
             "node": "AssignStmt",
             "target": {
               "index_expr": {
-                "node": "LiteralExpr",
-                "value": "0"
+                "literal": {
+                  "base": 10,
+                  "magnitude": 0,
+                  "node": "IntLiteralValue",
+                  "raw_text": "0",
+                  "suffix": null
+                },
+                "node": "LiteralExpr"
               },
               "node": "IndexExpr",
               "object_expr": {
@@ -477,16 +531,28 @@
               }
             },
             "value": {
-              "node": "LiteralExpr",
-              "value": "10"
+              "literal": {
+                "base": 10,
+                "magnitude": 10,
+                "node": "IntLiteralValue",
+                "raw_text": "10",
+                "suffix": null
+              },
+              "node": "LiteralExpr"
             }
           },
           {
             "node": "AssignStmt",
             "target": {
               "index_expr": {
-                "node": "LiteralExpr",
-                "value": "1"
+                "literal": {
+                  "base": 10,
+                  "magnitude": 1,
+                  "node": "IntLiteralValue",
+                  "raw_text": "1",
+                  "suffix": null
+                },
+                "node": "LiteralExpr"
               },
               "node": "IndexExpr",
               "object_expr": {
@@ -495,16 +561,28 @@
               }
             },
             "value": {
-              "node": "LiteralExpr",
-              "value": "20"
+              "literal": {
+                "base": 10,
+                "magnitude": 20,
+                "node": "IntLiteralValue",
+                "raw_text": "20",
+                "suffix": null
+              },
+              "node": "LiteralExpr"
             }
           },
           {
             "node": "AssignStmt",
             "target": {
               "index_expr": {
-                "node": "LiteralExpr",
-                "value": "2"
+                "literal": {
+                  "base": 10,
+                  "magnitude": 2,
+                  "node": "IntLiteralValue",
+                  "raw_text": "2",
+                  "suffix": null
+                },
+                "node": "LiteralExpr"
               },
               "node": "IndexExpr",
               "object_expr": {
@@ -513,16 +591,28 @@
               }
             },
             "value": {
-              "node": "LiteralExpr",
-              "value": "30"
+              "literal": {
+                "base": 10,
+                "magnitude": 30,
+                "node": "IntLiteralValue",
+                "raw_text": "30",
+                "suffix": null
+              },
+              "node": "LiteralExpr"
             }
           },
           {
             "node": "AssignStmt",
             "target": {
               "index_expr": {
-                "node": "LiteralExpr",
-                "value": "3"
+                "literal": {
+                  "base": 10,
+                  "magnitude": 3,
+                  "node": "IntLiteralValue",
+                  "raw_text": "3",
+                  "suffix": null
+                },
+                "node": "LiteralExpr"
               },
               "node": "IndexExpr",
               "object_expr": {
@@ -531,20 +621,38 @@
               }
             },
             "value": {
-              "node": "LiteralExpr",
-              "value": "40"
+              "literal": {
+                "base": 10,
+                "magnitude": 40,
+                "node": "IntLiteralValue",
+                "raw_text": "40",
+                "suffix": null
+              },
+              "node": "LiteralExpr"
             }
           },
           {
             "initializer": {
               "arguments": [
                 {
-                  "node": "LiteralExpr",
-                  "value": "1"
+                  "literal": {
+                    "base": 10,
+                    "magnitude": 1,
+                    "node": "IntLiteralValue",
+                    "raw_text": "1",
+                    "suffix": null
+                  },
+                  "node": "LiteralExpr"
                 },
                 {
-                  "node": "LiteralExpr",
-                  "value": "3"
+                  "literal": {
+                    "base": 10,
+                    "magnitude": 3,
+                    "node": "IntLiteralValue",
+                    "raw_text": "3",
+                    "suffix": null
+                  },
+                  "node": "LiteralExpr"
                 }
               ],
               "callee": {
@@ -665,8 +773,14 @@
               "node": "BinaryExpr",
               "operator": ">",
               "right": {
-                "node": "LiteralExpr",
-                "value": "0"
+                "literal": {
+                  "base": 10,
+                  "magnitude": 0,
+                  "node": "IntLiteralValue",
+                  "raw_text": "0",
+                  "suffix": null
+                },
+                "node": "LiteralExpr"
               }
             },
             "else_branch": {
@@ -675,8 +789,14 @@
                 {
                   "node": "ReturnStmt",
                   "value": {
-                    "node": "LiteralExpr",
-                    "value": "1"
+                    "literal": {
+                      "base": 10,
+                      "magnitude": 1,
+                      "node": "IntLiteralValue",
+                      "raw_text": "1",
+                      "suffix": null
+                    },
+                    "node": "LiteralExpr"
                   }
                 }
               ]
@@ -688,8 +808,14 @@
                 {
                   "node": "ReturnStmt",
                   "value": {
-                    "node": "LiteralExpr",
-                    "value": "0"
+                    "literal": {
+                      "base": 10,
+                      "magnitude": 0,
+                      "node": "IntLiteralValue",
+                      "raw_text": "0",
+                      "suffix": null
+                    },
+                    "node": "LiteralExpr"
                   }
                 }
               ]

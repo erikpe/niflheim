@@ -31,8 +31,14 @@
             "value": {
               "arguments": [
                 {
-                  "node": "LiteralExpr",
-                  "value": "7"
+                  "literal": {
+                    "base": 10,
+                    "magnitude": 7,
+                    "node": "IntLiteralValue",
+                    "raw_text": "7",
+                    "suffix": null
+                  },
+                  "node": "LiteralExpr"
                 }
               ],
               "callee": {
@@ -116,8 +122,14 @@
                   "node": "BinaryExpr",
                   "operator": "<",
                   "right": {
-                    "node": "LiteralExpr",
-                    "value": "0"
+                    "literal": {
+                      "base": 10,
+                      "magnitude": 0,
+                      "node": "IntLiteralValue",
+                      "raw_text": "0",
+                      "suffix": null
+                    },
+                    "node": "LiteralExpr"
                   }
                 },
                 "operator": "!"
@@ -133,8 +145,14 @@
                   "node": "BinaryExpr",
                   "operator": "==",
                   "right": {
-                    "node": "LiteralExpr",
-                    "value": "7"
+                    "literal": {
+                      "base": 10,
+                      "magnitude": 7,
+                      "node": "IntLiteralValue",
+                      "raw_text": "7",
+                      "suffix": null
+                    },
+                    "node": "LiteralExpr"
                   }
                 },
                 "node": "BinaryExpr",
@@ -147,8 +165,14 @@
                   "node": "BinaryExpr",
                   "operator": "==",
                   "right": {
-                    "node": "LiteralExpr",
-                    "value": "8"
+                    "literal": {
+                      "base": 10,
+                      "magnitude": 8,
+                      "node": "IntLiteralValue",
+                      "raw_text": "8",
+                      "suffix": null
+                    },
+                    "node": "LiteralExpr"
                   }
                 }
               }
@@ -161,8 +185,14 @@
                 {
                   "node": "ReturnStmt",
                   "value": {
-                    "node": "LiteralExpr",
-                    "value": "0"
+                    "literal": {
+                      "base": 10,
+                      "magnitude": 0,
+                      "node": "IntLiteralValue",
+                      "raw_text": "0",
+                      "suffix": null
+                    },
+                    "node": "LiteralExpr"
                   }
                 }
               ]
@@ -171,8 +201,14 @@
           {
             "node": "ReturnStmt",
             "value": {
-              "node": "LiteralExpr",
-              "value": "1"
+              "literal": {
+                "base": 10,
+                "magnitude": 1,
+                "node": "IntLiteralValue",
+                "raw_text": "1",
+                "suffix": null
+              },
+              "node": "LiteralExpr"
             }
           }
         ]
