@@ -4,14 +4,14 @@ import std.object;
 import std.str;
 
 
-//fn _murmur64(x: u64) -> u64 {
-//    x ^= x >> 33;
-//    x *= 0xff51afd7ed558ccdULL;
-//    x ^= x >> 33;
-//    x *= 0xc4ceb9fe1a85ec53ULL;
-////    x ^= x >> 33;
-//    return x;
-//}
+fn _murmur64(x: u64) -> u64 {
+    x = x ^ (x >> 33u);
+    x = x * 0xff51afd7ed558ccdu;
+    x = x ^ (x >> 33u);
+    x = x * 0xc4ceb9fe1a85ec53u;
+    x = x ^ (x >> 33u);
+    return x;
+}
 
 export class BoxI64 implements Comparable, Equalable, Hashable
 {
@@ -39,7 +39,7 @@ export class BoxI64 implements Comparable, Equalable, Hashable
     }
 
     fn hash_code() -> u64 {
-        return (u64)__self.val;
+        return _murmur64((u64)__self.val ^ 4529479020710846950u);
     }
 }
 
@@ -69,7 +69,7 @@ export class BoxU64 implements Comparable, Equalable, Hashable
     }
 
     fn hash_code() -> u64 {
-        return __self.val;
+        return _murmur64(__self.val ^ 12912477323686152726u);
     }
 }
 
@@ -99,7 +99,7 @@ export class BoxU8 implements Comparable, Equalable, Hashable
     }
 
     fn hash_code() -> u64 {
-        return (u64)__self.val;
+        return _murmur64((u64)__self.val ^ 17242970249212152886u);
     }
 }
 
@@ -130,9 +130,9 @@ export class BoxBool implements Comparable, Equalable, Hashable
 
     fn hash_code() -> u64 {
         if __self.val {
-            return 1u;
+            return 5293979831725740996u;
         }
-        return 0u;
+        return 7105071502359677837u;
     }
 }
 
