@@ -299,6 +299,7 @@ def _emit_interface_method_call(codegen: CodeGenerator, expr: InterfaceMethodCal
     emit_expr(codegen, expr.receiver, ctx)
     codegen.emit_temp_root_slot_store(ctx.layout, receiver_temp_index, "rax", span=expr.span)
     ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
+    codegen.asm.instr(f"mov rax, {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}")
 
     codegen.asm.instr("push rax")
     _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)

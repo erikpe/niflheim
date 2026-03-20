@@ -1,0 +1,36 @@
+runs:
+  - name: basic_interface_dispatch
+    input:
+      stdin: "1\n"
+    expect:
+      exit_code: 0
+
+  - name: successful_obj_and_interface_casts
+    input:
+      stdin: "2\n"
+    expect:
+      exit_code: 0
+
+  - name: null_obj_to_interface_cast_yields_null
+    input:
+      stdin: "3\n"
+    expect:
+      exit_code: 0
+
+  - name: interface_round_trip_through_obj
+    input:
+      stdin: "4\n"
+    expect:
+      exit_code: 0
+
+  - name: interface_storage_and_returns
+    input:
+      stdin: "5\n"
+    expect:
+      exit_code: 0
+
+  - name: dynamic_type_visible_through_obj
+    input:
+      stdin: "6\n"
+    expect:
+      exit_code: 0

@@ -490,6 +490,82 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_direct_class_expr_cast_to_unimplemented_interface() -> None:
+    source = """
+interface Metric {
+    fn score() -> u64;
+}
+
+interface Doubler {
+    fn twice() -> u64;
+}
+
+class Gauge implements Metric {
+    fn score() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    var doubler: Doubler = (Doubler)Gauge();
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Invalid cast from 'Gauge' to 'Doubler'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_direct_class_local_cast_to_unimplemented_interface() -> None:
+    source = """
+interface Metric {
+    fn score() -> u64;
+}
+
+interface Doubler {
+    fn twice() -> u64;
+}
+
+class Gauge implements Metric {
+    fn score() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    var gauge: Gauge = Gauge();
+    var doubler: Doubler = (Doubler)gauge;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Invalid cast from 'Gauge' to 'Doubler'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_direct_class_cast_to_different_unimplemented_interface() -> None:
+    source = """
+interface Metric {
+    fn score() -> u64;
+}
+
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Gauge implements Metric {
+    fn score() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    var hashable: Hashable = (Hashable)Gauge();
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Invalid cast from 'Gauge' to 'Hashable'"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_interface_to_array_cast() -> None:
     source = """
 interface Hashable {

@@ -1,0 +1,117 @@
+import std.io;
+import std.object;
+
+interface Metric {
+    fn score() -> u64;
+}
+
+interface Doubler {
+    fn twice() -> u64;
+}
+
+class Counter implements Metric, Doubler {
+    value: u64;
+
+    fn score() -> u64 {
+        return __self.value + 1u;
+    }
+
+    fn twice() -> u64 {
+        return __self.value * 2u;
+    }
+}
+
+fn cast_metric(value: Obj) -> Metric {
+    return (Metric)value;
+}
+
+fn cast_doubler(value: Metric) -> Doubler {
+    return (Doubler)value;
+}
+
+fn test_class_to_interface_cast() -> i64 {
+    var metric: Metric = (Metric)Counter(9u);
+    if metric.score() != 10u {
+        return 1;
+    }
+    return 0;
+}
+
+fn test_obj_to_interface_cast() -> i64 {
+    var value: Obj = (Obj)Counter(4u);
+    var metric: Metric = (Metric)value;
+    if metric.score() != 5u {
+        return 2;
+    }
+    return 0;
+}
+
+fn test_interface_to_obj_round_trip() -> i64 {
+    var metric: Metric = Counter(6u);
+    var obj: Obj = (Obj)metric;
+    var rebound: Metric = cast_metric(obj);
+
+    if rebound.score() != 7u {
+        return 3;
+    }
+    if !same_type((Obj)metric, (Obj)rebound) {
+        return 4;
+    }
+
+    return 0;
+}
+
+fn test_interface_to_interface_cast() -> i64 {
+    var metric: Metric = Counter(8u);
+    var doubler: Doubler = (Doubler)metric;
+    if doubler.twice() != 16u {
+        return 5;
+    }
+    return 0;
+}
+
+fn test_obj_interface_interface_chain() -> i64 {
+    var value: Obj = (Obj)Counter(3u);
+    var metric: Metric = cast_metric(value);
+    var doubler: Doubler = cast_doubler(metric);
+
+    if metric.score() != 4u {
+        return 6;
+    }
+    if doubler.twice() != 6u {
+        return 7;
+    }
+    return 0;
+}
+
+fn test_null_obj_to_interface_cast() -> i64 {
+    var value: Obj = null;
+    var metric: Metric = (Metric)value;
+    if (Obj)metric != null {
+        return 8;
+    }
+    return 0;
+}
+
+fn test_null_interface_to_interface_cast() -> i64 {
+    var metric: Metric = (Metric)null;
+    var doubler: Doubler = (Doubler)metric;
+    if (Obj)doubler != null {
+        return 9;
+    }
+    return 0;
+}
+
+fn main() -> i64 {
+    var select: u64 = read_stdin().strip().to_u64();
+
+    if select == 1u { return test_class_to_interface_cast(); }
+    if select == 2u { return test_obj_to_interface_cast(); }
+    if select == 3u { return test_interface_to_obj_round_trip(); }
+    if select == 4u { return test_interface_to_interface_cast(); }
+    if select == 5u { return test_obj_interface_interface_chain(); }
+    if select == 6u { return test_null_obj_to_interface_cast(); }
+    if select == 7u { return test_null_interface_to_interface_cast(); }
+
+    return 10;
+}

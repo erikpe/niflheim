@@ -24,9 +24,13 @@ Completed so far:
 - Step 10 is implemented and validated.
 - Step 11 is implemented and validated.
 
+In progress now:
+
+- Step 12 end-to-end interface coverage is implemented and validated except for the motivating stdlib example, which is intentionally deferred.
+
 Not started yet:
 
-- Step 12 and later.
+- Step 13 and later.
 
 ## Scope
 
@@ -650,10 +654,14 @@ Step 11 objective check:
 
 ## Step 12: Add End-To-End Language And Stdlib Coverage
 
-- [ ] Add parser/typecheck/lowering/codegen integration tests for interfaces
-- [ ] Add a runtime smoke test for successful interface dispatch
-- [ ] Add a runtime failure test for invalid interface cast
+- [x] Add parser/typecheck/lowering/codegen integration tests for interfaces
+- [x] Add a runtime smoke test for successful interface dispatch
+- [x] Add a runtime failure test for invalid interface cast
 - [ ] Add at least one motivating stdlib/integration example, such as `Map` using `Hashable` and `Comparable`
+
+Scope note for the current pass:
+
+- the motivating stdlib/integration example is intentionally deferred to a later stage by user request
 
 Suggested code areas:
 
@@ -669,6 +677,27 @@ Suggested tests for this step:
 - interface-based `Map` key path works in golden/integration coverage
 - imported interface use across modules works end-to-end
 - interface-typed fields/arrays/returns work end-to-end if v1 keeps those capabilities
+
+Validation for the implemented portion of this step:
+
+- Added end-to-end integration coverage in `tests/compiler/integration/test_cli_interfaces_runtime.py`, including:
+	- successful interface dispatch
+	- invalid `Obj -> Interface` cast runtime failure
+	- one class implementing two interfaces
+	- interface-typed fields, arrays, and returns
+	- imported interface use across modules
+- Added golden coverage in `tests/golden/lang/test_interfaces_end_to_end.nif` and `tests/golden/error/test_interface_cast_errors.nif`
+- Validation run results:
+	- focused interface integration pytest run: `4 passed`
+	- focused interface golden runner: `2/2 test files passed; 2 runs total`
+
+Step 12 objective check for the implemented portion:
+
+- fulfilled: the feature is now covered end-to-end through compiler integration tests
+- fulfilled: successful interface dispatch is now covered by generated-code runtime smoke testing
+- fulfilled: invalid runtime interface casts are now covered end-to-end
+- fulfilled: imported interface use and interface-typed storage/returns are now exercised end-to-end
+- deferred: motivating stdlib/integration example will be added in a later stage
 
 ## Step 13: Update Reachability And Codegen Walkers/Collectors
 

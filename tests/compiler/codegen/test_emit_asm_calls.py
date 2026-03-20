@@ -1,3 +1,5 @@
+import re
+
 from tests.compiler.codegen.helpers import emit_source_asm
 from tests.compiler.integration.stdlib_fixtures import install_std_io_fixture
 
@@ -260,6 +262,7 @@ fn main() -> i64 {
     assert "    call rt_lookup_interface_method" in asm
     assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in asm
     assert "    mov edx, 0" in asm
+    assert re.search(r"call rt_root_slot_store\n\s+mov rax, qword ptr \[rbp - \d+\]\n\s+push rax", asm)
     assert "    mov r11, qword ptr [r10 + 8]" in asm
     assert "    call r11" in asm
 

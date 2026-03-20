@@ -1,0 +1,21 @@
+import tests.golden.lang.test_interface_imports.contracts;
+
+export class Key implements Hashable, Labeled {
+    value: u64;
+
+    fn hash_code() -> u64 {
+        return __self.value + 100u;
+    }
+
+    fn label() -> u64 {
+        return __self.value;
+    }
+}
+
+export fn as_hashable(value: u64) -> contracts.Hashable {
+    return Key(value);
+}
+
+export fn as_labeled(value: contracts.Hashable) -> contracts.Labeled {
+    return (contracts.Labeled)value;
+}

@@ -1,0 +1,56 @@
+import std.io;
+
+interface Metric {
+    fn score() -> u64;
+}
+
+interface Doubler {
+    fn twice() -> u64;
+}
+
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Plain {
+    value: u64;
+}
+
+class Gauge implements Metric {
+    value: u64;
+
+    fn score() -> u64 {
+        return __self.value + 10u;
+    }
+}
+
+fn main() -> i64 {
+    var select: u64 = read_stdin().strip().to_u64();
+
+    if select == 1u {
+        var plain_obj: Obj = Plain(7u);
+        var hashable: Hashable = (Hashable)plain_obj;
+        return (i64)hashable.hash_code();
+    }
+
+    if select == 2u {
+        var gauge_obj: Obj = (Obj)Gauge(7u);
+        var obj_doubler: Doubler = (Doubler)gauge_obj;
+        return (i64)obj_doubler.twice();
+    }
+
+    if select == 3u {
+        var metric_value: Metric = Gauge(7u);
+        var metric_doubler: Doubler = (Doubler)metric_value;
+        return (i64)metric_doubler.twice();
+    }
+
+    if select == 4u {
+        var rebound_metric: Metric = Gauge(7u);
+        var rebound_obj: Obj = (Obj)rebound_metric;
+        var rebound_doubler: Doubler = (Doubler)rebound_obj;
+        return (i64)rebound_doubler.twice();
+    }
+
+    return 99;
+}
