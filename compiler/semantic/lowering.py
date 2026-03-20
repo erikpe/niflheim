@@ -9,6 +9,8 @@ from compiler.semantic.ir import *
 from compiler.semantic.symbols import (
     ClassId,
     ConstructorId,
+    InterfaceId,
+    InterfaceMethodId,
     MethodId,
     ProgramSymbolIndex,
     SyntheticId,
@@ -22,11 +24,12 @@ from compiler.typecheck.call_helpers import class_type_name_from_callable
 from compiler.typecheck.calls import infer_call_type
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
 from compiler.typecheck.constants import I64_MAX_LITERAL
-from compiler.typecheck.declarations import collect_module_declarations
+from compiler.typecheck.declarations import collect_module_declarations, validate_interface_conformance
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeInfo
 from compiler.typecheck.module_lookup import (
     lookup_class_by_type_name,
+    lookup_interface_by_type_name,
     resolve_imported_class_name,
     resolve_imported_function_sig,
     resolve_module_member,
@@ -63,6 +66,14 @@ class _ResolvedStaticMethodCallTarget:
 @dataclass(frozen=True)
 class _ResolvedInstanceMethodCallTarget:
     method_id: MethodId
+    receiver: Expression
+    receiver_type_name: str
+
+
+@dataclass(frozen=True)
+class _ResolvedInterfaceMethodCallTarget:
+    interface_id: InterfaceId
+    method_id: InterfaceMethodId
     receiver: Expression
     receiver_type_name: str
 
@@ -128,6 +139,7 @@ ResolvedCallTarget = (
     | _ResolvedConstructorCallTarget
     | _ResolvedStaticMethodCallTarget
     | _ResolvedInstanceMethodCallTarget
+    | _ResolvedInterfaceMethodCallTarget
     | _ResolvedCallableValueCallTarget
 )
 
@@ -159,6 +171,7 @@ def _build_typecheck_contexts(program: ProgramInfo) -> dict[ModulePath, TypeChec
         module_path: {} for module_path in program.modules
     }
     module_class_infos: dict[ModulePath, dict[str, ClassInfo]] = {module_path: {} for module_path in program.modules}
+    module_interface_infos = {module_path: {} for module_path in program.modules}
     contexts: dict[ModulePath, TypeCheckContext] = {}
 
     for module_path, module_info in program.modules.items():
@@ -168,12 +181,17 @@ def _build_typecheck_contexts(program: ProgramInfo) -> dict[ModulePath, TypeChec
             modules=program.modules,
             module_function_sigs=module_function_sigs,
             module_class_infos=module_class_infos,
+            module_interface_infos=module_interface_infos,
             functions=module_function_sigs[module_path],
             classes=module_class_infos[module_path],
+            interfaces=module_interface_infos[module_path],
         )
 
     for ctx in contexts.values():
         collect_module_declarations(ctx)
+
+    for ctx in contexts.values():
+        validate_interface_conformance(ctx)
 
     for ctx in contexts.values():
         check_bodies(ctx)
@@ -542,6 +560,17 @@ def _lower_call_expr(lower_ctx: _ModuleLoweringContext, expr: CallExpr, result_t
             span=expr.span,
         )
 
+    if isinstance(resolved_target, _ResolvedInterfaceMethodCallTarget):
+        return InterfaceMethodCallExpr(
+            interface_id=resolved_target.interface_id,
+            method_id=resolved_target.method_id,
+            receiver=_lower_expr(lower_ctx, resolved_target.receiver),
+            receiver_type_name=resolved_target.receiver_type_name,
+            args=args,
+            type_name=result_type_name,
+            span=expr.span,
+        )
+
     return CallableValueCallExpr(
         callee=_lower_expr(lower_ctx, resolved_target.callee), args=args, type_name=result_type_name, span=expr.span
     )
@@ -873,6 +902,18 @@ def _resolve_field_access_call_target(lower_ctx: _ModuleLoweringContext, expr: C
             )
         )
 
+    if receiver_type.kind == "interface":
+        interface_info = lookup_interface_by_type_name(lower_ctx.typecheck_ctx, receiver_type.name)
+        if interface_info is not None and expr.callee.field_name in interface_info.methods:
+            return _ResolvedInterfaceMethodCallTarget(
+                interface_id=_interface_id_for_type_name(lower_ctx.typecheck_ctx.module_path, receiver_type.name),
+                method_id=_interface_method_id_for_type_name(
+                    lower_ctx.typecheck_ctx.module_path, receiver_type.name, expr.callee.field_name
+                ),
+                receiver=expr.callee.object_expr,
+                receiver_type_name=receiver_type.name,
+            )
+
     class_info = lookup_class_by_type_name(lower_ctx.typecheck_ctx, receiver_type.name)
     if class_info is not None and expr.callee.field_name in class_info.methods:
         return _ResolvedInstanceMethodCallTarget(
@@ -1024,6 +1065,16 @@ def _constructor_id_from_type_name(current_module_path: ModulePath | None, type_
 def _method_id_for_type_name(current_module_path: ModulePath | None, type_name: str, method_name: str):
     owner_module, class_name = _split_type_name(current_module_path, type_name)
     return MethodId(module_path=owner_module, class_name=class_name, name=method_name)
+
+
+def _interface_id_for_type_name(current_module_path: ModulePath | None, type_name: str):
+    owner_module, interface_name = _split_type_name(current_module_path, type_name)
+    return InterfaceId(module_path=owner_module, name=interface_name)
+
+
+def _interface_method_id_for_type_name(current_module_path: ModulePath | None, type_name: str, method_name: str):
+    owner_module, interface_name = _split_type_name(current_module_path, type_name)
+    return InterfaceMethodId(module_path=owner_module, interface_name=interface_name, name=method_name)
 
 
 def _split_type_name(current_module_path: ModulePath | None, type_name: str) -> tuple[ModulePath, str]:

@@ -13,6 +13,7 @@ from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     lookup_class_by_type_name,
+    lookup_interface_by_type_name,
     resolve_imported_class_name,
     resolve_imported_function_sig,
     resolve_module_member,
@@ -178,6 +179,21 @@ def _infer_instance_method_call_type(
     return qualified_return_type
 
 
+def _infer_interface_method_call_type(
+    ctx: TypeCheckContext, expr: CallExpr, object_type: TypeInfo, interface_info
+) -> TypeInfo:
+    method_sig = interface_info.methods.get(expr.callee.field_name)
+    if method_sig is None:
+        raise TypeCheckError(f"Interface '{interface_info.name}' has no method '{expr.callee.field_name}'", expr.span)
+
+    qualified_params = [
+        qualify_member_type_for_owner(ctx, param_type, object_type.name) for param_type in method_sig.params
+    ]
+    qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
+    _check_call_arguments(ctx, qualified_params, expr.arguments, expr.span)
+    return qualified_return_type
+
+
 def _infer_field_access_call_type(ctx: TypeCheckContext, expr: CallExpr) -> TypeInfo | None:
     if not isinstance(expr.callee, FieldAccessExpr):
         return None
@@ -193,6 +209,12 @@ def _infer_field_access_call_type(ctx: TypeCheckContext, expr: CallExpr) -> Type
 
     if object_type.element_type is not None:
         return infer_array_method_call_type(ctx, object_type, expr.callee.field_name, expr.arguments, expr.span)
+
+    if object_type.kind == "interface":
+        interface_info = lookup_interface_by_type_name(ctx, object_type.name)
+        if interface_info is None:
+            raise TypeCheckError(f"Type '{object_type.name}' has no callable members", expr.span)
+        return _infer_interface_method_call_type(ctx, expr, object_type, interface_info)
 
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:

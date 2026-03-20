@@ -140,3 +140,30 @@ def test_prune_unreachable_semantic_program_removes_dead_duplicate_class_symbols
 
     assert [cls.class_id.name for cls in linked.classes] == []
     assert [fn.function_id.name for fn in linked.functions] == ["main"]
+
+
+def test_semantic_reachability_walks_interface_method_call_receivers(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main() -> u64 {
+            return ((Hashable)Key()).hash_code();
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    reachability = analyze_semantic_reachability(semantic)
+
+    assert FunctionId(module_path=("main",), name="main") in reachability.reachable_functions
+    assert ClassId(module_path=("main",), name="Key") in reachability.reachable_classes

@@ -17,10 +17,11 @@ Completed so far:
 - Step 3 is implemented and validated.
 - Step 4 is implemented and validated.
 - Step 5 is implemented and validated.
+- Step 6 is implemented and validated.
 
 Not started yet:
 
-- Step 6 and later.
+- Step 7 and later.
 
 ## Scope
 
@@ -351,10 +352,10 @@ Step 5 objective check:
 
 ## Step 6: Extend Semantic IR For Interface Dispatch
 
-- [ ] Add `InterfaceMethodCallExpr`
-- [ ] Explicitly reject interface method references in v1 instead of adding a reference node by default
-- [ ] Extend semantic IR unions and invariants documentation if needed
-- [ ] Keep concrete class dispatch separate from interface dispatch
+- [x] Add `InterfaceMethodCallExpr`
+- [x] Explicitly reject interface method references in v1 instead of adding a reference node by default
+- [x] Extend semantic IR unions and invariants documentation if needed
+- [x] Keep concrete class dispatch separate from interface dispatch
 
 Suggested code areas:
 
@@ -371,6 +372,30 @@ Suggested tests for this step:
 What should be achieved at the end of this step:
 
 - semantic IR can represent interface dispatch explicitly instead of encoding it as a concrete class-method call
+
+Validation for this step:
+
+- Implemented in `compiler/semantic/ir.py`, `compiler/semantic/lowering.py`, `compiler/typecheck/calls.py`, `compiler/typecheck/expressions.py`, and `compiler/semantic/reachability.py`
+- Added `InterfaceMethodCallExpr` to the semantic IR with explicit interface and interface-method identity alongside receiver, args, and result type information
+- Interface receiver calls now lower to `InterfaceMethodCallExpr` while concrete class receiver calls continue to lower to `InstanceMethodCallExpr`
+- Interface method references are now rejected explicitly during typechecking instead of falling through to class-only member logic
+- `lower_program(...)` now builds typecheck contexts with module interface inventories and runs the same interface conformance validation pass as the main typecheck pipeline, avoiding semantic/typecheck drift
+- Updated semantic reachability walking so the new expression kind is traversed safely
+- Added focused tests covering:
+	- local interface receiver calls lowering to `InterfaceMethodCallExpr`
+	- imported interface receiver calls using canonical interface IDs
+	- interface method reference rejection in typecheck
+	- semantic reachability traversal through interface-call receivers
+- Validation run results:
+	- focused Step 6 typecheck and semantic suites: `33 passed`
+	- full suite: `454 passed`
+
+Step 6 objective check:
+
+- fulfilled: semantic IR now includes an explicit `InterfaceMethodCallExpr` node for interface dispatch
+- fulfilled: interface method references are rejected explicitly in v1 instead of lowering to a method-reference node
+- fulfilled: semantic expression unions and walkers now recognize the new interface-call expression kind
+- fulfilled: concrete class dispatch remains represented separately via `InstanceMethodCallExpr`
 
 ## Step 7: Lower Interface Calls And Interface-Typed Casts
 

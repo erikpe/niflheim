@@ -15,6 +15,7 @@ from compiler.typecheck.model import NUMERIC_TYPE_NAMES, TypeCheckError, TypeInf
 from compiler.typecheck.module_lookup import (
     current_module_info,
     lookup_class_by_type_name,
+    lookup_interface_by_type_name,
     resolve_imported_class_name,
     resolve_imported_function_sig,
     resolve_module_member,
@@ -240,6 +241,17 @@ def _infer_instance_field_access_type(ctx: TypeCheckContext, expr: FieldAccessEx
     raise TypeCheckError(f"Class '{class_info.name}' has no member '{expr.field_name}'", expr.span)
 
 
+def _infer_interface_field_access_type(ctx: TypeCheckContext, expr: FieldAccessExpr, object_type: TypeInfo) -> TypeInfo:
+    interface_info = lookup_interface_by_type_name(ctx, object_type.name)
+    if interface_info is None:
+        raise TypeCheckError(f"Type '{object_type.name}' has no fields/methods", expr.span)
+
+    if expr.field_name in interface_info.methods:
+        raise TypeCheckError("Interface method references are not supported in v1", expr.span)
+
+    raise TypeCheckError(f"Interface '{interface_info.name}' has no method '{expr.field_name}'", expr.span)
+
+
 def _infer_field_access_expression_type(ctx: TypeCheckContext, expr: FieldAccessExpr) -> TypeInfo:
     module_member_result = _infer_module_member_field_access_type(ctx, expr)
     if module_member_result is not None:
@@ -254,6 +266,9 @@ def _infer_field_access_expression_type(ctx: TypeCheckContext, expr: FieldAccess
         if expr.field_name not in ARRAY_METHOD_NAMES:
             raise TypeCheckError(f"Array type '{object_type.name}' has no member '{expr.field_name}'", expr.span)
         return TypeInfo(name=f"__array_method__:{expr.field_name}", kind="callable")
+
+    if object_type.kind == "interface":
+        return _infer_interface_field_access_type(ctx, expr, object_type)
 
     return _infer_instance_field_access_type(ctx, expr, object_type)
 

@@ -100,6 +100,28 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_interface_method_value_in_v1() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    var h: Hashable = Key();
+    var f: fn() -> u64 = h.hash_code;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Interface method references are not supported in v1"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_function_value_assignment_type_mismatch() -> None:
     source = """
 fn add(a: i64, b: i64) -> i64 {

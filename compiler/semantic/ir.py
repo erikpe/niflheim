@@ -5,7 +5,7 @@ from pathlib import Path
 
 from compiler.frontend.lexer import SourceSpan
 from compiler.resolver import ModulePath
-from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId, SyntheticId
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId, SyntheticId
 
 
 @dataclass(frozen=True)
@@ -277,6 +277,17 @@ class InstanceMethodCallExpr:
 
 
 @dataclass(frozen=True)
+class InterfaceMethodCallExpr:
+    interface_id: InterfaceId
+    method_id: InterfaceMethodId
+    receiver: "SemanticExpr"
+    receiver_type_name: str
+    args: list["SemanticExpr"]
+    type_name: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class ConstructorCallExpr:
     constructor_id: ConstructorId
     args: list["SemanticExpr"]
@@ -364,6 +375,7 @@ SemanticExpr = (
     | FunctionCallExpr
     | StaticMethodCallExpr
     | InstanceMethodCallExpr
+    | InterfaceMethodCallExpr
     | ConstructorCallExpr
     | CallableValueCallExpr
     | ArrayLenExpr
