@@ -6,6 +6,7 @@ from compiler.frontend.ast_nodes import (
     FunctionDecl,
     FunctionTypeRef,
     IdentifierExpr,
+    IntLiteralValue,
     LiteralExpr,
     ModuleAst,
     ParamDecl,
@@ -44,7 +45,18 @@ def test_typecheck_rejects_casts_involving_function_types() -> None:
                 name="add",
                 params=[ParamDecl(name="x", type_ref=TypeRef(name="i64", span=span), span=span)],
                 return_type=TypeRef(name="i64", span=span),
-                body=BlockStmt(statements=[ReturnStmt(value=LiteralExpr(value="1", span=span), span=span)], span=span),
+                body=BlockStmt(
+                    statements=[
+                        ReturnStmt(
+                            value=LiteralExpr(
+                                literal=IntLiteralValue(raw_text="1", magnitude=1, base=10, suffix=None),
+                                span=span,
+                            ),
+                            span=span,
+                        )
+                    ],
+                    span=span,
+                ),
                 is_export=False,
                 is_extern=False,
                 span=span,

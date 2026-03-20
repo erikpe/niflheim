@@ -109,6 +109,39 @@ class ModuleAst:
 
 
 @dataclass(frozen=True)
+class IntLiteralValue:
+    raw_text: str
+    magnitude: int
+    base: int
+    suffix: str | None
+
+
+@dataclass(frozen=True)
+class FloatLiteralValue:
+    raw_text: str
+    value: float
+
+
+@dataclass(frozen=True)
+class BoolLiteralValue:
+    value: bool
+    raw_text: str
+
+
+@dataclass(frozen=True)
+class CharLiteralValue:
+    raw_text: str
+
+
+@dataclass(frozen=True)
+class StringLiteralValue:
+    raw_text: str
+
+
+LiteralValueNode = IntLiteralValue | FloatLiteralValue | BoolLiteralValue | CharLiteralValue | StringLiteralValue
+
+
+@dataclass(frozen=True)
 class IdentifierExpr:
     name: str
     span: SourceSpan
@@ -116,8 +149,21 @@ class IdentifierExpr:
 
 @dataclass(frozen=True)
 class LiteralExpr:
-    value: str
+    literal: LiteralValueNode
     span: SourceSpan
+
+    @property
+    def value(self) -> str:
+        literal = self.literal
+        if isinstance(literal, IntLiteralValue):
+            return literal.raw_text
+        if isinstance(literal, FloatLiteralValue):
+            return literal.raw_text
+        if isinstance(literal, BoolLiteralValue):
+            return literal.raw_text
+        if isinstance(literal, CharLiteralValue):
+            return literal.raw_text
+        return literal.raw_text
 
 
 @dataclass(frozen=True)

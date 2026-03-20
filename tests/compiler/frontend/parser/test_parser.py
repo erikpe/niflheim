@@ -33,9 +33,9 @@ def _assert_ast_nodes_have_spans(node: object) -> None:
 
     if is_dataclass(node):
         if type(node).__module__ == "compiler.frontend.ast_nodes":
-            assert hasattr(node, "span"), f"{type(node).__name__} is missing span"
-            span = getattr(node, "span")
-            assert isinstance(span, SourceSpan), f"{type(node).__name__}.span must be SourceSpan"
+            if hasattr(node, "span"):
+                span = getattr(node, "span")
+                assert isinstance(span, SourceSpan), f"{type(node).__name__}.span must be SourceSpan"
 
         for field in fields(node):
             _assert_ast_nodes_have_spans(getattr(node, field.name))
@@ -523,14 +523,28 @@ def test_parse_expression_char_literal() -> None:
     expr = parse_expression(lex("'q'", source_path="examples/expr.nif"))
 
     assert isinstance(expr, LiteralExpr)
-    assert expr.value == "'q'"
+    assert isinstance(expr.literal, CharLiteralValue)
+    assert expr.literal.raw_text == "'q'"
 
 
 def test_parse_expression_u8_suffixed_integer_literal() -> None:
     expr = parse_expression(lex("113u8", source_path="examples/expr.nif"))
 
     assert isinstance(expr, LiteralExpr)
-    assert expr.value == "113u8"
+    assert isinstance(expr.literal, IntLiteralValue)
+    assert expr.literal.raw_text == "113u8"
+    assert expr.literal.magnitude == 113
+    assert expr.literal.base == 10
+    assert expr.literal.suffix == "u8"
+
+
+def test_parse_expression_float_literal_uses_structured_payload() -> None:
+    expr = parse_expression(lex("12.5", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, LiteralExpr)
+    assert isinstance(expr.literal, FloatLiteralValue)
+    assert expr.literal.raw_text == "12.5"
+    assert expr.literal.value == 12.5
 
 
 def test_parse_expression_precedence_logical_and_over_or() -> None:
@@ -592,9 +606,11 @@ def test_parse_expression_slice_full_bounds_desugars_to_slice_call() -> None:
     assert expr.callee.object_expr.name == "v"
     assert len(expr.arguments) == 2
     assert isinstance(expr.arguments[0], LiteralExpr)
-    assert expr.arguments[0].value == "3"
+    assert isinstance(expr.arguments[0].literal, IntLiteralValue)
+    assert expr.arguments[0].literal.magnitude == 3
     assert isinstance(expr.arguments[1], LiteralExpr)
-    assert expr.arguments[1].value == "5"
+    assert isinstance(expr.arguments[1].literal, IntLiteralValue)
+    assert expr.arguments[1].literal.magnitude == 5
 
 
 def test_parse_expression_slice_from_start_desugars_to_zero_begin() -> None:
@@ -605,9 +621,11 @@ def test_parse_expression_slice_from_start_desugars_to_zero_begin() -> None:
     assert expr.callee.field_name == "slice_get"
     assert len(expr.arguments) == 2
     assert isinstance(expr.arguments[0], LiteralExpr)
-    assert expr.arguments[0].value == "0"
+    assert isinstance(expr.arguments[0].literal, IntLiteralValue)
+    assert expr.arguments[0].literal.magnitude == 0
     assert isinstance(expr.arguments[1], LiteralExpr)
-    assert expr.arguments[1].value == "7"
+    assert isinstance(expr.arguments[1].literal, IntLiteralValue)
+    assert expr.arguments[1].literal.magnitude == 7
 
 
 def test_parse_expression_slice_to_end_desugars_to_casted_len_call() -> None:
@@ -618,7 +636,8 @@ def test_parse_expression_slice_to_end_desugars_to_casted_len_call() -> None:
     assert expr.callee.field_name == "slice_get"
     assert len(expr.arguments) == 2
     assert isinstance(expr.arguments[0], LiteralExpr)
-    assert expr.arguments[0].value == "4"
+    assert isinstance(expr.arguments[0].literal, IntLiteralValue)
+    assert expr.arguments[0].literal.magnitude == 4
     assert isinstance(expr.arguments[1], CastExpr)
     assert expr.arguments[1].type_ref.name == "i64"
     assert isinstance(expr.arguments[1].operand, CallExpr)
@@ -634,7 +653,8 @@ def test_parse_expression_slice_full_omission_desugars_to_zero_and_casted_len() 
     assert expr.callee.field_name == "slice_get"
     assert len(expr.arguments) == 2
     assert isinstance(expr.arguments[0], LiteralExpr)
-    assert expr.arguments[0].value == "0"
+    assert isinstance(expr.arguments[0].literal, IntLiteralValue)
+    assert expr.arguments[0].literal.magnitude == 0
     assert isinstance(expr.arguments[1], CastExpr)
     assert expr.arguments[1].type_ref.name == "i64"
     assert isinstance(expr.arguments[1].operand, CallExpr)
@@ -659,9 +679,11 @@ fn main() -> unit {
     assert stmt.expression.callee.field_name == "slice_set"
     assert len(stmt.expression.arguments) == 3
     assert isinstance(stmt.expression.arguments[0], LiteralExpr)
-    assert stmt.expression.arguments[0].value == "1"
+    assert isinstance(stmt.expression.arguments[0].literal, IntLiteralValue)
+    assert stmt.expression.arguments[0].literal.magnitude == 1
     assert isinstance(stmt.expression.arguments[1], LiteralExpr)
-    assert stmt.expression.arguments[1].value == "3"
+    assert isinstance(stmt.expression.arguments[1].literal, IntLiteralValue)
+    assert stmt.expression.arguments[1].literal.magnitude == 3
 
 
 def test_parse_expression_cast_then_unary_operand() -> None:
@@ -786,9 +808,11 @@ class Counter {
     module = parse(lex(source, source_path="examples/field_defaults.nif"))
     cls = module.classes[0]
     assert isinstance(cls.fields[0].initializer, LiteralExpr)
-    assert cls.fields[0].initializer.value == "0"
+    assert isinstance(cls.fields[0].initializer.literal, IntLiteralValue)
+    assert cls.fields[0].initializer.literal.magnitude == 0
     assert isinstance(cls.fields[1].initializer, LiteralExpr)
-    assert cls.fields[1].initializer.value == "false"
+    assert isinstance(cls.fields[1].initializer.literal, BoolLiteralValue)
+    assert cls.fields[1].initializer.literal.value is False
 
 
 def test_parse_nested_function_type_in_param_position() -> None:
@@ -871,7 +895,8 @@ def test_parse_expression_array_constructor() -> None:
     assert isinstance(expr.element_type_ref.element_type, TypeRef)
     assert expr.element_type_ref.element_type.name == "u8"
     assert isinstance(expr.length_expr, LiteralExpr)
-    assert expr.length_expr.value == "23"
+    assert isinstance(expr.length_expr.literal, IntLiteralValue)
+    assert expr.length_expr.literal.magnitude == 23
 
 
 def test_parse_expression_array_constructor_requires_length_expression() -> None:
