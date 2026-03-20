@@ -1,16 +1,16 @@
 # Interfaces v1 Design
 
-This document describes a minimal but general interface design for Niflheim.
+This document describes the minimal but general interface design implemented for interfaces v1 in Niflheim.
 
-It is a future-facing design note, not a statement that interfaces are already implemented.
+It remains the design-reference document for the feature, even though the implementation is now present in the compiler and runtime.
 
 The goal is to support interface-typed values, class conformance checking, runtime-checked casts, and dynamic method dispatch without overextending the current compiler/runtime architecture.
 
 ## Status
 
-Proposed design.
+Implemented in the current compiler/runtime.
 
-Interfaces remain out of scope for MVP v0.1 as defined in [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md).
+Interfaces still remain outside the original MVP v0.1 scope as defined in [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md), but the feature itself is now implemented and validated.
 
 ## Goals
 

@@ -8,7 +8,7 @@ Use [INTERFACES_V1.md](INTERFACES_V1.md) as the source of truth for design inten
 
 ## Status
 
-In progress.
+Implemented and validated, with the motivating stdlib/integration example intentionally deferred.
 
 Completed so far:
 
@@ -28,7 +28,6 @@ Completed so far:
 
 In progress now:
 
-- final validation and feature close-out
 - motivating stdlib/integration example remains intentionally deferred by user request
 
 Not started yet:
@@ -742,10 +741,16 @@ Step 13 objective check:
 
 ## Final Validation Checklist
 
-- [ ] `pytest -q`
-- [ ] golden tests if interface examples are added there
-- [ ] runtime harness/smoke validation for interface cast/dispatch helpers
-- [ ] docs updated if the feature becomes active rather than planned
+- [x] `pytest -q`
+- [x] golden tests if interface examples are added there
+- [x] runtime harness/smoke validation for interface cast/dispatch helpers
+- [x] docs updated if the feature becomes active rather than planned
+
+Final validation results:
+
+- full pytest suite: `478 passed`
+- interface golden suite (`**/test_interface*.nif`): `4/4 test files passed; 20 runs total`
+- runtime interface harness: `test-interface-metadata`, `test-interface-casts`, `test-interface-casts-negative`, `test-interface-dispatch`, and `test-interface-dispatch-negative` all passed
 
 ## Review Checklist
 
