@@ -4,14 +4,6 @@ import std.map;
 import std.io;
 import std.box;
 
-fn str_hash_fn(value: Obj) -> u64 {
-    return ((Str)value).hash_code();
-}
-
-fn strs_equals_fn(left: Obj, right: Obj) -> bool {
-    return ((Str)left).equals(right);
-}
-
 fn find_all_paths_dag(graph: Obj[], start: i64, end: i64) -> i64
 {
     if start == end {
@@ -26,12 +18,12 @@ fn find_all_paths_dag(graph: Obj[], start: i64, end: i64) -> i64
 
 fn main() -> i64 {
     var lines: Vec = read_stdin().splitlines();
-    var keymap: Map = Map.new(str_hash_fn, strs_equals_fn);
+    var keymap: Map = Map.new();
     var key: i64 = 0;
     var line: Str;
     for line_obj1 in lines {
         line = (Str)line_obj1;
-        keymap[(Obj)(line[:3])] = BoxI64(key);
+        keymap[line[:3]] = BoxI64(key);
         key = key + 1;
     }
     keymap["out"] = BoxI64(key);
@@ -40,19 +32,19 @@ fn main() -> i64 {
     var graph: Obj[] = Obj[](lines.len());
     for line_obj2 in lines {
         line = (Str)line_obj2;
-        key = ((BoxI64)keymap[(Obj)(line[:3])]).val;
+        key = ((BoxI64)keymap[line[:3]]).val;
         var nodes: Vec = line[5:].split(' ');
         var node_arr: i64[] = i64[](nodes.len());
         i = 0;
         for node_obj in nodes {
-            node_arr[i] = ((BoxI64)keymap[(Obj)node_obj]).val;
+            node_arr[i] = ((BoxI64)keymap[node_obj]).val;
             i = i + 1;
         }
         graph[key] = node_arr;
     }
 
-    var start_key: i64 = ((BoxI64)keymap[(Obj)"you"]).val;
-    var end_key: i64 = ((BoxI64)keymap[(Obj)"out"]).val;
+    var start_key: i64 = ((BoxI64)keymap["you"]).val;
+    var end_key: i64 = ((BoxI64)keymap["out"]).val;
 
     print("RESULT:");
     println_i64(find_all_paths_dag(graph, start_key, end_key));

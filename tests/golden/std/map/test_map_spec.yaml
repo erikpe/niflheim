@@ -1,13 +1,10 @@
 runs:
-  - { name: put_get_contains, input: { stdin: "1" }, expect: { exit_code: 0 } }
-  - { name: overwrite_same_logical_key, input: { stdin: "2" }, expect: { exit_code: 0 } }
-  - { name: growth_and_probe_chains, input: { stdin: "3" }, expect: { exit_code: 0 } }
-  - { name: index_sugar_write_and_read, input: { stdin: "4" }, expect: { exit_code: 0 } }
-  - { name: null_key_support, input: { stdin: "5" }, expect: { exit_code: 0 } }
-  - { name: get_missing_panics, input: { stdin: "6" }, expect: { panic: "Map.index_get: key not found" } }
-  - { name: str_keys_under_load, input: { stdin: "7" }, expect: { exit_code: 0 } }
-  - { name: map2_put_get_contains, input: { stdin: "8" }, expect: { exit_code: 0 } }
-  - { name: map2_growth_and_overwrite, input: { stdin: "9" }, expect: { exit_code: 0 } }
-  - { name: map2_get_missing_panics, input: { stdin: "10" }, expect: { panic: "Map2.index_get: key not found" } }
-  - { name: map2_non_hashable_key_panics, input: { stdin: "11" }, expect: { panic: "bad cast (tests.golden.std.map.test_map::Plain -> std.lang::Hashable)" } }
-  - { name: map2_non_equalable_key_panics, input: { stdin: "12" }, expect: { panic: "bad cast (tests.golden.std.map.test_map::HashOnly -> std.lang::Equalable)" } }
+  - { name: map_put_get_contains, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: map_overwrite_same_logical_key, input: { stdin: "2" }, expect: { exit_code: 0 } }
+  - { name: map_growth_and_probe_chains, input: { stdin: "3" }, expect: { exit_code: 0 } }
+  - { name: map_index_sugar_write_and_read, input: { stdin: "4" }, expect: { exit_code: 0 } }
+  - { name: map_null_key_panics, input: { stdin: "5" }, expect: { panic: "null dereference" } }
+  - { name: map_get_missing_panics, input: { stdin: "6" }, expect: { panic: "Map.index_get: key not found" } }
+  - { name: map_str_keys_under_load, input: { stdin: "7" }, expect: { exit_code: 0 } }
+  - { name: map_non_hashable_key_panics, input: { stdin: "8" }, expect: { panic: "bad cast (tests.golden.std.map.test_map::Plain -> std.lang::Hashable)" } }
+  - { name: map_non_equalable_key_panics, input: { stdin: "9" }, expect: { panic: "bad cast (tests.golden.std.map.test_map::HashOnly -> std.lang::Equalable)" } }

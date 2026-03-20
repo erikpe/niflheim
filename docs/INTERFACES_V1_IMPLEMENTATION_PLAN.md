@@ -686,7 +686,7 @@ Validation for this step:
 	- imported interface use across modules
 - Added golden coverage in `tests/golden/lang/test_interfaces_end_to_end.nif` and `tests/golden/error/test_interface_cast_errors.nif`
 - Added interface cast-matrix coverage in `tests/golden/lang/test_interface_casts.nif`, imported-interface coverage in `tests/golden/lang/test_interface_imports/test_interface_imports.nif`, and motivating stdlib coverage in `tests/golden/std/map/test_map.nif`
-- Added `Hashable` and `Equalable` interface definitions plus `Map2` to `std/map.nif`, using interface-based hashing and equality instead of injected hash/equals functions
+- Added `Hashable` and `Equalable` interface definitions plus `Map` to `std/map.nif`, using interface-based hashing and equality instead of injected hash/equals functions
 - Validation run results:
 	- focused interface integration pytest run: `4 passed`
 	- focused interface golden runner: `2/2 test files passed; 2 runs total`
@@ -699,7 +699,7 @@ Step 12 objective check:
 - fulfilled: successful interface dispatch is now covered by generated-code runtime smoke testing
 - fulfilled: invalid runtime interface casts are now covered end-to-end
 - fulfilled: imported interface use and interface-typed storage/returns are now exercised end-to-end
-- fulfilled: a motivating stdlib use case now exists end-to-end via `std.map.Map2` using `Hashable` and `Equalable`
+- fulfilled: a motivating stdlib use case now exists end-to-end via `std.map.Map` using `Hashable` and `Equalable`
 
 ## Step 13: Update Reachability And Codegen Walkers/Collectors
 

@@ -1,0 +1,314 @@
+import std.test;
+import std.lang;
+import std.box;
+import std.error;
+import std.io;
+import std.str;
+import std.range;
+
+
+class MapFn {
+    private _len: u64 = 0u;
+    private _capacity: u64;
+    private _keys: Obj[];
+    private _values: Obj[];
+    private _occupied: bool[];
+    private _hash_fn: fn(Obj) -> u64;
+    private _equals_fn: fn(Obj, Obj) -> bool;
+
+    static fn new(hash_fn: fn(Obj) -> u64, equals_fn: fn(Obj, Obj) -> bool) -> MapFn {
+        return MapFn.with_capacity(8u, hash_fn, equals_fn);
+    }
+
+    static fn with_capacity(min_capacity: u64, hash_fn: fn(Obj) -> u64, equals_fn: fn(Obj, Obj) -> bool) -> MapFn {
+        var capacity: u64 = 8u;
+        while capacity < min_capacity {
+            capacity = capacity * 2u;
+        }
+        return MapFn(capacity, Obj[](capacity), Obj[](capacity), bool[](capacity), hash_fn, equals_fn);
+    }
+
+    fn len() -> u64 {
+        return __self._len;
+    }
+
+    fn contains(key: Obj) -> bool {
+        return __self._find_existing_index(key) >= 0;
+    }
+
+    fn index_get(key: Obj) -> Obj {
+        var index: i64 = __self._find_existing_index(key);
+        if index < 0 {
+            panic("MapFn.index_get: key not found");
+        }
+        return __self._values[index];
+    }
+
+    fn put(key: Obj, value: Obj) -> unit {
+        __self._maybe_grow_for_insert();
+        if __self._insert_or_assign(key, value) {
+            __self._len = __self._len + 1u;
+        }
+    }
+
+    fn index_set(key: Obj, value: Obj) -> unit {
+        __self.put(key, value);
+    }
+
+    private fn _maybe_grow_for_insert() -> unit {
+        if ((__self._len + 1u) * 10u) < (__self._capacity * 7u) {
+            return;
+        }
+        __self._rehash(__self._capacity * 2u);
+    }
+
+    private fn _rehash(new_capacity: u64) -> unit {
+        var old_capacity: i64 = (i64)__self._capacity;
+        var old_keys: Obj[] = __self._keys;
+        var old_values: Obj[] = __self._values;
+        var old_occupied: bool[] = __self._occupied;
+
+        __self._capacity = new_capacity;
+        __self._keys = Obj[](new_capacity);
+        __self._values = Obj[](new_capacity);
+        __self._occupied = bool[](new_capacity);
+        __self._len = 0u;
+
+        var i: i64 = 0;
+        while i < old_capacity {
+            if old_occupied[i] {
+                if __self._insert_or_assign(old_keys[i], old_values[i]) {
+                    __self._len = __self._len + 1u;
+                }
+            }
+            i = i + 1;
+        }
+    }
+
+    private fn _find_existing_index(key: Obj) -> i64 {
+        var capacity_i64: i64 = (i64)__self._capacity;
+        var index: i64 = (i64)(__self._hash_fn(key) % __self._capacity);
+        var probes: i64 = 0;
+
+        while probes < capacity_i64 {
+            if !__self._occupied[index] {
+                return -1;
+            }
+
+            if __self._equals_fn(__self._keys[index], key) {
+                return index;
+            }
+
+            index = index + 1;
+            if index >= capacity_i64 {
+                index = 0;
+            }
+            probes = probes + 1;
+        }
+
+        return -1;
+    }
+
+    private fn _insert_or_assign(key: Obj, value: Obj) -> bool {
+        var capacity_i64: i64 = (i64)__self._capacity;
+        var index: i64 = (i64)(__self._hash_fn(key) % __self._capacity);
+        var probes: i64 = 0;
+
+        while probes < capacity_i64 {
+            if !__self._occupied[index] {
+                __self._occupied[index] = true;
+                __self._keys[index] = key;
+                __self._values[index] = value;
+                return true;
+            }
+
+            if __self._equals_fn(__self._keys[index], key) {
+                __self._values[index] = value;
+                return false;
+            }
+
+            index = index + 1;
+            if index >= capacity_i64 {
+                index = 0;
+            }
+            probes = probes + 1;
+        }
+
+        panic("MapFn: table full");
+        return false;
+    }
+}
+
+
+class Key implements Hashable, Equalable {
+    raw: u64;
+
+    fn hash_code() -> u64 {
+        return __self.raw * 11400714819323198485u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        if other == null {
+            return false;
+        }
+        return ((Key)other).raw == __self.raw;
+    }
+}
+
+
+fn key_hash(value: Obj) -> u64 {
+    if value == null {
+        return 0u;
+    }
+    return ((Hashable)value).hash_code();
+}
+
+
+fn key_equals(left: Obj, right: Obj) -> bool {
+    if left == null || right == null {
+        return left == right;
+    }
+    return ((Equalable)left).equals(right);
+}
+
+
+fn str_hash_fn(value: Obj) -> u64 {
+    if value == null {
+        return 0u;
+    }
+    return ((Str)value).hash_code();
+}
+
+
+fn str_equals_fn(left: Obj, right: Obj) -> bool {
+    if left == null || right == null {
+        return left == right;
+    }
+    return ((Str)left).equals(right);
+}
+
+
+fn test_put_get_contains() -> unit {
+    var m: MapFn = MapFn.new(key_hash, key_equals);
+    assert(m.len() == 0u);
+
+    m[(Obj)Key(10u)] = BoxI64(111);
+    m[(Obj)Key(20u)] = BoxI64(222);
+
+    assert(m.len() == 2u);
+    assert(m.contains((Obj)Key(10u)));
+    assert(m.contains((Obj)Key(20u)));
+    assert(!m.contains((Obj)Key(30u)));
+
+    assert(((BoxI64)m[(Obj)Key(10u)]).val == 111);
+    assert(((BoxI64)m[(Obj)Key(20u)]).val == 222);
+}
+
+
+fn test_overwrite_same_logical_key() -> unit {
+    var m: MapFn = MapFn.new(key_hash, key_equals);
+    m[(Obj)Key(7u)] = BoxI64(1);
+    m[(Obj)Key(7u)] = BoxI64(9);
+
+    assert(m.len() == 1u);
+    assert(((BoxI64)m[(Obj)Key(7u)]).val == 9);
+}
+
+
+fn test_growth_and_probe_chains() -> unit {
+    var m: MapFn = MapFn.with_capacity(2u, key_hash, key_equals);
+
+    for build_i in Range(0, 80) {
+        var idx: u64 = (u64)build_i;
+        var key: Obj = (Obj)Key(idx * 17u + 3u);
+        m[key] = BoxU64(idx);
+    }
+
+    assert(m.len() == 80u);
+
+    for verify_i in Range(0, 80) {
+        var verify_idx: u64 = (u64)verify_i;
+        var verify_key: Obj = (Obj)Key(verify_idx * 17u + 3u);
+        assert(m.contains(verify_key));
+        assert(((BoxU64)m[verify_key]).val == verify_idx);
+    }
+}
+
+
+fn test_index_sugar_write_and_read() -> unit {
+    var m: MapFn = MapFn.new(key_hash, key_equals);
+
+    m[(Obj)Key(1u)] = BoxI64(42);
+    m[(Obj)Key(2u)] = BoxI64(99);
+
+    assert(((BoxI64)m[(Obj)Key(1u)]).val == 42);
+    assert(((BoxI64)m[(Obj)Key(2u)]).val == 99);
+    assert(m.len() == 2u);
+}
+
+
+fn test_null_key_support() -> unit {
+    var m: MapFn = MapFn.new(key_hash, key_equals);
+
+    m[null] = BoxI64(5);
+    assert(m.contains(null));
+    assert(((BoxI64)m[null]).val == 5);
+
+    m[null] = BoxI64(6);
+    assert(m.len() == 1u);
+    assert(((BoxI64)m[null]).val == 6);
+}
+
+
+fn test_get_missing_panics() -> unit {
+    var m: MapFn = MapFn.new(key_hash, key_equals);
+    var v: Obj = m[(Obj)Key(999u)];
+}
+
+
+fn test_str_keys_under_load() -> unit {
+    var m: MapFn = MapFn.with_capacity(4u, str_hash_fn, str_equals_fn);
+    var count: i64 = 1200;
+
+    for insert_i in Range(0, count) {
+        var k: Str = Str.from_i64(insert_i);
+        m[(Obj)k] = BoxU64((u64)insert_i * 3u + 1u);
+    }
+
+    assert(m.len() == (u64)count);
+
+    for lookup_i in Range(0, count) {
+        var lookup: Str = Str.from_i64(lookup_i);
+        assert(m.contains((Obj)lookup));
+        assert(((BoxU64)m[(Obj)lookup]).val == (u64)lookup_i * 3u + 1u);
+    }
+
+    for rewrite_i in Range(0, count) {
+        var rewrite: Str = Str.from_i64(rewrite_i);
+        m[(Obj)rewrite] = BoxU64((u64)rewrite_i + 1000u);
+    }
+
+    assert(m.len() == (u64)count);
+
+    for check_i in Range(0, count) {
+        var check: Str = Str.from_i64(check_i);
+        assert(((BoxU64)m[(Obj)check]).val == (u64)check_i + 1000u);
+    }
+
+    assert(!m.contains((Obj)"missing"));
+}
+
+
+fn main() -> i64 {
+    var select: u64 = read_stdin().strip().to_u64();
+
+    if select == 1u { test_put_get_contains(); }
+    if select == 2u { test_overwrite_same_logical_key(); }
+    if select == 3u { test_growth_and_probe_chains(); }
+    if select == 4u { test_index_sugar_write_and_read(); }
+    if select == 5u { test_null_key_support(); }
+    if select == 6u { test_get_missing_panics(); }
+    if select == 7u { test_str_keys_under_load(); }
+
+    return 0;
+}

@@ -1,34 +1,29 @@
 import std.str;
 import std.vec;
 import std.map;
+import std.lang;
 import std.io;
 import std.box;
 
-fn str_hash_fn(value: Obj) -> u64 {
-    return ((Str)value).hash_code();
-}
-
-fn strs_equals_fn(left: Obj, right: Obj) -> bool {
-    return ((Str)left).equals(right);
-}
-
-class CacheElem
+class CacheElem implements Hashable, Equalable
 {
     final start: i64;
     final end: i64;
 
-    static fn equals(left: Obj, right: Obj) -> bool {
-        var left_cache: CacheElem = (CacheElem)left;
-        var right_cache: CacheElem = (CacheElem)right;
-        return left_cache.start == right_cache.start &&
-               left_cache.end == right_cache.end;
+    fn equals(other: Obj) -> bool {
+        if other == null {
+            return false;
+        }
+
+        var right_cache: CacheElem = (CacheElem)other;
+        return __self.start == right_cache.start &&
+               __self.end == right_cache.end;
     }
 
-    static fn hash_code(value: Obj) -> u64 {
-        var cache: CacheElem = (CacheElem)value;
+    fn hash_code() -> u64 {
         var hash: u64 = 117u;
-        hash = hash * 311u + (u64)cache.start;
-        hash = hash * 311u + (u64)cache.end;
+        hash = hash * 311u + (u64)__self.start;
+        hash = hash * 311u + (u64)__self.end;
         return hash;
     }
 }
@@ -55,7 +50,7 @@ fn find_all_paths_dag(graph: i64[][], memoize_cache: Map, start: i64, end: i64) 
 
 fn main() -> i64 {
     var lines: Vec = read_stdin().splitlines();
-    var keymap: Map = Map.new(str_hash_fn, strs_equals_fn);
+    var keymap: Map = Map.new();
     var key: i64 = 0;
     var line: Str;
     for line_obj1 in lines {
@@ -86,7 +81,7 @@ fn main() -> i64 {
     }
     graph[out_key] = i64[](0);
 
-    var memoize_cache: Map = Map.new(CacheElem.hash_code, CacheElem.equals);
+    var memoize_cache: Map = Map.new();
 
     var fft_dac: i64 =
         find_all_paths_dag(graph, memoize_cache, svr_key, fft_key) *

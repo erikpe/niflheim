@@ -28,7 +28,7 @@ class CacheElem implements Hashable, Equalable
     }
 }
 
-fn find_all_paths_dag(graph: i64[][], memoize_cache: Map2, start: i64, end: i64) -> i64
+fn find_all_paths_dag(graph: i64[][], memoize_cache: Map, start: i64, end: i64) -> i64
 {
     if start == end {
         return 1;
@@ -50,7 +50,7 @@ fn find_all_paths_dag(graph: i64[][], memoize_cache: Map2, start: i64, end: i64)
 
 fn main() -> i64 {
     var lines: Vec = read_stdin().splitlines();
-    var keymap: Map2 = Map2.new();
+    var keymap: Map = Map.new();
     var key: i64 = 0;
     var line: Str;
     for line_obj1 in lines {
@@ -81,7 +81,7 @@ fn main() -> i64 {
     }
     graph[out_key] = i64[](0);
 
-    var memoize_cache: Map2 = Map2.new();
+    var memoize_cache: Map = Map.new();
 
     var fft_dac: i64 =
         find_all_paths_dag(graph, memoize_cache, svr_key, fft_key) *
