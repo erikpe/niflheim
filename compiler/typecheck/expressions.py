@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from compiler.frontend.ast_nodes import *
 from compiler.codegen.strings import is_str_type_name
 from compiler.typecheck.call_helpers import callable_type_from_signature, class_type_name_from_callable
@@ -8,6 +10,7 @@ from compiler.typecheck.constants import (
     BITWISE_TYPE_NAMES,
     I64_MAX_LITERAL,
     I64_MIN_MAGNITUDE_LITERAL,
+    U8_MAX_LITERAL,
     U64_MAX_LITERAL,
 )
 from compiler.typecheck.context import lookup_variable
@@ -57,31 +60,34 @@ def _infer_identifier_expression_type(ctx: TypeCheckContext, expr: IdentifierExp
 
 
 def _infer_literal_expression_type(ctx: TypeCheckContext, expr: LiteralExpr) -> TypeInfo:
-    if expr.value.startswith('"'):
+    literal = expr.literal
+
+    if isinstance(literal, StringLiteralValue):
         return resolve_string_type(ctx, expr.span)
-    if expr.value.startswith("'"):
+    if isinstance(literal, CharLiteralValue):
         return TypeInfo(name="u8", kind="primitive")
-    if expr.value in {"true", "false"}:
+    if isinstance(literal, BoolLiteralValue):
         return TypeInfo(name="bool", kind="primitive")
-    if "." in expr.value:
+    if isinstance(literal, FloatLiteralValue):
+        if not math.isfinite(literal.value):
+            raise TypeCheckError("double literal out of range (expected finite IEEE-754 double)", expr.span)
         return TypeInfo(name="double", kind="primitive")
-    if expr.value.endswith("u8") and expr.value[:-2].isdigit():
-        value = int(expr.value[:-2])
-        if value < 0 or value > 255:
-            raise TypeCheckError("u8 literal out of range (expected 0..255)", expr.span)
-        return TypeInfo(name="u8", kind="primitive")
-    if expr.value.endswith("u") and expr.value[:-1].isdigit():
-        value = int(expr.value[:-1])
-        if value > U64_MAX_LITERAL:
-            raise TypeCheckError("u64 literal out of range (expected 0..18446744073709551615)", expr.span)
-        return TypeInfo(name="u64", kind="primitive")
-    if expr.value.isdigit():
-        value = int(expr.value)
-        if value > I64_MAX_LITERAL:
+    if isinstance(literal, IntLiteralValue):
+        if literal.suffix == "u8":
+            if literal.magnitude > U8_MAX_LITERAL:
+                raise TypeCheckError("u8 literal out of range (expected 0..255)", expr.span)
+            return TypeInfo(name="u8", kind="primitive")
+        if literal.suffix == "u":
+            if literal.magnitude > U64_MAX_LITERAL:
+                raise TypeCheckError("u64 literal out of range (expected 0..18446744073709551615)", expr.span)
+            return TypeInfo(name="u64", kind="primitive")
+        if literal.magnitude > I64_MAX_LITERAL:
             raise TypeCheckError(
                 "i64 literal out of range (expected -9223372036854775808..9223372036854775807)", expr.span
             )
-    return TypeInfo(name="i64", kind="primitive")
+        return TypeInfo(name="i64", kind="primitive")
+
+    raise TypeCheckError("Unsupported literal expression", expr.span)
 
 
 def _infer_unary_expression_type(ctx: TypeCheckContext, expr: UnaryExpr) -> TypeInfo:
@@ -91,9 +97,9 @@ def _infer_unary_expression_type(ctx: TypeCheckContext, expr: UnaryExpr) -> Type
         return TypeInfo(name="bool", kind="primitive")
 
     if expr.operator == "-":
-        if isinstance(expr.operand, LiteralExpr) and expr.operand.value.isdigit():
-            value = int(expr.operand.value)
-            if value == I64_MIN_MAGNITUDE_LITERAL:
+        if isinstance(expr.operand, LiteralExpr) and isinstance(expr.operand.literal, IntLiteralValue):
+            literal = expr.operand.literal
+            if literal.suffix is None and literal.base == 10 and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL:
                 return TypeInfo(name="i64", kind="primitive")
         operand_type = infer_expression_type(ctx, expr.operand)
         if operand_type.name not in {"i64", "double"}:

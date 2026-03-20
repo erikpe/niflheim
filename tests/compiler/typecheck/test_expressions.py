@@ -122,6 +122,18 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_non_finite_double_literal() -> None:
+    huge_digits = "9" * 5000
+    source = f"""
+fn main() -> unit {{
+    var x: double = {huge_digits}.0;
+    return;
+}}
+"""
+    with pytest.raises(TypeCheckError, match="double literal out of range"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_u_suffix_integer_literal_is_u64() -> None:
     source = """
 fn main() -> unit {
