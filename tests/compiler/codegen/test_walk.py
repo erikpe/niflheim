@@ -232,3 +232,43 @@ def test_walk_expression_visits_interface_method_call_receiver_and_args() -> Non
         "LocalRefExpr:receiver",
         "LocalRefExpr:arg",
     ]
+
+
+def test_walk_codegen_program_expressions_visits_interface_method_calls_in_function_bodies() -> None:
+    span = _span()
+    fn = SemanticFunction(
+        function_id=FunctionId(module_path=("main",), name="main"),
+        params=[],
+        return_type_name="u64",
+        body=SemanticBlock(
+            statements=[
+                SemanticReturn(
+                    value=InterfaceMethodCallExpr(
+                        interface_id=InterfaceId(module_path=("main",), name="Hashable"),
+                        method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
+                        receiver=LocalRefExpr(name="receiver", type_name="Hashable", span=span),
+                        receiver_type_name="Hashable",
+                        args=[LocalRefExpr(name="other", type_name="Obj", span=span)],
+                        type_name="u64",
+                        span=span,
+                    ),
+                    span=span,
+                )
+            ],
+            span=span,
+        ),
+        is_extern=False,
+        is_export=False,
+        span=span,
+    )
+    module = SemanticModule(module_path=("main",), file_path=Path("main.nif"), classes=[], functions=[fn], span=span)
+    program = CodegenProgram(entry_module=("main",), ordered_modules=(module,), classes=(), functions=(fn,), span=span)
+
+    seen: list[str] = []
+    walk_codegen_program_expressions(program, lambda expr: seen.append(_describe_expr(expr)))
+
+    assert seen == [
+        "InterfaceMethodCallExpr",
+        "LocalRefExpr:receiver",
+        "LocalRefExpr:other",
+    ]

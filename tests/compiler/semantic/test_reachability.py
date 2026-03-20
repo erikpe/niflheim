@@ -203,3 +203,46 @@ def test_prune_unreachable_semantic_keeps_interface_impl_methods_for_reachable_c
 
     assert [cls.class_id.name for cls in module.classes] == ["Key"]
     assert [method.method_id.name for method in module.classes[0].methods] == ["hash_code", "equals"]
+
+
+def test_prune_unreachable_semantic_keeps_imported_interface_impl_methods_for_reachable_classes(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "contracts.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "model.nif",
+        """
+        import contracts;
+
+        export class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        export fn make() -> contracts.Hashable {
+            return Key();
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import model;
+
+        fn main() -> u64 {
+            return model.make().hash_code();
+        }
+        """,
+    )
+
+    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+
+    assert [fn.function_id.name for fn in pruned.modules[("model",)].functions] == ["make"]
+    assert [cls.class_id.name for cls in pruned.modules[("model",)].classes] == ["Key"]
+    assert [method.method_id.name for method in pruned.modules[("model",)].classes[0].methods] == ["hash_code"]

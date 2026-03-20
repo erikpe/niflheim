@@ -23,14 +23,17 @@ Completed so far:
 - Step 9 is implemented and validated.
 - Step 10 is implemented and validated.
 - Step 11 is implemented and validated.
+- Step 12 is implemented and validated except for the intentionally deferred motivating stdlib example.
+- Step 13 is implemented and validated.
 
 In progress now:
 
-- Step 12 end-to-end interface coverage is implemented and validated except for the motivating stdlib example, which is intentionally deferred.
+- final validation and feature close-out
+- motivating stdlib/integration example remains intentionally deferred by user request
 
 Not started yet:
 
-- Step 13 and later.
+- no remaining implementation steps in this plan; only final validation and deferred follow-up work remain.
 
 ## Scope
 
@@ -701,9 +704,9 @@ Step 12 objective check for the implemented portion:
 
 ## Step 13: Update Reachability And Codegen Walkers/Collectors
 
-- [ ] Update semantic reachability for interface dispatch edges if interface dispatch introduces new semantic node kinds that carry interface or method identity
-- [ ] Update codegen walkers/collectors to recognize `InterfaceMethodCallExpr`
-- [ ] Update any metadata collectors that inspect cast targets or expression kinds
+- [x] Update semantic reachability for interface dispatch edges if interface dispatch introduces new semantic node kinds that carry interface or method identity
+- [x] Update codegen walkers/collectors to recognize `InterfaceMethodCallExpr`
+- [x] Update any metadata collectors that inspect cast targets or expression kinds
 
 Suggested code areas:
 
@@ -722,9 +725,20 @@ What should be achieved at the end of this step:
 
 - auxiliary semantic/codegen passes remain aligned with the expanded semantic IR
 
-What should be achieved at the end of this step:
+Validation for this step:
 
-- the feature is proven across all layers, not just locally in parser/typecheck/codegen
+- `compiler/semantic/reachability.py` already walks `InterfaceMethodCallExpr` receivers and keeps interface implementation methods alive for reachable classes; coverage now includes imported multi-module interface dispatch paths in `tests/compiler/semantic/test_reachability.py`
+- `compiler/codegen/walk.py` already traverses `InterfaceMethodCallExpr` receiver and arg subexpressions; coverage now includes both direct expression walking and full-program walker traversal in `tests/compiler/codegen/test_walk.py`
+- `compiler/codegen/emitter_module.py` already traverses `InterfaceMethodCallExpr` subexpressions while collecting cast-target metadata and already distinguishes imported interface cast targets from class metadata emission; coverage now includes casts nested under interface dispatch in `tests/compiler/codegen/test_emit_asm_casts_metadata.py`
+- Validation run results:
+	- focused Step 13 pytest slice: `26 passed`
+
+Step 13 objective check:
+
+- fulfilled: semantic reachability remains aligned with explicit interface dispatch nodes
+- fulfilled: codegen walker utilities traverse interface call receiver and argument subexpressions
+- fulfilled: metadata collectors continue to discover nested cast targets after interface-call IR was introduced
+- fulfilled: imported cross-module interface paths are now covered in auxiliary-pass tests
 
 ## Final Validation Checklist
 

@@ -330,3 +330,37 @@ fn main() -> i64 {
     assert "    lea rsi, [rip + __nif_interface_util__Hashable]" in asm
     assert "__nif_interface_name_util__Hashable:" in asm
     assert '.asciz "util::Hashable"' in asm
+
+
+def test_emit_asm_collects_reference_cast_metadata_nested_under_interface_dispatch(tmp_path) -> None:
+    source = """
+interface Comparable {
+    fn equals(other: Obj) -> bool;
+}
+
+class Person {
+    age: i64;
+}
+
+class Key implements Comparable {
+    fn equals(other: Obj) -> bool {
+        return other != null;
+    }
+}
+
+fn call_equals(value: Comparable, other: Obj) -> bool {
+    return value.equals((Obj)(Person)other);
+}
+
+fn main() -> i64 {
+    if call_equals(Key(), null) {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "__nif_type_Person:" in asm
+    assert "__nif_type_name_main__Person:" in asm
+    assert "    call rt_checked_cast" in asm
