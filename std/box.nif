@@ -1,24 +1,167 @@
-export class BoxI64
+import std.error;
+import std.lang;
+import std.object;
+import std.str;
+
+
+//fn _murmur64(x: u64) -> u64 {
+//    x ^= x >> 33;
+//    x *= 0xff51afd7ed558ccdULL;
+//    x ^= x >> 33;
+//    x *= 0xc4ceb9fe1a85ec53ULL;
+////    x ^= x >> 33;
+//    return x;
+//}
+
+export class BoxI64 implements Comparable, Equalable, Hashable
 {
     final val: i64;
+
+    fn compare_to(other: Obj) -> i64 {
+        if !(other is BoxI64) {
+            panic("BoxI64.compare_to: other is not a BoxI64");
+        }
+        var other_box: BoxI64 = (BoxI64)other;
+        if __self.val < other_box.val {
+            return -1;
+        }
+        if __self.val > other_box.val {
+            return 1;
+        }
+        return 0;
+    }
+
+    fn equals(other: Obj) -> bool {
+        if !(other is BoxI64) {
+            return false;
+        }
+        return __self.val == ((BoxI64)other).val;
+    }
+
+    fn hash_code() -> u64 {
+        return (u64)__self.val;
+    }
 }
 
-export class BoxU64
+export class BoxU64 implements Comparable, Equalable, Hashable
 {
     final val: u64;
+
+    fn compare_to(other: Obj) -> i64 {
+        if !(other is BoxU64) {
+            panic("BoxU64.compare_to: other is not a BoxU64");
+        }
+        var other_box: BoxU64 = (BoxU64)other;
+        if __self.val < other_box.val {
+            return -1;
+        }
+        if __self.val > other_box.val {
+            return 1;
+        }
+        return 0;
+    }
+
+    fn equals(other: Obj) -> bool {
+        if !(other is BoxU64) {
+            return false;
+        }
+        return __self.val == ((BoxU64)other).val;
+    }
+
+    fn hash_code() -> u64 {
+        return __self.val;
+    }
 }
 
-export class BoxU8
+export class BoxU8 implements Comparable, Equalable, Hashable
 {
     final val: u8;
+
+    fn compare_to(other: Obj) -> i64 {
+        if !(other is BoxU8) {
+            panic("BoxU8.compare_to: other is not a BoxU8");
+        }
+        var other_box: BoxU8 = (BoxU8)other;
+        if __self.val < other_box.val {
+            return -1;
+        }
+        if __self.val > other_box.val {
+            return 1;
+        }
+        return 0;
+    }
+
+    fn equals(other: Obj) -> bool {
+        if !(other is BoxU8) {
+            return false;
+        }
+        return __self.val == ((BoxU8)other).val;
+    }
+
+    fn hash_code() -> u64 {
+        return (u64)__self.val;
+    }
 }
 
-export class BoxBool
+export class BoxBool implements Comparable, Equalable, Hashable
 {
     final val: bool;
+
+    fn compare_to(other: Obj) -> i64 {
+        if !(other is BoxBool) {
+            panic("BoxBool.compare_to: other is not a BoxBool");
+        }
+        var other_box: BoxBool = (BoxBool)other;
+        if __self.val == other_box.val {
+            return 0;
+        }
+        if __self.val {
+            return 1;
+        }
+        return -1;
+    }
+
+    fn equals(other: Obj) -> bool {
+        if !(other is BoxBool) {
+            return false;
+        }
+        return __self.val == ((BoxBool)other).val;
+    }
+
+    fn hash_code() -> u64 {
+        if __self.val {
+            return 1u;
+        }
+        return 0u;
+    }
 }
 
-export class BoxDouble
+export class BoxDouble implements Comparable, Equalable, Hashable
 {
     final val: double;
+
+    fn compare_to(other: Obj) -> i64 {
+        if !(other is BoxDouble) {
+            panic("BoxDouble.compare_to: other is not a BoxDouble");
+        }
+        var other_box: BoxDouble = (BoxDouble)other;
+        if __self.val < other_box.val {
+            return -1;
+        }
+        if __self.val > other_box.val {
+            return 1;
+        }
+        return 0;
+    }
+
+    fn equals(other: Obj) -> bool {
+        if !(other is BoxDouble) {
+            return false;
+        }
+        return __self.val == ((BoxDouble)other).val;
+    }
+
+    fn hash_code() -> u64 {
+        return Str.from_double(__self.val).hash_code();
+    }
 }

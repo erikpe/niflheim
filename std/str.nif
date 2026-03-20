@@ -3,7 +3,7 @@ import std.lang;
 import std.object;
 import std.vec;
 
-export class Str implements Hashable, Equalable
+export class Str implements Hashable, Equalable, Comparable
 {
     private final _bytes: u8[];
     private _hash_cached: bool = false;

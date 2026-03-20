@@ -1,6 +1,7 @@
 import std.test;
 import std.io;
 import std.box;
+import std.lang;
 
 
 fn test_box_i64() -> unit {
@@ -35,6 +36,56 @@ fn test_box_double() -> unit {
 }
 
 
+fn test_box_interfaces() -> unit {
+    var i_a: BoxI64 = BoxI64(-7);
+    var i_b: BoxI64 = BoxI64(-7);
+    var i_c: BoxI64 = BoxI64(9);
+    assert(i_a.equals(i_b));
+    assert(!i_a.equals(i_c));
+    assert(i_a.compare_to(i_c) < 0);
+    assert(i_a.hash_code() == i_b.hash_code());
+
+    var u_a: BoxU64 = BoxU64(5u);
+    var u_b: BoxU64 = BoxU64(5u);
+    var u_c: BoxU64 = BoxU64(8u);
+    assert(u_a.equals(u_b));
+    assert(!u_a.equals(u_c));
+    assert(u_c.compare_to(u_a) > 0);
+    assert(u_a.hash_code() == u_b.hash_code());
+
+    var byte_a: BoxU8 = BoxU8((u8)1);
+    var byte_b: BoxU8 = BoxU8((u8)1);
+    var byte_c: BoxU8 = BoxU8((u8)2);
+    assert(byte_a.equals(byte_b));
+    assert(!byte_a.equals(byte_c));
+    assert(byte_a.compare_to(byte_c) < 0);
+    assert(byte_a.hash_code() == byte_b.hash_code());
+
+    var bool_t: BoxBool = BoxBool(true);
+    var bool_t2: BoxBool = BoxBool(true);
+    var bool_f: BoxBool = BoxBool(false);
+    assert(bool_t.equals(bool_t2));
+    assert(!bool_t.equals(bool_f));
+    assert(bool_t.compare_to(bool_f) > 0);
+    assert(bool_t.hash_code() == bool_t2.hash_code());
+
+    var d_a: BoxDouble = BoxDouble(1.5);
+    var d_b: BoxDouble = BoxDouble(1.5);
+    var d_c: BoxDouble = BoxDouble(2.5);
+    assert(d_a.equals(d_b));
+    assert(!d_a.equals(d_c));
+    assert(d_a.compare_to(d_c) < 0);
+    assert(d_a.hash_code() == d_b.hash_code());
+
+    var comparable: Comparable = i_a;
+    var equalable: Equalable = i_a;
+    var hashable: Hashable = i_a;
+    assert(comparable.compare_to((Obj)i_b) == 0);
+    assert(equalable.equals((Obj)i_b));
+    assert(hashable.hash_code() == i_b.hash_code());
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_stdin().strip().to_u64();
 
@@ -43,6 +94,7 @@ fn main() -> i64 {
     if select == 3u { test_box_u8(); }
     if select == 4u { test_box_bool(); }
     if select == 5u { test_box_double(); }
+    if select == 6u { test_box_interfaces(); }
 
     return 0;
 }
