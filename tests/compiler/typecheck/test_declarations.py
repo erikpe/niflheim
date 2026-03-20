@@ -246,3 +246,190 @@ fn main() -> unit {
 
     assert "Hashable" in util_ctx.interfaces
     assert resolve_imported_interface_name(main_ctx, "Hashable", span) == "util::Hashable"
+
+
+def test_typecheck_rejects_missing_interface_method() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="missing method 'hash_code' required by interface 'Hashable'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_wrong_interface_method_return_type() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> i64 {
+        return 1;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="returns 'i64' but interface 'Hashable.hash_code' requires 'u64'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_wrong_interface_method_parameter_type() -> None:
+    source = """
+interface Comparable {
+    fn equals(other: Obj) -> bool;
+}
+
+class Key implements Comparable {
+    fn equals(other: i64) -> bool {
+        return false;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="parameter 1 has type 'i64' but interface 'Comparable.equals' requires 'Obj'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_allows_extra_methods_on_interface_implementer() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+
+    fn debug() -> unit {
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_checks_multiple_interfaces_together() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+interface Comparable {
+    fn equals(other: Obj) -> bool;
+}
+
+class Key implements Hashable, Comparable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        return false;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_private_method_as_interface_implementation() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    private fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="is private and cannot satisfy interface 'Hashable'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_static_method_as_interface_implementation() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    static fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="is static and cannot satisfy interface 'Hashable'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_allows_imported_interface_in_implements_list(tmp_path) -> None:
+    util_path = tmp_path / "util.nif"
+    util_path.write_text(
+        """
+export class Token {
+    value: i64;
+}
+
+export interface TokenFactory {
+    fn make() -> Token;
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    main_path = tmp_path / "main.nif"
+    main_path.write_text(
+        """
+import util;
+
+class Factory implements TokenFactory {
+    fn make() -> util.Token {
+        return util.Token(7);
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    program = resolve_program(main_path, project_root=tmp_path)
+    from compiler.typecheck.api import typecheck_program
+
+    typecheck_program(program)

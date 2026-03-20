@@ -4,7 +4,7 @@ from compiler.frontend.ast_nodes import ModuleAst
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.typecheck.bodies import check_bodies
 from compiler.typecheck.context import TypeCheckContext
-from compiler.typecheck.declarations import collect_module_declarations
+from compiler.typecheck.declarations import collect_module_declarations, validate_interface_conformance
 from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo
 
 
@@ -35,10 +35,14 @@ def typecheck_program(program: ProgramInfo) -> None:
         collect_module_declarations(ctx)
 
     for ctx in contexts:
+        validate_interface_conformance(ctx)
+
+    for ctx in contexts:
         check_bodies(ctx)
 
 
 def typecheck(module_ast: ModuleAst) -> None:
     ctx = TypeCheckContext(module_ast=module_ast)
     collect_module_declarations(ctx)
+    validate_interface_conformance(ctx)
     check_bodies(ctx)

@@ -15,10 +15,11 @@ Completed so far:
 - Step 1 is implemented and validated.
 - Step 2 is implemented and validated.
 - Step 3 is implemented and validated.
+- Step 4 is implemented and validated.
 
 Not started yet:
 
-- Step 4 and later.
+- Step 5 and later.
 
 ## Scope
 
@@ -223,16 +224,24 @@ Step 3 objective check:
 
 ## Step 4: Add Interface Conformance Checking For Classes
 
-- [ ] Extend class declaration checking to validate `implements` lists
-- [ ] Require every interface method to be implemented by the class
-- [ ] Require exact method signature matching in v1
-- [ ] Reject static/private methods as satisfying interface requirements
-- [ ] Produce clear diagnostics for missing or mismatched methods
+- [x] Add a separate post-declaration conformance validation pass after all module declarations are collected
+- [x] Extend class declaration checking to validate `implements` lists
+- [x] Require every interface method to be implemented by the class
+- [x] Require exact method signature matching in v1
+- [x] Reject static/private methods as satisfying interface requirements
+- [x] Produce clear diagnostics for missing or mismatched methods
+
+Implementation note for this step:
+
+- imported interface conformance should not be checked inside the existing single `collect_module_declarations(...)` loop
+- conformance validation should run only after all module declarations have been collected, so imported interface inventories are available consistently across the program
+- this keeps Step 4 scoped to conformance while avoiding premature coupling to Step 5 type-relation work
 
 Suggested code areas:
 
 - `compiler/typecheck/declarations.py`
 - `compiler/typecheck/module_lookup.py`
+- `compiler/typecheck/api.py`
 - possibly `compiler/typecheck/statements.py` only if visibility rules are reused there
 
 Suggested tests for this step:
@@ -249,6 +258,33 @@ Suggested tests for this step:
 What should be achieved at the end of this step:
 
 - a class declaring `implements` is guaranteed by the typechecker to satisfy the interface contract
+
+Validation for this step:
+
+- Implemented in `compiler/typecheck/declarations.py` and wired in `compiler/typecheck/api.py`
+- Interface conformance is validated in a separate post-declaration pass, `validate_interface_conformance(...)`, after all module declarations are collected
+- Signature comparison normalizes owner-module-local class and interface names so imported interface signatures can be checked exactly without prematurely requiring Step 5 general interface-type semantics
+- Added focused tests covering:
+	- missing method rejection
+	- wrong return type rejection
+	- wrong parameter type rejection
+	- extra methods allowed
+	- multiple implemented interfaces checked together
+	- imported interface in `implements` resolved correctly
+	- private method cannot satisfy interface requirement
+	- static method cannot satisfy interface requirement
+- Validation run results:
+	- focused Step 4 declaration/conformance tests: `20 passed`
+	- full suite: `442 passed`
+
+Step 4 objective check:
+
+- fulfilled: conformance validation now runs in a separate post-declaration pass after all module declarations are collected
+- fulfilled: class `implements` lists are validated against resolved local or imported interfaces
+- fulfilled: every required interface method must be implemented by the class
+- fulfilled: v1 exact signature matching is enforced for parameter count, parameter types, and return type
+- fulfilled: private and static methods are rejected as interface implementations
+- fulfilled: conformance errors are reported with method- and interface-specific diagnostics
 
 ## Step 5: Extend TypeInfo And Type Relations For Interface Types
 
