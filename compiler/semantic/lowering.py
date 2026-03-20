@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.frontend.ast_nodes import *
-from compiler.codegen.strings import decode_string_literal, is_str_type_name
+from compiler.codegen.strings import decode_char_literal, decode_string_literal, is_str_type_name
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import (
@@ -23,7 +23,7 @@ from compiler.typecheck.bodies import check_bodies
 from compiler.typecheck.call_helpers import class_type_name_from_callable
 from compiler.typecheck.calls import infer_call_type
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
-from compiler.typecheck.constants import I64_MAX_LITERAL
+from compiler.typecheck.constants import I64_MAX_LITERAL, I64_MIN_MAGNITUDE_LITERAL
 from compiler.typecheck.declarations import collect_module_declarations, validate_interface_conformance
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeInfo
@@ -491,11 +491,11 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
         )
 
     if isinstance(expr, LiteralExpr):
-        if expr.value.startswith('"'):
+        if isinstance(expr.literal, StringLiteralValue):
             return _lower_string_literal_expr(
                 lower_ctx, expr, infer_expression_type(lower_ctx.typecheck_ctx, expr).name
             )
-        return LiteralExprS(value=expr.value, type_name=_literal_type_name(expr), span=expr.span)
+        return _lower_non_string_literal_expr(lower_ctx, expr)
 
     if isinstance(expr, NullExpr):
         return NullExprS(span=expr.span)
@@ -771,12 +771,16 @@ def _try_lower_slice_read_expr(
 def _lower_string_literal_expr(
     lower_ctx: _ModuleLoweringContext, expr: LiteralExpr, result_type_name: str
 ) -> StaticMethodCallExpr:
-    decode_string_literal(expr.value)
+    if not isinstance(expr.literal, StringLiteralValue):
+        raise TypeError("Expected StringLiteralValue for string literal lowering")
+    decode_string_literal(expr.literal.raw_text)
     return StaticMethodCallExpr(
         method_id=_resolve_static_method_id(lower_ctx, result_type_name, "from_u8_array"),
         args=[
             SyntheticExpr(
-                synthetic_id=SyntheticId(kind="string_literal_bytes", owner=result_type_name, name=expr.value),
+                synthetic_id=SyntheticId(
+                    kind="string_literal_bytes", owner=result_type_name, name=expr.literal.raw_text
+                ),
                 args=[],
                 type_name="u8[]",
                 span=expr.span,
@@ -997,20 +1001,38 @@ def _resolved_type_name(typecheck_ctx: TypeCheckContext, type_ref) -> str:
     return resolve_type_ref(typecheck_ctx, type_ref).name
 
 
-def _literal_type_name(expr: LiteralExpr) -> str:
-    if expr.value in {"true", "false"}:
-        return "bool"
-    if expr.value.startswith("'"):
-        return "u8"
-    if "." in expr.value:
-        return "double"
-    if expr.value.endswith("u8") and expr.value[:-2].isdigit():
-        return "u8"
-    if expr.value.endswith("u") and expr.value[:-1].isdigit():
-        return "u64"
-    if expr.value.isdigit():
+def _lower_non_string_literal_expr(lower_ctx: _ModuleLoweringContext, expr: LiteralExpr) -> LiteralExprS:
+    literal = expr.literal
+    type_name = _lowered_literal_type_name(lower_ctx, expr)
+
+    if isinstance(literal, BoolLiteralValue):
+        constant: SemanticConstant = BoolConstant(value=literal.value, type_name=type_name)
+        raw_text = literal.raw_text
+    elif isinstance(literal, CharLiteralValue):
+        constant = CharConstant(value=decode_char_literal(literal.raw_text), type_name=type_name)
+        raw_text = literal.raw_text
+    elif isinstance(literal, FloatLiteralValue):
+        constant = FloatConstant(value=literal.value, type_name=type_name)
+        raw_text = literal.raw_text
+    elif isinstance(literal, IntLiteralValue):
+        constant = IntConstant(value=literal.magnitude, type_name=type_name)
+        raw_text = literal.raw_text
+    else:
+        raise TypeError(f"Unsupported non-string literal for semantic lowering: {type(literal).__name__}")
+
+    return LiteralExprS(constant=constant, type_name=type_name, span=expr.span, raw_text=raw_text)
+
+
+def _lowered_literal_type_name(lower_ctx: _ModuleLoweringContext, expr: LiteralExpr) -> str:
+    literal = expr.literal
+    if (
+        isinstance(literal, IntLiteralValue)
+        and literal.suffix is None
+        and literal.base == 10
+        and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL
+    ):
         return "i64"
-    raise ValueError(f"Unsupported literal syntax for semantic lowering: {expr.value}")
+    return infer_expression_type(lower_ctx.typecheck_ctx, expr).name
 
 
 def _resolve_index_assignment_value_type_name(lower_ctx: _ModuleLoweringContext, expr: IndexExpr) -> str:

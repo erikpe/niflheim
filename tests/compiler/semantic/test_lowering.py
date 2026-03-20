@@ -105,6 +105,56 @@ def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -
     assert isinstance(return_stmt.value, FieldReadExpr)
 
 
+def test_lower_program_builds_typed_semantic_constants_for_literals(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> unit {
+            var a: i64 = 1;
+            var b: u64 = 2u;
+            var c: u8 = 'q';
+            var d: bool = false;
+            var e: double = 1.5;
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    statements = semantic.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[0], SemanticVarDecl)
+    assert isinstance(statements[0].initializer, LiteralExprS)
+    assert isinstance(statements[0].initializer.constant, IntConstant)
+    assert statements[0].initializer.constant.type_name == "i64"
+    assert statements[0].initializer.constant.value == 1
+
+    assert isinstance(statements[1], SemanticVarDecl)
+    assert isinstance(statements[1].initializer, LiteralExprS)
+    assert isinstance(statements[1].initializer.constant, IntConstant)
+    assert statements[1].initializer.constant.type_name == "u64"
+    assert statements[1].initializer.constant.value == 2
+
+    assert isinstance(statements[2], SemanticVarDecl)
+    assert isinstance(statements[2].initializer, LiteralExprS)
+    assert isinstance(statements[2].initializer.constant, CharConstant)
+    assert statements[2].initializer.constant.type_name == "u8"
+    assert statements[2].initializer.constant.value == ord("q")
+
+    assert isinstance(statements[3], SemanticVarDecl)
+    assert isinstance(statements[3].initializer, LiteralExprS)
+    assert isinstance(statements[3].initializer.constant, BoolConstant)
+    assert statements[3].initializer.constant.type_name == "bool"
+    assert statements[3].initializer.constant.value is False
+
+    assert isinstance(statements[4], SemanticVarDecl)
+    assert isinstance(statements[4].initializer, LiteralExprS)
+    assert isinstance(statements[4].initializer.constant, FloatConstant)
+    assert statements[4].initializer.constant.type_name == "double"
+    assert statements[4].initializer.constant.value == 1.5
+
+
 def test_lower_program_handles_simple_function_constructor_method_and_index_forms(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",
