@@ -1,7 +1,9 @@
+import std.lang;
+import std.object;
 import std.str;
 import std.error;
 
-export class BigInt
+export class BigInt implements Comparable, Hashable, Equalable
 {
     private final _negative: bool;
     private final _limbs: u64[];
@@ -151,19 +153,70 @@ export class BigInt
         return BigInt(!__self._negative, __self._limbs[:]);
     }
 
-    fn compareTo(other: BigInt) -> i64 {
-        if __self._negative != other._negative {
+    fn compare_to(other: Obj) -> i64 {
+        if !(other is BigInt) {
+            panic("BigInt.compare_to: other is not a BigInt");
+        }
+        var other_bigint: BigInt = (BigInt)other;
+        if __self._negative != other_bigint._negative {
             if __self._negative {
                 return -1;
             }
             return 1;
         }
 
-        var magnitude_cmp: i64 = BigInt._compare_magnitude(__self._limbs, other._limbs);
+        var magnitude_cmp: i64 = BigInt._compare_magnitude(__self._limbs, other_bigint._limbs);
         if __self._negative {
             return -magnitude_cmp;
         }
         return magnitude_cmp;
+    }
+
+    fn hash_code() -> u64 {
+        var hash: u64 = 14695981039346656037u;
+        if __self._negative {
+            hash = hash ^ 1u;
+            hash = hash * 1099511628211u;
+        }
+
+        var i: u64 = 0u;
+        var length: u64 = __self._limbs.len();
+        while i < length {
+            hash = hash ^ __self._limbs[(i64)i];
+            hash = hash * 1099511628211u;
+            i = i + 1u;
+        }
+
+        return hash;
+    }
+
+    fn equals(other: Obj) -> bool {
+        if other == null {
+            return false;
+        }
+        if __self == other {
+            return true;
+        }
+        if !(other is BigInt) {
+            return false;
+        }
+
+        var other_bigint: BigInt = (BigInt)other;
+        if __self._negative != other_bigint._negative {
+            return false;
+        }
+        var length: u64 = __self._limbs.len();
+        if length != other_bigint._limbs.len() {
+            return false;
+        }
+        var i: u64 = 0u;
+        while i < length {
+            if __self._limbs[(i64)i] != other_bigint._limbs[(i64)i] {
+                return false;
+            }
+            i = i + 1u;
+        }
+        return true;
     }
 
     fn add(other: BigInt) -> BigInt {

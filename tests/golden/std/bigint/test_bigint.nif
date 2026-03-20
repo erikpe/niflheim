@@ -1,6 +1,9 @@
 import std.test;
 import std.io;
 import std.bigint;
+import std.lang;
+import std.map;
+import std.box;
 
 
 fn two_pow_64() -> BigInt {
@@ -20,16 +23,16 @@ fn test_zero_and_constructors() -> unit {
     assert(zero_u.limb_count() == 0u);
 
     var zero_i: BigInt = BigInt.from_i64(0);
-    assert(zero_i.compareTo(zero_u) == 0);
+    assert(zero_i.equals(zero_u));
 
     var positive: BigInt = BigInt.from_u64(42u);
     assert(!positive.is_zero());
     assert(!positive.is_negative());
-    assert(positive.compareTo(BigInt.from_i64(42)) == 0);
+    assert(positive.equals(BigInt.from_i64(42)));
 
     var negative: BigInt = BigInt.from_i64(-42);
     assert(negative.is_negative());
-    assert(negative.compareTo(BigInt.from_i64(-42)) == 0);
+    assert(negative.equals(BigInt.from_i64(-42)));
 
     var multi: BigInt = two_pow_64();
     assert(!multi.is_zero());
@@ -46,44 +49,44 @@ fn test_compare_and_negation() -> unit {
     var bigger: BigInt = two_pow_64_plus(9u);
     var negative_big: BigInt = big.negated();
 
-    assert(a.compareTo(b) < 0);
-    assert(b.compareTo(a) > 0);
-    assert(c.compareTo(a) < 0);
-    assert(a.negated().compareTo(BigInt.from_i64(7)) == 0);
-    assert(a.abs().compareTo(BigInt.from_i64(7)) == 0);
-    assert(big.compareTo(bigger) < 0);
-    assert(bigger.compareTo(big) > 0);
-    assert(negative_big.compareTo(big) < 0);
-    assert(negative_big.negated().compareTo(big) == 0);
-    assert(negative_big.abs().compareTo(big) == 0);
+    assert(a.compare_to(b) < 0);
+    assert(b.compare_to(a) > 0);
+    assert(c.compare_to(a) < 0);
+    assert(a.negated().equals(BigInt.from_i64(7)));
+    assert(a.abs().equals(BigInt.from_i64(7)));
+    assert(big.compare_to(bigger) < 0);
+    assert(bigger.compare_to(big) > 0);
+    assert(negative_big.compare_to(big) < 0);
+    assert(negative_big.negated().equals(big));
+    assert(negative_big.abs().equals(big));
 }
 
 
 fn test_add_basic() -> unit {
-    assert(BigInt.from_i64(12).add(BigInt.from_i64(30)).compareTo(BigInt.from_i64(42)) == 0);
-    assert(BigInt.from_i64(-12).add(BigInt.from_i64(-30)).compareTo(BigInt.from_i64(-42)) == 0);
-    assert(BigInt.from_i64(12).add(BigInt.from_i64(-30)).compareTo(BigInt.from_i64(-18)) == 0);
-    assert(BigInt.from_i64(30).add(BigInt.from_i64(-12)).compareTo(BigInt.from_i64(18)) == 0);
+    assert(BigInt.from_i64(12).add(BigInt.from_i64(30)).equals(BigInt.from_i64(42)));
+    assert(BigInt.from_i64(-12).add(BigInt.from_i64(-30)).equals(BigInt.from_i64(-42)));
+    assert(BigInt.from_i64(12).add(BigInt.from_i64(-30)).equals(BigInt.from_i64(-18)));
+    assert(BigInt.from_i64(30).add(BigInt.from_i64(-12)).equals(BigInt.from_i64(18)));
     assert(BigInt.from_i64(9).add(BigInt.from_i64(-9)).is_zero());
 
     var big: BigInt = two_pow_64_plus(7u);
-    assert(big.add(BigInt.from_u64(35u)).compareTo(two_pow_64_plus(42u)) == 0);
-    assert(big.negated().add(BigInt.from_u64(10u)).compareTo(two_pow_64().sub(BigInt.from_u64(3u)).negated()) == 0);
+    assert(big.add(BigInt.from_u64(35u)).equals(two_pow_64_plus(42u)));
+    assert(big.negated().add(BigInt.from_u64(10u)).equals(two_pow_64().sub(BigInt.from_u64(3u)).negated()));
     assert(big.add(big.negated()).is_zero());
 }
 
 
 fn test_sub_basic() -> unit {
-    assert(BigInt.from_i64(30).sub(BigInt.from_i64(12)).compareTo(BigInt.from_i64(18)) == 0);
-    assert(BigInt.from_i64(12).sub(BigInt.from_i64(30)).compareTo(BigInt.from_i64(-18)) == 0);
-    assert(BigInt.from_i64(-30).sub(BigInt.from_i64(-12)).compareTo(BigInt.from_i64(-18)) == 0);
-    assert(BigInt.from_i64(-30).sub(BigInt.from_i64(12)).compareTo(BigInt.from_i64(-42)) == 0);
+    assert(BigInt.from_i64(30).sub(BigInt.from_i64(12)).equals(BigInt.from_i64(18)));
+    assert(BigInt.from_i64(12).sub(BigInt.from_i64(30)).equals(BigInt.from_i64(-18)));
+    assert(BigInt.from_i64(-30).sub(BigInt.from_i64(-12)).equals(BigInt.from_i64(-18)));
+    assert(BigInt.from_i64(-30).sub(BigInt.from_i64(12)).equals(BigInt.from_i64(-42)));
     assert(BigInt.from_i64(12).sub(BigInt.from_i64(12)).is_zero());
 
     var big: BigInt = two_pow_64_plus(42u);
-    assert(big.sub(BigInt.from_u64(24u)).compareTo(two_pow_64_plus(18u)) == 0);
-    assert(BigInt.from_u64(24u).sub(big).compareTo(two_pow_64_plus(18u).negated()) == 0);
-    assert(big.negated().sub(BigInt.from_u64(24u)).compareTo(two_pow_64_plus(66u).negated()) == 0);
+    assert(big.sub(BigInt.from_u64(24u)).equals(two_pow_64_plus(18u)));
+    assert(BigInt.from_u64(24u).sub(big).equals(two_pow_64_plus(18u).negated()));
+    assert(big.negated().sub(BigInt.from_u64(24u)).equals(two_pow_64_plus(66u).negated()));
 }
 
 
@@ -94,51 +97,51 @@ fn test_multi_limb_carry_and_borrow() -> unit {
     var shifted: BigInt = two_pow_64_plus(3u);
 
     assert(wrapped.limb_count() == 2u);
-    assert(wrapped.compareTo(max_u64) > 0);
-    assert(wrapped.sub(one).compareTo(max_u64) == 0);
-    assert(wrapped.sub(max_u64).compareTo(one) == 0);
-    assert(shifted.sub(BigInt.from_u64(5u)).compareTo(BigInt.from_i64(-2).add(two_pow_64())) == 0);
+    assert(wrapped.compare_to(max_u64) > 0);
+    assert(wrapped.sub(one).equals(max_u64));
+    assert(wrapped.sub(max_u64).equals(one));
+    assert(shifted.sub(BigInt.from_u64(5u)).equals(BigInt.from_i64(-2).add(two_pow_64())));
 }
 
 
 fn test_to_string() -> unit {
-    assert(BigInt.zero().to_string().compare_to("0") == 0);
-    assert(BigInt.from_u64(42u).to_string().compare_to("42") == 0);
-    assert(BigInt.from_i64(-42).to_string().compare_to("-42") == 0);
-    assert(BigInt.from_i64(-9223372036854775808).to_string().compare_to("-9223372036854775808") == 0);
+    assert(BigInt.zero().to_string().equals("0"));
+    assert(BigInt.from_u64(42u).to_string().equals("42"));
+    assert(BigInt.from_i64(-42).to_string().equals("-42"));
+    assert(BigInt.from_i64(-9223372036854775808).to_string().equals("-9223372036854775808"));
 
     var max_u64: BigInt = BigInt.from_u64(18446744073709551615u);
     var one: BigInt = BigInt.from_u64(1u);
     var wrapped: BigInt = max_u64.add(one);
-    assert(wrapped.to_string().compare_to("18446744073709551616") == 0);
-    assert(two_pow_64_plus(42u).to_string().compare_to("18446744073709551658") == 0);
-    assert(two_pow_64_plus(42u).negated().to_string().compare_to("-18446744073709551658") == 0);
+    assert(wrapped.to_string().equals("18446744073709551616"));
+    assert(two_pow_64_plus(42u).to_string().equals("18446744073709551658"));
+    assert(two_pow_64_plus(42u).negated().to_string().equals("-18446744073709551658"));
 }
 
 
 fn test_parse() -> unit {
-    assert(BigInt.parse("0").compareTo(BigInt.zero()) == 0);
-    assert(BigInt.parse("42").compareTo(BigInt.from_u64(42u)) == 0);
-    assert(BigInt.parse("-42").compareTo(BigInt.from_i64(-42)) == 0);
-    assert(BigInt.parse("1844674407370955161618446744073709551616").to_string().compare_to("1844674407370955161618446744073709551616") == 0);
-    assert(BigInt.parse("-18446744073709551616").to_string().compare_to("-18446744073709551616") == 0);
-    assert(BigInt.parse("18446744073709551658").compareTo(two_pow_64_plus(42u)) == 0);
-    assert(BigInt.parse("-18446744073709551658").compareTo(two_pow_64_plus(42u).negated()) == 0);
-    assert(BigInt.parse("-0").compareTo(BigInt.zero()) == 0);
+    assert(BigInt.parse("0").equals(BigInt.zero()));
+    assert(BigInt.parse("42").equals(BigInt.from_u64(42u)));
+    assert(BigInt.parse("-42").equals(BigInt.from_i64(-42)));
+    assert(BigInt.parse("1844674407370955161618446744073709551616").to_string().equals("1844674407370955161618446744073709551616"));
+    assert(BigInt.parse("-18446744073709551616").to_string().equals("-18446744073709551616"));
+    assert(BigInt.parse("18446744073709551658").equals(two_pow_64_plus(42u)));
+    assert(BigInt.parse("-18446744073709551658").equals(two_pow_64_plus(42u).negated()));
+    assert(BigInt.parse("-0").equals(BigInt.zero()));
 }
 
 
 fn test_mul() -> unit {
-    assert(BigInt.from_i64(6).mul(BigInt.from_i64(7)).compareTo(BigInt.from_i64(42)) == 0);
-    assert(BigInt.from_i64(-6).mul(BigInt.from_i64(7)).compareTo(BigInt.from_i64(-42)) == 0);
-    assert(BigInt.from_i64(-6).mul(BigInt.from_i64(-7)).compareTo(BigInt.from_i64(42)) == 0);
+    assert(BigInt.from_i64(6).mul(BigInt.from_i64(7)).equals(BigInt.from_i64(42)));
+    assert(BigInt.from_i64(-6).mul(BigInt.from_i64(7)).equals(BigInt.from_i64(-42)));
+    assert(BigInt.from_i64(-6).mul(BigInt.from_i64(-7)).equals(BigInt.from_i64(42)));
     assert(BigInt.zero().mul(two_pow_64_plus(9u)).is_zero());
 
     var left: BigInt = two_pow_64_plus(3u);
     var right: BigInt = two_pow_64_plus(5u);
-    assert(left.mul(BigInt.from_u64(10u)).to_string().compare_to("184467440737095516190") == 0);
-    assert(left.mul(right).to_string().compare_to("340282366920938463610948560021444624399") == 0);
-    assert(left.negated().mul(right).to_string().compare_to("-340282366920938463610948560021444624399") == 0);
+    assert(left.mul(BigInt.from_u64(10u)).to_string().equals("184467440737095516190"));
+    assert(left.mul(right).to_string().equals("340282366920938463610948560021444624399"));
+    assert(left.negated().mul(right).to_string().equals("-340282366920938463610948560021444624399"));
 }
 
 
@@ -150,7 +153,44 @@ fn test_factorial_50() -> unit {
         i = i + 1u;
     }
 
-    assert(acc.to_string().compare_to("30414093201713378043612608166064768844377641568960512000000000000") == 0);
+    assert(acc.to_string().equals("30414093201713378043612608166064768844377641568960512000000000000"));
+}
+
+
+fn test_hash_code() -> unit {
+    var zero_u: BigInt = BigInt.from_u64(0u);
+    var zero_i: BigInt = BigInt.from_i64(0);
+    var a: BigInt = two_pow_64_plus(42u);
+    var b: BigInt = two_pow_64_plus(42u);
+    var c: BigInt = two_pow_64_plus(43u);
+    var negative_a: BigInt = a.negated();
+
+    assert(zero_u.hash_code() == zero_i.hash_code());
+    assert(a.hash_code() == b.hash_code());
+    assert(a.hash_code() != c.hash_code());
+    assert(a.hash_code() != negative_a.hash_code());
+}
+
+
+fn test_interfaces_and_map_interop() -> unit {
+    var a: BigInt = two_pow_64_plus(42u);
+    var b: BigInt = two_pow_64_plus(42u);
+    var c: BigInt = BigInt.from_i64(-42);
+
+    var comparable: Comparable = a;
+    var equalable: Equalable = a;
+    var hashable: Hashable = a;
+
+    assert(comparable.compare_to((Obj)b) == 0);
+    assert(comparable.compare_to((Obj)c) > 0);
+    assert(equalable.equals((Obj)b));
+    assert(!equalable.equals((Obj)c));
+    assert(hashable.hash_code() == ((Hashable)b).hash_code());
+
+    var m: Map = Map.new();
+    m[(Obj)a] = BoxI64(77);
+    assert(m.contains((Obj)b));
+    assert(((BoxI64)m[(Obj)b]).val == 77);
 }
 
 
@@ -166,6 +206,8 @@ fn main() -> i64 {
     if select == 7u { test_parse(); }
     if select == 8u { test_mul(); }
     if select == 9u { test_factorial_50(); }
+    if select == 10u { test_hash_code(); }
+    if select == 11u { test_interfaces_and_map_interop(); }
 
     return 0;
 }

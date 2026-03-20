@@ -8,3 +8,5 @@ runs:
   - { name: parse, input: { stdin: "7" }, expect: { exit_code: 0 } }
   - { name: mul, input: { stdin: "8" }, expect: { exit_code: 0 } }
   - { name: factorial_50, input: { stdin: "9" }, expect: { exit_code: 0 } }
+  - { name: hash_code, input: { stdin: "10" }, expect: { exit_code: 0 } }
+  - { name: interfaces_and_map_interop, input: { stdin: "11" }, expect: { exit_code: 0 } }
