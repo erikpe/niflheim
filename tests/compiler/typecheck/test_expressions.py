@@ -738,3 +738,94 @@ fn main() -> unit {
 }
 """
     parse_and_typecheck(source)
+
+
+def test_typecheck_allows_reference_identity_equality_with_obj() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var person: Person = Person(7);
+    var obj: Obj = person;
+    var same: bool = person == obj;
+    var same_rev: bool = obj == person;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_allows_reference_identity_equality_with_interface() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    var key: Key = Key();
+    var hashable: Hashable = key;
+    var same: bool = key == hashable;
+    var same_rev: bool = hashable == key;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_allows_interface_identity_equality_between_distinct_interfaces() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+interface Equalable {
+    fn equals(other: Obj) -> bool;
+}
+
+class Key implements Hashable, Equalable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        return false;
+    }
+}
+
+fn main() -> unit {
+    var hashable: Hashable = Key();
+    var equalable: Equalable = Key();
+    var same: bool = hashable == equalable;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_identity_equality_for_unrelated_reference_types() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+class Box {
+    value: i64;
+}
+
+fn main() -> unit {
+    var person: Person = Person(7);
+    var box: Box = Box(9);
+    var same: bool = person == box;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Operator '==' has incompatible operand types"):
+        parse_and_typecheck(source)

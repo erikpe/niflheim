@@ -99,6 +99,24 @@ def is_comparable(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> boo
         return True
     if right.kind in {"reference", "interface"} and left.kind == "null":
         return True
+    if left.kind in {"reference", "interface"} and right.kind in {"reference", "interface"}:
+        return _may_alias_under_identity_comparison(ctx, left, right)
+    return False
+
+
+def _may_alias_under_identity_comparison(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> bool:
+    if left.name == "Obj" or right.name == "Obj":
+        return True
+
+    if left.kind == "interface" and right.kind == "interface":
+        return True
+
+    if left.kind == "reference" and right.kind == "interface":
+        return _class_implements_interface(ctx, left.name, right.name)
+
+    if left.kind == "interface" and right.kind == "reference":
+        return _class_implements_interface(ctx, right.name, left.name)
+
     return False
 
 

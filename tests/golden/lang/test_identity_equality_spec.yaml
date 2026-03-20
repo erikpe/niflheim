@@ -1,0 +1,5 @@
+runs:
+  - { name: reference_obj_identity, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: reference_interface_identity, input: { stdin: "2" }, expect: { exit_code: 0 } }
+  - { name: interface_interface_identity, input: { stdin: "3" }, expect: { exit_code: 0 } }
+  - { name: obj_interface_null_identity, input: { stdin: "4" }, expect: { exit_code: 0 } }

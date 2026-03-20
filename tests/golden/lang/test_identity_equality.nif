@@ -1,0 +1,111 @@
+import std.io;
+import std.object;
+
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+interface Equalable {
+    fn equals(other: Obj) -> bool;
+}
+
+class Key implements Hashable, Equalable {
+    value: u64;
+
+    fn hash_code() -> u64 {
+        return __self.value + 101u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        if other == null {
+            return false;
+        }
+        return ((Key)other).value == __self.value;
+    }
+}
+
+fn test_reference_obj_identity() -> i64 {
+    var key: Key = Key(7u);
+    var alias: Obj = key;
+    var other: Obj = Key(7u);
+
+    if !(key == alias) {
+        return 1;
+    }
+    if !(alias == key) {
+        return 2;
+    }
+    if key != alias {
+        return 3;
+    }
+    if key == other {
+        return 4;
+    }
+
+    return 0;
+}
+
+fn test_reference_interface_identity() -> i64 {
+    var key: Key = Key(8u);
+    var hashable: Hashable = key;
+    var other_hashable: Hashable = Key(8u);
+
+    if !(key == hashable) {
+        return 5;
+    }
+    if !(hashable == key) {
+        return 6;
+    }
+    if hashable == other_hashable {
+        return 7;
+    }
+
+    return 0;
+}
+
+fn test_interface_interface_identity() -> i64 {
+    var key: Key = Key(9u);
+    var hashable: Hashable = key;
+    var equalable: Equalable = key;
+    var other_equalable: Equalable = Key(9u);
+
+    if !(hashable == equalable) {
+        return 8;
+    }
+    if hashable != equalable {
+        return 9;
+    }
+    if hashable == other_equalable {
+        return 10;
+    }
+
+    return 0;
+}
+
+fn test_obj_interface_null_identity() -> i64 {
+    var hashable: Hashable = (Hashable)null;
+    var obj: Obj = null;
+
+    if !(hashable == obj) {
+        return 11;
+    }
+    if !(obj == hashable) {
+        return 12;
+    }
+    if hashable != null {
+        return 13;
+    }
+
+    return 0;
+}
+
+fn main() -> i64 {
+    var select: u64 = read_stdin().strip().to_u64();
+
+    if select == 1u { return test_reference_obj_identity(); }
+    if select == 2u { return test_reference_interface_identity(); }
+    if select == 3u { return test_interface_interface_identity(); }
+    if select == 4u { return test_obj_interface_null_identity(); }
+
+    return 14;
+}

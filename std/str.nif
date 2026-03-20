@@ -159,12 +159,11 @@ export class Str implements Hashable, Equalable
             return false;
         }
 
-        var self_obj: Obj = (Obj)__self;
-        if self_obj == other {
+        if __self == other {
             return true;
         }
 
-        if !same_type(self_obj, other) {
+        if !same_type(__self, other) {
             return false;
         }
 
