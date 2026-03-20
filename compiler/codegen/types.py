@@ -76,16 +76,6 @@ def array_element_runtime_kind(element_type_name: str) -> str:
     return "ref"
 
 
-def is_double_literal_text(text: str) -> bool:
-    if "." not in text:
-        return False
-    try:
-        float(text)
-    except ValueError:
-        return False
-    return True
-
-
-def double_literal_bits(text: str) -> int:
-    packed = struct.pack("<d", float(text))
+def double_value_bits(value: float) -> int:
+    packed = struct.pack("<d", value)
     return struct.unpack("<Q", packed)[0]

@@ -171,30 +171,22 @@ def _emit_method_ref_expr(codegen: CodeGenerator, expr: MethodRefExpr, ctx: Emit
 
 
 def _emit_literal_expr(codegen: CodeGenerator, expr: LiteralExprS) -> None:
-    if expr.value == "true":
-        codegen.asm.instr("mov rax, 1")
+    constant = expr.constant
+    if isinstance(constant, BoolConstant):
+        codegen.asm.instr(f"mov rax, {1 if constant.value else 0}")
         return
-    if expr.value == "false":
-        codegen.asm.instr("mov rax, 0")
+    if isinstance(constant, FloatConstant):
+        codegen.asm.instr(f"mov rax, 0x{codegen_types.double_value_bits(constant.value):016x}")
         return
-    if codegen_types.is_double_literal_text(expr.value):
-        codegen.asm.instr(f"mov rax, 0x{codegen_types.double_literal_bits(expr.value):016x}")
+    if isinstance(constant, CharConstant):
+        codegen.asm.instr(f"mov rax, {constant.value}")
         return
-    if expr.value.startswith("'"):
-        from compiler.codegen.strings import decode_char_literal
-
-        codegen.asm.instr(f"mov rax, {decode_char_literal(expr.value)}")
+    if isinstance(constant, IntConstant):
+        codegen.asm.instr(f"mov rax, {constant.value}")
         return
-    if expr.value.isdigit():
-        codegen.asm.instr(f"mov rax, {expr.value}")
-        return
-    if expr.value.endswith("u8") and expr.value[:-2].isdigit():
-        codegen.asm.instr(f"mov rax, {expr.value[:-2]}")
-        return
-    if expr.value.endswith("u") and expr.value[:-1].isdigit():
-        codegen.asm.instr(f"mov rax, {expr.value[:-1]}")
-        return
-    codegen_types.raise_codegen_error(f"literal codegen not implemented for '{expr.value}'", span=expr.span)
+    codegen_types.raise_codegen_error(
+        f"literal codegen not implemented for {type(constant).__name__}", span=expr.span
+    )
 
 
 def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: EmitContext) -> None:
