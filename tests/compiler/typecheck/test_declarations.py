@@ -1,6 +1,11 @@
 import pytest
 
+from compiler.frontend.lexer import SourcePos, SourceSpan
+from compiler.resolver import resolve_program
+from compiler.typecheck.context import TypeCheckContext
+from compiler.typecheck.declarations import collect_module_declarations
 from compiler.typecheck.model import TypeCheckError
+from compiler.typecheck.module_lookup import resolve_imported_interface_name
 from tests.compiler.typecheck.helpers import parse_and_typecheck
 
 
@@ -133,3 +138,111 @@ fn main() -> unit {
 """
     with pytest.raises(TypeCheckError, match="Class field initializer must be a constant expression in MVP"):
         parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_duplicate_interface_declaration() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+interface Hashable {
+    fn equals(other: Obj) -> bool;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate declaration 'Hashable'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_duplicate_interface_method_names() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+    fn hash_code() -> u64;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate interface method 'hash_code'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_collects_interfaces_alongside_classes_and_functions() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Counter {
+    value: i64;
+}
+
+fn helper() -> unit {
+    return;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_collects_imported_interface_declarations_across_modules(tmp_path) -> None:
+    util_path = tmp_path / "util.nif"
+    util_path.write_text(
+        """
+export interface Hashable {
+    fn hash_code() -> u64;
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    main_path = tmp_path / "main.nif"
+    main_path.write_text(
+        """
+import util;
+
+fn main() -> unit {
+    return;
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    program = resolve_program(main_path, project_root=tmp_path)
+    module_function_sigs = {module_path: {} for module_path in program.modules}
+    module_class_infos = {module_path: {} for module_path in program.modules}
+    module_interface_infos = {module_path: {} for module_path in program.modules}
+    contexts: dict[tuple[str, ...], TypeCheckContext] = {}
+
+    for module_path, module_info in program.modules.items():
+        contexts[module_path] = TypeCheckContext(
+            module_ast=module_info.ast,
+            module_path=module_path,
+            modules=program.modules,
+            module_function_sigs=module_function_sigs,
+            module_class_infos=module_class_infos,
+            module_interface_infos=module_interface_infos,
+            functions=module_function_sigs[module_path],
+            classes=module_class_infos[module_path],
+            interfaces=module_interface_infos[module_path],
+        )
+
+    for ctx in contexts.values():
+        collect_module_declarations(ctx)
+
+    main_ctx = contexts[("main",)]
+    util_ctx = contexts[("util",)]
+    span = SourceSpan(start=SourcePos(path="<test>", offset=0, line=1, column=1), end=SourcePos(path="<test>", offset=0, line=1, column=1))
+
+    assert "Hashable" in util_ctx.interfaces
+    assert resolve_imported_interface_name(main_ctx, "Hashable", span) == "util::Hashable"

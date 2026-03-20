@@ -14,10 +14,11 @@ Completed so far:
 
 - Step 1 is implemented and validated.
 - Step 2 is implemented and validated.
+- Step 3 is implemented and validated.
 
 Not started yet:
 
-- Step 3 and later.
+- Step 4 and later.
 
 ## Scope
 
@@ -173,11 +174,11 @@ Step 2 objective check:
 
 ## Step 3: Add Typecheck Interface Declaration Collection
 
-- [ ] Add `InterfaceInfo` to the typecheck model
-- [ ] Extend typecheck context to track local/imported interfaces
-- [ ] Collect interface declarations during the declaration pass
-- [ ] Validate duplicate interface declarations within a module
-- [ ] Validate duplicate interface method names within the same interface
+- [x] Add `InterfaceInfo` to the typecheck model
+- [x] Extend typecheck context to track local/imported interfaces
+- [x] Collect interface declarations during the declaration pass
+- [x] Validate duplicate interface declarations within a module
+- [x] Validate duplicate interface method names within the same interface
 
 Suggested code areas:
 
@@ -197,6 +198,28 @@ What should be achieved at the end of this step:
 
 - the typechecker can resolve interface declarations as named program entities
 - interfaces participate in module/import lookup
+
+Validation for this step:
+
+- Implemented in `compiler/typecheck/model.py`, `compiler/typecheck/context.py`, `compiler/typecheck/declarations.py`, `compiler/typecheck/module_lookup.py`, and `compiler/typecheck/api.py`
+- Added focused tests covering:
+	- duplicate interface declaration rejection
+	- duplicate interface method rejection
+	- interface declaration collection alongside classes and functions
+	- imported interface visibility across modules at the declaration/module-lookup layer
+- `module_lookup.py` was cleaned up to share imported and qualified symbol-resolution helpers instead of duplicating class and interface lookup logic
+- Validation run results:
+	- focused typecheck declaration/import tests: `41 passed`
+	- full suite: `434 passed`
+
+Step 3 objective check:
+
+- fulfilled: `InterfaceInfo` now exists in the typecheck model
+- fulfilled: the typecheck context now tracks local and module-wide imported interface inventories
+- fulfilled: interface declarations are collected during the declaration pass
+- fulfilled: duplicate interface declarations within a module are rejected
+- fulfilled: duplicate interface method names within the same interface are rejected
+- fulfilled: interfaces now participate in typecheck module/import lookup infrastructure
 
 ## Step 4: Add Interface Conformance Checking For Classes
 

@@ -4,7 +4,7 @@ from compiler.frontend.ast_nodes import Expression, FieldAccessExpr, IdentifierE
 from compiler.typecheck.context import TypeCheckContext
 from compiler.frontend.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
-from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError
+from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError
 
 
 def current_module_info(ctx: TypeCheckContext) -> ModuleInfo | None:
@@ -27,6 +27,22 @@ def lookup_class_by_type_name(ctx: TypeCheckContext, type_name: str) -> ClassInf
     if owner_classes is None:
         return None
     return owner_classes.get(class_name)
+
+
+def lookup_interface_by_type_name(ctx: TypeCheckContext, type_name: str) -> InterfaceInfo | None:
+    local = ctx.interfaces.get(type_name)
+    if local is not None:
+        return local
+
+    if "::" not in type_name or ctx.module_interface_infos is None:
+        return None
+
+    owner_dotted, interface_name = type_name.split("::", 1)
+    owner_module = tuple(owner_dotted.split("."))
+    owner_interfaces = ctx.module_interface_infos.get(owner_module)
+    if owner_interfaces is None:
+        return None
+    return owner_interfaces.get(interface_name)
 
 
 def _flatten_field_chain(expr: Expression) -> list[str] | None:
@@ -65,6 +81,31 @@ def resolve_imported_function_sig(ctx: TypeCheckContext, fn_name: str, span: Sou
     return ctx.module_function_sigs[matches[0]][fn_name]
 
 
+def _resolve_unique_imported_symbol_module(
+    ctx: TypeCheckContext, symbol_name: str, span: SourceSpan, *, symbol_kind: str, ambiguity_label: str
+) -> ModulePath | None:
+    current_module = current_module_info(ctx)
+    if current_module is None or ctx.modules is None:
+        return None
+
+    matches: list[ModulePath] = []
+    for import_info in current_module.imports.values():
+        imported_module_path = import_info.module_path
+        module_info = ctx.modules[imported_module_path]
+        symbol = module_info.exported_symbols.get(symbol_name)
+        if symbol is not None and symbol.kind == symbol_kind:
+            matches.append(imported_module_path)
+
+    if not matches:
+        return None
+
+    if len(matches) > 1:
+        candidates = ", ".join(sorted(".".join(path) for path in matches))
+        raise TypeCheckError(f"Ambiguous imported {ambiguity_label} '{symbol_name}' (matches: {candidates})", span)
+
+    return matches[0]
+
+
 def resolve_unique_global_class_name(ctx: TypeCheckContext, class_name: str, span: SourceSpan) -> str | None:
     if ctx.module_class_infos is None:
         return None
@@ -88,26 +129,9 @@ def resolve_unique_global_class_name(ctx: TypeCheckContext, class_name: str, spa
 def _resolve_unique_imported_class_module(
     ctx: TypeCheckContext, class_name: str, span: SourceSpan, *, ambiguity_label: str
 ) -> ModulePath | None:
-    current_module = current_module_info(ctx)
-    if current_module is None or ctx.modules is None:
-        return None
-
-    matches: list[ModulePath] = []
-    for import_info in current_module.imports.values():
-        imported_module_path = import_info.module_path
-        module_info = ctx.modules[imported_module_path]
-        symbol = module_info.exported_symbols.get(class_name)
-        if symbol is not None and symbol.kind == "class":
-            matches.append(imported_module_path)
-
-    if not matches:
-        return None
-
-    if len(matches) > 1:
-        candidates = ", ".join(sorted(".".join(path) for path in matches))
-        raise TypeCheckError(f"Ambiguous imported {ambiguity_label} '{class_name}' (matches: {candidates})", span)
-
-    return matches[0]
+    return _resolve_unique_imported_symbol_module(
+        ctx, class_name, span, symbol_kind="class", ambiguity_label=ambiguity_label
+    )
 
 
 def resolve_imported_class_name(ctx: TypeCheckContext, class_name: str, span: SourceSpan) -> str | None:
@@ -119,7 +143,20 @@ def resolve_imported_class_name(ctx: TypeCheckContext, class_name: str, span: So
     return f"{owner_dotted}::{class_name}"
 
 
-def resolve_qualified_imported_class_name(ctx: TypeCheckContext, qualified_name: str, span: SourceSpan) -> str | None:
+def resolve_imported_interface_name(ctx: TypeCheckContext, interface_name: str, span: SourceSpan) -> str | None:
+    matched_module = _resolve_unique_imported_symbol_module(
+        ctx, interface_name, span, symbol_kind="interface", ambiguity_label="interface"
+    )
+    if matched_module is None:
+        return None
+
+    owner_dotted = ".".join(matched_module)
+    return f"{owner_dotted}::{interface_name}"
+
+
+def _resolve_qualified_imported_symbol_name(
+    ctx: TypeCheckContext, qualified_name: str, span: SourceSpan, *, symbol_kind: str, symbol_label: str
+) -> str | None:
     current_module = current_module_info(ctx)
     if current_module is None or ctx.modules is None:
         return None
@@ -142,15 +179,27 @@ def resolve_qualified_imported_class_name(ctx: TypeCheckContext, qualified_name:
             raise TypeCheckError(f"Module '{dotted}' has no exported module '{segment}'", span)
         current_path = next_module
 
-    class_name = parts[-1]
+    symbol_name = parts[-1]
     module_info = ctx.modules[current_path]
-    symbol = module_info.exported_symbols.get(class_name)
-    if symbol is None or symbol.kind != "class":
+    symbol = module_info.exported_symbols.get(symbol_name)
+    if symbol is None or symbol.kind != symbol_kind:
         dotted = ".".join(current_path)
-        raise TypeCheckError(f"Module '{dotted}' has no exported class '{class_name}'", span)
+        raise TypeCheckError(f"Module '{dotted}' has no exported {symbol_label} '{symbol_name}'", span)
 
     owner_dotted = ".".join(current_path)
-    return f"{owner_dotted}::{class_name}"
+    return f"{owner_dotted}::{symbol_name}"
+
+
+def resolve_qualified_imported_class_name(ctx: TypeCheckContext, qualified_name: str, span: SourceSpan) -> str | None:
+    return _resolve_qualified_imported_symbol_name(
+        ctx, qualified_name, span, symbol_kind="class", symbol_label="class"
+    )
+
+
+def resolve_qualified_imported_interface_name(ctx: TypeCheckContext, qualified_name: str, span: SourceSpan) -> str | None:
+    return _resolve_qualified_imported_symbol_name(
+        ctx, qualified_name, span, symbol_kind="interface", symbol_label="interface"
+    )
 
 
 def resolve_module_member(ctx: TypeCheckContext, expr: FieldAccessExpr) -> tuple[str, ModulePath, str] | None:

@@ -5,7 +5,7 @@ from compiler.resolver import ModulePath, ProgramInfo
 from compiler.typecheck.bodies import check_bodies
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.declarations import collect_module_declarations
-from compiler.typecheck.model import ClassInfo, FunctionSig
+from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo
 
 
 def typecheck_program(program: ProgramInfo) -> None:
@@ -13,6 +13,7 @@ def typecheck_program(program: ProgramInfo) -> None:
         module_path: {} for module_path in program.modules
     }
     module_class_infos: dict[ModulePath, dict[str, ClassInfo]] = {module_path: {} for module_path in program.modules}
+    module_interface_infos: dict[ModulePath, dict[str, InterfaceInfo]] = {module_path: {} for module_path in program.modules}
     contexts: list[TypeCheckContext] = []
 
     for module_path, module_info in program.modules.items():
@@ -23,8 +24,10 @@ def typecheck_program(program: ProgramInfo) -> None:
                 modules=program.modules,
                 module_function_sigs=module_function_sigs,
                 module_class_infos=module_class_infos,
+                module_interface_infos=module_interface_infos,
                 functions=module_function_sigs[module_path],
                 classes=module_class_infos[module_path],
+                interfaces=module_interface_infos[module_path],
             )
         )
 

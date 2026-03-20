@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from compiler.frontend.ast_nodes import ModuleAst
 from compiler.frontend.lexer import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
-from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
+from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError, TypeInfo
 
 
 @dataclass
@@ -15,8 +15,10 @@ class TypeCheckContext:
     modules: dict[ModulePath, ModuleInfo] | None = None
     module_function_sigs: dict[ModulePath, dict[str, FunctionSig]] | None = None
     module_class_infos: dict[ModulePath, dict[str, ClassInfo]] | None = None
+    module_interface_infos: dict[ModulePath, dict[str, InterfaceInfo]] | None = None
     functions: dict[str, FunctionSig] = field(default_factory=dict)
     classes: dict[str, ClassInfo] = field(default_factory=dict)
+    interfaces: dict[str, InterfaceInfo] = field(default_factory=dict)
     scope_stack: list[dict[str, TypeInfo]] = field(default_factory=list)
     function_local_names_stack: list[set[str]] = field(default_factory=list)
     loop_depth: int = 0

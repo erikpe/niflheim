@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from compiler.frontend.ast_nodes import FunctionDecl, MethodDecl
+from compiler.frontend.ast_nodes import FunctionDecl, InterfaceDecl, InterfaceMethodDecl, MethodDecl
 
 from compiler.typecheck.context import TypeCheckContext
-from compiler.typecheck.model import ClassInfo, FunctionSig, TypeCheckError, TypeInfo
+from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError, TypeInfo
 from compiler.typecheck.type_resolution import resolve_type_ref
 
 
@@ -18,9 +18,19 @@ def _function_sig_from_decl(ctx: TypeCheckContext, decl: FunctionDecl | MethodDe
     )
 
 
+def _interface_sig_from_decl(ctx: TypeCheckContext, decl: InterfaceMethodDecl) -> FunctionSig:
+    params = [resolve_type_ref(ctx, param.type_ref) for param in decl.params]
+    return FunctionSig(name=decl.name, params=params, return_type=resolve_type_ref(ctx, decl.return_type))
+
+
 def collect_module_declarations(ctx: TypeCheckContext) -> None:
+    for interface_decl in ctx.module_ast.interfaces:
+        if interface_decl.name in ctx.interfaces or interface_decl.name in ctx.classes or interface_decl.name in ctx.functions:
+            raise TypeCheckError(f"Duplicate declaration '{interface_decl.name}'", interface_decl.span)
+        ctx.interfaces[interface_decl.name] = InterfaceInfo(name=interface_decl.name, methods={})
+
     for class_decl in ctx.module_ast.classes:
-        if class_decl.name in ctx.classes or class_decl.name in ctx.functions:
+        if class_decl.name in ctx.classes or class_decl.name in ctx.functions or class_decl.name in ctx.interfaces:
             raise TypeCheckError(f"Duplicate declaration '{class_decl.name}'", class_decl.span)
         ctx.classes[class_decl.name] = ClassInfo(
             name=class_decl.name,
@@ -33,6 +43,15 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
             private_methods=set(),
             constructor_is_private=False,
         )
+
+    for interface_decl in ctx.module_ast.interfaces:
+        methods: dict[str, FunctionSig] = {}
+        for method_decl in interface_decl.methods:
+            if method_decl.name in methods:
+                raise TypeCheckError(f"Duplicate interface method '{method_decl.name}'", method_decl.span)
+            methods[method_decl.name] = _interface_sig_from_decl(ctx, method_decl)
+
+        ctx.interfaces[interface_decl.name] = InterfaceInfo(name=interface_decl.name, methods=methods)
 
     for class_decl in ctx.module_ast.classes:
         fields: dict[str, TypeInfo] = {}
@@ -76,6 +95,6 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
             raise TypeCheckError("Extern function must not have a body", fn_decl.span)
         if not fn_decl.is_extern and fn_decl.body is None:
             raise TypeCheckError("Function declaration missing body", fn_decl.span)
-        if fn_decl.name in ctx.functions or fn_decl.name in ctx.classes:
+        if fn_decl.name in ctx.functions or fn_decl.name in ctx.classes or fn_decl.name in ctx.interfaces:
             raise TypeCheckError(f"Duplicate declaration '{fn_decl.name}'", fn_decl.span)
         ctx.functions[fn_decl.name] = _function_sig_from_decl(ctx, fn_decl)

@@ -41,6 +41,12 @@ class ClassInfo:
     constructor_is_private: bool
 
 
+@dataclass(frozen=True)
+class InterfaceInfo:
+    name: str
+    methods: dict[str, FunctionSig]
+
+
 class TypeCheckError(ValueError):
     def __init__(self, message: str, span: SourceSpan):
         super().__init__(f"{message} at {span.start.path}:{span.start.line}:{span.start.column}")
