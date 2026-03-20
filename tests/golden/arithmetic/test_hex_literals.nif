@@ -1,0 +1,20 @@
+import std.io;
+
+fn main() -> i64 {
+  var signed_value: i64 = 0x2a;
+  var unsigned_value: u64 = 0X2Au;
+  var byte_value: u8 = 0xffu8;
+  var signed_min: i64 = -0x8000000000000000;
+
+  println_i64(signed_value);
+  println_u64(unsigned_value);
+  println_u8(byte_value);
+  println_i64(signed_min);
+
+  println_bool(signed_value == 42);
+  println_bool(unsigned_value == 42u);
+  println_bool(byte_value == 255u8);
+  println_bool(signed_min < 0);
+
+  return 0;
+}

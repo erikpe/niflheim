@@ -156,10 +156,25 @@ def test_lex_hex_integer_literals() -> None:
     assert [token.lexeme for token in tokens] == ["0x2a", "0x2Au", "0xffu8"]
 
 
-def test_lex_invalid_hex_integer_spelling_stays_single_token() -> None:
-    tokens = [token for token in lex("var x: i64 = 0xg;", source_path="examples/hex_bad.nif") if token.kind == TokenKind.INT_LIT]
+@pytest.mark.parametrize(
+    ("literal_text", "expected_lexeme"),
+    [
+        ("0x", "0x"),
+        ("0xu", "0xu"),
+        ("0xu8", "0xu8"),
+        ("0xg", "0xg"),
+        ("0x1g", "0x1g"),
+        ("0x1gu8", "0x1gu8"),
+    ],
+)
+def test_lex_invalid_hex_integer_spelling_stays_single_token(literal_text: str, expected_lexeme: str) -> None:
+    tokens = [
+        token
+        for token in lex(f"var x: i64 = {literal_text};", source_path="examples/hex_bad.nif")
+        if token.kind == TokenKind.INT_LIT
+    ]
 
-    assert [token.lexeme for token in tokens] == ["0xg"]
+    assert [token.lexeme for token in tokens] == [expected_lexeme]
 
 
 def test_lex_char_literal_and_escape_literal() -> None:

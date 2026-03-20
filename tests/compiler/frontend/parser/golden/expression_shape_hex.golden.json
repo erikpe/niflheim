@@ -1,0 +1,38 @@
+{
+  "left": {
+    "left": {
+      "literal": {
+        "base": 16,
+        "magnitude": 42,
+        "node": "IntLiteralValue",
+        "raw_text": "0X2Au",
+        "suffix": "u"
+      },
+      "node": "LiteralExpr"
+    },
+    "node": "BinaryExpr",
+    "operator": "+",
+    "right": {
+      "literal": {
+        "base": 16,
+        "magnitude": 255,
+        "node": "IntLiteralValue",
+        "raw_text": "0xffu8",
+        "suffix": "u8"
+      },
+      "node": "LiteralExpr"
+    }
+  },
+  "node": "BinaryExpr",
+  "operator": "==",
+  "right": {
+    "literal": {
+      "base": 16,
+      "magnitude": 297,
+      "node": "IntLiteralValue",
+      "raw_text": "0x129u",
+      "suffix": "u"
+    },
+    "node": "LiteralExpr"
+  }
+}

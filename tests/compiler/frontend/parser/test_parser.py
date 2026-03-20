@@ -560,9 +560,13 @@ def test_parse_expression_hex_u8_literal_uses_structured_payload() -> None:
     assert expr.literal.suffix == "u8"
 
 
-def test_parse_expression_rejects_malformed_hex_literal() -> None:
-    with pytest.raises(ParserError, match="Unsupported integer literal syntax: 0xg"):
-        parse_expression(lex("0xg", source_path="examples/bad_hex_expr.nif"))
+@pytest.mark.parametrize(
+    "literal_text",
+    ["0x", "0xu", "0xu8", "0xg", "0x1g", "0x1gu8"],
+)
+def test_parse_expression_rejects_malformed_hex_literal(literal_text: str) -> None:
+    with pytest.raises(ParserError, match=rf"Unsupported integer literal syntax: {literal_text}"):
+        parse_expression(lex(literal_text, source_path="examples/bad_hex_expr.nif"))
 
 
 def test_parse_expression_float_literal_uses_structured_payload() -> None:

@@ -65,6 +65,11 @@ TARGETS: tuple[GoldenTarget, ...] = (
         golden_file="expression_shape_logical_and_compare.golden.json",
         parse_mode="expression",
     ),
+    GoldenTarget(
+        source_file="expression_shape_hex.nif",
+        golden_file="expression_shape_hex.golden.json",
+        parse_mode="expression",
+    ),
 )
 
 
