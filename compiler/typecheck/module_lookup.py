@@ -155,7 +155,13 @@ def resolve_imported_interface_name(ctx: TypeCheckContext, interface_name: str, 
 
 
 def _resolve_qualified_imported_symbol_name(
-    ctx: TypeCheckContext, qualified_name: str, span: SourceSpan, *, symbol_kind: str, symbol_label: str
+    ctx: TypeCheckContext,
+    qualified_name: str,
+    span: SourceSpan,
+    *,
+    symbol_kind: str,
+    symbol_label: str,
+    allow_missing: bool = False,
 ) -> str | None:
     current_module = current_module_info(ctx)
     if current_module is None or ctx.modules is None:
@@ -182,7 +188,15 @@ def _resolve_qualified_imported_symbol_name(
     symbol_name = parts[-1]
     module_info = ctx.modules[current_path]
     symbol = module_info.exported_symbols.get(symbol_name)
-    if symbol is None or symbol.kind != symbol_kind:
+    if symbol is None:
+        if allow_missing:
+            return None
+        dotted = ".".join(current_path)
+        raise TypeCheckError(f"Module '{dotted}' has no exported {symbol_label} '{symbol_name}'", span)
+
+    if symbol.kind != symbol_kind:
+        if allow_missing:
+            return None
         dotted = ".".join(current_path)
         raise TypeCheckError(f"Module '{dotted}' has no exported {symbol_label} '{symbol_name}'", span)
 
@@ -196,9 +210,16 @@ def resolve_qualified_imported_class_name(ctx: TypeCheckContext, qualified_name:
     )
 
 
-def resolve_qualified_imported_interface_name(ctx: TypeCheckContext, qualified_name: str, span: SourceSpan) -> str | None:
+def resolve_qualified_imported_interface_name(
+    ctx: TypeCheckContext, qualified_name: str, span: SourceSpan, *, allow_missing: bool = False
+) -> str | None:
     return _resolve_qualified_imported_symbol_name(
-        ctx, qualified_name, span, symbol_kind="interface", symbol_label="interface"
+        ctx,
+        qualified_name,
+        span,
+        symbol_kind="interface",
+        symbol_label="interface",
+        allow_missing=allow_missing,
     )
 
 

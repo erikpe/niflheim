@@ -404,6 +404,114 @@ fn main() -> unit {
     parse_and_typecheck(source)
 
 
+def test_typecheck_allows_class_to_interface_assignment_and_obj_to_interface_cast() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    var direct: Hashable = Key();
+    var obj: Obj = Key();
+    var casted: Hashable = (Hashable)obj;
+    var null_hashable: Hashable = (Hashable)null;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_assigning_non_implementing_class_to_interface() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key {
+}
+
+fn main() -> unit {
+    var value: Hashable = Key();
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Cannot assign 'Key' to 'Hashable'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_allows_interface_to_interface_and_interface_to_class_casts() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+interface Comparable {
+    fn equals(other: Obj) -> bool;
+}
+
+class Key implements Hashable, Comparable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        return false;
+    }
+}
+
+fn main() -> unit {
+    var hashable: Hashable = Key();
+    var comparable: Comparable = (Comparable)hashable;
+    var key: Key = (Key)hashable;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_invalid_primitive_interface_cast() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+fn main() -> unit {
+    var value: Hashable = (Hashable)1;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Invalid cast from 'i64' to 'Hashable'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_interface_to_array_cast() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    var value: Hashable = Key();
+    var items: i64[] = (i64[])value;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"Invalid cast from 'Hashable' to 'i64\[\]'"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_null_cast_to_reference() -> None:
     source = """
 class Person {

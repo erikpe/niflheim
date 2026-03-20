@@ -94,6 +94,42 @@ def test_typecheck_program_allows_imported_static_method_value(tmp_path: Path) -
     typecheck_program(program)
 
 
+def test_typecheck_program_allows_imported_interface_annotations_and_assignment(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        export class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn echo(value: Hashable) -> util.Hashable {
+            return value;
+        }
+
+        fn main() -> unit {
+            var h: Hashable = util.Key();
+            var q: util.Hashable = echo(h);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_rejects_private_member_access_across_modules(tmp_path: Path) -> None:
     write(
         tmp_path / "util.nif",

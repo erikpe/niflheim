@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from compiler.frontend.ast_nodes import ArrayTypeRef, FunctionDecl, FunctionTypeRef, InterfaceDecl, InterfaceMethodDecl, MethodDecl, TypeRef, TypeRefNode
 
 from compiler.typecheck.context import TypeCheckContext
@@ -31,6 +33,26 @@ def _interface_sig_from_decl(ctx: TypeCheckContext, decl: InterfaceMethodDecl) -
     return FunctionSig(name=decl.name, params=params, return_type=resolve_type_ref(ctx, decl.return_type))
 
 
+def _contains_interface_type(type_info: TypeInfo) -> bool:
+    if type_info.kind == "interface":
+        return True
+    if type_info.element_type is not None:
+        return _contains_interface_type(type_info.element_type)
+    if type_info.kind == "callable":
+        if type_info.callable_params is not None and any(_contains_interface_type(param) for param in type_info.callable_params):
+            return True
+        if type_info.callable_return is not None and _contains_interface_type(type_info.callable_return):
+            return True
+    return False
+
+
+def _reject_interface_types_in_extern_signature(fn_decl: FunctionDecl, signature: FunctionSig) -> None:
+    if any(_contains_interface_type(param_type) for param_type in signature.params) or _contains_interface_type(
+        signature.return_type
+    ):
+        raise TypeCheckError("Interface types are not allowed in extern signatures in v1", fn_decl.span)
+
+
 def collect_module_declarations(ctx: TypeCheckContext) -> None:
     for interface_decl in ctx.module_ast.interfaces:
         if interface_decl.name in ctx.interfaces or interface_decl.name in ctx.classes or interface_decl.name in ctx.functions:
@@ -50,6 +72,7 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
             final_fields=set(),
             private_methods=set(),
             constructor_is_private=False,
+            implemented_interfaces=set(),
         )
 
     for interface_decl in ctx.module_ast.interfaces:
@@ -96,6 +119,7 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
             final_fields=final_fields,
             private_methods=private_methods,
             constructor_is_private=len(private_fields) > 0,
+            implemented_interfaces=set(),
         )
 
     for fn_decl in ctx.module_ast.functions:
@@ -105,16 +129,24 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
             raise TypeCheckError("Function declaration missing body", fn_decl.span)
         if fn_decl.name in ctx.functions or fn_decl.name in ctx.classes or fn_decl.name in ctx.interfaces:
             raise TypeCheckError(f"Duplicate declaration '{fn_decl.name}'", fn_decl.span)
-        ctx.functions[fn_decl.name] = _function_sig_from_decl(ctx, fn_decl)
+        fn_sig = _function_sig_from_decl(ctx, fn_decl)
+        if fn_decl.is_extern:
+            _reject_interface_types_in_extern_signature(fn_decl, fn_sig)
+        ctx.functions[fn_decl.name] = fn_sig
 
 
 def validate_interface_conformance(ctx: TypeCheckContext) -> None:
     for class_decl in ctx.module_ast.classes:
         class_info = ctx.classes[class_decl.name]
         method_decls_by_name = {method_decl.name: method_decl for method_decl in class_decl.methods}
+        implemented_interfaces: set[str] = set()
 
         for interface_ref in class_decl.implements:
             interface_type_name, interface_info, interface_owner_module = _resolve_implemented_interface(ctx, interface_ref)
+            if interface_owner_module is not None and "::" not in interface_type_name:
+                implemented_interfaces.add(f"{'.'.join(interface_owner_module)}::{interface_type_name}")
+            else:
+                implemented_interfaces.add(interface_type_name)
             for method_name, interface_method_sig in interface_info.methods.items():
                 class_method_sig = class_info.methods.get(method_name)
                 if class_method_sig is None:
@@ -147,6 +179,8 @@ def validate_interface_conformance(ctx: TypeCheckContext) -> None:
                     class_owner_module=ctx.module_path,
                     interface_owner_module=interface_owner_module,
                 )
+
+        ctx.classes[class_decl.name] = replace(class_info, implemented_interfaces=implemented_interfaces)
 
 
 def _resolve_implemented_interface(

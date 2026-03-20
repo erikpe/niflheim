@@ -78,3 +78,51 @@ def test_typecheck_rejects_casts_involving_function_types() -> None:
     )
     with pytest.raises(TypeCheckError, match="Casts involving function types are not allowed in MVP"):
         typecheck(source)
+
+
+def test_typecheck_allows_interface_types_in_locals_fields_params_returns_and_arrays() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+class Holder {
+    value: Hashable;
+    values: Hashable[];
+}
+
+fn echo(value: Hashable) -> Hashable {
+    return value;
+}
+
+fn main() -> unit {
+    var item: Hashable = Key();
+    var items: Hashable[] = Hashable[](1u);
+    var holder: Holder = Holder(item, items);
+    var echoed: Hashable = echo(holder.value);
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_interface_types_in_extern_signatures() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+extern fn rt_hash(value: Hashable) -> u64;
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Interface types are not allowed in extern signatures in v1"):
+        parse_and_typecheck(source)

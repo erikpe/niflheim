@@ -7,7 +7,9 @@ from compiler.frontend.lexer import SourceSpan
 from compiler.typecheck.model import PRIMITIVE_TYPE_NAMES, REFERENCE_BUILTIN_TYPE_NAMES, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     resolve_imported_class_name,
+    resolve_imported_interface_name,
     resolve_qualified_imported_class_name,
+    resolve_qualified_imported_interface_name,
     resolve_unique_global_class_name,
 )
 from compiler.typecheck.relations import format_function_type_name
@@ -33,16 +35,31 @@ def resolve_type_ref(ctx: TypeCheckContext, type_ref: TypeRefNode) -> TypeInfo:
         return TypeInfo(name=name, kind="primitive")
 
     if "." in name:
+        qualified_interface_name = resolve_qualified_imported_interface_name(ctx, name, type_ref.span, allow_missing=True)
+        if qualified_interface_name is not None:
+            return TypeInfo(name=qualified_interface_name, kind="interface")
+
         qualified_name = resolve_qualified_imported_class_name(ctx, name, type_ref.span)
         if qualified_name is not None:
             return TypeInfo(name=qualified_name, kind="reference")
 
+    if name in ctx.interfaces:
+        return TypeInfo(name=name, kind="interface")
+
     if name in ctx.classes:
         return TypeInfo(name=name, kind="reference")
 
-    imported_name = resolve_imported_class_name(ctx, name, type_ref.span)
-    if imported_name is not None:
-        return TypeInfo(name=imported_name, kind="reference")
+    imported_interface_name = resolve_imported_interface_name(ctx, name, type_ref.span)
+    imported_class_name = resolve_imported_class_name(ctx, name, type_ref.span)
+
+    if imported_interface_name is not None and imported_class_name is not None:
+        raise TypeCheckError(f"Ambiguous imported type '{name}'", type_ref.span)
+
+    if imported_interface_name is not None:
+        return TypeInfo(name=imported_interface_name, kind="interface")
+
+    if imported_class_name is not None:
+        return TypeInfo(name=imported_class_name, kind="reference")
 
     if name in REFERENCE_BUILTIN_TYPE_NAMES:
         return TypeInfo(name=name, kind="reference")
@@ -72,7 +89,7 @@ def qualify_member_type_for_owner(ctx: TypeCheckContext, member_type: TypeInfo, 
             return member_type
         return TypeInfo(name=f"{qualified_element_type.name}[]", kind="reference", element_type=qualified_element_type)
 
-    if member_type.kind != "reference" or "::" in member_type.name:
+    if member_type.kind not in {"reference", "interface"} or "::" in member_type.name:
         return member_type
     if "::" not in owner_type_name or ctx.module_class_infos is None:
         return member_type
@@ -80,7 +97,11 @@ def qualify_member_type_for_owner(ctx: TypeCheckContext, member_type: TypeInfo, 
     owner_dotted, _owner_class_name = owner_type_name.split("::", 1)
     owner_module = tuple(owner_dotted.split("."))
     owner_classes = ctx.module_class_infos.get(owner_module)
-    if owner_classes is None or member_type.name not in owner_classes:
-        return member_type
+    if owner_classes is not None and member_type.name in owner_classes:
+        return TypeInfo(name=f"{owner_dotted}::{member_type.name}", kind=member_type.kind)
 
-    return TypeInfo(name=f"{owner_dotted}::{member_type.name}", kind="reference")
+    owner_interfaces = None if ctx.module_interface_infos is None else ctx.module_interface_infos.get(owner_module)
+    if owner_interfaces is not None and member_type.name in owner_interfaces:
+        return TypeInfo(name=f"{owner_dotted}::{member_type.name}", kind=member_type.kind)
+
+    return member_type

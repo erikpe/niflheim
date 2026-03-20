@@ -2,24 +2,29 @@ from __future__ import annotations
 
 from compiler.typecheck.context import TypeCheckContext
 from compiler.frontend.lexer import SourceSpan
+from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 
 
-def canonicalize_reference_type_name(ctx: TypeCheckContext, type_name: str) -> str:
+def canonicalize_nominal_type_name(ctx: TypeCheckContext, type_name: str) -> str:
     if "::" in type_name:
         return type_name
     if ctx.module_path is None:
         return type_name
-    if type_name not in ctx.classes:
+    if type_name not in ctx.classes and type_name not in ctx.interfaces:
         return type_name
     owner_dotted = ".".join(ctx.module_path)
     return f"{owner_dotted}::{type_name}"
 
 
+def canonicalize_reference_type_name(ctx: TypeCheckContext, type_name: str) -> str:
+    return canonicalize_nominal_type_name(ctx, type_name)
+
+
 def _type_names_equal(ctx: TypeCheckContext, left: str, right: str) -> bool:
     if left == right:
         return True
-    return canonicalize_reference_type_name(ctx, left) == canonicalize_reference_type_name(ctx, right)
+    return canonicalize_nominal_type_name(ctx, left) == canonicalize_nominal_type_name(ctx, right)
 
 
 def _type_infos_equal(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> bool:
@@ -78,9 +83,11 @@ def require_array_index_type(actual: TypeInfo, span: SourceSpan) -> None:
 def require_assignable(ctx: TypeCheckContext, target: TypeInfo, value: TypeInfo, span: SourceSpan) -> None:
     if _type_infos_equal(ctx, target, value):
         return
-    if target.kind == "reference" and value.kind == "null":
+    if target.kind in {"reference", "interface"} and value.kind == "null":
         return
-    if target.name == "Obj" and value.kind == "reference":
+    if target.name == "Obj" and value.kind in {"reference", "interface"}:
+        return
+    if target.kind == "interface" and value.kind == "reference" and _class_implements_interface(ctx, value.name, target.name):
         return
     raise TypeCheckError(f"Cannot assign '{_display_type_name(value)}' to '{_display_type_name(target)}'", span)
 
@@ -88,9 +95,9 @@ def require_assignable(ctx: TypeCheckContext, target: TypeInfo, value: TypeInfo,
 def is_comparable(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> bool:
     if _type_infos_equal(ctx, left, right):
         return True
-    if left.kind == "reference" and right.kind == "null":
+    if left.kind in {"reference", "interface"} and right.kind == "null":
         return True
-    if right.kind == "reference" and left.kind == "null":
+    if right.kind in {"reference", "interface"} and left.kind == "null":
         return True
     return False
 
@@ -107,10 +114,45 @@ def check_explicit_cast(ctx: TypeCheckContext, source: TypeInfo, target: TypeInf
             raise TypeCheckError("Casts involving 'unit' are not allowed", span)
         return
 
-    if source.kind == "reference" and target.name == "Obj":
+    if source.kind == "null" and target.kind == "interface":
         return
 
-    if source.name == "Obj" and target.kind == "reference" and target.name != "Obj":
+    if source.kind in {"reference", "interface"} and target.name == "Obj":
+        return
+
+    if source.name == "Obj" and target.kind in {"reference", "interface"} and target.name != "Obj":
+        return
+
+    if source.kind == "interface" and target.kind == "interface":
+        return
+
+    if source.kind == "interface" and _is_concrete_class_type(ctx, target):
+        return
+
+    if source.kind == "reference" and target.kind == "interface" and _class_implements_interface(ctx, source.name, target.name):
         return
 
     raise TypeCheckError(f"Invalid cast from '{source.name}' to '{target.name}'", span)
+
+
+def _class_implements_interface(ctx: TypeCheckContext, class_type_name: str, interface_type_name: str) -> bool:
+    if ctx.module_class_infos is None:
+        class_info = ctx.classes.get(class_type_name)
+    elif "::" in class_type_name:
+        owner_dotted, class_name = class_type_name.split("::", 1)
+        owner_module = tuple(owner_dotted.split("."))
+        class_info = ctx.module_class_infos.get(owner_module, {}).get(class_name)
+    else:
+        class_info = ctx.classes.get(class_type_name)
+
+    if class_info is None:
+        return False
+
+    canonical_interface_name = canonicalize_nominal_type_name(ctx, interface_type_name)
+    return canonical_interface_name in {canonicalize_nominal_type_name(ctx, name) for name in class_info.implemented_interfaces}
+
+
+def _is_concrete_class_type(ctx: TypeCheckContext, type_info: TypeInfo) -> bool:
+    if type_info.kind != "reference" or type_info.name == "Obj" or type_info.element_type is not None:
+        return False
+    return lookup_class_by_type_name(ctx, type_info.name) is not None

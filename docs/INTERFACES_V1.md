@@ -527,12 +527,11 @@ Integration:
 ## Open Questions Deferred From v1
 
 - Should built-in reference types like `Str` be able to declare interfaces immediately?
-- Should interface values be allowed in extern function signatures immediately, or deferred until the FFI ABI is documented explicitly?
 
 Recommended follow-up direction for externs:
 
 - if interface values remain raw object pointers, they can later ABI-lower exactly like `Obj`
-- v1 implementation may still choose to reject interfaces in extern signatures until that is documented and tested explicitly
+- v1 now rejects interfaces in extern signatures until that ABI path is documented and tested explicitly
 
 ## Summary
 

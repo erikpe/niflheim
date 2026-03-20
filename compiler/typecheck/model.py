@@ -39,6 +39,7 @@ class ClassInfo:
     final_fields: set[str]
     private_methods: set[str]
     constructor_is_private: bool
+    implemented_interfaces: set[str]
 
 
 @dataclass(frozen=True)

@@ -16,10 +16,11 @@ Completed so far:
 - Step 2 is implemented and validated.
 - Step 3 is implemented and validated.
 - Step 4 is implemented and validated.
+- Step 5 is implemented and validated.
 
 Not started yet:
 
-- Step 5 and later.
+- Step 6 and later.
 
 ## Scope
 
@@ -288,14 +289,14 @@ Step 4 objective check:
 
 ## Step 5: Extend TypeInfo And Type Relations For Interface Types
 
-- [ ] Add interface kind to `TypeInfo`
-- [ ] Extend type resolution to resolve interface names in annotations
-- [ ] Extend assignability rules so implementing classes are assignable to interfaces
-- [ ] Extend cast legality rules for `Obj -> Interface`
-- [ ] Extend cast legality rules for direct explicit interface-to-interface casts
-- [ ] Extend cast legality rules for interface-to-class policy
-- [ ] Keep callable/primitive rules unchanged
-- [ ] Decide and document whether interfaces are allowed in extern signatures for v1
+- [x] Add interface kind to `TypeInfo`
+- [x] Extend type resolution to resolve interface names in annotations
+- [x] Extend assignability rules so implementing classes are assignable to interfaces
+- [x] Extend cast legality rules for `Obj -> Interface`
+- [x] Extend cast legality rules for direct explicit interface-to-interface casts
+- [x] Extend cast legality rules for interface-to-class policy
+- [x] Keep callable/primitive rules unchanged
+- [x] Decide and document whether interfaces are allowed in extern signatures for v1
 
 Suggested code areas:
 
@@ -318,6 +319,35 @@ Suggested tests for this step:
 What should be achieved at the end of this step:
 
 - interface types behave as first-class reference types in the type system
+
+Validation for this step:
+
+- Implemented in `compiler/typecheck/model.py`, `compiler/typecheck/declarations.py`, `compiler/typecheck/type_resolution.py`, `compiler/typecheck/relations.py`, and `compiler/typecheck/module_lookup.py`
+- `TypeInfo` now distinguishes interface types explicitly, and interface annotations resolve in local, imported, qualified, and array positions
+- Assignability now accepts implementing class values for interface targets, interface values for `Obj`, and `null` for interface-typed slots
+- Explicit cast legality now accepts `Obj -> Interface`, direct interface-to-interface casts, and interface-to-class casts while preserving existing primitive and callable restrictions
+- v1 extern-signature policy is now locked to reject interface types until the FFI ABI is documented and tested explicitly
+- Added focused tests covering:
+	- interface types in locals, fields, params, returns, and arrays
+	- class-to-interface assignment
+	- `Obj -> Interface` casts
+	- interface-to-interface and interface-to-class casts
+	- invalid primitive/interface cast rejection
+	- imported interface annotations and assignability across modules
+	- interface rejection in extern signatures
+- Validation run results:
+	- focused Step 5 typecheck suites: `96 passed`
+	- full suite: `449 passed`
+
+Step 5 objective check:
+
+- fulfilled: `TypeInfo` now carries an explicit interface kind alongside existing primitive, reference, callable, and null kinds
+- fulfilled: type resolution now resolves interface names in annotations for local, imported, and qualified references
+- fulfilled: implementing classes are assignable to interface-typed targets
+- fulfilled: explicit `Obj -> Interface`, interface-to-interface, and interface-to-class casts are accepted by the typechecker under the v1 policy
+- fulfilled: primitive and callable cast rules remain unchanged
+- fulfilled: interface types behave as first-class reference-like types in locals, fields, params, returns, and arrays
+- fulfilled: v1 now explicitly rejects interface types in extern signatures pending dedicated FFI ABI documentation and validation
 
 ## Step 6: Extend Semantic IR For Interface Dispatch
 
