@@ -8,7 +8,15 @@ Use [INTERFACES_V1.md](INTERFACES_V1.md) as the source of truth for design inten
 
 ## Status
 
-Not started.
+In progress.
+
+Completed so far:
+
+- Step 1 is implemented and validated.
+
+Not started yet:
+
+- Step 2 and later.
 
 ## Scope
 
@@ -65,12 +73,12 @@ Implement in this order:
 
 ## Step 1: Add Frontend Syntax And AST Nodes
 
-- [ ] Add lexer keyword support for `interface` and `implements`
-- [ ] Extend parser grammar to parse interface declarations
-- [ ] Extend parser grammar to parse class `implements` clauses
-- [ ] Add frontend AST nodes for interfaces
-- [ ] Extend `ModuleAst` to hold interfaces
-- [ ] Extend `ClassDecl` to hold implemented interface type refs
+- [x] Add lexer keyword support for `interface` and `implements`
+- [x] Extend parser grammar to parse interface declarations
+- [x] Extend parser grammar to parse class `implements` clauses
+- [x] Add frontend AST nodes for interfaces
+- [x] Extend `ModuleAst` to hold interfaces
+- [x] Extend `ClassDecl` to hold implemented interface type refs
 
 Suggested code areas:
 
@@ -92,6 +100,26 @@ What should be achieved at the end of this step:
 - the frontend can parse interface declarations and class `implements` clauses
 - the AST represents interfaces explicitly
 - existing non-interface syntax remains unaffected
+
+Validation for this step:
+
+- Implemented in `compiler/frontend/tokens.py`, `compiler/frontend/parser.py`, and `compiler/frontend/ast_nodes.py`
+- Covered by focused lexer/parser tests, including:
+	- `test_lex_interface_and_implements_keywords`
+	- `test_parse_interface_declarations_and_class_implements`
+	- `test_parse_rejects_interface_method_body`
+	- `test_parse_rejects_malformed_implements_clause`
+- Parser AST golden snapshots were refreshed to reflect the explicit `interfaces` and `implements` fields
+- Validation run results:
+	- focused frontend and compatibility tests: `108 passed`
+	- full suite: `426 passed`
+
+Step 1 objective check:
+
+- fulfilled: interface declarations parse at module scope, including `export interface`
+- fulfilled: class `implements` clauses parse into explicit type refs
+- fulfilled: AST now represents interface declarations and implemented interfaces explicitly
+- fulfilled: legacy syntax remains stable under the full test suite
 
 ## Step 2: Add Canonical Interface Symbol IDs And Inventory
 

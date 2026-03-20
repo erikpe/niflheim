@@ -118,11 +118,14 @@ export fn main() -> unit {
     assert module.imports[1].module_path == ["std", "io"]
     assert module.imports[1].is_export is True
 
+    assert module.interfaces == []
+
     assert len(module.classes) == 1
     cls = module.classes[0]
     assert isinstance(cls, ClassDecl)
     assert cls.name == "Point"
     assert cls.is_export is False
+    assert cls.implements == []
     assert [field.name for field in cls.fields] == ["x", "y"]
     assert len(cls.methods) == 1
     assert cls.methods[0].name == "reset"
@@ -226,6 +229,75 @@ class Counter {
     method = cls.methods[0]
     assert method.name == "add"
     assert method.is_static is True
+
+
+def test_parse_interface_declarations_and_class_implements() -> None:
+    source = """
+export interface Hashable {
+    fn hash_code() -> u64;
+}
+
+interface Comparable {
+    fn equals(other: Obj) -> bool;
+}
+
+class MyKey implements Hashable, Comparable {
+    fn hash_code() -> u64 {
+        return 42u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        return false;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/interfaces_parse.nif"))
+
+    assert len(module.interfaces) == 2
+    hashable = module.interfaces[0]
+    comparable = module.interfaces[1]
+
+    assert isinstance(hashable, InterfaceDecl)
+    assert hashable.name == "Hashable"
+    assert hashable.is_export is True
+    assert len(hashable.methods) == 1
+    assert isinstance(hashable.methods[0], InterfaceMethodDecl)
+    assert hashable.methods[0].name == "hash_code"
+    assert hashable.methods[0].params == []
+    assert hashable.methods[0].return_type.name == "u64"
+
+    assert comparable.name == "Comparable"
+    assert comparable.is_export is False
+    assert len(comparable.methods) == 1
+    assert comparable.methods[0].name == "equals"
+    assert len(comparable.methods[0].params) == 1
+    assert comparable.methods[0].params[0].name == "other"
+    assert comparable.methods[0].params[0].type_ref.name == "Obj"
+    assert comparable.methods[0].return_type.name == "bool"
+
+    assert len(module.classes) == 1
+    cls = module.classes[0]
+    assert [type_ref.name for type_ref in cls.implements] == ["Hashable", "Comparable"]
+
+
+def test_parse_rejects_interface_method_body() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64 {
+        return 42u;
+    }
+}
+"""
+
+    with pytest.raises(ParserError, match="Expected ';' after interface method signature"):
+        parse(lex(source, source_path="examples/interface_method_body_error.nif"))
+
+
+def test_parse_rejects_malformed_implements_clause() -> None:
+    source = "class MyKey implements Hashable, { }"
+
+    with pytest.raises(ParserError, match="Expected type name"):
+        parse(lex(source, source_path="examples/malformed_implements.nif"))
 
 
 def test_parse_private_field_and_methods_in_class_body() -> None:
@@ -334,7 +406,7 @@ def test_parse_export_requires_import_class_or_fn() -> None:
     with pytest.raises(ParserError) as error:
         parse(lex(source, source_path="examples/bad_export.nif"))
 
-    assert "Expected 'import', 'class', 'fn', or 'extern fn' after 'export'" in str(error.value)
+    assert "Expected 'import', 'class', 'interface', 'fn', or 'extern fn' after 'export'" in str(error.value)
     assert "examples/bad_export.nif" in str(error.value)
 
 

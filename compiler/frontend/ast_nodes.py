@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from compiler.frontend.lexer import SourceSpan
 
@@ -31,6 +31,22 @@ TypeRefNode = TypeRef | ArrayTypeRef | FunctionTypeRef
 class ParamDecl:
     name: str
     type_ref: TypeRefNode
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class InterfaceMethodDecl:
+    name: str
+    params: list[ParamDecl]
+    return_type: TypeRefNode
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class InterfaceDecl:
+    name: str
+    methods: list[InterfaceMethodDecl]
+    is_export: bool
     span: SourceSpan
 
 
@@ -80,6 +96,7 @@ class ClassDecl:
     methods: list[MethodDecl]
     is_export: bool
     span: SourceSpan
+    implements: list[TypeRefNode] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -88,6 +105,7 @@ class ModuleAst:
     classes: list[ClassDecl]
     functions: list[FunctionDecl]
     span: SourceSpan
+    interfaces: list[InterfaceDecl] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

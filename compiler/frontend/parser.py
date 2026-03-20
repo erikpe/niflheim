@@ -75,6 +75,7 @@ class Parser:
         imports: list[ImportDecl] = []
         classes: list[ClassDecl] = []
         functions: list[FunctionDecl] = []
+        interfaces: list[InterfaceDecl] = []
 
         start = self.stream.peek().span.start
 
@@ -101,6 +102,14 @@ class Parser:
                     )
                     continue
 
+                if self.stream.match(TokenKind.INTERFACE):
+                    interfaces.append(
+                        self._parse_interface_decl(
+                            is_export=True, interface_token=self.stream.previous(), export_token=export_token
+                        )
+                    )
+                    continue
+
                 if self.stream.match(TokenKind.FN):
                     functions.append(
                         self._parse_function_decl(
@@ -120,7 +129,8 @@ class Parser:
                     continue
 
                 raise ParserError(
-                    "Expected 'import', 'class', 'fn', or 'extern fn' after 'export'", self.stream.peek().span
+                    "Expected 'import', 'class', 'interface', 'fn', or 'extern fn' after 'export'",
+                    self.stream.peek().span,
                 )
 
             if self.stream.match(TokenKind.EXTERN):
@@ -135,6 +145,10 @@ class Parser:
                 classes.append(self._parse_class_decl(is_export=False, class_token=self.stream.previous()))
                 continue
 
+            if self.stream.match(TokenKind.INTERFACE):
+                interfaces.append(self._parse_interface_decl(is_export=False, interface_token=self.stream.previous()))
+                continue
+
             if self.stream.match(TokenKind.FN):
                 functions.append(self._parse_function_decl(is_export=False, fn_token=self.stream.previous()))
                 continue
@@ -142,7 +156,13 @@ class Parser:
             raise ParserError("Unexpected token at module scope", self.stream.peek().span)
 
         end = self.stream.peek().span.end
-        return ModuleAst(imports=imports, classes=classes, functions=functions, span=SourceSpan(start=start, end=end))
+        return ModuleAst(
+            imports=imports,
+            classes=classes,
+            functions=functions,
+            span=SourceSpan(start=start, end=end),
+            interfaces=interfaces,
+        )
 
     def parse_expression_root(self) -> Expression:
         expr = self._parse_expression()
@@ -178,6 +198,12 @@ class Parser:
 
     def _parse_class_decl(self, *, is_export: bool, class_token: Token, export_token: Token | None = None) -> ClassDecl:
         name_token = self._expect_symbol_name("Expected class name")
+        implements: list[TypeRefNode] = []
+        if self.stream.match(TokenKind.IMPLEMENTS):
+            while True:
+                implements.append(self._parse_type_ref())
+                if not self.stream.match(TokenKind.COMMA):
+                    break
         self.stream.expect(TokenKind.LBRACE, "Expected '{' after class name")
 
         fields: list[FieldDecl] = []
@@ -245,7 +271,46 @@ class Parser:
         rbrace = self.stream.expect(TokenKind.RBRACE, "Expected '}' after class body")
         start_pos = export_token.span.start if export_token is not None else class_token.span.start
         span = SourceSpan(start=start_pos, end=rbrace.span.end)
-        return ClassDecl(name=name_token.lexeme, fields=fields, methods=methods, is_export=is_export, span=span)
+        return ClassDecl(
+            name=name_token.lexeme,
+            fields=fields,
+            methods=methods,
+            is_export=is_export,
+            span=span,
+            implements=implements,
+        )
+
+    def _parse_interface_decl(
+        self, *, is_export: bool, interface_token: Token, export_token: Token | None = None
+    ) -> InterfaceDecl:
+        name_token = self._expect_symbol_name("Expected interface name")
+        self.stream.expect(TokenKind.LBRACE, "Expected '{' after interface name")
+
+        methods: list[InterfaceMethodDecl] = []
+        while not self.stream.check(TokenKind.RBRACE):
+            if self.stream.is_at_end():
+                raise ParserError("Unterminated interface body", interface_token.span)
+            fn_token = self.stream.expect(TokenKind.FN, "Expected method declaration in interface body")
+            methods.append(self._parse_interface_method_decl(fn_token=fn_token))
+
+        rbrace = self.stream.expect(TokenKind.RBRACE, "Expected '}' after interface body")
+        start_pos = export_token.span.start if export_token is not None else interface_token.span.start
+        return InterfaceDecl(
+            name=name_token.lexeme,
+            methods=methods,
+            is_export=is_export,
+            span=SourceSpan(start=start_pos, end=rbrace.span.end),
+        )
+
+    def _parse_interface_method_decl(self, *, fn_token: Token) -> InterfaceMethodDecl:
+        name, params, return_type = self._parse_callable_signature()
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after interface method signature")
+        return InterfaceMethodDecl(
+            name=name,
+            params=params,
+            return_type=return_type,
+            span=SourceSpan(start=fn_token.span.start, end=semicolon.span.end),
+        )
 
     def _parse_field_decl(self, *, is_private: bool, is_final: bool, start_token: Token | None = None) -> FieldDecl:
         name = self.stream.expect(TokenKind.IDENT, "Expected field name")

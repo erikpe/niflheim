@@ -25,6 +25,7 @@
           }
         }
       ],
+      "implements": [],
       "is_export": false,
       "methods": [
         {
@@ -209,5 +210,6 @@
       "node": "ImportDecl"
     }
   ],
+  "interfaces": [],
   "node": "ModuleAst"
 }

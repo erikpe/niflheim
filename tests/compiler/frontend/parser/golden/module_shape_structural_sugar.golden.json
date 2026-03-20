@@ -283,5 +283,6 @@
       "node": "ImportDecl"
     }
   ],
+  "interfaces": [],
   "node": "ModuleAst"
 }

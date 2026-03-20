@@ -85,6 +85,14 @@ def test_lex_remaining_keywords_and_punctuation_tokens() -> None:
     assert TokenKind.GTE in kinds
 
 
+def test_lex_interface_and_implements_keywords() -> None:
+    source = "export interface Hashable { fn hash_code() -> u64; } class Key implements Hashable {}"
+    kinds = [token.kind for token in lex(source)]
+
+    assert TokenKind.INTERFACE in kinds
+    assert TokenKind.IMPLEMENTS in kinds
+
+
 def test_lex_skips_whitespace_and_line_comments() -> None:
     source = "// first\nvar x: i64 = 1; // second\n"
     tokens = lex(source)
