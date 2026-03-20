@@ -149,6 +149,19 @@ def test_lex_u8_suffixed_integer_literal() -> None:
     assert int_token.lexeme == "113u8"
 
 
+def test_lex_hex_integer_literals() -> None:
+    source = "var a: i64 = 0x2a; var b: u64 = 0x2Au; var c: u8 = 0xffu8;"
+    tokens = [token for token in lex(source) if token.kind == TokenKind.INT_LIT]
+
+    assert [token.lexeme for token in tokens] == ["0x2a", "0x2Au", "0xffu8"]
+
+
+def test_lex_invalid_hex_integer_spelling_stays_single_token() -> None:
+    tokens = [token for token in lex("var x: i64 = 0xg;", source_path="examples/hex_bad.nif") if token.kind == TokenKind.INT_LIT]
+
+    assert [token.lexeme for token in tokens] == ["0xg"]
+
+
 def test_lex_char_literal_and_escape_literal() -> None:
     source = "var a: u8 = 'q'; var b: u8 = '\\x71';"
     tokens = lex(source)

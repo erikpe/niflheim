@@ -538,6 +538,33 @@ def test_parse_expression_u8_suffixed_integer_literal() -> None:
     assert expr.literal.suffix == "u8"
 
 
+def test_parse_expression_hex_integer_literal_uses_structured_payload() -> None:
+    expr = parse_expression(lex("0x2Au", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, LiteralExpr)
+    assert isinstance(expr.literal, IntLiteralValue)
+    assert expr.literal.raw_text == "0x2Au"
+    assert expr.literal.magnitude == 42
+    assert expr.literal.base == 16
+    assert expr.literal.suffix == "u"
+
+
+def test_parse_expression_hex_u8_literal_uses_structured_payload() -> None:
+    expr = parse_expression(lex("0xffu8", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, LiteralExpr)
+    assert isinstance(expr.literal, IntLiteralValue)
+    assert expr.literal.raw_text == "0xffu8"
+    assert expr.literal.magnitude == 255
+    assert expr.literal.base == 16
+    assert expr.literal.suffix == "u8"
+
+
+def test_parse_expression_rejects_malformed_hex_literal() -> None:
+    with pytest.raises(ParserError, match="Unsupported integer literal syntax: 0xg"):
+        parse_expression(lex("0xg", source_path="examples/bad_hex_expr.nif"))
+
+
 def test_parse_expression_float_literal_uses_structured_payload() -> None:
     expr = parse_expression(lex("12.5", source_path="examples/expr.nif"))
 

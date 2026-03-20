@@ -1024,7 +1024,6 @@ def _lowered_literal_type_name(lower_ctx: _ModuleLoweringContext, expr: LiteralE
     if (
         isinstance(literal, IntLiteralValue)
         and literal.suffix is None
-        and literal.base == 10
         and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL
     ):
         return "i64"

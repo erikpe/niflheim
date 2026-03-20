@@ -9,6 +9,10 @@ def _literal_expr(literal: LiteralValueNode, span: SourceSpan) -> LiteralExpr:
     return LiteralExpr(literal=literal, span=span)
 
 
+def _is_hex_digits(text: str) -> bool:
+    return all(ch.isdigit() or ("a" <= ch <= "f") or ("A" <= ch <= "F") for ch in text)
+
+
 def parse_int_literal_text(text: str) -> IntLiteralValue:
     if not text:
         raise ValueError("Expected integer literal text")
@@ -22,10 +26,17 @@ def parse_int_literal_text(text: str) -> IntLiteralValue:
         suffix = "u"
         digits = text[:-1]
 
-    if not digits or not digits.isdigit():
+    base = 10
+    magnitude_digits = digits
+    if digits.startswith(("0x", "0X")):
+        base = 16
+        magnitude_digits = digits[2:]
+        if not magnitude_digits or not _is_hex_digits(magnitude_digits):
+            raise ValueError(f"Unsupported integer literal syntax: {text}")
+    elif not digits or not digits.isdigit():
         raise ValueError(f"Unsupported integer literal syntax: {text}")
 
-    return IntLiteralValue(raw_text=text, magnitude=int(digits), base=10, suffix=suffix)
+    return IntLiteralValue(raw_text=text, magnitude=int(magnitude_digits, base), base=base, suffix=suffix)
 
 
 def parse_float_literal_text(text: str) -> FloatLiteralValue:

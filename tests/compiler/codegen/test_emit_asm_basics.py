@@ -111,6 +111,29 @@ def test_emit_asm_return_u8_suffixed_integer_literal(tmp_path) -> None:
     assert "    mov rax, 113u8" not in asm
 
 
+def test_emit_asm_return_hex_integer_literals_from_canonical_values(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn answer_i64() -> i64 { return 0x2a; }
+        fn answer_u64() -> u64 { return 0x2au; }
+        fn answer_u8() -> u8 { return 0xffu8; }
+
+        fn main() -> i64 {
+            return answer_i64() + (i64)answer_u64() + (i64)answer_u8();
+        }
+        """,
+    )
+
+    assert "answer_i64:" in asm
+    assert "answer_u64:" in asm
+    assert "answer_u8:" in asm
+    assert asm.count("    mov rax, 42") >= 2
+    assert "    mov rax, 255" in asm
+    assert "    mov rax, 0x2a" not in asm
+    assert "    mov rax, 0xff" not in asm
+
+
 def test_emit_asm_return_char_literal(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,

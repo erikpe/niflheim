@@ -112,6 +112,9 @@ class Lexer:
         return Token(kind, lexeme, SourceSpan(start, self._pos()))
 
     def _read_number(self, start: SourcePos) -> Token:
+        if self._peek() == "0" and self._peek_next() in {"x", "X"}:
+            return self._read_hex_integer(start)
+
         while not self._is_at_end() and self._peek().isdigit():
             self._advance()
 
@@ -130,6 +133,16 @@ class Lexer:
         lexeme = self.source[start.offset : self.index]
         kind = TokenKind.FLOAT_LIT if is_float else TokenKind.INT_LIT
         return Token(kind, lexeme, SourceSpan(start, self._pos()))
+
+    def _read_hex_integer(self, start: SourcePos) -> Token:
+        self._advance()
+        self._advance()
+
+        while not self._is_at_end() and self._is_ident_part(self._peek()):
+            self._advance()
+
+        lexeme = self.source[start.offset : self.index]
+        return Token(TokenKind.INT_LIT, lexeme, SourceSpan(start, self._pos()))
 
     def _read_string(self, start: SourcePos) -> Token:
         self._advance()

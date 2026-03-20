@@ -145,10 +145,33 @@ fn main() -> unit {
     parse_and_typecheck(source)
 
 
+def test_typecheck_hex_integer_literals_follow_existing_suffix_rules() -> None:
+    source = """
+fn main() -> unit {
+    var a: i64 = 0x2a;
+    var b: u64 = 0x2au;
+    var c: u8 = 0xffu8;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_u64_literal_out_of_range() -> None:
     source = """
 fn main() -> unit {
     var x: u64 = 18446744073709551616u;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="u64 literal out of range"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_hex_u64_literal_out_of_range() -> None:
+    source = """
+fn main() -> unit {
+    var x: u64 = 0x10000000000000000u;
     return;
 }
 """
@@ -189,6 +212,17 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_hex_u8_literal_out_of_range() -> None:
+    source = """
+fn main() -> unit {
+    var x: u8 = 0x100u8;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="u8 literal out of range"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_assigning_u_suffix_literal_to_i64() -> None:
     source = """
 fn main() -> unit {
@@ -204,6 +238,17 @@ def test_typecheck_rejects_i64_literal_out_of_range() -> None:
     source = """
 fn main() -> unit {
     var x: i64 = 9223372036854775808;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="i64 literal out of range"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_hex_i64_literal_out_of_range() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = 0x8000000000000000;
     return;
 }
 """
@@ -240,6 +285,27 @@ fn main() -> unit {
 }
 """
     parse_and_typecheck(source)
+
+
+def test_typecheck_allows_hex_i64_min_literal_via_unary_minus() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = -0x8000000000000000;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_hex_i64_literal_out_of_range_negative() -> None:
+    source = """
+fn main() -> unit {
+    var x: i64 = -0x8000000000000001;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="i64 literal out of range"):
+        parse_and_typecheck(source)
 
 
 def test_typecheck_rejects_unary_minus_on_u64() -> None:

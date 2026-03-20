@@ -99,7 +99,7 @@ def _infer_unary_expression_type(ctx: TypeCheckContext, expr: UnaryExpr) -> Type
     if expr.operator == "-":
         if isinstance(expr.operand, LiteralExpr) and isinstance(expr.operand.literal, IntLiteralValue):
             literal = expr.operand.literal
-            if literal.suffix is None and literal.base == 10 and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL:
+            if literal.suffix is None and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL:
                 return TypeInfo(name="i64", kind="primitive")
         operand_type = infer_expression_type(ctx, expr.operand)
         if operand_type.name not in {"i64", "double"}:
