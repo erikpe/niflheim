@@ -62,6 +62,7 @@ def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
             FunctionCallExpr,
             StaticMethodCallExpr,
             InstanceMethodCallExpr,
+            InterfaceMethodCallExpr,
             ConstructorCallExpr,
             CallableValueCallExpr,
             IndexReadExpr,
@@ -129,6 +130,11 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
         return _max_rooted_sequence(expr.args)
     if isinstance(expr, InstanceMethodCallExpr):
         return _max_rooted_sequence([expr.receiver, *expr.args])
+    if isinstance(expr, InterfaceMethodCallExpr):
+        return max(
+            _max_call_temp_root_slots_in_expr(expr.receiver),
+            1 + _max_rooted_sequence(expr.args),
+        )
     if isinstance(expr, ArrayLenExpr):
         return _max_rooted_sequence([expr.target])
     if isinstance(expr, IndexReadExpr):

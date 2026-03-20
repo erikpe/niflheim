@@ -210,3 +210,25 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
     walk_codegen_program_expressions(program, lambda expr: seen.append(_describe_expr(expr)))
 
     assert seen == ["LocalRefExpr:fn_expr", "LiteralExprS:3", "LocalRefExpr:method_expr"]
+
+
+def test_walk_expression_visits_interface_method_call_receiver_and_args() -> None:
+    span = _span()
+    expr = InterfaceMethodCallExpr(
+        interface_id=InterfaceId(module_path=("main",), name="Hashable"),
+        method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
+        receiver=LocalRefExpr(name="receiver", type_name="Hashable", span=span),
+        receiver_type_name="Hashable",
+        args=[LocalRefExpr(name="arg", type_name="Obj", span=span)],
+        type_name="u64",
+        span=span,
+    )
+
+    seen: list[str] = []
+    walk_expression(expr, lambda current: seen.append(_describe_expr(current)))
+
+    assert seen == [
+        "InterfaceMethodCallExpr",
+        "LocalRefExpr:receiver",
+        "LocalRefExpr:arg",
+    ]

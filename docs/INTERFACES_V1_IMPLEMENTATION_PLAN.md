@@ -22,10 +22,11 @@ Completed so far:
 - Step 8 is implemented and validated.
 - Step 9 is implemented and validated.
 - Step 10 is implemented and validated.
+- Step 11 is implemented and validated.
 
 Not started yet:
 
-- Step 11 and later.
+- Step 12 and later.
 
 ## Scope
 
@@ -594,11 +595,11 @@ Step 10 objective check:
 
 ## Step 11: Emit Interface Dispatch Calls
 
-- [ ] Add codegen support for `InterfaceMethodCallExpr`
-- [ ] Decide whether dispatch lookup is emitted inline or via a runtime helper
-- [ ] If a runtime helper is used, lock its ABI and responsibility split relative to checked-cast logic
-- [ ] Preserve current calling convention and root-handling behavior
-- [ ] Ensure receiver is passed correctly as the first argument
+- [x] Add codegen support for `InterfaceMethodCallExpr`
+- [x] Decide whether dispatch lookup is emitted inline or via a runtime helper
+- [x] If a runtime helper is used, lock its ABI and responsibility split relative to checked-cast logic
+- [x] Preserve current calling convention and root-handling behavior
+- [x] Ensure receiver is passed correctly as the first argument
 
 Suggested code areas:
 
@@ -616,6 +617,36 @@ Suggested tests for this step:
 What should be achieved at the end of this step:
 
 - interface-typed receiver calls work end-to-end in generated code
+
+Validation for this step:
+
+- Implemented in `compiler/codegen/emitter_expr.py`, `compiler/codegen/generator.py`, `compiler/codegen/layout.py`, `compiler/codegen/walk.py`, `runtime/include/runtime.h`, `runtime/src/runtime.c`, `runtime/Makefile`, `tests/runtime/`, `tests/compiler/codegen/`, `tests/README.md`, and `docs/ABI_NOTES.md`
+- `InterfaceMethodCallExpr` now lowers through codegen as an explicit dispatch shape that first calls `rt_lookup_interface_method(obj, interface, slot)` and then performs an indirect call through the returned function pointer
+- Step 11 locks the dispatch design to use a runtime helper rather than inline metadata scans in assembly, keeping the ABI boundary explicit and the emitted assembly smaller and easier to reason about
+- The helper responsibility split is now explicit: checked-cast logic remains in `rt_checked_cast_interface(...)`, while dispatch lookup assumes a non-null receiver, validates interface membership and slot bounds against metadata, and returns the slot-selected function pointer
+- Codegen preserves the existing calling convention and root-handling behavior by rooting the receiver across lookup, preserving reference arguments in temporary root slots as needed, and still passing the receiver as the first call argument to the resolved method target
+- Codegen walkers and temp-root layout accounting now recognize `InterfaceMethodCallExpr` so dispatch emission remains aligned with the expanded semantic IR
+- Added focused tests covering:
+	- interface method call emission via `rt_lookup_interface_method(...)` plus indirect call
+	- receiver-first and argument-order preservation for interface dispatch
+	- reference-return interface dispatch and runtime root-slot updates
+	- direct emitter coverage for `InterfaceMethodCallExpr`
+	- codegen walker traversal through interface call receiver and args
+	- runtime helper lookup success across interface/slot combinations
+	- runtime helper failure on null receiver, missing interface, and out-of-bounds slot
+- Validation run results:
+	- focused Step 11 codegen suites: `25 passed`
+	- full compiler suite: `468 passed`
+	- focused runtime dispatch harnesses: `make -C runtime test-interface-dispatch test-interface-dispatch-negative` passed
+	- full runtime harness suite: `make -C runtime test-all` passed
+
+Step 11 objective check:
+
+- fulfilled: codegen now emits interface dispatch for `InterfaceMethodCallExpr`
+- fulfilled: interface dispatch lookup is now centralized in the runtime helper `rt_lookup_interface_method(...)`
+- fulfilled: the helper ABI and its split from checked-cast logic are now documented and validated
+- fulfilled: interface dispatch preserves existing calling convention and root-handling behavior
+- fulfilled: the receiver is now passed as the first argument to the resolved concrete method target
 
 ## Step 12: Add End-To-End Language And Stdlib Coverage
 

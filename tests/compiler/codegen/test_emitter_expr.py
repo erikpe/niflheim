@@ -13,6 +13,7 @@ from compiler.semantic.ir import (
     ConstructorCallExpr,
     FunctionCallExpr,
     IndexReadExpr,
+    InterfaceMethodCallExpr,
     InstanceMethodCallExpr,
     SemanticReturn,
     SliceReadExpr,
@@ -241,3 +242,34 @@ def test_emitter_expr_emits_class_structural_index_reads(tmp_path: Path) -> None
     assert isinstance(return_stmt.value, IndexReadExpr)
     emit_expr(generator, return_stmt.value, ctx)
     assert "    call __nif_method_Buffer_index_get" in generator.asm.lines
+
+
+def test_emitter_expr_emits_interface_dispatch_via_lookup_helper(tmp_path: Path) -> None:
+    fn, generator, ctx = _build_emit_fixture(
+        tmp_path,
+        {
+            "main.nif": """
+            interface Hashable {
+                fn hash_code() -> u64;
+            }
+
+            class Key implements Hashable {
+                fn hash_code() -> u64 {
+                    return 7u;
+                }
+            }
+
+            fn main(value: Hashable) -> u64 {
+                return value.hash_code();
+            }
+            """
+        },
+    )
+
+    return_stmt = fn.body.statements[-1]
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, InterfaceMethodCallExpr)
+    emit_expr(generator, return_stmt.value, ctx)
+    assert "    call rt_lookup_interface_method" in generator.asm.lines
+    assert "    mov r11, qword ptr [r10 + 8]" in generator.asm.lines
+    assert "    call r11" in generator.asm.lines

@@ -181,6 +181,34 @@ const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const
     return NULL;
 }
 
+void* rt_lookup_interface_method(void* obj, const RtInterfaceType* interface_type, uint32_t slot) {
+    if (obj == NULL) {
+        rt_panic_null_deref();
+    }
+    if (interface_type == NULL) {
+        rt_panic("rt_lookup_interface_method called with NULL interface_type");
+    }
+
+    RtObjHeader* header = (RtObjHeader*)obj;
+    const RtInterfaceImpl* impl = rt_find_interface_impl(header->type, interface_type);
+    if (impl == NULL) {
+        rt_panic_bad_cast(
+            rt_type_name_or_unknown(header->type),
+            rt_interface_name_or_unknown(interface_type)
+        );
+    }
+    if (impl->method_table == NULL || slot >= impl->method_count || slot >= interface_type->method_count) {
+        rt_panic("rt_lookup_interface_method: invalid interface method slot");
+    }
+
+    const void* const* method_table = (const void* const*)impl->method_table;
+    const void* method = method_table[slot];
+    if (method == NULL) {
+        rt_panic("rt_lookup_interface_method: null interface method entry");
+    }
+    return (void*)method;
+}
+
 void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface) {
     if (obj == NULL) {
         return NULL;

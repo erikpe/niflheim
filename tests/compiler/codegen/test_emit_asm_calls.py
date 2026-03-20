@@ -233,3 +233,91 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source, project_root=tmp_path)
 
     assert "    call println_i64" in asm
+
+
+def test_emit_asm_interface_method_call_uses_lookup_helper_and_indirect_call(tmp_path) -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 7u;
+    }
+}
+
+fn call_hash(value: Hashable) -> u64 {
+    return value.hash_code();
+}
+
+fn main() -> i64 {
+    return (i64)call_hash(Key());
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "    call rt_lookup_interface_method" in asm
+    assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in asm
+    assert "    mov edx, 0" in asm
+    assert "    mov r11, qword ptr [r10 + 8]" in asm
+    assert "    call r11" in asm
+
+
+def test_emit_asm_interface_method_call_preserves_receiver_and_arg_order(tmp_path) -> None:
+    source = """
+interface Combiner {
+    fn mix(a: i64, b: i64, c: i64) -> i64;
+}
+
+class Key implements Combiner {
+    fn mix(a: i64, b: i64, c: i64) -> i64 {
+        return a + b + c;
+    }
+}
+
+fn call_mix(value: Combiner) -> i64 {
+    return value.mix(1, 2, 3);
+}
+
+fn main() -> i64 {
+    return call_mix(Key());
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "    mov rdi, qword ptr [r10]" in asm
+    assert "    mov rsi, qword ptr [r10 + 8]" in asm
+    assert "    mov rdx, qword ptr [r10 + 16]" in asm
+    assert "    mov rcx, qword ptr [r10 + 24]" in asm
+    assert "    call r11" in asm
+
+
+def test_emit_asm_interface_method_call_supports_reference_returns_and_runtime_root_updates(tmp_path) -> None:
+    source = """
+interface Boxed {
+    fn next(seed: Obj) -> Obj;
+}
+
+class Key implements Boxed {
+    fn next(seed: Obj) -> Obj {
+        return seed;
+    }
+}
+
+fn call_next(value: Boxed, seed: Obj) -> Obj {
+    return value.next(seed);
+}
+
+fn main() -> i64 {
+    if call_next(Key(), Key()) == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "    call rt_lookup_interface_method" in asm
+    assert "    call rt_root_slot_store" in asm
+    assert "    call r11" in asm

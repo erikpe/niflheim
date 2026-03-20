@@ -244,6 +244,7 @@ struct RtInterfaceImpl {
 
 void* rt_checked_cast(void* obj, const RtType* expected_type);
 void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface);
+void* rt_lookup_interface_method(void* obj, const RtInterfaceType* interface_type, uint32_t slot);
 const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const RtInterfaceType* interface_type);
 ```
 
@@ -251,6 +252,7 @@ Behavior:
 - If `obj == NULL`, return NULL (nullable cast semantics).
 - If object runtime type matches `expected_type`, return object.
 - If `rt_checked_cast_interface(...)` sees an object whose concrete runtime type advertises the requested interface via `RtType.interfaces`, return the original object pointer.
+- If `rt_lookup_interface_method(...)` sees a non-null object implementing the requested interface and the slot is in bounds, return the function pointer stored in that interface method table slot.
 - Otherwise panic with bad-cast error.
 
 Type identity in v0.1:
@@ -261,6 +263,7 @@ Type identity in v0.1:
 Interface metadata support now present in the runtime ABI:
 - `RtType` carries `interfaces` and `interface_count` fields for future interface cast/dispatch support.
 - `rt_find_interface_impl(...)` performs a linear scan over a concrete type's implemented-interface table.
+- `rt_lookup_interface_method(...)` centralizes interface dispatch lookup as `(object, interface descriptor, slot) -> function pointer`.
 - Interface-typed values still use the same raw object-pointer representation as other references; no fat-pointer ABI is introduced.
 
 ---

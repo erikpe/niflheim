@@ -28,3 +28,5 @@ These runtime harnesses complement Python tests and focus on collector/root ABI 
 - `make -C runtime test-interface-metadata` → interface metadata layout/helper checks
 - `make -C runtime test-interface-casts` → successful interface cast behavior checks
 - `make -C runtime test-interface-casts-negative` → expected-failure interface cast checks
+- `make -C runtime test-interface-dispatch` → successful interface dispatch-helper lookup checks
+- `make -C runtime test-interface-dispatch-negative` → expected-failure interface dispatch-helper checks

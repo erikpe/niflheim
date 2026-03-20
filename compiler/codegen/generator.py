@@ -233,6 +233,20 @@ class CodeGenerator:
         self.asm.instr(f"mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
         self.asm.instr("call rt_root_slot_store")
 
+    def emit_temp_root_slot_store(
+        self, layout: FunctionLayout, temp_slot_index: int, source_register: str, *, span: object | None = None
+    ) -> None:
+        if not layout.temp_root_slot_offsets:
+            return
+        if temp_slot_index >= len(layout.temp_root_slot_offsets):
+            codegen_types.raise_codegen_error("insufficient temporary root slots for interface dispatch", span=span)
+
+        self.asm.instr(f"mov {offset_operand(layout.temp_root_slot_offsets[temp_slot_index])}, {source_register}")
+        self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
+        self.asm.instr(f"mov rdx, {source_register}")
+        self.asm.instr(f"mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
+        self.asm.instr("call rt_root_slot_store")
+
     def emit_bool_normalize(self) -> None:
         self.asm.instr("cmp rax, 0")
         self.asm.instr("setne al")

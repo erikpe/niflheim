@@ -86,6 +86,11 @@ def walk_expression(expr: SemanticExpr, visit_expr: Callable[[SemanticExpr], Non
         for arg in expr.args:
             walk_expression(arg, visit_expr)
         return
+    if isinstance(expr, InterfaceMethodCallExpr):
+        walk_expression(expr.receiver, visit_expr)
+        for arg in expr.args:
+            walk_expression(arg, visit_expr)
+        return
     if isinstance(expr, ArrayLenExpr):
         walk_expression(expr.target, visit_expr)
         return

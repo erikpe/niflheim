@@ -18,7 +18,7 @@ from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import *
-from compiler.semantic.symbols import MethodId
+from compiler.semantic.symbols import InterfaceMethodId, MethodId
 
 if TYPE_CHECKING:
     from compiler.codegen.generator import CodeGenerator
@@ -62,6 +62,8 @@ def infer_expression_type_name(expr: SemanticExpr) -> str:
     if isinstance(expr, StaticMethodCallExpr):
         return expr.type_name
     if isinstance(expr, InstanceMethodCallExpr):
+        return expr.type_name
+    if isinstance(expr, InterfaceMethodCallExpr):
         return expr.type_name
     if isinstance(expr, ConstructorCallExpr):
         return expr.type_name
@@ -115,6 +117,9 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
         return
     if isinstance(expr, InstanceMethodCallExpr):
         _emit_named_call(codegen, _method_label(expr.method_id, ctx), [expr.receiver, *expr.args], expr.type_name, ctx)
+        return
+    if isinstance(expr, InterfaceMethodCallExpr):
+        _emit_interface_method_call(codegen, expr, ctx)
         return
     if isinstance(expr, ConstructorCallExpr):
         _emit_named_call(codegen, _constructor_label(expr.constructor_id.class_name), expr.args, expr.type_name, ctx)
@@ -277,6 +282,95 @@ def _emit_callable_value_call(codegen: CodeGenerator, expr: CallableValueCallExp
         callee_expr=expr.callee,
         temp_root_spans=[expr.span] * len(expr.args),
     )
+
+
+def _emit_interface_method_call(codegen: CodeGenerator, expr: InterfaceMethodCallExpr, ctx: EmitContext) -> None:
+    descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbols_by_id.get(expr.interface_id)
+    if descriptor_symbol is None:
+        codegen_types.raise_codegen_error(
+            f"missing interface descriptor symbol for {expr.interface_id}", span=expr.span
+        )
+
+    method_slot = _interface_method_slot(expr.method_id, ctx)
+    temp_root_base = ctx.temp_root_depth[0]
+    receiver_temp_index = temp_root_base
+    rooted_temp_arg_count = 1
+
+    emit_expr(codegen, expr.receiver, ctx)
+    codegen.emit_temp_root_slot_store(ctx.layout, receiver_temp_index, "rax", span=expr.span)
+    ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
+
+    codegen.asm.instr("push rax")
+    _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+    codegen.emit_root_slot_updates(ctx.layout)
+    codegen.emit_temp_arg_root_from_rsp(ctx.layout, receiver_temp_index, 0, span=expr.span)
+    codegen.asm.instr("mov rdi, qword ptr [rsp]")
+    codegen.asm.instr(f"lea rsi, [rip + {descriptor_symbol}]")
+    codegen.asm.instr(f"mov edx, {method_slot}")
+    codegen.emit_aligned_call("rt_lookup_interface_method")
+    codegen.asm.instr("add rsp, 8")
+    _emit_runtime_call_hooks_after(codegen, ctx)
+
+    codegen.asm.instr("push rax")
+
+    call_arguments = [expr.receiver, *expr.args]
+    call_argument_type_names = [infer_expression_type_name(arg) for arg in call_arguments]
+    reference_arg_indices = {
+        index
+        for index, type_name in enumerate(call_argument_type_names)
+        if codegen_types.is_reference_type_name(type_name)
+    }
+
+    for arg_index in range(len(expr.args) - 1, -1, -1):
+        arg = expr.args[arg_index]
+        emit_expr(codegen, arg, ctx)
+        codegen.asm.instr("push rax")
+        call_arg_index = arg_index + 1
+        if call_arg_index in reference_arg_indices:
+            codegen.emit_temp_arg_root_from_rsp(
+                ctx.layout,
+                temp_root_base + rooted_temp_arg_count,
+                0,
+                span=arg.span,
+            )
+            rooted_temp_arg_count += 1
+            ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
+
+    codegen.asm.instr(f"mov rax, {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}")
+    codegen.asm.instr("push rax")
+
+    arg_locations = plan_sysv_arg_locations(call_argument_type_names)
+    stack_arg_indices = [
+        index
+        for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations)
+        if location_kind == "stack"
+    ]
+
+    codegen.emit_root_slot_updates(ctx.layout)
+    codegen.asm.instr("mov r10, rsp")
+    codegen.asm.instr(f"mov r11, {stack_slot_operand('r10', len(call_arguments) * 8)}")
+    for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
+        arg_operand = stack_slot_operand("r10", arg_index * 8)
+        if location_kind == "int_reg":
+            codegen.asm.instr(f"mov {location_register}, {arg_operand}")
+        elif location_kind == "float_reg":
+            codegen.asm.instr(f"movq {location_register}, {arg_operand}")
+    for arg_index in reversed(stack_arg_indices):
+        codegen.asm.instr(f"mov rax, {stack_slot_operand('r10', arg_index * 8)}")
+        codegen.asm.instr("push rax")
+
+    codegen.emit_aligned_call("r11")
+
+    cleanup_slot_count = len(call_arguments) + len(stack_arg_indices) + 1
+    if cleanup_slot_count > 0:
+        codegen.asm.instr(f"add rsp, {cleanup_slot_count * 8}")
+    if expr.type_name == "double":
+        codegen.asm.instr("movq rax, xmm0")
+    elif expr.type_name == "unit":
+        codegen.asm.instr("mov rax, 0")
+
+    codegen.emit_clear_temp_root_slots(ctx.layout, temp_root_base, rooted_temp_arg_count)
+    ctx.temp_root_depth[0] = temp_root_base
 
 
 def _emit_named_call(
@@ -504,6 +598,13 @@ def _method_label(method_id: MethodId, ctx: EmitContext) -> str:
     if label is None:
         raise ValueError(f"Missing method label for {method_id}")
     return label
+
+
+def _interface_method_slot(method_id: InterfaceMethodId, ctx: EmitContext) -> int:
+    slot = ctx.declaration_tables.interface_method_slots_by_id.get(method_id)
+    if slot is None:
+        raise ValueError(f"Missing interface method slot for {method_id}")
+    return slot
 
 
 def _constructor_label(class_name: str) -> str:
