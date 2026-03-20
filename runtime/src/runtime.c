@@ -19,6 +19,13 @@ static const char* rt_type_name_or_unknown(const RtType* type) {
     return type->debug_name;
 }
 
+static const char* rt_interface_name_or_unknown(const RtInterfaceType* interface_type) {
+    if (interface_type == NULL || interface_type->debug_name == NULL) {
+        return "<unknown>";
+    }
+    return interface_type->debug_name;
+}
+
 static uint64_t rt_checked_total_size(uint64_t payload_bytes) {
     const uint64_t header_bytes = (uint64_t)sizeof(RtObjHeader);
     if (payload_bytes > UINT64_MAX - header_bytes) {
@@ -172,6 +179,25 @@ const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const
     }
 
     return NULL;
+}
+
+void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface) {
+    if (obj == NULL) {
+        return NULL;
+    }
+    if (expected_interface == NULL) {
+        rt_panic("rt_checked_cast_interface called with NULL expected_interface");
+    }
+
+    RtObjHeader* header = (RtObjHeader*)obj;
+    if (rt_find_interface_impl(header->type, expected_interface) != NULL) {
+        return obj;
+    }
+
+    rt_panic_bad_cast(
+        rt_type_name_or_unknown(header->type),
+        rt_interface_name_or_unknown(expected_interface)
+    );
 }
 
 void* rt_checked_cast(void* obj, const RtType* expected_type) {

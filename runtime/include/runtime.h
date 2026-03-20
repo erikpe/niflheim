@@ -104,6 +104,7 @@ void rt_trace_set_location(uint32_t line, uint32_t column);
 
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
 const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const RtInterfaceType* interface_type);
+void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
 uint64_t rt_obj_same_type(void* lhs, void* rhs);
 

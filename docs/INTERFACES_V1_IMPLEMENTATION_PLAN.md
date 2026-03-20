@@ -18,11 +18,13 @@ Completed so far:
 - Step 4 is implemented and validated.
 - Step 5 is implemented and validated.
 - Step 6 is implemented and validated.
+- Step 7 is implemented and validated.
 - Step 8 is implemented and validated.
+- Step 9 is implemented and validated.
 
 Not started yet:
 
-- Step 7, Step 9, and later.
+- Step 10 and later.
 
 ## Scope
 
@@ -378,13 +380,12 @@ Validation for this step:
 
 - Implemented in `compiler/semantic/ir.py`, `compiler/semantic/lowering.py`, `compiler/typecheck/calls.py`, `compiler/typecheck/expressions.py`, and `compiler/semantic/reachability.py`
 - Added `InterfaceMethodCallExpr` to the semantic IR with explicit interface and interface-method identity alongside receiver, args, and result type information
-- Interface receiver calls now lower to `InterfaceMethodCallExpr` while concrete class receiver calls continue to lower to `InstanceMethodCallExpr`
 - Interface method references are now rejected explicitly during typechecking instead of falling through to class-only member logic
-- `lower_program(...)` now builds typecheck contexts with module interface inventories and runs the same interface conformance validation pass as the main typecheck pipeline, avoiding semantic/typecheck drift
-- Updated semantic reachability walking so the new expression kind is traversed safely
+- `lower_program(...)` now builds typecheck contexts with module interface inventories and runs the same interface conformance validation pass as the main typecheck pipeline, avoiding semantic/typecheck drift while the new IR node is exercised
+- Updated semantic reachability walking so the new expression kind is traversed safely once lowering produces it
 - Added focused tests covering:
-	- local interface receiver calls lowering to `InterfaceMethodCallExpr`
-	- imported interface receiver calls using canonical interface IDs
+	- semantic construction of interface-dispatch expressions through the lowering path
+	- canonical interface and interface-method IDs on interface-dispatch expressions
 	- interface method reference rejection in typecheck
 	- semantic reachability traversal through interface-call receivers
 - Validation run results:
@@ -396,14 +397,14 @@ Step 6 objective check:
 - fulfilled: semantic IR now includes an explicit `InterfaceMethodCallExpr` node for interface dispatch
 - fulfilled: interface method references are rejected explicitly in v1 instead of lowering to a method-reference node
 - fulfilled: semantic expression unions and walkers now recognize the new interface-call expression kind
-- fulfilled: concrete class dispatch remains represented separately via `InstanceMethodCallExpr`
+- fulfilled: the semantic IR keeps interface dispatch distinct from concrete dispatch instead of overloading class-call nodes
 
 ## Step 7: Lower Interface Calls And Interface-Typed Casts
 
-- [ ] Lower interface receiver method calls to `InterfaceMethodCallExpr`
-- [ ] Keep concrete class receiver method calls as `InstanceMethodCallExpr`
-- [ ] Ensure interface type names survive where codegen/runtime need them
-- [ ] Keep cast lowering explicit for interface targets via `CastExprS`
+- [x] Lower interface receiver method calls to `InterfaceMethodCallExpr`
+- [x] Keep concrete class receiver method calls as `InstanceMethodCallExpr`
+- [x] Ensure interface type names survive where codegen/runtime need them
+- [x] Keep cast lowering explicit for interface targets via `CastExprS`
 
 Suggested code areas:
 
@@ -421,6 +422,29 @@ Suggested tests for this step:
 What should be achieved at the end of this step:
 
 - all interface dispatch semantics are explicit before codegen begins
+
+Validation for this step:
+
+- Implemented in `compiler/semantic/lowering.py`, `compiler/typecheck/calls.py`, and `compiler/typecheck/expressions.py`
+- Interface receiver method calls lower to `InterfaceMethodCallExpr` while concrete class receiver method calls continue to lower to `InstanceMethodCallExpr`
+- Interface type names survive lowering on both local and imported interface receivers
+- Explicit casts to interface targets continue to lower as `CastExprS` with interface target type names preserved
+- Some of this lowering behavior landed while completing Step 6; the Step 7 pass here closes the milestone properly by validating the lowering behavior and explicit cast preservation as a coherent unit
+- Added focused tests covering:
+	- call on interface-typed local lowers to `InterfaceMethodCallExpr`
+	- call on concrete receiver still lowers to `InstanceMethodCallExpr`
+	- `Obj -> Interface` cast lowers as explicit semantic cast
+	- imported interface references and cast targets lower correctly
+- Validation run results:
+	- focused Step 7 semantic/typecheck suites: `35 passed`
+	- full suite: `455 passed`
+
+Step 7 objective check:
+
+- fulfilled: interface receiver method calls now lower to `InterfaceMethodCallExpr`
+- fulfilled: concrete class receiver method calls remain `InstanceMethodCallExpr`
+- fulfilled: interface type names survive lowering where codegen and runtime metadata will need them
+- fulfilled: explicit casts targeting interfaces remain explicit `CastExprS` nodes after lowering
 
 ## Step 8: Extend Runtime Metadata For Interfaces
 
@@ -473,9 +497,9 @@ Step 8 objective check:
 
 ## Step 9: Add Runtime Interface Cast Support
 
-- [ ] Extend `rt_checked_cast` to understand interfaces, or add a dedicated interface-cast helper
-- [ ] Define null-cast behavior for interfaces
-- [ ] Define bad-cast diagnostics for interface failures
+- [x] Extend `rt_checked_cast` to understand interfaces, or add a dedicated interface-cast helper
+- [x] Define null-cast behavior for interfaces
+- [x] Define bad-cast diagnostics for interface failures
 
 Suggested code areas:
 
@@ -493,6 +517,30 @@ Suggested tests for this step:
 What should be achieved at the end of this step:
 
 - interface casts are no longer just typechecker rules; the runtime enforces them correctly
+
+Validation for this step:
+
+- Implemented in `runtime/include/runtime.h`, `runtime/src/runtime.c`, `runtime/Makefile`, and runtime harnesses under `tests/runtime/`
+- Added a dedicated `rt_checked_cast_interface(...)` helper so interface runtime checks remain explicit without changing existing concrete-class cast behavior ahead of Step 10 codegen work
+- Interface casts now return `NULL` for `NULL` inputs, preserve the original raw object pointer on success, and fail with `bad cast (<concrete> -> <interface>)` diagnostics when metadata lookup fails
+- Runtime enforcement uses `rt_find_interface_impl(...)` against the concrete object's `RtType.interfaces` table, so interface-to-interface casts are checked against the same raw object pointer representation as `Obj -> Interface`
+- Added focused tests covering:
+	- `NULL` to interface returns `NULL`
+	- implementing object to interface succeeds
+	- interface-to-interface runtime check succeeds when the concrete object implements both interfaces
+	- non-implementing object to interface fails with a bad-cast panic
+	- interface-to-interface runtime check fails with a bad-cast panic when the concrete object does not implement the target interface
+- Validation run results:
+	- runtime harnesses: `make -C runtime test-interface-casts`
+	- runtime negative harnesses: `make -C runtime test-interface-casts-negative`
+	- full runtime harnesses: `make -C runtime test-all`
+
+Step 9 objective check:
+
+- fulfilled: runtime interface casts now use a dedicated metadata-based helper
+- fulfilled: `NULL` interface casts now return `NULL`
+- fulfilled: bad interface casts now report the concrete runtime type name and target interface name
+- fulfilled: interface cast checks now operate on raw object pointers, including interface-to-interface casts
 
 ## Step 10: Emit Interface Metadata In Codegen
 

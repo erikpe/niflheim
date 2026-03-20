@@ -243,17 +243,20 @@ struct RtInterfaceImpl {
 };
 
 void* rt_checked_cast(void* obj, const RtType* expected_type);
+void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface);
 const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const RtInterfaceType* interface_type);
 ```
 
 Behavior:
 - If `obj == NULL`, return NULL (nullable cast semantics).
 - If object runtime type matches `expected_type`, return object.
+- If `rt_checked_cast_interface(...)` sees an object whose concrete runtime type advertises the requested interface via `RtType.interfaces`, return the original object pointer.
 - Otherwise panic with bad-cast error.
 
 Type identity in v0.1:
 - Exact type match only.
 - No subtype checks in `rt_checked_cast` yet.
+- Interface casts are checked separately through `rt_checked_cast_interface(...)` using interface metadata rather than concrete type equality.
 
 Interface metadata support now present in the runtime ABI:
 - `RtType` carries `interfaces` and `interface_count` fields for future interface cast/dispatch support.

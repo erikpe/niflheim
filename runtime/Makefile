@@ -16,6 +16,10 @@ ARRAY_NEGATIVE_BIN := $(TEST_DIR)/test_array_negative
 ARRAY_NEGATIVE_SRC := $(TEST_DIR)/test_array_negative.c
 INTERFACE_METADATA_BIN := $(TEST_DIR)/test_interface_metadata
 INTERFACE_METADATA_SRC := $(TEST_DIR)/test_interface_metadata.c
+INTERFACE_CASTS_BIN := $(TEST_DIR)/test_interface_casts
+INTERFACE_CASTS_SRC := $(TEST_DIR)/test_interface_casts.c
+INTERFACE_CASTS_NEGATIVE_BIN := $(TEST_DIR)/test_interface_casts_negative
+INTERFACE_CASTS_NEGATIVE_SRC := $(TEST_DIR)/test_interface_casts_negative.c
 NEGATIVE_DRIVER := $(TEST_DIR)/run_negative_driver.sh
 
 all: libruntime.a
@@ -40,6 +44,12 @@ $(ARRAY_NEGATIVE_BIN): $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
 
 $(INTERFACE_METADATA_BIN): $(INTERFACE_METADATA_SRC) $(RUNTIME_SRC) include/runtime.h
 	$(CC) $(CFLAGS) -o $@ $(INTERFACE_METADATA_SRC) $(RUNTIME_SRC)
+
+$(INTERFACE_CASTS_BIN): $(INTERFACE_CASTS_SRC) $(RUNTIME_SRC) include/runtime.h
+	$(CC) $(CFLAGS) -o $@ $(INTERFACE_CASTS_SRC) $(RUNTIME_SRC)
+
+$(INTERFACE_CASTS_NEGATIVE_BIN): $(INTERFACE_CASTS_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
+	$(CC) $(CFLAGS) -o $@ $(INTERFACE_CASTS_NEGATIVE_SRC) $(RUNTIME_SRC)
 
 test: $(GC_STRESS_BIN)
 	./$(GC_STRESS_BIN)
@@ -66,7 +76,15 @@ test-array-negative: $(ARRAY_NEGATIVE_BIN) $(NEGATIVE_DRIVER)
 test-interface-metadata: $(INTERFACE_METADATA_BIN)
 	./$(INTERFACE_METADATA_BIN)
 
-test-all: test test-positive test-negative test-array test-array-negative test-interface-metadata
+test-interface-casts: $(INTERFACE_CASTS_BIN)
+	./$(INTERFACE_CASTS_BIN)
+
+test-interface-casts-negative: $(INTERFACE_CASTS_NEGATIVE_BIN) $(NEGATIVE_DRIVER)
+	@$(NEGATIVE_DRIVER) test_interface_casts_negative ./$(INTERFACE_CASTS_NEGATIVE_BIN) \
+		"non_implementing_object::panic: bad cast (Plain -> Hashable)" \
+		"interface_to_interface_failure::panic: bad cast (HashOnly -> Comparable)"
+
+test-all: test test-positive test-negative test-array test-array-negative test-interface-metadata test-interface-casts test-interface-casts-negative
 
 clean:
-	rm -f $(RUNTIME_OBJ) libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(INTERFACE_METADATA_BIN)
+	rm -f $(RUNTIME_OBJ) libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(INTERFACE_METADATA_BIN) $(INTERFACE_CASTS_BIN) $(INTERFACE_CASTS_NEGATIVE_BIN)
