@@ -213,6 +213,10 @@ class _SemanticReachabilityWalker:
             self._walk_expr(module_path, expr.operand)
             self._enqueue_type_name(module_path, expr.target_type_name)
             return
+        if isinstance(expr, TypeTestExprS):
+            self._walk_expr(module_path, expr.operand)
+            self._enqueue_type_name(module_path, expr.target_type_name)
+            return
         if isinstance(expr, FieldReadExpr):
             self._walk_expr(module_path, expr.receiver)
             self._enqueue_type_name(module_path, expr.receiver_type_name)

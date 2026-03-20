@@ -341,6 +341,13 @@ def _collect_reference_cast_types_from_expr(
             out.add(expr.target_type_name)
         _collect_reference_cast_types_from_expr(expr.operand, module_path, local_interface_names_by_module, out)
         return
+    if isinstance(expr, TypeTestExprS):
+        if codegen_types.is_reference_type_name(expr.target_type_name) and not _is_interface_type_name(
+            module_path, expr.target_type_name, local_interface_names_by_module
+        ):
+            out.add(expr.target_type_name)
+        _collect_reference_cast_types_from_expr(expr.operand, module_path, local_interface_names_by_module, out)
+        return
     if isinstance(expr, UnaryExprS):
         _collect_reference_cast_types_from_expr(expr.operand, module_path, local_interface_names_by_module, out)
         return

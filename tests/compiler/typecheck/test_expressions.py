@@ -829,3 +829,80 @@ fn main() -> unit {
 """
     with pytest.raises(TypeCheckError, match="Operator '==' has incompatible operand types"):
         parse_and_typecheck(source)
+
+
+def test_typecheck_allows_type_tests_for_obj_interface_and_null() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    var obj: Obj = Key();
+    var hashable: Hashable = Key();
+    var none: Obj = null;
+    var a: bool = obj is Key;
+    var b: bool = obj is Hashable;
+    var c: bool = hashable is Key;
+    var d: bool = hashable is Hashable;
+    var e: bool = none is Key;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_type_test_for_primitive_left_operand() -> None:
+    source = """
+class Key {
+}
+
+fn main() -> unit {
+    var value: i64 = 1;
+    var ok: bool = value is Key;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Operator 'is' requires reference, interface, Obj, or null left operand"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_type_test_with_non_class_or_interface_target() -> None:
+    source = """
+class Key {
+}
+
+fn main() -> unit {
+    var value: Obj = Key();
+    var ok: bool = value is Obj;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Operator 'is' requires class or interface type on right operand"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_type_test_for_unrelated_reference_types() -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+class Box {
+    value: i64;
+}
+
+fn main() -> unit {
+    var person: Person = Person(7);
+    var ok: bool = person is Box;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Operator 'is' has incompatible operand types"):
+        parse_and_typecheck(source)

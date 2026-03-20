@@ -231,6 +231,10 @@ def _validate_expression(expr: Expression, module_info: ModuleInfo, modules: dic
         _validate_expression(expr.operand, module_info, modules)
         return
 
+    if isinstance(expr, TypeTestExpr):
+        _validate_expression(expr.operand, module_info, modules)
+        return
+
     if isinstance(expr, CallExpr):
         _validate_expression(expr.callee, module_info, modules)
         for arg in expr.arguments:

@@ -529,6 +529,14 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
             span=expr.span,
         )
 
+    if isinstance(expr, TypeTestExpr):
+        return TypeTestExprS(
+            operand=_lower_expr(lower_ctx, expr.operand),
+            target_type_name=_resolved_type_name(lower_ctx.typecheck_ctx, expr.type_ref),
+            type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
+            span=expr.span,
+        )
+
     if isinstance(expr, ArrayCtorExpr):
         array_type = resolve_type_ref(lower_ctx.typecheck_ctx, expr.element_type_ref)
         assert array_type.element_type is not None

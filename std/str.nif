@@ -158,12 +158,10 @@ export class Str implements Hashable, Equalable
         if other == null {
             return false;
         }
-
         if __self == other {
             return true;
         }
-
-        if !same_type(__self, other) {
+        if !(other is Str) {
             return false;
         }
 

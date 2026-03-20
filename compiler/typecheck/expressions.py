@@ -20,7 +20,7 @@ from compiler.typecheck.module_lookup import (
     resolve_imported_function_sig,
     resolve_module_member,
 )
-from compiler.typecheck.relations import check_explicit_cast, is_comparable, require_array_size_type, require_type_name
+from compiler.typecheck.relations import check_explicit_cast, check_type_test, is_comparable, require_array_size_type, require_type_name
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner, resolve_string_type, resolve_type_ref
 from compiler.typecheck.visibility import require_member_visible
 from compiler.typecheck.context import TypeCheckContext
@@ -297,6 +297,12 @@ def infer_expression_type(ctx: TypeCheckContext, expr: Expression) -> TypeInfo:
         target_type = resolve_type_ref(ctx, expr.type_ref)
         check_explicit_cast(ctx, source_type, target_type, expr.span)
         return target_type
+
+    if isinstance(expr, TypeTestExpr):
+        source_type = infer_expression_type(ctx, expr.operand)
+        target_type = resolve_type_ref(ctx, expr.type_ref)
+        check_type_test(ctx, source_type, target_type, expr.span)
+        return TypeInfo(name="bool", kind="primitive")
 
     if isinstance(expr, CallExpr):
         return infer_call_type(ctx, expr)

@@ -678,6 +678,24 @@ def test_parse_expression_cast_with_qualified_type() -> None:
     assert expr.type_ref.name == "util.Counter"
 
 
+def test_parse_expression_type_test() -> None:
+    expr = parse_expression(lex("value is Key", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, TypeTestExpr)
+    assert isinstance(expr.operand, IdentifierExpr)
+    assert expr.operand.name == "value"
+    assert expr.type_ref.name == "Key"
+
+
+def test_parse_expression_type_test_with_shift_operand_and_qualified_type() -> None:
+    expr = parse_expression(lex("value << 1u is util.Hashable", source_path="examples/expr.nif"))
+
+    assert isinstance(expr, TypeTestExpr)
+    assert expr.type_ref.name == "util.Hashable"
+    assert isinstance(expr.operand, BinaryExpr)
+    assert expr.operand.operator == "<<"
+
+
 def test_parse_function_signature_and_var_decl_with_array_types() -> None:
     source = """
 fn build(values: u8[]) -> Person[] {

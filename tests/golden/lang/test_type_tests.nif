@@ -1,0 +1,94 @@
+import std.io;
+import std.object;
+
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    value: u64;
+
+    fn hash_code() -> u64 {
+        return __self.value + 1u;
+    }
+}
+
+class Box {
+    value: u64;
+}
+
+fn test_obj_type_tests() -> i64 {
+    var obj: Obj = Key(7u);
+
+    if !(obj is Key) {
+        return 1;
+    }
+    if !(obj is Hashable) {
+        return 2;
+    }
+    if obj is Box {
+        return 3;
+    }
+
+    return 0;
+}
+
+fn test_interface_type_tests() -> i64 {
+    var hashable: Hashable = Key(9u);
+
+    if !(hashable is Key) {
+        return 4;
+    }
+    if !(hashable is Hashable) {
+        return 5;
+    }
+    if hashable is Box {
+        return 6;
+    }
+
+    return 0;
+}
+
+fn test_null_type_tests() -> i64 {
+    var obj: Obj = null;
+    var hashable: Hashable = (Hashable)null;
+
+    if obj is Key {
+        return 7;
+    }
+    if obj is Hashable {
+        return 8;
+    }
+    if hashable is Key {
+        return 9;
+    }
+    if hashable is Hashable {
+        return 10;
+    }
+
+    return 0;
+}
+
+fn test_exact_type_checks() -> i64 {
+    var key: Key = Key(11u);
+
+    if !(key is Key) {
+        return 11;
+    }
+    if !(key is Hashable) {
+        return 12;
+    }
+
+    return 0;
+}
+
+fn main() -> i64 {
+    var select: u64 = read_stdin().strip().to_u64();
+
+    if select == 1u { return test_obj_type_tests(); }
+    if select == 2u { return test_interface_type_tests(); }
+    if select == 3u { return test_null_type_tests(); }
+    if select == 4u { return test_exact_type_checks(); }
+
+    return 13;
+}

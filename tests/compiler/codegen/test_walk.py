@@ -69,6 +69,32 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
     ]
 
 
+def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
+    span = _span()
+    expr = TypeTestExprS(
+        operand=BinaryExprS(
+            operator="+",
+            left=LiteralExprS(value="1", type_name="i64", span=span),
+            right=LocalRefExpr(name="arg", type_name="i64", span=span),
+            type_name="i64",
+            span=span,
+        ),
+        target_type_name="Box",
+        type_name="bool",
+        span=span,
+    )
+
+    seen: list[str] = []
+    walk_expression(expr, lambda current: seen.append(_describe_expr(current)))
+
+    assert seen == [
+        "TypeTestExprS",
+        "BinaryExprS",
+        "LiteralExprS:1",
+        "LocalRefExpr:arg",
+    ]
+
+
 def test_walk_statement_expressions_skips_assignment_target_expressions() -> None:
     span = _span()
     stmt = SemanticAssign(

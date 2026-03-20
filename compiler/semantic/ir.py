@@ -260,6 +260,14 @@ class CastExprS:
 
 
 @dataclass(frozen=True)
+class TypeTestExprS:
+    operand: "SemanticExpr"
+    target_type_name: str
+    type_name: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class FieldReadExpr:
     receiver: "SemanticExpr"
     receiver_type_name: str
@@ -389,6 +397,7 @@ SemanticExpr = (
     | UnaryExprS
     | BinaryExprS
     | CastExprS
+    | TypeTestExprS
     | FieldReadExpr
     | FunctionCallExpr
     | StaticMethodCallExpr

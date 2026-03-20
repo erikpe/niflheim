@@ -27,6 +27,7 @@ class TokenKind(str, Enum):
     WHILE = "WHILE"
     FOR = "FOR"
     IN = "IN"
+    IS = "IS"
     STATIC = "STATIC"
     BREAK = "BREAK"
     CONTINUE = "CONTINUE"
@@ -98,6 +99,7 @@ KEYWORDS: dict[str, TokenKind] = {
     "while": TokenKind.WHILE,
     "for": TokenKind.FOR,
     "in": TokenKind.IN,
+    "is": TokenKind.IS,
     "static": TokenKind.STATIC,
     "break": TokenKind.BREAK,
     "continue": TokenKind.CONTINUE,

@@ -259,6 +259,58 @@ fn main() -> i64 {
     assert "__nif_interface_main__Hashable:" in asm
 
 
+def test_emit_asm_obj_type_test_calls_rt_is_instance_of_type(tmp_path) -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn f(o: Obj) -> bool {
+    return o is Person;
+}
+
+fn main() -> i64 {
+    if f(null) {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "    call rt_is_instance_of_type" in asm
+    assert "    lea rsi, [rip + __nif_type_Person]" in asm
+
+
+def test_emit_asm_obj_type_test_calls_rt_is_instance_of_interface(tmp_path) -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn f(o: Obj) -> bool {
+    return o is Hashable;
+}
+
+fn main() -> i64 {
+    if f(null) {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "    call rt_is_instance_of_interface" in asm
+    assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in asm
+
+
 def test_emit_asm_emits_interface_method_tables_and_impl_records(tmp_path) -> None:
     source = """
 interface Hashable {

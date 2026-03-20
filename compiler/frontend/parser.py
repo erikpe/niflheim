@@ -682,12 +682,23 @@ class Parser:
         return expr
 
     def _parse_comparison(self) -> Expression:
-        expr = self._parse_shift()
+        expr = self._parse_type_test()
         while self.stream.match(TokenKind.LT, TokenKind.LTE, TokenKind.GT, TokenKind.GTE):
             op = self.stream.previous()
-            right = self._parse_shift()
+            right = self._parse_type_test()
             expr = BinaryExpr(
                 left=expr, operator=op.lexeme, right=right, span=SourceSpan(start=expr.span.start, end=right.span.end)
+            )
+        return expr
+
+    def _parse_type_test(self) -> Expression:
+        expr = self._parse_shift()
+        if self.stream.match(TokenKind.IS):
+            type_ref = self._parse_type_ref()
+            return TypeTestExpr(
+                operand=expr,
+                type_ref=type_ref,
+                span=SourceSpan(start=expr.span.start, end=type_ref.span.end),
             )
         return expr
 

@@ -55,6 +55,8 @@ def infer_expression_type_name(expr: SemanticExpr) -> str:
         return expr.type_name
     if isinstance(expr, CastExprS):
         return expr.type_name
+    if isinstance(expr, TypeTestExprS):
+        return expr.type_name
     if isinstance(expr, FieldReadExpr):
         return expr.field_type_name
     if isinstance(expr, FunctionCallExpr):
@@ -105,6 +107,9 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
         return
     if isinstance(expr, CastExprS):
         _emit_cast_expr(codegen, expr, ctx)
+        return
+    if isinstance(expr, TypeTestExprS):
+        _emit_type_test_expr(codegen, expr, ctx)
         return
     if isinstance(expr, ArrayCtorExprS):
         _emit_array_ctor_expr(codegen, expr, ctx)
@@ -203,6 +208,31 @@ def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: Emit
     codegen.asm.instr(f"mov rax, qword ptr [rax + {field_offset}]")
 
 
+def _emit_reference_type_runtime_check(
+    codegen: CodeGenerator,
+    operand: SemanticExpr,
+    target_type_name: str,
+    interface_runtime_call: str,
+    class_runtime_call: str,
+    ctx: EmitContext,
+) -> None:
+    emit_expr(codegen, operand, ctx)
+    interface_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol_for_type_name(
+        ctx.current_module_path, target_type_name
+    )
+    codegen.asm.instr("push rax")
+    _emit_runtime_call_hooks_before(codegen, operand.span.start.line, operand.span.start.column, ctx)
+    codegen.asm.instr("pop rax")
+    codegen.asm.instr("mov rdi, rax")
+    if interface_descriptor_symbol is not None:
+        codegen.asm.instr(f"lea rsi, [rip + {interface_descriptor_symbol}]")
+        codegen.emit_aligned_call(interface_runtime_call)
+    else:
+        codegen.asm.instr(f"lea rsi, [rip + {codegen_symbols.mangle_type_symbol(target_type_name)}]")
+        codegen.emit_aligned_call(class_runtime_call)
+    _emit_runtime_call_hooks_after(codegen, ctx)
+
+
 def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.operand, ctx)
     source_type = infer_expression_type_name(expr.operand)
@@ -224,20 +254,14 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
         _emit_runtime_call_hooks_after(codegen, ctx)
         return
     if codegen_types.is_reference_type_name(target_type):
-        interface_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol_for_type_name(
-            ctx.current_module_path, target_type
+        _emit_reference_type_runtime_check(
+            codegen,
+            expr.operand,
+            target_type,
+            "rt_checked_cast_interface",
+            "rt_checked_cast",
+            ctx,
         )
-        codegen.asm.instr("push rax")
-        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-        codegen.asm.instr("pop rax")
-        codegen.asm.instr("mov rdi, rax")
-        if interface_descriptor_symbol is not None:
-            codegen.asm.instr(f"lea rsi, [rip + {interface_descriptor_symbol}]")
-            codegen.emit_aligned_call("rt_checked_cast_interface")
-        else:
-            codegen.asm.instr(f"lea rsi, [rip + {codegen_symbols.mangle_type_symbol(target_type)}]")
-            codegen.emit_aligned_call("rt_checked_cast")
-        _emit_runtime_call_hooks_after(codegen, ctx)
         return
     if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:
         codegen.asm.instr("cvtsi2sd xmm0, rax")
@@ -256,6 +280,23 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
         return
     if target_type == "bool":
         codegen.emit_bool_normalize()
+
+
+def _emit_type_test_expr(codegen: CodeGenerator, expr: TypeTestExprS, ctx: EmitContext) -> None:
+    if not codegen_types.is_reference_type_name(expr.target_type_name):
+        codegen_types.raise_codegen_error(
+            f"type test codegen requires reference target type, got '{expr.target_type_name}'",
+            span=expr.span,
+        )
+    _emit_reference_type_runtime_check(
+        codegen,
+        expr.operand,
+        expr.target_type_name,
+        "rt_is_instance_of_interface",
+        "rt_is_instance_of_type",
+        ctx,
+    )
+    codegen.emit_bool_normalize()
 
 
 def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: EmitContext) -> None:

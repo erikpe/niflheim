@@ -148,6 +148,13 @@ class CastExpr:
 
 
 @dataclass(frozen=True)
+class TypeTestExpr:
+    operand: "Expression"
+    type_ref: TypeRefNode
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class CallExpr:
     callee: "Expression"
     arguments: list["Expression"]
@@ -182,6 +189,7 @@ Expression = (
     | UnaryExpr
     | BinaryExpr
     | CastExpr
+    | TypeTestExpr
     | CallExpr
     | FieldAccessExpr
     | IndexExpr

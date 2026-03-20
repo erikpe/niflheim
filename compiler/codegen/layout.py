@@ -75,6 +75,8 @@ def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
         return True
     if isinstance(expr, CastExprS):
         return _expr_needs_temp_runtime_roots(expr.operand)
+    if isinstance(expr, TypeTestExprS):
+        return _expr_needs_temp_runtime_roots(expr.operand)
     if isinstance(expr, UnaryExprS):
         return _expr_needs_temp_runtime_roots(expr.operand)
     if isinstance(expr, BinaryExprS):
@@ -146,6 +148,8 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
     if isinstance(expr, SyntheticExpr):
         return max((_max_call_temp_root_slots_in_expr(arg) for arg in expr.args), default=0)
     if isinstance(expr, CastExprS):
+        return _max_call_temp_root_slots_in_expr(expr.operand)
+    if isinstance(expr, TypeTestExprS):
         return _max_call_temp_root_slots_in_expr(expr.operand)
     if isinstance(expr, UnaryExprS):
         return _max_call_temp_root_slots_in_expr(expr.operand)

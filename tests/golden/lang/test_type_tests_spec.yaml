@@ -1,0 +1,5 @@
+runs:
+  - { name: obj_type_tests, input: { stdin: "1" }, expect: { exit_code: 0 } }
+  - { name: interface_type_tests, input: { stdin: "2" }, expect: { exit_code: 0 } }
+  - { name: null_type_tests, input: { stdin: "3" }, expect: { exit_code: 0 } }
+  - { name: exact_type_checks, input: { stdin: "4" }, expect: { exit_code: 0 } }

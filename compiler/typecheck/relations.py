@@ -104,6 +104,32 @@ def is_comparable(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> boo
     return False
 
 
+def check_type_test(ctx: TypeCheckContext, source: TypeInfo, target: TypeInfo, span: SourceSpan) -> None:
+    if target.kind == "interface":
+        pass
+    elif not _is_concrete_class_type(ctx, target):
+        raise TypeCheckError("Operator 'is' requires class or interface type on right operand", span)
+
+    if source.kind == "null":
+        return
+
+    if source.kind == "callable" or source.element_type is not None:
+        raise TypeCheckError("Operator 'is' requires reference, interface, Obj, or null left operand", span)
+
+    if source.kind not in {"reference", "interface"}:
+        raise TypeCheckError("Operator 'is' requires reference, interface, Obj, or null left operand", span)
+
+    if source.kind == "reference" and source.name != "Obj" and not _is_concrete_class_type(ctx, source):
+        raise TypeCheckError("Operator 'is' requires reference, interface, Obj, or null left operand", span)
+
+    try:
+        check_explicit_cast(ctx, source, target, span)
+    except TypeCheckError as error:
+        if error.message.startswith("Invalid cast from '"):
+            raise TypeCheckError("Operator 'is' has incompatible operand types", span) from None
+        raise
+
+
 def _may_alias_under_identity_comparison(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> bool:
     if left.name == "Obj" or right.name == "Obj":
         return True

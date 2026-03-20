@@ -62,6 +62,9 @@ def walk_expression(expr: SemanticExpr, visit_expr: Callable[[SemanticExpr], Non
     if isinstance(expr, CastExprS):
         walk_expression(expr.operand, visit_expr)
         return
+    if isinstance(expr, TypeTestExprS):
+        walk_expression(expr.operand, visit_expr)
+        return
     if isinstance(expr, UnaryExprS):
         walk_expression(expr.operand, visit_expr)
         return
