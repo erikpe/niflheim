@@ -63,6 +63,7 @@ def emit_function(
     emit_ctx = EmitContext(
         layout=layout,
         fn_name=target_label,
+        current_module_path=fn.function_id.module_path,
         label_counter=label_counter,
         string_literal_labels=codegen.string_literal_labels,
         temp_root_depth=[0],
@@ -154,6 +155,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     emit_ctx = EmitContext(
         layout=layout,
         fn_name=target_label,
+        current_module_path=cls.class_id.module_path,
         label_counter=label_counter,
         string_literal_labels=codegen.string_literal_labels,
         temp_root_depth=[0],

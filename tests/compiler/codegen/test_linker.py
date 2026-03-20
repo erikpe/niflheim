@@ -92,6 +92,41 @@ def test_build_codegen_program_prefers_body_over_extern_duplicate(tmp_path: Path
     assert helper.is_extern is False
 
 
+def test_build_codegen_program_preserves_module_interfaces_for_codegen_metadata(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        export class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+
+    util_module = next(module for module in program.ordered_modules if module.module_path == ("util",))
+    assert [interface.interface_id.name for interface in util_module.interfaces] == ["Hashable"]
+    assert util_module.interfaces[0].methods[0].method_id.name == "hash_code"
+    util_key = next(cls for cls in program.classes if cls.class_id.module_path == ("util",) and cls.class_id.name == "Key")
+    assert util_key.implemented_interfaces == [util_module.interfaces[0].interface_id]
+
+
 def test_build_codegen_program_rejects_duplicate_class_symbols(tmp_path: Path) -> None:
     _write(
         tmp_path / "left.nif",

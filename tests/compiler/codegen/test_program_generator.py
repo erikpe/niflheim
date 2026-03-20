@@ -8,7 +8,7 @@ from compiler.codegen.program_generator import ProgramGenerator
 from compiler.codegen.linker import build_codegen_program
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering import lower_program
-from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId
 
 
 def _write(path: Path, content: str) -> None:
@@ -125,3 +125,47 @@ def test_program_generator_generate_builds_module_output(tmp_path: Path) -> None
     assert ConstructorId(module_path=("main",), class_name="Box") in generator.declaration_tables.constructor_labels_by_id
     assert "__nif_ctor_Box" in asm
     assert "main:" in asm
+
+
+def test_program_generator_builds_interface_descriptor_and_slot_tables(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+            fn equals(other: Obj) -> bool;
+        }
+
+        export class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+
+            fn equals(other: Obj) -> bool {
+                return true;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    tables = ProgramGenerator(program).build_declaration_tables()
+
+    interface_id = InterfaceId(module_path=("util",), name="Hashable")
+    hash_code_id = InterfaceMethodId(module_path=("util",), interface_name="Hashable", name="hash_code")
+    equals_id = InterfaceMethodId(module_path=("util",), interface_name="Hashable", name="equals")
+
+    assert tables.interface_descriptor_symbols_by_id[interface_id] == "__nif_interface_util__Hashable"
+    assert tables.interface_method_slots_by_id[hash_code_id] == 0
+    assert tables.interface_method_slots_by_id[equals_id] == 1
+    assert tables.local_interface_ids_by_module[("util",)]["Hashable"] == interface_id

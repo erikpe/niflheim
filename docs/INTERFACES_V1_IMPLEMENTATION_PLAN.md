@@ -21,10 +21,11 @@ Completed so far:
 - Step 7 is implemented and validated.
 - Step 8 is implemented and validated.
 - Step 9 is implemented and validated.
+- Step 10 is implemented and validated.
 
 Not started yet:
 
-- Step 10 and later.
+- Step 11 and later.
 
 ## Scope
 
@@ -544,10 +545,10 @@ Step 9 objective check:
 
 ## Step 10: Emit Interface Metadata In Codegen
 
-- [ ] Emit interface descriptors
-- [ ] Emit per-class implemented-interface records
-- [ ] Emit interface method tables in stable slot order
-- [ ] Ensure concrete class type metadata continues to work unchanged for existing casts
+- [x] Emit interface descriptors
+- [x] Emit per-class implemented-interface records
+- [x] Emit interface method tables in stable slot order
+- [x] Ensure concrete class type metadata continues to work unchanged for existing casts
 
 Suggested code areas:
 
@@ -565,6 +566,31 @@ Suggested tests for this step:
 What should be achieved at the end of this step:
 
 - generated binaries contain enough metadata for interface casts and dispatch to work at runtime
+
+Validation for this step:
+
+- Implemented in `compiler/semantic/ir.py`, `compiler/semantic/lowering.py`, `compiler/semantic/reachability.py`, `compiler/codegen/program_generator.py`, `compiler/codegen/symbols.py`, `compiler/codegen/emitter_module.py`, `compiler/codegen/emitter_expr.py`, and `compiler/codegen/model.py`
+- Lowered semantic modules now retain explicit interface declarations, interface method order, and per-class implemented-interface IDs so codegen can consume canonical interface metadata directly instead of reconstructing it from raw type-name strings
+- Codegen now emits concrete `RtInterfaceType` descriptors, per-class `RtInterfaceImpl` records, and per-interface method tables in stable interface declaration order
+- Interface-target casts now emit `rt_checked_cast_interface(...)` with interface descriptor symbols, while existing concrete-class casts continue to use `rt_checked_cast(...)`
+- Reachability pruning now keeps interface implementation methods alive for reachable implementing classes so emitted interface method tables remain complete even when those methods are not called concretely
+- Existing `RtType` emission for class metadata remains intact, with concrete class records now pointing at emitted interface implementation tables when present
+- Added focused tests covering:
+	- linker/codegen preservation of interface declarations and implemented-interface IDs
+	- declaration-table construction for interface descriptor symbols and interface method slot indices
+	- emitted interface descriptor records for local and imported interface cast targets
+	- emitted per-class interface method tables and implementation records
+	- interface cast codegen calling `rt_checked_cast_interface(...)`
+	- reachability retention of interface implementation methods required for metadata emission
+- Validation run results:
+	- focused semantic/codegen suites: `27 passed`
+
+Step 10 objective check:
+
+- fulfilled: codegen now emits interface descriptors as concrete runtime metadata records
+- fulfilled: implementing classes now emit per-class implemented-interface records
+- fulfilled: interface method tables are now emitted in stable interface declaration order
+- fulfilled: existing concrete class type metadata and class-cast emission remain intact while interface casts use interface descriptors
 
 ## Step 11: Emit Interface Dispatch Calls
 

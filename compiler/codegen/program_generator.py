@@ -8,7 +8,8 @@ from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.linker import CodegenProgram
 from compiler.codegen.model import ConstructorLayout
-from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId
+from compiler.resolver import ModulePath
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,26 @@ class DeclarationTables:
     constructor_labels_by_id: dict[ConstructorId, str]
     class_field_offsets_by_id: dict[tuple[ClassId, str], int]
     class_field_type_names_by_id: dict[tuple[ClassId, str], str]
+    interface_descriptor_symbols_by_id: dict[InterfaceId, str]
+    interface_method_slots_by_id: dict[InterfaceMethodId, int]
+    local_interface_ids_by_module: dict[ModulePath, dict[str, InterfaceId]]
+
+    def interface_descriptor_symbol_for_type_name(
+        self, current_module_path: ModulePath | None, type_name: str
+    ) -> str | None:
+        interface_id = _interface_id_from_type_name(current_module_path, type_name)
+        if interface_id is None:
+            return None
+        return self.interface_descriptor_symbols_by_id.get(interface_id)
+
+
+def _interface_id_from_type_name(current_module_path: ModulePath | None, type_name: str) -> InterfaceId | None:
+    if "::" in type_name:
+        owner_dotted, interface_name = type_name.split("::", 1)
+        return InterfaceId(module_path=tuple(owner_dotted.split(".")), name=interface_name)
+    if current_module_path is None:
+        return None
+    return InterfaceId(module_path=current_module_path, name=type_name)
 
 
 class ProgramGenerator(CodeGenerator):
@@ -41,6 +62,21 @@ class ProgramGenerator(CodeGenerator):
         constructor_labels_by_id: dict[ConstructorId, str] = {}
         class_field_offsets_by_id: dict[tuple[ClassId, str], int] = {}
         class_field_type_names_by_id: dict[tuple[ClassId, str], str] = {}
+        interface_descriptor_symbols_by_id: dict[InterfaceId, str] = {}
+        interface_method_slots_by_id: dict[InterfaceMethodId, int] = {}
+        local_interface_ids_by_module: dict[ModulePath, dict[str, InterfaceId]] = {}
+
+        for module in self.program.ordered_modules:
+            local_interface_ids_by_module[module.module_path] = {
+                interface.interface_id.name: interface.interface_id for interface in module.interfaces
+            }
+            for interface in module.interfaces:
+                qualified_name = _qualified_interface_type_name(interface.interface_id)
+                interface_descriptor_symbols_by_id[interface.interface_id] = codegen_symbols.mangle_interface_symbol(
+                    qualified_name
+                )
+                for slot_index, method in enumerate(interface.methods):
+                    interface_method_slots_by_id[method.method_id] = slot_index
 
         for cls in self.program.classes:
             class_name = cls.class_id.name
@@ -80,6 +116,9 @@ class ProgramGenerator(CodeGenerator):
             constructor_labels_by_id=constructor_labels_by_id,
             class_field_offsets_by_id=class_field_offsets_by_id,
             class_field_type_names_by_id=class_field_type_names_by_id,
+            interface_descriptor_symbols_by_id=interface_descriptor_symbols_by_id,
+            interface_method_slots_by_id=interface_method_slots_by_id,
+            local_interface_ids_by_module=local_interface_ids_by_module,
         )
         return self.declaration_tables
 
@@ -90,3 +129,7 @@ class ProgramGenerator(CodeGenerator):
 
 def emit_program(program: CodegenProgram) -> str:
     return ProgramGenerator(program).generate()
+
+
+def _qualified_interface_type_name(interface_id: InterfaceId) -> str:
+    return f"{'.'.join(interface_id.module_path)}::{interface_id.name}"

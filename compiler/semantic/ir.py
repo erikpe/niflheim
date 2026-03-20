@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from compiler.frontend.lexer import SourceSpan
@@ -21,6 +21,23 @@ class SemanticModule:
     classes: list["SemanticClass"]
     functions: list["SemanticFunction"]
     span: SourceSpan
+    interfaces: list["SemanticInterface"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SemanticInterfaceMethod:
+    method_id: InterfaceMethodId
+    params: list["SemanticParam"]
+    return_type_name: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class SemanticInterface:
+    interface_id: InterfaceId
+    is_export: bool
+    methods: list[SemanticInterfaceMethod]
+    span: SourceSpan
 
 
 @dataclass(frozen=True)
@@ -40,6 +57,7 @@ class SemanticClass:
     fields: list[SemanticField]
     methods: list["SemanticMethod"]
     span: SourceSpan
+    implemented_interfaces: list[InterfaceId] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

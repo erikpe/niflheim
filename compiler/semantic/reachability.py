@@ -24,6 +24,7 @@ class _SemanticReachabilityWalker:
         self.functions_by_id: dict[FunctionId, SemanticFunction] = {}
         self.classes_by_id: dict[ClassId, SemanticClass] = {}
         self.methods_by_id: dict[MethodId, SemanticMethod] = {}
+        self.interfaces_by_id: dict[InterfaceId, SemanticInterface] = {}
 
         for module in program.modules.values():
             for function in module.functions:
@@ -32,6 +33,8 @@ class _SemanticReachabilityWalker:
                 self.classes_by_id[cls.class_id] = cls
                 for method in cls.methods:
                     self.methods_by_id[method.method_id] = method
+            for interface in module.interfaces:
+                self.interfaces_by_id[interface.interface_id] = interface
 
         self.reachable_functions: set[FunctionId] = set()
         self.reachable_classes: set[ClassId] = set()
@@ -107,6 +110,18 @@ class _SemanticReachabilityWalker:
             self._enqueue_type_name(cls.class_id.module_path, field.type_name)
             if field.initializer is not None:
                 self._walk_expr(cls.class_id.module_path, field.initializer)
+        for interface_id in cls.implemented_interfaces:
+            interface = self.interfaces_by_id.get(interface_id)
+            if interface is None:
+                continue
+            for interface_method in interface.methods:
+                self._enqueue_method(
+                    MethodId(
+                        module_path=cls.class_id.module_path,
+                        class_name=cls.class_id.name,
+                        name=interface_method.method_id.name,
+                    )
+                )
 
     def _walk_block(self, module_path: ModulePath, block: SemanticBlock) -> None:
         for stmt in block.statements:

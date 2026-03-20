@@ -225,3 +225,108 @@ fn main() -> i64 {
     assert "    .quad __nif_type_name_main__Holder" in asm
     assert "    .quad __nif_type_name_main__Holder__ptr_offsets" in asm
     assert "    .quad 0\n    .long 0\n    .long 0" in asm
+
+
+def test_emit_asm_obj_to_interface_cast_calls_rt_checked_cast_interface(tmp_path) -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn f(o: Obj) -> Hashable {
+    return (Hashable)o;
+}
+
+fn main() -> i64 {
+    if f(null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "    call rt_checked_cast_interface" in asm
+    assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in asm
+    assert "__nif_interface_name_main__Hashable:" in asm
+    assert '.asciz "main::Hashable"' in asm
+    assert "__nif_interface_main__Hashable:" in asm
+
+
+def test_emit_asm_emits_interface_method_tables_and_impl_records(tmp_path) -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+    fn equals(other: Obj) -> bool;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        return true;
+    }
+}
+
+fn main() -> i64 {
+    var key: Key = Key();
+    if key == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "__nif_interface_methods_main__Key__main__Hashable:" in asm
+    assert "__nif_interface_methods_main__Key__main__Hashable:\n    .quad __nif_method_Key_hash_code\n    .quad __nif_method_Key_equals" in asm
+    assert "__nif_interface_impls_main__Key:" in asm
+    assert "    .quad __nif_interface_main__Hashable" in asm
+    assert "    .quad __nif_interface_methods_main__Key__main__Hashable" in asm
+    assert "    .long 2" in asm
+    assert "__nif_type_Key:" in asm
+    assert "    .quad __nif_interface_impls_main__Key" in asm
+
+
+def test_emit_asm_emits_imported_interface_descriptor_for_cast_targets(tmp_path) -> None:
+    util_source = """
+export interface Hashable {
+    fn hash_code() -> u64;
+}
+
+export class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+"""
+    main_source = """
+import util;
+
+fn f(o: Obj) -> util.Hashable {
+    return (util.Hashable)o;
+}
+
+fn main() -> i64 {
+    if f(null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+
+    (tmp_path / "util.nif").write_text(util_source.strip() + "\n", encoding="utf-8")
+    asm = emit_source_asm(tmp_path, main_source, project_root=tmp_path)
+
+    assert "    call rt_checked_cast_interface" in asm
+    assert "    lea rsi, [rip + __nif_interface_util__Hashable]" in asm
+    assert "__nif_interface_name_util__Hashable:" in asm
+    assert '.asciz "util::Hashable"' in asm

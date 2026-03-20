@@ -167,3 +167,39 @@ def test_semantic_reachability_walks_interface_method_call_receivers(tmp_path: P
 
     assert FunctionId(module_path=("main",), name="main") in reachability.reachable_functions
     assert ClassId(module_path=("main",), name="Key") in reachability.reachable_classes
+
+
+def test_prune_unreachable_semantic_keeps_interface_impl_methods_for_reachable_classes(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+            fn equals(other: Obj) -> bool;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+
+            fn equals(other: Obj) -> bool {
+                return true;
+            }
+        }
+
+        fn main() -> i64 {
+            var key: Key = Key();
+            if key == null {
+                return 1;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    module = pruned.modules[("main",)]
+
+    assert [cls.class_id.name for cls in module.classes] == ["Key"]
+    assert [method.method_id.name for method in module.classes[0].methods] == ["hash_code", "equals"]

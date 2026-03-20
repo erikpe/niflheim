@@ -44,6 +44,7 @@ def _build_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name:
     emit_ctx = EmitContext(
         layout=layout,
         fn_name=function_name,
+        current_module_path=fn.function_id.module_path,
         label_counter=[0],
         string_literal_labels={},
         temp_root_depth=[0],

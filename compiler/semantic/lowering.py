@@ -212,6 +212,41 @@ def _lower_module(
             _lower_function(lower_ctx, module_path, function_decl) for function_decl in module_info.ast.functions
         ],
         span=module_info.ast.span,
+        interfaces=[
+            _lower_interface(lower_ctx, module_path, interface_decl) for interface_decl in module_info.ast.interfaces
+        ],
+    )
+
+
+def _lower_interface(
+    lower_ctx: _ModuleLoweringContext, module_path: ModulePath, interface_decl: InterfaceDecl
+) -> SemanticInterface:
+    return SemanticInterface(
+        interface_id=InterfaceId(module_path=module_path, name=interface_decl.name),
+        is_export=interface_decl.is_export,
+        methods=[_lower_interface_method(lower_ctx, module_path, interface_decl, method) for method in interface_decl.methods],
+        span=interface_decl.span,
+    )
+
+
+def _lower_interface_method(
+    lower_ctx: _ModuleLoweringContext,
+    module_path: ModulePath,
+    interface_decl: InterfaceDecl,
+    method_decl: InterfaceMethodDecl,
+) -> SemanticInterfaceMethod:
+    return SemanticInterfaceMethod(
+        method_id=InterfaceMethodId(module_path=module_path, interface_name=interface_decl.name, name=method_decl.name),
+        params=[
+            SemanticParam(
+                name=param.name,
+                type_name=_resolved_type_name(lower_ctx.typecheck_ctx, param.type_ref),
+                span=param.span,
+            )
+            for param in method_decl.params
+        ],
+        return_type_name=_resolved_type_name(lower_ctx.typecheck_ctx, method_decl.return_type),
+        span=method_decl.span,
     )
 
 
@@ -222,6 +257,10 @@ def _lower_class(lower_ctx: _ModuleLoweringContext, module_path: ModulePath, cla
         fields=[_lower_field(lower_ctx, field_decl) for field_decl in class_decl.fields],
         methods=[_lower_method(lower_ctx, module_path, class_decl, method_decl) for method_decl in class_decl.methods],
         span=class_decl.span,
+        implemented_interfaces=[
+            _interface_id_for_type_name(module_path, _resolved_type_name(lower_ctx.typecheck_ctx, interface_ref))
+            for interface_ref in class_decl.implements
+        ],
     )
 
 

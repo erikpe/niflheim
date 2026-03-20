@@ -59,6 +59,7 @@ ARRAY_SLICE_RUNTIME_CALLS = {
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_checked_cast": (0,),
+    "rt_checked_cast_interface": (0,),
     "rt_array_len": (0,),
     "rt_array_get_i64": (0,),
     "rt_array_get_u64": (0,),

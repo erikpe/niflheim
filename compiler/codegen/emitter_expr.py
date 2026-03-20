@@ -16,6 +16,7 @@ from compiler.codegen.model import (
 )
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
+from compiler.resolver import ModulePath
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import MethodId
 
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
 class EmitContext:
     layout: FunctionLayout
     fn_name: str
+    current_module_path: ModulePath
     label_counter: list[int]
     string_literal_labels: dict[str, tuple[str, int]]
     temp_root_depth: list[int]
@@ -217,12 +219,19 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
         _emit_runtime_call_hooks_after(codegen, ctx)
         return
     if codegen_types.is_reference_type_name(target_type):
+        interface_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol_for_type_name(
+            ctx.current_module_path, target_type
+        )
         codegen.asm.instr("push rax")
         _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
         codegen.asm.instr("pop rax")
         codegen.asm.instr("mov rdi, rax")
-        codegen.asm.instr(f"lea rsi, [rip + {codegen_symbols.mangle_type_symbol(target_type)}]")
-        codegen.emit_aligned_call("rt_checked_cast")
+        if interface_descriptor_symbol is not None:
+            codegen.asm.instr(f"lea rsi, [rip + {interface_descriptor_symbol}]")
+            codegen.emit_aligned_call("rt_checked_cast_interface")
+        else:
+            codegen.asm.instr(f"lea rsi, [rip + {codegen_symbols.mangle_type_symbol(target_type)}]")
+            codegen.emit_aligned_call("rt_checked_cast")
         _emit_runtime_call_hooks_after(codegen, ctx)
         return
     if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:
