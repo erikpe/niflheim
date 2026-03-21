@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from compiler.common.literals import is_hex_digits
-from compiler.common.type_names import TYPE_NAME_U8
+from compiler.common.literals import INT_LITERAL_HEX_PREFIXES, split_int_literal_suffix, is_hex_digits
 from compiler.frontend.ast_nodes import *
 from compiler.frontend.lexer import SourceSpan, Token
 from compiler.frontend.tokens import TokenKind
@@ -15,18 +14,11 @@ def parse_int_literal_text(text: str) -> IntLiteralValue:
     if not text:
         raise ValueError("Expected integer literal text")
 
-    suffix: str | None = None
-    digits = text
-    if text.endswith(TYPE_NAME_U8):
-        suffix = TYPE_NAME_U8
-        digits = text[:-2]
-    elif text.endswith("u"):
-        suffix = "u"
-        digits = text[:-1]
+    digits, suffix = split_int_literal_suffix(text)
 
     base = 10
     magnitude_digits = digits
-    if digits.startswith(("0x", "0X")):
+    if digits.startswith(INT_LITERAL_HEX_PREFIXES):
         base = 16
         magnitude_digits = digits[2:]
         if not magnitude_digits or not is_hex_digits(magnitude_digits):

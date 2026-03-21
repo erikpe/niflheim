@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from compiler.common.collection_protocols import COLLECTION_PROTOCOL_METHOD_NAMES
+from compiler.common.literals import INT_LITERAL_SUFFIX_U8, INT_LITERAL_SUFFIX_U64
 from compiler.common.type_names import *
 from compiler.common.type_shapes import is_str_type_name
 from compiler.frontend.ast_nodes import *
@@ -73,11 +74,11 @@ def _infer_literal_expression_type(ctx: TypeCheckContext, expr: LiteralExpr) -> 
             raise TypeCheckError("double literal out of range (expected finite IEEE-754 double)", expr.span)
         return TypeInfo(name=TYPE_NAME_DOUBLE, kind="primitive")
     if isinstance(literal, IntLiteralValue):
-        if literal.suffix == TYPE_NAME_U8:
+        if literal.suffix == INT_LITERAL_SUFFIX_U8:
             if literal.magnitude > U8_MAX_LITERAL:
                 raise TypeCheckError("u8 literal out of range (expected 0..255)", expr.span)
             return TypeInfo(name=TYPE_NAME_U8, kind="primitive")
-        if literal.suffix == "u":
+        if literal.suffix == INT_LITERAL_SUFFIX_U64:
             if literal.magnitude > U64_MAX_LITERAL:
                 raise TypeCheckError("u64 literal out of range (expected 0..18446744073709551615)", expr.span)
             return TypeInfo(name=TYPE_NAME_U64, kind="primitive")

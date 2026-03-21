@@ -1,6 +1,19 @@
 from __future__ import annotations
 
 
+INT_LITERAL_SUFFIX_U64 = "u"
+INT_LITERAL_SUFFIX_U8 = "u8"
+INT_LITERAL_HEX_PREFIXES = ("0x", "0X")
+
+
+def split_int_literal_suffix(text: str) -> tuple[str, str | None]:
+    if text.endswith(INT_LITERAL_SUFFIX_U8):
+        return text[:-len(INT_LITERAL_SUFFIX_U8)], INT_LITERAL_SUFFIX_U8
+    if text.endswith(INT_LITERAL_SUFFIX_U64):
+        return text[:-len(INT_LITERAL_SUFFIX_U64)], INT_LITERAL_SUFFIX_U64
+    return text, None
+
+
 def is_hex_digit(ch: str) -> bool:
     return ch.isdigit() or ("a" <= ch <= "f") or ("A" <= ch <= "F")
 
