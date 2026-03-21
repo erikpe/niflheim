@@ -85,3 +85,27 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert "    call __nif_method_Str_index_get" in asm
+
+
+def test_emit_asm_dead_string_literal_helper_is_not_emitted_after_pruning(tmp_path) -> None:
+    source = """
+class Str {
+    _bytes: u8[];
+
+    static fn from_u8_array(value: u8[]) -> Str {
+        return Str(value);
+    }
+}
+
+fn dead() -> Str {
+    return "unreachable";
+}
+
+fn main() -> i64 {
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "__nif_str_lit_0:" not in asm
+    assert f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}" not in asm

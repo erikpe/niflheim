@@ -14,6 +14,7 @@ from compiler.semantic.symbols import ClassId, FunctionId, MethodId
 class SemanticReachability:
     reachable_functions: set[FunctionId]
     reachable_classes: set[ClassId]
+    reachable_interfaces: set[InterfaceId]
     reachable_methods: set[MethodId]
 
 
@@ -37,16 +38,18 @@ class _SemanticReachabilityWalker:
 
         self.reachable_functions: set[FunctionId] = set()
         self.reachable_classes: set[ClassId] = set()
+        self.reachable_interfaces: set[InterfaceId] = set()
         self.reachable_methods: set[MethodId] = set()
 
         self.function_queue: deque[FunctionId] = deque()
         self.class_queue: deque[ClassId] = deque()
+        self.interface_queue: deque[InterfaceId] = deque()
         self.method_queue: deque[MethodId] = deque()
 
     def walk(self) -> SemanticReachability:
         self._enqueue_function(FunctionId(module_path=self.program.entry_module, name="main"))
 
-        while self.function_queue or self.class_queue or self.method_queue:
+        while self.function_queue or self.class_queue or self.interface_queue or self.method_queue:
             while self.function_queue:
                 function_id = self.function_queue.popleft()
                 function = self.functions_by_id.get(function_id)
@@ -65,9 +68,16 @@ class _SemanticReachabilityWalker:
                 if cls is not None:
                     self._visit_class(cls)
 
+            while self.interface_queue:
+                interface_id = self.interface_queue.popleft()
+                interface = self.interfaces_by_id.get(interface_id)
+                if interface is not None:
+                    self._visit_interface(interface)
+
         return SemanticReachability(
             reachable_functions=self.reachable_functions,
             reachable_classes=self.reachable_classes,
+            reachable_interfaces=self.reachable_interfaces,
             reachable_methods=self.reachable_methods,
         )
 
@@ -82,6 +92,12 @@ class _SemanticReachabilityWalker:
             return
         self.reachable_classes.add(class_id)
         self.class_queue.append(class_id)
+
+    def _enqueue_interface(self, interface_id: InterfaceId) -> None:
+        if interface_id not in self.interfaces_by_id or interface_id in self.reachable_interfaces:
+            return
+        self.reachable_interfaces.add(interface_id)
+        self.interface_queue.append(interface_id)
 
     def _enqueue_method(self, method_id: MethodId | None) -> None:
         if method_id is None or method_id not in self.methods_by_id or method_id in self.reachable_methods:
@@ -110,6 +126,7 @@ class _SemanticReachabilityWalker:
             if field.initializer is not None:
                 self._walk_expr(cls.class_id.module_path, field.initializer)
         for interface_id in cls.implemented_interfaces:
+            self._enqueue_interface(interface_id)
             interface = self.interfaces_by_id.get(interface_id)
             if interface is None:
                 continue
@@ -121,6 +138,12 @@ class _SemanticReachabilityWalker:
                         name=interface_method.method_id.name,
                     )
                 )
+
+    def _visit_interface(self, interface: SemanticInterface) -> None:
+        for method in interface.methods:
+            for param in method.params:
+                self._enqueue_type_name(interface.interface_id.module_path, param.type_name)
+            self._enqueue_type_name(interface.interface_id.module_path, method.return_type_name)
 
     def _walk_block(self, module_path: ModulePath, block: SemanticBlock) -> None:
         for stmt in block.statements:
@@ -239,6 +262,7 @@ class _SemanticReachabilityWalker:
                 self._walk_expr(module_path, arg)
             return
         if isinstance(expr, InterfaceMethodCallExpr):
+            self._enqueue_interface(expr.interface_id)
             self._walk_expr(module_path, expr.receiver)
             self._enqueue_type_name(module_path, expr.receiver_type_name)
             for arg in expr.args:
@@ -279,6 +303,7 @@ class _SemanticReachabilityWalker:
     def _enqueue_type_name(self, current_module_path: ModulePath, type_name: str) -> None:
         for class_id in _iter_class_ids_for_type_name(current_module_path, type_name):
             self._enqueue_class(class_id)
+            self._enqueue_interface(InterfaceId(module_path=class_id.module_path, name=class_id.name))
 
 
 def analyze_semantic_reachability(program: SemanticProgram) -> SemanticReachability:
@@ -298,7 +323,10 @@ def prune_unreachable_semantic(program: SemanticProgram) -> SemanticProgram:
             classes.append(replace(cls, methods=methods))
 
         functions = [fn for fn in module.functions if fn.function_id in reachability.reachable_functions]
-        pruned_modules[module_path] = replace(module, classes=classes, functions=functions)
+        interfaces = [
+            interface for interface in module.interfaces if interface.interface_id in reachability.reachable_interfaces
+        ]
+        pruned_modules[module_path] = replace(module, classes=classes, functions=functions, interfaces=interfaces)
 
     return SemanticProgram(entry_module=program.entry_module, modules=pruned_modules)
 

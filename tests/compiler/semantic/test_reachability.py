@@ -251,3 +251,75 @@ def test_prune_unreachable_semantic_keeps_imported_interface_impl_methods_for_re
     assert [fn.function_id.name for fn in pruned.modules[("model",)].functions] == ["make"]
     assert [cls.class_id.name for cls in pruned.modules[("model",)].classes] == ["Key"]
     assert [method.method_id.name for method in pruned.modules[("model",)].classes[0].methods] == ["hash_code"]
+
+
+def test_prune_unreachable_semantic_drops_dead_interfaces_but_keeps_referenced_ones(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "contracts.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        export interface Unused {
+            fn value() -> i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "model.nif",
+        """
+        import contracts;
+
+        export class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        export fn make() -> contracts.Hashable {
+            return Key();
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import model;
+
+        fn main() -> u64 {
+            return model.make().hash_code();
+        }
+        """,
+    )
+
+    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+
+    assert [interface.interface_id.name for interface in pruned.modules[("contracts",)].interfaces] == ["Hashable"]
+    assert pruned.modules[("model",)].classes[0].implemented_interfaces == [
+        pruned.modules[("contracts",)].interfaces[0].interface_id
+    ]
+
+
+def test_prune_unreachable_semantic_drops_dead_extern_functions(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export extern fn helper() -> i64;
+        export extern fn dead_helper() -> i64;
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> i64 {
+            return util.helper();
+        }
+        """,
+    )
+
+    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+
+    assert [fn.function_id.name for fn in pruned.modules[("util",)].functions] == ["helper"]

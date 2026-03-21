@@ -136,3 +136,102 @@ def test_cli_default_codegen_prunes_dead_declarations_from_assembly(
     assert "helper:" in asm
     assert "__nif_method_Box_make:" in asm
     assert "__nif_method_Box_read:" in asm
+
+
+def test_cli_default_codegen_prunes_dead_imported_interface_descriptors_from_assembly(
+    tmp_path: Path, monkeypatch
+) -> None:
+    write_project(
+        tmp_path,
+        {
+            "contracts.nif": """
+            export interface Hashable {
+                fn hash_code() -> u64;
+            }
+
+            export interface DeadContract {
+                fn dead() -> i64;
+            }
+            """,
+            "model.nif": """
+            import contracts;
+
+            export class Key implements Hashable {
+                fn hash_code() -> u64 {
+                    return 1u;
+                }
+            }
+
+            export fn make() -> Key {
+                return Key();
+            }
+            """,
+            "main.nif": """
+            import model;
+
+            fn main() -> i64 {
+                if model.make() == null {
+                    return 1;
+                }
+                return 0;
+            }
+            """,
+        },
+    )
+
+    out_file = compile_to_asm(monkeypatch, tmp_path / "main.nif", project_root=tmp_path, out_path=tmp_path / "out.s")
+    asm = out_file.read_text(encoding="utf-8")
+
+    assert "__nif_interface_contracts__DeadContract:" not in asm
+    assert "__nif_interface_name_contracts__DeadContract:" not in asm
+    assert "__nif_interface_contracts__Hashable:" in asm
+
+
+def test_cli_default_codegen_keeps_referenced_imported_interface_descriptors_in_assembly(
+    tmp_path: Path, monkeypatch
+) -> None:
+    write_project(
+        tmp_path,
+        {
+            "contracts.nif": """
+            export interface Hashable {
+                fn hash_code() -> u64;
+            }
+
+            export interface DeadContract {
+                fn dead() -> i64;
+            }
+            """,
+            "model.nif": """
+            import contracts;
+
+            export class Key implements Hashable {
+                fn hash_code() -> u64 {
+                    return 1u;
+                }
+            }
+
+            export fn make_hashable() -> contracts.Hashable {
+                return Key();
+            }
+            """,
+            "main.nif": """
+            import model;
+
+            fn main() -> i64 {
+                if model.make_hashable().hash_code() == 1u {
+                    return 0;
+                }
+                return 1;
+            }
+            """,
+        },
+    )
+
+    out_file = compile_to_asm(monkeypatch, tmp_path / "main.nif", project_root=tmp_path, out_path=tmp_path / "out.s")
+    asm = out_file.read_text(encoding="utf-8")
+
+    assert "__nif_interface_contracts__Hashable:" in asm
+    assert "__nif_interface_name_contracts__Hashable:" in asm
+    assert "__nif_interface_methods_model__Key__contracts__Hashable:" in asm
+    assert "__nif_interface_contracts__DeadContract:" not in asm
