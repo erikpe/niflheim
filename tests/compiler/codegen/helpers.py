@@ -4,7 +4,7 @@ from compiler.codegen.generator import emit_asm
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
-from compiler.semantic.reachability import prune_unreachable_semantic
+from compiler.semantic.optimizations.reachability import prune_unreachable_semantic
 
 
 def emit_source_asm(tmp_path, source: str, *, source_path: str = "main.nif", project_root=None) -> str:

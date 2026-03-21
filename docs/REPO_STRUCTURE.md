@@ -18,6 +18,12 @@ Stage-0 compiler implementation in Python.
 	- `parser.py` - recursive-descent parser for modules/statements/expressions.
 	- `ast_dump.py` - deterministic AST debug serialization used by golden tests.
 - `resolver.py` - module graph loading and import/export visibility resolution.
+- `semantic/` - typed semantic IR and post-lowering semantic passes.
+	- `ir.py`, `symbols.py` - semantic node definitions and canonical semantic symbol identities.
+	- `lowering/` - semantic IR construction from resolved, typechecked source.
+	- `linker.py` - semantic-program ordering and duplicate-symbol consolidation.
+	- `optimizations/` - post-lowering semantic passes and transforms.
+		- `reachability.py` - semantic reachability analysis and unreachable declaration pruning.
 - `typecheck/` - typecheck package modules.
 	- `api.py` - typecheck entry points (`typecheck`, `typecheck_program`).
 	- `model.py` - shared typechecker data model/constants/errors.
