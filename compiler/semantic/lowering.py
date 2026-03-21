@@ -111,8 +111,9 @@ class _ResolvedMethodRefTarget:
 class _ResolvedFieldReadTarget:
     receiver: Expression
     receiver_type_name: str
+    owner_class_id: ClassId
     field_name: str
-    field_type_name: str
+    type_name: str
 
 
 @dataclass(frozen=True)
@@ -125,8 +126,9 @@ class _ResolvedLocalLValueTarget:
 class _ResolvedFieldLValueTarget:
     receiver: Expression
     receiver_type_name: str
+    owner_class_id: ClassId
     field_name: str
-    field_type_name: str
+    type_name: str
 
 
 @dataclass(frozen=True)
@@ -444,8 +446,9 @@ def _lower_lvalue(lower_ctx: _ModuleLoweringContext, expr: Expression):
         return FieldLValue(
             receiver=_lower_expr(lower_ctx, resolved_target.receiver),
             receiver_type_name=resolved_target.receiver_type_name,
+            owner_class_id=resolved_target.owner_class_id,
             field_name=resolved_target.field_name,
-            field_type_name=resolved_target.field_type_name,
+            type_name=resolved_target.type_name,
             span=expr.span,
         )
 
@@ -466,11 +469,13 @@ def _resolve_lvalue_target(lower_ctx: _ModuleLoweringContext, expr: Expression) 
         return _ResolvedLocalLValueTarget(name=expr.name, type_name=local_type.name)
 
     if isinstance(expr, FieldAccessExpr):
+        receiver_type_name = infer_expression_type(lower_ctx.typecheck_ctx, expr.object_expr).name
         return _ResolvedFieldLValueTarget(
             receiver=expr.object_expr,
-            receiver_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr.object_expr).name,
+            receiver_type_name=receiver_type_name,
+            owner_class_id=_class_id_from_type_name(lower_ctx.typecheck_ctx.module_path, receiver_type_name),
             field_name=expr.field_name,
-            field_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
+            type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
         )
 
     if isinstance(expr, IndexExpr):
@@ -561,7 +566,7 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
         return IndexReadExpr(
             target=_lower_expr(lower_ctx, expr.object_expr),
             index=_lower_expr(lower_ctx, expr.index_expr),
-            result_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
+            type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
             get_method=_resolve_index_method_id(lower_ctx, expr.object_expr, "index_get"),
             span=expr.span,
         )
@@ -646,7 +651,7 @@ def _try_lower_array_structural_call_expr(
         return IndexReadExpr(
             target=_lower_expr(lower_ctx, expr.callee.object_expr),
             index=_lower_expr(lower_ctx, expr.arguments[0]),
-            result_type_name=result_type_name,
+            type_name=result_type_name,
             get_method=None,
             span=expr.span,
         )
@@ -658,7 +663,7 @@ def _try_lower_array_structural_call_expr(
             target=_lower_expr(lower_ctx, expr.callee.object_expr),
             begin=_lower_expr(lower_ctx, expr.arguments[0]),
             end=_lower_expr(lower_ctx, expr.arguments[1]),
-            result_type_name=result_type_name,
+            type_name=result_type_name,
             get_method=None,
             span=expr.span,
         )
@@ -764,7 +769,7 @@ def _try_lower_slice_read_expr(
         target=_lower_expr(lower_ctx, expr.callee.object_expr),
         begin=_lower_expr(lower_ctx, expr.arguments[0]),
         end=_lower_expr(lower_ctx, expr.arguments[1]),
-        result_type_name=result_type_name,
+        type_name=result_type_name,
         get_method=_resolve_instance_method_id(lower_ctx, receiver_type.name, "slice_get"),
         span=expr.span,
     )
@@ -875,8 +880,9 @@ def _resolve_field_access_ref_target(lower_ctx: _ModuleLoweringContext, expr: Fi
         return _ResolvedFieldReadTarget(
             receiver=expr.object_expr,
             receiver_type_name=receiver_type.name,
+            owner_class_id=_class_id_from_type_name(lower_ctx.typecheck_ctx.module_path, receiver_type.name),
             field_name=expr.field_name,
-            field_type_name=field_type.name,
+            type_name=field_type.name,
         )
 
     if expr.field_name in class_info.methods:
@@ -909,8 +915,9 @@ def _lower_resolved_ref(
     return FieldReadExpr(
         receiver=_lower_expr(lower_ctx, resolved_target.receiver),
         receiver_type_name=resolved_target.receiver_type_name,
+        owner_class_id=resolved_target.owner_class_id,
         field_name=resolved_target.field_name,
-        field_type_name=resolved_target.field_type_name,
+        type_name=resolved_target.type_name,
         span=span,
     )
 

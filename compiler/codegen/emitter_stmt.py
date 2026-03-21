@@ -5,7 +5,7 @@ import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.asm import offset_operand
-from compiler.codegen.emitter_expr import EmitContext, _resolve_field_offset, emit_expr, infer_expression_type_name
+from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.layout import for_in_temp_name
 from compiler.semantic.ir import *
 
@@ -128,17 +128,17 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         codegen.asm.instr("push rax")
         emit_expr(codegen, stmt.value, ctx)
         codegen.asm.instr("pop rcx")
-        field_offset = _resolve_field_offset(ctx, target.receiver_type_name, target.field_name)
+        field_offset = ctx.declaration_tables.class_field_offsets_by_id.get((target.owner_class_id, target.field_name))
         if field_offset is None:
             codegen_types.raise_codegen_error(
-                f"field assignment codegen missing field '{target.field_name}' on class '{target.receiver_type_name}'",
+                f"field assignment codegen missing field '{target.field_name}' on class '{target.owner_class_id.name}'",
                 span=stmt.span,
             )
         codegen.asm.instr(f"mov qword ptr [rcx + {field_offset}], rax")
         return
     if isinstance(target, IndexLValue):
         if target.set_method is None:
-            target_type = infer_expression_type_name(target.target)
+            target_type = expression_type_name(target.target)
             element_type = codegen_types.array_element_type_name(target_type, span=target.span)
             runtime_name = f"rt_array_set_{codegen_types.array_element_runtime_kind(element_type)}"
             from compiler.codegen.emitter_expr import _emit_named_call
@@ -153,7 +153,7 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         return
     if isinstance(target, SliceLValue):
         if target.set_method is None:
-            target_type = infer_expression_type_name(target.target)
+            target_type = expression_type_name(target.target)
             element_type = codegen_types.array_element_type_name(target_type, span=target.span)
             runtime_name = f"rt_array_set_slice_{codegen_types.array_element_runtime_kind(element_type)}"
             from compiler.codegen.emitter_expr import _emit_named_call
@@ -195,7 +195,7 @@ def _emit_for_in(
     from compiler.codegen.emitter_expr import _emit_named_call, _method_label
     from compiler.semantic.ir import LocalRefExpr
 
-    coll_ref = LocalRefExpr(name=coll_name, type_name=infer_expression_type_name(stmt.collection), span=stmt.span)
+    coll_ref = LocalRefExpr(name=coll_name, type_name=expression_type_name(stmt.collection), span=stmt.span)
     if stmt.iter_len_method is None:
         _emit_named_call(codegen, "rt_array_len", [coll_ref], TYPE_NAME_U64, ctx)
     else:
@@ -210,7 +210,7 @@ def _emit_for_in(
 
     index_ref = LocalRefExpr(name=index_name, type_name=TYPE_NAME_I64, span=stmt.span)
     if stmt.iter_get_method is None:
-        target_type = infer_expression_type_name(stmt.collection)
+        target_type = expression_type_name(stmt.collection)
         element_type = codegen_types.array_element_type_name(target_type, span=stmt.span)
         runtime_name = f"rt_array_get_{codegen_types.array_element_runtime_kind(element_type)}"
         _emit_named_call(codegen, runtime_name, [coll_ref, index_ref], stmt.element_type_name, ctx)

@@ -88,8 +88,12 @@ def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -
     assert isinstance(assign_stmt, SemanticAssign)
     assert isinstance(assign_stmt.target, FieldLValue)
     assert assign_stmt.target.field_name == "value"
+    assert assign_stmt.target.owner_class_id == ClassId(module_path=("main",), name="Box")
+    assert assign_stmt.target.type_name == "i64"
     assert isinstance(assign_stmt.value, BinaryExprS)
     assert isinstance(assign_stmt.value.left, FieldReadExpr)
+    assert assign_stmt.value.left.owner_class_id == ClassId(module_path=("main",), name="Box")
+    assert assign_stmt.value.left.type_name == "i64"
 
     while_stmt = function.body.statements[2]
     assert isinstance(while_stmt, SemanticWhile)
@@ -103,6 +107,8 @@ def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -
     return_stmt = function.body.statements[3]
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, FieldReadExpr)
+    assert return_stmt.value.owner_class_id == ClassId(module_path=("main",), name="Box")
+    assert return_stmt.value.type_name == "i64"
 
 
 def test_lower_program_builds_typed_semantic_constants_for_literals(tmp_path: Path) -> None:

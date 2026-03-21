@@ -39,8 +39,9 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
         callee=FieldReadExpr(
             receiver=LocalRefExpr(name="receiver", type_name="Box", span=span),
             receiver_type_name="Box",
+            owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="invoke",
-            field_type_name="fn(i64) -> i64",
+            type_name="fn(i64) -> i64",
             span=span,
         ),
         args=[
@@ -107,8 +108,9 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
         target=FieldLValue(
             receiver=LocalRefExpr(name="target_receiver", type_name="Box", span=span),
             receiver_type_name="Box",
+            owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="value",
-            field_type_name="i64",
+            type_name="i64",
             span=span,
         ),
         value=FunctionCallExpr(

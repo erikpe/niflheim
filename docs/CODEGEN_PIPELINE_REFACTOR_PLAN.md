@@ -25,6 +25,7 @@ Completed so far:
 - Step 1 is implemented and validated.
 - Step 2 is implemented and validated.
 - Step 3 is implemented and validated.
+- Step 4 is implemented and validated.
 
 In progress now:
 
@@ -32,7 +33,7 @@ In progress now:
 
 Not started yet:
 
-- Steps 4 through 8
+- Steps 5 through 8
 
 ## Scope
 
@@ -368,6 +369,26 @@ Validation:
 
 - focused semantic lowering and codegen expression tests
 - field access and assignment golden/integration tests
+
+Validation for this step:
+
+- Implemented by standardizing semantic expression result typing on a canonical `type_name` field in:
+  - `compiler/semantic/ir.py`
+- Added resolved `owner_class_id` data to semantic field read/write IR nodes so codegen no longer rescans declaration tables by class-name string
+- Updated semantic lowering to populate the new canonical expression typing and resolved field-owner metadata in:
+  - `compiler/semantic/lowering.py`
+- Removed codegen-local ad hoc expression type reconstruction from:
+  - `compiler/codegen/emitter_expr.py`
+  - `compiler/codegen/layout.py`
+- Changed field read/write emission to use direct declaration-table lookups keyed by resolved `ClassId` and field name rather than string-based scanning in:
+  - `compiler/codegen/emitter_expr.py`
+  - `compiler/codegen/emitter_stmt.py`
+- Updated semantic/codegen tests to cover the refined IR shape and resolved field-owner metadata in:
+  - `tests/compiler/semantic/test_lowering.py`
+  - `tests/compiler/codegen/test_walk.py`
+- Validation run results:
+  - focused Step 4 slice: `50 passed`
+  - full pytest: `529 passed`
 
 ## Step 5: Move Program-Level Symbol Merging Out Of Codegen Linking
 

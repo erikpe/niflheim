@@ -37,54 +37,6 @@ class EmitContext:
     declaration_tables: DeclarationTables
 
 
-def infer_expression_type_name(expr: SemanticExpr) -> str:
-    if isinstance(expr, LocalRefExpr):
-        return expr.type_name
-    if isinstance(expr, FunctionRefExpr):
-        return expr.type_name
-    if isinstance(expr, ClassRefExpr):
-        return expr.type_name
-    if isinstance(expr, MethodRefExpr):
-        return expr.type_name
-    if isinstance(expr, LiteralExprS):
-        return expr.type_name
-    if isinstance(expr, NullExprS):
-        return TYPE_NAME_NULL
-    if isinstance(expr, UnaryExprS):
-        return expr.type_name
-    if isinstance(expr, BinaryExprS):
-        return expr.type_name
-    if isinstance(expr, CastExprS):
-        return expr.type_name
-    if isinstance(expr, TypeTestExprS):
-        return expr.type_name
-    if isinstance(expr, FieldReadExpr):
-        return expr.field_type_name
-    if isinstance(expr, FunctionCallExpr):
-        return expr.type_name
-    if isinstance(expr, StaticMethodCallExpr):
-        return expr.type_name
-    if isinstance(expr, InstanceMethodCallExpr):
-        return expr.type_name
-    if isinstance(expr, InterfaceMethodCallExpr):
-        return expr.type_name
-    if isinstance(expr, ConstructorCallExpr):
-        return expr.type_name
-    if isinstance(expr, CallableValueCallExpr):
-        return expr.type_name
-    if isinstance(expr, ArrayLenExpr):
-        return TYPE_NAME_U64
-    if isinstance(expr, IndexReadExpr):
-        return expr.result_type_name
-    if isinstance(expr, SliceReadExpr):
-        return expr.result_type_name
-    if isinstance(expr, ArrayCtorExprS):
-        return expr.type_name
-    if isinstance(expr, SyntheticExpr):
-        return expr.type_name
-    raise TypeError(f"Unsupported semantic expression: {type(expr).__name__}")
-
-
 def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> None:
     if isinstance(expr, LiteralExprS):
         _emit_literal_expr(codegen, expr)
@@ -192,10 +144,10 @@ def _emit_literal_expr(codegen: CodeGenerator, expr: LiteralExprS) -> None:
 
 def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.receiver, ctx)
-    field_offset = _resolve_field_offset(ctx, expr.receiver_type_name, expr.field_name)
+    field_offset = ctx.declaration_tables.class_field_offsets_by_id.get((expr.owner_class_id, expr.field_name))
     if field_offset is None:
         codegen_types.raise_codegen_error(
-            f"field access codegen missing field '{expr.field_name}' on class '{expr.receiver_type_name}'",
+            f"field access codegen missing field '{expr.field_name}' on class '{expr.owner_class_id.name}'",
             span=expr.span,
         )
     codegen.asm.instr(f"mov rax, qword ptr [rax + {field_offset}]")
@@ -228,7 +180,7 @@ def _emit_reference_type_runtime_check(
 
 def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.operand, ctx)
-    source_type = infer_expression_type_name(expr.operand)
+    source_type = expression_type_name(expr.operand)
     target_type = expr.target_type_name
     if target_type == source_type:
         return
@@ -355,7 +307,7 @@ def _emit_interface_method_call(codegen: CodeGenerator, expr: InterfaceMethodCal
     codegen.asm.instr("push rax")
 
     call_arguments = [expr.receiver, *expr.args]
-    call_argument_type_names = [infer_expression_type_name(arg) for arg in call_arguments]
+    call_argument_type_names = [expression_type_name(arg) for arg in call_arguments]
     reference_arg_indices = {
         index
         for index, type_name in enumerate(call_argument_type_names)
@@ -448,7 +400,7 @@ def _emit_call_sequence(
         raise ValueError("call emission requires exactly one of target_name or callee_expr")
 
     layout = ctx.layout
-    call_argument_type_names = [infer_expression_type_name(arg) for arg in call_arguments]
+    call_argument_type_names = [expression_type_name(arg) for arg in call_arguments]
     reference_arg_indices = {
         index
         for index, type_name in enumerate(call_argument_type_names)
@@ -511,25 +463,25 @@ def _emit_call_sequence(
 
 def _emit_index_read_expr(codegen: CodeGenerator, expr: IndexReadExpr, ctx: EmitContext) -> None:
     if expr.get_method is None:
-        target_type = infer_expression_type_name(expr.target)
+        target_type = expression_type_name(expr.target)
         element_type = codegen_types.array_element_type_name(target_type, span=expr.span)
         runtime_call = ARRAY_GET_RUNTIME_CALLS[codegen_types.array_element_runtime_kind(element_type)]
-        _emit_named_call(codegen, runtime_call, [expr.target, expr.index], expr.result_type_name, ctx)
+        _emit_named_call(codegen, runtime_call, [expr.target, expr.index], expr.type_name, ctx)
         return
     _emit_named_call(
-        codegen, _method_label(expr.get_method, ctx), [expr.target, expr.index], expr.result_type_name, ctx
+        codegen, _method_label(expr.get_method, ctx), [expr.target, expr.index], expr.type_name, ctx
     )
 
 
 def _emit_slice_read_expr(codegen: CodeGenerator, expr: SliceReadExpr, ctx: EmitContext) -> None:
     if expr.get_method is None:
-        target_type = infer_expression_type_name(expr.target)
+        target_type = expression_type_name(expr.target)
         element_type = codegen_types.array_element_type_name(target_type, span=expr.span)
         runtime_call = ARRAY_SLICE_RUNTIME_CALLS[codegen_types.array_element_runtime_kind(element_type)]
-        _emit_named_call(codegen, runtime_call, [expr.target, expr.begin, expr.end], expr.result_type_name, ctx)
+        _emit_named_call(codegen, runtime_call, [expr.target, expr.begin, expr.end], expr.type_name, ctx)
         return
     _emit_named_call(
-        codegen, _method_label(expr.get_method, ctx), [expr.target, expr.begin, expr.end], expr.result_type_name, ctx
+        codegen, _method_label(expr.get_method, ctx), [expr.target, expr.begin, expr.end], expr.type_name, ctx
     )
 
 
@@ -552,7 +504,7 @@ def _emit_synthetic_expr(codegen: CodeGenerator, expr: SyntheticExpr, ctx: EmitC
 
 def _emit_unary_expr(codegen: CodeGenerator, expr: UnaryExprS, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.operand, ctx)
-    operand_type_name = infer_expression_type_name(expr.operand)
+    operand_type_name = expression_type_name(expr.operand)
     if expr.operator == "-" and operand_type_name == TYPE_NAME_DOUBLE:
         emit_unary_negate_double(codegen.asm)
         return
@@ -569,8 +521,8 @@ def _emit_unary_expr(codegen: CodeGenerator, expr: UnaryExprS, ctx: EmitContext)
 def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContext) -> None:
     if _emit_logical_binary_expr(codegen, expr, ctx):
         return
-    left_type_name = infer_expression_type_name(expr.left)
-    right_type_name = infer_expression_type_name(expr.right)
+    left_type_name = expression_type_name(expr.left)
+    right_type_name = expression_type_name(expr.right)
     emit_expr(codegen, expr.left, ctx)
     codegen.asm.instr("push rax")
     emit_expr(codegen, expr.right, ctx)
@@ -650,21 +602,3 @@ def _interface_method_slot(method_id: InterfaceMethodId, ctx: EmitContext) -> in
 
 def _constructor_label(class_name: str) -> str:
     return codegen_symbols.mangle_constructor_symbol(class_name)
-
-
-def _resolve_field_offset(ctx: EmitContext, receiver_type_name: str, field_name: str) -> int | None:
-    if "::" in receiver_type_name:
-        _owner_dotted, class_name = receiver_type_name.split("::", 1)
-    else:
-        class_name = receiver_type_name
-
-    matches = [
-        offset
-        for (class_id, candidate_field_name), offset in ctx.declaration_tables.class_field_offsets_by_id.items()
-        if candidate_field_name == field_name and class_id.name == class_name
-    ]
-    if not matches:
-        return None
-    if len(matches) != 1:
-        raise ValueError(f"Ambiguous semantic field offset resolution for '{receiver_type_name}.{field_name}'")
-    return matches[0]

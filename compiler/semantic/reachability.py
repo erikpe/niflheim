@@ -171,7 +171,7 @@ class _SemanticReachabilityWalker:
         if isinstance(lvalue, FieldLValue):
             self._walk_expr(module_path, lvalue.receiver)
             self._enqueue_type_name(module_path, lvalue.receiver_type_name)
-            self._enqueue_type_name(module_path, lvalue.field_type_name)
+            self._enqueue_type_name(module_path, lvalue.type_name)
             return
         if isinstance(lvalue, IndexLValue):
             self._walk_expr(module_path, lvalue.target)
@@ -219,7 +219,7 @@ class _SemanticReachabilityWalker:
         if isinstance(expr, FieldReadExpr):
             self._walk_expr(module_path, expr.receiver)
             self._enqueue_type_name(module_path, expr.receiver_type_name)
-            self._enqueue_type_name(module_path, expr.field_type_name)
+            self._enqueue_type_name(module_path, expr.type_name)
             return
         if isinstance(expr, FunctionCallExpr):
             self._enqueue_function(expr.function_id)

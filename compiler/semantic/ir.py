@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from compiler.common.type_names import TYPE_NAME_NULL, TYPE_NAME_U64
 from compiler.frontend.lexer import SourceSpan
 from compiler.resolver import ModulePath
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId, SyntheticId
@@ -169,8 +170,9 @@ class LocalLValue:
 class FieldLValue:
     receiver: "SemanticExpr"
     receiver_type_name: str
+    owner_class_id: ClassId
     field_name: str
-    field_type_name: str
+    type_name: str
     span: SourceSpan
 
 
@@ -259,6 +261,7 @@ class LiteralExprS:
 @dataclass(frozen=True)
 class NullExprS:
     span: SourceSpan
+    type_name: str = TYPE_NAME_NULL
 
 
 @dataclass(frozen=True)
@@ -298,8 +301,9 @@ class TypeTestExprS:
 class FieldReadExpr:
     receiver: "SemanticExpr"
     receiver_type_name: str
+    owner_class_id: ClassId
     field_name: str
-    field_type_name: str
+    type_name: str
     span: SourceSpan
 
 
@@ -360,13 +364,14 @@ class CallableValueCallExpr:
 class ArrayLenExpr:
     target: "SemanticExpr"
     span: SourceSpan
+    type_name: str = TYPE_NAME_U64
 
 
 @dataclass(frozen=True)
 class IndexReadExpr:
     target: "SemanticExpr"
     index: "SemanticExpr"
-    result_type_name: str
+    type_name: str
     get_method: MethodId | None
     span: SourceSpan
 
@@ -376,7 +381,7 @@ class SliceReadExpr:
     target: "SemanticExpr"
     begin: "SemanticExpr"
     end: "SemanticExpr"
-    result_type_name: str
+    type_name: str
     get_method: MethodId | None
     span: SourceSpan
 
@@ -438,3 +443,7 @@ SemanticExpr = (
     | ArrayCtorExprS
     | SyntheticExpr
 )
+
+
+def expression_type_name(expr: SemanticExpr) -> str:
+    return expr.type_name

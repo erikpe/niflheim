@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.common.type_names import TYPE_NAME_I64, TYPE_NAME_NULL, TYPE_NAME_U64
+from compiler.common.type_names import TYPE_NAME_I64, TYPE_NAME_U64
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.model import FunctionLayout, TEMP_RUNTIME_ROOT_SLOT_COUNT
@@ -33,15 +33,11 @@ def _collect_locals(stmt: SemanticStmt, local_types_by_name: dict[str, str]) -> 
         _collect_locals(stmt.body, local_types_by_name)
         return
     if isinstance(stmt, SemanticForIn):
-        local_types_by_name.setdefault(for_in_temp_name("coll", stmt), infer_expression_type_name(stmt.collection))
+        local_types_by_name.setdefault(for_in_temp_name("coll", stmt), expression_type_name(stmt.collection))
         local_types_by_name.setdefault(for_in_temp_name("len", stmt), TYPE_NAME_U64)
         local_types_by_name.setdefault(for_in_temp_name("index", stmt), TYPE_NAME_I64)
         local_types_by_name.setdefault(stmt.element_name, stmt.element_type_name)
         _collect_locals(stmt.body, local_types_by_name)
-
-
-def infer_expression_type_name(expr: SemanticExpr) -> str:
-    return getattr(expr, "type_name", getattr(expr, "result_type_name", getattr(expr, "field_type_name", TYPE_NAME_NULL)))
 
 
 def _lvalue_needs_temp_runtime_roots(target) -> bool:
@@ -118,7 +114,7 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
 
         for arg in reversed(call_arguments):
             max_slots = max(max_slots, rooted_after + _max_call_temp_root_slots_in_expr(arg))
-            if codegen_types.is_reference_type_name(infer_expression_type_name(arg)):
+            if codegen_types.is_reference_type_name(expression_type_name(arg)):
                 rooted_after += 1
                 max_slots = max(max_slots, rooted_after)
 
