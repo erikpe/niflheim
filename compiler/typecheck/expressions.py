@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import math
 
+from compiler.common.type_names import *
+from compiler.common.type_shapes import is_str_type_name
 from compiler.frontend.ast_nodes import *
-from compiler.common.type_names import is_str_type_name
 from compiler.typecheck.call_helpers import callable_type_from_signature, class_type_name_from_callable
 from compiler.typecheck.constants import (
     ARRAY_METHOD_NAMES,
@@ -14,7 +15,7 @@ from compiler.typecheck.constants import (
     U64_MAX_LITERAL,
 )
 from compiler.typecheck.context import lookup_variable
-from compiler.typecheck.model import NUMERIC_TYPE_NAMES, TypeCheckError, TypeInfo
+from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     current_module_info,
     lookup_class_by_type_name,
@@ -65,27 +66,27 @@ def _infer_literal_expression_type(ctx: TypeCheckContext, expr: LiteralExpr) -> 
     if isinstance(literal, StringLiteralValue):
         return resolve_string_type(ctx, expr.span)
     if isinstance(literal, CharLiteralValue):
-        return TypeInfo(name="u8", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_U8, kind="primitive")
     if isinstance(literal, BoolLiteralValue):
-        return TypeInfo(name="bool", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_BOOL, kind="primitive")
     if isinstance(literal, FloatLiteralValue):
         if not math.isfinite(literal.value):
             raise TypeCheckError("double literal out of range (expected finite IEEE-754 double)", expr.span)
-        return TypeInfo(name="double", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_DOUBLE, kind="primitive")
     if isinstance(literal, IntLiteralValue):
-        if literal.suffix == "u8":
+        if literal.suffix == TYPE_NAME_U8:
             if literal.magnitude > U8_MAX_LITERAL:
                 raise TypeCheckError("u8 literal out of range (expected 0..255)", expr.span)
-            return TypeInfo(name="u8", kind="primitive")
+            return TypeInfo(name=TYPE_NAME_U8, kind="primitive")
         if literal.suffix == "u":
             if literal.magnitude > U64_MAX_LITERAL:
                 raise TypeCheckError("u64 literal out of range (expected 0..18446744073709551615)", expr.span)
-            return TypeInfo(name="u64", kind="primitive")
+            return TypeInfo(name=TYPE_NAME_U64, kind="primitive")
         if literal.magnitude > I64_MAX_LITERAL:
             raise TypeCheckError(
                 "i64 literal out of range (expected -9223372036854775808..9223372036854775807)", expr.span
             )
-        return TypeInfo(name="i64", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_I64, kind="primitive")
 
     raise TypeCheckError("Unsupported literal expression", expr.span)
 
@@ -93,16 +94,16 @@ def _infer_literal_expression_type(ctx: TypeCheckContext, expr: LiteralExpr) -> 
 def _infer_unary_expression_type(ctx: TypeCheckContext, expr: UnaryExpr) -> TypeInfo:
     if expr.operator == "!":
         operand_type = infer_expression_type(ctx, expr.operand)
-        require_type_name(operand_type, "bool", expr.operand.span)
-        return TypeInfo(name="bool", kind="primitive")
+        require_type_name(operand_type, TYPE_NAME_BOOL, expr.operand.span)
+        return TypeInfo(name=TYPE_NAME_BOOL, kind="primitive")
 
     if expr.operator == "-":
         if isinstance(expr.operand, LiteralExpr) and isinstance(expr.operand.literal, IntLiteralValue):
             literal = expr.operand.literal
             if literal.suffix is None and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL:
-                return TypeInfo(name="i64", kind="primitive")
+                return TypeInfo(name=TYPE_NAME_I64, kind="primitive")
         operand_type = infer_expression_type(ctx, expr.operand)
-        if operand_type.name not in {"i64", "double"}:
+        if operand_type.name not in {TYPE_NAME_I64, TYPE_NAME_DOUBLE}:
             raise TypeCheckError("Unary '-' requires signed numeric operand", expr.span)
         return operand_type
 
@@ -130,21 +131,21 @@ def _infer_binary_expression_type(ctx: TypeCheckContext, expr: BinaryExpr) -> Ty
             raise TypeCheckError(f"Operator '{op}' requires numeric operands", expr.span)
         if left_type.name != right_type.name:
             raise TypeCheckError(f"Operator '{op}' requires matching operand types", expr.span)
-        if op == "%" and left_type.name == "double":
+        if op == "%" and left_type.name == TYPE_NAME_DOUBLE:
             raise TypeCheckError("Operator '%' is not supported for 'double'", expr.span)
         return left_type
 
     if op == "**":
         if left_type.name not in BITWISE_TYPE_NAMES:
             raise TypeCheckError("Operator '**' requires integer left operand", expr.span)
-        if right_type.name != "u64":
+        if right_type.name != TYPE_NAME_U64:
             raise TypeCheckError("Operator '**' requires 'u64' exponent", expr.span)
         return left_type
 
     if op in {"<<", ">>"}:
         if left_type.name not in BITWISE_TYPE_NAMES:
             raise TypeCheckError(f"Operator '{op}' requires integer left operand", expr.span)
-        if right_type.name != "u64":
+        if right_type.name != TYPE_NAME_U64:
             raise TypeCheckError(f"Operator '{op}' requires 'u64' shift count", expr.span)
         return left_type
 
@@ -160,17 +161,17 @@ def _infer_binary_expression_type(ctx: TypeCheckContext, expr: BinaryExpr) -> Ty
             raise TypeCheckError(f"Operator '{op}' requires numeric operands", expr.span)
         if left_type.name != right_type.name:
             raise TypeCheckError(f"Operator '{op}' requires matching operand types", expr.span)
-        return TypeInfo(name="bool", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_BOOL, kind="primitive")
 
     if op in {"==", "!="}:
         if not is_comparable(ctx, left_type, right_type):
             raise TypeCheckError(f"Operator '{op}' has incompatible operand types", expr.span)
-        return TypeInfo(name="bool", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_BOOL, kind="primitive")
 
     if op in {"&&", "||"}:
-        require_type_name(left_type, "bool", expr.left.span)
-        require_type_name(right_type, "bool", expr.right.span)
-        return TypeInfo(name="bool", kind="primitive")
+        require_type_name(left_type, TYPE_NAME_BOOL, expr.left.span)
+        require_type_name(right_type, TYPE_NAME_BOOL, expr.right.span)
+        return TypeInfo(name=TYPE_NAME_BOOL, kind="primitive")
 
     raise TypeCheckError(f"Unknown binary operator '{op}'", expr.span)
 
@@ -290,7 +291,7 @@ def infer_expression_type(ctx: TypeCheckContext, expr: Expression) -> TypeInfo:
         return _infer_literal_expression_type(ctx, expr)
 
     if isinstance(expr, NullExpr):
-        return TypeInfo(name="null", kind="null")
+        return TypeInfo(name=TYPE_NAME_NULL, kind="null")
 
     if isinstance(expr, UnaryExpr):
         return _infer_unary_expression_type(ctx, expr)
@@ -308,7 +309,7 @@ def infer_expression_type(ctx: TypeCheckContext, expr: Expression) -> TypeInfo:
         source_type = infer_expression_type(ctx, expr.operand)
         target_type = resolve_type_ref(ctx, expr.type_ref)
         check_type_test(ctx, source_type, target_type, expr.span)
-        return TypeInfo(name="bool", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_BOOL, kind="primitive")
 
     if isinstance(expr, CallExpr):
         return infer_call_type(ctx, expr)

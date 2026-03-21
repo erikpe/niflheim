@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import Enum
 
+from compiler.common.type_names import *
+
 
 class TokenKind(str, Enum):
     EOF = "EOF"
@@ -104,16 +106,16 @@ KEYWORDS: dict[str, TokenKind] = {
     "break": TokenKind.BREAK,
     "continue": TokenKind.CONTINUE,
     "return": TokenKind.RETURN,
-    "i64": TokenKind.I64,
-    "u64": TokenKind.U64,
-    "u8": TokenKind.U8,
-    "bool": TokenKind.BOOL,
-    "double": TokenKind.DOUBLE,
-    "unit": TokenKind.UNIT,
-    "Obj": TokenKind.OBJ,
+    TYPE_NAME_I64: TokenKind.I64,
+    TYPE_NAME_U64: TokenKind.U64,
+    TYPE_NAME_U8: TokenKind.U8,
+    TYPE_NAME_BOOL: TokenKind.BOOL,
+    TYPE_NAME_DOUBLE: TokenKind.DOUBLE,
+    TYPE_NAME_UNIT: TokenKind.UNIT,
+    TYPE_NAME_OBJ: TokenKind.OBJ,
     "true": TokenKind.TRUE,
     "false": TokenKind.FALSE,
-    "null": TokenKind.NULL,
+    TYPE_NAME_NULL: TokenKind.NULL,
 }
 
 

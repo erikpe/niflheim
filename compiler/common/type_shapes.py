@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-
-PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
+from compiler.common.type_names import PRIMITIVE_TYPE_NAMES, TYPE_NAME_STR
 
 
 def is_function_type_name(type_name: str) -> bool:
@@ -46,3 +45,7 @@ def is_reference_type_name(type_name: str) -> bool:
     if is_function_type_name(type_name):
         return False
     return type_name not in PRIMITIVE_TYPE_NAMES
+
+
+def is_str_type_name(type_name: str) -> bool:
+    return type_name == TYPE_NAME_STR or type_name.endswith("::" + TYPE_NAME_STR)

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from compiler.common.type_shapes import PRIMITIVE_TYPE_NAMES
+from compiler.common.type_names import PRIMITIVE_TYPE_NAMES, REFERENCE_BUILTIN_TYPE_NAMES, TYPE_NAME_STR
 from compiler.frontend.ast_nodes import ArrayTypeRef, FunctionTypeRef, TypeRefNode
-from compiler.common.type_names import STR_CLASS_NAME
 from compiler.typecheck.context import TypeCheckContext
 from compiler.frontend.lexer import SourceSpan
-from compiler.typecheck.model import REFERENCE_BUILTIN_TYPE_NAMES, TypeCheckError, TypeInfo
+from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     resolve_imported_class_name,
     resolve_imported_interface_name,
@@ -69,18 +68,18 @@ def resolve_type_ref(ctx: TypeCheckContext, type_ref: TypeRefNode) -> TypeInfo:
 
 
 def resolve_string_type(ctx: TypeCheckContext, span: SourceSpan) -> TypeInfo:
-    if STR_CLASS_NAME in ctx.classes:
-        return TypeInfo(name=STR_CLASS_NAME, kind="reference")
+    if TYPE_NAME_STR in ctx.classes:
+        return TypeInfo(name=TYPE_NAME_STR, kind="reference")
 
-    imported_name = resolve_imported_class_name(ctx, STR_CLASS_NAME, span)
+    imported_name = resolve_imported_class_name(ctx, TYPE_NAME_STR, span)
     if imported_name is not None:
         return TypeInfo(name=imported_name, kind="reference")
 
-    global_name = resolve_unique_global_class_name(ctx, STR_CLASS_NAME, span)
+    global_name = resolve_unique_global_class_name(ctx, TYPE_NAME_STR, span)
     if global_name is not None:
         return TypeInfo(name=global_name, kind="reference")
 
-    raise TypeCheckError(f"Unknown type '{STR_CLASS_NAME}'", span)
+    raise TypeCheckError(f"Unknown type '{TYPE_NAME_STR}'", span)
 
 
 def qualify_member_type_for_owner(ctx: TypeCheckContext, member_type: TypeInfo, owner_type_name: str) -> TypeInfo:

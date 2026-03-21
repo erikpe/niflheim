@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_UNIT
 from compiler.frontend.ast_nodes import *
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
 from compiler.typecheck.expressions import infer_expression_type
@@ -90,7 +91,7 @@ def _check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeIn
 
     if isinstance(stmt, IfStmt):
         cond_type = infer_expression_type(ctx, stmt.condition)
-        require_type_name(cond_type, "bool", stmt.condition.span)
+        require_type_name(cond_type, TYPE_NAME_BOOL, stmt.condition.span)
         _check_block(ctx, stmt.then_branch, return_type)
         if isinstance(stmt.else_branch, BlockStmt):
             _check_block(ctx, stmt.else_branch, return_type)
@@ -100,7 +101,7 @@ def _check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeIn
 
     if isinstance(stmt, WhileStmt):
         cond_type = infer_expression_type(ctx, stmt.condition)
-        require_type_name(cond_type, "bool", stmt.condition.span)
+        require_type_name(cond_type, TYPE_NAME_BOOL, stmt.condition.span)
         ctx.loop_depth += 1
         _check_block(ctx, stmt.body, return_type)
         ctx.loop_depth -= 1
@@ -134,7 +135,7 @@ def _check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeIn
 
     if isinstance(stmt, ReturnStmt):
         if stmt.value is None:
-            if return_type.name != "unit":
+            if return_type.name != TYPE_NAME_UNIT:
                 raise TypeCheckError("Non-unit function must return a value", stmt.span)
         else:
             value_type = infer_expression_type(ctx, stmt.value)
@@ -188,7 +189,7 @@ def check_function_like(
 
         _check_block(ctx, body, return_type)
 
-        if return_type.name != "unit" and not _block_guarantees_return(body):
+        if return_type.name != TYPE_NAME_UNIT and not _block_guarantees_return(body):
             raise TypeCheckError("Non-unit function must return on all paths", body.span)
     finally:
         ctx.function_local_names_stack.pop()

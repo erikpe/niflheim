@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from compiler.common.type_names import *
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
@@ -48,7 +49,7 @@ def infer_expression_type_name(expr: SemanticExpr) -> str:
     if isinstance(expr, LiteralExprS):
         return expr.type_name
     if isinstance(expr, NullExprS):
-        return "null"
+        return TYPE_NAME_NULL
     if isinstance(expr, UnaryExprS):
         return expr.type_name
     if isinstance(expr, BinaryExprS):
@@ -72,7 +73,7 @@ def infer_expression_type_name(expr: SemanticExpr) -> str:
     if isinstance(expr, CallableValueCallExpr):
         return expr.type_name
     if isinstance(expr, ArrayLenExpr):
-        return "u64"
+        return TYPE_NAME_U64
     if isinstance(expr, IndexReadExpr):
         return expr.result_type_name
     if isinstance(expr, SliceReadExpr):
@@ -133,7 +134,7 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
         _emit_callable_value_call(codegen, expr, ctx)
         return
     if isinstance(expr, ArrayLenExpr):
-        _emit_named_call(codegen, "rt_array_len", [expr.target], "u64", ctx)
+        _emit_named_call(codegen, "rt_array_len", [expr.target], TYPE_NAME_U64, ctx)
         return
     if isinstance(expr, IndexReadExpr):
         _emit_index_read_expr(codegen, expr, ctx)
@@ -231,11 +232,17 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
     target_type = expr.target_type_name
     if target_type == source_type:
         return
-    if target_type == "Obj" and source_type != "null" and codegen_types.is_reference_type_name(source_type):
+    if target_type == TYPE_NAME_OBJ and source_type != TYPE_NAME_NULL and codegen_types.is_reference_type_name(source_type):
         return
-    if codegen_types.is_array_type_name(target_type) and source_type == "Obj":
+    if codegen_types.is_array_type_name(target_type) and source_type == TYPE_NAME_OBJ:
         element_type = codegen_types.array_element_type_name(target_type, span=expr.span)
-        array_kind_by_element_type = {"i64": 1, "u64": 2, "u8": 3, "bool": 4, "double": 5}
+        array_kind_by_element_type = {
+            TYPE_NAME_I64: 1,
+            TYPE_NAME_U64: 2,
+            TYPE_NAME_U8: 3,
+            TYPE_NAME_BOOL: 4,
+            TYPE_NAME_DOUBLE: 5,
+        }
         expected_kind = array_kind_by_element_type.get(element_type, 6)
         codegen.asm.instr("push rax")
         _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
@@ -255,22 +262,22 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
             ctx,
         )
         return
-    if target_type == "double" and source_type in {"i64", "u64", "u8", "bool"}:
+    if target_type == TYPE_NAME_DOUBLE and source_type in {TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_BOOL}:
         codegen.asm.instr("cvtsi2sd xmm0, rax")
         codegen.asm.instr("movq rax, xmm0")
         return
-    if source_type == "double" and target_type in {"i64", "u64", "u8", "bool"}:
+    if source_type == TYPE_NAME_DOUBLE and target_type in {TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_BOOL}:
         codegen.asm.instr("movq xmm0, rax")
         codegen.asm.instr("cvttsd2si rax, xmm0")
-        if target_type == "u8":
+        if target_type == TYPE_NAME_U8:
             codegen.asm.instr("and rax, 255")
-        elif target_type == "bool":
+        elif target_type == TYPE_NAME_BOOL:
             codegen.emit_bool_normalize()
         return
-    if target_type == "u8":
+    if target_type == TYPE_NAME_U8:
         codegen.asm.instr("and rax, 255")
         return
-    if target_type == "bool":
+    if target_type == TYPE_NAME_BOOL:
         codegen.emit_bool_normalize()
 
 
@@ -398,9 +405,9 @@ def _emit_interface_method_call(codegen: CodeGenerator, expr: InterfaceMethodCal
     cleanup_slot_count = len(call_arguments) + len(stack_arg_indices) + 1
     if cleanup_slot_count > 0:
         codegen.asm.instr(f"add rsp, {cleanup_slot_count * 8}")
-    if expr.type_name == "double":
+    if expr.type_name == TYPE_NAME_DOUBLE:
         codegen.asm.instr("movq rax, xmm0")
-    elif expr.type_name == "unit":
+    elif expr.type_name == TYPE_NAME_UNIT:
         codegen.asm.instr("mov rax, 0")
 
     codegen.emit_clear_temp_root_slots(ctx.layout, temp_root_base, rooted_temp_arg_count)
@@ -491,9 +498,9 @@ def _emit_call_sequence(
     cleanup_slot_count = len(call_arguments) + len(stack_arg_indices)
     if cleanup_slot_count > 0:
         codegen.asm.instr(f"add rsp, {cleanup_slot_count * 8}")
-    if return_type_name == "double":
+    if return_type_name == TYPE_NAME_DOUBLE:
         codegen.asm.instr("movq rax, xmm0")
-    elif return_type_name == "unit":
+    elif return_type_name == TYPE_NAME_UNIT:
         codegen.asm.instr("mov rax, 0")
     if rooted_temp_arg_count > 0:
         codegen.emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
@@ -546,7 +553,7 @@ def _emit_synthetic_expr(codegen: CodeGenerator, expr: SyntheticExpr, ctx: EmitC
 def _emit_unary_expr(codegen: CodeGenerator, expr: UnaryExprS, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.operand, ctx)
     operand_type_name = infer_expression_type_name(expr.operand)
-    if expr.operator == "-" and operand_type_name == "double":
+    if expr.operator == "-" and operand_type_name == TYPE_NAME_DOUBLE:
         emit_unary_negate_double(codegen.asm)
         return
     if emit_integer_unary_op(
@@ -569,7 +576,7 @@ def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContex
     emit_expr(codegen, expr.right, ctx)
     codegen.asm.instr("mov rcx, rax")
     codegen.asm.instr("pop rax")
-    if left_type_name == "double" and right_type_name == "double":
+    if left_type_name == TYPE_NAME_DOUBLE and right_type_name == TYPE_NAME_DOUBLE:
         codegen.asm.instr("movq xmm1, rcx")
         codegen.asm.instr("movq xmm0, rax")
         if emit_double_binary_op(codegen.asm, expr.operator):
@@ -587,7 +594,7 @@ def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContex
         runtime_panic_message_label=codegen.runtime_panic_message_label,
         emit_aligned_call=codegen.emit_aligned_call,
     ):
-        if left_type_name == "u8" and expr.operator in {"+", "-", "*", "**", "/", "%", "&", "|", "^", "<<", ">>"}:
+        if left_type_name == TYPE_NAME_U8 and expr.operator in {"+", "-", "*", "**", "/", "%", "&", "|", "^", "<<", ">>"}:
             codegen.asm.instr("and rax, 255")
         return
     codegen_types.raise_codegen_error(f"binary operator '{expr.operator}' is not supported", span=expr.span)

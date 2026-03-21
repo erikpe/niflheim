@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from compiler.common.type_names import TYPE_NAME_I64
 from compiler.frontend.lexer import SourceSpan
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import SemanticClass, SemanticFunction, SemanticModule, SemanticProgram
@@ -31,7 +32,7 @@ def require_main_function(program: CodegenProgram) -> None:
         raise ValueError("Invalid main signature: expected concrete definition 'fn main() -> i64'")
     if main_decl.params:
         raise ValueError("Invalid main signature: expected 'fn main() -> i64' (no parameters)")
-    if main_decl.return_type_name != "i64":
+    if main_decl.return_type_name != TYPE_NAME_I64:
         raise ValueError("Invalid main signature: expected return type 'i64'")
 
 

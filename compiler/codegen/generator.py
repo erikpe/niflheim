@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from compiler.common.type_names import TYPE_NAME_DOUBLE
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
@@ -137,7 +138,7 @@ class CodeGenerator:
         self.asm.instr("call rt_push_roots")
 
     def emit_function_epilogue(self, layout: FunctionLayout, return_type_name: str) -> None:
-        if return_type_name == "double":
+        if return_type_name == TYPE_NAME_DOUBLE:
             self.asm.instr("sub rsp, 8")
             self.asm.instr("movq qword ptr [rsp], xmm0")
         else:
@@ -146,7 +147,7 @@ class CodeGenerator:
             self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
         self.asm.instr("call rt_trace_pop")
-        if return_type_name == "double":
+        if return_type_name == TYPE_NAME_DOUBLE:
             self.asm.instr("movq xmm0, qword ptr [rsp]")
             self.asm.instr("add rsp, 8")
         else:

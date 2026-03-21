@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from compiler.common.type_names import TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_UNIT
 from compiler.frontend.ast_nodes import Expression
 
 from compiler.frontend.lexer import SourceSpan
@@ -32,7 +33,7 @@ def resolve_for_in_element_type(ctx: TypeCheckContext, collection_type: TypeInfo
             span,
         )
     iter_len_return = qualify_member_type_for_owner(ctx, iter_len_sig.return_type, collection_type.name)
-    if iter_len_return.name != "u64":
+    if iter_len_return.name != TYPE_NAME_U64:
         raise TypeCheckError(f"Type '{collection_type.name}' is not iterable (method 'iter_len' must return u64)", span)
 
     iter_get_sig = class_info.methods.get("iter_get")
@@ -46,7 +47,7 @@ def resolve_for_in_element_type(ctx: TypeCheckContext, collection_type: TypeInfo
         )
 
     iter_get_param = qualify_member_type_for_owner(ctx, iter_get_sig.params[0], collection_type.name)
-    if iter_get_param.name != "i64":
+    if iter_get_param.name != TYPE_NAME_I64:
         raise TypeCheckError(
             f"Type '{collection_type.name}' is not iterable (method 'iter_get' parameter must be i64)", span
         )
@@ -119,7 +120,7 @@ def ensure_structural_set_method_available_for_index_assignment(
         )
 
     qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
-    if qualified_return_type.name != "unit":
+    if qualified_return_type.name != TYPE_NAME_UNIT:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not index-assignable (method 'index_set' must return unit)", span
         )
@@ -172,7 +173,7 @@ def _resolve_structural_slice_method_result_type(
 
     qualified_begin_param = qualify_member_type_for_owner(ctx, method_sig.params[0], object_type.name)
     qualified_end_param = qualify_member_type_for_owner(ctx, method_sig.params[1], object_type.name)
-    if qualified_begin_param.name != "i64" or qualified_end_param.name != "i64":
+    if qualified_begin_param.name != TYPE_NAME_I64 or qualified_end_param.name != TYPE_NAME_I64:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not sliceable (method 'slice_get' parameters must be i64)", span
         )
@@ -207,7 +208,7 @@ def _resolve_structural_set_slice_method_result_type(
 
     qualified_begin_param = qualify_member_type_for_owner(ctx, method_sig.params[0], object_type.name)
     qualified_end_param = qualify_member_type_for_owner(ctx, method_sig.params[1], object_type.name)
-    if qualified_begin_param.name != "i64" or qualified_end_param.name != "i64":
+    if qualified_begin_param.name != TYPE_NAME_I64 or qualified_end_param.name != TYPE_NAME_I64:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' first two parameters must be i64)",
             span,
@@ -223,12 +224,12 @@ def _resolve_structural_set_slice_method_result_type(
     require_assignable(ctx, qualified_value_param, value_arg_type, args[2].span)
 
     qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
-    if qualified_return_type.name != "unit":
+    if qualified_return_type.name != TYPE_NAME_UNIT:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' must return unit)", span
         )
 
-    return TypeInfo(name="unit", kind="primitive")
+    return TypeInfo(name=TYPE_NAME_UNIT, kind="primitive")
 
 
 def infer_structural_special_method_call_type(
@@ -252,11 +253,11 @@ def infer_array_method_call_type(
     if method_name == "len":
         if args:
             raise TypeCheckError(f"Expected 0 arguments, got {len(args)}", span)
-        return TypeInfo(name="u64", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_U64, kind="primitive")
     if method_name == "iter_len":
         if args:
             raise TypeCheckError(f"Expected 0 arguments, got {len(args)}", span)
-        return TypeInfo(name="u64", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_U64, kind="primitive")
     if method_name == "index_get":
         if len(args) != 1:
             raise TypeCheckError(f"Expected 1 arguments, got {len(args)}", span)
@@ -276,7 +277,7 @@ def infer_array_method_call_type(
         require_array_index_type(index_type, args[0].span)
         value_type = infer_expression_type(ctx, args[1])
         require_assignable(ctx, object_type.element_type, value_type, args[1].span)
-        return TypeInfo(name="unit", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_UNIT, kind="primitive")
     if method_name == "slice_get":
         if len(args) != 2:
             raise TypeCheckError(f"Expected 2 arguments, got {len(args)}", span)
@@ -294,6 +295,6 @@ def infer_array_method_call_type(
         require_array_index_type(end_type, args[1].span)
         value_type = infer_expression_type(ctx, args[2])
         require_assignable(ctx, object_type, value_type, args[2].span)
-        return TypeInfo(name="unit", kind="primitive")
+        return TypeInfo(name=TYPE_NAME_UNIT, kind="primitive")
 
     raise TypeCheckError(f"Array type '{object_type.name}' has no method '{method_name}'", span)

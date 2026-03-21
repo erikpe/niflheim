@@ -3,13 +3,11 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, replace
 
+from compiler.common.type_names import NON_CLASS_TYPE_NAMES
 from compiler.common.type_shapes import is_array_type_name, is_function_type_name
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import ClassId, FunctionId, MethodId
-
-
-_NON_CLASS_TYPE_NAMES = {"Obj", "bool", "double", "i64", "null", "u64", "u8", "unit"}
 
 
 @dataclass(frozen=True)
@@ -307,7 +305,7 @@ def prune_unreachable_semantic(program: SemanticProgram) -> SemanticProgram:
 
 def _iter_class_ids_for_type_name(current_module_path: ModulePath, type_name: str):
     text = type_name.strip()
-    if not text or text in _NON_CLASS_TYPE_NAMES or text.startswith("__"):
+    if not text or text in NON_CLASS_TYPE_NAMES or text.startswith("__"):
         return
     if is_array_type_name(text):
         yield from _iter_class_ids_for_type_name(current_module_path, text[:-2])

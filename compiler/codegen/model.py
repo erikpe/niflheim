@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
+
 
 @dataclass
 class FunctionLayout:
@@ -32,27 +34,27 @@ class ConstructorLayout:
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 FLOAT_PARAM_REGISTERS = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"]
 ARRAY_CONSTRUCTOR_RUNTIME_CALLS = {
-    "i64": "rt_array_new_i64",
-    "u64": "rt_array_new_u64",
-    "u8": "rt_array_new_u8",
-    "bool": "rt_array_new_bool",
-    "double": "rt_array_new_double",
+    TYPE_NAME_I64: "rt_array_new_i64",
+    TYPE_NAME_U64: "rt_array_new_u64",
+    TYPE_NAME_U8: "rt_array_new_u8",
+    TYPE_NAME_BOOL: "rt_array_new_bool",
+    TYPE_NAME_DOUBLE: "rt_array_new_double",
     "ref": "rt_array_new_ref",
 }
 ARRAY_GET_RUNTIME_CALLS = {
-    "i64": "rt_array_get_i64",
-    "u64": "rt_array_get_u64",
-    "u8": "rt_array_get_u8",
-    "bool": "rt_array_get_bool",
-    "double": "rt_array_get_double",
+    TYPE_NAME_I64: "rt_array_get_i64",
+    TYPE_NAME_U64: "rt_array_get_u64",
+    TYPE_NAME_U8: "rt_array_get_u8",
+    TYPE_NAME_BOOL: "rt_array_get_bool",
+    TYPE_NAME_DOUBLE: "rt_array_get_double",
     "ref": "rt_array_get_ref",
 }
 ARRAY_SLICE_RUNTIME_CALLS = {
-    "i64": "rt_array_slice_i64",
-    "u64": "rt_array_slice_u64",
-    "u8": "rt_array_slice_u8",
-    "bool": "rt_array_slice_bool",
-    "double": "rt_array_slice_double",
+    TYPE_NAME_I64: "rt_array_slice_i64",
+    TYPE_NAME_U64: "rt_array_slice_u64",
+    TYPE_NAME_U8: "rt_array_slice_u8",
+    TYPE_NAME_BOOL: "rt_array_slice_bool",
+    TYPE_NAME_DOUBLE: "rt_array_slice_double",
     "ref": "rt_array_slice_ref",
 }
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6

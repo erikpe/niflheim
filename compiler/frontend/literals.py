@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from compiler.common.literals import is_hex_digits
+from compiler.common.type_names import TYPE_NAME_U8
 from compiler.frontend.ast_nodes import *
 from compiler.frontend.lexer import SourceSpan, Token
 from compiler.frontend.tokens import TokenKind
@@ -16,8 +17,8 @@ def parse_int_literal_text(text: str) -> IntLiteralValue:
 
     suffix: str | None = None
     digits = text
-    if text.endswith("u8"):
-        suffix = "u8"
+    if text.endswith(TYPE_NAME_U8):
+        suffix = TYPE_NAME_U8
         digits = text[:-2]
     elif text.endswith("u"):
         suffix = "u"

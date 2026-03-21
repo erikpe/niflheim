@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import struct
 
+from compiler.common.type_names import PRIMITIVE_TYPE_NAMES, TYPE_NAME_UNIT
 from compiler.common.type_shapes import (
     array_element_type_name as common_array_element_type_name,
     function_type_return_type_name as common_function_type_return_type_name,
@@ -59,7 +60,7 @@ def array_element_type_name(array_type_name: str, *, span: object | None = None)
 
 
 def array_element_runtime_kind(element_type_name: str) -> str:
-    if element_type_name in {"i64", "u64", "u8", "bool", "double"}:
+    if element_type_name in PRIMITIVE_TYPE_NAMES - {TYPE_NAME_UNIT}:
         return element_type_name
     return "ref"
 

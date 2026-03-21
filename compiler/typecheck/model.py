@@ -2,12 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.common.type_shapes import PRIMITIVE_TYPE_NAMES
 from compiler.frontend.lexer import SourceSpan
-
-
-REFERENCE_BUILTIN_TYPE_NAMES = {"Obj"}
-NUMERIC_TYPE_NAMES = {"i64", "u64", "u8", "double"}
 
 
 @dataclass(frozen=True)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from compiler.common.type_names import TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_UNIT
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
@@ -28,7 +29,7 @@ def emit_statement(
     if isinstance(stmt, SemanticReturn):
         if stmt.value is not None:
             emit_expr(codegen, stmt.value, ctx)
-        if function_return_type_name == "double":
+        if function_return_type_name == TYPE_NAME_DOUBLE:
             codegen.asm.instr("movq xmm0, rax")
         codegen.asm.instr(f"jmp {epilogue_label}")
         return
@@ -142,12 +143,12 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
             runtime_name = f"rt_array_set_{codegen_types.array_element_runtime_kind(element_type)}"
             from compiler.codegen.emitter_expr import _emit_named_call
 
-            _emit_named_call(codegen, runtime_name, [target.target, target.index, stmt.value], "unit", ctx)
+            _emit_named_call(codegen, runtime_name, [target.target, target.index, stmt.value], TYPE_NAME_UNIT, ctx)
             return
         from compiler.codegen.emitter_expr import _emit_named_call, _method_label
 
         _emit_named_call(
-            codegen, _method_label(target.set_method, ctx), [target.target, target.index, stmt.value], "unit", ctx
+            codegen, _method_label(target.set_method, ctx), [target.target, target.index, stmt.value], TYPE_NAME_UNIT, ctx
         )
         return
     if isinstance(target, SliceLValue):
@@ -157,7 +158,7 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
             runtime_name = f"rt_array_set_slice_{codegen_types.array_element_runtime_kind(element_type)}"
             from compiler.codegen.emitter_expr import _emit_named_call
 
-            _emit_named_call(codegen, runtime_name, [target.target, target.begin, target.end, stmt.value], "unit", ctx)
+            _emit_named_call(codegen, runtime_name, [target.target, target.begin, target.end, stmt.value], TYPE_NAME_UNIT, ctx)
             return
         from compiler.codegen.emitter_expr import _emit_named_call, _method_label
 
@@ -165,7 +166,7 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
             codegen,
             _method_label(target.set_method, ctx),
             [target.target, target.begin, target.end, stmt.value],
-            "unit",
+            TYPE_NAME_UNIT,
             ctx,
         )
         return
@@ -196,9 +197,9 @@ def _emit_for_in(
 
     coll_ref = LocalRefExpr(name=coll_name, type_name=infer_expression_type_name(stmt.collection), span=stmt.span)
     if stmt.iter_len_method is None:
-        _emit_named_call(codegen, "rt_array_len", [coll_ref], "u64", ctx)
+        _emit_named_call(codegen, "rt_array_len", [coll_ref], TYPE_NAME_U64, ctx)
     else:
-        _emit_named_call(codegen, _method_label(stmt.iter_len_method, ctx), [coll_ref], "u64", ctx)
+        _emit_named_call(codegen, _method_label(stmt.iter_len_method, ctx), [coll_ref], TYPE_NAME_U64, ctx)
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[len_name])}, rax")
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[index_name])}, 0")
 
@@ -207,7 +208,7 @@ def _emit_for_in(
     codegen.asm.instr(f"cmp rax, {offset_operand(layout.slot_offsets[len_name])}")
     codegen.asm.instr(f"jge {loop_done}")
 
-    index_ref = LocalRefExpr(name=index_name, type_name="i64", span=stmt.span)
+    index_ref = LocalRefExpr(name=index_name, type_name=TYPE_NAME_I64, span=stmt.span)
     if stmt.iter_get_method is None:
         target_type = infer_expression_type_name(stmt.collection)
         element_type = codegen_types.array_element_type_name(target_type, span=stmt.span)

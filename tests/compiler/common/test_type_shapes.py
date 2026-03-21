@@ -1,12 +1,13 @@
 import pytest
 
-from compiler.common.type_names import STR_CLASS_NAME, is_str_type_name
+from compiler.common.type_names import TYPE_NAME_STR
 from compiler.common.type_shapes import (
     array_element_type_name,
     function_type_return_type_name,
     is_array_type_name,
     is_function_type_name,
     is_reference_type_name,
+    is_str_type_name,
 )
 
 
@@ -25,7 +26,7 @@ def test_type_shape_helpers_classify_reference_types() -> None:
 
 
 def test_str_type_helper_accepts_local_and_qualified_names() -> None:
-    assert STR_CLASS_NAME == "Str"
+    assert TYPE_NAME_STR == "Str"
     assert is_str_type_name("Str")
     assert is_str_type_name("std.core::Str")
     assert not is_str_type_name("String")

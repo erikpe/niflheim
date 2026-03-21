@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from compiler.common.type_names import TYPE_NAME_I64, TYPE_NAME_NULL, TYPE_NAME_OBJ, TYPE_NAME_U64, TYPE_NAME_UNIT
 from compiler.typecheck.context import TypeCheckContext
 from compiler.frontend.lexer import SourceSpan
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
@@ -69,23 +70,23 @@ def require_type_name(actual: TypeInfo, expected_name: str, span: SourceSpan) ->
 
 
 def require_array_size_type(actual: TypeInfo, span: SourceSpan) -> None:
-    if actual.name in {"u64", "i64"}:
+    if actual.name in {TYPE_NAME_U64, TYPE_NAME_I64}:
         return
-    raise TypeCheckError(f"Expected 'u64', got '{actual.name}'", span)
+    raise TypeCheckError(f"Expected '{TYPE_NAME_U64}', got '{actual.name}'", span)
 
 
 def require_array_index_type(actual: TypeInfo, span: SourceSpan) -> None:
-    if actual.name == "i64":
+    if actual.name == TYPE_NAME_I64:
         return
-    raise TypeCheckError(f"Expected 'i64', got '{actual.name}'", span)
+    raise TypeCheckError(f"Expected '{TYPE_NAME_I64}', got '{actual.name}'", span)
 
 
 def require_assignable(ctx: TypeCheckContext, target: TypeInfo, value: TypeInfo, span: SourceSpan) -> None:
     if _type_infos_equal(ctx, target, value):
         return
-    if target.kind in {"reference", "interface"} and value.kind == "null":
+    if target.kind in {"reference", "interface"} and value.kind == TYPE_NAME_NULL:
         return
-    if target.name == "Obj" and value.kind in {"reference", "interface"}:
+    if target.name == TYPE_NAME_OBJ and value.kind in {"reference", "interface"}:
         return
     if target.kind == "interface" and value.kind == "reference" and _class_implements_interface(ctx, value.name, target.name):
         return
@@ -95,9 +96,9 @@ def require_assignable(ctx: TypeCheckContext, target: TypeInfo, value: TypeInfo,
 def is_comparable(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> bool:
     if _type_infos_equal(ctx, left, right):
         return True
-    if left.kind in {"reference", "interface"} and right.kind == "null":
+    if left.kind in {"reference", "interface"} and right.kind == TYPE_NAME_NULL:
         return True
-    if right.kind in {"reference", "interface"} and left.kind == "null":
+    if right.kind in {"reference", "interface"} and left.kind == TYPE_NAME_NULL:
         return True
     if left.kind in {"reference", "interface"} and right.kind in {"reference", "interface"}:
         return _may_alias_under_identity_comparison(ctx, left, right)
@@ -110,7 +111,7 @@ def check_type_test(ctx: TypeCheckContext, source: TypeInfo, target: TypeInfo, s
     elif not _is_concrete_class_type(ctx, target):
         raise TypeCheckError("Operator 'is' requires class or interface type on right operand", span)
 
-    if source.kind == "null":
+    if source.kind == TYPE_NAME_NULL:
         return
 
     if source.kind == "callable" or source.element_type is not None:
@@ -119,7 +120,7 @@ def check_type_test(ctx: TypeCheckContext, source: TypeInfo, target: TypeInfo, s
     if source.kind not in {"reference", "interface"}:
         raise TypeCheckError("Operator 'is' requires reference, interface, Obj, or null left operand", span)
 
-    if source.kind == "reference" and source.name != "Obj" and not _is_concrete_class_type(ctx, source):
+    if source.kind == "reference" and source.name != TYPE_NAME_OBJ and not _is_concrete_class_type(ctx, source):
         raise TypeCheckError("Operator 'is' requires reference, interface, Obj, or null left operand", span)
 
     try:
@@ -131,7 +132,7 @@ def check_type_test(ctx: TypeCheckContext, source: TypeInfo, target: TypeInfo, s
 
 
 def _may_alias_under_identity_comparison(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> bool:
-    if left.name == "Obj" or right.name == "Obj":
+    if left.name == TYPE_NAME_OBJ or right.name == TYPE_NAME_OBJ:
         return True
 
     if left.kind == "interface" and right.kind == "interface":
@@ -154,17 +155,17 @@ def check_explicit_cast(ctx: TypeCheckContext, source: TypeInfo, target: TypeInf
         return
 
     if source.kind == "primitive" and target.kind == "primitive":
-        if source.name == "unit" or target.name == "unit":
+        if source.name == TYPE_NAME_UNIT or target.name == TYPE_NAME_UNIT:
             raise TypeCheckError("Casts involving 'unit' are not allowed", span)
         return
 
-    if source.kind == "null" and target.kind == "interface":
+    if source.kind == TYPE_NAME_NULL and target.kind == "interface":
         return
 
-    if source.kind in {"reference", "interface"} and target.name == "Obj":
+    if source.kind in {"reference", "interface"} and target.name == TYPE_NAME_OBJ:
         return
 
-    if source.name == "Obj" and target.kind in {"reference", "interface"} and target.name != "Obj":
+    if source.name == TYPE_NAME_OBJ and target.kind in {"reference", "interface"} and target.name != TYPE_NAME_OBJ:
         return
 
     if source.kind == "interface" and target.kind == "interface":
@@ -197,6 +198,6 @@ def _class_implements_interface(ctx: TypeCheckContext, class_type_name: str, int
 
 
 def _is_concrete_class_type(ctx: TypeCheckContext, type_info: TypeInfo) -> bool:
-    if type_info.kind != "reference" or type_info.name == "Obj" or type_info.element_type is not None:
+    if type_info.kind != "reference" or type_info.name == TYPE_NAME_OBJ or type_info.element_type is not None:
         return False
     return lookup_class_by_type_name(ctx, type_info.name) is not None

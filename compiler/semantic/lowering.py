@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 from compiler.frontend.ast_nodes import *
 from compiler.common.literals import decode_char_literal, decode_string_literal
-from compiler.common.type_names import is_str_type_name
-from compiler.common.type_shapes import is_array_type_name
+from compiler.common.type_names import TYPE_NAME_I64
+from compiler.common.type_shapes import is_array_type_name, is_str_type_name
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import (
@@ -1028,7 +1028,7 @@ def _lowered_literal_type_name(lower_ctx: _ModuleLoweringContext, expr: LiteralE
         and literal.suffix is None
         and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL
     ):
-        return "i64"
+        return TYPE_NAME_I64
     return infer_expression_type(lower_ctx.typecheck_ctx, expr).name
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from compiler.common.type_names import TYPE_NAME_I64
 from compiler.frontend.ast_nodes import *
 from compiler.frontend.literals import int_literal_expr, literal_expr_from_token
 from compiler.frontend.lexer import SourceSpan, Token
@@ -836,7 +837,7 @@ class Parser:
                 callee=len_field, arguments=[], span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end)
             )
             end_arg: Expression = CastExpr(
-                type_ref=TypeRef(name="i64", span=len_call.span), operand=len_call, span=len_call.span
+                type_ref=TypeRef(name=TYPE_NAME_I64, span=len_call.span), operand=len_call, span=len_call.span
             )
         else:
             end_arg = end_expr

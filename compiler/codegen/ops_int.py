@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from compiler.common.type_names import TYPE_NAME_U8, UNSIGNED_INTEGER_TYPE_NAMES
 from compiler.codegen.asm import AsmBuilder
 
 
@@ -10,13 +11,13 @@ def emit_integer_unary_op(
 ) -> bool:
     if operator == "-":
         asm.instr("neg rax")
-        if operand_type_name == "u8":
+        if operand_type_name == TYPE_NAME_U8:
             asm.instr("and rax, 255")
         return True
 
     if operator == "~":
         asm.instr("not rax")
-        if operand_type_name == "u8":
+        if operand_type_name == TYPE_NAME_U8:
             asm.instr("and rax, 255")
         return True
 
@@ -39,7 +40,7 @@ def emit_integer_binary_op(
     runtime_panic_message_label: Callable[[str], str],
     emit_aligned_call: Callable[[str], None],
 ) -> bool:
-    is_unsigned = operand_type_name in {"u64", "u8"}
+    is_unsigned = operand_type_name in UNSIGNED_INTEGER_TYPE_NAMES
     if operator == "+":
         asm.instr("add rax, rcx")
         return True
@@ -115,7 +116,7 @@ def emit_integer_binary_op(
         return True
 
     if operator in {"<<", ">>"}:
-        max_shift = 8 if operand_type_name == "u8" else 64
+        max_shift = 8 if operand_type_name == TYPE_NAME_U8 else 64
         shift_ok_label = next_label(fn_name, "shift_ok", label_counter)
         panic_message_label = runtime_panic_message_label("invalid shift count")
         asm.instr(f"cmp rcx, {max_shift}")
