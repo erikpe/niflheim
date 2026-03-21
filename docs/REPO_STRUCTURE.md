@@ -23,6 +23,7 @@ Stage-0 compiler implementation in Python.
 	- `lowering/` - semantic IR construction from resolved, typechecked source.
 	- `linker.py` - semantic-program ordering and duplicate-symbol consolidation.
 	- `optimizations/` - post-lowering semantic passes and transforms.
+		- `pipeline.py` - semantic optimization pass sequencing entry point.
 		- `reachability.py` - semantic reachability analysis and unreachable declaration pruning.
 - `typecheck/` - typecheck package modules.
 	- `api.py` - typecheck entry points (`typecheck`, `typecheck_program`).

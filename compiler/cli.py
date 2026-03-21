@@ -12,7 +12,7 @@ from compiler.frontend.tokens import Token
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
 from compiler.semantic.lowering.orchestration import lower_program
-from compiler.semantic.optimizations.reachability import prune_unreachable_semantic
+from compiler.semantic.optimizations.pipeline import optimize_semantic_program
 from compiler.typecheck.api import typecheck_program
 
 
@@ -70,7 +70,7 @@ def main() -> int:
 
         program = resolve_program(input_path, project_root=args.project_root)
         typecheck_program(program)
-        linked_program = link_semantic_program(prune_unreachable_semantic(lower_program(program)))
+        linked_program = link_semantic_program(optimize_semantic_program(lower_program(program)))
         require_main_function(linked_program)
         if args.stop_after == "check":
             return 0
