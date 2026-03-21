@@ -19,6 +19,10 @@ def is_runtime_call_name(name: str) -> bool:
     return name.startswith("rt_")
 
 
+def string_literal_symbol(index: int) -> str:
+    return f"__nif_str_lit_{index}"
+
+
 def mangle_type_symbol(type_name: str) -> str:
     safe = _mangle_type_fragment(type_name)
     return f"__nif_type_{safe}"
@@ -27,6 +31,10 @@ def mangle_type_symbol(type_name: str) -> str:
 def mangle_type_name_symbol(type_name: str) -> str:
     safe = _mangle_type_fragment(type_name)
     return f"__nif_type_name_{safe}"
+
+
+def mangle_type_pointer_offsets_symbol(type_name: str) -> str:
+    return f"{mangle_type_name_symbol(type_name)}__ptr_offsets"
 
 
 def mangle_interface_symbol(type_name: str) -> str:
@@ -56,3 +64,11 @@ def mangle_method_symbol(type_name: str, method_name: str) -> str:
 def mangle_constructor_symbol(type_name: str) -> str:
     safe_type = type_name.replace(".", "_").replace(":", "_")
     return f"__nif_ctor_{safe_type}"
+
+
+def mangle_debug_function_symbol(target_label: str) -> str:
+    return f"__nif_dbg_fn_{_mangle_type_fragment(target_label)}"
+
+
+def mangle_debug_file_symbol(target_label: str) -> str:
+    return f"__nif_dbg_file_{_mangle_type_fragment(target_label)}"

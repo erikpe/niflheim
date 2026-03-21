@@ -83,7 +83,7 @@ def build_type_metadata(program: LinkedSemanticProgram, declaration_tables: Decl
         )
         pointer_offsets_symbol = None
         if pointer_offsets:
-            pointer_offsets_symbol = f"{codegen_symbols.mangle_type_name_symbol(qualified_type_name)}__ptr_offsets"
+            pointer_offsets_symbol = codegen_symbols.mangle_type_pointer_offsets_symbol(qualified_type_name)
 
         interface_impls: list[InterfaceImplMetadataRecord] = []
         interface_impls_symbol: str | None = None

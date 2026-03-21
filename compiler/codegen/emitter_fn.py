@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import compiler.codegen.symbols as codegen_symbols
+
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.emitter_stmt import emit_statement
@@ -11,9 +13,8 @@ from compiler.semantic.symbols import FunctionId
 
 
 def _emit_debug_symbol_literals(codegen, *, target_label: str, function_name: str, file_path: str) -> tuple[str, str]:
-    safe_target = target_label.replace(".", "_").replace(":", "_")
-    fn_label = f"__nif_dbg_fn_{safe_target}"
-    file_label = f"__nif_dbg_file_{safe_target}"
+    fn_label = codegen_symbols.mangle_debug_function_symbol(target_label)
+    file_label = codegen_symbols.mangle_debug_file_symbol(target_label)
     codegen.asm.blank()
     codegen.asm.directive(".section .rodata")
     codegen.asm.label(fn_label)

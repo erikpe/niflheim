@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from compiler.common.literals import decode_string_literal
+import compiler.codegen.symbols as codegen_symbols
+
 from compiler.codegen.walk import walk_codegen_program_expressions
 from compiler.semantic.ir import *
 from compiler.semantic.linker import LinkedSemanticProgram
@@ -38,7 +40,7 @@ def emit_string_literal_section(codegen, program: LinkedSemanticProgram) -> dict
     codegen.asm.blank()
     codegen.asm.directive(".section .rodata")
     for index, literal in enumerate(string_literals):
-        label = f"__nif_str_lit_{index}"
+        label = codegen_symbols.string_literal_symbol(index)
         data = decode_string_literal(literal)
         labels[literal] = (label, len(data))
         codegen.asm.label(label)
