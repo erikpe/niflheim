@@ -6,8 +6,8 @@ from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.codegen.layout import build_layout
-from compiler.codegen.linker import build_codegen_program
 from compiler.resolver import resolve_program
+from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.ir import (
     CallableValueCallExpr,
     ConstructorCallExpr,
@@ -31,7 +31,7 @@ def _build_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name:
     for relative_path, content in files.items():
         _write(tmp_path / relative_path, content)
 
-    program = build_codegen_program(
+    program = link_semantic_program(
         lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
     )
     fn = next(

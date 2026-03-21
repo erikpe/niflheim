@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from compiler.codegen.generator import emit_asm
-from compiler.codegen.linker import build_codegen_program
 from compiler.resolver import resolve_program
+from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering import lower_program
 from compiler.semantic.reachability import prune_unreachable_semantic
 
@@ -13,5 +13,5 @@ def emit_source_asm(tmp_path, source: str, *, source_path: str = "main.nif", pro
     entry_path.write_text(source.strip() + "\n", encoding="utf-8")
     root = tmp_path if project_root is None else project_root
     program = resolve_program(entry_path, project_root=root)
-    codegen_program = build_codegen_program(prune_unreachable_semantic(lower_program(program)))
-    return emit_asm(codegen_program)
+    linked_program = link_semantic_program(prune_unreachable_semantic(lower_program(program)))
+    return emit_asm(linked_program)

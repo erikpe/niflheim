@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from compiler.codegen.linker import build_codegen_program, require_main_function
 from compiler.resolver import resolve_program
+from compiler.semantic.linker import link_semantic_program, require_main_function
 from compiler.semantic.lowering import lower_program
 
 
@@ -14,7 +14,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content.strip() + "\n", encoding="utf-8")
 
 
-def test_build_codegen_program_orders_non_entry_modules_before_entry(tmp_path: Path) -> None:
+def test_link_semantic_program_orders_non_entry_modules_before_entry(tmp_path: Path) -> None:
     _write(
         tmp_path / "zeta.nif",
         """
@@ -55,14 +55,14 @@ def test_build_codegen_program_orders_non_entry_modules_before_entry(tmp_path: P
         """,
     )
 
-    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
 
     assert [module.module_path for module in program.ordered_modules] == [("alpha",), ("zeta",), ("main",)]
     assert [cls.class_id.name for cls in program.classes] == ["Alpha", "Zed", "MainBox"]
     assert [fn.function_id.name for fn in program.functions] == ["helper_a", "helper_z", "main"]
 
 
-def test_build_codegen_program_prefers_body_over_extern_duplicate(tmp_path: Path) -> None:
+def test_link_semantic_program_prefers_body_over_extern_duplicate(tmp_path: Path) -> None:
     _write(
         tmp_path / "decls.nif",
         """
@@ -84,7 +84,7 @@ def test_build_codegen_program_prefers_body_over_extern_duplicate(tmp_path: Path
         """,
     )
 
-    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
 
     helper = next(fn for fn in program.functions if fn.function_id.name == "helper")
     assert helper.function_id.module_path == ("main",)
@@ -92,7 +92,7 @@ def test_build_codegen_program_prefers_body_over_extern_duplicate(tmp_path: Path
     assert helper.is_extern is False
 
 
-def test_build_codegen_program_preserves_module_interfaces_for_codegen_metadata(tmp_path: Path) -> None:
+def test_link_semantic_program_preserves_module_interfaces_for_codegen_metadata(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",
         """
@@ -118,7 +118,7 @@ def test_build_codegen_program_preserves_module_interfaces_for_codegen_metadata(
         """,
     )
 
-    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
 
     util_module = next(module for module in program.ordered_modules if module.module_path == ("util",))
     assert [interface.interface_id.name for interface in util_module.interfaces] == ["Hashable"]
@@ -127,7 +127,7 @@ def test_build_codegen_program_preserves_module_interfaces_for_codegen_metadata(
     assert util_key.implemented_interfaces == [util_module.interfaces[0].interface_id]
 
 
-def test_build_codegen_program_rejects_duplicate_class_symbols(tmp_path: Path) -> None:
+def test_link_semantic_program_rejects_duplicate_class_symbols(tmp_path: Path) -> None:
     _write(
         tmp_path / "left.nif",
         """
@@ -159,7 +159,7 @@ def test_build_codegen_program_rejects_duplicate_class_symbols(tmp_path: Path) -
     semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
 
     with pytest.raises(ValueError, match="Duplicate class symbol 'Box'"):
-        build_codegen_program(semantic)
+        link_semantic_program(semantic)
 
 
 def test_require_main_function_validates_entrypoint(tmp_path: Path) -> None:
@@ -172,7 +172,7 @@ def test_require_main_function_validates_entrypoint(tmp_path: Path) -> None:
         """,
     )
 
-    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
 
     with pytest.raises(ValueError, match="Invalid main signature: expected return type 'i64'"):
         require_main_function(program)

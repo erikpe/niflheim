@@ -26,6 +26,7 @@ Completed so far:
 - Step 2 is implemented and validated.
 - Step 3 is implemented and validated.
 - Step 4 is implemented and validated.
+- Step 5 is implemented and validated.
 
 In progress now:
 
@@ -33,7 +34,7 @@ In progress now:
 
 Not started yet:
 
-- Steps 5 through 8
+- Steps 6 through 8
 
 ## Scope
 
@@ -434,6 +435,18 @@ Validation:
 - focused multi-module resolver/linking tests
 - existing import/export integration tests
 - full suite including AoC and goldens
+
+Validation for this step:
+
+- Implemented by moving linked-program construction and duplicate-symbol ownership policy into:
+  - `compiler/semantic/linker.py`
+- Repointed the CLI and codegen entry points so the backend now consumes a semantic-linked program rather than invoking codegen-owned linking policy
+- Moved symbol-merging coverage out of codegen tests into:
+  - `tests/compiler/semantic/test_linker.py`
+- Removed the old codegen-owned linker module so the package boundary now reflects actual ownership
+- Validation run results:
+  - focused semantic/codegen linking slice: `38 passed`
+  - full pytest: `528 passed`
 
 ## Step 6: Normalize Builtin Array Operations Before Codegen
 

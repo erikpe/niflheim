@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from compiler.common.literals import decode_string_literal
-from compiler.codegen.linker import CodegenProgram
 from compiler.codegen.walk import walk_codegen_program_expressions
 from compiler.semantic.ir import *
+from compiler.semantic.linker import LinkedSemanticProgram
 
 
 def escape_asm_string_bytes(data: bytes) -> str:
@@ -30,7 +30,7 @@ def escape_c_string(text: str) -> str:
     return escape_asm_string_bytes(text.encode("utf-8"))
 
 
-def emit_string_literal_section(codegen, program: CodegenProgram) -> dict[str, tuple[str, int]]:
+def emit_string_literal_section(codegen, program: LinkedSemanticProgram) -> dict[str, tuple[str, int]]:
     string_literals = collect_string_literals(program)
     labels: dict[str, tuple[str, int]] = {}
     if not string_literals:
@@ -46,7 +46,7 @@ def emit_string_literal_section(codegen, program: CodegenProgram) -> dict[str, t
     return labels
 
 
-def collect_string_literals(program: CodegenProgram) -> list[str]:
+def collect_string_literals(program: LinkedSemanticProgram) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
     walk_codegen_program_expressions(program, lambda expr: _collect_string_literal(expr, out, seen))

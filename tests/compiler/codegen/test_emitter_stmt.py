@@ -4,7 +4,7 @@ from pathlib import Path
 
 from compiler.resolver import resolve_program
 from compiler.codegen.generator import emit_asm
-from compiler.codegen.linker import build_codegen_program
+from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering import lower_program
 
 
@@ -16,7 +16,7 @@ def _write(path: Path, content: str) -> None:
 def _emit(tmp_path: Path, files: dict[str, str]) -> str:
     for relative_path, content in files.items():
         _write(tmp_path / relative_path, content)
-    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     return emit_asm(program)
 
 

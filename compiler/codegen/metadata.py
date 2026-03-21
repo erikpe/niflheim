@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 import compiler.codegen.symbols as codegen_symbols
 
 from compiler.common.type_shapes import is_reference_type_name
-from compiler.codegen.linker import CodegenProgram
 from compiler.codegen.walk import walk_block_expressions, walk_expression
 from compiler.semantic.ir import *
+from compiler.semantic.linker import LinkedSemanticProgram
 from compiler.semantic.symbols import ClassId, InterfaceId, MethodId
 
 if TYPE_CHECKING:
@@ -52,7 +52,7 @@ class TypeMetadata:
     extra_runtime_type_names: tuple[str, ...]
 
 
-def build_type_metadata(program: CodegenProgram, declaration_tables: DeclarationTables) -> TypeMetadata:
+def build_type_metadata(program: LinkedSemanticProgram, declaration_tables: DeclarationTables) -> TypeMetadata:
     interface_decls = [interface for module in program.ordered_modules for interface in module.interfaces]
     interfaces_by_id = {interface.interface_id: interface for interface in interface_decls}
 
@@ -143,7 +143,9 @@ def build_type_metadata(program: CodegenProgram, declaration_tables: Declaration
     )
 
 
-def _collect_reference_cast_type_names(program: CodegenProgram, declaration_tables: DeclarationTables) -> set[str]:
+def _collect_reference_cast_type_names(
+    program: LinkedSemanticProgram, declaration_tables: DeclarationTables
+) -> set[str]:
     names: set[str] = set()
 
     def _collect_expr(expr: SemanticExpr, module_path: tuple[str, ...]) -> None:

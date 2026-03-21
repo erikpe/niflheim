@@ -1,6 +1,6 @@
 from compiler.codegen.program_generator import ProgramGenerator
-from compiler.codegen.linker import build_codegen_program
 from compiler.resolver import resolve_program
+from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering import lower_program
 from compiler.semantic.symbols import ClassId, ConstructorId, MethodId
 
@@ -28,7 +28,7 @@ def test_codegen_uses_builder_for_aligned_call_and_comments(tmp_path) -> None:
         """,
     )
     generator = ProgramGenerator(
-        build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     )
 
     asm = generator.generate()
@@ -66,7 +66,7 @@ def test_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
         """,
     )
     generator = ProgramGenerator(
-        build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     )
 
     tables = generator.build_declaration_tables()
@@ -92,7 +92,7 @@ def test_codegen_emits_main_prologue_and_epilogue(tmp_path) -> None:
         """,
     )
     generator = ProgramGenerator(
-        build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     )
 
     asm = generator.generate()
@@ -121,7 +121,7 @@ def test_codegen_orchestrates_sections_and_class_symbols(tmp_path) -> None:
         """,
     )
     generator = ProgramGenerator(
-        build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     )
 
     asm = generator.generate()

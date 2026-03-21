@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.codegen.linker import CodegenProgram
 from compiler.codegen.walk import (
     walk_block_expressions,
     walk_codegen_program_expressions,
@@ -11,6 +10,7 @@ from compiler.codegen.walk import (
 )
 from compiler.frontend.lexer import SourcePos, SourceSpan
 from compiler.semantic.ir import *
+from compiler.semantic.linker import LinkedSemanticProgram
 from compiler.semantic.symbols import ClassId, FunctionId, MethodId
 
 
@@ -238,7 +238,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
         span=span,
     )
     module = SemanticModule(module_path=("main",), file_path=Path("main.nif"), classes=[cls], functions=[fn], span=span)
-    program = CodegenProgram(
+    program = LinkedSemanticProgram(
         entry_module=("main",), ordered_modules=(module,), classes=(cls,), functions=(fn,), span=span
     )
 
@@ -298,7 +298,9 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
         span=span,
     )
     module = SemanticModule(module_path=("main",), file_path=Path("main.nif"), classes=[], functions=[fn], span=span)
-    program = CodegenProgram(entry_module=("main",), ordered_modules=(module,), classes=(), functions=(fn,), span=span)
+    program = LinkedSemanticProgram(
+        entry_module=("main",), ordered_modules=(module,), classes=(), functions=(fn,), span=span
+    )
 
     seen: list[str] = []
     walk_codegen_program_expressions(program, lambda expr: seen.append(_describe_expr(expr)))

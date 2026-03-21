@@ -12,7 +12,7 @@ from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 
 if TYPE_CHECKING:
-    from compiler.codegen.linker import CodegenProgram
+    from compiler.semantic.linker import LinkedSemanticProgram
 
 
 class CodeGenerator:
@@ -254,7 +254,7 @@ class CodeGenerator:
         self.asm.instr("movzx rax, al")
 
 
-def emit_asm(program: CodegenProgram) -> str:
+def emit_asm(program: LinkedSemanticProgram) -> str:
     from compiler.codegen.program_generator import emit_program
 
     return emit_program(program)

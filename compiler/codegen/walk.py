@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from compiler.codegen.linker import CodegenProgram
 from compiler.semantic.ir import *
+from compiler.semantic.linker import LinkedSemanticProgram
 
 
-def walk_codegen_program_expressions(program: CodegenProgram, visit_expr: Callable[[SemanticExpr], None]) -> None:
+def walk_codegen_program_expressions(
+    program: LinkedSemanticProgram, visit_expr: Callable[[SemanticExpr], None]
+) -> None:
     for fn in program.functions:
         if fn.body is not None:
             walk_block_expressions(fn.body, visit_expr)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.resolver import resolve_program
-from compiler.codegen.linker import build_codegen_program
+from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering import lower_program
 from compiler.semantic.reachability import analyze_semantic_reachability, prune_unreachable_semantic
 from compiler.semantic.symbols import ClassId, FunctionId, MethodId
@@ -136,7 +136,7 @@ def test_prune_unreachable_semantic_program_removes_dead_duplicate_class_symbols
     )
 
     pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
-    linked = build_codegen_program(pruned)
+    linked = link_semantic_program(pruned)
 
     assert [cls.class_id.name for cls in linked.classes] == []
     assert [fn.function_id.name for fn in linked.functions] == ["main"]

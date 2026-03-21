@@ -6,7 +6,7 @@ import pytest
 
 import compiler.cli as cli
 
-from compiler.codegen.linker import CodegenProgram
+from compiler.semantic.linker import LinkedSemanticProgram
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write, write_project
 
 
@@ -24,7 +24,7 @@ def test_cli_defaults_to_codegen_path(tmp_path: Path, monkeypatch) -> None:
 
     seen: dict[str, object] = {}
 
-    def _fake_emit_asm(program: CodegenProgram) -> str:
+    def _fake_emit_asm(program: LinkedSemanticProgram) -> str:
         seen["program"] = program
         return "; codegen backend selected\n"
 
@@ -35,7 +35,7 @@ def test_cli_defaults_to_codegen_path(tmp_path: Path, monkeypatch) -> None:
     assert rc == 0
     assert out_file.read_text(encoding="utf-8") == "; codegen backend selected\n"
     program = seen["program"]
-    assert isinstance(program, CodegenProgram)
+    assert isinstance(program, LinkedSemanticProgram)
     assert program.entry_module == ("main",)
 
 
