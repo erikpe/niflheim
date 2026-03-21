@@ -2,6 +2,7 @@ from dataclasses import fields, is_dataclass
 
 import pytest
 
+from compiler.common.literals import IntLiteralKind
 from compiler.frontend.ast_nodes import *
 from compiler.frontend.lexer import SourceSpan, lex
 from compiler.frontend.parser import ParserError, TokenStream, parse, parse_expression
@@ -534,8 +535,7 @@ def test_parse_expression_u8_suffixed_integer_literal() -> None:
     assert isinstance(expr.literal, IntLiteralValue)
     assert expr.literal.raw_text == "113u8"
     assert expr.literal.magnitude == 113
-    assert expr.literal.base == 10
-    assert expr.literal.suffix == "u8"
+    assert expr.literal.kind == IntLiteralKind.U8
 
 
 def test_parse_expression_hex_integer_literal_uses_structured_payload() -> None:
@@ -545,8 +545,7 @@ def test_parse_expression_hex_integer_literal_uses_structured_payload() -> None:
     assert isinstance(expr.literal, IntLiteralValue)
     assert expr.literal.raw_text == "0x2Au"
     assert expr.literal.magnitude == 42
-    assert expr.literal.base == 16
-    assert expr.literal.suffix == "u"
+    assert expr.literal.kind == IntLiteralKind.U64
 
 
 def test_parse_expression_hex_u8_literal_uses_structured_payload() -> None:
@@ -556,8 +555,7 @@ def test_parse_expression_hex_u8_literal_uses_structured_payload() -> None:
     assert isinstance(expr.literal, IntLiteralValue)
     assert expr.literal.raw_text == "0xffu8"
     assert expr.literal.magnitude == 255
-    assert expr.literal.base == 16
-    assert expr.literal.suffix == "u8"
+    assert expr.literal.kind == IntLiteralKind.U8
 
 
 @pytest.mark.parametrize(

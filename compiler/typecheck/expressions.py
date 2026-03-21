@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from compiler.common.collection_protocols import COLLECTION_PROTOCOL_METHOD_NAMES
-from compiler.common.literals import INT_LITERAL_SUFFIX_U8, INT_LITERAL_SUFFIX_U64
+from compiler.common.literals import IntLiteralKind
 from compiler.common.type_names import *
 from compiler.common.type_shapes import is_str_type_name
 from compiler.frontend.ast_nodes import *
@@ -74,11 +74,11 @@ def _infer_literal_expression_type(ctx: TypeCheckContext, expr: LiteralExpr) -> 
             raise TypeCheckError("double literal out of range (expected finite IEEE-754 double)", expr.span)
         return TypeInfo(name=TYPE_NAME_DOUBLE, kind="primitive")
     if isinstance(literal, IntLiteralValue):
-        if literal.suffix == INT_LITERAL_SUFFIX_U8:
+        if literal.kind == IntLiteralKind.U8:
             if literal.magnitude > U8_MAX_LITERAL:
                 raise TypeCheckError("u8 literal out of range (expected 0..255)", expr.span)
             return TypeInfo(name=TYPE_NAME_U8, kind="primitive")
-        if literal.suffix == INT_LITERAL_SUFFIX_U64:
+        if literal.kind == IntLiteralKind.U64:
             if literal.magnitude > U64_MAX_LITERAL:
                 raise TypeCheckError("u64 literal out of range (expected 0..18446744073709551615)", expr.span)
             return TypeInfo(name=TYPE_NAME_U64, kind="primitive")
@@ -100,7 +100,7 @@ def _infer_unary_expression_type(ctx: TypeCheckContext, expr: UnaryExpr) -> Type
     if expr.operator == "-":
         if isinstance(expr.operand, LiteralExpr) and isinstance(expr.operand.literal, IntLiteralValue):
             literal = expr.operand.literal
-            if literal.suffix is None and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL:
+            if literal.kind == IntLiteralKind.UNSUFFIXED and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL:
                 return TypeInfo(name=TYPE_NAME_I64, kind="primitive")
         operand_type = infer_expression_type(ctx, expr.operand)
         if operand_type.name not in {TYPE_NAME_I64, TYPE_NAME_DOUBLE}:

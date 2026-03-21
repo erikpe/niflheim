@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from compiler.common.literals import IntLiteralKind
 from compiler.frontend.lexer import SourceSpan
 
 
@@ -112,8 +113,7 @@ class ModuleAst:
 class IntLiteralValue:
     raw_text: str
     magnitude: int
-    base: int
-    suffix: str | None
+    kind: IntLiteralKind
 
 
 @dataclass(frozen=True)

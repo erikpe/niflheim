@@ -42,11 +42,10 @@
                   "operator": "+",
                   "right": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 1,
                       "node": "IntLiteralValue",
-                      "raw_text": "1",
-                      "suffix": null
+                      "raw_text": "1"
                     },
                     "node": "LiteralExpr"
                   }
@@ -68,11 +67,10 @@
                   "operator": ">",
                   "right": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 0,
                       "node": "IntLiteralValue",
-                      "raw_text": "0",
-                      "suffix": null
+                      "raw_text": "0"
                     },
                     "node": "LiteralExpr"
                   }
@@ -139,11 +137,10 @@
           {
             "initializer": {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 0,
                 "node": "IntLiteralValue",
-                "raw_text": "0",
-                "suffix": null
+                "raw_text": "0"
               },
               "node": "LiteralExpr"
             },
@@ -173,11 +170,10 @@
                     "operator": "+",
                     "right": {
                       "literal": {
-                        "base": 10,
+                        "kind": "unsuffixed",
                         "magnitude": 1,
                         "node": "IntLiteralValue",
-                        "raw_text": "1",
-                        "suffix": null
+                        "raw_text": "1"
                       },
                       "node": "LiteralExpr"
                     }
@@ -194,11 +190,10 @@
               "operator": "<",
               "right": {
                 "literal": {
-                  "base": 10,
+                  "kind": "unsuffixed",
                   "magnitude": 3,
                   "node": "IntLiteralValue",
-                  "raw_text": "3",
-                  "suffix": null
+                  "raw_text": "3"
                 },
                 "node": "LiteralExpr"
               }

@@ -1,5 +1,6 @@
 import pytest
 
+from compiler.common.literals import IntLiteralKind
 from compiler.frontend.ast_nodes import (
     BlockStmt,
     CastExpr,
@@ -49,7 +50,11 @@ def test_typecheck_rejects_casts_involving_function_types() -> None:
                     statements=[
                         ReturnStmt(
                             value=LiteralExpr(
-                                literal=IntLiteralValue(raw_text="1", magnitude=1, base=10, suffix=None),
+                                literal=IntLiteralValue(
+                                    raw_text="1",
+                                    magnitude=1,
+                                    kind=IntLiteralKind.UNSUFFIXED,
+                                ),
                                 span=span,
                             ),
                             span=span,

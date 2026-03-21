@@ -2,11 +2,10 @@
   "arguments": [
     {
       "literal": {
-        "base": 10,
+        "kind": "unsuffixed",
         "magnitude": 3,
         "node": "IntLiteralValue",
-        "raw_text": "3",
-        "suffix": null
+        "raw_text": "3"
       },
       "node": "LiteralExpr"
     },
@@ -27,21 +26,19 @@
           "arguments": [
             {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 1,
                 "node": "IntLiteralValue",
-                "raw_text": "1",
-                "suffix": null
+                "raw_text": "1"
               },
               "node": "LiteralExpr"
             },
             {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 2,
                 "node": "IntLiteralValue",
-                "raw_text": "2",
-                "suffix": null
+                "raw_text": "2"
               },
               "node": "LiteralExpr"
             }

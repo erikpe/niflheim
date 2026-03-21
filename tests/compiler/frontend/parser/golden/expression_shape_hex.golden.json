@@ -2,11 +2,10 @@
   "left": {
     "left": {
       "literal": {
-        "base": 16,
+        "kind": "u64",
         "magnitude": 42,
         "node": "IntLiteralValue",
-        "raw_text": "0X2Au",
-        "suffix": "u"
+        "raw_text": "0X2Au"
       },
       "node": "LiteralExpr"
     },
@@ -14,11 +13,10 @@
     "operator": "+",
     "right": {
       "literal": {
-        "base": 16,
+        "kind": "u8",
         "magnitude": 255,
         "node": "IntLiteralValue",
-        "raw_text": "0xffu8",
-        "suffix": "u8"
+        "raw_text": "0xffu8"
       },
       "node": "LiteralExpr"
     }
@@ -27,11 +25,10 @@
   "operator": "==",
   "right": {
     "literal": {
-      "base": 16,
+      "kind": "u64",
       "magnitude": 297,
       "node": "IntLiteralValue",
-      "raw_text": "0x129u",
-      "suffix": "u"
+      "raw_text": "0x129u"
     },
     "node": "LiteralExpr"
   }

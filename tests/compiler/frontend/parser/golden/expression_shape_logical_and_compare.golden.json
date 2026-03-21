@@ -27,11 +27,10 @@
           "arguments": [
             {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 7,
                 "node": "IntLiteralValue",
-                "raw_text": "7",
-                "suffix": null
+                "raw_text": "7"
               },
               "node": "LiteralExpr"
             }
@@ -65,11 +64,10 @@
           "node": "UnaryExpr",
           "operand": {
             "literal": {
-              "base": 10,
+              "kind": "unsuffixed",
               "magnitude": 1,
               "node": "IntLiteralValue",
-              "raw_text": "1",
-              "suffix": null
+              "raw_text": "1"
             },
             "node": "LiteralExpr"
           },

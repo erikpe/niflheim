@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.common.literals import INT_LITERAL_HEX_PREFIXES, split_int_literal_suffix, is_hex_digits
+from compiler.common.literals import parse_float_literal, parse_int_literal
 from compiler.frontend.ast_nodes import *
 from compiler.frontend.lexer import SourceSpan, Token
 from compiler.frontend.tokens import TokenKind
@@ -11,34 +11,12 @@ def _literal_expr(literal: LiteralValueNode, span: SourceSpan) -> LiteralExpr:
 
 
 def parse_int_literal_text(text: str) -> IntLiteralValue:
-    if not text:
-        raise ValueError("Expected integer literal text")
-
-    digits, suffix = split_int_literal_suffix(text)
-
-    base = 10
-    magnitude_digits = digits
-    if digits.startswith(INT_LITERAL_HEX_PREFIXES):
-        base = 16
-        magnitude_digits = digits[2:]
-        if not magnitude_digits or not is_hex_digits(magnitude_digits):
-            raise ValueError(f"Unsupported integer literal syntax: {text}")
-    elif not digits or not digits.isdigit():
-        raise ValueError(f"Unsupported integer literal syntax: {text}")
-
-    return IntLiteralValue(raw_text=text, magnitude=int(magnitude_digits, base), base=base, suffix=suffix)
+    magnitude, kind = parse_int_literal(text)
+    return IntLiteralValue(raw_text=text, magnitude=magnitude, kind=kind)
 
 
 def parse_float_literal_text(text: str) -> FloatLiteralValue:
-    if not text:
-        raise ValueError("Expected floating-point literal text")
-
-    try:
-        value = float(text)
-    except ValueError as exc:
-        raise ValueError(f"Unsupported floating-point literal syntax: {text}") from exc
-
-    return FloatLiteralValue(raw_text=text, value=value)
+    return FloatLiteralValue(raw_text=text, value=parse_float_literal(text))
 
 
 def literal_expr_from_token(token: Token) -> LiteralExpr:

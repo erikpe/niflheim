@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+from enum import StrEnum
+
 
 INT_LITERAL_SUFFIX_U64 = "u"
 INT_LITERAL_SUFFIX_U8 = "u8"
 INT_LITERAL_HEX_PREFIXES = ("0x", "0X")
+
+
+class IntLiteralKind(StrEnum):
+    UNSUFFIXED = "unsuffixed"
+    U64 = "u64"
+    U8 = "u8"
 
 
 def split_int_literal_suffix(text: str) -> tuple[str, str | None]:
@@ -12,6 +20,45 @@ def split_int_literal_suffix(text: str) -> tuple[str, str | None]:
     if text.endswith(INT_LITERAL_SUFFIX_U64):
         return text[:-len(INT_LITERAL_SUFFIX_U64)], INT_LITERAL_SUFFIX_U64
     return text, None
+
+
+def _int_literal_kind_from_suffix(suffix: str | None) -> IntLiteralKind:
+    if suffix == INT_LITERAL_SUFFIX_U8:
+        return IntLiteralKind.U8
+    if suffix == INT_LITERAL_SUFFIX_U64:
+        return IntLiteralKind.U64
+    return IntLiteralKind.UNSUFFIXED
+
+
+def parse_int_literal(text: str) -> tuple[int, IntLiteralKind]:
+    if not text:
+        raise ValueError("Expected integer literal text")
+
+    digits, suffix = split_int_literal_suffix(text)
+    kind = _int_literal_kind_from_suffix(suffix)
+    if not digits:
+        raise ValueError(f"Unsupported integer literal syntax: {text}")
+
+    if digits.startswith(INT_LITERAL_HEX_PREFIXES):
+        magnitude_digits = digits[2:]
+        if not magnitude_digits or not is_hex_digits(magnitude_digits):
+            raise ValueError(f"Unsupported integer literal syntax: {text}")
+        return int(magnitude_digits, 16), kind
+
+    if not digits.isdigit():
+        raise ValueError(f"Unsupported integer literal syntax: {text}")
+
+    return int(digits, 10), kind
+
+
+def parse_float_literal(text: str) -> float:
+    if not text:
+        raise ValueError("Expected floating-point literal text")
+
+    try:
+        return float(text)
+    except ValueError as exc:
+        raise ValueError(f"Unsupported floating-point literal syntax: {text}") from exc
 
 
 def is_hex_digit(ch: str) -> bool:

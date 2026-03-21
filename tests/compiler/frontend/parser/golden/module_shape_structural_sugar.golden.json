@@ -32,11 +32,10 @@
                   "arguments": [
                     {
                       "literal": {
-                        "base": 10,
+                        "kind": "unsuffixed",
                         "magnitude": 1,
                         "node": "IntLiteralValue",
-                        "raw_text": "1",
-                        "suffix": null
+                        "raw_text": "1"
                       },
                       "node": "LiteralExpr"
                     }
@@ -67,11 +66,10 @@
                   "arguments": [
                     {
                       "literal": {
-                        "base": 10,
+                        "kind": "unsuffixed",
                         "magnitude": 2,
                         "node": "IntLiteralValue",
-                        "raw_text": "2",
-                        "suffix": null
+                        "raw_text": "2"
                       },
                       "node": "LiteralExpr"
                     }
@@ -101,11 +99,10 @@
                 "node": "UnaryExpr",
                 "operand": {
                   "literal": {
-                    "base": 10,
+                    "kind": "unsuffixed",
                     "magnitude": 1,
                     "node": "IntLiteralValue",
-                    "raw_text": "1",
-                    "suffix": null
+                    "raw_text": "1"
                   },
                   "node": "LiteralExpr"
                 },
@@ -131,11 +128,10 @@
                 "node": "UnaryExpr",
                 "operand": {
                   "literal": {
-                    "base": 10,
+                    "kind": "unsuffixed",
                     "magnitude": 1,
                     "node": "IntLiteralValue",
-                    "raw_text": "1",
-                    "suffix": null
+                    "raw_text": "1"
                   },
                   "node": "LiteralExpr"
                 },
@@ -157,11 +153,10 @@
               "arguments": [
                 {
                   "literal": {
-                    "base": 10,
+                    "kind": "unsuffixed",
                     "magnitude": 0,
                     "node": "IntLiteralValue",
-                    "raw_text": "0",
-                    "suffix": null
+                    "raw_text": "0"
                   },
                   "node": "LiteralExpr"
                 },
@@ -207,21 +202,19 @@
               "arguments": [
                 {
                   "literal": {
-                    "base": 10,
+                    "kind": "unsuffixed",
                     "magnitude": 0,
                     "node": "IntLiteralValue",
-                    "raw_text": "0",
-                    "suffix": null
+                    "raw_text": "0"
                   },
                   "node": "LiteralExpr"
                 },
                 {
                   "literal": {
-                    "base": 10,
+                    "kind": "unsuffixed",
                     "magnitude": 1,
                     "node": "IntLiteralValue",
-                    "raw_text": "1",
-                    "suffix": null
+                    "raw_text": "1"
                   },
                   "node": "LiteralExpr"
                 }
@@ -281,11 +274,10 @@
                   "node": "ReturnStmt",
                   "value": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 0,
                       "node": "IntLiteralValue",
-                      "raw_text": "0",
-                      "suffix": null
+                      "raw_text": "0"
                     },
                     "node": "LiteralExpr"
                   }
@@ -297,11 +289,10 @@
             "node": "ReturnStmt",
             "value": {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 1,
                 "node": "IntLiteralValue",
-                "raw_text": "1",
-                "suffix": null
+                "raw_text": "1"
               },
               "node": "LiteralExpr"
             }

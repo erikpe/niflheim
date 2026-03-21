@@ -32,11 +32,10 @@
               "arguments": [
                 {
                   "literal": {
-                    "base": 10,
+                    "kind": "unsuffixed",
                     "magnitude": 7,
                     "node": "IntLiteralValue",
-                    "raw_text": "7",
-                    "suffix": null
+                    "raw_text": "7"
                   },
                   "node": "LiteralExpr"
                 }
@@ -123,11 +122,10 @@
                   "operator": "<",
                   "right": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 0,
                       "node": "IntLiteralValue",
-                      "raw_text": "0",
-                      "suffix": null
+                      "raw_text": "0"
                     },
                     "node": "LiteralExpr"
                   }
@@ -146,11 +144,10 @@
                   "operator": "==",
                   "right": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 7,
                       "node": "IntLiteralValue",
-                      "raw_text": "7",
-                      "suffix": null
+                      "raw_text": "7"
                     },
                     "node": "LiteralExpr"
                   }
@@ -166,11 +163,10 @@
                   "operator": "==",
                   "right": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 8,
                       "node": "IntLiteralValue",
-                      "raw_text": "8",
-                      "suffix": null
+                      "raw_text": "8"
                     },
                     "node": "LiteralExpr"
                   }
@@ -186,11 +182,10 @@
                   "node": "ReturnStmt",
                   "value": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 0,
                       "node": "IntLiteralValue",
-                      "raw_text": "0",
-                      "suffix": null
+                      "raw_text": "0"
                     },
                     "node": "LiteralExpr"
                   }
@@ -202,11 +197,10 @@
             "node": "ReturnStmt",
             "value": {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 1,
                 "node": "IntLiteralValue",
-                "raw_text": "1",
-                "suffix": null
+                "raw_text": "1"
               },
               "node": "LiteralExpr"
             }

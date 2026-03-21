@@ -85,11 +85,10 @@
                   "operator": "+",
                   "right": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 1,
                       "node": "IntLiteralValue",
-                      "raw_text": "1",
-                      "suffix": null
+                      "raw_text": "1"
                     },
                     "node": "LiteralExpr"
                   }
@@ -241,11 +240,10 @@
           {
             "initializer": {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 0,
                 "node": "IntLiteralValue",
-                "raw_text": "0",
-                "suffix": null
+                "raw_text": "0"
               },
               "node": "LiteralExpr"
             },
@@ -259,11 +257,10 @@
           {
             "initializer": {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 0,
                 "node": "IntLiteralValue",
-                "raw_text": "0",
-                "suffix": null
+                "raw_text": "0"
               },
               "node": "LiteralExpr"
             },
@@ -288,11 +285,10 @@
                     "operator": "==",
                     "right": {
                       "literal": {
-                        "base": 10,
+                        "kind": "unsuffixed",
                         "magnitude": 2,
                         "node": "IntLiteralValue",
-                        "raw_text": "2",
-                        "suffix": null
+                        "raw_text": "2"
                       },
                       "node": "LiteralExpr"
                     }
@@ -317,11 +313,10 @@
                           "operator": "+",
                           "right": {
                             "literal": {
-                              "base": 10,
+                              "kind": "unsuffixed",
                               "magnitude": 1,
                               "node": "IntLiteralValue",
-                              "raw_text": "1",
-                              "suffix": null
+                              "raw_text": "1"
                             },
                             "node": "LiteralExpr"
                           }
@@ -369,11 +364,10 @@
                     "operator": ">",
                     "right": {
                       "literal": {
-                        "base": 10,
+                        "kind": "unsuffixed",
                         "magnitude": 50,
                         "node": "IntLiteralValue",
-                        "raw_text": "50",
-                        "suffix": null
+                        "raw_text": "50"
                       },
                       "node": "LiteralExpr"
                     }
@@ -404,11 +398,10 @@
                     "operator": "+",
                     "right": {
                       "literal": {
-                        "base": 10,
+                        "kind": "unsuffixed",
                         "magnitude": 1,
                         "node": "IntLiteralValue",
-                        "raw_text": "1",
-                        "suffix": null
+                        "raw_text": "1"
                       },
                       "node": "LiteralExpr"
                     }
@@ -491,11 +484,10 @@
               },
               "length_expr": {
                 "literal": {
-                  "base": 10,
+                  "kind": "unsuffixed",
                   "magnitude": 4,
                   "node": "IntLiteralValue",
-                  "raw_text": "4",
-                  "suffix": null
+                  "raw_text": "4"
                 },
                 "node": "LiteralExpr"
               },
@@ -516,11 +508,10 @@
             "target": {
               "index_expr": {
                 "literal": {
-                  "base": 10,
+                  "kind": "unsuffixed",
                   "magnitude": 0,
                   "node": "IntLiteralValue",
-                  "raw_text": "0",
-                  "suffix": null
+                  "raw_text": "0"
                 },
                 "node": "LiteralExpr"
               },
@@ -532,11 +523,10 @@
             },
             "value": {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 10,
                 "node": "IntLiteralValue",
-                "raw_text": "10",
-                "suffix": null
+                "raw_text": "10"
               },
               "node": "LiteralExpr"
             }
@@ -546,11 +536,10 @@
             "target": {
               "index_expr": {
                 "literal": {
-                  "base": 10,
+                  "kind": "unsuffixed",
                   "magnitude": 1,
                   "node": "IntLiteralValue",
-                  "raw_text": "1",
-                  "suffix": null
+                  "raw_text": "1"
                 },
                 "node": "LiteralExpr"
               },
@@ -562,11 +551,10 @@
             },
             "value": {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 20,
                 "node": "IntLiteralValue",
-                "raw_text": "20",
-                "suffix": null
+                "raw_text": "20"
               },
               "node": "LiteralExpr"
             }
@@ -576,11 +564,10 @@
             "target": {
               "index_expr": {
                 "literal": {
-                  "base": 10,
+                  "kind": "unsuffixed",
                   "magnitude": 2,
                   "node": "IntLiteralValue",
-                  "raw_text": "2",
-                  "suffix": null
+                  "raw_text": "2"
                 },
                 "node": "LiteralExpr"
               },
@@ -592,11 +579,10 @@
             },
             "value": {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 30,
                 "node": "IntLiteralValue",
-                "raw_text": "30",
-                "suffix": null
+                "raw_text": "30"
               },
               "node": "LiteralExpr"
             }
@@ -606,11 +592,10 @@
             "target": {
               "index_expr": {
                 "literal": {
-                  "base": 10,
+                  "kind": "unsuffixed",
                   "magnitude": 3,
                   "node": "IntLiteralValue",
-                  "raw_text": "3",
-                  "suffix": null
+                  "raw_text": "3"
                 },
                 "node": "LiteralExpr"
               },
@@ -622,11 +607,10 @@
             },
             "value": {
               "literal": {
-                "base": 10,
+                "kind": "unsuffixed",
                 "magnitude": 40,
                 "node": "IntLiteralValue",
-                "raw_text": "40",
-                "suffix": null
+                "raw_text": "40"
               },
               "node": "LiteralExpr"
             }
@@ -636,21 +620,19 @@
               "arguments": [
                 {
                   "literal": {
-                    "base": 10,
+                    "kind": "unsuffixed",
                     "magnitude": 1,
                     "node": "IntLiteralValue",
-                    "raw_text": "1",
-                    "suffix": null
+                    "raw_text": "1"
                   },
                   "node": "LiteralExpr"
                 },
                 {
                   "literal": {
-                    "base": 10,
+                    "kind": "unsuffixed",
                     "magnitude": 3,
                     "node": "IntLiteralValue",
-                    "raw_text": "3",
-                    "suffix": null
+                    "raw_text": "3"
                   },
                   "node": "LiteralExpr"
                 }
@@ -774,11 +756,10 @@
               "operator": ">",
               "right": {
                 "literal": {
-                  "base": 10,
+                  "kind": "unsuffixed",
                   "magnitude": 0,
                   "node": "IntLiteralValue",
-                  "raw_text": "0",
-                  "suffix": null
+                  "raw_text": "0"
                 },
                 "node": "LiteralExpr"
               }
@@ -790,11 +771,10 @@
                   "node": "ReturnStmt",
                   "value": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 1,
                       "node": "IntLiteralValue",
-                      "raw_text": "1",
-                      "suffix": null
+                      "raw_text": "1"
                     },
                     "node": "LiteralExpr"
                   }
@@ -809,11 +789,10 @@
                   "node": "ReturnStmt",
                   "value": {
                     "literal": {
-                      "base": 10,
+                      "kind": "unsuffixed",
                       "magnitude": 0,
                       "node": "IntLiteralValue",
-                      "raw_text": "0",
-                      "suffix": null
+                      "raw_text": "0"
                     },
                     "node": "LiteralExpr"
                   }

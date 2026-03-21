@@ -9,7 +9,7 @@ from compiler.common.collection_protocols import (
     collection_op_from_method_name,
 )
 from compiler.frontend.ast_nodes import *
-from compiler.common.literals import decode_char_literal, decode_string_literal
+from compiler.common.literals import IntLiteralKind, decode_char_literal, decode_string_literal
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_UNIT
 from compiler.common.type_shapes import is_array_type_name, is_str_type_name
 from compiler.resolver import ModulePath, ProgramInfo
@@ -1045,7 +1045,7 @@ def _lowered_literal_type_name(lower_ctx: _ModuleLoweringContext, expr: LiteralE
     literal = expr.literal
     if (
         isinstance(literal, IntLiteralValue)
-        and literal.suffix is None
+        and literal.kind == IntLiteralKind.UNSUFFIXED
         and literal.magnitude == I64_MIN_MAGNITUDE_LITERAL
     ):
         return TYPE_NAME_I64
