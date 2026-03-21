@@ -3,21 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from compiler.frontend.ast_nodes import (
-    BlockStmt,
-    ClassDecl,
-    Expression,
-    FieldDecl,
-    FunctionDecl,
-    ImportDecl,
-    InterfaceDecl,
-    InterfaceMethodDecl,
-    MethodDecl,
-    ModuleAst,
-    ParamDecl,
-    TypeRefNode,
-)
-from compiler.frontend.lexer import SourceSpan, Token
+from compiler.common.span import SourceSpan
+from compiler.frontend.ast_nodes import *
+from compiler.frontend.lexer import Token
 from compiler.frontend.parser_support import expect_symbol_name, ParserError, TokenStream
 from compiler.frontend.tokens import TokenKind
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.frontend.lexer import SourceSpan
+from compiler.common.span import SourceSpan
 
 
 @dataclass(frozen=True)

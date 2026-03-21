@@ -9,7 +9,7 @@ from compiler.codegen.walk import (
     walk_expression,
     walk_statement_expressions,
 )
-from compiler.frontend.lexer import SourcePos, SourceSpan
+from compiler.common.span import SourcePos, SourceSpan
 from compiler.semantic.ir import *
 from compiler.semantic.linker import LinkedSemanticProgram
 from compiler.semantic.symbols import ClassId, FunctionId, MethodId

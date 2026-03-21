@@ -15,7 +15,7 @@ from compiler.frontend.ast_nodes import (
     TypeRef,
     VarDeclStmt,
 )
-from compiler.frontend.lexer import SourcePos, SourceSpan
+from compiler.common.span import SourcePos, SourceSpan
 from compiler.typecheck.api import typecheck
 from compiler.typecheck.model import TypeCheckError
 from tests.compiler.typecheck.helpers import parse_and_typecheck

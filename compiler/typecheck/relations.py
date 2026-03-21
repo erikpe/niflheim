@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from compiler.common.type_names import TYPE_NAME_I64, TYPE_NAME_NULL, TYPE_NAME_OBJ, TYPE_NAME_U64, TYPE_NAME_UNIT
 from compiler.typecheck.context import TypeCheckContext
-from compiler.frontend.lexer import SourceSpan
+from compiler.common.span import SourceSpan
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 

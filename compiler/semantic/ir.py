@@ -5,7 +5,7 @@ from pathlib import Path
 
 from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind
 from compiler.common.type_names import TYPE_NAME_NULL, TYPE_NAME_U64
-from compiler.frontend.lexer import SourceSpan
+from compiler.common.span import SourceSpan
 from compiler.resolver import ModulePath
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId, SyntheticId
 

@@ -4,7 +4,8 @@ import pytest
 
 from compiler.common.literals import IntLiteralKind
 from compiler.frontend.ast_nodes import *
-from compiler.frontend.lexer import SourceSpan, lex
+from compiler.common.span import SourceSpan
+from compiler.frontend.lexer import lex
 from compiler.frontend.parser import ParserError, TokenStream, parse, parse_expression
 from compiler.frontend.tokens import TokenKind
 

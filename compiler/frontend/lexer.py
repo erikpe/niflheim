@@ -3,21 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.common.literals import is_hex_digit
+from compiler.common.span import SourcePos, SourceSpan
 from compiler.frontend.tokens import KEYWORDS, ONE_CHAR_TOKENS, TWO_CHAR_TOKENS, TokenKind
-
-
-@dataclass(frozen=True)
-class SourcePos:
-    path: str
-    offset: int
-    line: int
-    column: int
-
-
-@dataclass(frozen=True)
-class SourceSpan:
-    start: SourcePos
-    end: SourcePos
 
 
 @dataclass(frozen=True)

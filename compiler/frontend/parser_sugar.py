@@ -7,18 +7,10 @@ from compiler.common.collection_protocols import (
     COLLECTION_METHOD_SLICE_GET,
     COLLECTION_METHOD_SLICE_SET,
 )
+from compiler.common.span import SourceSpan
 from compiler.common.type_names import TYPE_NAME_I64
-from compiler.frontend.ast_nodes import (
-    BlockStmt,
-    CallExpr,
-    CastExpr,
-    ExprStmt,
-    Expression,
-    FieldAccessExpr,
-    ForInStmt,
-    TypeRef,
-)
-from compiler.frontend.lexer import SourceSpan, Token
+from compiler.frontend.ast_nodes import *
+from compiler.frontend.lexer import Token
 from compiler.frontend.literals import int_literal_expr
 
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from compiler.common.span import SourceSpan
 from compiler.frontend.ast_nodes import ArrayTypeRef, FunctionTypeRef, TypeRef, TypeRefNode
-from compiler.frontend.lexer import SourceSpan
 from compiler.frontend.parser_support import expect_symbol_name, ParserError, TokenStream
 from compiler.frontend.tokens import TYPE_NAME_TOKENS, TokenKind
 

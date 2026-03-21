@@ -1,6 +1,6 @@
 import pytest
 
-from compiler.frontend.lexer import SourcePos, SourceSpan
+from compiler.common.span import SourcePos, SourceSpan
 from compiler.resolver import resolve_program
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.declarations import collect_module_declarations

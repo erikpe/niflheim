@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.frontend.lexer import SourceSpan
+from compiler.common.span import SourceSpan
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.model import ClassInfo, TypeCheckError
 from compiler.typecheck.relations import canonicalize_reference_type_name

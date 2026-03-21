@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.frontend.lexer import SourceSpan, Token
+from compiler.common.span import SourceSpan
+from compiler.frontend.lexer import Token
 from compiler.frontend.tokens import TokenKind
 
 

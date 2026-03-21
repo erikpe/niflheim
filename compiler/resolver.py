@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from compiler.frontend.ast_nodes import *
-from compiler.frontend.lexer import SourceSpan, lex
+from compiler.common.span import SourceSpan
+from compiler.frontend.lexer import lex
 from compiler.frontend.parser import parse
 
 

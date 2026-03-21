@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from compiler.frontend.ast_nodes import ModuleAst
-from compiler.frontend.lexer import SourceSpan
+from compiler.common.span import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
 from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError, TypeInfo
 

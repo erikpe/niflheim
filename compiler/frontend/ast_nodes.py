@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from compiler.common.literals import IntLiteralKind
-from compiler.frontend.lexer import SourceSpan
+from compiler.common.span import SourceSpan
 
 
 @dataclass(frozen=True)

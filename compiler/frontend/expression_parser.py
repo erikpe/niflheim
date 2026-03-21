@@ -2,22 +2,9 @@ from __future__ import annotations
 
 from typing import Callable
 
-from compiler.frontend.ast_nodes import (
-    ArrayCtorExpr,
-    ArrayTypeRef,
-    BinaryExpr,
-    CallExpr,
-    CastExpr,
-    Expression,
-    FieldAccessExpr,
-    IdentifierExpr,
-    IndexExpr,
-    NullExpr,
-    TypeRefNode,
-    TypeTestExpr,
-    UnaryExpr,
-)
-from compiler.frontend.lexer import SourceSpan, Token
+from compiler.common.span import SourceSpan
+from compiler.frontend.ast_nodes import *
+from compiler.frontend.lexer import Token
 from compiler.frontend.literals import literal_expr_from_token
 from compiler.frontend.parser_sugar import build_slice_expr
 from compiler.frontend.parser_support import expect_symbol_name, ParserError, TokenStream

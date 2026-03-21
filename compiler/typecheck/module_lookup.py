@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from compiler.frontend.ast_nodes import Expression, FieldAccessExpr, IdentifierExpr
 from compiler.typecheck.context import TypeCheckContext
-from compiler.frontend.lexer import SourceSpan
+from compiler.common.span import SourceSpan
 from compiler.resolver import ModuleInfo, ModulePath
 from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError
 

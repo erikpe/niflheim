@@ -2,25 +2,9 @@ from __future__ import annotations
 
 from typing import Callable
 
-from compiler.frontend.ast_nodes import (
-    AssignStmt,
-    BlockStmt,
-    BreakStmt,
-    ContinueStmt,
-    ExprStmt,
-    Expression,
-    FieldAccessExpr,
-    ForInStmt,
-    IdentifierExpr,
-    IfStmt,
-    IndexExpr,
-    ReturnStmt,
-    Statement,
-    TypeRefNode,
-    VarDeclStmt,
-    WhileStmt,
-)
-from compiler.frontend.lexer import SourceSpan, Token
+from compiler.common.span import SourceSpan
+from compiler.frontend.ast_nodes import *
+from compiler.frontend.lexer import Token
 from compiler.frontend.parser_sugar import ParserSugar, try_build_slice_write_stmt
 from compiler.frontend.parser_support import ParserError, TokenStream
 from compiler.frontend.tokens import TokenKind
