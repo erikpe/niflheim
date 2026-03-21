@@ -34,6 +34,7 @@ class ConstructorLayout:
 
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 FLOAT_PARAM_REGISTERS = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"]
+CONSTRUCTOR_OBJECT_SLOT_NAME = "__nif_ctor_obj"
 ARRAY_LEN_RUNTIME_CALL = "rt_array_len"
 ARRAY_FROM_BYTES_U8_RUNTIME_CALL = "rt_array_from_bytes_u8"
 ARRAY_CONSTRUCTOR_RUNTIME_CALLS = {

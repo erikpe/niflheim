@@ -7,6 +7,59 @@ from compiler.codegen.model import FunctionLayout, TEMP_RUNTIME_ROOT_SLOT_COUNT
 from compiler.semantic.ir import *
 
 
+def _build_function_layout(
+    ordered_slot_names: list[str],
+    slot_type_names: dict[str, str],
+    *,
+    needs_temp_runtime_roots: bool,
+    max_call_temp_root_slots: int,
+) -> FunctionLayout:
+    slot_offsets = {name: -(8 * index) for index, name in enumerate(ordered_slot_names, start=1)}
+    root_slot_names = [
+        name for name in ordered_slot_names if codegen_types.is_reference_type_name(slot_type_names[name])
+    ]
+    root_slot_indices = {name: index for index, name in enumerate(root_slot_names)}
+
+    temp_root_slot_count = 0
+    if needs_temp_runtime_roots:
+        temp_root_slot_count = max(TEMP_RUNTIME_ROOT_SLOT_COUNT, max_call_temp_root_slots)
+
+    temp_root_slot_start_index = len(root_slot_names)
+    root_slot_count = len(root_slot_names) + temp_root_slot_count
+
+    root_slot_offsets: dict[str, int] = {}
+    root_slots_base_offset = -(8 * (len(ordered_slot_names) + root_slot_count)) if root_slot_count > 0 else 0
+    for index, name in enumerate(root_slot_names):
+        root_slot_offsets[name] = root_slots_base_offset + (8 * index)
+    temp_root_slot_offsets = [
+        root_slots_base_offset + (8 * (len(root_slot_names) + index)) for index in range(temp_root_slot_count)
+    ]
+
+    bytes_for_value_slots = len(ordered_slot_names) * 8
+    bytes_for_root_slots = root_slot_count * 8
+    thread_state_offset = -(bytes_for_value_slots + bytes_for_root_slots + 8)
+    root_frame_offset = thread_state_offset - 24 if root_slot_count > 0 else 0
+
+    bytes_for_thread_state = 8
+    bytes_for_root_frame = 24 if root_slot_count > 0 else 0
+    stack_size = _align16(bytes_for_value_slots + bytes_for_root_slots + bytes_for_thread_state + bytes_for_root_frame)
+
+    return FunctionLayout(
+        slot_names=ordered_slot_names,
+        slot_offsets=slot_offsets,
+        slot_type_names=slot_type_names,
+        root_slot_names=root_slot_names,
+        root_slot_indices=root_slot_indices,
+        root_slot_offsets=root_slot_offsets,
+        temp_root_slot_offsets=temp_root_slot_offsets,
+        temp_root_slot_start_index=temp_root_slot_start_index,
+        root_slot_count=root_slot_count,
+        thread_state_offset=thread_state_offset,
+        root_frame_offset=root_frame_offset,
+        stack_size=stack_size,
+    )
+
+
 def for_in_temp_name(kind: str, stmt: SemanticForIn) -> str:
     start = stmt.span.start
     return f"__nif_forin_{kind}_{start.line}_{start.column}"
@@ -130,10 +183,7 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
     if isinstance(expr, InstanceMethodCallExpr):
         return _max_rooted_sequence([expr.receiver, *expr.args])
     if isinstance(expr, InterfaceMethodCallExpr):
-        return max(
-            _max_call_temp_root_slots_in_expr(expr.receiver),
-            1 + _max_rooted_sequence(expr.args),
-        )
+        return max(_max_call_temp_root_slots_in_expr(expr.receiver), 1 + _max_rooted_sequence(expr.args))
     if isinstance(expr, ArrayLenExpr):
         return _max_rooted_sequence([expr.target])
     if isinstance(expr, IndexReadExpr):
@@ -217,49 +267,29 @@ def build_layout(fn: SemanticFunction) -> FunctionLayout:
             seen_names.add(name)
             ordered_slot_names.append(name)
 
-    slot_offsets = {name: -(8 * index) for index, name in enumerate(ordered_slot_names, start=1)}
-    root_slot_names = [
-        name for name in ordered_slot_names if codegen_types.is_reference_type_name(local_types_by_name[name])
-    ]
-    root_slot_indices = {name: index for index, name in enumerate(root_slot_names)}
-
     needs_temp_runtime_roots = any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_stmt(stmt) for stmt in fn.body.statements), default=0)
-    temp_root_slot_count = 0
-    if needs_temp_runtime_roots:
-        temp_root_slot_count = max(TEMP_RUNTIME_ROOT_SLOT_COUNT, max_call_temp_root_slots)
+    return _build_function_layout(
+        ordered_slot_names,
+        local_types_by_name,
+        needs_temp_runtime_roots=needs_temp_runtime_roots,
+        max_call_temp_root_slots=max_call_temp_root_slots,
+    )
 
-    temp_root_slot_start_index = len(root_slot_names)
-    root_slot_count = len(root_slot_names) + temp_root_slot_count
 
-    root_slot_offsets: dict[str, int] = {}
-    root_slots_base_offset = -(8 * (len(ordered_slot_names) + root_slot_count)) if root_slot_count > 0 else 0
-    for index, name in enumerate(root_slot_names):
-        root_slot_offsets[name] = root_slots_base_offset + (8 * index)
-    temp_root_slot_offsets = [
-        root_slots_base_offset + (8 * (len(root_slot_names) + index)) for index in range(temp_root_slot_count)
-    ]
-
-    bytes_for_value_slots = len(ordered_slot_names) * 8
-    bytes_for_root_slots = root_slot_count * 8
-    thread_state_offset = -(bytes_for_value_slots + bytes_for_root_slots + 8)
-    root_frame_offset = thread_state_offset - 24 if root_slot_count > 0 else 0
-
-    bytes_for_thread_state = 8
-    bytes_for_root_frame = 24 if root_slot_count > 0 else 0
-    stack_size = _align16(bytes_for_value_slots + bytes_for_root_slots + bytes_for_thread_state + bytes_for_root_frame)
-
-    return FunctionLayout(
-        slot_names=ordered_slot_names,
-        slot_offsets=slot_offsets,
-        slot_type_names=local_types_by_name,
-        root_slot_names=root_slot_names,
-        root_slot_indices=root_slot_indices,
-        root_slot_offsets=root_slot_offsets,
-        temp_root_slot_offsets=temp_root_slot_offsets,
-        temp_root_slot_start_index=temp_root_slot_start_index,
-        root_slot_count=root_slot_count,
-        thread_state_offset=thread_state_offset,
-        root_frame_offset=root_frame_offset,
-        stack_size=stack_size,
+def build_constructor_layout(cls: SemanticClass, ctor_layout, *, constructor_object_slot_name: str) -> FunctionLayout:
+    field_types_by_name = {field.name: field.type_name for field in cls.fields}
+    ordered_slot_names = [*ctor_layout.param_field_names, constructor_object_slot_name]
+    slot_type_names = {
+        **{field_name: field_types_by_name[field_name] for field_name in ctor_layout.param_field_names},
+        constructor_object_slot_name: cls.class_id.name,
+    }
+    initializer_exprs = [field.initializer for field in cls.fields if field.initializer is not None]
+    needs_temp_runtime_roots = any(_expr_needs_temp_runtime_roots(expr) for expr in initializer_exprs)
+    max_call_temp_root_slots = max((_max_call_temp_root_slots_in_expr(expr) for expr in initializer_exprs), default=0)
+    return _build_function_layout(
+        ordered_slot_names,
+        slot_type_names,
+        needs_temp_runtime_roots=needs_temp_runtime_roots,
+        max_call_temp_root_slots=max_call_temp_root_slots,
     )

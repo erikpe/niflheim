@@ -3,7 +3,8 @@ from __future__ import annotations
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.emitter_stmt import emit_statement
-from compiler.codegen.layout import build_layout
+from compiler.codegen.layout import build_constructor_layout, build_layout
+from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
 from compiler.codegen.strings import escape_c_string
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import FunctionId
@@ -103,28 +104,15 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
 
     ctor_id = ConstructorId(module_path=cls.class_id.module_path, class_name=cls.class_id.name)
     ctor_layout = declaration_tables.constructor_layouts_by_id[ctor_id]
-    ctor_fn = SemanticFunction(
-        function_id=FunctionId(module_path=cls.class_id.module_path, name=ctor_layout.label),
-        params=[
-            SemanticParam(name=field.name, type_name=field.type_name, span=field.span)
-            for field in cls.fields
-            if field.initializer is None
-        ],
-        return_type_name=cls.class_id.name,
-        body=SemanticBlock(
-            statements=[
-                SemanticVarDecl(name="__nif_ctor_obj", type_name=cls.class_id.name, initializer=None, span=cls.span)
-            ],
-            span=cls.span,
-        ),
-        is_export=False,
-        is_extern=False,
-        span=cls.span,
-    )
+    ctor_params = [
+        SemanticParam(name=field.name, type_name=field.type_name, span=field.span)
+        for field in cls.fields
+        if field.initializer is None
+    ]
 
     target_label = ctor_layout.label
     epilogue = f".L{target_label}_epilogue"
-    layout = build_layout(ctor_fn)
+    layout = build_constructor_layout(cls, ctor_layout, constructor_object_slot_name=CONSTRUCTOR_OBJECT_SLOT_NAME)
     label_counter = [0]
     fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
         codegen, target_label=target_label, function_name=target_label, file_path=cls.span.start.path
@@ -133,13 +121,15 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     codegen.emit_frame_prologue(target_label, layout, global_symbol=False)
     codegen.emit_location_comment(file_path=cls.span.start.path, line=cls.span.start.line, column=cls.span.start.column)
     codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_param_specs(ctor_fn.params), layout)
+    codegen.emit_param_spills(_param_specs(ctor_params), layout)
 
-    if layout.root_slot_names:
-        first_root_offset = layout.root_slot_offsets[layout.root_slot_names[0]]
-        codegen.emit_root_frame_setup(
-            layout, root_count=len(layout.root_slot_names), first_root_offset=first_root_offset
+    if layout.root_slot_count > 0:
+        first_root_offset = (
+            layout.root_slot_offsets[layout.root_slot_names[0]]
+            if layout.root_slot_names
+            else layout.temp_root_slot_offsets[0]
         )
+        codegen.emit_root_frame_setup(layout, root_count=layout.root_slot_count, first_root_offset=first_root_offset)
 
     codegen.emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
     codegen.emit_runtime_call_hook(fn_name=target_label, phase="before", label_counter=label_counter)
@@ -150,7 +140,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     codegen.asm.instr(f"mov rdx, {ctor_layout.payload_bytes}")
     codegen.asm.instr("call rt_alloc_obj")
     codegen.emit_runtime_call_hook(fn_name=target_label, phase="after", label_counter=label_counter)
-    codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}, rax")
+    codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[CONSTRUCTOR_OBJECT_SLOT_NAME])}, rax")
 
     emit_ctx = EmitContext(
         layout=layout,
@@ -175,7 +165,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
                 raise ValueError("constructor default initializer missing")
             emit_expr(codegen, field_decl.initializer, emit_ctx)
             codegen.asm.instr("mov rcx, rax")
-        codegen.asm.instr(f"mov rax, {offset_operand(layout.slot_offsets['__nif_ctor_obj'])}")
+        codegen.asm.instr(f"mov rax, {offset_operand(layout.slot_offsets[CONSTRUCTOR_OBJECT_SLOT_NAME])}")
         codegen.asm.instr(f"mov qword ptr [rax + {field_offset}], rcx")
 
     codegen.asm.instr(f"jmp {epilogue}")

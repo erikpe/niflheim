@@ -28,6 +28,7 @@ Completed so far:
 - Step 4 is implemented and validated.
 - Step 5 is implemented and validated.
 - Step 6 is implemented and validated.
+- Step 7 is implemented and validated.
 
 In progress now:
 
@@ -35,7 +36,7 @@ In progress now:
 
 Not started yet:
 
-- Steps 7 through 8
+- Step 8
 
 ## Scope
 
@@ -553,6 +554,23 @@ Validation:
 - constructor codegen tests
 - class field initializer tests
 - full suite
+
+Validation for this step:
+
+- Implemented by adding a dedicated constructor layout path in:
+  - `compiler/codegen/layout.py`
+- Updated constructor emission so it now consumes backend-owned constructor layout data directly instead of fabricating `SemanticFunction` / `SemanticBlock` wrappers in:
+  - `compiler/codegen/emitter_fn.py`
+- Centralized the backend-only constructor object slot name in:
+  - `compiler/codegen/model.py`
+- Adjusted constructor ref epilogue/root-frame handling so constructor frames pop roots based on actual root-slot count rather than only named root locals in:
+  - `compiler/codegen/generator.py`
+- Added focused coverage for constructor layout/root behavior in:
+  - `tests/compiler/codegen/test_layout.py`
+  - `tests/compiler/codegen/test_emit_asm_runtime_roots.py`
+- Validation run results:
+  - focused Step 7 slice: `35 passed`
+  - full pytest: `534 passed`
 
 ## Step 8: Final Cleanup Of Codegen APIs
 

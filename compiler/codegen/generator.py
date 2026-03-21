@@ -158,7 +158,7 @@ class CodeGenerator:
 
     def emit_ref_epilogue(self, layout: FunctionLayout) -> None:
         self.asm.instr("push rax")
-        if layout.root_slot_names:
+        if layout.root_slot_count > 0:
             self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
         self.asm.instr("call rt_trace_pop")

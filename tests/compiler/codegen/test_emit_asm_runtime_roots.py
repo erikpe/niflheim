@@ -156,6 +156,30 @@ fn main() -> i64 {
     assert push_roots_i < trace_push_i
 
 
+def test_emit_asm_constructor_with_only_primitive_params_still_roots_allocated_object(tmp_path) -> None:
+    source = """
+class Counter {
+    value: i64;
+}
+
+fn main() -> i64 {
+    if Counter(7) == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    ctor_start = asm.index("__nif_ctor_Counter:")
+    ctor_end = asm.index(".L__nif_ctor_Counter_epilogue:")
+    ctor_body = asm[ctor_start:ctor_end]
+
+    assert "    call rt_root_frame_init" in ctor_body
+    assert "    call rt_push_roots" in ctor_body
+    assert "    call rt_pop_roots" not in ctor_body
+
+
 def test_emit_asm_omits_shadow_stack_abi_when_no_named_slots(tmp_path) -> None:
     source = """
 fn f() -> unit {
