@@ -3,8 +3,7 @@ from __future__ import annotations
 from compiler.common.literals import parse_float_literal, parse_int_literal
 from compiler.common.span import SourceSpan
 from compiler.frontend.ast_nodes import *
-from compiler.frontend.lexer import Token
-from compiler.frontend.tokens import TokenKind
+from compiler.frontend.tokens import Token, TokenKind
 
 
 def _literal_expr(literal: LiteralValueNode, span: SourceSpan) -> LiteralExpr:

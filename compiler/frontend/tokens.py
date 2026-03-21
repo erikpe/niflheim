@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 
+from compiler.common.span import SourceSpan
 from compiler.common.type_names import *
 
 
@@ -83,6 +85,13 @@ class TokenKind(str, Enum):
     ANDAND = "ANDAND"
     OROR = "OROR"
     ARROW = "ARROW"
+
+
+@dataclass(frozen=True)
+class Token:
+    kind: TokenKind
+    lexeme: str
+    span: SourceSpan
 
 
 KEYWORDS: dict[str, TokenKind] = {

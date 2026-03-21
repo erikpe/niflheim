@@ -6,8 +6,9 @@ from pathlib import Path
 
 from compiler.frontend.ast_dump import ast_to_debug_json
 from compiler.codegen.generator import emit_asm
-from compiler.frontend.lexer import Token, lex
+from compiler.frontend.lexer import lex
 from compiler.frontend.parser import parse
+from compiler.frontend.tokens import Token
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
 from compiler.semantic.lowering import lower_program

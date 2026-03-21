@@ -4,10 +4,9 @@ from typing import Callable
 
 from compiler.common.span import SourceSpan
 from compiler.frontend.ast_nodes import *
-from compiler.frontend.lexer import Token
 from compiler.frontend.parser_sugar import ParserSugar, try_build_slice_write_stmt
 from compiler.frontend.parser_support import ParserError, TokenStream
-from compiler.frontend.tokens import TokenKind
+from compiler.frontend.tokens import Token, TokenKind
 
 
 ParseTypeRef = Callable[[], TypeRefNode]

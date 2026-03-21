@@ -3,12 +3,11 @@ from __future__ import annotations
 from compiler.frontend.ast_nodes import *
 from compiler.frontend.declaration_parser import DeclarationParser
 from compiler.frontend.expression_parser import ExpressionParser
-from compiler.frontend.lexer import Token
 from compiler.frontend.parser_sugar import ParserSugar
 from compiler.frontend.parser_support import ParserError, TokenStream
 from compiler.frontend.statement_parser import StatementParser
 from compiler.frontend.type_parser import parse_type_ref
-from compiler.frontend.tokens import TokenKind
+from compiler.frontend.tokens import Token, TokenKind
 
 
 class Parser:

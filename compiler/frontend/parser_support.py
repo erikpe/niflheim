@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.common.span import SourceSpan
-from compiler.frontend.lexer import Token
-from compiler.frontend.tokens import TokenKind
+from compiler.frontend.tokens import Token, TokenKind
 
 
 class ParserError(ValueError):

@@ -4,12 +4,11 @@ from typing import Callable
 
 from compiler.common.span import SourceSpan
 from compiler.frontend.ast_nodes import *
-from compiler.frontend.lexer import Token
 from compiler.frontend.literals import literal_expr_from_token
 from compiler.frontend.parser_sugar import build_slice_expr
 from compiler.frontend.parser_support import expect_symbol_name, ParserError, TokenStream
 from compiler.frontend.type_parser import lookahead_simple_type_ref
-from compiler.frontend.tokens import UNARY_START_TOKENS, TokenKind
+from compiler.frontend.tokens import Token, UNARY_START_TOKENS, TokenKind
 
 
 ParseTypeRef = Callable[[], TypeRefNode]
