@@ -80,7 +80,6 @@ Supporting documentation:
 - [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) - canonical language and implementation checklist.
 - [ROADMAP_v0.1.md](ROADMAP_v0.1.md) - milestone/iteration plan.
 - [INTERFACES_V1.md](INTERFACES_V1.md) - future-facing design for interface types, casts, and dispatch.
-- [INTERFACES_V1_IMPLEMENTATION_PLAN.md](INTERFACES_V1_IMPLEMENTATION_PLAN.md) - step-by-step execution plan and progress checklist for interfaces v1.
 - [ABI_NOTES.md](ABI_NOTES.md) - compiler/runtime ABI notes.
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.
 - [SUGARING_DESIGN.md](SUGARING_DESIGN.md) - canonical sugar protocols (indexing/slicing and for-in iteration).
