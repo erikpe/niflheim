@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from compiler.semantic.ir import SemanticProgram
 
+from .constant_folding import fold_constants
 from .reachability import prune_unreachable_semantic
 
 
@@ -18,6 +19,7 @@ class SemanticOptimizationPass:
 
 
 DEFAULT_SEMANTIC_OPTIMIZATION_PASSES: tuple[SemanticOptimizationPass, ...] = (
+    SemanticOptimizationPass(name="constant_fold", transform=fold_constants),
     SemanticOptimizationPass(name="prune_unreachable", transform=prune_unreachable_semantic),
 )
 

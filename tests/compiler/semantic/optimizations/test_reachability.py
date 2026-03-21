@@ -59,12 +59,14 @@ def test_semantic_reachability_follows_functions_methods_and_structural_edges(tm
 
     assert ClassId(module_path=("main",), name="Buffer") in reachability.reachable_classes
 
-    assert MethodId(
-        module_path=("main",), class_name="Buffer", name=collection_method_name(CollectionOpKind.ITER_LEN)
-    ) in reachability.reachable_methods
-    assert MethodId(
-        module_path=("main",), class_name="Buffer", name=collection_method_name(CollectionOpKind.ITER_GET)
-    ) in reachability.reachable_methods
+    assert (
+        MethodId(module_path=("main",), class_name="Buffer", name=collection_method_name(CollectionOpKind.ITER_LEN))
+        in reachability.reachable_methods
+    )
+    assert (
+        MethodId(module_path=("main",), class_name="Buffer", name=collection_method_name(CollectionOpKind.ITER_GET))
+        in reachability.reachable_methods
+    )
     assert MethodId(module_path=("main",), class_name="Buffer", name="dead") not in reachability.reachable_methods
 
 

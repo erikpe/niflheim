@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.resolver import resolve_program
+from compiler.semantic.ir import FunctionCallExpr, IntConstant, LiteralExprS, SemanticReturn
 from compiler.semantic.lowering.orchestration import lower_program
+from compiler.semantic.optimizations.constant_folding import fold_constants
 from compiler.semantic.optimizations.pipeline import (
     DEFAULT_SEMANTIC_OPTIMIZATION_PASSES,
     SemanticOptimizationPass,
@@ -33,9 +35,12 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
     semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
 
     optimized = optimize_semantic_program(semantic)
-    expected = prune_unreachable_semantic(semantic)
+    expected = prune_unreachable_semantic(fold_constants(semantic))
 
-    assert DEFAULT_SEMANTIC_OPTIMIZATION_PASSES[0].name == "prune_unreachable"
+    assert [optimization_pass.name for optimization_pass in DEFAULT_SEMANTIC_OPTIMIZATION_PASSES] == [
+        "constant_fold",
+        "prune_unreachable",
+    ]
     assert optimized == expected
 
 
@@ -70,3 +75,27 @@ def test_optimize_semantic_program_applies_passes_in_order(tmp_path: Path) -> No
 
     assert optimized == semantic
     assert applied == ["first", "second"]
+
+
+def test_optimize_semantic_program_folds_constants_before_pruning(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn helper(value: i64) -> i64 {
+            return value;
+        }
+
+        fn main() -> i64 {
+            return helper(1 + 2);
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[1].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, FunctionCallExpr)
+    assert isinstance(return_stmt.value.args[0], LiteralExprS)
+    assert isinstance(return_stmt.value.args[0].constant, IntConstant)
+    assert return_stmt.value.args[0].constant.value == 3
