@@ -122,6 +122,7 @@ def test_program_generator_generate_builds_module_output(tmp_path: Path) -> None
     asm = generator.generate()
 
     assert generator.declaration_tables is not None
+    assert generator.type_metadata is not None
     assert ConstructorId(module_path=("main",), class_name="Box") in generator.declaration_tables.constructor_labels_by_id
     assert "__nif_ctor_Box" in asm
     assert "main:" in asm
@@ -169,3 +170,56 @@ def test_program_generator_builds_interface_descriptor_and_slot_tables(tmp_path:
     assert tables.interface_method_slots_by_id[hash_code_id] == 0
     assert tables.interface_method_slots_by_id[equals_id] == 1
     assert tables.local_interface_ids_by_module[("util",)]["Hashable"] == interface_id
+
+
+def test_program_generator_builds_type_metadata_before_emission(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Person {
+            next: Obj;
+        }
+
+        class Key implements Hashable {
+            next: Obj;
+
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn cast_person(value: Obj) -> Person {
+            return (Person)value;
+        }
+
+        fn main() -> i64 {
+            if cast_person(null) == null {
+                return 0;
+            }
+            return 1;
+        }
+        """,
+    )
+
+    program = build_codegen_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    generator = ProgramGenerator(program)
+
+    metadata = generator.build_type_metadata()
+
+    key_metadata = next(record for record in metadata.classes if record.class_id.name == "Key")
+    person_metadata = next(record for record in metadata.classes if record.class_id.name == "Person")
+    hashable_metadata = next(record for record in metadata.interfaces if record.interface_id.name == "Hashable")
+
+    assert key_metadata.aliases == ("Key", "main::Key")
+    assert key_metadata.pointer_offsets == (24,)
+    assert key_metadata.interface_impls_symbol == "__nif_interface_impls_main__Key"
+    assert key_metadata.interface_impls[0].method_table_symbol == "__nif_interface_methods_main__Key__main__Hashable"
+    assert key_metadata.interface_impls[0].method_labels == ("__nif_method_Key_hash_code",)
+    assert person_metadata.aliases == ("Person", "main::Person")
+    assert metadata.extra_runtime_type_names == ()
+    assert hashable_metadata.descriptor_symbol == "__nif_interface_main__Hashable"
+    assert hashable_metadata.method_count == 1

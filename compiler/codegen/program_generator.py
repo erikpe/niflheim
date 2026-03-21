@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import compiler.codegen.symbols as codegen_symbols
 
+from compiler.codegen.metadata import TypeMetadata, build_type_metadata
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.linker import CodegenProgram
@@ -49,6 +50,7 @@ class ProgramGenerator(CodeGenerator):
         super().__init__()
         self.program = program
         self.declaration_tables: DeclarationTables | None = None
+        self.type_metadata: TypeMetadata | None = None
 
     def build_declaration_tables(self) -> DeclarationTables:
         if self.declaration_tables is not None:
@@ -122,9 +124,18 @@ class ProgramGenerator(CodeGenerator):
         )
         return self.declaration_tables
 
+    def build_type_metadata(self) -> TypeMetadata:
+        if self.type_metadata is not None:
+            return self.type_metadata
+
+        declaration_tables = self.build_declaration_tables()
+        self.type_metadata = build_type_metadata(self.program, declaration_tables)
+        return self.type_metadata
+
     def generate(self) -> str:
-        self.build_declaration_tables()
-        return generate_module(self, self.program)
+        declaration_tables = self.build_declaration_tables()
+        type_metadata = self.build_type_metadata()
+        return generate_module(self, self.program, declaration_tables, type_metadata)
 
 
 def emit_program(program: CodegenProgram) -> str:

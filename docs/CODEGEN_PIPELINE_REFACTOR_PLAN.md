@@ -24,6 +24,7 @@ Completed so far:
 
 - Step 1 is implemented and validated.
 - Step 2 is implemented and validated.
+- Step 3 is implemented and validated.
 
 In progress now:
 
@@ -31,7 +32,7 @@ In progress now:
 
 Not started yet:
 
-- Steps 3 through 8
+- Steps 4 through 8
 
 ## Scope
 
@@ -309,6 +310,19 @@ Validation:
 - focused tests for casts, `is`, interfaces, and runtime metadata emission
 - golden tests covering interface casts and type tests
 - full test suite
+
+Validation for this step:
+
+- Implemented by introducing a prepared metadata model and builder in:
+  - `compiler/codegen/metadata.py`
+- Updated `ProgramGenerator` to cache prepared type metadata before assembly emission
+- Changed `compiler/codegen/emitter_module.py` so module metadata emission now serializes prepared metadata rather than walking semantic bodies itself
+- Deleted the old emission-local cast/type-test metadata discovery walkers from `compiler/codegen/emitter_module.py`
+- Added focused builder coverage in:
+  - `tests/compiler/codegen/test_program_generator.py`
+- Validation run results:
+  - focused codegen metadata slice: `25 passed`
+  - full pytest: `527 passed`
 
 ## Step 4: Stop Reconstructing Type And Field Information Inside Emitters
 
