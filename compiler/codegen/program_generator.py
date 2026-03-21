@@ -10,22 +10,16 @@ from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.linker import CodegenProgram
 from compiler.codegen.model import ConstructorLayout
 from compiler.resolver import ModulePath
-from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId
+from compiler.semantic.symbols import ClassId, ConstructorId, InterfaceId, InterfaceMethodId, MethodId
 
 
 @dataclass(frozen=True)
 class DeclarationTables:
     method_labels_by_id: dict[MethodId, str]
-    method_return_types_by_id: dict[MethodId, str]
-    method_is_static_by_id: dict[MethodId, bool]
-    function_return_types_by_id: dict[FunctionId, str]
     constructor_layouts_by_id: dict[ConstructorId, ConstructorLayout]
-    constructor_labels_by_id: dict[ConstructorId, str]
     class_field_offsets_by_id: dict[tuple[ClassId, str], int]
-    class_field_type_names_by_id: dict[tuple[ClassId, str], str]
     interface_descriptor_symbols_by_id: dict[InterfaceId, str]
     interface_method_slots_by_id: dict[InterfaceMethodId, int]
-    local_interface_ids_by_module: dict[ModulePath, dict[str, InterfaceId]]
 
     def interface_descriptor_symbol_for_type_name(
         self, current_module_path: ModulePath | None, type_name: str
@@ -57,21 +51,12 @@ class ProgramGenerator(CodeGenerator):
             return self.declaration_tables
 
         method_labels_by_id: dict[MethodId, str] = {}
-        method_return_types_by_id: dict[MethodId, str] = {}
-        method_is_static_by_id: dict[MethodId, bool] = {}
-        function_return_types_by_id: dict[FunctionId, str] = {}
         constructor_layouts_by_id: dict[ConstructorId, ConstructorLayout] = {}
-        constructor_labels_by_id: dict[ConstructorId, str] = {}
         class_field_offsets_by_id: dict[tuple[ClassId, str], int] = {}
-        class_field_type_names_by_id: dict[tuple[ClassId, str], str] = {}
         interface_descriptor_symbols_by_id: dict[InterfaceId, str] = {}
         interface_method_slots_by_id: dict[InterfaceMethodId, int] = {}
-        local_interface_ids_by_module: dict[ModulePath, dict[str, InterfaceId]] = {}
 
         for module in self.program.ordered_modules:
-            local_interface_ids_by_module[module.module_path] = {
-                interface.interface_id.name: interface.interface_id for interface in module.interfaces
-            }
             for interface in module.interfaces:
                 qualified_name = _qualified_interface_type_name(interface.interface_id)
                 interface_descriptor_symbols_by_id[interface.interface_id] = codegen_symbols.mangle_interface_symbol(
@@ -92,35 +77,22 @@ class ProgramGenerator(CodeGenerator):
                 field_names=[field.name for field in cls.fields],
                 param_field_names=[field.name for field in cls.fields if field.initializer is None],
             )
-            constructor_labels_by_id[constructor_id] = constructor_label
 
             for field_index, field in enumerate(cls.fields):
                 field_key = (cls.class_id, field.name)
                 class_field_offsets_by_id[field_key] = 24 + (8 * field_index)
-                class_field_type_names_by_id[field_key] = field.type_name
 
             for method in cls.methods:
                 method_labels_by_id[method.method_id] = codegen_symbols.mangle_method_symbol(
                     class_name, method.method_id.name
                 )
-                method_return_types_by_id[method.method_id] = method.return_type_name
-                method_is_static_by_id[method.method_id] = method.is_static
-
-        for fn in self.program.functions:
-            function_return_types_by_id[fn.function_id] = fn.return_type_name
 
         self.declaration_tables = DeclarationTables(
             method_labels_by_id=method_labels_by_id,
-            method_return_types_by_id=method_return_types_by_id,
-            method_is_static_by_id=method_is_static_by_id,
-            function_return_types_by_id=function_return_types_by_id,
             constructor_layouts_by_id=constructor_layouts_by_id,
-            constructor_labels_by_id=constructor_labels_by_id,
             class_field_offsets_by_id=class_field_offsets_by_id,
-            class_field_type_names_by_id=class_field_type_names_by_id,
             interface_descriptor_symbols_by_id=interface_descriptor_symbols_by_id,
             interface_method_slots_by_id=interface_method_slots_by_id,
-            local_interface_ids_by_module=local_interface_ids_by_module,
         )
         return self.declaration_tables
 

@@ -77,9 +77,8 @@ def test_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
 
     assert tables.method_labels_by_id[make_id] == "__nif_method_Box_make"
     assert tables.method_labels_by_id[get_id] == "__nif_method_Box_get"
-    assert tables.constructor_labels_by_id[ctor_id] == "__nif_ctor_Box"
     assert tables.class_field_offsets_by_id[(box_id, "value")] == 24
-    assert tables.class_field_type_names_by_id[(box_id, "next")] == "Obj"
+    assert tables.constructor_layouts_by_id[ctor_id].label == "__nif_ctor_Box"
     assert tables.constructor_layouts_by_id[ctor_id].param_field_names == ["value", "next"]
 
 
