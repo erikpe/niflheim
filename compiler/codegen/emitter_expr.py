@@ -7,14 +7,14 @@ from compiler.common.type_names import *
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.abi_sysv import plan_sysv_arg_locations
+from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
-from compiler.codegen.model import (
+from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
     ARRAY_LEN_RUNTIME_CALL,
-    FunctionLayout,
 )
+from compiler.codegen.model import FunctionLayout
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.codegen.runtime_calls import runtime_dispatch_call_name
@@ -81,7 +81,7 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
         _emit_interface_method_call(codegen, expr, ctx)
         return
     if isinstance(expr, ConstructorCallExpr):
-        _emit_named_call(codegen, _constructor_label(expr.constructor_id.class_name), expr.args, expr.type_name, ctx)
+        _emit_named_call(codegen, _constructor_label(expr.constructor_id, ctx), expr.args, expr.type_name, ctx)
         return
     if isinstance(expr, CallableValueCallExpr):
         _emit_callable_value_call(codegen, expr, ctx)
@@ -145,7 +145,7 @@ def _emit_literal_expr(codegen: CodeGenerator, expr: LiteralExprS) -> None:
 
 def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.receiver, ctx)
-    field_offset = ctx.declaration_tables.class_field_offsets_by_id.get((expr.owner_class_id, expr.field_name))
+    field_offset = ctx.declaration_tables.class_field_offset(expr.owner_class_id, expr.field_name)
     if field_offset is None:
         codegen_types.raise_codegen_error(
             f"field access codegen missing field '{expr.field_name}' on class '{expr.owner_class_id.name}'",
@@ -278,7 +278,7 @@ def _emit_callable_value_call(codegen: CodeGenerator, expr: CallableValueCallExp
 
 
 def _emit_interface_method_call(codegen: CodeGenerator, expr: InterfaceMethodCallExpr, ctx: EmitContext) -> None:
-    descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbols_by_id.get(expr.interface_id)
+    descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol(expr.interface_id)
     if descriptor_symbol is None:
         codegen_types.raise_codegen_error(
             f"missing interface descriptor symbol for {expr.interface_id}", span=expr.span
@@ -574,7 +574,7 @@ def _emit_runtime_call_hooks_after(codegen: CodeGenerator, ctx: EmitContext) -> 
 
 
 def _method_label(method_id: MethodId, ctx: EmitContext) -> str:
-    label = ctx.declaration_tables.method_labels_by_id.get(method_id)
+    label = ctx.declaration_tables.method_label(method_id)
     if label is None:
         raise ValueError(f"Missing method label for {method_id}")
     return label
@@ -587,11 +587,14 @@ def _dispatch_target_name(dispatch: SemanticDispatch, ctx: EmitContext) -> str:
 
 
 def _interface_method_slot(method_id: InterfaceMethodId, ctx: EmitContext) -> int:
-    slot = ctx.declaration_tables.interface_method_slots_by_id.get(method_id)
+    slot = ctx.declaration_tables.interface_method_slot(method_id)
     if slot is None:
         raise ValueError(f"Missing interface method slot for {method_id}")
     return slot
 
 
-def _constructor_label(class_name: str) -> str:
-    return codegen_symbols.mangle_constructor_symbol(class_name)
+def _constructor_label(constructor_id: ConstructorId, ctx: EmitContext) -> str:
+    label = ctx.declaration_tables.constructor_label(constructor_id)
+    if label is None:
+        raise ValueError(f"Missing constructor label for {constructor_id}")
+    return label

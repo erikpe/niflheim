@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.codegen.model import (
+from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
     ARRAY_INDEX_GET_RUNTIME_CALLS,

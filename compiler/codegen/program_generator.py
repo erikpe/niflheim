@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import compiler.codegen.symbols as codegen_symbols
 
-from compiler.codegen.metadata import TypeMetadata, build_type_metadata
+from compiler.codegen.metadata import TypeMetadata, build_type_metadata, qualified_interface_type_name
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.model import ConstructorLayout
@@ -15,11 +15,30 @@ from compiler.semantic.symbols import ClassId, ConstructorId, InterfaceId, Inter
 
 @dataclass(frozen=True)
 class DeclarationTables:
-    method_labels_by_id: dict[MethodId, str]
-    constructor_layouts_by_id: dict[ConstructorId, ConstructorLayout]
-    class_field_offsets_by_id: dict[tuple[ClassId, str], int]
-    interface_descriptor_symbols_by_id: dict[InterfaceId, str]
-    interface_method_slots_by_id: dict[InterfaceMethodId, int]
+    _method_labels_by_id: dict[MethodId, str]
+    _constructor_layouts_by_id: dict[ConstructorId, ConstructorLayout]
+    _class_field_offsets_by_id: dict[tuple[ClassId, str], int]
+    _interface_descriptor_symbols_by_id: dict[InterfaceId, str]
+    _interface_method_slots_by_id: dict[InterfaceMethodId, int]
+
+    def method_label(self, method_id: MethodId) -> str | None:
+        return self._method_labels_by_id.get(method_id)
+
+    def constructor_layout(self, constructor_id: ConstructorId) -> ConstructorLayout | None:
+        return self._constructor_layouts_by_id.get(constructor_id)
+
+    def constructor_label(self, constructor_id: ConstructorId) -> str | None:
+        layout = self.constructor_layout(constructor_id)
+        return layout.label if layout is not None else None
+
+    def class_field_offset(self, class_id: ClassId, field_name: str) -> int | None:
+        return self._class_field_offsets_by_id.get((class_id, field_name))
+
+    def interface_descriptor_symbol(self, interface_id: InterfaceId) -> str | None:
+        return self._interface_descriptor_symbols_by_id.get(interface_id)
+
+    def interface_method_slot(self, method_id: InterfaceMethodId) -> int | None:
+        return self._interface_method_slots_by_id.get(method_id)
 
     def interface_descriptor_symbol_for_type_name(
         self, current_module_path: ModulePath | None, type_name: str
@@ -27,7 +46,7 @@ class DeclarationTables:
         interface_id = _interface_id_from_type_name(current_module_path, type_name)
         if interface_id is None:
             return None
-        return self.interface_descriptor_symbols_by_id.get(interface_id)
+        return self.interface_descriptor_symbol(interface_id)
 
 
 def _interface_id_from_type_name(current_module_path: ModulePath | None, type_name: str) -> InterfaceId | None:
@@ -58,7 +77,7 @@ class ProgramGenerator(CodeGenerator):
 
         for module in self.program.ordered_modules:
             for interface in module.interfaces:
-                qualified_name = _qualified_interface_type_name(interface.interface_id)
+                qualified_name = qualified_interface_type_name(interface.interface_id)
                 interface_descriptor_symbols_by_id[interface.interface_id] = codegen_symbols.mangle_interface_symbol(
                     qualified_name
                 )
@@ -88,11 +107,11 @@ class ProgramGenerator(CodeGenerator):
                 )
 
         self.declaration_tables = DeclarationTables(
-            method_labels_by_id=method_labels_by_id,
-            constructor_layouts_by_id=constructor_layouts_by_id,
-            class_field_offsets_by_id=class_field_offsets_by_id,
-            interface_descriptor_symbols_by_id=interface_descriptor_symbols_by_id,
-            interface_method_slots_by_id=interface_method_slots_by_id,
+            _method_labels_by_id=method_labels_by_id,
+            _constructor_layouts_by_id=constructor_layouts_by_id,
+            _class_field_offsets_by_id=class_field_offsets_by_id,
+            _interface_descriptor_symbols_by_id=interface_descriptor_symbols_by_id,
+            _interface_method_slots_by_id=interface_method_slots_by_id,
         )
         return self.declaration_tables
 
@@ -112,7 +131,3 @@ class ProgramGenerator(CodeGenerator):
 
 def emit_program(program: LinkedSemanticProgram) -> str:
     return ProgramGenerator(program).generate()
-
-
-def _qualified_interface_type_name(interface_id: InterfaceId) -> str:
-    return f"{'.'.join(interface_id.module_path)}::{interface_id.name}"

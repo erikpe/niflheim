@@ -75,11 +75,11 @@ def test_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
     make_id = MethodId(module_path=("main",), class_name="Box", name="make")
     get_id = MethodId(module_path=("main",), class_name="Box", name="get")
 
-    assert tables.method_labels_by_id[make_id] == "__nif_method_Box_make"
-    assert tables.method_labels_by_id[get_id] == "__nif_method_Box_get"
-    assert tables.class_field_offsets_by_id[(box_id, "value")] == 24
-    assert tables.constructor_layouts_by_id[ctor_id].label == "__nif_ctor_Box"
-    assert tables.constructor_layouts_by_id[ctor_id].param_field_names == ["value", "next"]
+    assert tables.method_label(make_id) == "__nif_method_Box_make"
+    assert tables.method_label(get_id) == "__nif_method_Box_get"
+    assert tables.class_field_offset(box_id, "value") == 24
+    assert tables.constructor_layout(ctor_id).label == "__nif_ctor_Box"
+    assert tables.constructor_layout(ctor_id).param_field_names == ["value", "next"]
 
 
 def test_codegen_emits_main_prologue_and_epilogue(tmp_path) -> None:

@@ -59,12 +59,12 @@ def test_program_generator_builds_declaration_tables_from_program(tmp_path: Path
     get_id = MethodId(module_path=("util",), class_name="Box", name="get")
     ctor_id = ConstructorId(module_path=("util",), class_name="Box")
 
-    assert tables.method_labels_by_id[make_id] == "__nif_method_Box_make"
-    assert tables.method_labels_by_id[get_id] == "__nif_method_Box_get"
-    assert tables.class_field_offsets_by_id[(box_id, "value")] == 24
-    assert tables.class_field_offsets_by_id[(box_id, "next")] == 32
-    assert tables.constructor_layouts_by_id[ctor_id].label == "__nif_ctor_Box"
-    assert tables.constructor_layouts_by_id[ctor_id].param_field_names == ["value", "next"]
+    assert tables.method_label(make_id) == "__nif_method_Box_make"
+    assert tables.method_label(get_id) == "__nif_method_Box_get"
+    assert tables.class_field_offset(box_id, "value") == 24
+    assert tables.class_field_offset(box_id, "next") == 32
+    assert tables.constructor_layout(ctor_id).label == "__nif_ctor_Box"
+    assert tables.constructor_layout(ctor_id).param_field_names == ["value", "next"]
 
 
 def test_program_generator_generate_builds_module_output(tmp_path: Path) -> None:
@@ -88,7 +88,7 @@ def test_program_generator_generate_builds_module_output(tmp_path: Path) -> None
 
     assert generator.declaration_tables is not None
     assert generator.type_metadata is not None
-    assert ConstructorId(module_path=("main",), class_name="Box") in generator.declaration_tables.constructor_layouts_by_id
+    assert generator.declaration_tables.constructor_layout(ConstructorId(module_path=("main",), class_name="Box")) is not None
     assert "__nif_ctor_Box" in asm
     assert "main:" in asm
 
@@ -131,9 +131,9 @@ def test_program_generator_builds_interface_descriptor_and_slot_tables(tmp_path:
     hash_code_id = InterfaceMethodId(module_path=("util",), interface_name="Hashable", name="hash_code")
     equals_id = InterfaceMethodId(module_path=("util",), interface_name="Hashable", name="equals")
 
-    assert tables.interface_descriptor_symbols_by_id[interface_id] == "__nif_interface_util__Hashable"
-    assert tables.interface_method_slots_by_id[hash_code_id] == 0
-    assert tables.interface_method_slots_by_id[equals_id] == 1
+    assert tables.interface_descriptor_symbol(interface_id) == "__nif_interface_util__Hashable"
+    assert tables.interface_method_slot(hash_code_id) == 0
+    assert tables.interface_method_slot(equals_id) == 1
 
 
 def test_program_generator_builds_type_metadata_before_emission(tmp_path: Path) -> None:

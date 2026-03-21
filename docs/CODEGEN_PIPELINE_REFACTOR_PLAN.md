@@ -18,7 +18,7 @@ This plan is ordered by payoff first and risk second:
 
 ## Status
 
-Partially implemented.
+Implemented and validated.
 
 Completed so far:
 
@@ -29,6 +29,7 @@ Completed so far:
 - Step 5 is implemented and validated.
 - Step 6 is implemented and validated.
 - Step 7 is implemented and validated.
+- Step 8 is implemented and validated.
 
 In progress now:
 
@@ -36,7 +37,7 @@ In progress now:
 
 Not started yet:
 
-- Step 8
+- none
 
 ## Scope
 
@@ -603,6 +604,26 @@ Validation:
 - full pytest
 - full project test script
 
+Validation for this step:
+
+- Implemented by narrowing `DeclarationTables` to a backend-facing lookup API instead of exposing raw table access throughout codegen in:
+  - `compiler/codegen/program_generator.py`
+- Updated codegen emitters and metadata preparation to use those lookup helpers rather than peering into declaration-table internals in:
+  - `compiler/codegen/emitter_expr.py`
+  - `compiler/codegen/emitter_stmt.py`
+  - `compiler/codegen/emitter_fn.py`
+  - `compiler/codegen/metadata.py`
+- Removed the duplicated interface qualified-name helper by using a single shared implementation inside metadata/program generation
+- Tightened codegen tests so they validate the backend-facing declaration-table API rather than its raw storage layout in:
+  - `tests/compiler/codegen/test_program_generator.py`
+  - `tests/compiler/codegen/test_generator.py`
+  - `tests/compiler/codegen/test_layout.py`
+- Validation run results:
+  - full `tests/compiler/codegen`: `144 passed`
+  - full pytest: `534 passed`
+  - full project test script: passed
+  - golden tests within the project script: `59/59` files passed, `252` runs total
+
 ## Recommended Execution Order
 
 Implement in this order:
@@ -659,6 +680,12 @@ Before considering the refactor complete:
 - run full pytest
 - run golden tests
 - run the full project test script
+
+Final validation for the completed refactor:
+
+- full pytest: passed (`534 passed`)
+- golden tests: passed (`59/59` files, `252` runs)
+- full project test script: passed (`./scripts/test.sh`)
 
 ## Completion Criteria
 

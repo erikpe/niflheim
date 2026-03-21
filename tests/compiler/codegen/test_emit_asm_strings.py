@@ -1,4 +1,4 @@
-from compiler.codegen.model import ARRAY_FROM_BYTES_U8_RUNTIME_CALL
+from compiler.codegen.abi.runtime import ARRAY_FROM_BYTES_U8_RUNTIME_CALL
 from tests.compiler.codegen.helpers import emit_source_asm
 
 

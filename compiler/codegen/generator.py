@@ -7,9 +7,10 @@ from compiler.common.type_names import TYPE_NAME_DOUBLE
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.model import FunctionLayout, RUNTIME_REF_ARG_INDICES
+from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
-from compiler.codegen.abi_sysv import plan_sysv_arg_locations
+from compiler.codegen.model import FunctionLayout
+from compiler.codegen.abi.runtime import RUNTIME_REF_ARG_INDICES
 
 if TYPE_CHECKING:
     from compiler.semantic.linker import LinkedSemanticProgram

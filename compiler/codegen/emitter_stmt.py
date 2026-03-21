@@ -128,7 +128,7 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         codegen.asm.instr("push rax")
         emit_expr(codegen, stmt.value, ctx)
         codegen.asm.instr("pop rcx")
-        field_offset = ctx.declaration_tables.class_field_offsets_by_id.get((target.owner_class_id, target.field_name))
+        field_offset = ctx.declaration_tables.class_field_offset(target.owner_class_id, target.field_name)
         if field_offset is None:
             codegen_types.raise_codegen_error(
                 f"field assignment codegen missing field '{target.field_name}' on class '{target.owner_class_id.name}'",

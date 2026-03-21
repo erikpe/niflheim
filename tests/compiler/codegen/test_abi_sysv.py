@@ -1,4 +1,4 @@
-from compiler.codegen.abi_sysv import plan_sysv_arg_locations
+from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 
 
 def test_plan_sysv_arg_locations_handles_empty_parameter_list() -> None:

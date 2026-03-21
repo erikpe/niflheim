@@ -1,4 +1,4 @@
-from compiler.codegen.model import (
+from compiler.codegen.abi.runtime import (
     ARRAY_INDEX_GET_RUNTIME_CALLS,
     ARRAY_LEN_RUNTIME_CALL,
     ARRAY_SLICE_SET_RUNTIME_CALLS,

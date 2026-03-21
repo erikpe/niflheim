@@ -59,8 +59,8 @@ def build_type_metadata(program: LinkedSemanticProgram, declaration_tables: Decl
     interface_records = tuple(
         InterfaceMetadataRecord(
             interface_id=interface.interface_id,
-            display_name=_qualified_interface_type_name(interface.interface_id),
-            descriptor_symbol=declaration_tables.interface_descriptor_symbols_by_id[interface.interface_id],
+            display_name=qualified_interface_type_name(interface.interface_id),
+            descriptor_symbol=declaration_tables.interface_descriptor_symbol(interface.interface_id),
             method_count=len(interface.methods),
         )
         for interface in interface_decls
@@ -69,7 +69,7 @@ def build_type_metadata(program: LinkedSemanticProgram, declaration_tables: Decl
     class_records: list[ClassMetadataRecord] = []
     class_alias_names: set[str] = set()
     for cls in program.classes:
-        qualified_type_name = _qualified_class_type_name(cls.class_id)
+        qualified_type_name = qualified_class_type_name(cls.class_id)
         aliases = [cls.class_id.name]
         if qualified_type_name != cls.class_id.name:
             aliases.append(qualified_type_name)
@@ -91,21 +91,21 @@ def build_type_metadata(program: LinkedSemanticProgram, declaration_tables: Decl
             interface_impls_symbol = codegen_symbols.mangle_class_interface_impls_symbol(qualified_type_name)
             for interface_id in cls.implemented_interfaces:
                 interface = interfaces_by_id[interface_id]
-                interface_display_name = _qualified_interface_type_name(interface_id)
+                interface_display_name = qualified_interface_type_name(interface_id)
                 method_labels = tuple(
-                    declaration_tables.method_labels_by_id[
+                    declaration_tables.method_label(
                         MethodId(
                             module_path=cls.class_id.module_path,
                             class_name=cls.class_id.name,
                             name=interface_method.method_id.name,
                         )
-                    ]
+                    )
                     for interface_method in interface.methods
                 )
                 interface_impls.append(
                     InterfaceImplMetadataRecord(
                         interface_id=interface_id,
-                        descriptor_symbol=declaration_tables.interface_descriptor_symbols_by_id[interface_id],
+                        descriptor_symbol=declaration_tables.interface_descriptor_symbol(interface_id),
                         display_name=interface_display_name,
                         method_count=len(interface.methods),
                         method_table_symbol=codegen_symbols.mangle_interface_method_table_symbol(
@@ -137,9 +137,7 @@ def build_type_metadata(program: LinkedSemanticProgram, declaration_tables: Decl
     )
 
     return TypeMetadata(
-        classes=tuple(class_records),
-        interfaces=interface_records,
-        extra_runtime_type_names=extra_runtime_type_names,
+        classes=tuple(class_records), interfaces=interface_records, extra_runtime_type_names=extra_runtime_type_names
     )
 
 
@@ -163,7 +161,9 @@ def _collect_reference_cast_type_names(
     for fn in program.functions:
         if fn.body is None:
             continue
-        walk_block_expressions(fn.body, lambda expr, module_path=fn.function_id.module_path: _collect_expr(expr, module_path))
+        walk_block_expressions(
+            fn.body, lambda expr, module_path=fn.function_id.module_path: _collect_expr(expr, module_path)
+        )
 
     for cls in program.classes:
         for field in cls.fields:
@@ -171,16 +171,15 @@ def _collect_reference_cast_type_names(
                 _collect_expr(field.initializer, cls.class_id.module_path)
         for method in cls.methods:
             walk_block_expressions(
-                method.body,
-                lambda expr, module_path=method.method_id.module_path: _collect_expr(expr, module_path),
+                method.body, lambda expr, module_path=method.method_id.module_path: _collect_expr(expr, module_path)
             )
 
     return names
 
 
-def _qualified_class_type_name(class_id: ClassId) -> str:
+def qualified_class_type_name(class_id: ClassId) -> str:
     return f"{'.'.join(class_id.module_path)}::{class_id.name}"
 
 
-def _qualified_interface_type_name(interface_id: InterfaceId) -> str:
+def qualified_interface_type_name(interface_id: InterfaceId) -> str:
     return f"{'.'.join(interface_id.module_path)}::{interface_id.name}"

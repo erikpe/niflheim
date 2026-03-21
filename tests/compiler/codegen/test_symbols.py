@@ -1,4 +1,4 @@
-from compiler.codegen.model import ARRAY_LEN_RUNTIME_CALL
+from compiler.codegen.abi.runtime import ARRAY_LEN_RUNTIME_CALL
 from compiler.codegen.symbols import (
     epilogue_label,
     is_runtime_call_name,

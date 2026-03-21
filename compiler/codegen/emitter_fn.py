@@ -79,9 +79,12 @@ def emit_function(
 
 
 def emit_method(codegen, declaration_tables, cls: SemanticClass, method: SemanticMethod) -> None:
+    method_label = declaration_tables.method_label(method.method_id)
+    if method_label is None:
+        raise ValueError(f"Missing method label for {method.method_id}")
     method_fn = SemanticFunction(
         function_id=FunctionId(
-            module_path=method.method_id.module_path, name=declaration_tables.method_labels_by_id[method.method_id]
+            module_path=method.method_id.module_path, name=method_label
         ),
         params=[*(_receiver_param(cls, method) if not method.is_static else []), *method.params],
         return_type_name=method.return_type_name,
@@ -94,7 +97,7 @@ def emit_method(codegen, declaration_tables, cls: SemanticClass, method: Semanti
         codegen,
         declaration_tables,
         method_fn,
-        label=declaration_tables.method_labels_by_id[method.method_id],
+        label=method_label,
         global_symbol=False,
     )
 
@@ -103,7 +106,9 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     from compiler.semantic.symbols import ConstructorId
 
     ctor_id = ConstructorId(module_path=cls.class_id.module_path, class_name=cls.class_id.name)
-    ctor_layout = declaration_tables.constructor_layouts_by_id[ctor_id]
+    ctor_layout = declaration_tables.constructor_layout(ctor_id)
+    if ctor_layout is None:
+        raise ValueError(f"Missing constructor layout for {ctor_id}")
     ctor_params = [
         SemanticParam(name=field.name, type_name=field.type_name, span=field.span)
         for field in cls.fields

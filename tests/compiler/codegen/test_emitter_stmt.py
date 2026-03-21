@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.codegen.model import ARRAY_INDEX_GET_RUNTIME_CALLS, ARRAY_INDEX_SET_RUNTIME_CALLS
+from compiler.codegen.abi.runtime import ARRAY_INDEX_GET_RUNTIME_CALLS, ARRAY_INDEX_SET_RUNTIME_CALLS
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.resolver import resolve_program
 from compiler.codegen.generator import emit_asm
