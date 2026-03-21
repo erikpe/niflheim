@@ -5,7 +5,7 @@ from pathlib import Path
 from compiler.common.collection_protocols import CollectionOpKind, collection_method_name
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
-from compiler.semantic.lowering import lower_program
+from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.reachability import analyze_semantic_reachability, prune_unreachable_semantic
 from compiler.semantic.symbols import ClassId, FunctionId, MethodId
 

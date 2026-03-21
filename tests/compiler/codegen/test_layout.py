@@ -3,7 +3,7 @@ from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
-from compiler.semantic.lowering import lower_program
+from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.symbols import ConstructorId
 
 

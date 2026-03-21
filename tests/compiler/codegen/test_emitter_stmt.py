@@ -7,7 +7,7 @@ from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.resolver import resolve_program
 from compiler.codegen.generator import emit_asm
 from compiler.semantic.linker import link_semantic_program
-from compiler.semantic.lowering import lower_program
+from compiler.semantic.lowering.orchestration import lower_program
 
 
 def _write(path: Path, content: str) -> None:

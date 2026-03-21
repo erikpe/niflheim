@@ -27,7 +27,7 @@ from compiler.semantic.ir import (
     SliceReadExpr,
     StaticMethodCallExpr,
 )
-from compiler.semantic.lowering import lower_program
+from compiler.semantic.lowering.orchestration import lower_program
 
 
 def _write(path: Path, content: str) -> None:

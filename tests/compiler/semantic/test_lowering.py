@@ -5,7 +5,7 @@ from pathlib import Path
 from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind, collection_method_name
 from compiler.semantic.ir import *
 from compiler.resolver import resolve_program
-from compiler.semantic.lowering import lower_program
+from compiler.semantic.lowering.orchestration import lower_program
 
 
 def _write(path: Path, content: str) -> None:
@@ -947,6 +947,32 @@ def test_lower_program_lowers_array_len_calls_to_explicit_array_len_expr(tmp_pat
     assert return_stmt.value.target.name == "values"
 
 
+def test_lower_program_uses_ref_runtime_dispatch_for_reference_element_arrays(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Box {
+            value: i64;
+        }
+
+        fn main(values: Box[]) -> Box {
+            return values.iter_get(0);
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    return_stmt = semantic.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, IndexReadExpr)
+    assert isinstance(return_stmt.value.dispatch, RuntimeDispatch)
+    _assert_runtime_dispatch_matches_op(
+        return_stmt.value.dispatch, op_kind=CollectionOpKind.ITER_GET, runtime_kind=ArrayRuntimeKind.REF
+    )
+
+
 def test_lower_program_preserves_private_owner_context_for_in_class_constructor_calls(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
@@ -968,6 +994,116 @@ def test_lower_program_preserves_private_owner_context_for_in_class_constructor_
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, ConstructorCallExpr)
     assert return_stmt.value.constructor_id.class_name == "Str"
+
+
+def test_lower_program_lowers_null_and_array_ctor_expressions_explicitly(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Box {
+            value: i64;
+        }
+
+        fn main() -> unit {
+            var values: i64[] = i64[](2u);
+            var box: Box = null;
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    statements = semantic.modules[("main",)].functions[0].body.statements
+
+    values_decl = statements[0]
+    assert isinstance(values_decl, SemanticVarDecl)
+    assert isinstance(values_decl.initializer, ArrayCtorExprS)
+    assert values_decl.initializer.element_type_name == "i64"
+    assert values_decl.initializer.type_name == "i64[]"
+    assert isinstance(values_decl.initializer.length_expr, LiteralExprS)
+    assert isinstance(values_decl.initializer.length_expr.constant, IntConstant)
+    assert values_decl.initializer.length_expr.constant.type_name == "u64"
+    assert values_decl.initializer.length_expr.constant.value == 2
+
+    box_decl = statements[1]
+    assert isinstance(box_decl, SemanticVarDecl)
+    assert isinstance(box_decl.initializer, NullExprS)
+
+
+def test_lower_program_lowers_nested_blocks_with_local_refs_and_assignments(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> bool {
+            var flag: bool = true;
+            var result: bool = false;
+            {
+                var inner: bool = flag;
+                result = inner;
+            }
+            return result;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    statements = semantic.modules[("main",)].functions[0].body.statements
+
+    inner_block = statements[2]
+    assert isinstance(inner_block, SemanticBlock)
+    assert isinstance(inner_block.statements[0], SemanticVarDecl)
+    assert inner_block.statements[0].type_name == "bool"
+    assert isinstance(inner_block.statements[0].initializer, LocalRefExpr)
+    assert inner_block.statements[0].initializer.name == "flag"
+    assert inner_block.statements[0].initializer.type_name == "bool"
+    assert isinstance(inner_block.statements[1], SemanticAssign)
+    assert isinstance(inner_block.statements[1].target, LocalLValue)
+    assert inner_block.statements[1].target.name == "result"
+    assert inner_block.statements[1].target.type_name == "bool"
+    assert isinstance(inner_block.statements[1].value, LocalRefExpr)
+    assert inner_block.statements[1].value.name == "inner"
+    assert inner_block.statements[1].value.type_name == "bool"
+
+    return_stmt = statements[3]
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LocalRefExpr)
+    assert return_stmt.value.name == "result"
+    assert return_stmt.value.type_name == "bool"
+
+
+def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(done: bool, values: i64[]) -> bool {
+            for item in values {
+                var current: i64 = item;
+            }
+            return done;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    statements = semantic.modules[("main",)].functions[0].body.statements
+
+    loop_stmt = statements[0]
+    assert isinstance(loop_stmt, SemanticForIn)
+    assert loop_stmt.element_name == "item"
+    assert loop_stmt.element_type_name == "i64"
+    assert isinstance(loop_stmt.body.statements[0], SemanticVarDecl)
+    assert isinstance(loop_stmt.body.statements[0].initializer, LocalRefExpr)
+    assert loop_stmt.body.statements[0].initializer.name == "item"
+    assert loop_stmt.body.statements[0].initializer.type_name == "i64"
+
+    return_stmt = statements[1]
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LocalRefExpr)
+    assert return_stmt.value.name == "done"
+    assert return_stmt.value.type_name == "bool"
 
 
 def test_lower_program_preserves_min_i64_literal_inside_unary_negation(tmp_path: Path) -> None:

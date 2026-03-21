@@ -11,7 +11,7 @@ from compiler.frontend.parser import parse
 from compiler.frontend.tokens import Token
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
-from compiler.semantic.lowering import lower_program
+from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.reachability import prune_unreachable_semantic
 from compiler.typecheck.api import typecheck_program
 

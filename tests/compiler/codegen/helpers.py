@@ -3,7 +3,7 @@ from __future__ import annotations
 from compiler.codegen.generator import emit_asm
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
-from compiler.semantic.lowering import lower_program
+from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.reachability import prune_unreachable_semantic
 
 

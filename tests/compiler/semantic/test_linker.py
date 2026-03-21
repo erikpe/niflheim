@@ -6,7 +6,7 @@ import pytest
 
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
-from compiler.semantic.lowering import lower_program
+from compiler.semantic.lowering.orchestration import lower_program
 
 
 def _write(path: Path, content: str) -> None:
