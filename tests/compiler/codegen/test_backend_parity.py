@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+from compiler.codegen.model import (
+    ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
+    ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
+    ARRAY_INDEX_GET_RUNTIME_CALLS,
+    ARRAY_INDEX_SET_RUNTIME_CALLS,
+    ARRAY_SLICE_GET_RUNTIME_CALLS,
+)
+from compiler.common.collection_protocols import ArrayRuntimeKind
+from compiler.common.type_names import TYPE_NAME_U8
 from tests.compiler.codegen.helpers import emit_source_asm
 
 
@@ -76,11 +85,11 @@ def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
     asm = emit_source_asm(tmp_path, source)
 
     for expected in [
-        "    call rt_array_new_u8",
-        "    call rt_array_set_u8",
-        "    call rt_array_get_u8",
-        "    call rt_array_slice_u8",
-        "    call rt_array_from_bytes_u8",
+        f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_U8]}",
+        f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}",
+        f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}",
+        f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}",
+        f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}",
         "    call __nif_method_Str_from_u8_array",
         "    call __nif_method_Str_concat",
         "    call rt_checked_cast",

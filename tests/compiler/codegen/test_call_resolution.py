@@ -1,3 +1,10 @@
+from compiler.codegen.model import (
+    ARRAY_INDEX_GET_RUNTIME_CALLS,
+    ARRAY_INDEX_SET_RUNTIME_CALLS,
+    ARRAY_LEN_RUNTIME_CALL,
+    ARRAY_SLICE_SET_RUNTIME_CALLS,
+)
+from compiler.common.collection_protocols import ArrayRuntimeKind
 from tests.compiler.codegen.helpers import emit_source_asm
 
 
@@ -32,7 +39,7 @@ def test_codegen_handles_runtime_array_len_calls(tmp_path) -> None:
         """,
     )
 
-    assert "    call rt_array_len" in asm
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" in asm
 
 
 def test_codegen_dispatches_array_methods_to_runtime_calls(tmp_path) -> None:
@@ -45,6 +52,6 @@ fn main(values: i64[], refs: Obj[]) -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_set_i64" in asm
-    assert "    call rt_array_set_slice_ref" in asm
-    assert "    call rt_array_get_i64" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
+    assert f"    call {ARRAY_SLICE_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm

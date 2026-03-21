@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from compiler.codegen.model import ARRAY_INDEX_GET_RUNTIME_CALLS, ARRAY_INDEX_SET_RUNTIME_CALLS
+from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.resolver import resolve_program
 from compiler.codegen.generator import emit_asm
 from compiler.semantic.linker import link_semantic_program
@@ -95,5 +97,5 @@ def test_emitter_stmt_emits_for_in_and_structural_writes(tmp_path: Path) -> None
     assert ".Lmain_for_in_start_" in asm
     assert "call __nif_method_Buffer_iter_len" in asm
     assert "call __nif_method_Buffer_iter_get" in asm
-    assert "call rt_array_set_i64" in asm
-    assert "call rt_array_get_i64" in asm
+    assert f"call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
+    assert f"call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm

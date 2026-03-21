@@ -4,8 +4,16 @@ from pathlib import Path
 
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
+from compiler.codegen.model import (
+    ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
+    ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
+    ARRAY_INDEX_GET_RUNTIME_CALLS,
+    ARRAY_SLICE_GET_RUNTIME_CALLS,
+)
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.codegen.layout import build_layout
+from compiler.common.collection_protocols import ArrayRuntimeKind
+from compiler.common.type_names import TYPE_NAME_I64
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.ir import (
@@ -157,12 +165,12 @@ def test_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path) -> None:
     assert isinstance(var_inits[0], object)
 
     emit_expr(generator, var_inits[0], ctx)
-    assert "    call rt_array_new_i64" in generator.asm.lines
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_I64]}" in generator.asm.lines
 
     generator.asm.lines.clear()
     assert isinstance(var_inits[1], IndexReadExpr)
     emit_expr(generator, var_inits[1], ctx)
-    assert "    call rt_array_get_i64" in generator.asm.lines
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in generator.asm.lines
 
     generator.asm.lines.clear()
     emit_expr(generator, var_inits[2], ctx)
@@ -208,13 +216,13 @@ def test_emitter_expr_emits_string_literal_helper_form_and_slice_reads(tmp_path:
 
     assert isinstance(var_inits[1], SliceReadExpr)
     emit_expr(generator, var_inits[1], ctx)
-    assert "    call rt_array_slice_i64" in generator.asm.lines
+    assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in generator.asm.lines
 
     generator.asm.lines.clear()
     return_stmt = fn.body.statements[-1]
     assert isinstance(return_stmt, SemanticReturn)
     emit_expr(generator, return_stmt.value, ctx)
-    assert "    call rt_array_from_bytes_u8" in generator.asm.lines
+    assert f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}" in generator.asm.lines
     assert "    call __nif_method_Str_from_u8_array" in generator.asm.lines
     assert "    call __nif_method_Str_concat" in generator.asm.lines
 

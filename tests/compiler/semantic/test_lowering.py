@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind, collection_method_name
 from compiler.semantic.ir import *
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering import lower_program
@@ -10,6 +11,18 @@ from compiler.semantic.lowering import lower_program
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content.strip() + "\n", encoding="utf-8")
+
+
+def _assert_method_dispatch_matches_op(dispatch: MethodDispatch, *, class_name: str, op_kind: CollectionOpKind) -> None:
+    assert dispatch.method_id.class_name == class_name
+    assert dispatch.method_id.name == collection_method_name(op_kind)
+
+
+def _assert_runtime_dispatch_matches_op(
+    dispatch: RuntimeDispatch, *, op_kind: CollectionOpKind, runtime_kind: ArrayRuntimeKind | None = None
+) -> None:
+    assert dispatch.operation is op_kind
+    assert dispatch.runtime_kind is runtime_kind
 
 
 def test_lower_program_builds_semantic_declarations_and_ids(tmp_path: Path) -> None:
@@ -731,45 +744,53 @@ def test_lower_program_resolves_structural_index_slice_and_for_in_methods(tmp_pa
     assert isinstance(first_decl, SemanticVarDecl)
     assert isinstance(first_decl.initializer, IndexReadExpr)
     assert isinstance(first_decl.initializer.dispatch, MethodDispatch)
-    assert first_decl.initializer.dispatch.method_id.class_name == "Buffer"
-    assert first_decl.initializer.dispatch.method_id.name == "index_get"
+    _assert_method_dispatch_matches_op(
+        first_decl.initializer.dispatch, class_name="Buffer", op_kind=CollectionOpKind.INDEX_GET
+    )
 
     index_assign = statements[1]
     assert isinstance(index_assign, SemanticAssign)
     assert isinstance(index_assign.target, IndexLValue)
     assert isinstance(index_assign.target.dispatch, MethodDispatch)
-    assert index_assign.target.dispatch.method_id.class_name == "Buffer"
-    assert index_assign.target.dispatch.method_id.name == "index_set"
+    _assert_method_dispatch_matches_op(
+        index_assign.target.dispatch, class_name="Buffer", op_kind=CollectionOpKind.INDEX_SET
+    )
 
     slice_decl = statements[2]
     assert isinstance(slice_decl, SemanticVarDecl)
     assert isinstance(slice_decl.initializer, SliceReadExpr)
     assert isinstance(slice_decl.initializer.dispatch, MethodDispatch)
-    assert slice_decl.initializer.dispatch.method_id.class_name == "Buffer"
-    assert slice_decl.initializer.dispatch.method_id.name == "slice_get"
+    _assert_method_dispatch_matches_op(
+        slice_decl.initializer.dispatch, class_name="Buffer", op_kind=CollectionOpKind.SLICE_GET
+    )
 
     slice_assign = statements[3]
     assert isinstance(slice_assign, SemanticAssign)
     assert isinstance(slice_assign.target, SliceLValue)
     assert isinstance(slice_assign.target.dispatch, MethodDispatch)
-    assert slice_assign.target.dispatch.method_id.class_name == "Buffer"
-    assert slice_assign.target.dispatch.method_id.name == "slice_set"
+    _assert_method_dispatch_matches_op(
+        slice_assign.target.dispatch, class_name="Buffer", op_kind=CollectionOpKind.SLICE_SET
+    )
 
     structural_for_in = statements[4]
     assert isinstance(structural_for_in, SemanticForIn)
     assert isinstance(structural_for_in.iter_len_dispatch, MethodDispatch)
     assert isinstance(structural_for_in.iter_get_dispatch, MethodDispatch)
-    assert structural_for_in.iter_len_dispatch.method_id.class_name == "Buffer"
-    assert structural_for_in.iter_len_dispatch.method_id.name == "iter_len"
-    assert structural_for_in.iter_get_dispatch.method_id.class_name == "Buffer"
-    assert structural_for_in.iter_get_dispatch.method_id.name == "iter_get"
+    _assert_method_dispatch_matches_op(
+        structural_for_in.iter_len_dispatch, class_name="Buffer", op_kind=CollectionOpKind.ITER_LEN
+    )
+    _assert_method_dispatch_matches_op(
+        structural_for_in.iter_get_dispatch, class_name="Buffer", op_kind=CollectionOpKind.ITER_GET
+    )
 
     array_for_in = statements[5]
     assert isinstance(array_for_in, SemanticForIn)
     assert isinstance(array_for_in.iter_len_dispatch, RuntimeDispatch)
     assert isinstance(array_for_in.iter_get_dispatch, RuntimeDispatch)
-    assert array_for_in.iter_len_dispatch.call_name == "rt_array_len"
-    assert array_for_in.iter_get_dispatch.call_name == "rt_array_get_i64"
+    _assert_runtime_dispatch_matches_op(array_for_in.iter_len_dispatch, op_kind=CollectionOpKind.ITER_LEN)
+    _assert_runtime_dispatch_matches_op(
+        array_for_in.iter_get_dispatch, op_kind=CollectionOpKind.ITER_GET, runtime_kind=ArrayRuntimeKind.I64
+    )
 
 
 def test_lower_program_lowers_explicit_array_structural_calls_and_assignments(tmp_path: Path) -> None:
@@ -793,22 +814,30 @@ def test_lower_program_lowers_explicit_array_structural_calls_and_assignments(tm
     assert isinstance(statements[0], SemanticVarDecl)
     assert isinstance(statements[0].initializer, IndexReadExpr)
     assert isinstance(statements[0].initializer.dispatch, RuntimeDispatch)
-    assert statements[0].initializer.dispatch.call_name == "rt_array_get_i64"
+    _assert_runtime_dispatch_matches_op(
+        statements[0].initializer.dispatch, op_kind=CollectionOpKind.INDEX_GET, runtime_kind=ArrayRuntimeKind.I64
+    )
 
     assert isinstance(statements[1], SemanticAssign)
     assert isinstance(statements[1].target, IndexLValue)
     assert isinstance(statements[1].target.dispatch, RuntimeDispatch)
-    assert statements[1].target.dispatch.call_name == "rt_array_set_i64"
+    _assert_runtime_dispatch_matches_op(
+        statements[1].target.dispatch, op_kind=CollectionOpKind.INDEX_SET, runtime_kind=ArrayRuntimeKind.I64
+    )
 
     assert isinstance(statements[2], SemanticVarDecl)
     assert isinstance(statements[2].initializer, SliceReadExpr)
     assert isinstance(statements[2].initializer.dispatch, RuntimeDispatch)
-    assert statements[2].initializer.dispatch.call_name == "rt_array_slice_i64"
+    _assert_runtime_dispatch_matches_op(
+        statements[2].initializer.dispatch, op_kind=CollectionOpKind.SLICE_GET, runtime_kind=ArrayRuntimeKind.I64
+    )
 
     assert isinstance(statements[3], SemanticAssign)
     assert isinstance(statements[3].target, SliceLValue)
     assert isinstance(statements[3].target.dispatch, RuntimeDispatch)
-    assert statements[3].target.dispatch.call_name == "rt_array_set_slice_i64"
+    _assert_runtime_dispatch_matches_op(
+        statements[3].target.dispatch, op_kind=CollectionOpKind.SLICE_SET, runtime_kind=ArrayRuntimeKind.I64
+    )
 
     assert isinstance(statements[4], SemanticReturn)
     assert isinstance(statements[4].value, BinaryExprS)
@@ -849,7 +878,9 @@ def test_lower_program_uses_index_set_value_type_for_structural_assignment_targe
     assert isinstance(assign_stmt.target, IndexLValue)
     assert assign_stmt.target.value_type_name == "i64"
     assert isinstance(assign_stmt.target.dispatch, MethodDispatch)
-    assert assign_stmt.target.dispatch.method_id.name == "index_set"
+    _assert_method_dispatch_matches_op(
+        assign_stmt.target.dispatch, class_name="WeirdStore", op_kind=CollectionOpKind.INDEX_SET
+    )
 
 
 def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp_path: Path) -> None:

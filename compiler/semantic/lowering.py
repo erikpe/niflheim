@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from compiler.common.collection_protocols import (
+    ArrayRuntimeKind,
+    CollectionOpKind,
+    collection_method_name,
+    collection_op_from_method_name,
+)
 from compiler.frontend.ast_nodes import *
 from compiler.common.literals import decode_char_literal, decode_string_literal
-from compiler.common.type_names import PRIMITIVE_TYPE_NAMES, TYPE_NAME_I64, TYPE_NAME_UNIT
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_UNIT
 from compiler.common.type_shapes import is_array_type_name, is_str_type_name
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic.ir import *
@@ -405,12 +411,8 @@ def _lower_stmt(lower_ctx: _ModuleLoweringContext, stmt: Statement) -> SemanticS
         return SemanticForIn(
             element_name=stmt.element_name,
             collection=_lower_expr(lower_ctx, stmt.collection_expr),
-            iter_len_dispatch=_resolve_collection_dispatch(
-                lower_ctx, collection_type, method_name="iter_len", array_operation="len"
-            ),
-            iter_get_dispatch=_resolve_collection_dispatch(
-                lower_ctx, collection_type, method_name="iter_get", array_operation="get"
-            ),
+            iter_len_dispatch=_resolve_collection_dispatch(lower_ctx, collection_type, operation=CollectionOpKind.ITER_LEN),
+            iter_get_dispatch=_resolve_collection_dispatch(lower_ctx, collection_type, operation=CollectionOpKind.ITER_GET),
             element_type_name=element_type.name,
             body=body,
             span=stmt.span,
@@ -461,10 +463,7 @@ def _lower_lvalue(lower_ctx: _ModuleLoweringContext, expr: Expression):
         index=_lower_expr(lower_ctx, resolved_target.index),
         value_type_name=resolved_target.value_type_name,
         dispatch=_resolve_collection_dispatch(
-            lower_ctx,
-            infer_expression_type(lower_ctx.typecheck_ctx, resolved_target.target),
-            method_name="index_set",
-            array_operation="set",
+            lower_ctx, infer_expression_type(lower_ctx.typecheck_ctx, resolved_target.target), operation=CollectionOpKind.INDEX_SET
         ),
         span=expr.span,
     )
@@ -577,9 +576,7 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
             target=_lower_expr(lower_ctx, expr.object_expr),
             index=_lower_expr(lower_ctx, expr.index_expr),
             type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
-            dispatch=_resolve_collection_dispatch(
-                lower_ctx, target_type, method_name="index_get", array_operation="get"
-            ),
+            dispatch=_resolve_collection_dispatch(lower_ctx, target_type, operation=CollectionOpKind.INDEX_GET),
             span=expr.span,
         )
 
@@ -652,23 +649,27 @@ def _try_lower_array_structural_call_expr(
     if receiver_type.element_type is None:
         return None
 
-    if expr.callee.field_name in {"len", "iter_len"}:
+    op_kind = collection_op_from_method_name(expr.callee.field_name)
+    if op_kind is None:
+        return None
+
+    if op_kind in {CollectionOpKind.LEN, CollectionOpKind.ITER_LEN}:
         if expr.arguments:
             return None
         return ArrayLenExpr(target=_lower_expr(lower_ctx, expr.callee.object_expr), span=expr.span)
 
-    if expr.callee.field_name in {"index_get", "iter_get"}:
+    if op_kind in {CollectionOpKind.INDEX_GET, CollectionOpKind.ITER_GET}:
         if len(expr.arguments) != 1:
             return None
         return IndexReadExpr(
             target=_lower_expr(lower_ctx, expr.callee.object_expr),
             index=_lower_expr(lower_ctx, expr.arguments[0]),
             type_name=result_type_name,
-            dispatch=_runtime_dispatch_for_array_operation(receiver_type, "get"),
+            dispatch=_runtime_dispatch_for_array_operation(receiver_type, op_kind),
             span=expr.span,
         )
 
-    if expr.callee.field_name == "slice_get":
+    if op_kind is CollectionOpKind.SLICE_GET:
         if len(expr.arguments) != 2:
             return None
         return SliceReadExpr(
@@ -676,7 +677,7 @@ def _try_lower_array_structural_call_expr(
             begin=_lower_expr(lower_ctx, expr.arguments[0]),
             end=_lower_expr(lower_ctx, expr.arguments[1]),
             type_name=result_type_name,
-            dispatch=_runtime_dispatch_for_array_operation(receiver_type, "slice_get"),
+            dispatch=_runtime_dispatch_for_array_operation(receiver_type, op_kind),
             span=expr.span,
         )
 
@@ -697,7 +698,7 @@ def _try_lower_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: ExprSt
         return None
     if not isinstance(expr.callee, FieldAccessExpr):
         return None
-    if expr.callee.field_name != "slice_set" or len(expr.arguments) != 3:
+    if collection_op_from_method_name(expr.callee.field_name) is not CollectionOpKind.SLICE_SET or len(expr.arguments) != 3:
         return None
 
     receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
@@ -707,9 +708,7 @@ def _try_lower_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: ExprSt
             begin=_lower_expr(lower_ctx, expr.arguments[0]),
             end=_lower_expr(lower_ctx, expr.arguments[1]),
             value_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr.arguments[2]).name,
-            dispatch=_resolve_collection_dispatch(
-                lower_ctx, receiver_type, method_name="slice_set", array_operation="slice_set"
-            ),
+            dispatch=_resolve_collection_dispatch(lower_ctx, receiver_type, operation=CollectionOpKind.SLICE_SET),
             span=expr.span,
         ),
         value=_lower_expr(lower_ctx, expr.arguments[2]),
@@ -723,7 +722,7 @@ def _try_lower_array_index_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: 
         return None
     if not isinstance(expr.callee, FieldAccessExpr):
         return None
-    if expr.callee.field_name != "index_set" or len(expr.arguments) != 2:
+    if collection_op_from_method_name(expr.callee.field_name) is not CollectionOpKind.INDEX_SET or len(expr.arguments) != 2:
         return None
 
     receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
@@ -735,7 +734,7 @@ def _try_lower_array_index_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: 
             target=_lower_expr(lower_ctx, expr.callee.object_expr),
             index=_lower_expr(lower_ctx, expr.arguments[0]),
             value_type_name=receiver_type.element_type.name,
-            dispatch=_runtime_dispatch_for_array_operation(receiver_type, "set"),
+            dispatch=_runtime_dispatch_for_array_operation(receiver_type, CollectionOpKind.INDEX_SET),
             span=expr.span,
         ),
         value=_lower_expr(lower_ctx, expr.arguments[1]),
@@ -749,7 +748,7 @@ def _try_lower_array_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: 
         return None
     if not isinstance(expr.callee, FieldAccessExpr):
         return None
-    if expr.callee.field_name != "slice_set" or len(expr.arguments) != 3:
+    if collection_op_from_method_name(expr.callee.field_name) is not CollectionOpKind.SLICE_SET or len(expr.arguments) != 3:
         return None
 
     receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
@@ -762,7 +761,7 @@ def _try_lower_array_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: 
             begin=_lower_expr(lower_ctx, expr.arguments[0]),
             end=_lower_expr(lower_ctx, expr.arguments[1]),
             value_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr.arguments[2]).name,
-            dispatch=_runtime_dispatch_for_array_operation(receiver_type, "slice_set"),
+            dispatch=_runtime_dispatch_for_array_operation(receiver_type, CollectionOpKind.SLICE_SET),
             span=expr.span,
         ),
         value=_lower_expr(lower_ctx, expr.arguments[2]),
@@ -775,7 +774,7 @@ def _try_lower_slice_read_expr(
 ) -> SliceReadExpr | None:
     if not isinstance(expr.callee, FieldAccessExpr):
         return None
-    if expr.callee.field_name != "slice_get" or len(expr.arguments) != 2:
+    if collection_op_from_method_name(expr.callee.field_name) is not CollectionOpKind.SLICE_GET or len(expr.arguments) != 2:
         return None
 
     receiver_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.callee.object_expr)
@@ -784,9 +783,7 @@ def _try_lower_slice_read_expr(
         begin=_lower_expr(lower_ctx, expr.arguments[0]),
         end=_lower_expr(lower_ctx, expr.arguments[1]),
         type_name=result_type_name,
-        dispatch=_resolve_collection_dispatch(
-            lower_ctx, receiver_type, method_name="slice_get", array_operation="slice_get"
-        ),
+        dispatch=_resolve_collection_dispatch(lower_ctx, receiver_type, operation=CollectionOpKind.SLICE_GET),
         span=expr.span,
     )
 
@@ -1070,43 +1067,39 @@ def _resolve_collection_dispatch(
     lower_ctx: _ModuleLoweringContext,
     receiver_type: TypeInfo,
     *,
-    method_name: str,
-    array_operation: str,
+    operation: CollectionOpKind,
 ) -> SemanticDispatch:
     if receiver_type.element_type is not None:
-        return _runtime_dispatch_for_array_operation(receiver_type, array_operation)
+        return _runtime_dispatch_for_array_operation(receiver_type, operation)
 
-    method_id = _resolve_instance_method_id(lower_ctx, receiver_type.name, method_name)
+    method_id = _resolve_instance_method_id(lower_ctx, receiver_type.name, collection_method_name(operation))
     assert method_id is not None
     return MethodDispatch(method_id=method_id)
 
 
-def _runtime_dispatch_for_array_operation(receiver_type: TypeInfo, operation: str) -> RuntimeDispatch:
-    if operation == "len":
-        return RuntimeDispatch(call_name="rt_array_len")
+def _runtime_dispatch_for_array_operation(receiver_type: TypeInfo, operation: CollectionOpKind) -> RuntimeDispatch:
+    if operation in {CollectionOpKind.LEN, CollectionOpKind.ITER_LEN}:
+        return RuntimeDispatch(operation=operation)
     element_type = receiver_type.element_type
     if element_type is None:
         raise ValueError(f"Array runtime dispatch requires array receiver type, got '{receiver_type.name}'")
-    return RuntimeDispatch(call_name=_array_runtime_call_name(operation, element_type.name))
+    return RuntimeDispatch(operation=operation, runtime_kind=_array_runtime_kind(element_type.name))
 
 
-def _array_runtime_call_name(operation: str, element_type_name: str) -> str:
-    runtime_kind = _array_runtime_kind(element_type_name)
-    if operation == "get":
-        return f"rt_array_get_{runtime_kind}"
-    if operation == "set":
-        return f"rt_array_set_{runtime_kind}"
-    if operation == "slice_get":
-        return f"rt_array_slice_{runtime_kind}"
-    if operation == "slice_set":
-        return f"rt_array_set_slice_{runtime_kind}"
-    raise ValueError(f"Unsupported array runtime operation '{operation}'")
-
-
-def _array_runtime_kind(element_type_name: str) -> str:
-    if element_type_name in PRIMITIVE_TYPE_NAMES - {TYPE_NAME_UNIT}:
-        return element_type_name
-    return "ref"
+def _array_runtime_kind(element_type_name: str) -> ArrayRuntimeKind:
+    if element_type_name == TYPE_NAME_I64:
+        return ArrayRuntimeKind.I64
+    if element_type_name == TYPE_NAME_U64:
+        return ArrayRuntimeKind.U64
+    if element_type_name == TYPE_NAME_U8:
+        return ArrayRuntimeKind.U8
+    if element_type_name == TYPE_NAME_BOOL:
+        return ArrayRuntimeKind.BOOL
+    if element_type_name == TYPE_NAME_DOUBLE:
+        return ArrayRuntimeKind.DOUBLE
+    if element_type_name == TYPE_NAME_UNIT:
+        raise ValueError("Array runtime kind is not defined for unit elements")
+    return ArrayRuntimeKind.REF
 
 
 def _resolve_instance_method_id(

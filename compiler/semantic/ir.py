@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind
 from compiler.common.type_names import TYPE_NAME_NULL, TYPE_NAME_U64
 from compiler.frontend.lexer import SourceSpan
 from compiler.resolver import ModulePath
@@ -150,7 +151,8 @@ class SemanticContinue:
 
 @dataclass(frozen=True)
 class RuntimeDispatch:
-    call_name: str
+    operation: CollectionOpKind
+    runtime_kind: ArrayRuntimeKind | None = None
 
 
 @dataclass(frozen=True)

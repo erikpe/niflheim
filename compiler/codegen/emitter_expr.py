@@ -11,10 +11,13 @@ from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
 from compiler.codegen.model import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
+    ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
+    ARRAY_LEN_RUNTIME_CALL,
     FunctionLayout,
 )
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
+from compiler.codegen.runtime_calls import runtime_dispatch_call_name
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import InterfaceMethodId, MethodId
@@ -84,7 +87,7 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
         _emit_callable_value_call(codegen, expr, ctx)
         return
     if isinstance(expr, ArrayLenExpr):
-        _emit_named_call(codegen, "rt_array_len", [expr.target], TYPE_NAME_U64, ctx)
+        _emit_named_call(codegen, ARRAY_LEN_RUNTIME_CALL, [expr.target], TYPE_NAME_U64, ctx)
         return
     if isinstance(expr, IndexReadExpr):
         _emit_index_read_expr(codegen, expr, ctx)
@@ -482,7 +485,7 @@ def _emit_synthetic_expr(codegen: CodeGenerator, expr: SyntheticExpr, ctx: EmitC
     codegen.emit_root_slot_updates(ctx.layout)
     codegen.asm.instr(f"lea rdi, [rip + {data_label}]")
     codegen.asm.instr(f"mov rsi, {data_len}")
-    codegen.emit_aligned_call("rt_array_from_bytes_u8")
+    codegen.emit_aligned_call(ARRAY_FROM_BYTES_U8_RUNTIME_CALL)
     _emit_runtime_call_hooks_after(codegen, ctx)
 
 
@@ -579,7 +582,7 @@ def _method_label(method_id: MethodId, ctx: EmitContext) -> str:
 
 def _dispatch_target_name(dispatch: SemanticDispatch, ctx: EmitContext) -> str:
     if isinstance(dispatch, RuntimeDispatch):
-        return dispatch.call_name
+        return runtime_dispatch_call_name(dispatch)
     return _method_label(dispatch.method_id, ctx)
 
 

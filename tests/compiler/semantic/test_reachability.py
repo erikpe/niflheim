@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from compiler.common.collection_protocols import CollectionOpKind, collection_method_name
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering import lower_program
@@ -58,8 +59,12 @@ def test_semantic_reachability_follows_functions_methods_and_structural_edges(tm
 
     assert ClassId(module_path=("main",), name="Buffer") in reachability.reachable_classes
 
-    assert MethodId(module_path=("main",), class_name="Buffer", name="iter_len") in reachability.reachable_methods
-    assert MethodId(module_path=("main",), class_name="Buffer", name="iter_get") in reachability.reachable_methods
+    assert MethodId(
+        module_path=("main",), class_name="Buffer", name=collection_method_name(CollectionOpKind.ITER_LEN)
+    ) in reachability.reachable_methods
+    assert MethodId(
+        module_path=("main",), class_name="Buffer", name=collection_method_name(CollectionOpKind.ITER_GET)
+    ) in reachability.reachable_methods
     assert MethodId(module_path=("main",), class_name="Buffer", name="dead") not in reachability.reachable_methods
 
 

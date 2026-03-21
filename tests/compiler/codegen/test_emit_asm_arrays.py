@@ -1,3 +1,13 @@
+from compiler.codegen.model import (
+    ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
+    ARRAY_INDEX_GET_RUNTIME_CALLS,
+    ARRAY_INDEX_SET_RUNTIME_CALLS,
+    ARRAY_LEN_RUNTIME_CALL,
+    ARRAY_SLICE_GET_RUNTIME_CALLS,
+    ARRAY_SLICE_SET_RUNTIME_CALLS,
+)
+from compiler.common.collection_protocols import ArrayRuntimeKind
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
 from tests.compiler.codegen.helpers import emit_source_asm
 
 
@@ -16,9 +26,9 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_new_u8" in asm
-    assert "    call rt_array_new_i64" in asm
-    assert "    call rt_array_new_ref" in asm
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_U8]}" in asm
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_I64]}" in asm
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in asm
 
 
 def test_emit_asm_array_index_get_set_lowers_to_runtime_calls(tmp_path) -> None:
@@ -43,10 +53,10 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_set_u8" in asm
-    assert "    call rt_array_get_u8" in asm
-    assert "    call rt_array_set_ref" in asm
-    assert "    call rt_array_get_ref" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
 
 
 def test_emit_asm_array_len_and_slice_lower_to_runtime_calls(tmp_path) -> None:
@@ -70,9 +80,9 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_len" in asm
-    assert "    call rt_array_slice_u8" in asm
-    assert "    call rt_array_slice_ref" in asm
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" in asm
+    assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" in asm
+    assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
 
 
 def test_emit_asm_array_constructor_dispatch_covers_remaining_primitive_kinds(tmp_path) -> None:
@@ -86,9 +96,9 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_new_u64" in asm
-    assert "    call rt_array_new_bool" in asm
-    assert "    call rt_array_new_double" in asm
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_U64]}" in asm
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_BOOL]}" in asm
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_DOUBLE]}" in asm
 
 
 def test_emit_asm_nested_array_uses_reference_array_runtime_paths(tmp_path) -> None:
@@ -103,11 +113,11 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_new_ref" in asm
-    assert "    call rt_array_new_i64" in asm
-    assert "    call rt_array_set_ref" in asm
-    assert "    call rt_array_get_ref" in asm
-    assert "    call rt_array_get_i64" in asm
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in asm
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_I64]}" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
 
 
 def test_emit_asm_nested_array_chained_field_access_lowers(tmp_path) -> None:
@@ -125,7 +135,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert asm.count("    call rt_array_get_ref") >= 2
+    assert asm.count(f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}") >= 2
     assert "    mov rax, qword ptr [rax + 24]" in asm
 
 
@@ -142,8 +152,8 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_set_u8" in asm
-    assert asm.count("    call rt_array_get_ref") >= 3
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" in asm
+    assert asm.count(f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}") >= 3
 
 
 def test_emit_asm_array_method_form_get_set_slice_lowers_to_runtime_calls(tmp_path) -> None:
@@ -159,10 +169,10 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_set_u64" in asm
-    assert "    call rt_array_get_u64" in asm
-    assert "    call rt_array_slice_u64" in asm
-    assert "    call rt_array_set_slice_u64" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in asm
+    assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in asm
+    assert f"    call {ARRAY_SLICE_SET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in asm
 
 
 def test_emit_asm_for_in_over_array_lowers_to_array_iter_runtime_calls(tmp_path) -> None:
@@ -182,8 +192,8 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_len" in asm
-    assert "    call rt_array_get_i64" in asm
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
 
 
 def test_emit_asm_array_reference_set_roots_reference_value_argument_for_runtime_call(tmp_path) -> None:
@@ -201,7 +211,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_set_ref" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
     assert "    mov esi, 2" in asm
     assert asm.count("    call rt_root_slot_store") >= 3
 
@@ -221,7 +231,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_set_ref" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
     assert "    mov esi, 2" in asm
 
 
@@ -241,7 +251,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_array_new_ref" in asm
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in asm
     assert "    test rsp, 8" in asm
     assert "    sub rsp, 8" in asm
     assert "    add rsp, 8" in asm

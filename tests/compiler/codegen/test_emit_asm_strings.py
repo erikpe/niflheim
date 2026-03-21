@@ -1,3 +1,4 @@
+from compiler.codegen.model import ARRAY_FROM_BYTES_U8_RUNTIME_CALL
 from tests.compiler.codegen.helpers import emit_source_asm
 
 
@@ -22,7 +23,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_str_lit_0:" in asm
-    assert "    call rt_array_from_bytes_u8" in asm
+    assert f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}" in asm
     assert "    call __nif_method_Str_from_u8_array" in asm
 
 
@@ -62,7 +63,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_str_lit_0:" in asm
-    assert "    call rt_array_from_bytes_u8" in asm
+    assert f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}" in asm
 
 
 def test_emit_asm_str_index_lowers_via_structural_get_call(tmp_path) -> None:

@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from compiler.common.collection_protocols import (
+    COLLECTION_METHOD_LEN,
+    COLLECTION_METHOD_SLICE_GET,
+    COLLECTION_METHOD_SLICE_SET,
+)
 from compiler.common.type_names import TYPE_NAME_I64
 from compiler.frontend.ast_nodes import *
 from compiler.frontend.literals import int_literal_expr, literal_expr_from_token
@@ -605,13 +610,13 @@ class Parser:
             return None
         if not isinstance(expr.callee, FieldAccessExpr):
             return None
-        if expr.callee.field_name != "slice_get":
+        if expr.callee.field_name != COLLECTION_METHOD_SLICE_GET:
             return None
         if len(expr.arguments) != 2:
             return None
 
         set_slice_callee = FieldAccessExpr(
-            object_expr=expr.callee.object_expr, field_name="slice_set", span=expr.callee.span
+            object_expr=expr.callee.object_expr, field_name=COLLECTION_METHOD_SLICE_SET, span=expr.callee.span
         )
         set_slice_call = CallExpr(
             callee=set_slice_callee,
@@ -830,7 +835,7 @@ class Parser:
         if end_expr is None:
             len_field = FieldAccessExpr(
                 object_expr=object_expr,
-                field_name="len",
+                field_name=COLLECTION_METHOD_LEN,
                 span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
             )
             len_call = CallExpr(
@@ -844,7 +849,7 @@ class Parser:
 
         slice_field = FieldAccessExpr(
             object_expr=object_expr,
-            field_name="slice_get",
+            field_name=COLLECTION_METHOD_SLICE_GET,
             span=SourceSpan(start=object_expr.span.start, end=object_expr.span.end),
         )
         return CallExpr(

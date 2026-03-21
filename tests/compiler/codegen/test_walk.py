@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind
 from compiler.codegen.walk import (
     walk_block_expressions,
     walk_codegen_program_expressions,
@@ -161,8 +162,10 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
             SemanticForIn(
                 element_name="value",
                 collection=LocalRefExpr(name="collection", type_name="Vec", span=span),
-                iter_len_dispatch=RuntimeDispatch(call_name="rt_array_len"),
-                iter_get_dispatch=RuntimeDispatch(call_name="rt_array_get_i64"),
+                iter_len_dispatch=RuntimeDispatch(operation=CollectionOpKind.ITER_LEN),
+                iter_get_dispatch=RuntimeDispatch(
+                    operation=CollectionOpKind.ITER_GET, runtime_kind=ArrayRuntimeKind.I64
+                ),
                 element_type_name="i64",
                 body=SemanticBlock(
                     statements=[

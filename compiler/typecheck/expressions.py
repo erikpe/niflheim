@@ -1,19 +1,12 @@
 from __future__ import annotations
 
 import math
-
+from compiler.common.collection_protocols import COLLECTION_PROTOCOL_METHOD_NAMES
 from compiler.common.type_names import *
 from compiler.common.type_shapes import is_str_type_name
 from compiler.frontend.ast_nodes import *
 from compiler.typecheck.call_helpers import callable_type_from_signature, class_type_name_from_callable
-from compiler.typecheck.constants import (
-    ARRAY_METHOD_NAMES,
-    BITWISE_TYPE_NAMES,
-    I64_MAX_LITERAL,
-    I64_MIN_MAGNITUDE_LITERAL,
-    U8_MAX_LITERAL,
-    U64_MAX_LITERAL,
-)
+from compiler.typecheck.constants import *
 from compiler.typecheck.context import lookup_variable
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
@@ -24,7 +17,13 @@ from compiler.typecheck.module_lookup import (
     resolve_imported_function_sig,
     resolve_module_member,
 )
-from compiler.typecheck.relations import check_explicit_cast, check_type_test, is_comparable, require_array_size_type, require_type_name
+from compiler.typecheck.relations import (
+    check_explicit_cast,
+    check_type_test,
+    is_comparable,
+    require_array_size_type,
+    require_type_name,
+)
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner, resolve_string_type, resolve_type_ref
 from compiler.typecheck.visibility import require_member_visible
 from compiler.typecheck.context import TypeCheckContext
@@ -270,7 +269,7 @@ def _infer_field_access_expression_type(ctx: TypeCheckContext, expr: FieldAccess
         return _infer_class_callable_field_access_type(ctx, expr, class_type_name_from_callable(object_type.name))
 
     if object_type.element_type is not None:
-        if expr.field_name not in ARRAY_METHOD_NAMES:
+        if expr.field_name not in COLLECTION_PROTOCOL_METHOD_NAMES:
             raise TypeCheckError(f"Array type '{object_type.name}' has no member '{expr.field_name}'", expr.span)
         return TypeInfo(name=f"__array_method__:{expr.field_name}", kind="callable")
 

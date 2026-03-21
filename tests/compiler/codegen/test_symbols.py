@@ -1,3 +1,4 @@
+from compiler.codegen.model import ARRAY_LEN_RUNTIME_CALL
 from compiler.codegen.symbols import (
     epilogue_label,
     is_runtime_call_name,
@@ -18,5 +19,5 @@ def test_codegen_symbol_helpers() -> None:
 
 def test_codegen_symbol_helpers_cover_epilogues_and_runtime_detection() -> None:
     assert epilogue_label("main") == ".Lmain_epilogue"
-    assert is_runtime_call_name("rt_array_len") is True
+    assert is_runtime_call_name(ARRAY_LEN_RUNTIME_CALL) is True
     assert is_runtime_call_name("__nif_method_Box_get") is False
