@@ -11,8 +11,6 @@ from compiler.codegen.abi_sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
 from compiler.codegen.model import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
-    ARRAY_GET_RUNTIME_CALLS,
-    ARRAY_SLICE_RUNTIME_CALLS,
     FunctionLayout,
 )
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
@@ -462,26 +460,12 @@ def _emit_call_sequence(
 
 
 def _emit_index_read_expr(codegen: CodeGenerator, expr: IndexReadExpr, ctx: EmitContext) -> None:
-    if expr.get_method is None:
-        target_type = expression_type_name(expr.target)
-        element_type = codegen_types.array_element_type_name(target_type, span=expr.span)
-        runtime_call = ARRAY_GET_RUNTIME_CALLS[codegen_types.array_element_runtime_kind(element_type)]
-        _emit_named_call(codegen, runtime_call, [expr.target, expr.index], expr.type_name, ctx)
-        return
-    _emit_named_call(
-        codegen, _method_label(expr.get_method, ctx), [expr.target, expr.index], expr.type_name, ctx
-    )
+    _emit_named_call(codegen, _dispatch_target_name(expr.dispatch, ctx), [expr.target, expr.index], expr.type_name, ctx)
 
 
 def _emit_slice_read_expr(codegen: CodeGenerator, expr: SliceReadExpr, ctx: EmitContext) -> None:
-    if expr.get_method is None:
-        target_type = expression_type_name(expr.target)
-        element_type = codegen_types.array_element_type_name(target_type, span=expr.span)
-        runtime_call = ARRAY_SLICE_RUNTIME_CALLS[codegen_types.array_element_runtime_kind(element_type)]
-        _emit_named_call(codegen, runtime_call, [expr.target, expr.begin, expr.end], expr.type_name, ctx)
-        return
     _emit_named_call(
-        codegen, _method_label(expr.get_method, ctx), [expr.target, expr.begin, expr.end], expr.type_name, ctx
+        codegen, _dispatch_target_name(expr.dispatch, ctx), [expr.target, expr.begin, expr.end], expr.type_name, ctx
     )
 
 
@@ -591,6 +575,12 @@ def _method_label(method_id: MethodId, ctx: EmitContext) -> str:
     if label is None:
         raise ValueError(f"Missing method label for {method_id}")
     return label
+
+
+def _dispatch_target_name(dispatch: SemanticDispatch, ctx: EmitContext) -> str:
+    if isinstance(dispatch, RuntimeDispatch):
+        return dispatch.call_name
+    return _method_label(dispatch.method_id, ctx)
 
 
 def _interface_method_slot(method_id: InterfaceMethodId, ctx: EmitContext) -> int:

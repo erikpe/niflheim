@@ -158,8 +158,8 @@ class _SemanticReachabilityWalker:
             return
         if isinstance(stmt, SemanticForIn):
             self._walk_expr(module_path, stmt.collection)
-            self._enqueue_method(stmt.iter_len_method)
-            self._enqueue_method(stmt.iter_get_method)
+            self._enqueue_method(dispatch_method_id(stmt.iter_len_dispatch))
+            self._enqueue_method(dispatch_method_id(stmt.iter_get_dispatch))
             self._enqueue_type_name(module_path, stmt.element_type_name)
             self._walk_block(module_path, stmt.body)
             return
@@ -177,14 +177,14 @@ class _SemanticReachabilityWalker:
             self._walk_expr(module_path, lvalue.target)
             self._walk_expr(module_path, lvalue.index)
             self._enqueue_type_name(module_path, lvalue.value_type_name)
-            self._enqueue_method(lvalue.set_method)
+            self._enqueue_method(dispatch_method_id(lvalue.dispatch))
             return
         if isinstance(lvalue, SliceLValue):
             self._walk_expr(module_path, lvalue.target)
             self._walk_expr(module_path, lvalue.begin)
             self._walk_expr(module_path, lvalue.end)
             self._enqueue_type_name(module_path, lvalue.value_type_name)
-            self._enqueue_method(lvalue.set_method)
+            self._enqueue_method(dispatch_method_id(lvalue.dispatch))
 
     def _walk_expr(self, module_path: ModulePath, expr: SemanticExpr) -> None:
         if isinstance(expr, FunctionRefExpr):
@@ -259,13 +259,13 @@ class _SemanticReachabilityWalker:
         if isinstance(expr, IndexReadExpr):
             self._walk_expr(module_path, expr.target)
             self._walk_expr(module_path, expr.index)
-            self._enqueue_method(expr.get_method)
+            self._enqueue_method(dispatch_method_id(expr.dispatch))
             return
         if isinstance(expr, SliceReadExpr):
             self._walk_expr(module_path, expr.target)
             self._walk_expr(module_path, expr.begin)
             self._walk_expr(module_path, expr.end)
-            self._enqueue_method(expr.get_method)
+            self._enqueue_method(dispatch_method_id(expr.dispatch))
             return
         if isinstance(expr, ArrayCtorExprS):
             self._walk_expr(module_path, expr.length_expr)

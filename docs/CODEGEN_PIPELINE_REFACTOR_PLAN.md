@@ -27,6 +27,7 @@ Completed so far:
 - Step 3 is implemented and validated.
 - Step 4 is implemented and validated.
 - Step 5 is implemented and validated.
+- Step 6 is implemented and validated.
 
 In progress now:
 
@@ -34,7 +35,7 @@ In progress now:
 
 Not started yet:
 
-- Steps 6 through 8
+- Steps 7 through 8
 
 ## Scope
 
@@ -491,6 +492,24 @@ Validation:
 - focused indexing/slicing tests
 - stdlib array and indexing goldens
 - full test suite
+
+Validation for this step:
+
+- Implemented by introducing explicit dispatch records in semantic IR in:
+  - `compiler/semantic/ir.py`
+- Updated semantic lowering so collection operations now choose runtime-vs-method dispatch exactly once and encode that decision directly in:
+  - `compiler/semantic/lowering.py`
+- Updated semantic reachability to follow explicit method dispatch only when a collection operation actually targets a user-defined method in:
+  - `compiler/semantic/reachability.py`
+- Removed codegen-side builtin-array branching and runtime-call-name synthesis from:
+  - `compiler/codegen/emitter_expr.py`
+  - `compiler/codegen/emitter_stmt.py`
+- Updated semantic/codegen tests to assert the explicit dispatch model in:
+  - `tests/compiler/semantic/test_lowering.py`
+  - `tests/compiler/codegen/test_walk.py`
+- Validation run results:
+  - focused Step 6 slice: `54 passed`
+  - full pytest: `528 passed`
 
 ## Step 7: Stop Fabricating Semantic Functions In Constructor Emission
 

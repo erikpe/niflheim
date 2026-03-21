@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from compiler.frontend.ast_nodes import *
 from compiler.common.literals import decode_char_literal, decode_string_literal
-from compiler.common.type_names import TYPE_NAME_I64
+from compiler.common.type_names import PRIMITIVE_TYPE_NAMES, TYPE_NAME_I64, TYPE_NAME_UNIT
 from compiler.common.type_shapes import is_array_type_name, is_str_type_name
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic.ir import *
@@ -405,8 +405,12 @@ def _lower_stmt(lower_ctx: _ModuleLoweringContext, stmt: Statement) -> SemanticS
         return SemanticForIn(
             element_name=stmt.element_name,
             collection=_lower_expr(lower_ctx, stmt.collection_expr),
-            iter_len_method=_resolve_instance_method_id(lower_ctx, collection_type.name, "iter_len"),
-            iter_get_method=_resolve_instance_method_id(lower_ctx, collection_type.name, "iter_get"),
+            iter_len_dispatch=_resolve_collection_dispatch(
+                lower_ctx, collection_type, method_name="iter_len", array_operation="len"
+            ),
+            iter_get_dispatch=_resolve_collection_dispatch(
+                lower_ctx, collection_type, method_name="iter_get", array_operation="get"
+            ),
             element_type_name=element_type.name,
             body=body,
             span=stmt.span,
@@ -456,7 +460,12 @@ def _lower_lvalue(lower_ctx: _ModuleLoweringContext, expr: Expression):
         target=_lower_expr(lower_ctx, resolved_target.target),
         index=_lower_expr(lower_ctx, resolved_target.index),
         value_type_name=resolved_target.value_type_name,
-        set_method=_resolve_index_method_id(lower_ctx, resolved_target.target, "index_set"),
+        dispatch=_resolve_collection_dispatch(
+            lower_ctx,
+            infer_expression_type(lower_ctx.typecheck_ctx, resolved_target.target),
+            method_name="index_set",
+            array_operation="set",
+        ),
         span=expr.span,
     )
 
@@ -563,11 +572,14 @@ def _lower_expr(lower_ctx: _ModuleLoweringContext, expr: Expression) -> Semantic
         )
 
     if isinstance(expr, IndexExpr):
+        target_type = infer_expression_type(lower_ctx.typecheck_ctx, expr.object_expr)
         return IndexReadExpr(
             target=_lower_expr(lower_ctx, expr.object_expr),
             index=_lower_expr(lower_ctx, expr.index_expr),
             type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr).name,
-            get_method=_resolve_index_method_id(lower_ctx, expr.object_expr, "index_get"),
+            dispatch=_resolve_collection_dispatch(
+                lower_ctx, target_type, method_name="index_get", array_operation="get"
+            ),
             span=expr.span,
         )
 
@@ -652,7 +664,7 @@ def _try_lower_array_structural_call_expr(
             target=_lower_expr(lower_ctx, expr.callee.object_expr),
             index=_lower_expr(lower_ctx, expr.arguments[0]),
             type_name=result_type_name,
-            get_method=None,
+            dispatch=_runtime_dispatch_for_array_operation(receiver_type, "get"),
             span=expr.span,
         )
 
@@ -664,7 +676,7 @@ def _try_lower_array_structural_call_expr(
             begin=_lower_expr(lower_ctx, expr.arguments[0]),
             end=_lower_expr(lower_ctx, expr.arguments[1]),
             type_name=result_type_name,
-            get_method=None,
+            dispatch=_runtime_dispatch_for_array_operation(receiver_type, "slice_get"),
             span=expr.span,
         )
 
@@ -695,7 +707,9 @@ def _try_lower_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: ExprSt
             begin=_lower_expr(lower_ctx, expr.arguments[0]),
             end=_lower_expr(lower_ctx, expr.arguments[1]),
             value_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr.arguments[2]).name,
-            set_method=_resolve_instance_method_id(lower_ctx, receiver_type.name, "slice_set"),
+            dispatch=_resolve_collection_dispatch(
+                lower_ctx, receiver_type, method_name="slice_set", array_operation="slice_set"
+            ),
             span=expr.span,
         ),
         value=_lower_expr(lower_ctx, expr.arguments[2]),
@@ -721,7 +735,7 @@ def _try_lower_array_index_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: 
             target=_lower_expr(lower_ctx, expr.callee.object_expr),
             index=_lower_expr(lower_ctx, expr.arguments[0]),
             value_type_name=receiver_type.element_type.name,
-            set_method=None,
+            dispatch=_runtime_dispatch_for_array_operation(receiver_type, "set"),
             span=expr.span,
         ),
         value=_lower_expr(lower_ctx, expr.arguments[1]),
@@ -748,7 +762,7 @@ def _try_lower_array_slice_assign_stmt(lower_ctx: _ModuleLoweringContext, stmt: 
             begin=_lower_expr(lower_ctx, expr.arguments[0]),
             end=_lower_expr(lower_ctx, expr.arguments[1]),
             value_type_name=infer_expression_type(lower_ctx.typecheck_ctx, expr.arguments[2]).name,
-            set_method=None,
+            dispatch=_runtime_dispatch_for_array_operation(receiver_type, "slice_set"),
             span=expr.span,
         ),
         value=_lower_expr(lower_ctx, expr.arguments[2]),
@@ -770,7 +784,9 @@ def _try_lower_slice_read_expr(
         begin=_lower_expr(lower_ctx, expr.arguments[0]),
         end=_lower_expr(lower_ctx, expr.arguments[1]),
         type_name=result_type_name,
-        get_method=_resolve_instance_method_id(lower_ctx, receiver_type.name, "slice_get"),
+        dispatch=_resolve_collection_dispatch(
+            lower_ctx, receiver_type, method_name="slice_get", array_operation="slice_get"
+        ),
         span=expr.span,
     )
 
@@ -1050,12 +1066,47 @@ def _resolve_index_assignment_value_type_name(lower_ctx: _ModuleLoweringContext,
     return qualify_member_type_for_owner(lower_ctx.typecheck_ctx, method_sig.params[1], object_type.name).name
 
 
-def _resolve_index_method_id(
-    lower_ctx: _ModuleLoweringContext, target_expr: Expression, method_name: str
-) -> MethodId | None:
-    return _resolve_instance_method_id(
-        lower_ctx, infer_expression_type(lower_ctx.typecheck_ctx, target_expr).name, method_name
-    )
+def _resolve_collection_dispatch(
+    lower_ctx: _ModuleLoweringContext,
+    receiver_type: TypeInfo,
+    *,
+    method_name: str,
+    array_operation: str,
+) -> SemanticDispatch:
+    if receiver_type.element_type is not None:
+        return _runtime_dispatch_for_array_operation(receiver_type, array_operation)
+
+    method_id = _resolve_instance_method_id(lower_ctx, receiver_type.name, method_name)
+    assert method_id is not None
+    return MethodDispatch(method_id=method_id)
+
+
+def _runtime_dispatch_for_array_operation(receiver_type: TypeInfo, operation: str) -> RuntimeDispatch:
+    if operation == "len":
+        return RuntimeDispatch(call_name="rt_array_len")
+    element_type = receiver_type.element_type
+    if element_type is None:
+        raise ValueError(f"Array runtime dispatch requires array receiver type, got '{receiver_type.name}'")
+    return RuntimeDispatch(call_name=_array_runtime_call_name(operation, element_type.name))
+
+
+def _array_runtime_call_name(operation: str, element_type_name: str) -> str:
+    runtime_kind = _array_runtime_kind(element_type_name)
+    if operation == "get":
+        return f"rt_array_get_{runtime_kind}"
+    if operation == "set":
+        return f"rt_array_set_{runtime_kind}"
+    if operation == "slice_get":
+        return f"rt_array_slice_{runtime_kind}"
+    if operation == "slice_set":
+        return f"rt_array_set_slice_{runtime_kind}"
+    raise ValueError(f"Unsupported array runtime operation '{operation}'")
+
+
+def _array_runtime_kind(element_type_name: str) -> str:
+    if element_type_name in PRIMITIVE_TYPE_NAMES - {TYPE_NAME_UNIT}:
+        return element_type_name
+    return "ref"
 
 
 def _resolve_instance_method_id(

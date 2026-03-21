@@ -730,44 +730,46 @@ def test_lower_program_resolves_structural_index_slice_and_for_in_methods(tmp_pa
     first_decl = statements[0]
     assert isinstance(first_decl, SemanticVarDecl)
     assert isinstance(first_decl.initializer, IndexReadExpr)
-    assert first_decl.initializer.get_method is not None
-    assert first_decl.initializer.get_method.class_name == "Buffer"
-    assert first_decl.initializer.get_method.name == "index_get"
+    assert isinstance(first_decl.initializer.dispatch, MethodDispatch)
+    assert first_decl.initializer.dispatch.method_id.class_name == "Buffer"
+    assert first_decl.initializer.dispatch.method_id.name == "index_get"
 
     index_assign = statements[1]
     assert isinstance(index_assign, SemanticAssign)
     assert isinstance(index_assign.target, IndexLValue)
-    assert index_assign.target.set_method is not None
-    assert index_assign.target.set_method.class_name == "Buffer"
-    assert index_assign.target.set_method.name == "index_set"
+    assert isinstance(index_assign.target.dispatch, MethodDispatch)
+    assert index_assign.target.dispatch.method_id.class_name == "Buffer"
+    assert index_assign.target.dispatch.method_id.name == "index_set"
 
     slice_decl = statements[2]
     assert isinstance(slice_decl, SemanticVarDecl)
     assert isinstance(slice_decl.initializer, SliceReadExpr)
-    assert slice_decl.initializer.get_method is not None
-    assert slice_decl.initializer.get_method.class_name == "Buffer"
-    assert slice_decl.initializer.get_method.name == "slice_get"
+    assert isinstance(slice_decl.initializer.dispatch, MethodDispatch)
+    assert slice_decl.initializer.dispatch.method_id.class_name == "Buffer"
+    assert slice_decl.initializer.dispatch.method_id.name == "slice_get"
 
     slice_assign = statements[3]
     assert isinstance(slice_assign, SemanticAssign)
     assert isinstance(slice_assign.target, SliceLValue)
-    assert slice_assign.target.set_method is not None
-    assert slice_assign.target.set_method.class_name == "Buffer"
-    assert slice_assign.target.set_method.name == "slice_set"
+    assert isinstance(slice_assign.target.dispatch, MethodDispatch)
+    assert slice_assign.target.dispatch.method_id.class_name == "Buffer"
+    assert slice_assign.target.dispatch.method_id.name == "slice_set"
 
     structural_for_in = statements[4]
     assert isinstance(structural_for_in, SemanticForIn)
-    assert structural_for_in.iter_len_method is not None
-    assert structural_for_in.iter_get_method is not None
-    assert structural_for_in.iter_len_method.class_name == "Buffer"
-    assert structural_for_in.iter_len_method.name == "iter_len"
-    assert structural_for_in.iter_get_method.class_name == "Buffer"
-    assert structural_for_in.iter_get_method.name == "iter_get"
+    assert isinstance(structural_for_in.iter_len_dispatch, MethodDispatch)
+    assert isinstance(structural_for_in.iter_get_dispatch, MethodDispatch)
+    assert structural_for_in.iter_len_dispatch.method_id.class_name == "Buffer"
+    assert structural_for_in.iter_len_dispatch.method_id.name == "iter_len"
+    assert structural_for_in.iter_get_dispatch.method_id.class_name == "Buffer"
+    assert structural_for_in.iter_get_dispatch.method_id.name == "iter_get"
 
     array_for_in = statements[5]
     assert isinstance(array_for_in, SemanticForIn)
-    assert array_for_in.iter_len_method is None
-    assert array_for_in.iter_get_method is None
+    assert isinstance(array_for_in.iter_len_dispatch, RuntimeDispatch)
+    assert isinstance(array_for_in.iter_get_dispatch, RuntimeDispatch)
+    assert array_for_in.iter_len_dispatch.call_name == "rt_array_len"
+    assert array_for_in.iter_get_dispatch.call_name == "rt_array_get_i64"
 
 
 def test_lower_program_lowers_explicit_array_structural_calls_and_assignments(tmp_path: Path) -> None:
@@ -790,19 +792,23 @@ def test_lower_program_lowers_explicit_array_structural_calls_and_assignments(tm
 
     assert isinstance(statements[0], SemanticVarDecl)
     assert isinstance(statements[0].initializer, IndexReadExpr)
-    assert statements[0].initializer.get_method is None
+    assert isinstance(statements[0].initializer.dispatch, RuntimeDispatch)
+    assert statements[0].initializer.dispatch.call_name == "rt_array_get_i64"
 
     assert isinstance(statements[1], SemanticAssign)
     assert isinstance(statements[1].target, IndexLValue)
-    assert statements[1].target.set_method is None
+    assert isinstance(statements[1].target.dispatch, RuntimeDispatch)
+    assert statements[1].target.dispatch.call_name == "rt_array_set_i64"
 
     assert isinstance(statements[2], SemanticVarDecl)
     assert isinstance(statements[2].initializer, SliceReadExpr)
-    assert statements[2].initializer.get_method is None
+    assert isinstance(statements[2].initializer.dispatch, RuntimeDispatch)
+    assert statements[2].initializer.dispatch.call_name == "rt_array_slice_i64"
 
     assert isinstance(statements[3], SemanticAssign)
     assert isinstance(statements[3].target, SliceLValue)
-    assert statements[3].target.set_method is None
+    assert isinstance(statements[3].target.dispatch, RuntimeDispatch)
+    assert statements[3].target.dispatch.call_name == "rt_array_set_slice_i64"
 
     assert isinstance(statements[4], SemanticReturn)
     assert isinstance(statements[4].value, BinaryExprS)
@@ -842,8 +848,8 @@ def test_lower_program_uses_index_set_value_type_for_structural_assignment_targe
     assert isinstance(assign_stmt, SemanticAssign)
     assert isinstance(assign_stmt.target, IndexLValue)
     assert assign_stmt.target.value_type_name == "i64"
-    assert assign_stmt.target.set_method is not None
-    assert assign_stmt.target.set_method.name == "index_set"
+    assert isinstance(assign_stmt.target.dispatch, MethodDispatch)
+    assert assign_stmt.target.dispatch.method_id.name == "index_set"
 
 
 def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp_path: Path) -> None:

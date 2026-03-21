@@ -41,22 +41,6 @@ ARRAY_CONSTRUCTOR_RUNTIME_CALLS = {
     TYPE_NAME_DOUBLE: "rt_array_new_double",
     "ref": "rt_array_new_ref",
 }
-ARRAY_GET_RUNTIME_CALLS = {
-    TYPE_NAME_I64: "rt_array_get_i64",
-    TYPE_NAME_U64: "rt_array_get_u64",
-    TYPE_NAME_U8: "rt_array_get_u8",
-    TYPE_NAME_BOOL: "rt_array_get_bool",
-    TYPE_NAME_DOUBLE: "rt_array_get_double",
-    "ref": "rt_array_get_ref",
-}
-ARRAY_SLICE_RUNTIME_CALLS = {
-    TYPE_NAME_I64: "rt_array_slice_i64",
-    TYPE_NAME_U64: "rt_array_slice_u64",
-    TYPE_NAME_U8: "rt_array_slice_u8",
-    TYPE_NAME_BOOL: "rt_array_slice_bool",
-    TYPE_NAME_DOUBLE: "rt_array_slice_double",
-    "ref": "rt_array_slice_ref",
-}
 TEMP_RUNTIME_ROOT_SLOT_COUNT = 6
 RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     "rt_checked_cast": (0,),

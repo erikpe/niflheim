@@ -137,34 +137,22 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         codegen.asm.instr(f"mov qword ptr [rcx + {field_offset}], rax")
         return
     if isinstance(target, IndexLValue):
-        if target.set_method is None:
-            target_type = expression_type_name(target.target)
-            element_type = codegen_types.array_element_type_name(target_type, span=target.span)
-            runtime_name = f"rt_array_set_{codegen_types.array_element_runtime_kind(element_type)}"
-            from compiler.codegen.emitter_expr import _emit_named_call
-
-            _emit_named_call(codegen, runtime_name, [target.target, target.index, stmt.value], TYPE_NAME_UNIT, ctx)
-            return
-        from compiler.codegen.emitter_expr import _emit_named_call, _method_label
-
-        _emit_named_call(
-            codegen, _method_label(target.set_method, ctx), [target.target, target.index, stmt.value], TYPE_NAME_UNIT, ctx
-        )
-        return
-    if isinstance(target, SliceLValue):
-        if target.set_method is None:
-            target_type = expression_type_name(target.target)
-            element_type = codegen_types.array_element_type_name(target_type, span=target.span)
-            runtime_name = f"rt_array_set_slice_{codegen_types.array_element_runtime_kind(element_type)}"
-            from compiler.codegen.emitter_expr import _emit_named_call
-
-            _emit_named_call(codegen, runtime_name, [target.target, target.begin, target.end, stmt.value], TYPE_NAME_UNIT, ctx)
-            return
-        from compiler.codegen.emitter_expr import _emit_named_call, _method_label
+        from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
 
         _emit_named_call(
             codegen,
-            _method_label(target.set_method, ctx),
+            _dispatch_target_name(target.dispatch, ctx),
+            [target.target, target.index, stmt.value],
+            TYPE_NAME_UNIT,
+            ctx,
+        )
+        return
+    if isinstance(target, SliceLValue):
+        from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
+
+        _emit_named_call(
+            codegen,
+            _dispatch_target_name(target.dispatch, ctx),
             [target.target, target.begin, target.end, stmt.value],
             TYPE_NAME_UNIT,
             ctx,
@@ -192,14 +180,11 @@ def _emit_for_in(
     emit_expr(codegen, stmt.collection, ctx)
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[coll_name])}, rax")
 
-    from compiler.codegen.emitter_expr import _emit_named_call, _method_label
+    from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
     from compiler.semantic.ir import LocalRefExpr
 
     coll_ref = LocalRefExpr(name=coll_name, type_name=expression_type_name(stmt.collection), span=stmt.span)
-    if stmt.iter_len_method is None:
-        _emit_named_call(codegen, "rt_array_len", [coll_ref], TYPE_NAME_U64, ctx)
-    else:
-        _emit_named_call(codegen, _method_label(stmt.iter_len_method, ctx), [coll_ref], TYPE_NAME_U64, ctx)
+    _emit_named_call(codegen, _dispatch_target_name(stmt.iter_len_dispatch, ctx), [coll_ref], TYPE_NAME_U64, ctx)
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[len_name])}, rax")
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[index_name])}, 0")
 
@@ -209,15 +194,9 @@ def _emit_for_in(
     codegen.asm.instr(f"jge {loop_done}")
 
     index_ref = LocalRefExpr(name=index_name, type_name=TYPE_NAME_I64, span=stmt.span)
-    if stmt.iter_get_method is None:
-        target_type = expression_type_name(stmt.collection)
-        element_type = codegen_types.array_element_type_name(target_type, span=stmt.span)
-        runtime_name = f"rt_array_get_{codegen_types.array_element_runtime_kind(element_type)}"
-        _emit_named_call(codegen, runtime_name, [coll_ref, index_ref], stmt.element_type_name, ctx)
-    else:
-        _emit_named_call(
-            codegen, _method_label(stmt.iter_get_method, ctx), [coll_ref, index_ref], stmt.element_type_name, ctx
-        )
+    _emit_named_call(
+        codegen, _dispatch_target_name(stmt.iter_get_dispatch, ctx), [coll_ref, index_ref], stmt.element_type_name, ctx
+    )
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[stmt.element_name])}, rax")
 
     loop_labels.append((loop_continue, loop_done))

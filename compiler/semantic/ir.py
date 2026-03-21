@@ -149,11 +149,24 @@ class SemanticContinue:
 
 
 @dataclass(frozen=True)
+class RuntimeDispatch:
+    call_name: str
+
+
+@dataclass(frozen=True)
+class MethodDispatch:
+    method_id: MethodId
+
+
+SemanticDispatch = RuntimeDispatch | MethodDispatch
+
+
+@dataclass(frozen=True)
 class SemanticForIn:
     element_name: str
     collection: "SemanticExpr"
-    iter_len_method: MethodId | None
-    iter_get_method: MethodId | None
+    iter_len_dispatch: SemanticDispatch
+    iter_get_dispatch: SemanticDispatch
     element_type_name: str
     body: SemanticBlock
     span: SourceSpan
@@ -181,7 +194,7 @@ class IndexLValue:
     target: "SemanticExpr"
     index: "SemanticExpr"
     value_type_name: str
-    set_method: MethodId | None
+    dispatch: SemanticDispatch
     span: SourceSpan
 
 
@@ -191,7 +204,7 @@ class SliceLValue:
     begin: "SemanticExpr"
     end: "SemanticExpr"
     value_type_name: str
-    set_method: MethodId | None
+    dispatch: SemanticDispatch
     span: SourceSpan
 
 
@@ -372,7 +385,7 @@ class IndexReadExpr:
     target: "SemanticExpr"
     index: "SemanticExpr"
     type_name: str
-    get_method: MethodId | None
+    dispatch: SemanticDispatch
     span: SourceSpan
 
 
@@ -382,8 +395,14 @@ class SliceReadExpr:
     begin: "SemanticExpr"
     end: "SemanticExpr"
     type_name: str
-    get_method: MethodId | None
+    dispatch: SemanticDispatch
     span: SourceSpan
+
+
+def dispatch_method_id(dispatch: SemanticDispatch) -> MethodId | None:
+    if isinstance(dispatch, MethodDispatch):
+        return dispatch.method_id
+    return None
 
 
 @dataclass(frozen=True)
