@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from compiler.common.literals import is_hex_digit
 from compiler.frontend.tokens import KEYWORDS, ONE_CHAR_TOKENS, TWO_CHAR_TOKENS, TokenKind
 
 
@@ -167,7 +169,7 @@ class Lexer:
                     self._advance()
                     first = self._peek()
                     second = self._peek_next()
-                    if not self._is_hex_digit(first) or not self._is_hex_digit(second):
+                    if not is_hex_digit(first) or not is_hex_digit(second):
                         raise LexerError("Invalid string escape sequence", SourceSpan(start, self._pos()))
                     self._advance()
                     self._advance()
@@ -205,7 +207,7 @@ class Lexer:
                 self._advance()
                 first = self._peek()
                 second = self._peek_next()
-                if not self._is_hex_digit(first) or not self._is_hex_digit(second):
+                if not is_hex_digit(first) or not is_hex_digit(second):
                     raise LexerError("Invalid character escape sequence", SourceSpan(start, self._pos()))
                 self._advance()
                 self._advance()
@@ -253,10 +255,6 @@ class Lexer:
     @staticmethod
     def _is_ident_part(ch: str) -> bool:
         return ch.isalnum() or ch == "_"
-
-    @staticmethod
-    def _is_hex_digit(ch: str) -> bool:
-        return ch.isdigit() or ("a" <= ch <= "f") or ("A" <= ch <= "F")
 
 
 def lex(source: str, source_path: str = "<memory>") -> list[Token]:

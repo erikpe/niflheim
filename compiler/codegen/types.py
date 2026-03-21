@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import struct
 
-from compiler.codegen.model import PRIMITIVE_TYPE_NAMES
+from compiler.common.type_shapes import (
+    array_element_type_name as common_array_element_type_name,
+    function_type_return_type_name as common_function_type_return_type_name,
+    is_array_type_name as common_is_array_type_name,
+    is_function_type_name as common_is_function_type_name,
+    is_reference_type_name as common_is_reference_type_name,
+)
 
 
 def _span_location(span: object | None) -> str | None:
@@ -27,47 +33,29 @@ def raise_codegen_error(message: str, *, span: object | None = None) -> None:
 
 
 def is_reference_type_name(type_name: str) -> bool:
-    if is_function_type_name(type_name):
-        return False
-    return type_name not in PRIMITIVE_TYPE_NAMES
+    return common_is_reference_type_name(type_name)
 
 
 def is_function_type_name(type_name: str) -> bool:
-    return type_name.startswith("fn(")
+    return common_is_function_type_name(type_name)
 
 
 def function_type_return_type_name(type_name: str, *, span: object | None = None) -> str:
-    if not is_function_type_name(type_name):
-        raise_codegen_error(f"not a function type name: {type_name}", span=span)
-
-    depth = 0
-    close_index = -1
-    for index, char in enumerate(type_name):
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-            if depth == 0:
-                close_index = index
-                break
-
-    if close_index < 0:
-        raise_codegen_error(f"malformed function type name: {type_name}", span=span)
-
-    tail = type_name[close_index + 1 :].lstrip()
-    if not tail.startswith("->"):
-        raise_codegen_error(f"malformed function type name: {type_name}", span=span)
-    return tail[2:].strip()
+    try:
+        return common_function_type_return_type_name(type_name)
+    except ValueError as exc:
+        raise_codegen_error(str(exc), span=span)
 
 
 def is_array_type_name(type_name: str) -> bool:
-    return type_name.endswith("[]")
+    return common_is_array_type_name(type_name)
 
 
 def array_element_type_name(array_type_name: str, *, span: object | None = None) -> str:
-    if not is_array_type_name(array_type_name):
-        raise_codegen_error(f"not an array type name: {array_type_name}", span=span)
-    return array_type_name[:-2]
+    try:
+        return common_array_element_type_name(array_type_name)
+    except ValueError as exc:
+        raise_codegen_error(str(exc), span=span)
 
 
 def array_element_runtime_kind(element_type_name: str) -> str:

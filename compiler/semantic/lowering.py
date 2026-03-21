@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.frontend.ast_nodes import *
-from compiler.codegen.strings import decode_char_literal, decode_string_literal, is_str_type_name
+from compiler.common.literals import decode_char_literal, decode_string_literal
+from compiler.common.type_names import is_str_type_name
+from compiler.common.type_shapes import is_array_type_name
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import (
@@ -1052,7 +1054,7 @@ def _resolve_index_method_id(
 def _resolve_instance_method_id(
     lower_ctx: _ModuleLoweringContext, receiver_type_name: str, method_name: str
 ) -> MethodId | None:
-    if receiver_type_name.endswith("[]"):
+    if is_array_type_name(receiver_type_name):
         return None
 
     class_info = lookup_class_by_type_name(lower_ctx.typecheck_ctx, receiver_type_name)

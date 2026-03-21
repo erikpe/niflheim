@@ -31,7 +31,6 @@ class ConstructorLayout:
 
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 FLOAT_PARAM_REGISTERS = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"]
-PRIMITIVE_TYPE_NAMES = {"i64", "u64", "u8", "bool", "double", "unit"}
 ARRAY_CONSTRUCTOR_RUNTIME_CALLS = {
     "i64": "rt_array_new_i64",
     "u64": "rt_array_new_u64",

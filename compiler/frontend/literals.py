@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from compiler.common.literals import is_hex_digits
 from compiler.frontend.ast_nodes import *
 from compiler.frontend.lexer import SourceSpan, Token
 from compiler.frontend.tokens import TokenKind
@@ -7,10 +8,6 @@ from compiler.frontend.tokens import TokenKind
 
 def _literal_expr(literal: LiteralValueNode, span: SourceSpan) -> LiteralExpr:
     return LiteralExpr(literal=literal, span=span)
-
-
-def _is_hex_digits(text: str) -> bool:
-    return all(ch.isdigit() or ("a" <= ch <= "f") or ("A" <= ch <= "F") for ch in text)
 
 
 def parse_int_literal_text(text: str) -> IntLiteralValue:
@@ -31,7 +28,7 @@ def parse_int_literal_text(text: str) -> IntLiteralValue:
     if digits.startswith(("0x", "0X")):
         base = 16
         magnitude_digits = digits[2:]
-        if not magnitude_digits or not _is_hex_digits(magnitude_digits):
+        if not magnitude_digits or not is_hex_digits(magnitude_digits):
             raise ValueError(f"Unsupported integer literal syntax: {text}")
     elif not digits or not digits.isdigit():
         raise ValueError(f"Unsupported integer literal syntax: {text}")

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from compiler.common.type_shapes import PRIMITIVE_TYPE_NAMES
 from compiler.frontend.ast_nodes import ArrayTypeRef, FunctionTypeRef, TypeRefNode
-from compiler.codegen.strings import STR_CLASS_NAME
+from compiler.common.type_names import STR_CLASS_NAME
 from compiler.typecheck.context import TypeCheckContext
 from compiler.frontend.lexer import SourceSpan
-from compiler.typecheck.model import PRIMITIVE_TYPE_NAMES, REFERENCE_BUILTIN_TYPE_NAMES, TypeCheckError, TypeInfo
+from compiler.typecheck.model import REFERENCE_BUILTIN_TYPE_NAMES, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     resolve_imported_class_name,
     resolve_imported_interface_name,
