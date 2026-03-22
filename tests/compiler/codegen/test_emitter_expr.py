@@ -9,6 +9,8 @@ from compiler.codegen.abi.runtime import (
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
     ARRAY_INDEX_GET_RUNTIME_CALLS,
     ARRAY_SLICE_GET_RUNTIME_CALLS,
+    DOUBLE_TO_I64_RUNTIME_CALL,
+    U64_TO_DOUBLE_RUNTIME_CALL,
 )
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.codegen.layout import build_layout
@@ -151,7 +153,10 @@ def test_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path) -> None:
                 var arr: i64[] = i64[](4u);
                 var x: i64 = arr[0];
                 var y: double = (double)x;
-                return (i64)y;
+                var big: u64 = 42u;
+                var z: double = (double)big;
+                var b: bool = (bool)0.5;
+                return (i64)y + (i64)z + (i64)b;
             }
             """
         },
@@ -177,10 +182,19 @@ def test_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path) -> None:
     assert "    cvtsi2sd xmm0, rax" in generator.asm.lines
 
     generator.asm.lines.clear()
+    emit_expr(generator, var_inits[4], ctx)
+    assert f"    call {U64_TO_DOUBLE_RUNTIME_CALL}" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    emit_expr(generator, var_inits[5], ctx)
+    assert "    ucomisd xmm0, xmm1" in generator.asm.lines
+    assert "    setp dl" in generator.asm.lines
+
+    generator.asm.lines.clear()
     return_stmt = fn.body.statements[-1]
     assert isinstance(return_stmt, SemanticReturn)
     emit_expr(generator, return_stmt.value, ctx)
-    assert "    cvttsd2si rax, xmm0" in generator.asm.lines
+    assert f"    call {DOUBLE_TO_I64_RUNTIME_CALL}" in generator.asm.lines
 
 
 def test_emitter_expr_emits_string_literal_helper_form_and_slice_reads(tmp_path: Path) -> None:

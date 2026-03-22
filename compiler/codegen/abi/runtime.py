@@ -6,6 +6,10 @@ from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NA
 
 ARRAY_LEN_RUNTIME_CALL = "rt_array_len"
 ARRAY_FROM_BYTES_U8_RUNTIME_CALL = "rt_array_from_bytes_u8"
+U64_TO_DOUBLE_RUNTIME_CALL = "rt_cast_u64_to_double"
+DOUBLE_TO_I64_RUNTIME_CALL = "rt_cast_double_to_i64"
+DOUBLE_TO_U64_RUNTIME_CALL = "rt_cast_double_to_u64"
+DOUBLE_TO_U8_RUNTIME_CALL = "rt_cast_double_to_u8"
 ARRAY_CONSTRUCTOR_RUNTIME_CALLS = {
     TYPE_NAME_I64: "rt_array_new_i64",
     TYPE_NAME_U64: "rt_array_new_u64",

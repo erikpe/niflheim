@@ -56,3 +56,46 @@ def test_cli_runtime_panic_call_exits_with_error(tmp_path: Path, monkeypatch, ca
 
     assert run.returncode != 0
     assert "panic: Panic at the disco!" in run.stderr
+
+
+def test_cli_runtime_primitive_casts_follow_defined_matrix(tmp_path: Path, monkeypatch) -> None:
+    install_std_io_fixture(tmp_path)
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        make_std_io_entry(
+            """
+            println_bool((bool)0.0);
+            println_bool((bool)-0.0);
+            println_bool((bool)0.5);
+            println_i64((i64)7.9);
+            println_u8((u8)258);
+            println_i64((i64)(u64)18446744073709551615u);
+            """
+        ),
+    )
+    run = compile_and_run(
+        monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s", exe_path=tmp_path / "program"
+    )
+
+    assert run.returncode == 0
+    assert run.stdout == "false\nfalse\ntrue\n7\n2\n-1\n"
+
+
+def test_cli_runtime_out_of_range_double_to_integer_cast_panics(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        fn main() -> i64 {
+            var value: u8 = (u8)256.0;
+            return (i64)value;
+        }
+        """,
+    )
+    run = compile_and_run(
+        monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s", exe_path=tmp_path / "program"
+    )
+
+    assert run.returncode != 0
+    assert "panic: numeric cast out of range (double -> u8)" in run.stderr

@@ -167,9 +167,27 @@ def test_backend_emits_numeric_cast_conversion_shape(tmp_path) -> None:
     assert "    cvtsi2sd xmm0, rax" in asm
     assert "    movq rax, xmm0" in asm
     assert "    movq xmm0, rax" in asm
-    assert "    cvttsd2si rax, xmm0" in asm
-    assert "    cmp rax, 0" in asm
+    assert "    ucomisd xmm0, xmm1" in asm
     assert "    setne al" in asm
+    assert "    setp dl" in asm
+
+
+def test_backend_emits_checked_double_to_integer_and_unsigned_u64_to_double_cast_shape(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn to_double(x: u64) -> double { return (double)x; }
+
+        fn to_i64(x: double) -> i64 { return (i64)x; }
+
+        fn main() -> i64 {
+            return to_i64(to_double(42u));
+        }
+        """,
+    )
+
+    assert "    call rt_cast_u64_to_double" in asm
+    assert "    call rt_cast_double_to_i64" in asm
 
 
 def test_backend_emits_while_control_flow_shape(tmp_path) -> None:

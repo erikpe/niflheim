@@ -103,6 +103,11 @@ fn main() -> unit {
     var y: double = (double)x;
     var z: u8 = (u8)x;
     var b: bool = (bool)x;
+    var c: u64 = (u64)7.5;
+    var d: i64 = (i64)7.5;
+    var e: bool = (bool)0.5;
+    var f: double = (double)42u;
+    var g: i64 = (i64)18446744073709551615u;
     return;
 }
 """

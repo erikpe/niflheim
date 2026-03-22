@@ -1,7 +1,9 @@
 #include "runtime.h"
 #include "gc_trace.h"
 
+#include <math.h>
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 static RtThreadState g_thread_state = {0};
@@ -24,6 +26,18 @@ static const char* rt_interface_name_or_unknown(const RtInterfaceType* interface
         return "<unknown>";
     }
     return interface_type->debug_name;
+}
+
+static __attribute__((noreturn)) void rt_panic_numeric_cast(const char* from_type, const char* to_type) {
+    char message[256];
+    snprintf(
+        message,
+        sizeof(message),
+        "numeric cast out of range (%s -> %s)",
+        from_type ? from_type : "<unknown>",
+        to_type ? to_type : "<unknown>"
+    );
+    rt_panic(message);
 }
 
 static uint64_t rt_checked_total_size(uint64_t payload_bytes) {
@@ -281,4 +295,41 @@ uint64_t rt_obj_same_type(void* lhs, void* rhs) {
     RtObjHeader* lhs_header = (RtObjHeader*)lhs;
     RtObjHeader* rhs_header = (RtObjHeader*)rhs;
     return lhs_header->type == rhs_header->type ? 1u : 0u;
+}
+
+double rt_cast_u64_to_double(uint64_t value) {
+    return (double)value;
+}
+
+int64_t rt_cast_double_to_i64(double value) {
+    if (!isfinite(value)) {
+        rt_panic_numeric_cast("double", "i64");
+    }
+
+    if (value < -9223372036854775808.0 || value >= 9223372036854775808.0) {
+        rt_panic_numeric_cast("double", "i64");
+    }
+    return (int64_t)value;
+}
+
+uint64_t rt_cast_double_to_u64(double value) {
+    if (!isfinite(value)) {
+        rt_panic_numeric_cast("double", "u64");
+    }
+
+    if (value < 0.0 || value >= 18446744073709551616.0) {
+        rt_panic_numeric_cast("double", "u64");
+    }
+    return (uint64_t)value;
+}
+
+uint64_t rt_cast_double_to_u8(double value) {
+    if (!isfinite(value)) {
+        rt_panic_numeric_cast("double", "u8");
+    }
+
+    if (value < 0.0 || value >= 256.0) {
+        rt_panic_numeric_cast("double", "u8");
+    }
+    return (uint64_t)value;
 }

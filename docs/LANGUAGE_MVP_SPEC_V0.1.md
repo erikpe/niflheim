@@ -78,6 +78,28 @@ Defaults:
 - Downcast from `Obj` to a concrete reference type is explicit and runtime-checked.
 - Failed downcast panics and aborts.
 
+Primitive cast matrix:
+
+| Source | `bool` | `i64` | `u64` | `u8` | `double` | `unit` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `bool` | yes | yes | yes | yes | yes | no |
+| `i64` | yes | yes | yes | yes | yes | no |
+| `u64` | yes | yes | yes | yes | yes | no |
+| `u8` | yes | yes | yes | yes | yes | no |
+| `double` | yes | yes | yes | yes | yes | no |
+| `unit` | no | no | no | no | no | no |
+
+Primitive cast semantics:
+
+- `bool -> integer`: `false -> 0`, `true -> 1`.
+- `bool -> double`: `false -> 0.0`, `true -> 1.0`.
+- `integer -> bool`: zero is `false`; any non-zero value is `true`.
+- `double -> bool`: `0.0` and `-0.0` are `false`; every other value is `true`.
+- `integer -> integer`: truncate to the target bit width, then interpret the bits in the target signedness. These casts never panic.
+- `integer -> double`: numeric conversion using the source integer signedness. Precision loss is allowed.
+- `double -> integer`: truncate toward zero, then check the truncated value against the target range. Panic on NaN, infinity, or out-of-range values.
+- Casts involving `unit` are always invalid.
+
 ### 3.5 Operator Typing Rules (Current)
 
 - Arithmetic operators (`+`, `-`, `*`, `/`, `%`) require matching numeric operand types.

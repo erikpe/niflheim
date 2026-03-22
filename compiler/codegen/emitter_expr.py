@@ -13,6 +13,10 @@ from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
     ARRAY_LEN_RUNTIME_CALL,
+    DOUBLE_TO_I64_RUNTIME_CALL,
+    DOUBLE_TO_U64_RUNTIME_CALL,
+    DOUBLE_TO_U8_RUNTIME_CALL,
+    U64_TO_DOUBLE_RUNTIME_CALL,
 )
 from compiler.codegen.model import FunctionLayout
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
@@ -215,17 +219,51 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
             ctx,
         )
         return
-    if target_type == TYPE_NAME_DOUBLE and source_type in {TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_BOOL}:
+    if target_type == TYPE_NAME_DOUBLE and source_type in {TYPE_NAME_I64, TYPE_NAME_U8, TYPE_NAME_BOOL}:
         codegen.asm.instr("cvtsi2sd xmm0, rax")
         codegen.asm.instr("movq rax, xmm0")
         return
-    if source_type == TYPE_NAME_DOUBLE and target_type in {TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_BOOL}:
+    if source_type == TYPE_NAME_U64 and target_type == TYPE_NAME_DOUBLE:
+        codegen.asm.instr("push rax")
+        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+        codegen.asm.instr("pop rax")
+        codegen.asm.instr("mov rdi, rax")
+        codegen.emit_aligned_call(U64_TO_DOUBLE_RUNTIME_CALL)
+        _emit_runtime_call_hooks_after(codegen, ctx)
+        codegen.asm.instr("movq rax, xmm0")
+        return
+    if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_I64:
+        codegen.asm.instr("push rax")
+        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+        codegen.asm.instr("pop rax")
         codegen.asm.instr("movq xmm0, rax")
-        codegen.asm.instr("cvttsd2si rax, xmm0")
-        if target_type == TYPE_NAME_U8:
-            codegen.asm.instr("and rax, 255")
-        elif target_type == TYPE_NAME_BOOL:
-            codegen.emit_bool_normalize()
+        codegen.emit_aligned_call(DOUBLE_TO_I64_RUNTIME_CALL)
+        _emit_runtime_call_hooks_after(codegen, ctx)
+        return
+    if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U64:
+        codegen.asm.instr("push rax")
+        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+        codegen.asm.instr("pop rax")
+        codegen.asm.instr("movq xmm0, rax")
+        codegen.emit_aligned_call(DOUBLE_TO_U64_RUNTIME_CALL)
+        _emit_runtime_call_hooks_after(codegen, ctx)
+        return
+    if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U8:
+        codegen.asm.instr("push rax")
+        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+        codegen.asm.instr("pop rax")
+        codegen.asm.instr("movq xmm0, rax")
+        codegen.emit_aligned_call(DOUBLE_TO_U8_RUNTIME_CALL)
+        _emit_runtime_call_hooks_after(codegen, ctx)
+        return
+    if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_BOOL:
+        codegen.asm.instr("movq xmm0, rax")
+        codegen.asm.instr("xorpd xmm1, xmm1")
+        codegen.asm.instr("ucomisd xmm0, xmm1")
+        codegen.asm.instr("setne al")
+        codegen.asm.instr("setp dl")
+        codegen.asm.instr("or al, dl")
+        codegen.asm.instr("movzx rax, al")
         return
     if target_type == TYPE_NAME_U8:
         codegen.asm.instr("and rax, 255")

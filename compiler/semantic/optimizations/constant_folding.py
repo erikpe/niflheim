@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U8, TYPE_NAME_U64
@@ -108,7 +109,8 @@ def _fold_expr(expr: SemanticExpr) -> SemanticExpr:
         folded = replace(expr, left=_fold_expr(expr.left), right=_fold_expr(expr.right))
         return _try_fold_binary_expr(folded)
     if isinstance(expr, CastExprS):
-        return replace(expr, operand=_fold_expr(expr.operand))
+        folded = replace(expr, operand=_fold_expr(expr.operand))
+        return _try_fold_cast_expr(folded)
     if isinstance(expr, TypeTestExprS):
         return replace(expr, operand=_fold_expr(expr.operand))
     if isinstance(expr, FieldReadExpr):
@@ -187,6 +189,39 @@ def _try_fold_binary_expr(expr: BinaryExprS) -> SemanticExpr:
     if operand_type_name not in _INTEGER_MASKS:
         return expr
     return _fold_integer_binary_expr(expr, operand_type_name, left_value, right_value)
+
+
+def _try_fold_cast_expr(expr: CastExprS) -> SemanticExpr:
+    operand = expr.operand
+    constant = _literal_constant(operand)
+    if constant is None:
+        return expr
+
+    source_type_name = operand.type_name
+    target_type_name = expr.target_type_name
+
+    if source_type_name == target_type_name:
+        return replace(operand, span=expr.span)
+
+    if target_type_name == TYPE_NAME_DOUBLE:
+        folded = _try_fold_cast_to_double(constant)
+        if folded is None:
+            return expr
+        return _float_literal_expr(folded, span=expr.span)
+
+    if target_type_name in _INTEGER_MASKS:
+        folded = _try_fold_cast_to_integer(constant, target_type_name)
+        if folded is None:
+            return expr
+        return _int_literal_expr(folded, type_name=target_type_name, span=expr.span)
+
+    if target_type_name == TYPE_NAME_BOOL:
+        folded = _try_fold_cast_to_bool(constant)
+        if folded is None:
+            return expr
+        return _bool_literal_expr(folded, span=expr.span)
+
+    return expr
 
 
 def _fold_bool_binary_expr(
@@ -298,6 +333,47 @@ def _fold_integer_binary_expr(
     return expr
 
 
+def _try_fold_cast_to_double(constant) -> float | None:
+    if isinstance(constant, FloatConstant):
+        return constant.value
+    if isinstance(constant, BoolConstant):
+        return float(1 if constant.value else 0)
+
+    integer_value = _integer_constant_value(constant)
+    if integer_value is None:
+        return None
+    return float(integer_value)
+
+
+def _try_fold_cast_to_integer(constant, target_type_name: str) -> int | None:
+    if isinstance(constant, FloatConstant):
+        truncated = _try_truncate_double_to_integer(constant.value, target_type_name)
+        if truncated is None:
+            return None
+        return truncated
+
+    if isinstance(constant, BoolConstant):
+        return _wrap_integer(1 if constant.value else 0, target_type_name)
+
+    integer_value = _integer_constant_value(constant)
+    if integer_value is None:
+        return None
+    return _wrap_integer(integer_value, target_type_name)
+
+
+def _try_fold_cast_to_bool(constant) -> bool | None:
+    if isinstance(constant, BoolConstant):
+        return constant.value
+
+    if isinstance(constant, FloatConstant):
+        return constant.value != 0.0
+
+    integer_value = _integer_constant_value(constant)
+    if integer_value is None:
+        return None
+    return integer_value != 0
+
+
 def _literal_constant(expr: SemanticExpr):
     if isinstance(expr, LiteralExprS):
         return expr.constant
@@ -310,6 +386,21 @@ def _integer_constant_value(constant) -> int | None:
     if isinstance(constant, CharConstant):
         return constant.value
     return None
+
+
+def _try_truncate_double_to_integer(value: float, target_type_name: str) -> int | None:
+    if not math.isfinite(value):
+        return None
+    truncated = math.trunc(value)
+    ranges = {
+        TYPE_NAME_I64: (-(1 << 63), (1 << 63) - 1),
+        TYPE_NAME_U64: (0, (1 << 64) - 1),
+        TYPE_NAME_U8: (0, (1 << 8) - 1),
+    }
+    minimum, maximum = ranges[target_type_name]
+    if truncated < minimum or truncated > maximum:
+        return None
+    return int(truncated)
 
 
 def _wrap_integer(value: int, type_name: str) -> int:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.common.type_names import TYPE_NAME_I64, TYPE_NAME_NULL, TYPE_NAME_OBJ, TYPE_NAME_U64, TYPE_NAME_UNIT
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_NULL, TYPE_NAME_OBJ, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_UNIT
 from compiler.typecheck.context import TypeCheckContext
 from compiler.common.span import SourceSpan
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
@@ -157,7 +157,9 @@ def check_explicit_cast(ctx: TypeCheckContext, source: TypeInfo, target: TypeInf
     if source.kind == "primitive" and target.kind == "primitive":
         if source.name == TYPE_NAME_UNIT or target.name == TYPE_NAME_UNIT:
             raise TypeCheckError("Casts involving 'unit' are not allowed", span)
-        return
+        if _primitive_cast_allowed(source.name, target.name):
+            return
+        raise TypeCheckError(f"Invalid cast from '{source.name}' to '{target.name}'", span)
 
     if source.kind == TYPE_NAME_NULL and target.kind == "interface":
         return
@@ -178,6 +180,17 @@ def check_explicit_cast(ctx: TypeCheckContext, source: TypeInfo, target: TypeInf
         return
 
     raise TypeCheckError(f"Invalid cast from '{source.name}' to '{target.name}'", span)
+
+
+def _primitive_cast_allowed(source_name: str, target_name: str) -> bool:
+    primitive_cast_targets = {
+        TYPE_NAME_BOOL: {TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_DOUBLE},
+        TYPE_NAME_I64: {TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_DOUBLE},
+        TYPE_NAME_U64: {TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_DOUBLE},
+        TYPE_NAME_U8: {TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_DOUBLE},
+        TYPE_NAME_DOUBLE: {TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_DOUBLE},
+    }
+    return target_name in primitive_cast_targets.get(source_name, set())
 
 
 def _class_implements_interface(ctx: TypeCheckContext, class_type_name: str, interface_type_name: str) -> bool:
