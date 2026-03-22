@@ -4,7 +4,8 @@ import std.object;
 import std.str;
 
 
-fn _murmur64(x: u64) -> u64 {
+fn _fmix64(x: u64) -> u64
+{
     x = x ^ (x >> 33u);
     x = x * 0xff51afd7ed558ccdu;
     x = x ^ (x >> 33u);
@@ -39,7 +40,7 @@ export class BoxI64 implements Comparable, Equalable, Hashable
     }
 
     fn hash_code() -> u64 {
-        return _murmur64((u64)__self.val ^ 4529479020710846950u);
+        return _fmix64((u64)__self.val ^ 4529479020710846950u);
     }
 }
 
@@ -69,7 +70,7 @@ export class BoxU64 implements Comparable, Equalable, Hashable
     }
 
     fn hash_code() -> u64 {
-        return _murmur64(__self.val ^ 12912477323686152726u);
+        return _fmix64(__self.val ^ 12912477323686152726u);
     }
 }
 
@@ -99,7 +100,7 @@ export class BoxU8 implements Comparable, Equalable, Hashable
     }
 
     fn hash_code() -> u64 {
-        return _murmur64((u64)__self.val ^ 17242970249212152886u);
+        return _fmix64((u64)__self.val ^ 17242970249212152886u);
     }
 }
 

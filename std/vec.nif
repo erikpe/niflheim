@@ -22,6 +22,12 @@ export class Vec
         return __self._len;
     }
 
+    fn clear() -> unit {
+        __self._len = 0u;
+        __self._capacity = 4u;
+        __self._storage = Obj[](4u);
+    }
+
     fn iter_len() -> u64 {
         return __self._len;
     }
@@ -30,7 +36,7 @@ export class Vec
         return __self._storage[index];
     }
 
-    private fn _grow(min_capacity: u64) -> unit {
+    private fn _maybe_grow(min_capacity: u64) -> unit {
         if __self._capacity >= min_capacity {
             return;
         }
@@ -51,6 +57,23 @@ export class Vec
         __self._capacity = next_capacity;
     }
 
+    private fn _maybe_shrink() -> unit {
+        var next_capacity: u64 = __self._capacity;
+        while next_capacity > 4u && (next_capacity / 2u) >= (__self._len * 2u) {
+            next_capacity = next_capacity / 2u;
+        }
+
+        if next_capacity == __self._capacity {
+            return;
+        }
+
+        var next_storage: Obj[] = Obj[](next_capacity);
+        next_storage[:(i64)__self._len] = __self._storage[:(i64)__self._len];
+
+        __self._capacity = next_capacity;
+        __self._storage = next_storage;
+    }
+
     private fn _normalize_index(index: i64) -> i64 {
         var len_i64: i64 = (i64)__self._len;
         if index < 0 {
@@ -60,7 +83,7 @@ export class Vec
     }
 
     fn push(value: Obj) -> unit {
-        __self._grow(__self._len + 1u);
+        __self._maybe_grow(__self._len + 1u);
         __self._storage[(i64)__self._len] = value;
         __self._len = __self._len + 1u;
     }
@@ -110,5 +133,63 @@ export class Vec
         }
 
         __self._storage[begin:end] = value._storage[0:(i64)value._len];
+    }
+
+    fn map(func: fn(Obj) -> Obj) -> Vec {
+        var out: Vec = Vec.with_capacity(__self._len);
+        var len: i64 = (i64)__self._len;
+        var i: i64 = 0;
+        while i < len {
+            out._storage[i] = func(__self._storage[i]);
+            i = i + 1;
+        }
+        out._len = __self._len;
+        return out;
+    }
+
+    fn filter(pred: fn(Obj) -> bool) -> Vec {
+        var out: Vec = Vec.with_capacity(__self._len);
+        var in_len: i64 = (i64)__self._len;
+        var in_idx: i64 = 0;
+        var out_idx: i64 = 0;
+        while in_idx < in_len {
+            var should_keep: bool = pred(__self._storage[in_idx]);
+            if !should_keep {
+                in_idx = in_idx + 1;
+                continue;
+            }
+            var run_begin: i64 = in_idx;
+            in_idx = in_idx + 1;
+            while in_idx < in_len {
+                should_keep = pred(__self._storage[in_idx]);
+                if !should_keep {
+                    break;
+                }
+                in_idx = in_idx + 1;
+            }
+            if run_begin < in_idx {
+                var run_len: i64 = in_idx - run_begin;
+                out._storage[out_idx:out_idx + run_len] = __self._storage[run_begin:in_idx];
+                out_idx = out_idx + run_len;
+            }
+            if in_idx < in_len {
+                in_idx = in_idx + 1;
+            }
+        }
+        out._len = (u64)out_idx;
+        out._maybe_shrink();
+
+        return out;
+    }
+
+    fn reduce(func: fn(Obj, Obj) -> Obj, initial: Obj) -> Obj {
+        var acc: Obj = initial;
+        var len: i64 = (i64)__self._len;
+        var i: i64 = 0;
+        while i < len {
+            acc = func(acc, __self._storage[i]);
+            i = i + 1;
+        }
+        return acc;
     }
 }

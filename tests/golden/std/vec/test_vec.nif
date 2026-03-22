@@ -2,23 +2,61 @@ import std.test;
 import std.io;
 import std.vec;
 import std.box;
+import std.error;
+
+
+class VisitBox {
+    value: i64;
+    keep: bool;
+    seen: bool;
+}
+
+
+fn is_even_box(value: Obj) -> bool {
+    return (((BoxI64)value).val % 2) != 0;
+}
+
+
+fn is_negative_box(value: Obj) -> bool {
+    return ((BoxI64)value).val >= 0;
+}
+
+
+fn keep_visit_box_once(value: Obj) -> bool {
+    var item: VisitBox = (VisitBox)value;
+    if item.seen {
+        panic("filter called predicate twice for same element");
+    }
+    item.seen = true;
+    return item.keep;
+}
+
+
+fn double_box_i64(value: Obj) -> Obj {
+    return BoxI64(((BoxI64)value).val * 2);
+}
+
+
+fn sum_box_i64(acc: Obj, value: Obj) -> Obj {
+    return BoxI64(((BoxI64)acc).val + ((BoxI64)value).val);
+}
 
 
 fn test_vec_baseline() -> unit {
     var v: Vec = Vec.new();
-    assert(v.len() == 0u);
+    assert_eq_u64(v.len(), 0u);
 
     v.push(BoxI64(10));
     v.push(BoxI64(20));
-    assert(v.len() == 2u);
+    assert_eq_u64(v.len(), 2u);
 
     var first: i64 = ((BoxI64)v[0]).val;
     var second: i64 = ((BoxI64)v[1]).val;
-    assert(first == 10);
-    assert(second == 20);
+    assert_eq_i64(first, 10);
+    assert_eq_i64(second, 20);
 
     v[1] = BoxI64(99);
-    assert(((BoxI64)v[1]).val == 99);
+    assert_eq_i64(((BoxI64)v[1]).val, 99);
 }
 
 
@@ -29,14 +67,14 @@ fn test_vec_index_sugar_with_wrapping_negative_indexes() -> unit {
     v.push(BoxI64(30));
     v.push(BoxI64(40));
 
-    assert(((BoxI64)v[-1]).val == 40);
-    assert(((BoxI64)v[-4]).val == 10);
+    assert_eq_i64(((BoxI64)v[-1]).val, 40);
+    assert_eq_i64(((BoxI64)v[-4]).val, 10);
 
     v[-1] = BoxI64(99);
-    assert(((BoxI64)v[3]).val == 99);
+    assert_eq_i64(((BoxI64)v[3]).val, 99);
 
     v[-4] = BoxI64(77);
-    assert(((BoxI64)v[0]).val == 77);
+    assert_eq_i64(((BoxI64)v[0]).val, 77);
 }
 
 
@@ -48,39 +86,39 @@ fn test_vec_slice_sugar_forms_and_negative_wrapping() -> unit {
     v.push(BoxI64(40));
 
     var a: Vec = v[1:3];
-    assert(a.len() == 2u);
-    assert(((BoxI64)a[0]).val == 20);
-    assert(((BoxI64)a[1]).val == 30);
+    assert_eq_u64(a.len(), 2u);
+    assert_eq_i64(((BoxI64)a[0]).val, 20);
+    assert_eq_i64(((BoxI64)a[1]).val, 30);
 
     var b: Vec = v[:2];
-    assert(b.len() == 2u);
-    assert(((BoxI64)b[0]).val == 10);
-    assert(((BoxI64)b[1]).val == 20);
+    assert_eq_u64(b.len(), 2u);
+    assert_eq_i64(((BoxI64)b[0]).val, 10);
+    assert_eq_i64(((BoxI64)b[1]).val, 20);
 
     var c: Vec = v[2:];
-    assert(c.len() == 2u);
-    assert(((BoxI64)c[0]).val == 30);
-    assert(((BoxI64)c[1]).val == 40);
+    assert_eq_u64(c.len(), 2u);
+    assert_eq_i64(((BoxI64)c[0]).val, 30);
+    assert_eq_i64(((BoxI64)c[1]).val, 40);
 
     var d: Vec = v[:];
-    assert(d.len() == 4u);
-    assert(((BoxI64)d[0]).val == 10);
-    assert(((BoxI64)d[3]).val == 40);
+    assert_eq_u64(d.len(), 4u);
+    assert_eq_i64(((BoxI64)d[0]).val, 10);
+    assert_eq_i64(((BoxI64)d[3]).val, 40);
 
     var e: Vec = v[-3:-1];
-    assert(e.len() == 2u);
-    assert(((BoxI64)e[0]).val == 20);
-    assert(((BoxI64)e[1]).val == 30);
+    assert_eq_u64(e.len(), 2u);
+    assert_eq_i64(((BoxI64)e[0]).val, 20);
+    assert_eq_i64(((BoxI64)e[1]).val, 30);
 
     var f: Vec = v[:-1];
-    assert(f.len() == 3u);
-    assert(((BoxI64)f[0]).val == 10);
-    assert(((BoxI64)f[2]).val == 30);
+    assert_eq_u64(f.len(), 3u);
+    assert_eq_i64(((BoxI64)f[0]).val, 10);
+    assert_eq_i64(((BoxI64)f[2]).val, 30);
 
     var g: Vec = v[-2:];
-    assert(g.len() == 2u);
-    assert(((BoxI64)g[0]).val == 30);
-    assert(((BoxI64)g[1]).val == 40);
+    assert_eq_u64(g.len(), 2u);
+    assert_eq_i64(((BoxI64)g[0]).val, 30);
+    assert_eq_i64(((BoxI64)g[1]).val, 40);
 }
 
 
@@ -91,12 +129,12 @@ fn test_vec_slice_copy_independence() -> unit {
     v.push(BoxI64(30));
 
     var s: Vec = v[1:3];
-    assert(s.len() == 2u);
-    assert(((BoxI64)s[0]).val == 20);
-    assert(((BoxI64)s[1]).val == 30);
+    assert_eq_u64(s.len(), 2u);
+    assert_eq_i64(((BoxI64)s[0]).val, 20);
+    assert_eq_i64(((BoxI64)s[1]).val, 30);
 
     v[1] = BoxI64(99);
-    assert(((BoxI64)s[0]).val == 20);
+    assert_eq_i64(((BoxI64)s[0]).val, 20);
 }
 
 
@@ -108,9 +146,9 @@ fn test_vec_grow_and_copy() -> unit {
         i = i + 1;
     }
 
-    assert(v.len() == 20u);
-    assert(((BoxI64)v[0]).val == 0);
-    assert(((BoxI64)v[19]).val == 19);
+    assert_eq_u64(v.len(), 20u);
+    assert_eq_i64(((BoxI64)v[0]).val, 0);
+    assert_eq_i64(((BoxI64)v[19]).val, 19);
 }
 
 
@@ -175,10 +213,10 @@ fn test_vec_slice_reversed_panics() -> unit {
 
 fn test_vec_with_capacity_zero_is_allowed() -> unit {
     var v: Vec = Vec.with_capacity(0u);
-    assert(v.len() == 0u);
+    assert_eq_u64(v.len(), 0u);
     v.push(BoxI64(7));
-    assert(v.len() == 1u);
-    assert(((BoxI64)v[0]).val == 7);
+    assert_eq_u64(v.len(), 1u);
+    assert_eq_i64(((BoxI64)v[0]).val, 7);
 }
 
 
@@ -194,10 +232,10 @@ fn test_vec_slice_write_sugar_updates_range() -> unit {
     repl.push(BoxI64(8));
 
     v[1:3] = repl;
-    assert(((BoxI64)v[0]).val == 10);
-    assert(((BoxI64)v[1]).val == 7);
-    assert(((BoxI64)v[2]).val == 8);
-    assert(((BoxI64)v[3]).val == 40);
+    assert_eq_i64(((BoxI64)v[0]).val, 10);
+    assert_eq_i64(((BoxI64)v[1]).val, 7);
+    assert_eq_i64(((BoxI64)v[2]).val, 8);
+    assert_eq_i64(((BoxI64)v[3]).val, 40);
 }
 
 
@@ -234,7 +272,112 @@ fn test_vec_for_in_iteration() -> unit {
         sum = sum + ((BoxI64)elem).val;
     }
 
-    assert(sum == 6);
+    assert_eq_i64(sum, 6);
+}
+
+
+fn test_vec_map_returns_transformed_copy() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(2));
+    v.push(BoxI64(-3));
+    v.push(BoxI64(5));
+
+    var out: Vec = v.map(double_box_i64);
+
+    assert_eq_u64(v.len(), 3u);
+    assert_eq_u64(out.len(), 3u);
+    assert_eq_i64(((BoxI64)v[0]).val, 2);
+    assert_eq_i64(((BoxI64)v[1]).val, -3);
+    assert_eq_i64(((BoxI64)v[2]).val, 5);
+    assert_eq_i64(((BoxI64)out[0]).val, 4);
+    assert_eq_i64(((BoxI64)out[1]).val, -6);
+    assert_eq_i64(((BoxI64)out[2]).val, 10);
+}
+
+
+fn test_vec_reduce_accumulates_values() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(4));
+    v.push(BoxI64(-1));
+    v.push(BoxI64(7));
+
+    var out: Obj = v.reduce(sum_box_i64, BoxI64(10));
+
+    assert_eq_i64(((BoxI64)out).val, 20);
+}
+
+
+fn test_vec_clear_resets_length_and_allows_reuse() -> unit {
+    var v: Vec = Vec.with_capacity(16u);
+    v.push(BoxI64(1));
+    v.push(BoxI64(2));
+    v.push(BoxI64(3));
+
+    v.clear();
+
+    assert_eq_u64(v.len(), 0u);
+
+    v.push(BoxI64(9));
+    assert_eq_u64(v.len(), 1u);
+    assert_eq_i64(((BoxI64)v[0]).val, 9);
+}
+
+
+fn test_vec_filter_copies_kept_runs() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(1));
+    v.push(BoxI64(2));
+    v.push(BoxI64(4));
+    v.push(BoxI64(3));
+    v.push(BoxI64(5));
+    v.push(BoxI64(6));
+    v.push(BoxI64(8));
+    v.push(BoxI64(7));
+
+    var out: Vec = v.filter(is_even_box);
+
+    assert_eq_u64(v.len(), 8u);
+    assert_eq_u64(out.len(), 4u);
+    assert_eq_i64(((BoxI64)out[0]).val, 1);
+    assert_eq_i64(((BoxI64)out[1]).val, 3);
+    assert_eq_i64(((BoxI64)out[2]).val, 5);
+    assert_eq_i64(((BoxI64)out[3]).val, 7);
+}
+
+
+fn test_vec_filter_all_removed() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(-1));
+    v.push(BoxI64(-2));
+    v.push(BoxI64(-3));
+
+    var out: Vec = v.filter(is_negative_box);
+
+    assert_eq_u64(v.len(), 3u);
+    assert_eq_u64(out.len(), 0u);
+}
+
+
+fn test_vec_filter_calls_predicate_once_per_element() -> unit {
+    var v: Vec = Vec.new();
+    v.push(VisitBox(1, true, false));
+    v.push(VisitBox(2, false, false));
+    v.push(VisitBox(3, true, false));
+    v.push(VisitBox(4, true, false));
+    v.push(VisitBox(5, false, false));
+
+    var out: Vec = v.filter(keep_visit_box_once);
+
+    assert_eq_u64(v.len(), 5u);
+    assert_eq_u64(out.len(), 3u);
+    assert(((VisitBox)v[0]).seen);
+    assert(((VisitBox)v[1]).seen);
+    assert(((VisitBox)v[2]).seen);
+    assert(((VisitBox)v[3]).seen);
+    assert(((VisitBox)v[4]).seen);
+    assert_eq_i64(((VisitBox)out[0]).value, 1);
+    assert_eq_i64(((VisitBox)out[1]).value, 3);
+    assert_eq_i64(((VisitBox)out[2]).value, 4);
 }
 
 
@@ -259,6 +402,12 @@ fn main() -> i64 {
     if select == 16u { test_vec_slice_write_length_mismatch_panics(); }
     if select == 17u { test_vec_slice_write_oob_panics(); }
     if select == 18u { test_vec_for_in_iteration(); }
+    if select == 19u { test_vec_filter_copies_kept_runs(); }
+    if select == 20u { test_vec_filter_all_removed(); }
+    if select == 21u { test_vec_filter_calls_predicate_once_per_element(); }
+    if select == 22u { test_vec_map_returns_transformed_copy(); }
+    if select == 23u { test_vec_reduce_accumulates_values(); }
+    if select == 24u { test_vec_clear_resets_length_and_allows_reuse(); }
 
     return 0;
 }

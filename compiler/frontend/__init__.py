@@ -1,1 +1,0 @@
-"""Frontend syntax package: parser and AST modules."""

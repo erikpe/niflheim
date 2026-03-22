@@ -17,3 +17,9 @@ runs:
   - { name: vec_slice_write_length_mismatch_panics, input: { stdin: "16" }, expect: { panic: "Vec.slice_set: length mismatch" } }
   - { name: vec_slice_write_oob_panics, input: { stdin: "17" }, expect: { panic: "Vec.slice_set: invalid slice range" } }
   - { name: vec_for_in_iteration, input: { stdin: "18" }, expect: { exit_code: 0 } }
+  - { name: vec_filter_copies_kept_runs, input: { stdin: "19" }, expect: { exit_code: 0 } }
+  - { name: vec_filter_all_removed, input: { stdin: "20" }, expect: { exit_code: 0 } }
+  - { name: vec_filter_calls_predicate_once_per_element, input: { stdin: "21" }, expect: { exit_code: 0 } }
+  - { name: vec_map_returns_transformed_copy, input: { stdin: "22" }, expect: { exit_code: 0 } }
+  - { name: vec_reduce_accumulates_values, input: { stdin: "23" }, expect: { exit_code: 0 } }
+  - { name: vec_clear_resets_length_and_allows_reuse, input: { stdin: "24" }, expect: { exit_code: 0 } }
