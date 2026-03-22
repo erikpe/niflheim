@@ -3,7 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.resolver import resolve_program
-from compiler.semantic.ir import BoolConstant, BinaryExprS, CastExprS, FloatConstant, FunctionCallExpr, IntConstant, LiteralExprS, SemanticReturn
+from compiler.semantic.ir import (
+    BinaryExprS,
+    BoolConstant,
+    CastExprS,
+    FloatConstant,
+    FunctionCallExpr,
+    IntConstant,
+    LiteralExprS,
+    SemanticReturn,
+    SemanticVarDecl,
+    SemanticWhile,
+)
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.constant_folding import fold_constants
 
@@ -195,3 +206,120 @@ def test_fold_constants_folds_u64_to_double_using_unsigned_numeric_conversion(tm
     assert isinstance(return_stmt.value, LiteralExprS)
     assert isinstance(return_stmt.value.constant, FloatConstant)
     assert return_stmt.value.constant.value == float(18446744073709551615)
+
+
+def test_fold_constants_propagates_literal_locals_within_a_block(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var x: i64 = 23;
+            var y: i64 = x + 17;
+            return y;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = folded.modules[("main",)].functions[0].body.statements
+
+    y_decl = statements[1]
+    return_stmt = statements[2]
+
+    assert isinstance(y_decl, SemanticVarDecl)
+    assert isinstance(y_decl.initializer, LiteralExprS)
+    assert isinstance(y_decl.initializer.constant, IntConstant)
+    assert y_decl.initializer.constant.value == 40
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LiteralExprS)
+    assert isinstance(return_stmt.value.constant, IntConstant)
+    assert return_stmt.value.constant.value == 40
+
+
+def test_fold_constants_invalidates_propagation_after_local_assignment(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(value: i64) -> i64 {
+            var x: i64 = 23;
+            x = value;
+            return x + 17;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = folded.modules[("main",)].functions[0].body.statements[2]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, BinaryExprS)
+
+
+def test_fold_constants_is_conservative_across_control_flow(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(flag: bool) -> i64 {
+            var x: i64 = 23;
+            if flag {
+            }
+            return x + 17;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = folded.modules[("main",)].functions[0].body.statements[2]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, BinaryExprS)
+
+
+def test_fold_constants_does_not_propagate_into_while_loops(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var x: i64 = 0;
+            while x < 3 {
+                x = x + 1;
+            }
+            return x;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    while_stmt = folded.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(while_stmt, SemanticWhile)
+    assert isinstance(while_stmt.condition, BinaryExprS)
+
+
+def test_fold_constants_distinguishes_literal_and_runtime_addition_paths(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(runtime_value: i64) -> i64 {
+            var literal_sum: i64 = 23 + 17;
+            var runtime_sum: i64 = runtime_value + 17;
+
+            return literal_sum + runtime_sum;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = folded.modules[("main",)].functions[0].body.statements
+
+    literal_sum_decl = statements[0]
+    runtime_sum_decl = statements[1]
+
+    assert isinstance(literal_sum_decl, SemanticVarDecl)
+    assert isinstance(literal_sum_decl.initializer, LiteralExprS)
+    assert isinstance(literal_sum_decl.initializer.constant, IntConstant)
+    assert literal_sum_decl.initializer.constant.value == 40
+
+    assert isinstance(runtime_sum_decl, SemanticVarDecl)
+    assert isinstance(runtime_sum_decl.initializer, BinaryExprS)
