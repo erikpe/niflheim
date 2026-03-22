@@ -1,5 +1,24 @@
 runs:
-  - name: addition
+  - name: addition_i64
+    input:
+      args: ["1", "-9223372036854775808", "9223372036854775807", "0", "1", "-1", "123456789"]
     expect:
       exit_code: 0
-      stdout_file: "test_addition_expected.txt"
+
+  - name: addition_u64
+    input:
+      args: ["2", "0", "1", "18446744073709551615", "1000000000", "4000000000000000000"]
+    expect:
+      exit_code: 0
+
+  - name: addition_u8
+    input:
+      args: ["3", "0", "1", "255", "17", "200"]
+    expect:
+      exit_code: 0
+
+  - name: addition_double
+    input:
+      args: ["4", "-1.5", "0.0", "1.0", "1000000.25", "0.75"]
+    expect:
+      exit_code: 0

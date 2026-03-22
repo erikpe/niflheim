@@ -1,0 +1,446 @@
+import std.io;
+import std.str;
+import std.test;
+
+
+fn test_bool_to_bool(input: Str[]) -> unit {
+    assert_eq_bool((bool)false, false);
+    assert_eq_bool((bool)true, true);
+
+    assert_eq_bool((bool)input[0].to_bool(), false);
+    assert_eq_bool((bool)input[1].to_bool(), true);
+}
+
+
+fn test_bool_to_i64(input: Str[]) -> unit {
+    assert_eq_i64((i64)false, 0);
+    assert_eq_i64((i64)true, 1);
+
+    assert_eq_i64((i64)input[0].to_bool(), 0);
+    assert_eq_i64((i64)input[1].to_bool(), 1);
+}
+
+
+fn test_bool_to_u64(input: Str[]) -> unit {
+    assert_eq_u64((u64)false, 0u);
+    assert_eq_u64((u64)true, 1u);
+
+    assert_eq_u64((u64)input[0].to_bool(), 0u);
+    assert_eq_u64((u64)input[1].to_bool(), 1u);
+}
+
+
+fn test_bool_to_u8(input: Str[]) -> unit {
+    assert_eq_u8((u8)false, 0u8);
+    assert_eq_u8((u8)true, 1u8);
+
+    assert_eq_u8((u8)input[0].to_bool(), 0u8);
+    assert_eq_u8((u8)input[1].to_bool(), 1u8);
+}
+
+
+fn test_bool_to_double(input: Str[]) -> unit {
+    assert_eq_double((double)false, 0.0);
+    assert_eq_double((double)true, 1.0);
+
+    assert_eq_double((double)input[0].to_bool(), 0.0);
+    assert_eq_double((double)input[1].to_bool(), 1.0);
+}
+
+
+fn test_i64_to_bool(input: Str[]) -> unit {
+    assert_eq_bool((bool)0, false);
+    assert_eq_bool((bool)1, true);
+    assert_eq_bool((bool)(-1), true);
+    assert_eq_bool((bool)(-9223372036854775808), true);
+
+    assert_eq_bool((bool)input[0].to_i64(), false);
+    assert_eq_bool((bool)input[1].to_i64(), true);
+    assert_eq_bool((bool)input[2].to_i64(), true);
+    assert_eq_bool((bool)input[3].to_i64(), true);
+}
+
+
+fn test_i64_to_i64(input: Str[]) -> unit {
+    assert_eq_i64((i64)0, 0);
+    assert_eq_i64((i64)42, 42);
+    assert_eq_i64((i64)(-42), -42);
+    assert_eq_i64((i64)(-9223372036854775808), -9223372036854775808);
+    assert_eq_i64((i64)9223372036854775807, 9223372036854775807);
+
+    assert_eq_i64((i64)input[0].to_i64(), 0);
+    assert_eq_i64((i64)input[1].to_i64(), 42);
+    assert_eq_i64((i64)input[2].to_i64(), -42);
+    assert_eq_i64((i64)input[3].to_i64(), -9223372036854775808);
+    assert_eq_i64((i64)input[4].to_i64(), 9223372036854775807);
+}
+
+
+fn test_i64_to_u64(input: Str[]) -> unit {
+    assert_eq_u64((u64)0, 0u);
+    assert_eq_u64((u64)42, 42u);
+    assert_eq_u64((u64)(-1), 18446744073709551615u);
+    assert_eq_u64((u64)(9223372036854775807), 9223372036854775807u);
+    assert_eq_u64((u64)(-9223372036854775808), 9223372036854775808u);
+    assert_eq_u64((u64)(-9223372036854775807), 9223372036854775809u);
+
+    assert_eq_u64((u64)input[0].to_i64(), 0u);
+    assert_eq_u64((u64)input[1].to_i64(), 42u);
+    assert_eq_u64((u64)input[2].to_i64(), 18446744073709551615u);
+    assert_eq_u64((u64)input[3].to_i64(), 9223372036854775807u);
+    assert_eq_u64((u64)input[4].to_i64(), 9223372036854775808u);
+    assert_eq_u64((u64)input[5].to_i64(), 9223372036854775809u);
+}
+
+
+fn test_i64_to_u8(input: Str[]) -> unit {
+    assert_eq_u8((u8)0, 0u8);
+    assert_eq_u8((u8)1, 1u8);
+    assert_eq_u8((u8)255, 255u8);
+    assert_eq_u8((u8)256, 0u8);
+    assert_eq_u8((u8)257, 1u8);
+    assert_eq_u8((u8)(-1), 255u8);
+    assert_eq_u8((u8)(-2), 254u8);
+
+    assert_eq_u8((u8)input[0].to_i64(), 0u8);
+    assert_eq_u8((u8)input[1].to_i64(), 1u8);
+    assert_eq_u8((u8)input[2].to_i64(), 255u8);
+    assert_eq_u8((u8)input[3].to_i64(), 0u8);
+    assert_eq_u8((u8)input[4].to_i64(), 1u8);
+    assert_eq_u8((u8)input[5].to_i64(), 255u8);
+    assert_eq_u8((u8)input[6].to_i64(), 254u8);
+}
+
+
+fn test_i64_to_double(input: Str[]) -> unit {
+    assert_eq_double((double)0, 0.0);
+    assert_eq_double((double)42, 42.0);
+    assert_eq_double((double)(-42), -42.0);
+    assert((double)9223372036854775807 > 9000000000000000000.0);
+    assert((double)(-9223372036854775808) < -9000000000000000000.0);
+
+    assert_eq_double((double)input[0].to_i64(), 0.0);
+    assert_eq_double((double)input[1].to_i64(), 42.0);
+    assert_eq_double((double)input[2].to_i64(), -42.0);
+    assert((double)input[3].to_i64() > 9000000000000000000.0);
+    assert((double)input[4].to_i64() < -9000000000000000000.0);
+}
+
+
+fn test_u64_to_bool(input: Str[]) -> unit {
+    assert_eq_bool((bool)0u, false);
+    assert_eq_bool((bool)1u, true);
+    assert_eq_bool((bool)18446744073709551615u, true);
+
+    assert_eq_bool((bool)input[0].to_u64(), false);
+    assert_eq_bool((bool)input[1].to_u64(), true);
+    assert_eq_bool((bool)input[2].to_u64(), true);
+}
+
+
+fn test_u64_to_i64(input: Str[]) -> unit {
+    assert_eq_i64((i64)0u, 0);
+    assert_eq_i64((i64)1u, 1);
+    assert_eq_i64((i64)9223372036854775807u, 9223372036854775807);
+    assert_eq_i64((i64)9223372036854775808u, -9223372036854775808);
+    assert_eq_i64((i64)18446744073709551615u, -1);
+
+    assert_eq_i64((i64)input[0].to_u64(), 0);
+    assert_eq_i64((i64)input[1].to_u64(), 1);
+    assert_eq_i64((i64)input[2].to_u64(), 9223372036854775807);
+    assert_eq_i64((i64)input[3].to_u64(), -9223372036854775808);
+    assert_eq_i64((i64)input[4].to_u64(), -1);
+}
+
+
+fn test_u64_to_u64(input: Str[]) -> unit {
+    assert_eq_u64((u64)0u, 0u);
+    assert_eq_u64((u64)42u, 42u);
+    assert_eq_u64((u64)9223372036854775808u, 9223372036854775808u);
+    assert_eq_u64((u64)18446744073709551615u, 18446744073709551615u);
+
+    assert_eq_u64((u64)input[0].to_u64(), 0u);
+    assert_eq_u64((u64)input[1].to_u64(), 42u);
+    assert_eq_u64((u64)input[2].to_u64(), 9223372036854775808u);
+    assert_eq_u64((u64)input[3].to_u64(), 18446744073709551615u);
+}
+
+
+fn test_u64_to_u8(input: Str[]) -> unit {
+    assert_eq_u8((u8)0u, 0u8);
+    assert_eq_u8((u8)255u, 255u8);
+    assert_eq_u8((u8)256u, 0u8);
+    assert_eq_u8((u8)257u, 1u8);
+    assert_eq_u8((u8)18446744073709551615u, 255u8);
+
+    assert_eq_u8((u8)input[0].to_u64(), 0u8);
+    assert_eq_u8((u8)input[1].to_u64(), 255u8);
+    assert_eq_u8((u8)input[2].to_u64(), 0u8);
+    assert_eq_u8((u8)input[3].to_u64(), 1u8);
+    assert_eq_u8((u8)input[4].to_u64(), 255u8);
+}
+
+
+fn test_u64_to_double(input: Str[]) -> unit {
+    assert_eq_double((double)0u, 0.0);
+    assert_eq_double((double)1u, 1.0);
+    assert_eq_double((double)42u, 42.0);
+    assert((double)18446744073709551615u > 18000000000000000000.0);
+    assert((double)18446744073709551615u > (double)9223372036854775807);
+
+    assert_eq_double((double)input[0].to_u64(), 0.0);
+    assert_eq_double((double)input[1].to_u64(), 1.0);
+    assert_eq_double((double)input[2].to_u64(), 42.0);
+    assert((double)input[3].to_u64() > 18000000000000000000.0);
+    assert((double)input[3].to_u64() > (double)9223372036854775807);
+}
+
+
+fn test_u8_to_bool(input: Str[]) -> unit {
+    assert_eq_bool((bool)0u8, false);
+    assert_eq_bool((bool)1u8, true);
+    assert_eq_bool((bool)255u8, true);
+
+    assert_eq_bool((bool)(u8)input[0].to_u64(), false);
+    assert_eq_bool((bool)(u8)input[1].to_u64(), true);
+    assert_eq_bool((bool)(u8)input[2].to_u64(), true);
+}
+
+
+fn test_u8_to_i64(input: Str[]) -> unit {
+    assert_eq_i64((i64)0u8, 0);
+    assert_eq_i64((i64)1u8, 1);
+    assert_eq_i64((i64)255u8, 255);
+
+    assert_eq_i64((i64)(u8)input[0].to_u64(), 0);
+    assert_eq_i64((i64)(u8)input[1].to_u64(), 1);
+    assert_eq_i64((i64)(u8)input[2].to_u64(), 255);
+}
+
+
+fn test_u8_to_u64(input: Str[]) -> unit {
+    assert_eq_u64((u64)0u8, 0u);
+    assert_eq_u64((u64)1u8, 1u);
+    assert_eq_u64((u64)255u8, 255u);
+
+    assert_eq_u64((u64)(u8)input[0].to_u64(), 0u);
+    assert_eq_u64((u64)(u8)input[1].to_u64(), 1u);
+    assert_eq_u64((u64)(u8)input[2].to_u64(), 255u);
+}
+
+
+fn test_u8_to_u8(input: Str[]) -> unit {
+    assert_eq_u8((u8)0u8, 0u8);
+    assert_eq_u8((u8)1u8, 1u8);
+    assert_eq_u8((u8)255u8, 255u8);
+
+    assert_eq_u8((u8)(u8)input[0].to_u64(), 0u8);
+    assert_eq_u8((u8)(u8)input[1].to_u64(), 1u8);
+    assert_eq_u8((u8)(u8)input[2].to_u64(), 255u8);
+}
+
+
+fn test_u8_to_double(input: Str[]) -> unit {
+    assert_eq_double((double)0u8, 0.0);
+    assert_eq_double((double)1u8, 1.0);
+    assert_eq_double((double)255u8, 255.0);
+
+    assert_eq_double((double)(u8)input[0].to_u64(), 0.0);
+    assert_eq_double((double)(u8)input[1].to_u64(), 1.0);
+    assert_eq_double((double)(u8)input[2].to_u64(), 255.0);
+}
+
+
+fn test_double_to_bool(input: Str[]) -> unit {
+    assert_eq_bool((bool)0.0, false);
+    assert_eq_bool((bool)-0.0, false);
+    assert_eq_bool((bool)0.5, true);
+    assert_eq_bool((bool)-0.5, true);
+    assert_eq_bool((bool)42.0, true);
+
+    assert_eq_bool((bool)input[0].to_double(), false);
+    assert_eq_bool((bool)input[1].to_double(), false);
+    assert_eq_bool((bool)input[2].to_double(), true);
+    assert_eq_bool((bool)input[3].to_double(), true);
+    assert_eq_bool((bool)input[4].to_double(), true);
+}
+
+
+fn test_double_to_i64(input: Str[]) -> unit {
+    assert_eq_i64((i64)0.0, 0);
+    assert_eq_i64((i64)-0.0, 0);
+    assert_eq_i64((i64)0.5, 0);
+    assert_eq_i64((i64)-0.5, 0);
+    assert_eq_i64((i64)7.9, 7);
+    assert_eq_i64((i64)-7.9, -7);
+    assert_eq_i64((i64)4294967296.75, 4294967296);
+    assert_eq_i64((i64)-4294967296.75, -4294967296);
+
+    assert_eq_i64((i64)input[0].to_double(), 0);
+    assert_eq_i64((i64)input[1].to_double(), 0);
+    assert_eq_i64((i64)input[2].to_double(), 0);
+    assert_eq_i64((i64)input[3].to_double(), 0);
+    assert_eq_i64((i64)input[4].to_double(), 7);
+    assert_eq_i64((i64)input[5].to_double(), -7);
+    assert_eq_i64((i64)input[6].to_double(), 4294967296);
+    assert_eq_i64((i64)input[7].to_double(), -4294967296);
+}
+
+
+fn test_double_to_u64(input: Str[]) -> unit {
+    assert_eq_u64((u64)0.0, 0u);
+    assert_eq_u64((u64)-0.0, 0u);
+    assert_eq_u64((u64)0.5, 0u);
+    assert_eq_u64((u64)7.9, 7u);
+    assert_eq_u64((u64)255.9, 255u);
+    assert_eq_u64((u64)4294967296.75, 4294967296u);
+
+    assert_eq_u64((u64)input[0].to_double(), 0u);
+    assert_eq_u64((u64)input[1].to_double(), 0u);
+    assert_eq_u64((u64)input[2].to_double(), 0u);
+    assert_eq_u64((u64)input[3].to_double(), 7u);
+    assert_eq_u64((u64)input[4].to_double(), 255u);
+    assert_eq_u64((u64)input[5].to_double(), 4294967296u);
+}
+
+
+fn test_double_to_u8(input: Str[]) -> unit {
+    assert_eq_u8((u8)0.0, 0u8);
+    assert_eq_u8((u8)-0.0, 0u8);
+    assert_eq_u8((u8)0.5, 0u8);
+    assert_eq_u8((u8)7.9, 7u8);
+    assert_eq_u8((u8)255.9, 255u8);
+
+    assert_eq_u8((u8)input[0].to_double(), 0u8);
+    assert_eq_u8((u8)input[1].to_double(), 0u8);
+    assert_eq_u8((u8)input[2].to_double(), 0u8);
+    assert_eq_u8((u8)input[3].to_double(), 7u8);
+    assert_eq_u8((u8)input[4].to_double(), 255u8);
+}
+
+
+fn test_double_to_double(input: Str[]) -> unit {
+    assert_eq_double((double)0.0, 0.0);
+    assert_eq_double((double)-0.0, -0.0);
+    assert_eq_double((double)1.5, 1.5);
+    assert_eq_double((double)-2.25, -2.25);
+    assert_eq_double((double)123456.125, 123456.125);
+
+    assert_eq_double((double)input[0].to_double(), 0.0);
+    assert_eq_double((double)input[1].to_double(), -0.0);
+    assert_eq_double((double)input[2].to_double(), 1.5);
+    assert_eq_double((double)input[3].to_double(), -2.25);
+    assert_eq_double((double)input[4].to_double(), 123456.125);
+}
+
+
+fn test_double_to_i64_panic_above_max() -> unit {
+    var _value: i64 = (i64)9223372036854775808.0;
+}
+
+
+fn test_double_to_i64_panic_above_max_from_arg(input: Str[]) -> unit {
+    var _value: i64 = (i64)input[0].to_double();
+}
+
+
+fn test_double_to_i64_panic_below_min() -> unit {
+    var _value: i64 = (i64)-10000000000000000000.0;
+}
+
+
+fn test_double_to_i64_panic_below_min_from_arg(input: Str[]) -> unit {
+    var _value: i64 = (i64)input[0].to_double();
+}
+
+
+fn test_double_to_u64_panic_negative() -> unit {
+    var _value: u64 = (u64)-1.0;
+}
+
+
+fn test_double_to_u64_panic_negative_from_arg(input: Str[]) -> unit {
+    var _value: u64 = (u64)input[0].to_double();
+}
+
+
+fn test_double_to_u64_panic_above_max() -> unit {
+    var _value: u64 = (u64)18446744073709551616.0;
+}
+
+
+fn test_double_to_u64_panic_above_max_from_arg(input: Str[]) -> unit {
+    var _value: u64 = (u64)input[0].to_double();
+}
+
+
+fn test_double_to_u8_panic_negative() -> unit {
+    var _value: u8 = (u8)-1.0;
+}
+
+
+fn test_double_to_u8_panic_negative_from_arg(input: Str[]) -> unit {
+    var _value: u8 = (u8)input[0].to_double();
+}
+
+
+fn test_double_to_u8_panic_above_max() -> unit {
+    var _value: u8 = (u8)256.0;
+}
+
+
+fn test_double_to_u8_panic_above_max_from_arg(input: Str[]) -> unit {
+    var _value: u8 = (u8)input[0].to_double();
+}
+
+
+fn main() -> i64 {
+    var args: Str[] = read_program_args();
+    var select: u64 = args[1].to_u64();
+
+    if select == 1u { test_bool_to_bool(args[2:]); return 0; }
+    if select == 2u { test_bool_to_i64(args[2:]); return 0; }
+    if select == 3u { test_bool_to_u64(args[2:]); return 0; }
+    if select == 4u { test_bool_to_u8(args[2:]); return 0; }
+    if select == 5u { test_bool_to_double(args[2:]); return 0; }
+
+    if select == 6u { test_i64_to_bool(args[2:]); return 0; }
+    if select == 7u { test_i64_to_i64(args[2:]); return 0; }
+    if select == 8u { test_i64_to_u64(args[2:]); return 0; }
+    if select == 9u { test_i64_to_u8(args[2:]); return 0; }
+    if select == 10u { test_i64_to_double(args[2:]); return 0; }
+
+    if select == 11u { test_u64_to_bool(args[2:]); return 0; }
+    if select == 12u { test_u64_to_i64(args[2:]); return 0; }
+    if select == 13u { test_u64_to_u64(args[2:]); return 0; }
+    if select == 14u { test_u64_to_u8(args[2:]); return 0; }
+    if select == 15u { test_u64_to_double(args[2:]); return 0; }
+
+    if select == 16u { test_u8_to_bool(args[2:]); return 0; }
+    if select == 17u { test_u8_to_i64(args[2:]); return 0; }
+    if select == 18u { test_u8_to_u64(args[2:]); return 0; }
+    if select == 19u { test_u8_to_u8(args[2:]); return 0; }
+    if select == 20u { test_u8_to_double(args[2:]); return 0; }
+
+    if select == 21u { test_double_to_bool(args[2:]); return 0; }
+    if select == 22u { test_double_to_i64(args[2:]); return 0; }
+    if select == 23u { test_double_to_u64(args[2:]); return 0; }
+    if select == 24u { test_double_to_u8(args[2:]); return 0; }
+    if select == 25u { test_double_to_double(args[2:]); return 0; }
+
+    if select == 26u { test_double_to_i64_panic_above_max(); return 0; }
+    if select == 27u { test_double_to_i64_panic_below_min(); return 0; }
+    if select == 28u { test_double_to_u64_panic_negative(); return 0; }
+    if select == 29u { test_double_to_u64_panic_above_max(); return 0; }
+    if select == 30u { test_double_to_u8_panic_negative(); return 0; }
+    if select == 31u { test_double_to_u8_panic_above_max(); return 0; }
+
+    if select == 32u { test_double_to_i64_panic_above_max_from_arg(args[2:]); return 0; }
+    if select == 33u { test_double_to_i64_panic_below_min_from_arg(args[2:]); return 0; }
+    if select == 34u { test_double_to_u64_panic_negative_from_arg(args[2:]); return 0; }
+    if select == 35u { test_double_to_u64_panic_above_max_from_arg(args[2:]); return 0; }
+    if select == 36u { test_double_to_u8_panic_negative_from_arg(args[2:]); return 0; }
+    if select == 37u { test_double_to_u8_panic_above_max_from_arg(args[2:]); return 0; }
+
+    return 99;
+}

@@ -7,3 +7,45 @@ export fn assert(condition: bool) -> unit
         panic("Assert failed!");
     }
 }
+
+export fn assert_eq_i64(a: i64, b: i64) -> unit
+{
+    if a != b {
+        panic("Assert failed: '" + Str.from_i64(a) + "' != '" + Str.from_i64(b) + "'");
+    }
+}
+
+export fn assert_eq_u64(a: u64, b: u64) -> unit
+{
+    if a != b {
+        panic("Assert failed: '" + Str.from_u64(a) + "' != '" + Str.from_u64(b) + "'");
+    }
+}
+
+export fn assert_eq_u8(a: u8, b: u8) -> unit
+{
+    if a != b {
+        panic("Assert failed: '" + Str.from_u8(a) + "' != '" + Str.from_u8(b) + "'");
+    }
+}
+
+export fn assert_eq_bool(a: bool, b: bool) -> unit
+{
+    if a != b {
+        panic("Assert failed: '" + Str.from_bool(a) + "' != '" + Str.from_bool(b) + "'");
+    }
+}
+
+export fn assert_eq_double(a: double, b: double) -> unit
+{
+    if a != b {
+        panic("Assert failed: '" + Str.from_double(a) + "' != '" + Str.from_double(b) + "'");
+    }
+}
+
+export fn assert_eq_str(a: Str, b: Str) -> unit
+{
+    if !a.equals(b) {
+        panic("Assert failed: '" + a + "' != '" + b + "'");
+    }
+}
