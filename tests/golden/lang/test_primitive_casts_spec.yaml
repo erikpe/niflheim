@@ -220,3 +220,39 @@ runs:
       args: ["37", "256.0"]
     expect:
       panic: "numeric cast out of range (double -> u8)"
+
+  - name: double_to_i64_panic_above_max_from_var
+    input:
+      args: ["38"]
+    expect:
+      panic: "numeric cast out of range (double -> i64)"
+
+  - name: double_to_i64_panic_below_min_from_var
+    input:
+      args: ["39"]
+    expect:
+      panic: "numeric cast out of range (double -> i64)"
+
+  - name: double_to_u64_panic_negative_from_var
+    input:
+      args: ["40"]
+    expect:
+      panic: "numeric cast out of range (double -> u64)"
+
+  - name: double_to_u64_panic_above_max_from_var
+    input:
+      args: ["41"]
+    expect:
+      panic: "numeric cast out of range (double -> u64)"
+
+  - name: double_to_u8_panic_negative_from_var
+    input:
+      args: ["42"]
+    expect:
+      panic: "numeric cast out of range (double -> u8)"
+
+  - name: double_to_u8_panic_above_max_from_var
+    input:
+      args: ["43"]
+    expect:
+      panic: "numeric cast out of range (double -> u8)"

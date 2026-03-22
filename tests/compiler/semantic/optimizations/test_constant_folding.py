@@ -276,6 +276,41 @@ def test_fold_constants_propagates_literal_locals_within_a_block(tmp_path: Path)
     assert return_stmt.value.constant.value == 40
 
 
+def test_fold_constants_propagates_folded_locals_across_multiple_bindings(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var a: i64 = 2 * 3;
+            var b: i64 = a + 4;
+            return b;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = folded.modules[("main",)].functions[0].body.statements
+
+    a_decl = statements[0]
+    b_decl = statements[1]
+    return_stmt = statements[2]
+
+    assert isinstance(a_decl, SemanticVarDecl)
+    assert isinstance(a_decl.initializer, LiteralExprS)
+    assert isinstance(a_decl.initializer.constant, IntConstant)
+    assert a_decl.initializer.constant.value == 6
+
+    assert isinstance(b_decl, SemanticVarDecl)
+    assert isinstance(b_decl.initializer, LiteralExprS)
+    assert isinstance(b_decl.initializer.constant, IntConstant)
+    assert b_decl.initializer.constant.value == 10
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LiteralExprS)
+    assert isinstance(return_stmt.value.constant, IntConstant)
+    assert return_stmt.value.constant.value == 10
+
+
 def test_fold_constants_invalidates_propagation_after_local_assignment(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",

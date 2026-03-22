@@ -1,54 +1,110 @@
 import std.io;
+import std.str;
+import std.test;
 
 // Purpose: verify u64 division/modulo/comparison behavior for values with high bit set.
-fn test_u64_highbit_div_mod_and_comparisons() -> unit {
-  var u64_max: u64 = 18446744073709551615u;
-  var u64_hi: u64 = 9223372036854775808u;
-  var u64_billion: u64 = 1000000000u;
-  var u64_big: u64 = 4000000000000000000u;
-  var u64_three: u64 = 3u;
+fn test_u64_highbit_div_mod_and_comparisons(input: Str[]) -> unit {
+    var u64_max: u64 = 18446744073709551615u;
+    var u64_hi: u64 = 9223372036854775808u;
+    var u64_one: u64 = 1u;
+    var u64_billion: u64 = 1000000000u;
+    var u64_big: u64 = 4000000000000000000u;
+    var u64_three: u64 = 3u;
+    var u64_two: u64 = 2u;
 
-  println_u64(u64_max / 1u);
-  println_u64(u64_max / u64_billion);
-  println_u64(u64_max / u64_big);
-  println_u64(u64_max / u64_three);
+    var u64_max_arg: u64 = input[0].to_u64();
+    var u64_hi_arg: u64 = input[1].to_u64();
+    var u64_one_arg: u64 = input[2].to_u64();
+    var u64_billion_arg: u64 = input[3].to_u64();
+    var u64_big_arg: u64 = input[4].to_u64();
+    var u64_three_arg: u64 = input[5].to_u64();
+    var u64_two_arg: u64 = input[6].to_u64();
 
-  println_u64(u64_max % u64_billion);
-  println_u64(u64_max % u64_big);
-  println_u64(u64_max % u64_three);
+    assert_eq_u64(u64_max / u64_one, 18446744073709551615u);
+    assert_eq_u64(u64_max / u64_billion, 18446744073u);
+    assert_eq_u64(u64_max / u64_big, 4u);
+    assert_eq_u64(u64_max / u64_three, 6148914691236517205u);
 
-  println_u64(u64_hi / 2u);
-  println_u64(u64_hi / u64_three);
-  println_u64(u64_hi % u64_three);
+    assert_eq_u64(u64_max % u64_billion, 709551615u);
+    assert_eq_u64(u64_max % u64_big, 2446744073709551615u);
+    assert_eq_u64(u64_max % u64_three, 0u);
 
-  println_bool(u64_hi < 1u);
-  println_bool(u64_hi <= 1u);
-  println_bool(u64_hi > 1u);
-  println_bool(u64_hi >= 1u);
+    assert_eq_u64(u64_hi / u64_two, 4611686018427387904u);
+    assert_eq_u64(u64_hi / u64_three, 3074457345618258602u);
+    assert_eq_u64(u64_hi % u64_three, 2u);
+
+    assert_eq_bool(u64_hi < u64_one, false);
+    assert_eq_bool(u64_hi <= u64_one, false);
+    assert_eq_bool(u64_hi > u64_one, true);
+    assert_eq_bool(u64_hi >= u64_one, true);
+
+    assert_eq_u64(u64_max_arg / u64_one_arg, 18446744073709551615u);
+    assert_eq_u64(u64_max_arg / u64_billion_arg, 18446744073u);
+    assert_eq_u64(u64_max_arg / u64_big_arg, 4u);
+    assert_eq_u64(u64_max_arg / u64_three_arg, 6148914691236517205u);
+
+    assert_eq_u64(u64_max_arg % u64_billion_arg, 709551615u);
+    assert_eq_u64(u64_max_arg % u64_big_arg, 2446744073709551615u);
+    assert_eq_u64(u64_max_arg % u64_three_arg, 0u);
+
+    assert_eq_u64(u64_hi_arg / u64_two_arg, 4611686018427387904u);
+    assert_eq_u64(u64_hi_arg / u64_three_arg, 3074457345618258602u);
+    assert_eq_u64(u64_hi_arg % u64_three_arg, 2u);
+
+    assert_eq_bool(u64_hi_arg < u64_one_arg, false);
+    assert_eq_bool(u64_hi_arg <= u64_one_arg, false);
+    assert_eq_bool(u64_hi_arg > u64_one_arg, true);
+    assert_eq_bool(u64_hi_arg >= u64_one_arg, true);
 }
 
 // Purpose: verify u8 arithmetic narrows/masks to 8 bits after operations.
-fn test_u8_arithmetic_narrowing_masks_to_8_bits() -> unit {
-  var a: u8 = 200u8;
+fn test_u8_arithmetic_narrowing_masks_to_8_bits(input: Str[]) -> unit {
+    var a: u8 = 200u8;
+    var two: u8 = 2u8;
+    var two_hundred_fifty: u8 = 250u8;
 
-  println_u64((u64)(a + a));
-  println_u64((u64)(a * (u8)2));
-  println_u64((u64)(a - (u8)250));
+    var a_arg: u8 = (u8)input[0].to_u64();
+    var two_arg: u8 = (u8)input[1].to_u64();
+    var two_hundred_fifty_arg: u8 = (u8)input[2].to_u64();
+
+    assert_eq_u64((u64)(a + a), 144u);
+    assert_eq_u64((u64)(a * two), 144u);
+    assert_eq_u64((u64)(a - two_hundred_fifty), 206u);
+
+    assert_eq_u64((u64)(a_arg + a_arg), 144u);
+    assert_eq_u64((u64)(a_arg * two_arg), 144u);
+    assert_eq_u64((u64)(a_arg - two_hundred_fifty_arg), 206u);
 }
 
 // Purpose: verify precedence/grouping for additive, shift, and comparison operators.
 // Expected parse: ((a + b) << 1u) == c
-fn test_shift_add_comparison_precedence() -> unit {
-  var a: u64 = 1u;
-  var b: u64 = 2u;
+fn test_shift_add_comparison_precedence(input: Str[]) -> unit {
+    var a: u64 = 1u;
+    var b: u64 = 2u;
+    var six: u64 = 6u;
+    var five: u64 = 5u;
+    var shift: u64 = 1u;
 
-  println_bool(a + b << 1u == 6u);
-  println_bool(a + b << 1u == 5u);
+    var a_arg: u64 = input[0].to_u64();
+    var b_arg: u64 = input[1].to_u64();
+    var six_arg: u64 = input[2].to_u64();
+    var five_arg: u64 = input[3].to_u64();
+    var shift_arg: u64 = input[4].to_u64();
+
+    assert_eq_bool(a + b << shift == six, true);
+    assert_eq_bool(a + b << shift == five, false);
+
+    assert_eq_bool(a_arg + b_arg << shift_arg == six_arg, true);
+    assert_eq_bool(a_arg + b_arg << shift_arg == five_arg, false);
 }
 
 fn main() -> i64 {
-  test_u64_highbit_div_mod_and_comparisons();
-  test_u8_arithmetic_narrowing_masks_to_8_bits();
-  test_shift_add_comparison_precedence();
-  return 0;
+    var args: Str[] = read_program_args();
+    var select: u64 = args[1].to_u64();
+
+    if select == 1u { test_u64_highbit_div_mod_and_comparisons(args[2:]); return 0; }
+    if select == 2u { test_u8_arithmetic_narrowing_masks_to_8_bits(args[2:]); return 0; }
+    if select == 3u { test_shift_add_comparison_precedence(args[2:]); return 0; }
+
+    return 99;
 }
