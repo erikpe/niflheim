@@ -52,6 +52,45 @@ def test_fold_constants_folds_literal_arithmetic_and_boolean_exprs(tmp_path: Pat
     assert flags_return.value.constant.value is True
 
 
+def test_fold_constants_uses_python_style_signed_integer_division(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn small_negative() -> i64 {
+            return -7 / 100;
+        }
+
+        fn mixed_sign() -> i64 {
+            return -100 / 7;
+        }
+
+        fn positive_mixed_sign() -> i64 {
+            return 100 / -7;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    small_negative_return = folded.modules[("main",)].functions[0].body.statements[0]
+    mixed_sign_return = folded.modules[("main",)].functions[1].body.statements[0]
+    positive_mixed_sign_return = folded.modules[("main",)].functions[2].body.statements[0]
+
+    assert isinstance(small_negative_return, SemanticReturn)
+    assert isinstance(small_negative_return.value, LiteralExprS)
+    assert isinstance(small_negative_return.value.constant, IntConstant)
+    assert small_negative_return.value.constant.value == -1
+
+    assert isinstance(mixed_sign_return, SemanticReturn)
+    assert isinstance(mixed_sign_return.value, LiteralExprS)
+    assert isinstance(mixed_sign_return.value.constant, IntConstant)
+    assert mixed_sign_return.value.constant.value == -15
+
+    assert isinstance(positive_mixed_sign_return, SemanticReturn)
+    assert isinstance(positive_mixed_sign_return.value, LiteralExprS)
+    assert isinstance(positive_mixed_sign_return.value.constant, IntConstant)
+    assert positive_mixed_sign_return.value.constant.value == -15
+
+
 def test_fold_constants_folds_field_initializers_and_call_arguments(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",

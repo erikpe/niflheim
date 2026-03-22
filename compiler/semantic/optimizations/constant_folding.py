@@ -329,7 +329,9 @@ def _fold_integer_binary_expr(
         if right_value == 0 or _signed_division_overflows(left_value, right_value, operand_type_name):
             return expr
         return _int_literal_expr(
-            _wrap_integer(left_value // right_value, operand_type_name), type_name=operand_type_name, span=expr.span
+            _wrap_integer(left_value // right_value, operand_type_name),
+            type_name=operand_type_name,
+            span=expr.span,
         )
     if expr.operator == "%":
         if right_value == 0 or _signed_division_overflows(left_value, right_value, operand_type_name):

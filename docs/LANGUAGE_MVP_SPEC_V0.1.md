@@ -103,6 +103,7 @@ Primitive cast semantics:
 ### 3.5 Operator Typing Rules (Current)
 
 - Arithmetic operators (`+`, `-`, `*`, `/`, `%`) require matching numeric operand types.
+- Signed integer `/` and `%` follow Python semantics: division rounds toward negative infinity, and the remainder has the divisor's sign.
 - Exponent operator (`**`) is integer-only in v0.1: left operand must be `i64`, `u64`, or `u8`; right operand must be `u64`; result type is the left operand type.
 - Unary minus (`-x`) is allowed only for signed numeric types: `i64`, `double`.
 - Bitwise binary operators (`&`, `|`, `^`) are allowed for integer types `i64`, `u64`, `u8` and require matching operand types.

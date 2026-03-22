@@ -1,306 +1,463 @@
 import std.io;
+import std.str;
+import std.test;
 
-fn test_i64() -> unit {
-  var i64_min: i64 = -9223372036854775808;
-  var i64_max: i64 = 9223372036854775807;
-  var i64_zero: i64 = 0;
-  var i64_one: i64 = 1;
-  var i64_neg1: i64 = -1;
-  var i64_mid: i64 = 123456789;
+fn test_i64(input: Str[]) -> unit {
+    var i64_min: i64 = -9223372036854775808;
+    var i64_max: i64 = 9223372036854775807;
+    var i64_zero: i64 = 0;
+    var i64_one: i64 = 1;
+    var i64_neg1: i64 = -1;
+    var i64_mid: i64 = 123456789;
 
-  var d_i64_0: i64 = 1;
-  var d_i64_1: i64 = 2;
-  var d_i64_2: i64 = -2;
-  var d_i64_3: i64 = 9223372036854775807;
-  var d_i64_4: i64 = 123456789;
-  var d_i64_5: i64 = -3;
+    var d_i64_0: i64 = 1;
+    var d_i64_1: i64 = 2;
+    var d_i64_2: i64 = -2;
+    var d_i64_3: i64 = 9223372036854775807;
+    var d_i64_4: i64 = 123456789;
+    var d_i64_5: i64 = -3;
 
-  var r_i64_00: i64 = i64_min / d_i64_0;
-  var r_i64_01: i64 = i64_min / d_i64_1;
-  var r_i64_02: i64 = i64_min / d_i64_2;
-  var r_i64_03: i64 = i64_min / d_i64_3;
-  var r_i64_04: i64 = i64_min / d_i64_4;
-  var r_i64_05: i64 = i64_min / d_i64_5;
+    var i64_min_arg: i64 = input[0].to_i64();
+    var i64_max_arg: i64 = input[1].to_i64();
+    var i64_zero_arg: i64 = input[2].to_i64();
+    var i64_one_arg: i64 = input[3].to_i64();
+    var i64_neg1_arg: i64 = input[4].to_i64();
+    var i64_mid_arg: i64 = input[5].to_i64();
 
-  var r_i64_10: i64 = i64_max / d_i64_0;
-  var r_i64_11: i64 = i64_max / d_i64_1;
-  var r_i64_12: i64 = i64_max / d_i64_2;
-  var r_i64_13: i64 = i64_max / d_i64_3;
-  var r_i64_14: i64 = i64_max / d_i64_4;
-  var r_i64_15: i64 = i64_max / d_i64_5;
+    var d_i64_0_arg: i64 = input[6].to_i64();
+    var d_i64_1_arg: i64 = input[7].to_i64();
+    var d_i64_2_arg: i64 = input[8].to_i64();
+    var d_i64_3_arg: i64 = input[9].to_i64();
+    var d_i64_4_arg: i64 = input[10].to_i64();
+    var d_i64_5_arg: i64 = input[11].to_i64();
 
-  var r_i64_20: i64 = i64_zero / d_i64_0;
-  var r_i64_21: i64 = i64_zero / d_i64_1;
-  var r_i64_22: i64 = i64_zero / d_i64_2;
-  var r_i64_23: i64 = i64_zero / d_i64_3;
-  var r_i64_24: i64 = i64_zero / d_i64_4;
-  var r_i64_25: i64 = i64_zero / d_i64_5;
+    assert_eq_i64(i64_min / d_i64_0, -9223372036854775808);
+    assert_eq_i64(i64_min / d_i64_1, -4611686018427387904);
+    assert_eq_i64(i64_min / d_i64_2, 4611686018427387904);
+    assert_eq_i64(i64_min / d_i64_3, -2);
+    assert_eq_i64(i64_min / d_i64_4, -74709314179);
+    assert_eq_i64(i64_min / d_i64_5, 3074457345618258602);
 
-  var r_i64_30: i64 = i64_one / d_i64_0;
-  var r_i64_31: i64 = i64_one / d_i64_1;
-  var r_i64_32: i64 = i64_one / d_i64_2;
-  var r_i64_33: i64 = i64_one / d_i64_3;
-  var r_i64_34: i64 = i64_one / d_i64_4;
-  var r_i64_35: i64 = i64_one / d_i64_5;
+    assert_eq_i64(i64_max / d_i64_0, 9223372036854775807);
+    assert_eq_i64(i64_max / d_i64_1, 4611686018427387903);
+    assert_eq_i64(i64_max / d_i64_2, -4611686018427387904);
+    assert_eq_i64(i64_max / d_i64_3, 1);
+    assert_eq_i64(i64_max / d_i64_4, 74709314178);
+    assert_eq_i64(i64_max / d_i64_5, -3074457345618258603);
 
-  var r_i64_40: i64 = i64_neg1 / d_i64_0;
-  var r_i64_41: i64 = i64_neg1 / d_i64_1;
-  var r_i64_42: i64 = i64_neg1 / d_i64_2;
-  var r_i64_43: i64 = i64_neg1 / d_i64_3;
-  var r_i64_44: i64 = i64_neg1 / d_i64_4;
-  var r_i64_45: i64 = i64_neg1 / d_i64_5;
+    assert_eq_i64(i64_zero / d_i64_0, 0);
+    assert_eq_i64(i64_zero / d_i64_1, 0);
+    assert_eq_i64(i64_zero / d_i64_2, 0);
+    assert_eq_i64(i64_zero / d_i64_3, 0);
+    assert_eq_i64(i64_zero / d_i64_4, 0);
+    assert_eq_i64(i64_zero / d_i64_5, 0);
 
-  var r_i64_50: i64 = i64_mid / d_i64_0;
-  var r_i64_51: i64 = i64_mid / d_i64_1;
-  var r_i64_52: i64 = i64_mid / d_i64_2;
-  var r_i64_53: i64 = i64_mid / d_i64_3;
-  var r_i64_54: i64 = i64_mid / d_i64_4;
-  var r_i64_55: i64 = i64_mid / d_i64_5;
+    assert_eq_i64(i64_one / d_i64_0, 1);
+    assert_eq_i64(i64_one / d_i64_1, 0);
+    assert_eq_i64(i64_one / d_i64_2, -1);
+    assert_eq_i64(i64_one / d_i64_3, 0);
+    assert_eq_i64(i64_one / d_i64_4, 0);
+    assert_eq_i64(i64_one / d_i64_5, -1);
 
-  println_i64(r_i64_00);
-  println_i64(r_i64_01);
-  println_i64(r_i64_02);
-  println_i64(r_i64_03);
-  println_i64(r_i64_04);
-  println_i64(r_i64_05);
+    assert_eq_i64(i64_neg1 / d_i64_0, -1);
+    assert_eq_i64(i64_neg1 / d_i64_1, -1);
+    assert_eq_i64(i64_neg1 / d_i64_2, 0);
+    assert_eq_i64(i64_neg1 / d_i64_3, -1);
+    assert_eq_i64(i64_neg1 / d_i64_4, -1);
+    assert_eq_i64(i64_neg1 / d_i64_5, 0);
 
-  println_i64(r_i64_10);
-  println_i64(r_i64_11);
-  println_i64(r_i64_12);
-  println_i64(r_i64_13);
-  println_i64(r_i64_14);
-  println_i64(r_i64_15);
+    assert_eq_i64(i64_mid / d_i64_0, 123456789);
+    assert_eq_i64(i64_mid / d_i64_1, 61728394);
+    assert_eq_i64(i64_mid / d_i64_2, -61728395);
+    assert_eq_i64(i64_mid / d_i64_3, 0);
+    assert_eq_i64(i64_mid / d_i64_4, 1);
+    assert_eq_i64(i64_mid / d_i64_5, -41152263);
 
-  println_i64(r_i64_20);
-  println_i64(r_i64_21);
-  println_i64(r_i64_22);
-  println_i64(r_i64_23);
-  println_i64(r_i64_24);
-  println_i64(r_i64_25);
+    assert_eq_i64(i64_min_arg / d_i64_0_arg, -9223372036854775808);
+    assert_eq_i64(i64_min_arg / d_i64_1_arg, -4611686018427387904);
+    assert_eq_i64(i64_min_arg / d_i64_2_arg, 4611686018427387904);
+    assert_eq_i64(i64_min_arg / d_i64_3_arg, -2);
+    assert_eq_i64(i64_min_arg / d_i64_4_arg, -74709314179);
+    assert_eq_i64(i64_min_arg / d_i64_5_arg, 3074457345618258602);
 
-  println_i64(r_i64_30);
-  println_i64(r_i64_31);
-  println_i64(r_i64_32);
-  println_i64(r_i64_33);
-  println_i64(r_i64_34);
-  println_i64(r_i64_35);
+    assert_eq_i64(i64_max_arg / d_i64_0_arg, 9223372036854775807);
+    assert_eq_i64(i64_max_arg / d_i64_1_arg, 4611686018427387903);
+    assert_eq_i64(i64_max_arg / d_i64_2_arg, -4611686018427387904);
+    assert_eq_i64(i64_max_arg / d_i64_3_arg, 1);
+    assert_eq_i64(i64_max_arg / d_i64_4_arg, 74709314178);
+    assert_eq_i64(i64_max_arg / d_i64_5_arg, -3074457345618258603);
 
-  println_i64(r_i64_40);
-  println_i64(r_i64_41);
-  println_i64(r_i64_42);
-  println_i64(r_i64_43);
-  println_i64(r_i64_44);
-  println_i64(r_i64_45);
+    assert_eq_i64(i64_zero_arg / d_i64_0_arg, 0);
+    assert_eq_i64(i64_zero_arg / d_i64_1_arg, 0);
+    assert_eq_i64(i64_zero_arg / d_i64_2_arg, 0);
+    assert_eq_i64(i64_zero_arg / d_i64_3_arg, 0);
+    assert_eq_i64(i64_zero_arg / d_i64_4_arg, 0);
+    assert_eq_i64(i64_zero_arg / d_i64_5_arg, 0);
 
-  println_i64(r_i64_50);
-  println_i64(r_i64_51);
-  println_i64(r_i64_52);
-  println_i64(r_i64_53);
-  println_i64(r_i64_54);
-  println_i64(r_i64_55);
+    assert_eq_i64(i64_one_arg / d_i64_0_arg, 1);
+    assert_eq_i64(i64_one_arg / d_i64_1_arg, 0);
+    assert_eq_i64(i64_one_arg / d_i64_2_arg, -1);
+    assert_eq_i64(i64_one_arg / d_i64_3_arg, 0);
+    assert_eq_i64(i64_one_arg / d_i64_4_arg, 0);
+    assert_eq_i64(i64_one_arg / d_i64_5_arg, -1);
 
-  var ex_a: i64 = -7;
-  var ex_b: i64 = 100;
-  println_i64(ex_a / ex_b);
+    assert_eq_i64(i64_neg1_arg / d_i64_0_arg, -1);
+    assert_eq_i64(i64_neg1_arg / d_i64_1_arg, -1);
+    assert_eq_i64(i64_neg1_arg / d_i64_2_arg, 0);
+    assert_eq_i64(i64_neg1_arg / d_i64_3_arg, -1);
+    assert_eq_i64(i64_neg1_arg / d_i64_4_arg, -1);
+    assert_eq_i64(i64_neg1_arg / d_i64_5_arg, 0);
 
-  var ex_c: i64 = 7;
-  var ex_d: i64 = -100;
-  println_i64(ex_c / ex_d);
-
-  var ex_e: i64 = -7;
-  var ex_f: i64 = -100;
-  println_i64(ex_e / ex_f);
-
-  var ex_g: i64 = 7;
-  var ex_h: i64 = 100;
-  println_i64(ex_g / ex_h);
-
-  var ex_i: i64 = -100;
-  var ex_j: i64 = 7;
-  println_i64(ex_i / ex_j);
-
-  var ex_k: i64 = 100;
-  var ex_l: i64 = -7;
-  println_i64(ex_k / ex_l);
-
-  var ex_m: i64 = -100;
-  var ex_n: i64 = -7;
-  println_i64(ex_m / ex_n);
-
-  var ex_o: i64 = 100;
-  var ex_p: i64 = 7;
-  println_i64(ex_o / ex_p);
+    assert_eq_i64(i64_mid_arg / d_i64_0_arg, 123456789);
+    assert_eq_i64(i64_mid_arg / d_i64_1_arg, 61728394);
+    assert_eq_i64(i64_mid_arg / d_i64_2_arg, -61728395);
+    assert_eq_i64(i64_mid_arg / d_i64_3_arg, 0);
+    assert_eq_i64(i64_mid_arg / d_i64_4_arg, 1);
+    assert_eq_i64(i64_mid_arg / d_i64_5_arg, -41152263);
 }
 
-fn test_u64() -> unit {
-  var u64_zero: u64 = 0u;
-  var u64_one: u64 = 1u;
-  var u64_max: u64 = 18446744073709551615u;
-  var u64_mid: u64 = 1000000000u;
-  var u64_big: u64 = 4000000000000000000u;
+fn test_i64_special_cases(input: Str[]) -> unit {
+    var ex_a: i64 = -7;
+    var ex_b: i64 = 100;
+    var ex_c: i64 = 7;
+    var ex_d: i64 = -100;
+    var ex_e: i64 = -7;
+    var ex_f: i64 = -100;
+    var ex_g: i64 = 7;
+    var ex_h: i64 = 100;
+    var ex_i: i64 = -100;
+    var ex_j: i64 = 7;
+    var ex_k: i64 = 100;
+    var ex_l: i64 = -7;
+    var ex_m: i64 = -100;
+    var ex_n: i64 = -7;
+    var ex_o: i64 = 100;
+    var ex_p: i64 = 7;
 
-  var d_u64_0: u64 = 1u;
-  var d_u64_1: u64 = 18446744073709551615u;
-  var d_u64_2: u64 = 1000000000u;
-  var d_u64_3: u64 = 4000000000000000000u;
-  var d_u64_4: u64 = 3u;
+    var ex_a_arg: i64 = input[0].to_i64();
+    var ex_b_arg: i64 = input[1].to_i64();
+    var ex_c_arg: i64 = input[2].to_i64();
+    var ex_d_arg: i64 = input[3].to_i64();
+    var ex_e_arg: i64 = input[4].to_i64();
+    var ex_f_arg: i64 = input[5].to_i64();
+    var ex_g_arg: i64 = input[6].to_i64();
+    var ex_h_arg: i64 = input[7].to_i64();
+    var ex_i_arg: i64 = input[8].to_i64();
+    var ex_j_arg: i64 = input[9].to_i64();
+    var ex_k_arg: i64 = input[10].to_i64();
+    var ex_l_arg: i64 = input[11].to_i64();
+    var ex_m_arg: i64 = input[12].to_i64();
+    var ex_n_arg: i64 = input[13].to_i64();
+    var ex_o_arg: i64 = input[14].to_i64();
+    var ex_p_arg: i64 = input[15].to_i64();
 
-  var r_u64_00: u64 = u64_zero / d_u64_0;
-  var r_u64_01: u64 = u64_zero / d_u64_1;
-  var r_u64_02: u64 = u64_zero / d_u64_2;
-  var r_u64_03: u64 = u64_zero / d_u64_3;
-  var r_u64_04: u64 = u64_zero / d_u64_4;
+    assert_eq_i64(ex_a / ex_b, -1);
+    assert_eq_i64(ex_c / ex_d, -1);
+    assert_eq_i64(ex_e / ex_f, 0);
+    assert_eq_i64(ex_g / ex_h, 0);
+    assert_eq_i64(ex_i / ex_j, -15);
+    assert_eq_i64(ex_k / ex_l, -15);
+    assert_eq_i64(ex_m / ex_n, 14);
+    assert_eq_i64(ex_o / ex_p, 14);
 
-  var r_u64_10: u64 = u64_one / d_u64_0;
-  var r_u64_11: u64 = u64_one / d_u64_1;
-  var r_u64_12: u64 = u64_one / d_u64_2;
-  var r_u64_13: u64 = u64_one / d_u64_3;
-  var r_u64_14: u64 = u64_one / d_u64_4;
-
-  var r_u64_20: u64 = u64_max / d_u64_0;
-  var r_u64_21: u64 = u64_max / d_u64_1;
-  var r_u64_22: u64 = u64_max / d_u64_2;
-  var r_u64_23: u64 = u64_max / d_u64_3;
-  var r_u64_24: u64 = u64_max / d_u64_4;
-
-  var r_u64_30: u64 = u64_mid / d_u64_0;
-  var r_u64_31: u64 = u64_mid / d_u64_1;
-  var r_u64_32: u64 = u64_mid / d_u64_2;
-  var r_u64_33: u64 = u64_mid / d_u64_3;
-  var r_u64_34: u64 = u64_mid / d_u64_4;
-
-  var r_u64_40: u64 = u64_big / d_u64_0;
-  var r_u64_41: u64 = u64_big / d_u64_1;
-  var r_u64_42: u64 = u64_big / d_u64_2;
-  var r_u64_43: u64 = u64_big / d_u64_3;
-  var r_u64_44: u64 = u64_big / d_u64_4;
-
-  println_u64(r_u64_00);
-  println_u64(r_u64_01);
-  println_u64(r_u64_02);
-  println_u64(r_u64_03);
-  println_u64(r_u64_04);
-
-  println_u64(r_u64_10);
-  println_u64(r_u64_11);
-  println_u64(r_u64_12);
-  println_u64(r_u64_13);
-  println_u64(r_u64_14);
-
-  println_u64(r_u64_20);
-  println_u64(r_u64_21);
-  println_u64(r_u64_22);
-  println_u64(r_u64_23);
-  println_u64(r_u64_24);
-
-  println_u64(r_u64_30);
-  println_u64(r_u64_31);
-  println_u64(r_u64_32);
-  println_u64(r_u64_33);
-  println_u64(r_u64_34);
-
-  println_u64(r_u64_40);
-  println_u64(r_u64_41);
-  println_u64(r_u64_42);
-  println_u64(r_u64_43);
-  println_u64(r_u64_44);
+    assert_eq_i64(ex_a_arg / ex_b_arg, -1);
+    assert_eq_i64(ex_c_arg / ex_d_arg, -1);
+    assert_eq_i64(ex_e_arg / ex_f_arg, 0);
+    assert_eq_i64(ex_g_arg / ex_h_arg, 0);
+    assert_eq_i64(ex_i_arg / ex_j_arg, -15);
+    assert_eq_i64(ex_k_arg / ex_l_arg, -15);
+    assert_eq_i64(ex_m_arg / ex_n_arg, 14);
+    assert_eq_i64(ex_o_arg / ex_p_arg, 14);
 }
 
-fn test_u8() -> unit {
-  var u8_zero: u8 = 0u8;
-  var u8_one: u8 = 1u8;
-  var u8_max: u8 = 255u8;
-  var u8_mid: u8 = 17u8;
-  var u8_big: u8 = 200u8;
+fn test_u64(input: Str[]) -> unit {
+    var u64_zero: u64 = 0u;
+    var u64_one: u64 = 1u;
+    var u64_max: u64 = 18446744073709551615u;
+    var u64_mid: u64 = 1000000000u;
+    var u64_big: u64 = 4000000000000000000u;
 
-  var d_u8_0: u8 = 1u8;
-  var d_u8_1: u8 = 255u8;
-  var d_u8_2: u8 = 17u8;
-  var d_u8_3: u8 = 200u8;
-  var d_u8_4: u8 = 3u8;
+    var d_u64_0: u64 = 1u;
+    var d_u64_1: u64 = 18446744073709551615u;
+    var d_u64_2: u64 = 1000000000u;
+    var d_u64_3: u64 = 4000000000000000000u;
+    var d_u64_4: u64 = 3u;
 
-  var r_u8_00: u8 = u8_zero / d_u8_0;
-  var r_u8_01: u8 = u8_zero / d_u8_1;
-  var r_u8_02: u8 = u8_zero / d_u8_2;
-  var r_u8_03: u8 = u8_zero / d_u8_3;
-  var r_u8_04: u8 = u8_zero / d_u8_4;
+    var u64_zero_arg: u64 = input[0].to_u64();
+    var u64_one_arg: u64 = input[1].to_u64();
+    var u64_max_arg: u64 = input[2].to_u64();
+    var u64_mid_arg: u64 = input[3].to_u64();
+    var u64_big_arg: u64 = input[4].to_u64();
 
-  var r_u8_10: u8 = u8_one / d_u8_0;
-  var r_u8_11: u8 = u8_one / d_u8_1;
-  var r_u8_12: u8 = u8_one / d_u8_2;
-  var r_u8_13: u8 = u8_one / d_u8_3;
-  var r_u8_14: u8 = u8_one / d_u8_4;
+    var d_u64_0_arg: u64 = input[5].to_u64();
+    var d_u64_1_arg: u64 = input[6].to_u64();
+    var d_u64_2_arg: u64 = input[7].to_u64();
+    var d_u64_3_arg: u64 = input[8].to_u64();
+    var d_u64_4_arg: u64 = input[9].to_u64();
 
-  var r_u8_20: u8 = u8_max / d_u8_0;
-  var r_u8_21: u8 = u8_max / d_u8_1;
-  var r_u8_22: u8 = u8_max / d_u8_2;
-  var r_u8_23: u8 = u8_max / d_u8_3;
-  var r_u8_24: u8 = u8_max / d_u8_4;
+    assert_eq_u64(u64_zero / d_u64_0, 0u);
+    assert_eq_u64(u64_zero / d_u64_1, 0u);
+    assert_eq_u64(u64_zero / d_u64_2, 0u);
+    assert_eq_u64(u64_zero / d_u64_3, 0u);
+    assert_eq_u64(u64_zero / d_u64_4, 0u);
 
-  var r_u8_30: u8 = u8_mid / d_u8_0;
-  var r_u8_31: u8 = u8_mid / d_u8_1;
-  var r_u8_32: u8 = u8_mid / d_u8_2;
-  var r_u8_33: u8 = u8_mid / d_u8_3;
-  var r_u8_34: u8 = u8_mid / d_u8_4;
+    assert_eq_u64(u64_one / d_u64_0, 1u);
+    assert_eq_u64(u64_one / d_u64_1, 0u);
+    assert_eq_u64(u64_one / d_u64_2, 0u);
+    assert_eq_u64(u64_one / d_u64_3, 0u);
+    assert_eq_u64(u64_one / d_u64_4, 0u);
 
-  var r_u8_40: u8 = u8_big / d_u8_0;
-  var r_u8_41: u8 = u8_big / d_u8_1;
-  var r_u8_42: u8 = u8_big / d_u8_2;
-  var r_u8_43: u8 = u8_big / d_u8_3;
-  var r_u8_44: u8 = u8_big / d_u8_4;
+    assert_eq_u64(u64_max / d_u64_0, 18446744073709551615u);
+    assert_eq_u64(u64_max / d_u64_1, 1u);
+    assert_eq_u64(u64_max / d_u64_2, 18446744073u);
+    assert_eq_u64(u64_max / d_u64_3, 4u);
+    assert_eq_u64(u64_max / d_u64_4, 6148914691236517205u);
 
-  println_u8(r_u8_00);
-  println_u8(r_u8_01);
-  println_u8(r_u8_02);
-  println_u8(r_u8_03);
-  println_u8(r_u8_04);
+    assert_eq_u64(u64_mid / d_u64_0, 1000000000u);
+    assert_eq_u64(u64_mid / d_u64_1, 0u);
+    assert_eq_u64(u64_mid / d_u64_2, 1u);
+    assert_eq_u64(u64_mid / d_u64_3, 0u);
+    assert_eq_u64(u64_mid / d_u64_4, 333333333u);
 
-  println_u8(r_u8_10);
-  println_u8(r_u8_11);
-  println_u8(r_u8_12);
-  println_u8(r_u8_13);
-  println_u8(r_u8_14);
+    assert_eq_u64(u64_big / d_u64_0, 4000000000000000000u);
+    assert_eq_u64(u64_big / d_u64_1, 0u);
+    assert_eq_u64(u64_big / d_u64_2, 4000000000u);
+    assert_eq_u64(u64_big / d_u64_3, 1u);
+    assert_eq_u64(u64_big / d_u64_4, 1333333333333333333u);
 
-  println_u8(r_u8_20);
-  println_u8(r_u8_21);
-  println_u8(r_u8_22);
-  println_u8(r_u8_23);
-  println_u8(r_u8_24);
+    assert_eq_u64(u64_zero_arg / d_u64_0_arg, 0u);
+    assert_eq_u64(u64_zero_arg / d_u64_1_arg, 0u);
+    assert_eq_u64(u64_zero_arg / d_u64_2_arg, 0u);
+    assert_eq_u64(u64_zero_arg / d_u64_3_arg, 0u);
+    assert_eq_u64(u64_zero_arg / d_u64_4_arg, 0u);
 
-  println_u8(r_u8_30);
-  println_u8(r_u8_31);
-  println_u8(r_u8_32);
-  println_u8(r_u8_33);
-  println_u8(r_u8_34);
+    assert_eq_u64(u64_one_arg / d_u64_0_arg, 1u);
+    assert_eq_u64(u64_one_arg / d_u64_1_arg, 0u);
+    assert_eq_u64(u64_one_arg / d_u64_2_arg, 0u);
+    assert_eq_u64(u64_one_arg / d_u64_3_arg, 0u);
+    assert_eq_u64(u64_one_arg / d_u64_4_arg, 0u);
 
-  println_u8(r_u8_40);
-  println_u8(r_u8_41);
-  println_u8(r_u8_42);
-  println_u8(r_u8_43);
-  println_u8(r_u8_44);
+    assert_eq_u64(u64_max_arg / d_u64_0_arg, 18446744073709551615u);
+    assert_eq_u64(u64_max_arg / d_u64_1_arg, 1u);
+    assert_eq_u64(u64_max_arg / d_u64_2_arg, 18446744073u);
+    assert_eq_u64(u64_max_arg / d_u64_3_arg, 4u);
+    assert_eq_u64(u64_max_arg / d_u64_4_arg, 6148914691236517205u);
+
+    assert_eq_u64(u64_mid_arg / d_u64_0_arg, 1000000000u);
+    assert_eq_u64(u64_mid_arg / d_u64_1_arg, 0u);
+    assert_eq_u64(u64_mid_arg / d_u64_2_arg, 1u);
+    assert_eq_u64(u64_mid_arg / d_u64_3_arg, 0u);
+    assert_eq_u64(u64_mid_arg / d_u64_4_arg, 333333333u);
+
+    assert_eq_u64(u64_big_arg / d_u64_0_arg, 4000000000000000000u);
+    assert_eq_u64(u64_big_arg / d_u64_1_arg, 0u);
+    assert_eq_u64(u64_big_arg / d_u64_2_arg, 4000000000u);
+    assert_eq_u64(u64_big_arg / d_u64_3_arg, 1u);
+    assert_eq_u64(u64_big_arg / d_u64_4_arg, 1333333333333333333u);
 }
 
-fn test_u64_highbit() -> i64 {
-  var u64_max: u64 = 18446744073709551615u;
-  var u64_hi: u64 = 9223372036854775808u;
-  var u64_billion: u64 = 1000000000u;
-  var u64_big: u64 = 4000000000000000000u;
-  var u64_three: u64 = 3u;
+fn test_u64_highbit(input: Str[]) -> unit {
+    var u64_max: u64 = 18446744073709551615u;
+    var u64_hi: u64 = 9223372036854775808u;
+    var u64_one: u64 = 1u;
+    var u64_billion: u64 = 1000000000u;
+    var u64_big: u64 = 4000000000000000000u;
+    var u64_three: u64 = 3u;
+    var u64_two: u64 = 2u;
 
-  println_u64(u64_max / 1u);
-  println_u64(u64_max / u64_billion);
-  println_u64(u64_max / u64_big);
-  println_u64(u64_max / u64_three);
+    var u64_max_arg: u64 = input[0].to_u64();
+    var u64_hi_arg: u64 = input[1].to_u64();
+    var u64_one_arg: u64 = input[2].to_u64();
+    var u64_billion_arg: u64 = input[3].to_u64();
+    var u64_big_arg: u64 = input[4].to_u64();
+    var u64_three_arg: u64 = input[5].to_u64();
+    var u64_two_arg: u64 = input[6].to_u64();
 
-  println_u64(u64_hi / 2u);
-  println_u64(u64_hi / u64_three);
-  return 0;
+    assert_eq_u64(u64_max / u64_one, 18446744073709551615u);
+    assert_eq_u64(u64_max / u64_billion, 18446744073u);
+    assert_eq_u64(u64_max / u64_big, 4u);
+    assert_eq_u64(u64_max / u64_three, 6148914691236517205u);
+    assert_eq_u64(u64_hi / u64_two, 4611686018427387904u);
+    assert_eq_u64(u64_hi / u64_three, 3074457345618258602u);
+
+    assert_eq_u64(u64_max_arg / u64_one_arg, 18446744073709551615u);
+    assert_eq_u64(u64_max_arg / u64_billion_arg, 18446744073u);
+    assert_eq_u64(u64_max_arg / u64_big_arg, 4u);
+    assert_eq_u64(u64_max_arg / u64_three_arg, 6148914691236517205u);
+    assert_eq_u64(u64_hi_arg / u64_two_arg, 4611686018427387904u);
+    assert_eq_u64(u64_hi_arg / u64_three_arg, 3074457345618258602u);
+}
+
+fn test_u8(input: Str[]) -> unit {
+    var u8_zero: u8 = 0u8;
+    var u8_one: u8 = 1u8;
+    var u8_max: u8 = 255u8;
+    var u8_mid: u8 = 17u8;
+    var u8_big: u8 = 200u8;
+
+    var d_u8_0: u8 = 1u8;
+    var d_u8_1: u8 = 255u8;
+    var d_u8_2: u8 = 17u8;
+    var d_u8_3: u8 = 200u8;
+    var d_u8_4: u8 = 3u8;
+
+    var u8_zero_arg: u8 = (u8)input[0].to_u64();
+    var u8_one_arg: u8 = (u8)input[1].to_u64();
+    var u8_max_arg: u8 = (u8)input[2].to_u64();
+    var u8_mid_arg: u8 = (u8)input[3].to_u64();
+    var u8_big_arg: u8 = (u8)input[4].to_u64();
+
+    var d_u8_0_arg: u8 = (u8)input[5].to_u64();
+    var d_u8_1_arg: u8 = (u8)input[6].to_u64();
+    var d_u8_2_arg: u8 = (u8)input[7].to_u64();
+    var d_u8_3_arg: u8 = (u8)input[8].to_u64();
+    var d_u8_4_arg: u8 = (u8)input[9].to_u64();
+
+    assert_eq_u8(u8_zero / d_u8_0, 0u8);
+    assert_eq_u8(u8_zero / d_u8_1, 0u8);
+    assert_eq_u8(u8_zero / d_u8_2, 0u8);
+    assert_eq_u8(u8_zero / d_u8_3, 0u8);
+    assert_eq_u8(u8_zero / d_u8_4, 0u8);
+
+    assert_eq_u8(u8_one / d_u8_0, 1u8);
+    assert_eq_u8(u8_one / d_u8_1, 0u8);
+    assert_eq_u8(u8_one / d_u8_2, 0u8);
+    assert_eq_u8(u8_one / d_u8_3, 0u8);
+    assert_eq_u8(u8_one / d_u8_4, 0u8);
+
+    assert_eq_u8(u8_max / d_u8_0, 255u8);
+    assert_eq_u8(u8_max / d_u8_1, 1u8);
+    assert_eq_u8(u8_max / d_u8_2, 15u8);
+    assert_eq_u8(u8_max / d_u8_3, 1u8);
+    assert_eq_u8(u8_max / d_u8_4, 85u8);
+
+    assert_eq_u8(u8_mid / d_u8_0, 17u8);
+    assert_eq_u8(u8_mid / d_u8_1, 0u8);
+    assert_eq_u8(u8_mid / d_u8_2, 1u8);
+    assert_eq_u8(u8_mid / d_u8_3, 0u8);
+    assert_eq_u8(u8_mid / d_u8_4, 5u8);
+
+    assert_eq_u8(u8_big / d_u8_0, 200u8);
+    assert_eq_u8(u8_big / d_u8_1, 0u8);
+    assert_eq_u8(u8_big / d_u8_2, 11u8);
+    assert_eq_u8(u8_big / d_u8_3, 1u8);
+    assert_eq_u8(u8_big / d_u8_4, 66u8);
+
+    assert_eq_u8(u8_zero_arg / d_u8_0_arg, 0u8);
+    assert_eq_u8(u8_zero_arg / d_u8_1_arg, 0u8);
+    assert_eq_u8(u8_zero_arg / d_u8_2_arg, 0u8);
+    assert_eq_u8(u8_zero_arg / d_u8_3_arg, 0u8);
+    assert_eq_u8(u8_zero_arg / d_u8_4_arg, 0u8);
+
+    assert_eq_u8(u8_one_arg / d_u8_0_arg, 1u8);
+    assert_eq_u8(u8_one_arg / d_u8_1_arg, 0u8);
+    assert_eq_u8(u8_one_arg / d_u8_2_arg, 0u8);
+    assert_eq_u8(u8_one_arg / d_u8_3_arg, 0u8);
+    assert_eq_u8(u8_one_arg / d_u8_4_arg, 0u8);
+
+    assert_eq_u8(u8_max_arg / d_u8_0_arg, 255u8);
+    assert_eq_u8(u8_max_arg / d_u8_1_arg, 1u8);
+    assert_eq_u8(u8_max_arg / d_u8_2_arg, 15u8);
+    assert_eq_u8(u8_max_arg / d_u8_3_arg, 1u8);
+    assert_eq_u8(u8_max_arg / d_u8_4_arg, 85u8);
+
+    assert_eq_u8(u8_mid_arg / d_u8_0_arg, 17u8);
+    assert_eq_u8(u8_mid_arg / d_u8_1_arg, 0u8);
+    assert_eq_u8(u8_mid_arg / d_u8_2_arg, 1u8);
+    assert_eq_u8(u8_mid_arg / d_u8_3_arg, 0u8);
+    assert_eq_u8(u8_mid_arg / d_u8_4_arg, 5u8);
+
+    assert_eq_u8(u8_big_arg / d_u8_0_arg, 200u8);
+    assert_eq_u8(u8_big_arg / d_u8_1_arg, 0u8);
+    assert_eq_u8(u8_big_arg / d_u8_2_arg, 11u8);
+    assert_eq_u8(u8_big_arg / d_u8_3_arg, 1u8);
+    assert_eq_u8(u8_big_arg / d_u8_4_arg, 66u8);
+}
+
+fn test_double(input: Str[]) -> unit {
+    var d_neg: double = -8.0;
+    var d_one: double = 1.0;
+    var d_two: double = 2.0;
+    var d_big: double = 16.0;
+    var d_half: double = 0.5;
+
+    var d_neg_arg: double = input[0].to_double();
+    var d_one_arg: double = input[1].to_double();
+    var d_two_arg: double = input[2].to_double();
+    var d_big_arg: double = input[3].to_double();
+    var d_half_arg: double = input[4].to_double();
+
+    assert_eq_double(d_neg / d_neg, 1.0);
+    assert_eq_double(d_neg / d_one, -8.0);
+    assert_eq_double(d_neg / d_two, -4.0);
+    assert_eq_double(d_neg / d_big, -0.5);
+    assert_eq_double(d_neg / d_half, -16.0);
+
+    assert_eq_double(d_one / d_neg, -0.125);
+    assert_eq_double(d_one / d_one, 1.0);
+    assert_eq_double(d_one / d_two, 0.5);
+    assert_eq_double(d_one / d_big, 0.0625);
+    assert_eq_double(d_one / d_half, 2.0);
+
+    assert_eq_double(d_two / d_neg, -0.25);
+    assert_eq_double(d_two / d_one, 2.0);
+    assert_eq_double(d_two / d_two, 1.0);
+    assert_eq_double(d_two / d_big, 0.125);
+    assert_eq_double(d_two / d_half, 4.0);
+
+    assert_eq_double(d_big / d_neg, -2.0);
+    assert_eq_double(d_big / d_one, 16.0);
+    assert_eq_double(d_big / d_two, 8.0);
+    assert_eq_double(d_big / d_big, 1.0);
+    assert_eq_double(d_big / d_half, 32.0);
+
+    assert_eq_double(d_half / d_neg, -0.0625);
+    assert_eq_double(d_half / d_one, 0.5);
+    assert_eq_double(d_half / d_two, 0.25);
+    assert_eq_double(d_half / d_big, 0.03125);
+    assert_eq_double(d_half / d_half, 1.0);
+
+    assert_eq_double(d_neg_arg / d_neg_arg, 1.0);
+    assert_eq_double(d_neg_arg / d_one_arg, -8.0);
+    assert_eq_double(d_neg_arg / d_two_arg, -4.0);
+    assert_eq_double(d_neg_arg / d_big_arg, -0.5);
+    assert_eq_double(d_neg_arg / d_half_arg, -16.0);
+
+    assert_eq_double(d_one_arg / d_neg_arg, -0.125);
+    assert_eq_double(d_one_arg / d_one_arg, 1.0);
+    assert_eq_double(d_one_arg / d_two_arg, 0.5);
+    assert_eq_double(d_one_arg / d_big_arg, 0.0625);
+    assert_eq_double(d_one_arg / d_half_arg, 2.0);
+
+    assert_eq_double(d_two_arg / d_neg_arg, -0.25);
+    assert_eq_double(d_two_arg / d_one_arg, 2.0);
+    assert_eq_double(d_two_arg / d_two_arg, 1.0);
+    assert_eq_double(d_two_arg / d_big_arg, 0.125);
+    assert_eq_double(d_two_arg / d_half_arg, 4.0);
+
+    assert_eq_double(d_big_arg / d_neg_arg, -2.0);
+    assert_eq_double(d_big_arg / d_one_arg, 16.0);
+    assert_eq_double(d_big_arg / d_two_arg, 8.0);
+    assert_eq_double(d_big_arg / d_big_arg, 1.0);
+    assert_eq_double(d_big_arg / d_half_arg, 32.0);
+
+    assert_eq_double(d_half_arg / d_neg_arg, -0.0625);
+    assert_eq_double(d_half_arg / d_one_arg, 0.5);
+    assert_eq_double(d_half_arg / d_two_arg, 0.25);
+    assert_eq_double(d_half_arg / d_big_arg, 0.03125);
+    assert_eq_double(d_half_arg / d_half_arg, 1.0);
 }
 
 fn main() -> i64 {
-  test_i64();
-  test_u64();
-  test_u8();
-  test_u64_highbit();
-  return 0;
+    var args: Str[] = read_program_args();
+    var select: u64 = args[1].to_u64();
+
+    if select == 1u { test_i64(args[2:]); return 0; }
+    if select == 2u { test_i64_special_cases(args[2:]); return 0; }
+    if select == 3u { test_u64(args[2:]); return 0; }
+    if select == 4u { test_u64_highbit(args[2:]); return 0; }
+    if select == 5u { test_u8(args[2:]); return 0; }
+    if select == 6u { test_double(args[2:]); return 0; }
+
+    return 99;
 }
