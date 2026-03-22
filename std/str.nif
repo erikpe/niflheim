@@ -34,6 +34,21 @@ export class Str implements Hashable, Equalable, Comparable
         return "false";
     }
 
+    fn to_bool() -> bool {
+        var length: u64 = __self.len();
+        if length == 0u {
+            panic("Str.to_bool on empty string");
+        }
+        else if __self.equals("true") {
+            return true;
+        }
+        else if __self.equals("false") {
+            return false;
+        }
+        panic("Str.to_bool invalid value");
+        return false;
+    }
+
     static fn concat(left: Str, right: Str) -> Str {
         var len_left: i64 = (i64)left.len();
         var len_right: i64 = (i64)right.len();
@@ -310,6 +325,71 @@ export class Str implements Hashable, Equalable, Comparable
         }
 
         return Str(buf[0:out_len]);
+    }
+
+    fn to_double() -> double {
+        var length: u64 = __self.len();
+        if length == 0u {
+            panic("Str.to_double on empty string");
+        }
+
+        var negative: bool = false;
+        var index: u64 = 0u;
+        if __self[0] == '-' {
+            negative = true;
+            index = 1u;
+            if index == length {
+                panic("Str.to_double invalid digit");
+            }
+        }
+
+        var integer_part: u64 = 0u;
+        var fractional_part: double = 0.0;
+        var divisor: double = 10.0;
+        var seen_digit: bool = false;
+        var seen_dot: bool = false;
+
+        while index < length {
+            var ch: u8 = __self[(i64)index];
+            if ch >= '0' && ch <= '9' {
+                seen_digit = true;
+                var digit: u64 = (u64)(ch - '0');
+                if !seen_dot {
+                    if (integer_part > 1844674407370955161u) || (integer_part == 1844674407370955161u && digit > 5u) {
+                        panic("Str.to_double overflow");
+                    }
+                    integer_part = integer_part * 10u + digit;
+                }
+                else {
+                    fractional_part = fractional_part + (double)digit / divisor;
+                    divisor = divisor * 10.0;
+                }
+            }
+            else if ch == '.' {
+                if seen_dot {
+                    panic("Str.to_double invalid digit");
+                }
+                seen_dot = true;
+            }
+            else {
+                panic("Str.to_double invalid digit");
+            }
+
+            index = index + 1u;
+        }
+
+        if !seen_digit {
+            panic("Str.to_double invalid digit");
+        }
+
+        var out: double = (double)integer_part + fractional_part;
+        if negative {
+            return -out;
+        }
+        return out;
+
+        panic("Str.to_double invalid digit");
+        return 0.0;
     }
 
     fn to_i64() -> i64 {

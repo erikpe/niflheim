@@ -191,6 +191,47 @@ fn test_merge_to_i64() -> unit {
 }
 
 
+fn test_merge_to_bool() -> unit {
+    assert("true".to_bool());
+    assert(!"false".to_bool());
+}
+
+
+fn test_merge_to_bool_invalid_value() -> unit {
+    "True".to_bool();
+}
+
+
+fn test_merge_to_bool_empty_string() -> unit {
+    "".to_bool();
+}
+
+
+fn test_merge_to_double() -> unit {
+    assert("0".to_double() == 0.0);
+    assert("1.5".to_double() == 1.5);
+    assert("-2.25".to_double() == -2.25);
+    assert("123456.125".to_double() == 123456.125);
+    assert(".5".to_double() == 0.5);
+    assert("42.".to_double() == 42.0);
+}
+
+
+fn test_merge_to_double_invalid_digit() -> unit {
+    "12x.5".to_double();
+}
+
+
+fn test_merge_to_double_invalid_format() -> unit {
+    "1.2.3".to_double();
+}
+
+
+fn test_merge_to_double_empty_string() -> unit {
+    "".to_double();
+}
+
+
 fn test_merge_to_u64_overflow1() -> unit {
     "18446744073709551616".to_u64();
 }
@@ -377,11 +418,14 @@ fn test_from_misc_scalars() -> unit {
 
     assert(Str.from_bool(true).compare_to("true") == 0);
     assert(Str.from_bool(false).compare_to("false") == 0);
+    assert(Str.from_bool(true).to_bool());
+    assert(!Str.from_bool(false).to_bool());
 
     assert(Str.from_double(0.0).compare_to("0.000000") == 0);
     assert(Str.from_double(1.5).compare_to("1.500000") == 0);
     assert(Str.from_double(-2.25).compare_to("-2.250000") == 0);
     assert(Str.from_double(123456.125).compare_to("123456.125000") == 0);
+    assert(Str.from_double(1.5).to_double() == 1.5);
 }
 
 
@@ -539,31 +583,38 @@ fn main() -> i64 {
     if select == 21u { test_merge_to_i64_overflow4(); }
     if select == 22u { test_merge_to_i64_invalid_digit(); }
     if select == 23u { test_merge_to_i64_empty_string(); }
-    if select == 24u { test_merge_e2e_str_from_char(); }
-    if select == 25u { test_merge_e2e_str_hex_escape(); }
-    if select == 26u { test_merge_e2e_str_literal_indexing(); }
-    if select == 27u { test_merge_e2e_str_oob_index_panics(); }
-    if select == 28u { test_merge_e2e_str_oob_slice_panics(); }
-    if select == 29u { test_merge_e2e_str_negative_index_and_slice(); }
-    if select == 30u { test_merge_e2e_str_slice_syntax(); }
-    if select == 31u { test_merge_e2e_str_strip_whitespace(); }
-    if select == 32u { test_from_u64_edges(); }
-    if select == 33u { test_from_u64_roundtrip(); }
-    if select == 34u { test_compare_to(); }
-    if select == 35u { test_from_i64_edges(); }
-    if select == 36u { test_from_i64_roundtrip(); }
-    if select == 37u { test_strbuf_append(); }
-    if select == 38u { test_strbuf_append_u64(); }
-    if select == 39u { test_strbuf_append_i64(); }
-    if select == 40u { test_to_u8_array(); }
-    if select == 41u { test_from_misc_scalars(); }
-    if select == 42u { test_strbuf_append_scalars(); }
-    if select == 43u { test_splitlines(); }
-    if select == 44u { test_str_for_in_iteration(); }
-    if select == 45u { test_strbuf_for_in_iteration(); }
-    if select == 46u { test_hash_code_equal_content(); }
-    if select == 47u { test_equals_obj(); }
-    if select == 48u { test_split_trailing_delimiter(); }
-    if select == 49u { test_concat_operator(); }
+    if select == 24u { test_merge_to_bool(); }
+    if select == 25u { test_merge_to_bool_invalid_value(); }
+    if select == 26u { test_merge_to_bool_empty_string(); }
+    if select == 27u { test_merge_to_double(); }
+    if select == 28u { test_merge_to_double_invalid_digit(); }
+    if select == 29u { test_merge_to_double_invalid_format(); }
+    if select == 30u { test_merge_to_double_empty_string(); }
+    if select == 31u { test_merge_e2e_str_from_char(); }
+    if select == 32u { test_merge_e2e_str_hex_escape(); }
+    if select == 33u { test_merge_e2e_str_literal_indexing(); }
+    if select == 34u { test_merge_e2e_str_oob_index_panics(); }
+    if select == 35u { test_merge_e2e_str_oob_slice_panics(); }
+    if select == 36u { test_merge_e2e_str_negative_index_and_slice(); }
+    if select == 37u { test_merge_e2e_str_slice_syntax(); }
+    if select == 38u { test_merge_e2e_str_strip_whitespace(); }
+    if select == 39u { test_from_u64_edges(); }
+    if select == 40u { test_from_u64_roundtrip(); }
+    if select == 41u { test_compare_to(); }
+    if select == 42u { test_from_i64_edges(); }
+    if select == 43u { test_from_i64_roundtrip(); }
+    if select == 44u { test_strbuf_append(); }
+    if select == 45u { test_strbuf_append_u64(); }
+    if select == 46u { test_strbuf_append_i64(); }
+    if select == 47u { test_to_u8_array(); }
+    if select == 48u { test_from_misc_scalars(); }
+    if select == 49u { test_strbuf_append_scalars(); }
+    if select == 50u { test_splitlines(); }
+    if select == 51u { test_str_for_in_iteration(); }
+    if select == 52u { test_strbuf_for_in_iteration(); }
+    if select == 53u { test_hash_code_equal_content(); }
+    if select == 54u { test_equals_obj(); }
+    if select == 55u { test_split_trailing_delimiter(); }
+    if select == 56u { test_concat_operator(); }
     return 0;
 }
