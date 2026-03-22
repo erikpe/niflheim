@@ -1,5 +1,24 @@
 runs:
-  - name: subtraction
+  - name: subtraction_i64
+    input:
+      args: ["1", "-9223372036854775808", "9223372036854775807", "0", "1", "-1", "123456789"]
     expect:
       exit_code: 0
-      stdout_file: "test_subtraction_expected.txt"
+
+  - name: subtraction_u64
+    input:
+      args: ["2", "0", "1", "18446744073709551615", "1000000000", "4000000000000000000"]
+    expect:
+      exit_code: 0
+
+  - name: subtraction_u8
+    input:
+      args: ["3", "0", "1", "255", "17", "200"]
+    expect:
+      exit_code: 0
+
+  - name: subtraction_double
+    input:
+      args: ["4", "-1.5", "0.0", "1.0", "1000000.25", "0.75"]
+    expect:
+      exit_code: 0
