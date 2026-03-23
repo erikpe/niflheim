@@ -77,16 +77,17 @@ For quick local workflows, use scripts under `scripts/`:
 
 - Default CLI compilation now uses the semantic-lowering backend when type checking is enabled.
 - `--source-ast-codegen` is no longer supported on the checked CLI path.
-- `--skip-check` is now limited to lex/parse inspection and cannot emit assembly.
 
-- `scripts/build.sh <input.nif> <output-executable>`
+- `scripts/build.sh <input.nif> [output-executable] [--] [nifc-args...]`
 	- Compiles to assembly at `<output-executable>.s`
 	- Links the runtime and emits `<output-executable>`
 	- Example: `./scripts/build.sh samples/arithmetic_loop.nif build/loopy`
-- `scripts/run.sh <input.nif> [output-executable] [-- <program-args...>]`
+	- Example with compiler logging flags: `./scripts/build.sh samples/arithmetic_loop.nif -- --log-level info -v`
+- `scripts/run.sh <input.nif> [output-executable] [build-args...] [-- <program-args...>]`
 	- Builds via `build.sh`, then executes the produced binary
 	- If output path is omitted, defaults to `build/<input-basename>`
 	- Example: `./scripts/run.sh samples/arithmetic_loop.nif`
+	- Example with compiler flags and program args: `./scripts/run.sh samples/arithmetic_loop.nif --log-level info -- arg1 arg2`
 
 ## Test Helper
 

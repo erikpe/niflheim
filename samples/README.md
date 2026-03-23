@@ -10,7 +10,6 @@ These samples intentionally stay within currently implemented codegen features:
 
 Try with:
 - `python3 -m compiler.main samples/arithmetic_loop.nif`
-- `python3 -m compiler.main samples/function_calls.nif --print-ast`
 - `python3 -m compiler.main samples/null_and_cast.nif -o out.s`
 - `./scripts/run.sh samples/stdlib_io_println.nif`
 - `./scripts/run.sh samples/vec_primes_2_to_1000000.nif`

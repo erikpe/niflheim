@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, replace
 
+from compiler.common.logging import get_logger
 from compiler.common.type_names import NON_CLASS_TYPE_NAMES
 from compiler.common.type_shapes import is_array_type_name, is_function_type_name
 from compiler.resolver import ModulePath
@@ -311,22 +312,41 @@ def analyze_semantic_reachability(program: SemanticProgram) -> SemanticReachabil
 
 
 def prune_unreachable_semantic(program: SemanticProgram) -> SemanticProgram:
+    logger = get_logger(__name__)
     reachability = analyze_semantic_reachability(program)
     pruned_modules: dict[ModulePath, SemanticModule] = {}
+    removed_function_count = 0
+    removed_method_count = 0
+    removed_class_count = 0
+    removed_interface_count = 0
 
     for module_path, module in program.modules.items():
         classes: list[SemanticClass] = []
         for cls in module.classes:
             if cls.class_id not in reachability.reachable_classes:
+                removed_class_count += 1
+                removed_method_count += len(cls.methods)
                 continue
             methods = [method for method in cls.methods if method.method_id in reachability.reachable_methods]
+            removed_method_count += len(cls.methods) - len(methods)
             classes.append(replace(cls, methods=methods))
 
         functions = [fn for fn in module.functions if fn.function_id in reachability.reachable_functions]
+        removed_function_count += len(module.functions) - len(functions)
         interfaces = [
             interface for interface in module.interfaces if interface.interface_id in reachability.reachable_interfaces
         ]
+        removed_interface_count += len(module.interfaces) - len(interfaces)
         pruned_modules[module_path] = replace(module, classes=classes, functions=functions, interfaces=interfaces)
+
+    logger.debugv(
+        1,
+        "Optimization pass prune_unreachable removed %d functions, %d methods, %d classes, %d interfaces",
+        removed_function_count,
+        removed_method_count,
+        removed_class_count,
+        removed_interface_count,
+    )
 
     return SemanticProgram(entry_module=program.entry_module, modules=pruned_modules)
 

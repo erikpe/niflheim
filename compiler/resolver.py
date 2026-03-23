@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 
+from compiler.common.logging import get_logger
 from compiler.frontend.ast_nodes import *
 from compiler.common.span import SourceSpan
 from compiler.frontend.lexer import lex
@@ -45,6 +47,26 @@ class ProgramInfo:
     modules: dict[ModulePath, ModuleInfo]
 
 
+@dataclass
+class _ResolveStats:
+    lexed_token_count: int = 0
+    lexed_file_count: int = 0
+    lex_total_ms: float = 0.0
+    parsed_token_count: int = 0
+    parsed_stream_count: int = 0
+    parse_total_ms: float = 0.0
+
+    def record_lex(self, token_count: int, duration_ms: float) -> None:
+        self.lexed_token_count += token_count
+        self.lexed_file_count += 1
+        self.lex_total_ms += duration_ms
+
+    def record_parse(self, token_count: int, duration_ms: float) -> None:
+        self.parsed_token_count += token_count
+        self.parsed_stream_count += 1
+        self.parse_total_ms += duration_ms
+
+
 class ResolveError(ValueError):
     def __init__(self, message: str, span: SourceSpan | None = None, file_path: Path | None = None):
         if span is not None:
@@ -64,6 +86,7 @@ def resolve(module_ast: ModuleAst) -> dict[str, SymbolInfo]:
 
 
 def resolve_program(entry_file: str | Path, project_root: str | Path | None = None) -> ProgramInfo:
+    logger = get_logger(__name__)
     entry_path = Path(entry_file).resolve()
     root_path = Path(project_root).resolve() if project_root is not None else entry_path.parent.resolve()
 
@@ -73,6 +96,7 @@ def resolve_program(entry_file: str | Path, project_root: str | Path | None = No
     entry_module = _file_path_to_module_path(entry_path, root_path)
     modules: dict[ModulePath, ModuleInfo] = {}
     visiting: set[ModulePath] = set()
+    stats = _ResolveStats()
 
     def load_module(module_path: ModulePath) -> ModuleInfo:
         if module_path in modules:
@@ -88,9 +112,16 @@ def resolve_program(entry_file: str | Path, project_root: str | Path | None = No
             dotted = ".".join(module_path)
             raise ResolveError(f"Module '{dotted}' not found", file_path=file_path)
 
+        logger.debugv(1, "Resolver loading module %s from %s", ".".join(module_path), file_path.as_posix())
+
         source_text = file_path.read_text(encoding="utf-8")
+        lex_start = perf_counter()
         tokens = lex(source_text, source_path=file_path.as_posix())
+        stats.record_lex(len(tokens), (perf_counter() - lex_start) * 1000.0)
+
+        parse_start = perf_counter()
         module_ast = parse(tokens)
+        stats.record_parse(len(tokens), (perf_counter() - parse_start) * 1000.0)
 
         symbols, exported_symbols = _build_symbol_tables(module_ast)
         imports, exported_modules = _build_import_tables(module_ast)
@@ -116,6 +147,21 @@ def resolve_program(entry_file: str | Path, project_root: str | Path | None = No
 
     for module_info in modules.values():
         _validate_module_visibility(module_info, modules)
+
+    logger.debugv(
+        1,
+        "Resolver lexed %d tokens from %d files in %.2f ms",
+        stats.lexed_token_count,
+        stats.lexed_file_count,
+        stats.lex_total_ms,
+    )
+    logger.debugv(
+        1,
+        "Resolver parsed %d tokens from %d token streams in %.2f ms",
+        stats.parsed_token_count,
+        stats.parsed_stream_count,
+        stats.parse_total_ms,
+    )
 
     return ProgramInfo(entry_module=entry_module, modules=modules)
 

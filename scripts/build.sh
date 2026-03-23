@@ -1,22 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-  echo "Usage: $0 <input.nif> [output-executable]" >&2
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <input.nif> [output-executable] [--] [nifc-args...]" >&2
   echo "Examples:" >&2
   echo "  $0 samples/arithmetic_loop.nif" >&2
   echo "  $0 samples/arithmetic_loop.nif build/loopy" >&2
+  echo "  $0 samples/arithmetic_loop.nif -- --log-level info -v" >&2
+  echo "  $0 samples/arithmetic_loop.nif build/loopy --print-asm" >&2
   exit 1
 fi
 
 input="$1"
+shift
 
-if [[ $# -eq 2 ]]; then
-  output="$2"
+if [[ $# -gt 0 && "$1" != "--" && "$1" != -* ]]; then
+  output="$1"
+  shift
 else
   base_name="$(basename "$input" .nif)"
   output="build/$base_name"
 fi
+
+if [[ $# -gt 0 && "$1" == "--" ]]; then
+  shift
+fi
+
+cli_nifc_args=("$@")
 
 if [[ ! -f "$input" ]]; then
   echo "build.sh: input file not found: $input" >&2
@@ -36,7 +46,7 @@ if [[ -n "${NIFC_BUILD_ARGS:-}" ]]; then
   read -r -a extra_nifc_args <<< "$NIFC_BUILD_ARGS"
 fi
 
-python3 -m compiler.main "$input" -o "$asm_out" --project-root "$repo_root" "${extra_nifc_args[@]}"
+python3 -m compiler.main "$input" -o "$asm_out" --project-root "$repo_root" "${extra_nifc_args[@]}" "${cli_nifc_args[@]}"
 
 gcc \
   -O2 \

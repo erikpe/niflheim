@@ -4,8 +4,6 @@ from pathlib import Path
 
 import pytest
 
-import compiler.cli as cli
-
 from tests.compiler.integration.helpers import run_cli, write
 
 
@@ -137,7 +135,7 @@ def test_cli_error_rejects_removed_semantic_codegen_flag(tmp_path: Path, monkeyp
     assert "unrecognized arguments: --semantic-codegen" in captured.err
 
 
-def test_cli_error_rejects_skip_check_for_codegen(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_cli_error_rejects_removed_skip_check_flag(tmp_path: Path, monkeypatch, capsys) -> None:
     source = tmp_path / "main.nif"
     write(
         source,
@@ -148,14 +146,15 @@ def test_cli_error_rejects_skip_check_for_codegen(tmp_path: Path, monkeypatch, c
         """,
     )
 
-    rc = run_cli(monkeypatch, ["nifc", str(source), "--skip-check"])
+    with pytest.raises(SystemExit) as exc_info:
+        run_cli(monkeypatch, ["nifc", str(source), "--skip-check"])
     captured = capsys.readouterr()
 
-    assert rc == 1
-    assert "--skip-check only supports lex/parse inspection; codegen requires type checking" in captured.err
+    assert exc_info.value.code == 2
+    assert "unrecognized arguments: --skip-check" in captured.err
 
 
-def test_cli_skip_check_allows_parse_only_inspection(tmp_path: Path, monkeypatch) -> None:
+def test_cli_error_rejects_removed_print_tokens_flag(tmp_path: Path, monkeypatch, capsys) -> None:
     source = tmp_path / "main.nif"
     write(
         source,
@@ -166,22 +165,66 @@ def test_cli_skip_check_allows_parse_only_inspection(tmp_path: Path, monkeypatch
         """,
     )
 
-    seen: dict[str, object] = {}
+    with pytest.raises(SystemExit) as exc_info:
+        run_cli(monkeypatch, ["nifc", str(source), "--print-tokens"])
+    captured = capsys.readouterr()
 
-    def _unexpected_resolve_program(*_args, **_kwargs):
-        raise AssertionError("--skip-check --stop-after parse should not resolve modules")
+    assert exc_info.value.code == 2
+    assert "unrecognized arguments: --print-tokens" in captured.err
 
-    def _unexpected_emit_asm(*_args, **_kwargs):
-        raise AssertionError("--skip-check --stop-after parse should not emit assembly")
 
-    def _fake_print(*args, **kwargs):
-        seen["printed"] = (args, kwargs)
+def test_cli_error_rejects_removed_print_ast_flags(tmp_path: Path, monkeypatch, capsys) -> None:
+    source = tmp_path / "main.nif"
+    write(
+        source,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
 
-    monkeypatch.setattr(cli, "resolve_program", _unexpected_resolve_program)
-    monkeypatch.setattr(cli, "emit_asm", _unexpected_emit_asm)
-    monkeypatch.setattr("builtins.print", _fake_print)
+    with pytest.raises(SystemExit) as exc_info:
+        run_cli(monkeypatch, ["nifc", str(source), "--print-ast", "--print-ast-spans"])
+    captured = capsys.readouterr()
 
-    rc = run_cli(monkeypatch, ["nifc", str(source), "--skip-check", "--stop-after", "parse", "--print-ast"])
+    assert exc_info.value.code == 2
+    assert "unrecognized arguments: --print-ast --print-ast-spans" in captured.err
 
-    assert rc == 0
-    assert "printed" in seen
+
+def test_cli_error_rejects_removed_stop_after_parse(tmp_path: Path, monkeypatch, capsys) -> None:
+    source = tmp_path / "main.nif"
+    write(
+        source,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_cli(monkeypatch, ["nifc", str(source), "--stop-after", "parse"])
+    captured = capsys.readouterr()
+
+    assert exc_info.value.code == 2
+    assert "invalid choice: 'parse'" in captured.err
+
+
+def test_cli_error_rejects_removed_stop_after_lex(tmp_path: Path, monkeypatch, capsys) -> None:
+    source = tmp_path / "main.nif"
+    write(
+        source,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_cli(monkeypatch, ["nifc", str(source), "--stop-after", "lex"])
+    captured = capsys.readouterr()
+
+    assert exc_info.value.code == 2
+    assert "invalid choice: 'lex'" in captured.err

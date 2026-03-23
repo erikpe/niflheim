@@ -3,11 +3,10 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from time import perf_counter
 
-from compiler.frontend.ast_dump import ast_to_debug_json
+from compiler.common.logging import LOG_LEVEL_NAMES, configure_logging, get_logger, resolve_log_settings
 from compiler.codegen.generator import emit_asm
-from compiler.frontend.lexer import lex
-from compiler.frontend.parser import parse
 from compiler.frontend.tokens import Token
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
@@ -16,7 +15,7 @@ from compiler.semantic.optimizations.pipeline import optimize_semantic_program
 from compiler.typecheck.api import typecheck_program
 
 
-STOP_PHASES = ["lex", "parse", "check", "codegen"]
+STOP_PHASES = ["check", "codegen"]
 
 
 def _format_token(token: Token) -> str:
@@ -29,58 +28,111 @@ def _print_tokens(tokens: list[Token]) -> None:
         print(_format_token(token))
 
 
+def _resolve_program_graph(logger, input_path: Path, project_root: str | None):
+    logger.info("Resolving program graph")
+    start = perf_counter()
+    program = resolve_program(input_path, project_root=project_root)
+    duration_ms = (perf_counter() - start) * 1000.0
+    logger.debugv(1, "Resolver resolved program in %.2f ms", duration_ms)
+    return program
+
+
+def _typecheck_program_phase(logger, program) -> None:
+    logger.info("Type checking")
+    start = perf_counter()
+    typecheck_program(program)
+    duration_ms = (perf_counter() - start) * 1000.0
+    logger.debugv(1, "Type checked program in %.2f ms", duration_ms)
+
+
+def _lower_program_phase(logger, program):
+    logger.info("Lowering semantic program")
+    start = perf_counter()
+    lowered_program = lower_program(program)
+    duration_ms = (perf_counter() - start) * 1000.0
+    logger.debugv(1, "Lowered semantic program in %.2f ms", duration_ms)
+    return lowered_program
+
+
+def _optimize_program_phase(logger, lowered_program):
+    logger.info("Optimizing semantic program")
+    start = perf_counter()
+    optimized_program = optimize_semantic_program(lowered_program)
+    duration_ms = (perf_counter() - start) * 1000.0
+    logger.debugv(1, "Optimized semantic program in %.2f ms", duration_ms)
+    return optimized_program
+
+
+def _link_program_phase(logger, optimized_program):
+    logger.info("Linking semantic program")
+    start = perf_counter()
+    linked_program = link_semantic_program(optimized_program)
+    duration_ms = (perf_counter() - start) * 1000.0
+    logger.debugv(1, "Linked semantic program in %.2f ms", duration_ms)
+    return linked_program
+
+
+def _emit_assembly_phase(logger, linked_program) -> str:
+    logger.info("Emitting assembly")
+    start = perf_counter()
+    asm = emit_asm(linked_program)
+    duration_ms = (perf_counter() - start) * 1000.0
+    logger.debugv(1, "Emitted %d assembly lines in %.2f ms", len(asm.splitlines()), duration_ms)
+    return asm
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(prog="nifc", description="Niflheim stage-0 compiler (default: emit assembly).")
+    parser = argparse.ArgumentParser(
+        prog="nifc", description="Niflheim stage-0 compiler (default: type check and emit assembly)."
+    )
     parser.add_argument("input", help="Input .nif source file")
-    parser.add_argument("-o", "--output", help="Output assembly file path (default: stdout)")
-    parser.add_argument(
+
+    output_group = parser.add_argument_group("Output")
+    output_group.add_argument("-o", "--output", help="Output assembly file path (default: stdout)")
+    output_group.add_argument("--print-asm", action="store_true", help="Also print emitted assembly to stdout")
+
+    logging_group = parser.add_argument_group("Logging")
+    logging_group.add_argument(
+        "--log-level", choices=LOG_LEVEL_NAMES, help="Minimum log severity to emit; defaults to warning when omitted"
+    )
+    logging_group.add_argument("-v", "--verbose", action="count", default=0, help="Increase log detail")
+    logging_group.add_argument("-q", "--quiet", action="count", default=0, help="Reduce log detail")
+
+    compilation_group = parser.add_argument_group("Compilation")
+    compilation_group.add_argument(
         "--project-root", help="Project root for multi-module resolution (default: input file directory)"
     )
-    parser.add_argument(
-        "--stop-after", choices=STOP_PHASES, default="codegen", help="Stop after a compiler phase for debugging"
+    compilation_group.add_argument(
+        "--stop-after",
+        choices=STOP_PHASES,
+        default="codegen",
+        help="Stop after a compiler phase instead of continuing to full codegen",
     )
-    parser.add_argument("--skip-check", action="store_true", help="Skip type checking")
-    parser.add_argument("--print-tokens", action="store_true", help="Print tokens after lexing")
-    parser.add_argument("--print-ast", action="store_true", help="Print parsed AST as JSON")
-    parser.add_argument("--print-ast-spans", action="store_true", help="Include spans in --print-ast output")
-    parser.add_argument("--print-asm", action="store_true", help="Also print emitted assembly to stdout")
+
     args = parser.parse_args()
+    log_settings = resolve_log_settings(args.log_level, args.verbose, args.quiet)
+    configure_logging(log_settings)
+    logger = get_logger(__name__)
 
     try:
         input_path = Path(args.input)
-        source = input_path.read_text(encoding="utf-8")
 
-        tokens = lex(source, source_path=str(input_path))
-        if args.print_tokens:
-            _print_tokens(tokens)
-        if args.stop_after == "lex":
-            return 0
-
-        module_ast = parse(tokens)
-        if args.print_ast:
-            print(ast_to_debug_json(module_ast, include_spans=args.print_ast_spans))
-        if args.stop_after == "parse":
-            return 0
-
-        if args.skip_check and args.stop_after not in {"lex", "parse"}:
-            raise ValueError("--skip-check only supports lex/parse inspection; codegen requires type checking")
-
-        if args.skip_check:
-            return 0
-
-        program = resolve_program(input_path, project_root=args.project_root)
-        typecheck_program(program)
-        linked_program = link_semantic_program(optimize_semantic_program(lower_program(program)))
+        program = _resolve_program_graph(logger, input_path, args.project_root)
+        _typecheck_program_phase(logger, program)
+        lowered_program = _lower_program_phase(logger, program)
+        optimized_program = _optimize_program_phase(logger, lowered_program)
+        linked_program = _link_program_phase(logger, optimized_program)
         require_main_function(linked_program)
         if args.stop_after == "check":
             return 0
 
-        asm = emit_asm(linked_program)
+        asm = _emit_assembly_phase(logger, linked_program)
         if args.output:
             Path(args.output).write_text(asm, encoding="utf-8")
+            logger.infov(1, "Wrote assembly to %s", args.output)
         if args.print_asm or not args.output:
             print(asm, end="" if asm.endswith("\n") else "\n")
         return 0
     except Exception as error:
-        print(f"nifc: {error}", file=sys.stderr)
+        logger.error("%s", error)
         return 1
