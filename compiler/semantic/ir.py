@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind
-from compiler.common.type_names import TYPE_NAME_NULL, TYPE_NAME_U64
+from compiler.common.type_names import TYPE_NAME_NULL, TYPE_NAME_U64, TYPE_NAME_U8
 from compiler.common.span import SourceSpan
 from compiler.resolver import ModulePath
 from compiler.semantic.operations import (
@@ -23,10 +23,10 @@ from compiler.semantic.symbols import (
     LocalId,
     LocalOwnerId,
     MethodId,
-    SyntheticId,
 )
 from compiler.semantic.types import (
     SemanticTypeRef,
+    semantic_array_type_ref,
     semantic_null_type_ref,
     semantic_primitive_type_ref,
     semantic_type_display_name,
@@ -586,12 +586,13 @@ class ArrayCtorExprS:
 
 
 @dataclass(frozen=True)
-class SyntheticExpr:
-    synthetic_id: SyntheticId
-    args: list["SemanticExpr"]
-    type_name: str
-    type_ref: SemanticTypeRef
+class StringLiteralBytesExpr:
+    literal_text: str
     span: SourceSpan
+    type_name: str = f"{TYPE_NAME_U8}[]"
+    type_ref: SemanticTypeRef = field(
+        default_factory=lambda: semantic_array_type_ref(semantic_primitive_type_ref(TYPE_NAME_U8))
+    )
 
 
 SemanticStmt = (
@@ -628,7 +629,7 @@ SemanticExpr = (
     | IndexReadExpr
     | SliceReadExpr
     | ArrayCtorExprS
-    | SyntheticExpr
+    | StringLiteralBytesExpr
 )
 
 

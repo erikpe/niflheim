@@ -960,9 +960,8 @@ def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp
     prefix_target = _assert_call_target(prefix_decl.initializer, StaticMethodCallTarget)
     assert prefix_target.method_id.class_name == "Str"
     assert prefix_target.method_id.name == "from_u8_array"
-    assert isinstance(prefix_decl.initializer.args[0], SyntheticExpr)
-    assert prefix_decl.initializer.args[0].synthetic_id.kind == "string_literal_bytes"
-    assert prefix_decl.initializer.args[0].synthetic_id.name == '"hi"'
+    assert isinstance(prefix_decl.initializer.args[0], StringLiteralBytesExpr)
+    assert prefix_decl.initializer.args[0].literal_text == '"hi"'
 
     return_stmt = statements[1]
     assert isinstance(return_stmt, SemanticReturn)

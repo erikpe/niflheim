@@ -258,6 +258,10 @@ def semantic_type_ref_for_interface_id(
     )
 
 
+def semantic_array_type_ref(element_type: SemanticTypeRef) -> SemanticTypeRef:
+    return _array_semantic_type_ref(element_type)
+
+
 def _callable_semantic_type_ref(
     param_types: tuple[SemanticTypeRef, ...], return_type: SemanticTypeRef
 ) -> SemanticTypeRef:

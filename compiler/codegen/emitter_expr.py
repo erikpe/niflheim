@@ -96,8 +96,8 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
     if isinstance(expr, SliceReadExpr):
         _emit_slice_read_expr(codegen, expr, ctx)
         return
-    if isinstance(expr, SyntheticExpr):
-        _emit_synthetic_expr(codegen, expr, ctx)
+    if isinstance(expr, StringLiteralBytesExpr):
+        _emit_string_literal_bytes_expr(codegen, expr, ctx)
         return
     if isinstance(expr, UnaryExprS):
         _emit_unary_expr(codegen, expr, ctx)
@@ -538,12 +538,8 @@ def _emit_slice_read_expr(codegen: CodeGenerator, expr: SliceReadExpr, ctx: Emit
     )
 
 
-def _emit_synthetic_expr(codegen: CodeGenerator, expr: SyntheticExpr, ctx: EmitContext) -> None:
-    if expr.synthetic_id.kind != "string_literal_bytes":
-        codegen_types.raise_codegen_error(
-            f"synthetic expression codegen not implemented for kind '{expr.synthetic_id.kind}'", span=expr.span
-        )
-    label_and_len = ctx.string_literal_labels.get(expr.synthetic_id.name)
+def _emit_string_literal_bytes_expr(codegen: CodeGenerator, expr: StringLiteralBytesExpr, ctx: EmitContext) -> None:
+    label_and_len = ctx.string_literal_labels.get(expr.literal_text)
     if label_and_len is None:
         codegen_types.raise_codegen_error("missing string literal lowering metadata", span=expr.span)
     data_label, data_len = label_and_len

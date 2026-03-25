@@ -45,13 +45,6 @@ class ConstructorId:
     class_name: str
 
 
-@dataclass(frozen=True)
-class SyntheticId:
-    kind: str
-    owner: str
-    name: str
-
-
 LocalOwnerId = FunctionId | MethodId
 
 

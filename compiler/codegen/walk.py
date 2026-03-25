@@ -105,6 +105,5 @@ def walk_expression(expr: SemanticExpr, visit_expr: Callable[[SemanticExpr], Non
     if isinstance(expr, ArrayCtorExprS):
         walk_expression(expr.length_expr, visit_expr)
         return
-    if isinstance(expr, SyntheticExpr):
-        for arg in expr.args:
-            walk_expression(arg, visit_expr)
+    if isinstance(expr, StringLiteralBytesExpr):
+        return

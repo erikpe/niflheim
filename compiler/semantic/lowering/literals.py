@@ -8,8 +8,7 @@ from compiler.common.type_shapes import is_str_type_name
 from compiler.frontend.ast_nodes import *
 from compiler.semantic.ir import *
 from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
-from compiler.semantic.symbols import SyntheticId
-from compiler.semantic.types import compat_semantic_type_ref_from_name, semantic_primitive_type_ref
+from compiler.semantic.types import semantic_primitive_type_ref
 from compiler.typecheck.constants import I64_MIN_MAGNITUDE_LITERAL
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
@@ -30,15 +29,7 @@ def lower_string_literal_expr(
             method_id=resolve_static_method_id(typecheck_ctx, result_type_name, "from_u8_array")
         ),
         args=[
-            SyntheticExpr(
-                synthetic_id=SyntheticId(
-                    kind="string_literal_bytes", owner=result_type_name, name=expr.literal.raw_text
-                ),
-                args=[],
-                type_name="u8[]",
-                type_ref=compat_semantic_type_ref_from_name(typecheck_ctx.module_path, "u8[]"),
-                span=expr.span,
-            )
+            StringLiteralBytesExpr(literal_text=expr.literal.raw_text, span=expr.span)
         ],
         type_name=result_type_name,
         type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, infer_expression_type(typecheck_ctx, expr)),

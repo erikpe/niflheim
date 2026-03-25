@@ -289,9 +289,7 @@ class _SemanticReachabilityWalker:
             self._walk_expr(module_path, expr.length_expr)
             self._enqueue_type_ref(module_path, expr.element_type_ref)
             return
-        if isinstance(expr, SyntheticExpr):
-            for arg in expr.args:
-                self._walk_expr(module_path, arg)
+        if isinstance(expr, StringLiteralBytesExpr):
             return
 
     def _enqueue_type_name(self, current_module_path: ModulePath, type_name: str) -> None:

@@ -198,8 +198,8 @@ def _fold_expr(expr: SemanticExpr, env: _ConstantEnv, stats: _FoldStats) -> Sema
         )
     if isinstance(expr, ArrayCtorExprS):
         return replace(expr, length_expr=_fold_expr(expr.length_expr, env, stats))
-    if isinstance(expr, SyntheticExpr):
-        return replace(expr, args=[_fold_expr(arg, env, stats) for arg in expr.args])
+    if isinstance(expr, StringLiteralBytesExpr):
+        return expr
     raise TypeError(f"Unsupported semantic expression for constant folding: {type(expr).__name__}")
 
 

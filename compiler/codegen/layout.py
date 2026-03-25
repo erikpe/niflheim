@@ -222,8 +222,8 @@ def _expr_uses_local_storage(expr: SemanticExpr) -> bool:
         )
     if isinstance(expr, ArrayCtorExprS):
         return _expr_uses_local_storage(expr.length_expr)
-    if isinstance(expr, SyntheticExpr):
-        return any(_expr_uses_local_storage(arg) for arg in expr.args)
+    if isinstance(expr, StringLiteralBytesExpr):
+        return False
     return False
 
 
@@ -248,7 +248,7 @@ def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
             SliceReadExpr,
             ArrayCtorExprS,
             ArrayLenExpr,
-            SyntheticExpr,
+            StringLiteralBytesExpr,
         ),
     ):
         return True
@@ -326,8 +326,8 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
         return _max_rooted_sequence([expr.target, expr.begin, expr.end])
     if isinstance(expr, ArrayCtorExprS):
         return _max_call_temp_root_slots_in_expr(expr.length_expr)
-    if isinstance(expr, SyntheticExpr):
-        return max((_max_call_temp_root_slots_in_expr(arg) for arg in expr.args), default=0)
+    if isinstance(expr, StringLiteralBytesExpr):
+        return 0
     if isinstance(expr, CastExprS):
         return _max_call_temp_root_slots_in_expr(expr.operand)
     if isinstance(expr, TypeTestExprS):

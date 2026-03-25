@@ -290,9 +290,9 @@ Step 4 status:
 - validation covered focused lowering, emitter, walk, and optimization tests (`59 passed`) plus the broad semantic and codegen suites (`238 passed`).
 
 5. Replace `SyntheticExpr` with explicit semantic node kinds or explicit synthetic categories
-  - [ ] inventory all current `SyntheticExpr` uses and group them by actual semantic meaning
-  - [ ] promote common synthetic forms into dedicated node types where semantics are stable
-  - [ ] if any generic synthetic bucket remains, make it a narrowly typed, well-documented escape hatch rather than an open-ended catch-all
+  - [x] inventory all current `SyntheticExpr` uses and group them by actual semantic meaning
+  - [x] promote common synthetic forms into dedicated node types where semantics are stable
+  - [x] if any generic synthetic bucket remains, make it a narrowly typed, well-documented escape hatch rather than an open-ended catch-all
   - Purpose:
     prevent the semantic graph from accumulating an unstructured miscellaneous node
   - Expected outcome:
@@ -300,6 +300,15 @@ Step 4 status:
   - Tests to add:
     - semantic walk and reachability tests covering the new explicit synthetic node coverage
     - regression tests proving no old synthetic use falls through undocumented paths
+
+Step 5 status:
+
+- complete
+- the generic `SyntheticExpr` bucket has been removed because the only live synthetic form was string-literal byte payload lowering.
+- string literal byte payloads now use an explicit `StringLiteralBytesExpr` node with fixed canonical `u8[]` type metadata instead of an open-ended synthetic identifier and argument bag.
+- `SyntheticId` has been removed, and the relevant lowering, constant folding, reachability, walk, layout, string-collection, and codegen paths now consume the explicit node directly.
+- `compiler/semantic/types.py` now exposes `semantic_array_type_ref(...)`, which lets explicit fixed-shape nodes construct canonical array type refs without routing through compatibility-era string reconstruction.
+- validation covers lowering and semantic type regressions directly, and broad semantic plus codegen validation remains required for the step.
 
 6. Define an explicit split between source-level semantic IR and lowered semantic IR
   - [ ] decide whether the compiler should keep one IR with phases or two closely related IR layers

@@ -56,7 +56,6 @@ def collect_string_literals(program: LinkedSemanticProgram) -> list[str]:
 
 
 def _collect_string_literal(expr: SemanticExpr, out: list[str], seen: set[str]) -> None:
-    if isinstance(expr, SyntheticExpr) and expr.synthetic_id.kind == "string_literal_bytes":
-        if expr.synthetic_id.name not in seen:
-            seen.add(expr.synthetic_id.name)
-            out.append(expr.synthetic_id.name)
+    if isinstance(expr, StringLiteralBytesExpr) and expr.literal_text not in seen:
+        seen.add(expr.literal_text)
+        out.append(expr.literal_text)

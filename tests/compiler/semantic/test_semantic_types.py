@@ -4,6 +4,7 @@ from compiler.semantic.symbols import ClassId
 from compiler.semantic.types import (
     best_effort_semantic_type_ref_from_name,
     compat_semantic_type_ref_from_name,
+    semantic_array_type_ref,
     semantic_type_canonical_name,
     semantic_type_callable_params,
     semantic_type_callable_return,
@@ -19,6 +20,7 @@ from compiler.semantic.types import (
     semantic_type_ref_from_type_info,
     semantic_type_array_element,
     semantic_types_have_same_nominal_identity,
+    semantic_primitive_type_ref,
 )
 from compiler.typecheck.model import TypeInfo
 
@@ -107,3 +109,12 @@ def test_best_effort_semantic_type_ref_from_name_remains_a_test_only_alias() -> 
 
     assert best_effort_type == compat_type
     assert semantic_type_canonical_name(best_effort_type) == "fn(main::Box, i64) -> main::Box[]"
+
+
+def test_semantic_array_type_ref_builds_canonical_array_shapes_without_string_reconstruction() -> None:
+    array_type = semantic_array_type_ref(semantic_primitive_type_ref("u8"))
+
+    assert semantic_type_is_array(array_type)
+    assert semantic_type_display_name(array_type) == "u8[]"
+    assert semantic_type_canonical_name(array_type) == "u8[]"
+    assert semantic_type_canonical_name(semantic_type_array_element(array_type)) == "u8"
