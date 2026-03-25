@@ -13,8 +13,11 @@ from compiler.semantic.ir import (
     FunctionCallExpr,
     LiteralExprS,
     LocalRefExpr,
+    SemanticAssign,
     SemanticBlock,
+    SemanticForIn,
     SemanticFunction,
+    SemanticIf,
     SemanticModule,
     SemanticProgram,
     SemanticReturn,
@@ -342,6 +345,40 @@ def test_fold_constants_invalidates_propagation_after_local_assignment(tmp_path:
     assert isinstance(return_stmt.value, BinaryExprS)
 
 
+def test_fold_constants_preserves_outer_local_updates_from_nested_block(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var value: i64 = 10;
+            var total: i64 = 1;
+
+            {
+                var value: i64 = 20;
+                total = total + value;
+            }
+
+            return total;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = folded.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[2], SemanticBlock)
+    assert isinstance(statements[2].statements[1], SemanticAssign)
+    assert isinstance(statements[2].statements[1].value, LiteralExprS)
+    assert isinstance(statements[2].statements[1].value.constant, IntConstant)
+    assert statements[2].statements[1].value.constant.value == 21
+
+    return_stmt = statements[3]
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LiteralExprS)
+    assert isinstance(return_stmt.value.constant, IntConstant)
+    assert return_stmt.value.constant.value == 21
+
+
 def test_fold_constants_is_conservative_across_control_flow(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
@@ -358,6 +395,35 @@ def test_fold_constants_is_conservative_across_control_flow(tmp_path: Path) -> N
     folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     return_stmt = folded.modules[("main",)].functions[0].body.statements[2]
 
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, BinaryExprS)
+
+
+def test_fold_constants_folds_branch_locals_but_does_not_leak_branch_env(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(flag: bool) -> i64 {
+            var x: i64 = 23;
+            if flag {
+                var y: i64 = x + 17;
+            }
+            return x + 17;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = folded.modules[("main",)].functions[0].body.statements
+
+    if_stmt = statements[1]
+    assert isinstance(if_stmt, SemanticIf)
+    assert isinstance(if_stmt.then_block.statements[0], SemanticVarDecl)
+    assert isinstance(if_stmt.then_block.statements[0].initializer, LiteralExprS)
+    assert isinstance(if_stmt.then_block.statements[0].initializer.constant, IntConstant)
+    assert if_stmt.then_block.statements[0].initializer.constant.value == 40
+
+    return_stmt = statements[2]
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, BinaryExprS)
 
@@ -381,6 +447,33 @@ def test_fold_constants_does_not_propagate_into_while_loops(tmp_path: Path) -> N
 
     assert isinstance(while_stmt, SemanticWhile)
     assert isinstance(while_stmt.condition, BinaryExprS)
+
+
+def test_fold_constants_does_not_propagate_outer_constants_into_for_in_loops(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var x: i64 = 5;
+            var values: i64[] = i64[](1u);
+            values[0] = 9;
+
+            for item in values {
+                var sum: i64 = x + item;
+                return sum;
+            }
+
+            return 0;
+        }
+        """,
+    )
+
+    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    loop_stmt = folded.modules[("main",)].functions[0].body.statements[3]
+
+    assert isinstance(loop_stmt, SemanticForIn)
+    assert isinstance(loop_stmt.body.statements[0], SemanticVarDecl)
+    assert isinstance(loop_stmt.body.statements[0].initializer, BinaryExprS)
 
 
 def test_fold_constants_distinguishes_literal_and_runtime_addition_paths(tmp_path: Path) -> None:

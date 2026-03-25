@@ -1103,12 +1103,14 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     loop_stmt = statements[0]
     assert isinstance(loop_stmt, SemanticForIn)
     assert loop_stmt.element_name == "item"
+    assert loop_stmt.element_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert loop_stmt.element_type_name == "i64"
     assert isinstance(loop_stmt.body.statements[0], SemanticVarDecl)
     assert loop_stmt.body.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert isinstance(loop_stmt.body.statements[0].initializer, LocalRefExpr)
     assert loop_stmt.body.statements[0].initializer.name == "item"
     assert loop_stmt.body.statements[0].initializer.type_name == "i64"
+    assert loop_stmt.body.statements[0].initializer.local_id == loop_stmt.element_local_id
     assert loop_stmt.body.statements[0].initializer.local_id != loop_stmt.body.statements[0].local_id
 
     return_stmt = statements[1]
@@ -1160,6 +1162,49 @@ def test_lower_program_local_identity_is_stable_under_local_rename(tmp_path: Pat
     assert original_return.value.local_id.ordinal == renamed_return.value.local_id.ordinal == 1
     assert original_return.value.name == "result"
     assert renamed_return.value.name == "outcome"
+
+
+def test_lower_program_assigns_distinct_ids_to_shadowed_bindings(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(value: i64) -> i64 {
+            var total: i64 = value;
+            {
+                var value: i64 = 7;
+                total = total + value;
+            }
+            return value;
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    function = semantic.modules[("main",)].functions[0]
+    param_local_info = next(
+        local_info
+        for local_info in function.local_info_by_id.values()
+        if local_info.binding_kind == "param" and local_info.display_name == "value"
+    )
+
+    total_decl = function.body.statements[0]
+    inner_block = function.body.statements[1]
+    return_stmt = function.body.statements[2]
+
+    assert isinstance(total_decl, SemanticVarDecl)
+    assert isinstance(inner_block, SemanticBlock)
+    assert isinstance(inner_block.statements[0], SemanticVarDecl)
+    assert isinstance(inner_block.statements[1], SemanticAssign)
+    assert isinstance(inner_block.statements[1].value, BinaryExprS)
+    assert isinstance(inner_block.statements[1].value.right, LocalRefExpr)
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LocalRefExpr)
+
+    shadow_decl = inner_block.statements[0]
+    assert shadow_decl.name == "value"
+    assert shadow_decl.local_id != param_local_info.local_id
+    assert inner_block.statements[1].value.right.local_id == shadow_decl.local_id
+    assert return_stmt.value.local_id == param_local_info.local_id
 
 
 def test_lower_program_preserves_min_i64_literal_inside_unary_negation(tmp_path: Path) -> None:

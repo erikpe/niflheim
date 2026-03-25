@@ -42,7 +42,6 @@ def lower_function_like_body(
     local_id_tracker = LocalIdTracker(owner_id=owner_id)
     push_scope(typecheck_ctx)
     local_id_tracker.push_scope()
-    typecheck_ctx.function_local_names_stack.append(set())
     try:
         if receiver_type is not None:
             receiver_binding = declare_variable(typecheck_ctx, "__self", receiver_type, body.span)
@@ -57,7 +56,6 @@ def lower_function_like_body(
             local_info_by_id=local_id_tracker.snapshot_local_info_by_id(),
         )
     finally:
-        typecheck_ctx.function_local_names_stack.pop()
         local_id_tracker.pop_scope()
         pop_scope(typecheck_ctx)
         typecheck_ctx.current_private_owner_type = previous_owner
@@ -192,7 +190,7 @@ def _lower_for_in_stmt(
     local_id_tracker.push_scope()
     try:
         binding = declare_variable(typecheck_ctx, stmt.element_name, element_type, stmt.span)
-        local_id_tracker.declare_binding(binding, binding_kind="for_in_element")
+        element_local_id = local_id_tracker.declare_binding(binding, binding_kind="for_in_element")
         body = lower_block(typecheck_ctx, stmt.body, symbol_index=symbol_index, local_id_tracker=local_id_tracker)
     finally:
         local_id_tracker.pop_scope()
@@ -200,6 +198,7 @@ def _lower_for_in_stmt(
 
     return SemanticForIn(
         element_name=stmt.element_name,
+        element_local_id=element_local_id,
         collection=lower_expr(typecheck_ctx, symbol_index, stmt.collection_expr, local_id_tracker),
         iter_len_dispatch=resolve_collection_dispatch(
             typecheck_ctx, collection_type, operation=CollectionOpKind.ITER_LEN

@@ -1,0 +1,64 @@
+import std.io;
+
+fn test_nested_block_shadowing() -> unit {
+    var value: i64 = 10;
+    var total: i64 = 1;
+
+    {
+        var value: i64 = 20;
+        total = total + value;
+        println_i64(value);
+    }
+
+    println_i64(value);
+    println_i64(total);
+}
+
+fn test_for_in_shadowing_preserves_outer_local() -> unit {
+    var value: i64 = 99;
+    var numbers: i64[] = i64[](3u);
+    numbers[0] = 4;
+    numbers[1] = 5;
+    numbers[2] = 6;
+
+    var seen: i64 = 0;
+    for value in numbers {
+        seen = seen + value;
+    }
+
+    println_i64(value);
+    println_i64(seen);
+}
+
+fn test_param_shadowing_and_outer_restore(seed: i64) -> unit {
+    var sum: i64 = seed;
+
+    {
+        var seed: i64 = 7;
+        sum = sum + seed;
+        println_i64(seed);
+    }
+
+    println_i64(seed);
+    println_i64(sum);
+}
+
+fn main() -> i64 {
+    var select: u64 = read_stdin().strip().to_u64();
+
+    if select == 1u {
+        test_nested_block_shadowing();
+        return 0;
+    }
+    if select == 2u {
+        test_for_in_shadowing_preserves_outer_local();
+        return 0;
+    }
+    if select == 3u {
+        test_param_shadowing_and_outer_restore(5);
+        return 0;
+    }
+
+    println_i64(-1);
+    return 9;
+}

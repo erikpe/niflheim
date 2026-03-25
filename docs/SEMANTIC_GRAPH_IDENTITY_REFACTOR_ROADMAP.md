@@ -10,13 +10,12 @@ The sequence starts with introducing `LocalId` and ends with removing span-deriv
 
 The current semantic graph already has strong global symbol identity through canonical IDs such as `FunctionId`, `ClassId`, and `MethodId`. That part is in good shape.
 
-The remaining weak spots are mostly local and type identity boundaries:
+The remaining weak spots are now mostly type identity and backend-boundary issues:
 
-- locals are represented by source names instead of semantic identities
-- several passes still key environments by local name
-- types are represented primarily as strings that later passes must reinterpret
+- many nodes still represent types primarily as strings that later passes must reinterpret
 - codegen still synthesizes some semantic temporaries from source spans instead of consuming explicit semantic identities
-- lowering still reconstructs part of the semantic environment from AST-era structures
+- frame layout and root-slot bookkeeping still rely on backend slot names rather than canonical semantic local identity
+- semantic nodes still duplicate some metadata that is now also available through owner-local tables
 
 None of those are blockers for the current compiler, but together they make shadowing, stronger optimization, and future semantic cleanup harder than necessary.
 
@@ -56,10 +55,12 @@ None of those are blockers for the current compiler, but together they make shad
 Today the semantic graph has these notable properties:
 
 - global declarations use canonical typed IDs
-- locals use source names in `SemanticVarDecl`, `LocalRefExpr`, and `LocalLValue`
-- optimization environments such as constant folding also key by local name
-- many nodes carry resolved types as strings
-- `for-in` helper slots are synthesized in codegen from source spans rather than represented explicitly in semantic IR
+- local declarations, references, assignments, and `for-in` element bindings carry canonical local identity through `LocalId`
+- owner-local metadata is available through `local_info_by_id` tables keyed by `LocalId`
+- lexical shadowing is supported for nested block locals and `for-in` element bindings while same-scope duplicates remain rejected
+- semantic optimization state that tracks locals now keys by `LocalId`
+- many nodes still carry resolved types as strings
+- `for-in` helper slots are still synthesized in codegen from source spans rather than represented explicitly in semantic IR
 
 This roadmap intentionally keeps the current graph usable while shifting those boundaries in a controlled order.
 
@@ -176,17 +177,24 @@ Step 5 status:
 - Reachability and the existing semantic walkers were audited and do not use local source names as semantic binding identity.
 
 6. Enable lexical shadowing as a semantic feature after identity migration
-  - [ ] remove the function-wide unique-local-name restriction in typechecking and lowering
-  - [ ] define the exact shadowing rules for params, loop variables, and nested blocks
-  - [ ] validate interactions with closures or method references if those semantics exist by then
+  - [x] remove the function-wide unique-local-name restriction in typechecking and lowering
+  - [x] define the exact shadowing rules for params, loop variables, and nested blocks
+  - [x] validate interactions with closures or method references if those semantics exist by then
   - Purpose:
     cash in the main language-design benefit of explicit local identity
   - Expected outcome:
     block-scoped bindings behave naturally without destabilizing optimizations or codegen
   - Tests to add:
-    - positive typecheck tests for nested shadowing
-    - negative tests for still-illegal same-scope duplicates
-    - integration tests covering shadowing inside lowered control flow
+    - [x] positive typecheck tests for nested shadowing
+    - [x] negative tests for still-illegal same-scope duplicates
+    - [x] integration tests covering shadowing inside lowered control flow
+
+Step 6 status:
+
+- Nested block locals and `for-in` element bindings may now shadow outer locals and params.
+- Same-scope duplicate bindings remain rejected.
+- Shadowed bindings receive distinct `LocalId` values and distinct function-local stack slots, so backend storage no longer aliases them accidentally.
+- There are no closure semantics in the current language, so this step only needed validation against existing callable and method-reference behavior.
 
 7. Introduce canonical semantic type references alongside or beneath `type_name` strings
   - [ ] define a semantic type representation appropriate for the current compiler stage

@@ -179,7 +179,6 @@ def check_function_like(
         ctx.current_private_owner_type = canonicalize_reference_type_name(ctx, owner_class_name)
 
     push_scope(ctx)
-    ctx.function_local_names_stack.append(set())
     try:
         if receiver_type is not None:
             declare_variable(ctx, "__self", receiver_type, body.span)
@@ -192,6 +191,5 @@ def check_function_like(
         if return_type.name != TYPE_NAME_UNIT and not _block_guarantees_return(body):
             raise TypeCheckError("Non-unit function must return on all paths", body.span)
     finally:
-        ctx.function_local_names_stack.pop()
         pop_scope(ctx)
         ctx.current_private_owner_type = previous_owner

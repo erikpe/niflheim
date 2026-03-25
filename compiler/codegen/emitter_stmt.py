@@ -36,7 +36,7 @@ def emit_statement(
         return
 
     if isinstance(stmt, SemanticVarDecl):
-        offset = layout.slot_offsets.get(stmt.name)
+        offset = layout.local_slot_offsets.get(stmt.local_id)
         if offset is None:
             codegen_types.raise_codegen_error(
                 f"variable '{stmt.name}' is not materialized in stack layout", span=stmt.span
@@ -116,7 +116,7 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
     target = stmt.target
     layout = ctx.layout
     if isinstance(target, LocalLValue):
-        offset = layout.slot_offsets.get(target.name)
+        offset = layout.local_slot_offsets.get(target.local_id)
         if offset is None:
             codegen_types.raise_codegen_error(
                 f"identifier '{target.name}' is not materialized in stack layout", span=stmt.span
@@ -208,7 +208,12 @@ def _emit_for_in(
     _emit_named_call(
         codegen, _dispatch_target_name(stmt.iter_get_dispatch, ctx), [coll_ref, index_ref], stmt.element_type_name, ctx
     )
-    codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[stmt.element_name])}, rax")
+    element_offset = layout.local_slot_offsets.get(stmt.element_local_id)
+    if element_offset is None:
+        codegen_types.raise_codegen_error(
+            f"identifier '{stmt.element_name}' is not materialized in stack layout", span=stmt.span
+        )
+    codegen.asm.instr(f"mov {offset_operand(element_offset)}, rax")
 
     loop_labels.append((loop_continue, loop_done))
     emit_statement(codegen, stmt.body, epilogue_label, function_return_type_name, ctx, loop_labels)

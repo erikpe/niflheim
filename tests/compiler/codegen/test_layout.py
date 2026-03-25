@@ -68,3 +68,35 @@ def test_codegen_build_constructor_layout_tracks_params_and_allocated_object_roo
     assert layout.root_slot_names == ["next", CONSTRUCTOR_OBJECT_SLOT_NAME]
     assert layout.root_slot_count == 2
     assert layout.stack_size % 16 == 0
+
+
+def test_codegen_build_layout_assigns_distinct_slots_to_shadowed_locals(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        class Box {
+        }
+
+        fn main(value: Box) -> Box {
+            var kept: Box = value;
+            {
+                var value: Box = Box();
+                kept = value;
+            }
+            return kept;
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
+
+    layout = build_layout(fn)
+    value_local_infos = sorted(
+        (local_info for local_info in fn.local_info_by_id.values() if local_info.display_name == "value"),
+        key=lambda local_info: local_info.local_id.ordinal,
+    )
+
+    assert len(value_local_infos) == 2
+    assert layout.local_slot_offsets[value_local_infos[0].local_id] != layout.local_slot_offsets[value_local_infos[1].local_id]

@@ -27,7 +27,6 @@ class TypeCheckContext:
     classes: dict[str, ClassInfo] = field(default_factory=dict)
     interfaces: dict[str, InterfaceInfo] = field(default_factory=dict)
     scope_stack: list[dict[str, LocalBinding]] = field(default_factory=list)
-    function_local_names_stack: list[set[str]] = field(default_factory=list)
     loop_depth: int = 0
     current_private_owner_type: str | None = None
 
@@ -41,12 +40,6 @@ def pop_scope(ctx: TypeCheckContext) -> None:
 
 
 def declare_variable(ctx: TypeCheckContext, name: str, var_type: TypeInfo, span: SourceSpan) -> LocalBinding:
-    if ctx.function_local_names_stack:
-        function_local_names = ctx.function_local_names_stack[-1]
-        if name in function_local_names:
-            raise TypeCheckError(f"Duplicate local variable '{name}'", span)
-        function_local_names.add(name)
-
     scope = ctx.scope_stack[-1]
     if name in scope:
         raise TypeCheckError(f"Duplicate local variable '{name}'", span)

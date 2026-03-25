@@ -211,6 +211,7 @@ SemanticDispatch = RuntimeDispatch | MethodDispatch
 @dataclass(frozen=True)
 class SemanticForIn:
     element_name: str
+    element_local_id: LocalId
     collection: "SemanticExpr"
     iter_len_dispatch: SemanticDispatch
     iter_get_dispatch: SemanticDispatch

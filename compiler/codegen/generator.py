@@ -96,7 +96,7 @@ class CodeGenerator:
         for (param_name, _param_type_name, param_span), (location_kind, location_register, stack_index) in zip(
             params, arg_locations
         ):
-            offset = layout.slot_offsets.get(param_name)
+            offset = layout.param_slot_offsets.get(param_name)
             if offset is None:
                 continue
 

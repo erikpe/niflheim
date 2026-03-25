@@ -17,32 +17,41 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
-def test_typecheck_rejects_duplicate_local_name_across_non_overlapping_blocks() -> None:
+def test_typecheck_allows_shadowing_param_and_outer_local_in_nested_blocks() -> None:
+    source = """
+fn main(value: i64) -> i64 {
+    var total: i64 = value;
+    {
+        var value: i64 = 7;
+        total = total + value;
+    }
+    return total;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_allows_shadowing_outer_local_in_for_in_loop() -> None:
     source = """
 fn main() -> unit {
-    for line in i64[](0u) {
-        var x: i64 = 1;
+    var item: i64 = 9;
+    for item in i64[](1u) {
     }
-
-    var line: i64 = 2;
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Duplicate local variable 'line'"):
-        parse_and_typecheck(source)
+    parse_and_typecheck(source)
 
 
-def test_typecheck_rejects_duplicate_for_in_element_name_in_same_function() -> None:
+def test_typecheck_rejects_duplicate_local_name_in_same_block() -> None:
     source = """
 fn main() -> unit {
-    for item in i64[](0u) {
-    }
-    for item in i64[](0u) {
-    }
+    var value: i64 = 1;
+    var value: i64 = 2;
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Duplicate local variable 'item'"):
+    with pytest.raises(TypeCheckError, match="Duplicate local variable 'value'"):
         parse_and_typecheck(source)
 
 

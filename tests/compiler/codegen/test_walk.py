@@ -170,6 +170,7 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
             ),
             SemanticForIn(
                 element_name="value",
+                element_local_id=LocalId(owner_id=FunctionId(module_path=("test",), name="walk"), ordinal=0),
                 collection=_local_ref("collection", "Vec", span),
                 iter_len_dispatch=RuntimeDispatch(operation=CollectionOpKind.ITER_LEN),
                 iter_get_dispatch=RuntimeDispatch(

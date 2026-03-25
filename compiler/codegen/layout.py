@@ -5,6 +5,7 @@ import compiler.codegen.types as codegen_types
 
 from compiler.codegen.model import FunctionLayout, TEMP_RUNTIME_ROOT_SLOT_COUNT
 from compiler.semantic.ir import *
+from compiler.semantic.symbols import LocalId
 
 
 def _build_function_layout(
@@ -13,6 +14,8 @@ def _build_function_layout(
     *,
     needs_temp_runtime_roots: bool,
     max_call_temp_root_slots: int,
+    local_slot_keys_by_id: dict[LocalId, str] | None = None,
+    param_slot_keys_by_name: dict[str, str] | None = None,
 ) -> FunctionLayout:
     slot_offsets = {name: -(8 * index) for index, name in enumerate(ordered_slot_names, start=1)}
     root_slot_names = [
@@ -44,9 +47,23 @@ def _build_function_layout(
     bytes_for_root_frame = 24 if root_slot_count > 0 else 0
     stack_size = _align16(bytes_for_value_slots + bytes_for_root_slots + bytes_for_thread_state + bytes_for_root_frame)
 
+    local_slot_offsets = {}
+    if local_slot_keys_by_id is not None:
+        local_slot_offsets = {
+            local_id: slot_offsets[slot_key] for local_id, slot_key in local_slot_keys_by_id.items()
+        }
+
+    param_slot_offsets = {}
+    if param_slot_keys_by_name is not None:
+        param_slot_offsets = {
+            param_name: slot_offsets[slot_key] for param_name, slot_key in param_slot_keys_by_name.items()
+        }
+
     return FunctionLayout(
         slot_names=ordered_slot_names,
         slot_offsets=slot_offsets,
+        local_slot_offsets=local_slot_offsets,
+        param_slot_offsets=param_slot_offsets,
         slot_type_names=slot_type_names,
         root_slot_names=root_slot_names,
         root_slot_indices=root_slot_indices,
@@ -67,6 +84,13 @@ def for_in_temp_name(kind: str, stmt: SemanticForIn) -> str:
 
 def _align16(size: int) -> int:
     return (size + 15) & ~15
+
+
+def _local_slot_key(display_name: str, ordinal: int, seen_display_names: set[str]) -> str:
+    if display_name not in seen_display_names:
+        seen_display_names.add(display_name)
+        return display_name
+    return f"{display_name}@{ordinal}"
 
 
 def _collect_locals(stmt: SemanticStmt, local_types_by_name: dict[str, str]) -> None:
@@ -91,6 +115,26 @@ def _collect_locals(stmt: SemanticStmt, local_types_by_name: dict[str, str]) -> 
         local_types_by_name.setdefault(for_in_temp_name("index", stmt), TYPE_NAME_I64)
         local_types_by_name.setdefault(stmt.element_name, stmt.element_type_name)
         _collect_locals(stmt.body, local_types_by_name)
+
+
+def _collect_codegen_temp_slot_types(stmt: SemanticStmt, slot_type_names: dict[str, str]) -> None:
+    if isinstance(stmt, SemanticBlock):
+        for nested in stmt.statements:
+            _collect_codegen_temp_slot_types(nested, slot_type_names)
+        return
+    if isinstance(stmt, SemanticIf):
+        _collect_codegen_temp_slot_types(stmt.then_block, slot_type_names)
+        if stmt.else_block is not None:
+            _collect_codegen_temp_slot_types(stmt.else_block, slot_type_names)
+        return
+    if isinstance(stmt, SemanticWhile):
+        _collect_codegen_temp_slot_types(stmt.body, slot_type_names)
+        return
+    if isinstance(stmt, SemanticForIn):
+        slot_type_names.setdefault(for_in_temp_name("coll", stmt), expression_type_name(stmt.collection))
+        slot_type_names.setdefault(for_in_temp_name("len", stmt), TYPE_NAME_U64)
+        slot_type_names.setdefault(for_in_temp_name("index", stmt), TYPE_NAME_I64)
+        _collect_codegen_temp_slot_types(stmt.body, slot_type_names)
 
 
 def _lvalue_needs_temp_runtime_roots(target) -> bool:
@@ -250,41 +294,54 @@ def build_layout(fn: SemanticFunction) -> FunctionLayout:
         raise ValueError("semantic layout requires a concrete function body")
 
     ordered_slot_names: list[str] = []
-    seen_names: set[str] = set()
-    local_types_by_name: dict[str, str] = {}
+    slot_type_names: dict[str, str] = {}
+    local_slot_keys_by_id: dict[LocalId, str] = {}
+    param_slot_keys_by_name: dict[str, str] = {}
 
     if fn.local_info_by_id:
+        seen_display_names: set[str] = set()
         local_infos = sorted(fn.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
         for local_info in local_infos:
-            local_types_by_name.setdefault(local_info.display_name, local_info.type_name)
-            if local_info.binding_kind not in {"receiver", "param"}:
-                continue
-            if local_info.display_name in seen_names:
-                continue
-            seen_names.add(local_info.display_name)
-            ordered_slot_names.append(local_info.display_name)
+            slot_key = _local_slot_key(local_info.display_name, local_info.local_id.ordinal, seen_display_names)
+            ordered_slot_names.append(slot_key)
+            slot_type_names[slot_key] = local_info.type_name
+            local_slot_keys_by_id[local_info.local_id] = slot_key
+            if local_info.binding_kind in {"receiver", "param"}:
+                param_slot_keys_by_name[local_info.display_name] = slot_key
+
+        temp_slot_types: dict[str, str] = {}
+        for stmt in fn.body.statements:
+            _collect_codegen_temp_slot_types(stmt, temp_slot_types)
+        for slot_key in sorted(temp_slot_types):
+            ordered_slot_names.append(slot_key)
+            slot_type_names[slot_key] = temp_slot_types[slot_key]
     else:
+        seen_names: set[str] = set()
+        local_types_by_name: dict[str, str] = {}
         for param in fn.params:
             if param.name not in seen_names:
                 seen_names.add(param.name)
                 ordered_slot_names.append(param.name)
                 local_types_by_name[param.name] = param.type_name
 
-    for stmt in fn.body.statements:
-        _collect_locals(stmt, local_types_by_name)
+        for stmt in fn.body.statements:
+            _collect_locals(stmt, local_types_by_name)
 
-    for name in sorted(local_types_by_name):
-        if name not in seen_names:
-            seen_names.add(name)
-            ordered_slot_names.append(name)
+        for name in sorted(local_types_by_name):
+            if name not in seen_names:
+                seen_names.add(name)
+                ordered_slot_names.append(name)
+        slot_type_names = local_types_by_name
 
     needs_temp_runtime_roots = any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_stmt(stmt) for stmt in fn.body.statements), default=0)
     return _build_function_layout(
         ordered_slot_names,
-        local_types_by_name,
+        slot_type_names,
         needs_temp_runtime_roots=needs_temp_runtime_roots,
         max_call_temp_root_slots=max_call_temp_root_slots,
+        local_slot_keys_by_id=local_slot_keys_by_id or None,
+        param_slot_keys_by_name=param_slot_keys_by_name or None,
     )
 
 
@@ -303,4 +360,5 @@ def build_constructor_layout(cls: SemanticClass, ctor_layout, *, constructor_obj
         slot_type_names,
         needs_temp_runtime_roots=needs_temp_runtime_roots,
         max_call_temp_root_slots=max_call_temp_root_slots,
+        param_slot_keys_by_name={field_name: field_name for field_name in ctor_layout.param_field_names},
     )

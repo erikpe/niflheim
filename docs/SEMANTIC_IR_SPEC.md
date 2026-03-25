@@ -222,6 +222,7 @@ class SemanticContinue:
 @dataclass(frozen=True)
 class SemanticForIn:
     element_name: str
+    element_local_id: LocalId
     collection: SemanticExpr
     iter_len_method: MethodId | None
     iter_get_method: MethodId | None

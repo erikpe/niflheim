@@ -71,9 +71,26 @@ def _fold_block(block: SemanticBlock, env: _ConstantEnv | None = None, *, stats:
     return replace(block, statements=folded_statements)
 
 
+def _fold_nested_block(block: SemanticBlock, env: _ConstantEnv, stats: _FoldStats) -> tuple[SemanticBlock, _ConstantEnv]:
+    current_env = env.copy()
+    declared_local_ids: set[LocalId] = set()
+    folded_statements: list[SemanticStmt] = []
+
+    for stmt in block.statements:
+        folded_stmt, current_env = _fold_stmt(stmt, current_env, stats)
+        if isinstance(stmt, SemanticVarDecl):
+            declared_local_ids.add(stmt.local_id)
+        folded_statements.append(folded_stmt)
+
+    for local_id in declared_local_ids:
+        current_env.pop(local_id, None)
+
+    return replace(block, statements=folded_statements), current_env
+
+
 def _fold_stmt(stmt: SemanticStmt, env: _ConstantEnv, stats: _FoldStats) -> tuple[SemanticStmt, _ConstantEnv]:
     if isinstance(stmt, SemanticBlock):
-        return _fold_block(stmt, env, stats=stats), env
+        return _fold_nested_block(stmt, env, stats)
     if isinstance(stmt, SemanticVarDecl):
         initializer = None if stmt.initializer is None else _fold_expr(stmt.initializer, env, stats)
         next_env = env.copy()
@@ -104,6 +121,8 @@ def _fold_stmt(stmt: SemanticStmt, env: _ConstantEnv, stats: _FoldStats) -> tupl
     if isinstance(stmt, SemanticWhile):
         return replace(stmt, condition=_fold_expr(stmt.condition, {}, stats), body=_fold_block(stmt.body, {}, stats=stats)), {}
     if isinstance(stmt, SemanticForIn):
+        # Keep loop bodies isolated from incoming constants until this pass grows
+        # a stronger model for iteration and loop-carried state.
         return replace(stmt, collection=_fold_expr(stmt.collection, env, stats), body=_fold_block(stmt.body, {}, stats=stats)), {}
     if isinstance(stmt, (SemanticBreak, SemanticContinue)):
         return stmt, env
