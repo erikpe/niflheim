@@ -248,43 +248,29 @@ class _SemanticReachabilityWalker:
             self._enqueue_type_ref(module_path, expr.target_type_ref)
             return
         if isinstance(expr, FieldReadExpr):
-            self._walk_expr(module_path, expr.receiver)
+            self._walk_expr(module_path, expr.access.receiver)
             self._enqueue_type_ref(module_path, expr.receiver_type_ref)
             self._enqueue_type_ref(module_path, expr.type_ref)
             return
-        if isinstance(expr, FunctionCallExpr):
-            self._enqueue_function(expr.function_id)
-            for arg in expr.args:
-                self._walk_expr(module_path, arg)
-            return
-        if isinstance(expr, StaticMethodCallExpr):
-            self._enqueue_method(expr.method_id)
-            for arg in expr.args:
-                self._walk_expr(module_path, arg)
-            return
-        if isinstance(expr, InstanceMethodCallExpr):
-            self._enqueue_method(expr.method_id)
-            self._walk_expr(module_path, expr.receiver)
-            self._enqueue_type_ref(module_path, expr.receiver_type_ref)
-            for arg in expr.args:
-                self._walk_expr(module_path, arg)
-            return
-        if isinstance(expr, InterfaceMethodCallExpr):
-            self._enqueue_interface(expr.interface_id)
-            self._walk_expr(module_path, expr.receiver)
-            self._enqueue_type_ref(module_path, expr.receiver_type_ref)
-            for arg in expr.args:
-                self._walk_expr(module_path, arg)
-            return
-        if isinstance(expr, ConstructorCallExpr):
-            self._enqueue_class(
-                ClassId(module_path=expr.constructor_id.module_path, name=expr.constructor_id.class_name)
-            )
-            for arg in expr.args:
-                self._walk_expr(module_path, arg)
-            return
-        if isinstance(expr, CallableValueCallExpr):
-            self._walk_expr(module_path, expr.callee)
+        if isinstance(expr, CallExprS):
+            if isinstance(expr.target, FunctionCallTarget):
+                self._enqueue_function(expr.target.function_id)
+            elif isinstance(expr.target, StaticMethodCallTarget):
+                self._enqueue_method(expr.target.method_id)
+            elif isinstance(expr.target, InstanceMethodCallTarget):
+                self._enqueue_method(expr.target.method_id)
+                self._walk_expr(module_path, expr.target.access.receiver)
+                self._enqueue_type_ref(module_path, expr.target.access.receiver_type_ref)
+            elif isinstance(expr.target, InterfaceMethodCallTarget):
+                self._enqueue_interface(expr.target.interface_id)
+                self._walk_expr(module_path, expr.target.access.receiver)
+                self._enqueue_type_ref(module_path, expr.target.access.receiver_type_ref)
+            elif isinstance(expr.target, ConstructorCallTarget):
+                self._enqueue_class(
+                    ClassId(module_path=expr.target.constructor_id.module_path, name=expr.target.constructor_id.class_name)
+                )
+            else:
+                self._walk_expr(module_path, expr.target.callee)
             for arg in expr.args:
                 self._walk_expr(module_path, arg)
             return

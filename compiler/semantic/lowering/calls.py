@@ -19,8 +19,14 @@ from compiler.semantic.lowering.ids import *
 
 
 @dataclass(frozen=True)
+class ResolvedBoundCallAccess:
+    receiver: Expression
+    receiver_type_name: str
+
+
+@dataclass(frozen=True)
 class ResolvedFunctionCallTarget:
-    function_id: object
+    function_id: FunctionId
 
 
 @dataclass(frozen=True)
@@ -36,16 +42,14 @@ class ResolvedStaticMethodCallTarget:
 @dataclass(frozen=True)
 class ResolvedInstanceMethodCallTarget:
     method_id: MethodId
-    receiver: Expression
-    receiver_type_name: str
+    access: ResolvedBoundCallAccess
 
 
 @dataclass(frozen=True)
 class ResolvedInterfaceMethodCallTarget:
     interface_id: InterfaceId
     method_id: InterfaceMethodId
-    receiver: Expression
-    receiver_type_name: str
+    access: ResolvedBoundCallAccess
 
 
 @dataclass(frozen=True)
@@ -128,16 +132,20 @@ def resolve_field_access_call_target(
                 method_id=interface_method_id_for_type_name(
                     typecheck_ctx.module_path, receiver_type.name, expr.callee.field_name
                 ),
-                receiver=expr.callee.object_expr,
-                receiver_type_name=receiver_type.name,
+                access=ResolvedBoundCallAccess(
+                    receiver=expr.callee.object_expr,
+                    receiver_type_name=receiver_type.name,
+                ),
             )
 
     class_info = lookup_class_by_type_name(typecheck_ctx, receiver_type.name)
     if class_info is not None and expr.callee.field_name in class_info.methods:
         return ResolvedInstanceMethodCallTarget(
             method_id=method_id_for_type_name(typecheck_ctx.module_path, receiver_type.name, expr.callee.field_name),
-            receiver=expr.callee.object_expr,
-            receiver_type_name=receiver_type.name,
+            access=ResolvedBoundCallAccess(
+                receiver=expr.callee.object_expr,
+                receiver_type_name=receiver_type.name,
+            ),
         )
 
     return None

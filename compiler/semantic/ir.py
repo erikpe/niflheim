@@ -275,15 +275,32 @@ class LocalLValue:
 
 
 @dataclass(frozen=True)
-class FieldLValue:
+class BoundMemberAccess:
     receiver: "SemanticExpr"
     receiver_type_name: str
     receiver_type_ref: SemanticTypeRef
+
+
+@dataclass(frozen=True)
+class FieldLValue:
+    access: BoundMemberAccess
     owner_class_id: ClassId
     field_name: str
     type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
+
+    @property
+    def receiver(self) -> "SemanticExpr":
+        return self.access.receiver
+
+    @property
+    def receiver_type_name(self) -> str:
+        return self.access.receiver_type_name
+
+    @property
+    def receiver_type_ref(self) -> SemanticTypeRef:
+        return self.access.receiver_type_ref
 
 
 @dataclass(frozen=True)
@@ -421,71 +438,102 @@ class TypeTestExprS:
 
 @dataclass(frozen=True)
 class FieldReadExpr:
-    receiver: "SemanticExpr"
-    receiver_type_name: str
-    receiver_type_ref: SemanticTypeRef
+    access: BoundMemberAccess
     owner_class_id: ClassId
     field_name: str
     type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
+    @property
+    def receiver(self) -> "SemanticExpr":
+        return self.access.receiver
+
+    @property
+    def receiver_type_name(self) -> str:
+        return self.access.receiver_type_name
+
+    @property
+    def receiver_type_ref(self) -> SemanticTypeRef:
+        return self.access.receiver_type_ref
+
 
 @dataclass(frozen=True)
-class FunctionCallExpr:
+class FunctionCallTarget:
     function_id: FunctionId
-    args: list["SemanticExpr"]
-    type_name: str
-    type_ref: SemanticTypeRef
-    span: SourceSpan
 
 
 @dataclass(frozen=True)
-class StaticMethodCallExpr:
+class StaticMethodCallTarget:
     method_id: MethodId
-    args: list["SemanticExpr"]
-    type_name: str
-    type_ref: SemanticTypeRef
-    span: SourceSpan
 
 
 @dataclass(frozen=True)
-class InstanceMethodCallExpr:
+class InstanceMethodCallTarget:
     method_id: MethodId
-    receiver: "SemanticExpr"
-    receiver_type_name: str
-    receiver_type_ref: SemanticTypeRef
-    args: list["SemanticExpr"]
-    type_name: str
-    type_ref: SemanticTypeRef
-    span: SourceSpan
+    access: BoundMemberAccess
 
 
 @dataclass(frozen=True)
-class InterfaceMethodCallExpr:
+class InterfaceMethodCallTarget:
     interface_id: InterfaceId
     method_id: InterfaceMethodId
-    receiver: "SemanticExpr"
-    receiver_type_name: str
-    receiver_type_ref: SemanticTypeRef
-    args: list["SemanticExpr"]
-    type_name: str
-    type_ref: SemanticTypeRef
-    span: SourceSpan
+    access: BoundMemberAccess
 
 
 @dataclass(frozen=True)
-class ConstructorCallExpr:
+class ConstructorCallTarget:
     constructor_id: ConstructorId
-    args: list["SemanticExpr"]
-    type_name: str
-    type_ref: SemanticTypeRef
-    span: SourceSpan
 
 
 @dataclass(frozen=True)
-class CallableValueCallExpr:
+class CallableValueCallTarget:
     callee: "SemanticExpr"
+
+
+SemanticCallTarget = (
+    FunctionCallTarget
+    | StaticMethodCallTarget
+    | InstanceMethodCallTarget
+    | InterfaceMethodCallTarget
+    | ConstructorCallTarget
+    | CallableValueCallTarget
+)
+
+
+CallDispatchMode = Literal[
+    "function",
+    "static_method",
+    "instance_method",
+    "interface_method",
+    "constructor",
+    "callable_value",
+]
+
+
+def call_target_dispatch_mode(target: SemanticCallTarget) -> CallDispatchMode:
+    if isinstance(target, FunctionCallTarget):
+        return "function"
+    if isinstance(target, StaticMethodCallTarget):
+        return "static_method"
+    if isinstance(target, InstanceMethodCallTarget):
+        return "instance_method"
+    if isinstance(target, InterfaceMethodCallTarget):
+        return "interface_method"
+    if isinstance(target, ConstructorCallTarget):
+        return "constructor"
+    return "callable_value"
+
+
+def call_target_receiver_access(target: SemanticCallTarget) -> BoundMemberAccess | None:
+    if isinstance(target, (InstanceMethodCallTarget, InterfaceMethodCallTarget)):
+        return target.access
+    return None
+
+
+@dataclass(frozen=True)
+class CallExprS:
+    target: SemanticCallTarget
     args: list["SemanticExpr"]
     type_name: str
     type_ref: SemanticTypeRef
@@ -575,12 +623,7 @@ SemanticExpr = (
     | CastExprS
     | TypeTestExprS
     | FieldReadExpr
-    | FunctionCallExpr
-    | StaticMethodCallExpr
-    | InstanceMethodCallExpr
-    | InterfaceMethodCallExpr
-    | ConstructorCallExpr
-    | CallableValueCallExpr
+    | CallExprS
     | ArrayLenExpr
     | IndexReadExpr
     | SliceReadExpr

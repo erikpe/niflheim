@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.resolver import resolve_program
-from compiler.semantic.ir import FunctionCallExpr, IntConstant, LiteralExprS, SemanticReturn
+from compiler.semantic.ir import CallExprS, FunctionCallTarget, IntConstant, LiteralExprS, SemanticReturn
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.constant_folding import fold_constants
 from compiler.semantic.optimizations.pipeline import (
@@ -95,7 +95,8 @@ def test_optimize_semantic_program_folds_constants_before_pruning(tmp_path: Path
     return_stmt = optimized.modules[("main",)].functions[1].body.statements[0]
 
     assert isinstance(return_stmt, SemanticReturn)
-    assert isinstance(return_stmt.value, FunctionCallExpr)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert isinstance(return_stmt.value.target, FunctionCallTarget)
     assert isinstance(return_stmt.value.args[0], LiteralExprS)
     assert isinstance(return_stmt.value.args[0].constant, IntConstant)
     assert return_stmt.value.args[0].constant.value == 3

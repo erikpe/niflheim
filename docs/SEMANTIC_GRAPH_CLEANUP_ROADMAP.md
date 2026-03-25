@@ -269,9 +269,9 @@ Step 3 status:
 - focused lowering and codegen regressions cover integer vs double `+`, identity comparison, unary negation, reference-compatible casts, interface type tests, and backend integer-op helper coverage through the new canonical op model.
 
 4. Normalize resolved call and member-access modeling
-  - [ ] factor the overlapping call/member fields into a clearer resolved target model
-  - [ ] decide whether instance, static, interface, constructor, and callable-value invocation should remain separate node kinds or share a common resolved call payload
-  - [ ] define a canonical dispatch structure that owns receiver type, target identity, and dispatch mode
+  - [x] factor the overlapping call/member fields into a clearer resolved target model
+  - [x] decide whether instance, static, interface, constructor, and callable-value invocation should remain separate node kinds or share a common resolved call payload
+  - [x] define a canonical dispatch structure that owns receiver type, target identity, and dispatch mode
   - Purpose:
     reduce duplicated call-shape logic and make dispatch reasoning easier across semantic passes and codegen
   - Expected outcome:
@@ -279,6 +279,15 @@ Step 3 status:
   - Tests to add:
     - semantic lowering tests covering every resolved call category through the same normalization boundary
     - codegen tests proving normalized call metadata still produces correct labels and runtime dispatch
+
+Step 4 status:
+
+- complete
+- executable calls now lower to a single `CallExprS` node that carries a discriminated `target` payload rather than six partially overlapping call node shapes.
+- target identity and dispatch semantics now live in explicit target dataclasses: `FunctionCallTarget`, `StaticMethodCallTarget`, `InstanceMethodCallTarget`, `InterfaceMethodCallTarget`, `ConstructorCallTarget`, and `CallableValueCallTarget`.
+- receiver metadata shared by field access and bound call dispatch now lives in `BoundMemberAccess`, which centralizes the receiver expression plus canonical receiver type information instead of copying that triple across field reads, field writes, and bound call forms.
+- lowering, constant folding, reachability, layout planning, codegen emission, and semantic/codegen walk tests now consume the shared target model instead of repeating category-specific call-shape logic.
+- validation covered focused lowering, emitter, walk, and optimization tests (`59 passed`) plus the broad semantic and codegen suites (`238 passed`).
 
 5. Replace `SyntheticExpr` with explicit semantic node kinds or explicit synthetic categories
   - [ ] inventory all current `SyntheticExpr` uses and group them by actual semantic meaning

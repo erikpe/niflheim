@@ -135,7 +135,7 @@ def _fold_lvalue(target: SemanticLValue, env: _ConstantEnv, stats: _FoldStats) -
     if isinstance(target, LocalLValue):
         return target
     if isinstance(target, FieldLValue):
-        return replace(target, receiver=_fold_expr(target.receiver, env, stats))
+        return replace(target, access=replace(target.access, receiver=_fold_expr(target.access.receiver, env, stats)))
     if isinstance(target, IndexLValue):
         return replace(target, target=_fold_expr(target.target, env, stats), index=_fold_expr(target.index, env, stats))
     if isinstance(target, SliceLValue):
@@ -172,19 +172,19 @@ def _fold_expr(expr: SemanticExpr, env: _ConstantEnv, stats: _FoldStats) -> Sema
     if isinstance(expr, TypeTestExprS):
         return replace(expr, operand=_fold_expr(expr.operand, env, stats))
     if isinstance(expr, FieldReadExpr):
-        return replace(expr, receiver=_fold_expr(expr.receiver, env, stats))
-    if isinstance(expr, FunctionCallExpr):
-        return replace(expr, args=[_fold_expr(arg, env, stats) for arg in expr.args])
-    if isinstance(expr, StaticMethodCallExpr):
-        return replace(expr, args=[_fold_expr(arg, env, stats) for arg in expr.args])
-    if isinstance(expr, InstanceMethodCallExpr):
-        return replace(expr, receiver=_fold_expr(expr.receiver, env, stats), args=[_fold_expr(arg, env, stats) for arg in expr.args])
-    if isinstance(expr, InterfaceMethodCallExpr):
-        return replace(expr, receiver=_fold_expr(expr.receiver, env, stats), args=[_fold_expr(arg, env, stats) for arg in expr.args])
-    if isinstance(expr, ConstructorCallExpr):
-        return replace(expr, args=[_fold_expr(arg, env, stats) for arg in expr.args])
-    if isinstance(expr, CallableValueCallExpr):
-        return replace(expr, callee=_fold_expr(expr.callee, env, stats), args=[_fold_expr(arg, env, stats) for arg in expr.args])
+        return replace(expr, access=replace(expr.access, receiver=_fold_expr(expr.access.receiver, env, stats)))
+    if isinstance(expr, CallExprS):
+        folded_args = [_fold_expr(arg, env, stats) for arg in expr.args]
+        if isinstance(expr.target, CallableValueCallTarget):
+            return replace(expr, target=replace(expr.target, callee=_fold_expr(expr.target.callee, env, stats)), args=folded_args)
+        access = call_target_receiver_access(expr.target)
+        if access is None:
+            return replace(expr, args=folded_args)
+        return replace(
+            expr,
+            target=replace(expr.target, access=replace(access, receiver=_fold_expr(access.receiver, env, stats))),
+            args=folded_args,
+        )
     if isinstance(expr, ArrayLenExpr):
         return replace(expr, target=_fold_expr(expr.target, env, stats))
     if isinstance(expr, IndexReadExpr):

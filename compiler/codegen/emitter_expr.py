@@ -84,23 +84,8 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
     if isinstance(expr, ArrayCtorExprS):
         _emit_array_ctor_expr(codegen, expr, ctx)
         return
-    if isinstance(expr, FunctionCallExpr):
-        _emit_named_call(codegen, expr.function_id.name, expr.args, expr.type_name, ctx)
-        return
-    if isinstance(expr, StaticMethodCallExpr):
-        _emit_named_call(codegen, _method_label(expr.method_id, ctx), expr.args, expr.type_name, ctx)
-        return
-    if isinstance(expr, InstanceMethodCallExpr):
-        _emit_named_call(codegen, _method_label(expr.method_id, ctx), [expr.receiver, *expr.args], expr.type_name, ctx)
-        return
-    if isinstance(expr, InterfaceMethodCallExpr):
-        _emit_interface_method_call(codegen, expr, ctx)
-        return
-    if isinstance(expr, ConstructorCallExpr):
-        _emit_named_call(codegen, _constructor_label(expr.constructor_id, ctx), expr.args, expr.type_name, ctx)
-        return
-    if isinstance(expr, CallableValueCallExpr):
-        _emit_callable_value_call(codegen, expr, ctx)
+    if isinstance(expr, CallExprS):
+        _emit_call_expr(codegen, expr, ctx)
         return
     if isinstance(expr, ArrayLenExpr):
         _emit_named_call(codegen, ARRAY_LEN_RUNTIME_CALL, [expr.target], TYPE_NAME_U64, ctx)
@@ -161,7 +146,7 @@ def _emit_literal_expr(codegen: CodeGenerator, expr: LiteralExprS) -> None:
 
 
 def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: EmitContext) -> None:
-    emit_expr(codegen, expr.receiver, ctx)
+    emit_expr(codegen, expr.access.receiver, ctx)
     field_offset = ctx.declaration_tables.class_field_offset(expr.owner_class_id, expr.field_name)
     if field_offset is None:
         codegen_types.raise_codegen_error(
@@ -323,30 +308,54 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Emi
     _emit_runtime_call_hooks_after(codegen, ctx)
 
 
-def _emit_callable_value_call(codegen: CodeGenerator, expr: CallableValueCallExpr, ctx: EmitContext) -> None:
+def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -> None:
+    target = expr.target
+    if isinstance(target, FunctionCallTarget):
+        _emit_named_call(codegen, target.function_id.name, expr.args, expr.type_name, ctx)
+        return
+    if isinstance(target, StaticMethodCallTarget):
+        _emit_named_call(codegen, _method_label(target.method_id, ctx), expr.args, expr.type_name, ctx)
+        return
+    if isinstance(target, InstanceMethodCallTarget):
+        _emit_named_call(codegen, _method_label(target.method_id, ctx), [target.access.receiver, *expr.args], expr.type_name, ctx)
+        return
+    if isinstance(target, InterfaceMethodCallTarget):
+        _emit_interface_method_call(codegen, expr, target, ctx)
+        return
+    if isinstance(target, ConstructorCallTarget):
+        _emit_named_call(codegen, _constructor_label(target.constructor_id, ctx), expr.args, expr.type_name, ctx)
+        return
+    _emit_callable_value_call(codegen, expr, target.callee, ctx)
+
+
+def _emit_callable_value_call(
+    codegen: CodeGenerator, expr: CallExprS, callee: SemanticExpr, ctx: EmitContext
+) -> None:
     _emit_call_sequence(
         codegen,
         call_arguments=expr.args,
         return_type_name=expr.type_name,
         ctx=ctx,
-        callee_expr=expr.callee,
+        callee_expr=callee,
         temp_root_spans=[expr.span] * len(expr.args),
     )
 
 
-def _emit_interface_method_call(codegen: CodeGenerator, expr: InterfaceMethodCallExpr, ctx: EmitContext) -> None:
-    descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol(expr.interface_id)
+def _emit_interface_method_call(
+    codegen: CodeGenerator, expr: CallExprS, target: InterfaceMethodCallTarget, ctx: EmitContext
+) -> None:
+    descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol(target.interface_id)
     if descriptor_symbol is None:
         codegen_types.raise_codegen_error(
-            f"missing interface descriptor symbol for {expr.interface_id}", span=expr.span
+            f"missing interface descriptor symbol for {target.interface_id}", span=expr.span
         )
 
-    method_slot = _interface_method_slot(expr.method_id, ctx)
+    method_slot = _interface_method_slot(target.method_id, ctx)
     temp_root_base = ctx.temp_root_depth[0]
     receiver_temp_index = temp_root_base
     rooted_temp_arg_count = 1
 
-    emit_expr(codegen, expr.receiver, ctx)
+    emit_expr(codegen, target.access.receiver, ctx)
     codegen.emit_temp_root_slot_store(ctx.layout, receiver_temp_index, "rax", span=expr.span)
     ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
     codegen.asm.instr(f"mov rax, {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}")
@@ -364,7 +373,7 @@ def _emit_interface_method_call(codegen: CodeGenerator, expr: InterfaceMethodCal
 
     codegen.asm.instr("push rax")
 
-    call_arguments = [expr.receiver, *expr.args]
+    call_arguments = [target.access.receiver, *expr.args]
     call_argument_type_names = [expression_type_name(arg) for arg in call_arguments]
     reference_arg_indices = {
         index

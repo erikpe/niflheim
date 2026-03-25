@@ -21,12 +21,14 @@ LowerExpr = Callable[[object], SemanticExpr]
 
 def lower_string_literal_expr(
     typecheck_ctx: TypeCheckContext, expr: LiteralExpr, result_type_name: str
-) -> StaticMethodCallExpr:
+) -> CallExprS:
     if not isinstance(expr.literal, StringLiteralValue):
         raise TypeError("Expected StringLiteralValue for string literal lowering")
     decode_string_literal(expr.literal.raw_text)
-    return StaticMethodCallExpr(
-        method_id=resolve_static_method_id(typecheck_ctx, result_type_name, "from_u8_array"),
+    return CallExprS(
+        target=StaticMethodCallTarget(
+            method_id=resolve_static_method_id(typecheck_ctx, result_type_name, "from_u8_array")
+        ),
         args=[
             SyntheticExpr(
                 synthetic_id=SyntheticId(
@@ -51,14 +53,14 @@ def try_lower_string_concat_expr(
     result_type_ref: SemanticTypeRef,
     *,
     lower_expr: LowerExpr,
-) -> StaticMethodCallExpr | None:
+) -> CallExprS | None:
     left_type = infer_expression_type(typecheck_ctx, expr.left)
     right_type = infer_expression_type(typecheck_ctx, expr.right)
     if expr.operator != "+" or not is_str_type_name(left_type.name) or not is_str_type_name(right_type.name):
         return None
 
-    return StaticMethodCallExpr(
-        method_id=resolve_static_method_id(typecheck_ctx, result_type_name, "concat"),
+    return CallExprS(
+        target=StaticMethodCallTarget(method_id=resolve_static_method_id(typecheck_ctx, result_type_name, "concat")),
         args=[lower_expr(expr.left), lower_expr(expr.right)],
         type_name=result_type_name,
         type_ref=result_type_ref,

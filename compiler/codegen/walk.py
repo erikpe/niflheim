@@ -75,26 +75,20 @@ def walk_expression(expr: SemanticExpr, visit_expr: Callable[[SemanticExpr], Non
         walk_expression(expr.right, visit_expr)
         return
     if isinstance(expr, FieldReadExpr):
-        walk_expression(expr.receiver, visit_expr)
+        walk_expression(expr.access.receiver, visit_expr)
         return
-    if isinstance(expr, FunctionCallExpr | StaticMethodCallExpr | ConstructorCallExpr):
+    if isinstance(expr, CallExprS):
+        target = expr.target
+        access = call_target_receiver_access(target)
+        if access is not None:
+            walk_expression(access.receiver, visit_expr)
+            for arg in expr.args:
+                walk_expression(arg, visit_expr)
+            return
         for arg in expr.args:
             walk_expression(arg, visit_expr)
-        return
-    if isinstance(expr, CallableValueCallExpr):
-        for arg in expr.args:
-            walk_expression(arg, visit_expr)
-        walk_expression(expr.callee, visit_expr)
-        return
-    if isinstance(expr, InstanceMethodCallExpr):
-        walk_expression(expr.receiver, visit_expr)
-        for arg in expr.args:
-            walk_expression(arg, visit_expr)
-        return
-    if isinstance(expr, InterfaceMethodCallExpr):
-        walk_expression(expr.receiver, visit_expr)
-        for arg in expr.args:
-            walk_expression(arg, visit_expr)
+        if isinstance(target, CallableValueCallTarget):
+            walk_expression(target.callee, visit_expr)
         return
     if isinstance(expr, ArrayLenExpr):
         walk_expression(expr.target, visit_expr)

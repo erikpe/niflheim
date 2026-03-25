@@ -30,6 +30,13 @@ LowerExpr = Callable[[Expression], SemanticExpr]
 
 
 @dataclass(frozen=True)
+class ResolvedBoundMemberAccess:
+    receiver: Expression
+    receiver_type_name: str
+    receiver_type_ref: SemanticTypeRef
+
+
+@dataclass(frozen=True)
 class ResolvedLocalRefTarget:
     local_id: LocalId
     type_ref: SemanticTypeRef
@@ -53,9 +60,7 @@ class ResolvedMethodRefTarget:
 
 @dataclass(frozen=True)
 class ResolvedFieldReadTarget:
-    receiver: Expression
-    receiver_type_name: str
-    receiver_type_ref: SemanticTypeRef
+    access: ResolvedBoundMemberAccess
     owner_class_id: ClassId
     field_name: str
     type_name: str
@@ -70,9 +75,7 @@ class ResolvedLocalLValueTarget:
 
 @dataclass(frozen=True)
 class ResolvedFieldLValueTarget:
-    receiver: Expression
-    receiver_type_name: str
-    receiver_type_ref: SemanticTypeRef
+    access: ResolvedBoundMemberAccess
     owner_class_id: ClassId
     field_name: str
     type_name: str
@@ -160,9 +163,11 @@ def resolve_field_access_ref_target(
             typecheck_ctx, class_info.fields[expr.field_name], receiver_type.name
         )
         return ResolvedFieldReadTarget(
-            receiver=expr.object_expr,
-            receiver_type_name=receiver_type.name,
-            receiver_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type),
+            access=ResolvedBoundMemberAccess(
+                receiver=expr.object_expr,
+                receiver_type_name=receiver_type.name,
+                receiver_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type),
+            ),
             owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type.name),
             field_name=expr.field_name,
             type_name=field_type.name,
@@ -204,9 +209,11 @@ def lower_resolved_ref(
         return MethodRefExpr(method_id=resolved_target.method_id, receiver=receiver, type_ref=type_ref, span=span)
 
     return FieldReadExpr(
-        receiver=lower_expr(resolved_target.receiver),
-        receiver_type_name=resolved_target.receiver_type_name,
-        receiver_type_ref=resolved_target.receiver_type_ref,
+        access=BoundMemberAccess(
+            receiver=lower_expr(resolved_target.access.receiver),
+            receiver_type_name=resolved_target.access.receiver_type_name,
+            receiver_type_ref=resolved_target.access.receiver_type_ref,
+        ),
         owner_class_id=resolved_target.owner_class_id,
         field_name=resolved_target.field_name,
         type_name=resolved_target.type_name,
@@ -233,9 +240,11 @@ def lower_lvalue(
 
     if isinstance(resolved_target, ResolvedFieldLValueTarget):
         return FieldLValue(
-            receiver=lower_expr(resolved_target.receiver),
-            receiver_type_name=resolved_target.receiver_type_name,
-            receiver_type_ref=resolved_target.receiver_type_ref,
+            access=BoundMemberAccess(
+                receiver=lower_expr(resolved_target.access.receiver),
+                receiver_type_name=resolved_target.access.receiver_type_name,
+                receiver_type_ref=resolved_target.access.receiver_type_ref,
+            ),
             owner_class_id=resolved_target.owner_class_id,
             field_name=resolved_target.field_name,
             type_name=resolved_target.type_name,
@@ -273,9 +282,11 @@ def resolve_lvalue_target(
         receiver_type = infer_expression_type(typecheck_ctx, expr.object_expr)
         receiver_type_name = receiver_type.name
         return ResolvedFieldLValueTarget(
-            receiver=expr.object_expr,
-            receiver_type_name=receiver_type_name,
-            receiver_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type),
+            access=ResolvedBoundMemberAccess(
+                receiver=expr.object_expr,
+                receiver_type_name=receiver_type_name,
+                receiver_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type),
+            ),
             owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type_name),
             field_name=expr.field_name,
             type_name=infer_expression_type(typecheck_ctx, expr).name,

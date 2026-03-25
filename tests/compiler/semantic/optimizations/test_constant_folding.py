@@ -7,10 +7,11 @@ from compiler.common.span import SourcePos, SourceSpan
 from compiler.semantic.ir import (
     BinaryExprS,
     BoolConstant,
+    CallExprS,
+    FunctionCallTarget,
     CastExprS,
     IntConstant,
     FloatConstant,
-    FunctionCallExpr,
     LiteralExprS,
     LocalRefExpr,
     SemanticAssign,
@@ -134,7 +135,8 @@ def test_fold_constants_folds_field_initializers_and_call_arguments(tmp_path: Pa
     assert field_initializer.constant.value == 12
 
     assert isinstance(call_return, SemanticReturn)
-    assert isinstance(call_return.value, FunctionCallExpr)
+    assert isinstance(call_return.value, CallExprS)
+    assert isinstance(call_return.value.target, FunctionCallTarget)
     assert isinstance(call_return.value.args[0], LiteralExprS)
     assert isinstance(call_return.value.args[0].constant, IntConstant)
     assert call_return.value.args[0].constant.value == 3

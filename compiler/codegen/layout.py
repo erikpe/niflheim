@@ -202,15 +202,14 @@ def _expr_uses_local_storage(expr: SemanticExpr) -> bool:
     if isinstance(expr, BinaryExprS):
         return _expr_uses_local_storage(expr.left) or _expr_uses_local_storage(expr.right)
     if isinstance(expr, FieldReadExpr):
-        return _expr_uses_local_storage(expr.receiver)
-    if isinstance(expr, FunctionCallExpr | StaticMethodCallExpr | ConstructorCallExpr):
+        return _expr_uses_local_storage(expr.access.receiver)
+    if isinstance(expr, CallExprS):
+        access = call_target_receiver_access(expr.target)
+        if access is not None and _expr_uses_local_storage(access.receiver):
+            return True
+        if isinstance(expr.target, CallableValueCallTarget) and _expr_uses_local_storage(expr.target.callee):
+            return True
         return any(_expr_uses_local_storage(arg) for arg in expr.args)
-    if isinstance(expr, CallableValueCallExpr):
-        return _expr_uses_local_storage(expr.callee) or any(_expr_uses_local_storage(arg) for arg in expr.args)
-    if isinstance(expr, InstanceMethodCallExpr):
-        return _expr_uses_local_storage(expr.receiver) or any(_expr_uses_local_storage(arg) for arg in expr.args)
-    if isinstance(expr, InterfaceMethodCallExpr):
-        return _expr_uses_local_storage(expr.receiver) or any(_expr_uses_local_storage(arg) for arg in expr.args)
     if isinstance(expr, ArrayLenExpr):
         return _expr_uses_local_storage(expr.target)
     if isinstance(expr, IndexReadExpr):
@@ -244,12 +243,7 @@ def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
     if isinstance(
         expr,
         (
-            FunctionCallExpr,
-            StaticMethodCallExpr,
-            InstanceMethodCallExpr,
-            InterfaceMethodCallExpr,
-            ConstructorCallExpr,
-            CallableValueCallExpr,
+            CallExprS,
             IndexReadExpr,
             SliceReadExpr,
             ArrayCtorExprS,
@@ -267,7 +261,7 @@ def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
     if isinstance(expr, BinaryExprS):
         return _expr_needs_temp_runtime_roots(expr.left) or _expr_needs_temp_runtime_roots(expr.right)
     if isinstance(expr, FieldReadExpr):
-        return _expr_needs_temp_runtime_roots(expr.receiver)
+        return _expr_needs_temp_runtime_roots(expr.access.receiver)
     return False
 
 
@@ -315,14 +309,15 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
 
         return max(max_slots, rooted_after)
 
-    if isinstance(expr, CallableValueCallExpr):
-        return _max_rooted_sequence(expr.args, trailing_expr=expr.callee)
-    if isinstance((expr), (FunctionCallExpr, StaticMethodCallExpr, ConstructorCallExpr)):
-        return _max_rooted_sequence(expr.args)
-    if isinstance(expr, InstanceMethodCallExpr):
-        return _max_rooted_sequence([expr.receiver, *expr.args])
-    if isinstance(expr, InterfaceMethodCallExpr):
-        return max(_max_call_temp_root_slots_in_expr(expr.receiver), 1 + _max_rooted_sequence(expr.args))
+    if isinstance(expr, CallExprS):
+        if isinstance(expr.target, CallableValueCallTarget):
+            return _max_rooted_sequence(expr.args, trailing_expr=expr.target.callee)
+        access = call_target_receiver_access(expr.target)
+        if access is None:
+            return _max_rooted_sequence(expr.args)
+        if isinstance(expr.target, InterfaceMethodCallTarget):
+            return max(_max_call_temp_root_slots_in_expr(access.receiver), 1 + _max_rooted_sequence(expr.args))
+        return _max_rooted_sequence([access.receiver, *expr.args])
     if isinstance(expr, ArrayLenExpr):
         return _max_rooted_sequence([expr.target])
     if isinstance(expr, IndexReadExpr):
@@ -342,7 +337,7 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
     if isinstance(expr, BinaryExprS):
         return max(_max_call_temp_root_slots_in_expr(expr.left), _max_call_temp_root_slots_in_expr(expr.right))
     if isinstance(expr, FieldReadExpr):
-        return _max_call_temp_root_slots_in_expr(expr.receiver)
+        return _max_call_temp_root_slots_in_expr(expr.access.receiver)
     return 0
 
 

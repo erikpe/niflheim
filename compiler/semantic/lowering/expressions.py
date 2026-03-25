@@ -168,8 +168,8 @@ def lower_call_expr(
     args = [lower_expr(typecheck_ctx, symbol_index, arg, local_id_tracker) for arg in expr.arguments]
 
     if isinstance(resolved_target, ResolvedFunctionCallTarget):
-        return FunctionCallExpr(
-            function_id=resolved_target.function_id,
+        return CallExprS(
+            target=FunctionCallTarget(function_id=resolved_target.function_id),
             args=args,
             type_name=result_type_name,
             type_ref=result_type_ref,
@@ -177,8 +177,8 @@ def lower_call_expr(
         )
 
     if isinstance(resolved_target, ResolvedConstructorCallTarget):
-        return ConstructorCallExpr(
-            constructor_id=resolved_target.constructor_id,
+        return CallExprS(
+            target=ConstructorCallTarget(constructor_id=resolved_target.constructor_id),
             args=args,
             type_name=result_type_name,
             type_ref=result_type_ref,
@@ -186,8 +186,8 @@ def lower_call_expr(
         )
 
     if isinstance(resolved_target, ResolvedStaticMethodCallTarget):
-        return StaticMethodCallExpr(
-            method_id=resolved_target.method_id,
+        return CallExprS(
+            target=StaticMethodCallTarget(method_id=resolved_target.method_id),
             args=args,
             type_name=result_type_name,
             type_ref=result_type_ref,
@@ -195,12 +195,16 @@ def lower_call_expr(
         )
 
     if isinstance(resolved_target, ResolvedInstanceMethodCallTarget):
-        return InstanceMethodCallExpr(
-            method_id=resolved_target.method_id,
-            receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.receiver, local_id_tracker),
-            receiver_type_name=resolved_target.receiver_type_name,
-            receiver_type_ref=semantic_type_ref_from_checked_type(
-                typecheck_ctx, infer_expression_type(typecheck_ctx, resolved_target.receiver)
+        return CallExprS(
+            target=InstanceMethodCallTarget(
+                method_id=resolved_target.method_id,
+                access=BoundMemberAccess(
+                    receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.access.receiver, local_id_tracker),
+                    receiver_type_name=resolved_target.access.receiver_type_name,
+                    receiver_type_ref=semantic_type_ref_from_checked_type(
+                        typecheck_ctx, infer_expression_type(typecheck_ctx, resolved_target.access.receiver)
+                    ),
+                ),
             ),
             args=args,
             type_name=result_type_name,
@@ -209,13 +213,17 @@ def lower_call_expr(
         )
 
     if isinstance(resolved_target, ResolvedInterfaceMethodCallTarget):
-        return InterfaceMethodCallExpr(
-            interface_id=resolved_target.interface_id,
-            method_id=resolved_target.method_id,
-            receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.receiver, local_id_tracker),
-            receiver_type_name=resolved_target.receiver_type_name,
-            receiver_type_ref=semantic_type_ref_from_checked_type(
-                typecheck_ctx, infer_expression_type(typecheck_ctx, resolved_target.receiver)
+        return CallExprS(
+            target=InterfaceMethodCallTarget(
+                interface_id=resolved_target.interface_id,
+                method_id=resolved_target.method_id,
+                access=BoundMemberAccess(
+                    receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.access.receiver, local_id_tracker),
+                    receiver_type_name=resolved_target.access.receiver_type_name,
+                    receiver_type_ref=semantic_type_ref_from_checked_type(
+                        typecheck_ctx, infer_expression_type(typecheck_ctx, resolved_target.access.receiver)
+                    ),
+                ),
             ),
             args=args,
             type_name=result_type_name,
@@ -223,8 +231,10 @@ def lower_call_expr(
             span=expr.span,
         )
 
-    return CallableValueCallExpr(
-        callee=lower_expr(typecheck_ctx, symbol_index, resolved_target.callee, local_id_tracker),
+    return CallExprS(
+        target=CallableValueCallTarget(
+            callee=lower_expr(typecheck_ctx, symbol_index, resolved_target.callee, local_id_tracker)
+        ),
         args=args,
         type_name=result_type_name,
         type_ref=result_type_ref,

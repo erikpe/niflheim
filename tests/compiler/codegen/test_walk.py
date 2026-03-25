@@ -30,6 +30,8 @@ def _describe_expr(expr: SemanticExpr) -> str:
         return f"LocalRefExpr:{_LOCAL_DISPLAY_NAMES[expr.local_id]}"
     if isinstance(expr, LiteralExprS):
         return f"LiteralExprS:{_describe_constant(expr.constant)}"
+    if isinstance(expr, CallExprS):
+        return f"CallExprS:{call_target_dispatch_mode(expr.target)}"
     return type(expr).__name__
 
 
@@ -53,18 +55,34 @@ def _type_ref(type_name: str) -> SemanticTypeRef:
     return best_effort_semantic_type_ref_from_name(("main",), type_name)
 
 
+def _bound_access(receiver: SemanticExpr, type_name: str) -> BoundMemberAccess:
+    if type_name == "Hashable":
+        return BoundMemberAccess(
+            receiver=receiver,
+            receiver_type_name=type_name,
+            receiver_type_ref=semantic_type_ref_for_interface_id(
+                InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
+            ),
+        )
+    return BoundMemberAccess(
+        receiver=receiver,
+        receiver_type_name=type_name,
+        receiver_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name=type_name), display_name=type_name),
+    )
+
+
 def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
     span = _span()
-    expr = CallableValueCallExpr(
-        callee=FieldReadExpr(
-            receiver=_local_ref("receiver", "Box", span),
-            receiver_type_name="Box",
-            receiver_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
+    expr = CallExprS(
+        target=CallableValueCallTarget(
+            callee=FieldReadExpr(
+            access=_bound_access(_local_ref("receiver", "Box", span), "Box"),
             owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="invoke",
             type_name="fn(i64) -> i64",
             type_ref=best_effort_semantic_type_ref_from_name(("main",), "fn(i64) -> i64"),
             span=span,
+            )
         ),
         args=[
             CastExprS(
@@ -98,7 +116,7 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
     walk_expression(expr, lambda current: seen.append(_describe_expr(current)))
 
     assert seen == [
-        "CallableValueCallExpr",
+        "CallExprS:callable_value",
         "CastExprS",
         "BinaryExprS",
         "LiteralExprS:1",
@@ -148,17 +166,15 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
     span = _span()
     stmt = SemanticAssign(
         target=FieldLValue(
-            receiver=_local_ref("target_receiver", "Box", span),
-            receiver_type_name="Box",
-            receiver_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
+            access=_bound_access(_local_ref("target_receiver", "Box", span), "Box"),
             owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="value",
             type_name="i64",
             type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
             span=span,
         ),
-        value=FunctionCallExpr(
-            function_id=FunctionId(module_path=("main",), name="compute"),
+        value=CallExprS(
+            target=FunctionCallTarget(function_id=FunctionId(module_path=("main",), name="compute")),
             args=[
                 LiteralExprS(
                     constant=IntConstant(value=7, type_name="i64"),
@@ -177,7 +193,7 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
     seen: list[str] = []
     walk_statement_expressions(stmt, lambda expr: seen.append(_describe_expr(expr)))
 
-    assert seen == ["FunctionCallExpr", "LiteralExprS:7"]
+    assert seen == ["CallExprS:function", "LiteralExprS:7"]
 
 
 def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None:
@@ -315,13 +331,17 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
 
 def test_walk_expression_visits_interface_method_call_receiver_and_args() -> None:
     span = _span()
-    expr = InterfaceMethodCallExpr(
-        interface_id=InterfaceId(module_path=("main",), name="Hashable"),
-        method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
-        receiver=_local_ref("receiver", "Hashable", span),
-        receiver_type_name="Hashable",
-        receiver_type_ref=semantic_type_ref_for_interface_id(
-            InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
+    expr = CallExprS(
+        target=InterfaceMethodCallTarget(
+            interface_id=InterfaceId(module_path=("main",), name="Hashable"),
+            method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
+            access=BoundMemberAccess(
+                receiver=_local_ref("receiver", "Hashable", span),
+                receiver_type_name="Hashable",
+                receiver_type_ref=semantic_type_ref_for_interface_id(
+                    InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
+                ),
+            ),
         ),
         args=[_local_ref("arg", "Obj", span)],
         type_name="u64",
@@ -333,7 +353,7 @@ def test_walk_expression_visits_interface_method_call_receiver_and_args() -> Non
     walk_expression(expr, lambda current: seen.append(_describe_expr(current)))
 
     assert seen == [
-        "InterfaceMethodCallExpr",
+        "CallExprS:interface_method",
         "LocalRefExpr:receiver",
         "LocalRefExpr:arg",
     ]
@@ -349,13 +369,17 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
         body=SemanticBlock(
             statements=[
                 SemanticReturn(
-                    value=InterfaceMethodCallExpr(
-                        interface_id=InterfaceId(module_path=("main",), name="Hashable"),
-                        method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
-                        receiver=_local_ref("receiver", "Hashable", span),
-                        receiver_type_name="Hashable",
-                        receiver_type_ref=semantic_type_ref_for_interface_id(
-                            InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
+                    value=CallExprS(
+                        target=InterfaceMethodCallTarget(
+                            interface_id=InterfaceId(module_path=("main",), name="Hashable"),
+                            method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
+                            access=BoundMemberAccess(
+                                receiver=_local_ref("receiver", "Hashable", span),
+                                receiver_type_name="Hashable",
+                                receiver_type_ref=semantic_type_ref_for_interface_id(
+                                    InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
+                                ),
+                            ),
                         ),
                         args=[_local_ref("other", "Obj", span)],
                         type_name="u64",
@@ -380,7 +404,7 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
     walk_codegen_program_expressions(program, lambda expr: seen.append(_describe_expr(expr)))
 
     assert seen == [
-        "InterfaceMethodCallExpr",
+        "CallExprS:interface_method",
         "LocalRefExpr:receiver",
         "LocalRefExpr:other",
     ]

@@ -25,6 +25,11 @@ def _assert_runtime_dispatch_matches_op(
     assert dispatch.operation is op_kind
     assert dispatch.runtime_kind is runtime_kind
 
+def _assert_call_target(expr: SemanticExpr, expected_target_type: type[object]):
+    assert isinstance(expr, CallExprS)
+    assert isinstance(expr.target, expected_target_type)
+    return expr.target
+
 
 def test_lower_program_builds_semantic_declarations_and_ids(tmp_path: Path) -> None:
     _write(
@@ -270,24 +275,27 @@ def test_lower_program_handles_simple_function_constructor_method_and_index_form
     statements = semantic.modules[("main",)].functions[1].body.statements
 
     assert isinstance(statements[0], SemanticVarDecl)
-    assert isinstance(statements[0].initializer, FunctionCallExpr)
+    _assert_call_target(statements[0].initializer, FunctionCallTarget)
     assert statements[0].initializer.type_ref.canonical_name == "i64"
 
     assert isinstance(statements[1], SemanticVarDecl)
-    assert isinstance(statements[1].initializer, FunctionCallExpr)
+    _assert_call_target(statements[1].initializer, FunctionCallTarget)
     assert statements[1].initializer.type_ref.canonical_name == "i64"
 
     assert isinstance(statements[2], SemanticVarDecl)
-    assert isinstance(statements[2].initializer, ConstructorCallExpr)
+    constructor_target = _assert_call_target(statements[2].initializer, ConstructorCallTarget)
     assert statements[2].initializer.type_ref.canonical_name == "util::Box"
+    assert constructor_target.constructor_id.class_name == "Box"
 
     assert isinstance(statements[3], SemanticVarDecl)
-    assert isinstance(statements[3].initializer, StaticMethodCallExpr)
+    static_target = _assert_call_target(statements[3].initializer, StaticMethodCallTarget)
     assert statements[3].initializer.type_ref.canonical_name == "util::Box"
+    assert static_target.method_id.name == "from_i64"
 
     assert isinstance(statements[4], SemanticVarDecl)
-    assert isinstance(statements[4].initializer, InstanceMethodCallExpr)
+    instance_target = _assert_call_target(statements[4].initializer, InstanceMethodCallTarget)
     assert statements[4].initializer.type_ref.canonical_name == "i64"
+    assert instance_target.method_id.name == "get"
 
     assert isinstance(statements[6], SemanticVarDecl)
     assert isinstance(statements[6].initializer, IndexReadExpr)
@@ -353,8 +361,8 @@ def test_lower_program_lowers_callable_value_calls_explicitly(tmp_path: Path) ->
     holder_method = semantic.modules[("main",)].classes[1].methods[0]
     holder_return = holder_method.body.statements[0]
     assert isinstance(holder_return, SemanticReturn)
-    assert isinstance(holder_return.value, CallableValueCallExpr)
-    assert isinstance(holder_return.value.callee, FieldReadExpr)
+    callable_target = _assert_call_target(holder_return.value, CallableValueCallTarget)
+    assert isinstance(callable_target.callee, FieldReadExpr)
     assert holder_return.value.type_name == "i64"
     assert holder_return.value.type_ref.canonical_name == "i64"
 
@@ -366,16 +374,16 @@ def test_lower_program_lowers_callable_value_calls_explicitly(tmp_path: Path) ->
     assert expression_type_name(statements[1].initializer) == "fn(i64, i64) -> i64"
 
     assert isinstance(statements[3], SemanticVarDecl)
-    assert isinstance(statements[3].initializer, CallableValueCallExpr)
-    assert isinstance(statements[3].initializer.callee, LocalRefExpr)
+    callable_target = _assert_call_target(statements[3].initializer, CallableValueCallTarget)
+    assert isinstance(callable_target.callee, LocalRefExpr)
 
     assert isinstance(statements[4], SemanticVarDecl)
-    assert isinstance(statements[4].initializer, CallableValueCallExpr)
-    assert isinstance(statements[4].initializer.callee, LocalRefExpr)
+    callable_target = _assert_call_target(statements[4].initializer, CallableValueCallTarget)
+    assert isinstance(callable_target.callee, LocalRefExpr)
 
     assert isinstance(statements[5], SemanticVarDecl)
-    assert isinstance(statements[5].initializer, CallableValueCallExpr)
-    assert isinstance(statements[5].initializer.callee, FieldReadExpr)
+    callable_target = _assert_call_target(statements[5].initializer, CallableValueCallTarget)
+    assert isinstance(callable_target.callee, FieldReadExpr)
 
 
 def test_lower_program_assigns_imported_canonical_ids_to_refs_and_calls(tmp_path: Path) -> None:
@@ -434,22 +442,22 @@ def test_lower_program_assigns_imported_canonical_ids_to_refs_and_calls(tmp_path
 
     constructor_call = statements[2]
     assert isinstance(constructor_call, SemanticVarDecl)
-    assert isinstance(constructor_call.initializer, ConstructorCallExpr)
-    assert constructor_call.initializer.constructor_id.module_path == ("util",)
-    assert constructor_call.initializer.constructor_id.class_name == "Box"
+    constructor_target = _assert_call_target(constructor_call.initializer, ConstructorCallTarget)
+    assert constructor_target.constructor_id.module_path == ("util",)
+    assert constructor_target.constructor_id.class_name == "Box"
 
     function_call = statements[3]
     assert isinstance(function_call, SemanticVarDecl)
-    assert isinstance(function_call.initializer, FunctionCallExpr)
-    assert function_call.initializer.function_id.module_path == ("util",)
-    assert function_call.initializer.function_id.name == "twice"
+    function_target = _assert_call_target(function_call.initializer, FunctionCallTarget)
+    assert function_target.function_id.module_path == ("util",)
+    assert function_target.function_id.name == "twice"
 
     static_method_call = statements[4]
     assert isinstance(static_method_call, SemanticVarDecl)
-    assert isinstance(static_method_call.initializer, StaticMethodCallExpr)
-    assert static_method_call.initializer.method_id.module_path == ("util",)
-    assert static_method_call.initializer.method_id.class_name == "Box"
-    assert static_method_call.initializer.method_id.name == "from_i64"
+    static_target = _assert_call_target(static_method_call.initializer, StaticMethodCallTarget)
+    assert static_target.method_id.module_path == ("util",)
+    assert static_target.method_id.class_name == "Box"
+    assert static_target.method_id.name == "from_i64"
 
     class_ref = statements[5]
     assert isinstance(class_ref, SemanticExprStmt)
@@ -495,28 +503,28 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     return_stmt = semantic.modules[("main",)].functions[0].body.statements[1]
 
     assert isinstance(return_stmt, SemanticReturn)
-    assert isinstance(return_stmt.value, InstanceMethodCallExpr)
-    assert return_stmt.value.method_id.class_name == "Leaf"
-    assert return_stmt.value.method_id.name == "read"
-    assert return_stmt.value.receiver_type_name == "Leaf"
-    assert return_stmt.value.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Leaf")
+    read_target = _assert_call_target(return_stmt.value, InstanceMethodCallTarget)
+    assert read_target.method_id.class_name == "Leaf"
+    assert read_target.method_id.name == "read"
+    assert read_target.access.receiver_type_name == "Leaf"
+    assert read_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Leaf")
     assert return_stmt.value.type_ref.canonical_name == "i64"
 
-    leaf_call = return_stmt.value.receiver
-    assert isinstance(leaf_call, InstanceMethodCallExpr)
-    assert leaf_call.method_id.class_name == "Mid"
-    assert leaf_call.method_id.name == "leaf"
-    assert leaf_call.receiver_type_name == "Mid"
-    assert leaf_call.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Mid")
+    leaf_call = read_target.access.receiver
+    leaf_target = _assert_call_target(leaf_call, InstanceMethodCallTarget)
+    assert leaf_target.method_id.class_name == "Mid"
+    assert leaf_target.method_id.name == "leaf"
+    assert leaf_target.access.receiver_type_name == "Mid"
+    assert leaf_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Mid")
 
-    mid_call = leaf_call.receiver
-    assert isinstance(mid_call, InstanceMethodCallExpr)
-    assert mid_call.method_id.class_name == "Root"
-    assert mid_call.method_id.name == "mid"
-    assert mid_call.receiver_type_name == "Root"
-    assert mid_call.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Root")
-    assert isinstance(mid_call.receiver, LocalRefExpr)
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], mid_call.receiver.local_id) == "root"
+    mid_call = leaf_target.access.receiver
+    mid_target = _assert_call_target(mid_call, InstanceMethodCallTarget)
+    assert mid_target.method_id.class_name == "Root"
+    assert mid_target.method_id.name == "mid"
+    assert mid_target.access.receiver_type_name == "Root"
+    assert mid_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Root")
+    assert isinstance(mid_target.access.receiver, LocalRefExpr)
+    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], mid_target.access.receiver.local_id) == "root"
 
 
 def test_lower_program_lowers_interface_receiver_calls_to_explicit_interface_nodes(tmp_path: Path) -> None:
@@ -548,17 +556,17 @@ def test_lower_program_lowers_interface_receiver_calls_to_explicit_interface_nod
     return_stmt = semantic.modules[("main",)].functions[0].body.statements[0]
 
     assert isinstance(return_stmt, SemanticReturn)
-    assert isinstance(return_stmt.value, InterfaceMethodCallExpr)
-    assert return_stmt.value.interface_id.module_path == ("main",)
-    assert return_stmt.value.interface_id.name == "Hashable"
-    assert return_stmt.value.method_id.module_path == ("main",)
-    assert return_stmt.value.method_id.interface_name == "Hashable"
-    assert return_stmt.value.method_id.name == "hash_code"
-    assert return_stmt.value.receiver_type_name == "Hashable"
-    assert return_stmt.value.receiver_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
+    interface_target = _assert_call_target(return_stmt.value, InterfaceMethodCallTarget)
+    assert interface_target.interface_id.module_path == ("main",)
+    assert interface_target.interface_id.name == "Hashable"
+    assert interface_target.method_id.module_path == ("main",)
+    assert interface_target.method_id.interface_name == "Hashable"
+    assert interface_target.method_id.name == "hash_code"
+    assert interface_target.access.receiver_type_name == "Hashable"
+    assert interface_target.access.receiver_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
     assert return_stmt.value.type_ref.canonical_name == "u64"
-    assert isinstance(return_stmt.value.receiver, LocalRefExpr)
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.receiver.local_id) == "value"
+    assert isinstance(interface_target.access.receiver, LocalRefExpr)
+    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], interface_target.access.receiver.local_id) == "value"
 
 
 def test_lower_program_uses_imported_interface_ids_for_interface_receiver_calls(tmp_path: Path) -> None:
@@ -596,14 +604,14 @@ def test_lower_program_uses_imported_interface_ids_for_interface_receiver_calls(
     return_stmt = semantic.modules[("main",)].functions[0].body.statements[0]
 
     assert isinstance(return_stmt, SemanticReturn)
-    assert isinstance(return_stmt.value, InterfaceMethodCallExpr)
-    assert return_stmt.value.interface_id.module_path == ("util",)
-    assert return_stmt.value.interface_id.name == "Hashable"
-    assert return_stmt.value.method_id.module_path == ("util",)
-    assert return_stmt.value.method_id.interface_name == "Hashable"
-    assert return_stmt.value.method_id.name == "hash_code"
-    assert return_stmt.value.receiver_type_name == "util::Hashable"
-    assert return_stmt.value.receiver_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
+    interface_target = _assert_call_target(return_stmt.value, InterfaceMethodCallTarget)
+    assert interface_target.interface_id.module_path == ("util",)
+    assert interface_target.interface_id.name == "Hashable"
+    assert interface_target.method_id.module_path == ("util",)
+    assert interface_target.method_id.interface_name == "Hashable"
+    assert interface_target.method_id.name == "hash_code"
+    assert interface_target.access.receiver_type_name == "util::Hashable"
+    assert interface_target.access.receiver_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
 
 
 def test_lower_program_preserves_explicit_obj_to_interface_casts(tmp_path: Path) -> None:
@@ -949,22 +957,22 @@ def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp
 
     prefix_decl = statements[0]
     assert isinstance(prefix_decl, SemanticVarDecl)
-    assert isinstance(prefix_decl.initializer, StaticMethodCallExpr)
-    assert prefix_decl.initializer.method_id.class_name == "Str"
-    assert prefix_decl.initializer.method_id.name == "from_u8_array"
+    prefix_target = _assert_call_target(prefix_decl.initializer, StaticMethodCallTarget)
+    assert prefix_target.method_id.class_name == "Str"
+    assert prefix_target.method_id.name == "from_u8_array"
     assert isinstance(prefix_decl.initializer.args[0], SyntheticExpr)
     assert prefix_decl.initializer.args[0].synthetic_id.kind == "string_literal_bytes"
     assert prefix_decl.initializer.args[0].synthetic_id.name == '"hi"'
 
     return_stmt = statements[1]
     assert isinstance(return_stmt, SemanticReturn)
-    assert isinstance(return_stmt.value, StaticMethodCallExpr)
-    assert return_stmt.value.method_id.class_name == "Str"
-    assert return_stmt.value.method_id.name == "concat"
+    return_target = _assert_call_target(return_stmt.value, StaticMethodCallTarget)
+    assert return_target.method_id.class_name == "Str"
+    assert return_target.method_id.name == "concat"
     assert return_stmt.value.type_ref.canonical_name == "main::Str"
     assert isinstance(return_stmt.value.args[0], LocalRefExpr)
-    assert isinstance(return_stmt.value.args[1], StaticMethodCallExpr)
-    assert return_stmt.value.args[1].method_id.name == "from_u8_array"
+    nested_target = _assert_call_target(return_stmt.value.args[1], StaticMethodCallTarget)
+    assert nested_target.method_id.name == "from_u8_array"
     assert return_stmt.value.args[1].type_ref.canonical_name == "main::Str"
     assert return_stmt.value.args[1].args[0].type_ref.canonical_name == "u8[]"
 
@@ -1036,8 +1044,8 @@ def test_lower_program_preserves_private_owner_context_for_in_class_constructor_
     return_stmt = semantic.modules[("main",)].classes[0].methods[0].body.statements[0]
 
     assert isinstance(return_stmt, SemanticReturn)
-    assert isinstance(return_stmt.value, ConstructorCallExpr)
-    assert return_stmt.value.constructor_id.class_name == "Str"
+    constructor_target = _assert_call_target(return_stmt.value, ConstructorCallTarget)
+    assert constructor_target.constructor_id.class_name == "Str"
     assert return_stmt.value.type_ref.canonical_name == "main::Str"
 
 

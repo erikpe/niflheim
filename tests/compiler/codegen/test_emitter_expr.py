@@ -19,17 +19,24 @@ from compiler.common.type_names import TYPE_NAME_I64
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.ir import (
-    CallableValueCallExpr,
-    ConstructorCallExpr,
-    FunctionCallExpr,
+    CallExprS,
+    CallableValueCallTarget,
+    ConstructorCallTarget,
+    FunctionCallTarget,
     IndexReadExpr,
-    InterfaceMethodCallExpr,
-    InstanceMethodCallExpr,
+    InterfaceMethodCallTarget,
+    InstanceMethodCallTarget,
     SemanticReturn,
     SliceReadExpr,
-    StaticMethodCallExpr,
+    StaticMethodCallTarget,
 )
 from compiler.semantic.lowering.orchestration import lower_program
+
+
+def _assert_call_target(expr, expected_target_type):
+    assert isinstance(expr, CallExprS)
+    assert isinstance(expr.target, expected_target_type)
+    return expr.target
 
 
 def _write(path: Path, content: str) -> None:
@@ -115,27 +122,27 @@ def test_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None:
         if hasattr(stmt, "initializer") and stmt.initializer is not None
     ]
 
-    assert isinstance(var_inits[1], FunctionCallExpr)
+    _assert_call_target(var_inits[1], FunctionCallTarget)
     emit_expr(generator, var_inits[1], ctx)
     assert "    call inc" in generator.asm.lines
 
     generator.asm.lines.clear()
-    assert isinstance(var_inits[2], StaticMethodCallExpr)
+    _assert_call_target(var_inits[2], StaticMethodCallTarget)
     emit_expr(generator, var_inits[2], ctx)
     assert "    call __nif_method_Math_add" in generator.asm.lines
 
     generator.asm.lines.clear()
-    assert isinstance(var_inits[3], ConstructorCallExpr)
+    _assert_call_target(var_inits[3], ConstructorCallTarget)
     emit_expr(generator, var_inits[3], ctx)
     assert "    call __nif_ctor_Box" in generator.asm.lines
 
     generator.asm.lines.clear()
-    assert isinstance(var_inits[4], InstanceMethodCallExpr)
+    _assert_call_target(var_inits[4], InstanceMethodCallTarget)
     emit_expr(generator, var_inits[4], ctx)
     assert "    call __nif_method_Box_get" in generator.asm.lines
 
     generator.asm.lines.clear()
-    assert isinstance(var_inits[5], CallableValueCallExpr)
+    _assert_call_target(var_inits[5], CallableValueCallTarget)
     emit_expr(generator, var_inits[5], ctx)
     assert "    mov r11, rax" in generator.asm.lines
     assert "    call r11" in generator.asm.lines
@@ -291,7 +298,7 @@ def test_emitter_expr_emits_interface_dispatch_via_lookup_helper(tmp_path: Path)
 
     return_stmt = fn.body.statements[-1]
     assert isinstance(return_stmt, SemanticReturn)
-    assert isinstance(return_stmt.value, InterfaceMethodCallExpr)
+    _assert_call_target(return_stmt.value, InterfaceMethodCallTarget)
     emit_expr(generator, return_stmt.value, ctx)
     assert "    call rt_lookup_interface_method" in generator.asm.lines
     assert "    mov r11, qword ptr [r10 + 8]" in generator.asm.lines
