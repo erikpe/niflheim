@@ -333,15 +333,23 @@ Step 6 status:
 - validation includes focused boundary tests and broad semantic plus codegen regression coverage, including explicit checks that source lowering no longer records helper locals and that executable lowering reintroduces them deterministically.
 
 7. Audit diagnostics, walkers, and tests for over-coupling to compatibility fields
-  - [ ] remove tests that assert transitional storage details instead of semantic invariants
-  - [ ] centralize display rendering helpers for types, locals, and resolved call targets
-  - [ ] ensure semantic walkers and future optimization scaffolding rely on canonical fields only
+  - [x] remove tests that assert transitional storage details instead of semantic invariants
+  - [x] centralize display rendering helpers for types, locals, and resolved call targets
+  - [x] ensure semantic walkers and future optimization scaffolding rely on canonical fields only
   - Purpose:
     make the previous cleanup steps durable instead of reintroducing compatibility dependencies through tests and tooling
   - Expected outcome:
     the semantic graph stays canonical because the surrounding tooling no longer depends on transitional node copies
   - Tests to add:
     - walk and debug-format tests that validate central rendering helpers instead of node-field duplication
+
+Step 7 status:
+
+- complete
+- `compiler/semantic/display.py` now centralizes semantic display rendering for module-relative type names, owner-local display names, bound-member receiver types, and resolved call-target labels.
+- semantic tests that previously asserted compatibility-era storage fields such as raw receiver type strings, cast target strings, collection value-type strings, and element-type strings now assert canonical semantic meaning through shared display helpers and canonical `SemanticTypeRef` values instead.
+- semantic reachability regression coverage now proves walker-style analysis continues to follow canonical refs even when a compatibility string is stale, which keeps future optimization scaffolding anchored to canonical semantic data.
+- validation covers the new display-helper unit tests plus focused lowering and reachability regressions; broad semantic plus codegen validation remains required for the step.
 
 ## Recommended Execution Slices
 

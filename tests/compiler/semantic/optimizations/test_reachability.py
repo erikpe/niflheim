@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from compiler.common.collection_protocols import CollectionOpKind, collection_method_name
@@ -227,6 +228,51 @@ def test_semantic_reachability_walks_interface_method_call_receivers(tmp_path: P
     reachability = analyze_semantic_reachability(semantic)
 
     assert FunctionId(module_path=("main",), name="main") in reachability.reachable_functions
+    assert ClassId(module_path=("main",), name="Key") in reachability.reachable_classes
+
+
+def test_semantic_reachability_uses_canonical_type_refs_when_compatibility_strings_are_stale(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main() -> u64 {
+            return ((Hashable)Key()).hash_code();
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    function = semantic.modules[("main",)].functions[0]
+    return_stmt = function.body.statements[0]
+    call_expr = return_stmt.value
+    stale_target = replace(
+        call_expr.target,
+        access=replace(call_expr.target.access, receiver_type_name="stale::Receiver"),
+    )
+    stale_program = replace(
+        semantic,
+        modules={
+            **semantic.modules,
+            ("main",): replace(
+                semantic.modules[("main",)],
+                functions=[replace(function, body=replace(function.body, statements=[replace(return_stmt, value=replace(call_expr, target=stale_target))]))],
+            ),
+        },
+    )
+
+    reachability = analyze_semantic_reachability(stale_program)
+
+    assert InterfaceId(module_path=("main",), name="Hashable") in reachability.reachable_interfaces
     assert ClassId(module_path=("main",), name="Key") in reachability.reachable_classes
 
 

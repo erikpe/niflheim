@@ -3,6 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind, collection_method_name
+from compiler.semantic.display import (
+    semantic_bound_member_receiver_display_name,
+    semantic_call_target_display_name,
+    semantic_local_display_name,
+    semantic_local_type_display_name,
+    semantic_type_display_name_relative,
+)
 from compiler.semantic.ir import *
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowered_ir import LoweredSemanticForIn
@@ -509,7 +516,8 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     read_target = _assert_call_target(return_stmt.value, InstanceMethodCallTarget)
     assert read_target.method_id.class_name == "Leaf"
     assert read_target.method_id.name == "read"
-    assert read_target.access.receiver_type_name == "Leaf"
+    assert semantic_bound_member_receiver_display_name(read_target.access, current_module_path=("main",)) == "Leaf"
+    assert semantic_call_target_display_name(read_target, current_module_path=("main",)) == "Leaf.read"
     assert read_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Leaf")
     assert return_stmt.value.type_ref.canonical_name == "i64"
 
@@ -517,17 +525,19 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     leaf_target = _assert_call_target(leaf_call, InstanceMethodCallTarget)
     assert leaf_target.method_id.class_name == "Mid"
     assert leaf_target.method_id.name == "leaf"
-    assert leaf_target.access.receiver_type_name == "Mid"
+    assert semantic_bound_member_receiver_display_name(leaf_target.access, current_module_path=("main",)) == "Mid"
+    assert semantic_call_target_display_name(leaf_target, current_module_path=("main",)) == "Mid.leaf"
     assert leaf_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Mid")
 
     mid_call = leaf_target.access.receiver
     mid_target = _assert_call_target(mid_call, InstanceMethodCallTarget)
     assert mid_target.method_id.class_name == "Root"
     assert mid_target.method_id.name == "mid"
-    assert mid_target.access.receiver_type_name == "Root"
+    assert semantic_bound_member_receiver_display_name(mid_target.access, current_module_path=("main",)) == "Root"
+    assert semantic_call_target_display_name(mid_target, current_module_path=("main",)) == "Root.mid"
     assert mid_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Root")
     assert isinstance(mid_target.access.receiver, LocalRefExpr)
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], mid_target.access.receiver.local_id) == "root"
+    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], mid_target.access.receiver.local_id) == "root"
 
 
 def test_lower_program_lowers_interface_receiver_calls_to_explicit_interface_nodes(tmp_path: Path) -> None:
@@ -565,11 +575,12 @@ def test_lower_program_lowers_interface_receiver_calls_to_explicit_interface_nod
     assert interface_target.method_id.module_path == ("main",)
     assert interface_target.method_id.interface_name == "Hashable"
     assert interface_target.method_id.name == "hash_code"
-    assert interface_target.access.receiver_type_name == "Hashable"
+    assert semantic_bound_member_receiver_display_name(interface_target.access, current_module_path=("main",)) == "Hashable"
+    assert semantic_call_target_display_name(interface_target, current_module_path=("main",)) == "Hashable.hash_code"
     assert interface_target.access.receiver_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
     assert return_stmt.value.type_ref.canonical_name == "u64"
     assert isinstance(interface_target.access.receiver, LocalRefExpr)
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], interface_target.access.receiver.local_id) == "value"
+    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], interface_target.access.receiver.local_id) == "value"
 
 
 def test_lower_program_uses_imported_interface_ids_for_interface_receiver_calls(tmp_path: Path) -> None:
@@ -613,7 +624,8 @@ def test_lower_program_uses_imported_interface_ids_for_interface_receiver_calls(
     assert interface_target.method_id.module_path == ("util",)
     assert interface_target.method_id.interface_name == "Hashable"
     assert interface_target.method_id.name == "hash_code"
-    assert interface_target.access.receiver_type_name == "util::Hashable"
+    assert semantic_bound_member_receiver_display_name(interface_target.access, current_module_path=("main",)) == "util::Hashable"
+    assert semantic_call_target_display_name(interface_target, current_module_path=("main",)) == "util::Hashable.hash_code"
     assert interface_target.access.receiver_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
 
 
@@ -645,13 +657,13 @@ def test_lower_program_preserves_explicit_obj_to_interface_casts(tmp_path: Path)
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, CastExprS)
     assert return_stmt.value.cast_kind is CastSemanticsKind.REFERENCE_COMPATIBILITY
-    assert return_stmt.value.target_type_name == "Hashable"
+    assert semantic_type_display_name_relative(("main",), return_stmt.value.target_type_ref) == "Hashable"
     assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
-    assert return_stmt.value.type_name == "Hashable"
+    assert expression_type_name(return_stmt.value) == "Hashable"
     assert return_stmt.value.type_ref.canonical_name == "main::Hashable"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "value"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "Obj"
+    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "value"
+    assert semantic_local_type_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "Obj"
 
 
 def test_lower_program_preserves_imported_interface_cast_target_names(tmp_path: Path) -> None:
@@ -688,13 +700,13 @@ def test_lower_program_preserves_imported_interface_cast_target_names(tmp_path: 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, CastExprS)
     assert return_stmt.value.cast_kind is CastSemanticsKind.REFERENCE_COMPATIBILITY
-    assert return_stmt.value.target_type_name == "util::Hashable"
+    assert semantic_type_display_name_relative(("main",), return_stmt.value.target_type_ref) == "util::Hashable"
     assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
-    assert return_stmt.value.type_name == "util::Hashable"
+    assert expression_type_name(return_stmt.value) == "util::Hashable"
     assert return_stmt.value.type_ref.canonical_name == "util::Hashable"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "value"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "Obj"
+    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "value"
+    assert semantic_local_type_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "Obj"
 
 
 def test_lower_program_preserves_imported_interface_type_test_target_names(tmp_path: Path) -> None:
@@ -731,13 +743,13 @@ def test_lower_program_preserves_imported_interface_type_test_target_names(tmp_p
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, TypeTestExprS)
     assert return_stmt.value.test_kind is TypeTestSemanticsKind.INTERFACE_COMPATIBILITY
-    assert return_stmt.value.target_type_name == "util::Hashable"
+    assert semantic_type_display_name_relative(("main",), return_stmt.value.target_type_ref) == "util::Hashable"
     assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
-    assert return_stmt.value.type_name == "bool"
+    assert expression_type_name(return_stmt.value) == "bool"
     assert return_stmt.value.type_ref.canonical_name == "bool"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "value"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "Obj"
+    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "value"
+    assert semantic_local_type_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "Obj"
 
 
 def test_lower_program_resolves_structural_index_slice_and_for_in_methods(tmp_path: Path) -> None:
@@ -926,7 +938,7 @@ def test_lower_program_uses_index_set_value_type_for_structural_assignment_targe
 
     assert isinstance(assign_stmt, SemanticAssign)
     assert isinstance(assign_stmt.target, IndexLValue)
-    assert assign_stmt.target.value_type_name == "i64"
+    assert semantic_type_display_name(assign_stmt.target.value_type_ref) == "i64"
     assert isinstance(assign_stmt.target.dispatch, MethodDispatch)
     _assert_method_dispatch_matches_op(
         assign_stmt.target.dispatch, class_name="WeirdStore", op_kind=CollectionOpKind.INDEX_SET
@@ -1074,8 +1086,8 @@ def test_lower_program_lowers_null_and_array_ctor_expressions_explicitly(tmp_pat
     values_decl = statements[0]
     assert isinstance(values_decl, SemanticVarDecl)
     assert isinstance(values_decl.initializer, ArrayCtorExprS)
-    assert values_decl.initializer.element_type_name == "i64"
-    assert values_decl.initializer.type_name == "i64[]"
+    assert semantic_type_display_name(values_decl.initializer.element_type_ref) == "i64"
+    assert expression_type_name(values_decl.initializer) == "i64[]"
     assert values_decl.initializer.type_ref.canonical_name == "i64[]"
     assert isinstance(values_decl.initializer.length_expr, LiteralExprS)
     assert isinstance(values_decl.initializer.length_expr.constant, IntConstant)
@@ -1159,14 +1171,14 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert isinstance(loop_stmt, SemanticForIn)
     assert loop_stmt.element_name == "item"
     assert loop_stmt.element_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
-    assert loop_stmt.element_type_name == "i64"
+    assert semantic_type_display_name(loop_stmt.element_type_ref) == "i64"
     assert loop_stmt.element_type_ref.canonical_name == "i64"
     assert isinstance(loop_stmt.body.statements[0], SemanticVarDecl)
     assert loop_stmt.body.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert isinstance(loop_stmt.body.statements[0].initializer, LocalRefExpr)
     assert loop_stmt.body.statements[0].initializer.local_id == loop_stmt.element_local_id
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id) == "item"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id) == "i64"
+    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id) == "item"
+    assert semantic_local_type_display_name(semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id) == "i64"
     assert loop_stmt.body.statements[0].initializer.local_id != loop_stmt.body.statements[0].local_id
     assert all(
         local_info.display_name not in {"__for_in_collection", "__for_in_length", "__for_in_index"}
