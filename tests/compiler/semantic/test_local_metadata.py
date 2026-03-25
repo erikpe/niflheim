@@ -51,6 +51,9 @@ def test_lower_program_records_function_local_metadata_by_local_id(tmp_path: Pat
     assert local_type_name_for_owner(function, total_decl.local_id) == "i64"
     assert item_info.display_name == "item"
     assert item_info.binding_kind == "for_in_element"
+    assert any(local_info.binding_kind == "for_in_collection" for local_info in function.local_info_by_id.values())
+    assert any(local_info.binding_kind == "for_in_length" for local_info in function.local_info_by_id.values())
+    assert any(local_info.binding_kind == "for_in_index" for local_info in function.local_info_by_id.values())
     assert local_display_name_for_owner(function, return_stmt.value.local_id) == "total"
 
 

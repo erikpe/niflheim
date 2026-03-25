@@ -59,8 +59,9 @@ Today the semantic graph has these notable properties:
 - owner-local metadata is available through `local_info_by_id` tables keyed by `LocalId`
 - lexical shadowing is supported for nested block locals and `for-in` element bindings while same-scope duplicates remain rejected
 - semantic optimization state that tracks locals now keys by `LocalId`
+- `for-in` helper temporaries now have explicit semantic local IDs and owner-local metadata instead of being backend-only conventions
 - many nodes still carry resolved types as strings
-- `for-in` helper slots are still synthesized in codegen from source spans rather than represented explicitly in semantic IR
+- some backend layout/debug paths still expose temp slots through display names even though semantic identity is now explicit
 
 This roadmap intentionally keeps the current graph usable while shifting those boundaries in a controlled order.
 
@@ -237,16 +238,23 @@ Step 8 status:
 - Use-site local names and types on `LocalRefExpr` and `LocalLValue` remain in place intentionally for now, because they still provide readability and support a few narrow downstream compatibility paths.
 
 9. Make compiler-introduced temporaries explicit semantic locals
-  - [ ] model hidden loop temporaries such as `for-in` collection, length, and index values as explicit semantic locals or explicit temp declarations
-  - [ ] give those temporaries `LocalId`s and clear ownership
-  - [ ] decide whether they should appear as ordinary `SemanticVarDecl`s or a dedicated internal-temp form
+  - [x] model hidden loop temporaries such as `for-in` collection, length, and index values as explicit semantic locals or explicit temp declarations
+  - [x] give those temporaries `LocalId`s and clear ownership
+  - [x] decide whether they should appear as ordinary `SemanticVarDecl`s or a dedicated internal-temp form
   - Purpose:
     stop relying on backend conventions for semantically real storage
   - Expected outcome:
     semantic IR fully describes the locals needed for execution of a construct like `for-in`
   - Tests to add:
-    - semantic lowering tests asserting helper temps exist for `for-in`
-    - codegen tests proving temp layout remains correct after explicit-temp lowering
+    - [x] semantic lowering tests asserting helper temps exist for `for-in`
+    - [x] codegen tests proving temp layout remains correct after explicit-temp lowering
+
+Step 9 status:
+
+- `SemanticForIn` now carries explicit `LocalId`s for compiler-owned collection, length, and index helper locals alongside the user-visible element binding.
+- Lowering allocates those helper locals into the owning function or method's `local_info_by_id` table with dedicated `binding_kind` values, so their ownership and types are explicit without pretending they came from user declarations.
+- The primary codegen path now consumes those helper `LocalId`s directly for frame layout and loop emission instead of synthesizing backend-only `for-in` temp identities during emission.
+- No dedicated temp statement form was needed yet; explicit helper-local IDs on `SemanticForIn` were enough to make the hidden loop storage semantic while keeping the IR readable.
 
 10. Move frame-layout construction from name-based to identity-based slots
   - [ ] update layout building to use `LocalId` keys instead of source names

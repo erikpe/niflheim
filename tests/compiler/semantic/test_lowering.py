@@ -1117,8 +1117,17 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert isinstance(loop_stmt, SemanticForIn)
     assert loop_stmt.element_name == "item"
     assert loop_stmt.element_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
+    assert loop_stmt.collection_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
+    assert loop_stmt.length_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
+    assert loop_stmt.index_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert loop_stmt.element_type_name == "i64"
     assert loop_stmt.element_type_ref.canonical_name == "i64"
+    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.collection_local_id) == "__for_in_collection"
+    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.collection_local_id) == "i64[]"
+    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.length_local_id) == "__for_in_length"
+    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.length_local_id) == "u64"
+    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.index_local_id) == "__for_in_index"
+    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.index_local_id) == "i64"
     assert isinstance(loop_stmt.body.statements[0], SemanticVarDecl)
     assert loop_stmt.body.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert isinstance(loop_stmt.body.statements[0].initializer, LocalRefExpr)

@@ -76,7 +76,15 @@ class SemanticClass:
     implemented_interfaces: list[InterfaceId] = field(default_factory=list)
 
 
-LocalBindingKind = Literal["receiver", "param", "local", "for_in_element"]
+LocalBindingKind = Literal[
+    "receiver",
+    "param",
+    "local",
+    "for_in_element",
+    "for_in_collection",
+    "for_in_length",
+    "for_in_index",
+]
 
 
 @dataclass(frozen=True)
@@ -228,6 +236,9 @@ SemanticDispatch = RuntimeDispatch | MethodDispatch
 class SemanticForIn:
     element_name: str
     element_local_id: LocalId
+    collection_local_id: LocalId
+    length_local_id: LocalId
+    index_local_id: LocalId
     collection: "SemanticExpr"
     iter_len_dispatch: SemanticDispatch
     iter_get_dispatch: SemanticDispatch

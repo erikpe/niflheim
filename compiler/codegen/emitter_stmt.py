@@ -6,9 +6,7 @@ import compiler.codegen.types as codegen_types
 
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
-from compiler.codegen.layout import for_in_temp_name
 from compiler.semantic.ir import *
-from compiler.semantic.symbols import FunctionId, LocalId
 from compiler.semantic.types import best_effort_semantic_type_ref_from_name
 
 
@@ -172,39 +170,40 @@ def _emit_for_in(
     loop_labels: list[tuple[str, str]],
 ) -> None:
     layout = ctx.layout
-    coll_name = for_in_temp_name("coll", stmt)
-    len_name = for_in_temp_name("len", stmt)
-    index_name = for_in_temp_name("index", stmt)
+    collection_offset = _require_local_offset(layout, stmt.collection_local_id, label="for-in collection temp", span=stmt.span)
+    length_offset = _require_local_offset(layout, stmt.length_local_id, label="for-in length temp", span=stmt.span)
+    index_offset = _require_local_offset(layout, stmt.index_local_id, label="for-in index temp", span=stmt.span)
+    element_offset = _require_local_offset(layout, stmt.element_local_id, label=stmt.element_name, span=stmt.span)
 
     loop_start = codegen_symbols.next_label(ctx.fn_name, "for_in_start", ctx.label_counter)
     loop_continue = codegen_symbols.next_label(ctx.fn_name, "for_in_continue", ctx.label_counter)
     loop_done = codegen_symbols.next_label(ctx.fn_name, "for_in_done", ctx.label_counter)
 
     emit_expr(codegen, stmt.collection, ctx)
-    codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[coll_name])}, rax")
+    codegen.asm.instr(f"mov {offset_operand(collection_offset)}, rax")
 
     from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
     from compiler.semantic.ir import LocalRefExpr
 
     coll_ref = LocalRefExpr(
-        local_id=_codegen_temp_local_id(ctx, ordinal=0),
-        name=coll_name,
+        local_id=stmt.collection_local_id,
+        name="__for_in_collection",
         type_name=expression_type_name(stmt.collection),
         type_ref=best_effort_semantic_type_ref_from_name(ctx.current_module_path, expression_type_name(stmt.collection)),
         span=stmt.span,
     )
     _emit_named_call(codegen, _dispatch_target_name(stmt.iter_len_dispatch, ctx), [coll_ref], TYPE_NAME_U64, ctx)
-    codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[len_name])}, rax")
-    codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[index_name])}, 0")
+    codegen.asm.instr(f"mov {offset_operand(length_offset)}, rax")
+    codegen.asm.instr(f"mov {offset_operand(index_offset)}, 0")
 
     codegen.asm.label(loop_start)
-    codegen.asm.instr(f"mov rax, {offset_operand(layout.slot_offsets[index_name])}")
-    codegen.asm.instr(f"cmp rax, {offset_operand(layout.slot_offsets[len_name])}")
+    codegen.asm.instr(f"mov rax, {offset_operand(index_offset)}")
+    codegen.asm.instr(f"cmp rax, {offset_operand(length_offset)}")
     codegen.asm.instr(f"jge {loop_done}")
 
     index_ref = LocalRefExpr(
-        local_id=_codegen_temp_local_id(ctx, ordinal=1),
-        name=index_name,
+        local_id=stmt.index_local_id,
+        name="__for_in_index",
         type_name=TYPE_NAME_I64,
         type_ref=best_effort_semantic_type_ref_from_name(ctx.current_module_path, TYPE_NAME_I64),
         span=stmt.span,
@@ -212,11 +211,6 @@ def _emit_for_in(
     _emit_named_call(
         codegen, _dispatch_target_name(stmt.iter_get_dispatch, ctx), [coll_ref, index_ref], stmt.element_type_name, ctx
     )
-    element_offset = layout.local_slot_offsets.get(stmt.element_local_id)
-    if element_offset is None:
-        codegen_types.raise_codegen_error(
-            f"identifier '{stmt.element_name}' is not materialized in stack layout", span=stmt.span
-        )
     codegen.asm.instr(f"mov {offset_operand(element_offset)}, rax")
 
     loop_labels.append((loop_continue, loop_done))
@@ -224,12 +218,15 @@ def _emit_for_in(
     loop_labels.pop()
 
     codegen.asm.label(loop_continue)
-    codegen.asm.instr(f"mov rax, {offset_operand(layout.slot_offsets[index_name])}")
+    codegen.asm.instr(f"mov rax, {offset_operand(index_offset)}")
     codegen.asm.instr("add rax, 1")
-    codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[index_name])}, rax")
+    codegen.asm.instr(f"mov {offset_operand(index_offset)}, rax")
     codegen.asm.instr(f"jmp {loop_start}")
     codegen.asm.label(loop_done)
 
 
-def _codegen_temp_local_id(ctx: EmitContext, *, ordinal: int) -> LocalId:
-    return LocalId(owner_id=FunctionId(module_path=ctx.current_module_path, name=f"__codegen__:{ctx.fn_name}"), ordinal=ordinal)
+def _require_local_offset(layout, local_id: LocalId, *, label: str, span) -> int:
+    offset = layout.local_slot_offsets.get(local_id)
+    if offset is None:
+        codegen_types.raise_codegen_error(f"identifier '{label}' is not materialized in stack layout", span=span)
+    return offset

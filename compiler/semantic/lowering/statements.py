@@ -182,12 +182,31 @@ def _lower_for_in_stmt(
     symbol_index,
     local_id_tracker: LocalIdTracker,
 ) -> SemanticForIn:
+    lowered_collection = lower_expr(typecheck_ctx, symbol_index, stmt.collection_expr, local_id_tracker)
     collection_type = infer_expression_type(typecheck_ctx, stmt.collection_expr)
     element_type = resolve_for_in_element_type(typecheck_ctx, collection_type, stmt.span)
 
     push_scope(typecheck_ctx)
     local_id_tracker.push_scope()
     try:
+        collection_local_id = local_id_tracker.declare_internal_local(
+            display_name="__for_in_collection",
+            var_type=collection_type,
+            span=stmt.collection_expr.span,
+            binding_kind="for_in_collection",
+        )
+        length_local_id = local_id_tracker.declare_internal_local(
+            display_name="__for_in_length",
+            var_type=TypeInfo(name="u64", kind="primitive"),
+            span=stmt.span,
+            binding_kind="for_in_length",
+        )
+        index_local_id = local_id_tracker.declare_internal_local(
+            display_name="__for_in_index",
+            var_type=TypeInfo(name="i64", kind="primitive"),
+            span=stmt.span,
+            binding_kind="for_in_index",
+        )
         binding = declare_variable(typecheck_ctx, stmt.element_name, element_type, stmt.span)
         element_local_id = local_id_tracker.declare_binding(binding, binding_kind="for_in_element")
         body = lower_block(typecheck_ctx, stmt.body, symbol_index=symbol_index, local_id_tracker=local_id_tracker)
@@ -198,7 +217,10 @@ def _lower_for_in_stmt(
     return SemanticForIn(
         element_name=stmt.element_name,
         element_local_id=element_local_id,
-        collection=lower_expr(typecheck_ctx, symbol_index, stmt.collection_expr, local_id_tracker),
+        collection_local_id=collection_local_id,
+        length_local_id=length_local_id,
+        index_local_id=index_local_id,
+        collection=lowered_collection,
         iter_len_dispatch=resolve_collection_dispatch(
             typecheck_ctx, collection_type, operation=CollectionOpKind.ITER_LEN
         ),

@@ -116,10 +116,6 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
 def _emit_local_ref_expr(codegen: CodeGenerator, expr: LocalRefExpr, ctx: EmitContext) -> None:
     offset = ctx.layout.local_slot_offsets.get(expr.local_id)
     if offset is None:
-        # Codegen still synthesizes a few internal for-in helper refs before the
-        # later temp-modeling steps land in semantic IR.
-        offset = ctx.layout.slot_offsets.get(expr.name)
-    if offset is None:
         codegen_types.raise_codegen_error(
             f"identifier '{expr.name}' is not materialized in stack layout", span=expr.span
         )

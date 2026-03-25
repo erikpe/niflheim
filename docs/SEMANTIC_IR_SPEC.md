@@ -16,7 +16,7 @@ This is a structured semantic IR, not a low-level backend IR.
 
 This document describes the baseline semantic IR shape currently implemented and the invariants it was originally introduced to enforce.
 
-It is not the complete long-term semantic-graph roadmap. Planned follow-up changes around local identity, canonical type representation, and explicit compiler-owned temporaries are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
+It is not the complete long-term semantic-graph roadmap. Planned follow-up changes around local identity, canonical type representation, and backend cleanup are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
 
 When the two documents differ, interpret this document as describing the current baseline and the roadmap document as describing the intended migration path.
 
@@ -137,7 +137,15 @@ class SemanticLocalInfo:
     type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
-    binding_kind: Literal["receiver", "param", "local", "for_in_element"]
+    binding_kind: Literal[
+        "receiver",
+        "param",
+        "local",
+        "for_in_element",
+        "for_in_collection",
+        "for_in_length",
+        "for_in_index",
+    ]
 
 
 @dataclass(frozen=True)
@@ -235,14 +243,19 @@ class SemanticContinue:
 class SemanticForIn:
     element_name: str
     element_local_id: LocalId
+    collection_local_id: LocalId
+    length_local_id: LocalId
+    index_local_id: LocalId
     collection: SemanticExpr
-    iter_len_method: MethodId | None
-    iter_get_method: MethodId | None
+    iter_len_dispatch: SemanticDispatch
+    iter_get_dispatch: SemanticDispatch
     element_type_name: str
     element_type_ref: SemanticTypeRef
     body: SemanticBlock
     span: SourceSpan
 ```
+
+The helper locals on `SemanticForIn` are compiler-introduced semantic locals for the evaluated collection value, cached iteration length, and current index. They are tracked in the same `local_info_by_id` metadata table as user-declared locals, which keeps ownership, stack layout, and future optimization boundaries explicit.
 
 For now, `type_name` and related string fields remain the compatibility surface that codegen and some older utilities still consume. New semantic analyses should prefer canonical `SemanticTypeRef` data where it is available.
 

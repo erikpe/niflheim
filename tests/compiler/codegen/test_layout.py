@@ -100,3 +100,29 @@ def test_codegen_build_layout_assigns_distinct_slots_to_shadowed_locals(tmp_path
 
     assert len(value_local_infos) == 2
     assert layout.local_slot_offsets[value_local_infos[0].local_id] != layout.local_slot_offsets[value_local_infos[1].local_id]
+
+
+def test_codegen_build_layout_materializes_explicit_for_in_helper_temps(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        fn main(values: i64[]) -> i64 {
+            var total: i64 = 0;
+            for value in values {
+                total = total + value;
+            }
+            return total;
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
+
+    layout = build_layout(fn)
+    loop_stmt = fn.body.statements[1]
+
+    assert loop_stmt.collection_local_id in layout.local_slot_offsets
+    assert loop_stmt.length_local_id in layout.local_slot_offsets
+    assert loop_stmt.index_local_id in layout.local_slot_offsets
