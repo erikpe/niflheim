@@ -176,6 +176,33 @@ def test_semantic_reachability_follows_canonical_type_refs_on_declarations(tmp_p
     assert InterfaceId(module_path=("main",), name="Hashable") in reachability.reachable_interfaces
 
 
+def test_semantic_reachability_follows_nested_canonical_type_refs_on_callable_declarations(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Box implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(callback: fn(Box) -> Hashable[]) -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    reachability = analyze_semantic_reachability(semantic)
+
+    assert ClassId(module_path=("main",), name="Box") in reachability.reachable_classes
+    assert InterfaceId(module_path=("main",), name="Hashable") in reachability.reachable_interfaces
+
+
 def test_semantic_reachability_walks_interface_method_call_receivers(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",

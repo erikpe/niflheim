@@ -82,7 +82,7 @@ The order below is deliberate.
 1. Make `SemanticTypeRef` the only authoritative semantic type representation
   - [x] define which current `*_type_name` fields remain true compatibility views and which should be removed entirely
   - [x] add helper APIs for display rendering and simple predicates so semantic consumers do not need raw type-name strings
-  - [ ] migrate semantic passes that still reinterpret type strings to use canonical type refs first
+  - [x] migrate semantic passes that still reinterpret type strings to use canonical type refs first
   - [ ] restrict `best_effort_semantic_type_ref_from_name(...)` to tests, compatibility shims, or carefully named boundary code
   - Purpose:
     remove the largest remaining source of duplicated semantic truth
@@ -159,11 +159,18 @@ Step 1.2 status:
 - the older `best_effort_semantic_type_ref_from_name(...)` name remains as a thin compatibility wrapper for now; fencing off remaining direct uses is still tracked separately in step `1.5`.
 
 1.3 Migrate semantic analyses to canonical type refs first
-  - [ ] update semantic passes that currently reinterpret strings, starting with reachability and any semantic helpers that still parse nominal names or callable signatures
-  - [ ] make migrated passes treat type strings as fallback-only compatibility data rather than primary input
-  - [ ] keep the migration narrow enough that codegen is not forced to switch in the same step
+  - [x] update semantic passes that currently reinterpret strings, starting with reachability and any semantic helpers that still parse nominal names or callable signatures
+  - [x] make migrated passes treat type strings as fallback-only compatibility data rather than primary input
+  - [x] keep the migration narrow enough that codegen is not forced to switch in the same step
   - Stop condition:
     semantic analyses no longer need string parsing for the node categories already carrying canonical type refs
+
+Step 1.3 status:
+
+- complete
+- semantic reachability no longer maintains its own local parser for callable and nominal type strings.
+- `compiler/semantic/optimizations/reachability.py` now follows canonical `SemanticTypeRef` structure through shared helper APIs and uses type-name reconstruction only as an explicit compatibility fallback.
+- this step intentionally does not migrate codegen or constant-folding result-type logic yet; those consumers still rely on string fields that remain compatibility or executable data until later slices.
 
 1.4 Tighten type ownership at the IR construction boundary
   - [ ] make lowering populate canonical `SemanticTypeRef` values for any remaining frequently used nodes that still rely mainly on strings

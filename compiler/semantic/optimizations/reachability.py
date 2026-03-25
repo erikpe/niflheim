@@ -5,11 +5,17 @@ from dataclasses import dataclass, replace
 
 from compiler.common.logging import get_logger
 from compiler.common.type_names import NON_CLASS_TYPE_NAMES
-from compiler.common.type_shapes import is_array_type_name, is_function_type_name
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import ClassId, FunctionId, MethodId
-from compiler.semantic.types import SemanticTypeRef
+from compiler.semantic.types import (
+    SemanticTypeRef,
+    compat_semantic_type_ref_from_name,
+    iter_semantic_nominal_ids,
+    semantic_type_canonical_name,
+    semantic_type_is_null,
+    semantic_type_is_primitive,
+)
 
 
 @dataclass(frozen=True)
@@ -303,29 +309,38 @@ class _SemanticReachabilityWalker:
             return
 
     def _enqueue_type_name(self, current_module_path: ModulePath, type_name: str) -> None:
-        for class_id in _iter_class_ids_for_type_name(current_module_path, type_name):
-            self._enqueue_class(class_id)
-            self._enqueue_interface(InterfaceId(module_path=class_id.module_path, name=class_id.name))
+        text = type_name.strip()
+        if not text or text in NON_CLASS_TYPE_NAMES or text.startswith("__"):
+            return
+
+        # Fallback type-name reconstruction stays compatibility-only. Real semantic
+        # edges should arrive through canonical SemanticTypeRef metadata.
+        self._enqueue_type_ref(
+            current_module_path,
+            compat_semantic_type_ref_from_name(current_module_path, text, nominal_kind="reference"),
+        )
+        self._enqueue_type_ref(
+            current_module_path,
+            compat_semantic_type_ref_from_name(current_module_path, text, nominal_kind="interface"),
+        )
 
     def _enqueue_type_ref(self, current_module_path: ModulePath, type_ref: SemanticTypeRef) -> None:
-        if type_ref.class_id is not None:
-            self._enqueue_class(type_ref.class_id)
-        if type_ref.interface_id is not None:
-            self._enqueue_interface(type_ref.interface_id)
-        if type_ref.element_type is not None:
-            self._enqueue_type_ref(current_module_path, type_ref.element_type)
-        for param_type in type_ref.param_types:
-            self._enqueue_type_ref(current_module_path, param_type)
-        if type_ref.return_type is not None:
-            self._enqueue_type_ref(current_module_path, type_ref.return_type)
+        for nominal_id in iter_semantic_nominal_ids(type_ref):
+            if isinstance(nominal_id, ClassId):
+                self._enqueue_class(nominal_id)
+            else:
+                self._enqueue_interface(nominal_id)
+
         if (
             type_ref.class_id is None
             and type_ref.interface_id is None
             and type_ref.element_type is None
             and not type_ref.param_types
             and type_ref.return_type is None
+            and not semantic_type_is_primitive(type_ref)
+            and not semantic_type_is_null(type_ref)
         ):
-            self._enqueue_type_name(current_module_path, type_ref.canonical_name)
+            self._enqueue_type_name(current_module_path, semantic_type_canonical_name(type_ref))
 
 
 def analyze_semantic_reachability(program: SemanticProgram) -> SemanticReachability:
@@ -370,64 +385,3 @@ def prune_unreachable_semantic(program: SemanticProgram) -> SemanticProgram:
     )
 
     return SemanticProgram(entry_module=program.entry_module, modules=pruned_modules)
-
-
-def _iter_class_ids_for_type_name(current_module_path: ModulePath, type_name: str):
-    text = type_name.strip()
-    if not text or text in NON_CLASS_TYPE_NAMES or text.startswith("__"):
-        return
-    if is_array_type_name(text):
-        yield from _iter_class_ids_for_type_name(current_module_path, text[:-2])
-        return
-    if is_function_type_name(text):
-        params_text, return_text = _split_function_type(text)
-        for param_text in _split_top_level(params_text):
-            if param_text:
-                yield from _iter_class_ids_for_type_name(current_module_path, param_text)
-        yield from _iter_class_ids_for_type_name(current_module_path, return_text)
-        return
-    yield _class_id_from_type_name(current_module_path, text)
-
-
-def _split_function_type(type_name: str) -> tuple[str, str]:
-    depth = 0
-    close_index = -1
-    for index, char in enumerate(type_name[2:], start=2):
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-            if depth == 0:
-                close_index = index
-                break
-    if close_index < 0:
-        raise ValueError(f"Invalid function type name '{type_name}'")
-    suffix = type_name[close_index + 1 :].lstrip()
-    if not suffix.startswith("->"):
-        raise ValueError(f"Invalid function type name '{type_name}'")
-    return type_name[3:close_index], suffix[2:].strip()
-
-
-def _split_top_level(text: str) -> list[str]:
-    if not text:
-        return []
-    parts: list[str] = []
-    depth = 0
-    start = 0
-    for index, char in enumerate(text):
-        if char in "([":
-            depth += 1
-        elif char in ")]":
-            depth -= 1
-        elif char == "," and depth == 0:
-            parts.append(text[start:index].strip())
-            start = index + 1
-    parts.append(text[start:].strip())
-    return parts
-
-
-def _class_id_from_type_name(current_module_path: ModulePath, type_name: str) -> ClassId:
-    if "::" in type_name:
-        owner_dotted, class_name = type_name.split("::", 1)
-        return ClassId(module_path=tuple(owner_dotted.split(".")), name=class_name)
-    return ClassId(module_path=current_module_path, name=type_name)
