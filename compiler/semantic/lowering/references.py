@@ -32,8 +32,6 @@ LowerExpr = Callable[[Expression], SemanticExpr]
 @dataclass(frozen=True)
 class ResolvedLocalRefTarget:
     local_id: LocalId
-    name: str
-    type_name: str
     type_ref: SemanticTypeRef
 
 
@@ -67,8 +65,6 @@ class ResolvedFieldReadTarget:
 @dataclass(frozen=True)
 class ResolvedLocalLValueTarget:
     local_id: LocalId
-    name: str
-    type_name: str
     type_ref: SemanticTypeRef
 
 
@@ -113,8 +109,6 @@ def resolve_identifier_ref_target(
     if local_binding is not None:
         return ResolvedLocalRefTarget(
             local_id=_require_local_id(local_id_tracker, local_binding),
-            name=local_binding.name,
-            type_name=local_binding.var_type.name,
             type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, local_binding.var_type),
         )
 
@@ -195,8 +189,6 @@ def lower_resolved_ref(
     if isinstance(resolved_target, ResolvedLocalRefTarget):
         return LocalRefExpr(
             local_id=resolved_target.local_id,
-            name=resolved_target.name,
-            type_name=resolved_target.type_name,
             type_ref=resolved_target.type_ref,
             span=span,
         )
@@ -235,8 +227,6 @@ def lower_lvalue(
     if isinstance(resolved_target, ResolvedLocalLValueTarget):
         return LocalLValue(
             local_id=resolved_target.local_id,
-            name=resolved_target.name,
-            type_name=resolved_target.type_name,
             type_ref=resolved_target.type_ref,
             span=expr.span,
         )
@@ -276,8 +266,6 @@ def resolve_lvalue_target(
             raise ValueError(f"Unknown local assignment target '{expr.name}'")
         return ResolvedLocalLValueTarget(
             local_id=_require_local_id(local_id_tracker, local_binding),
-            name=local_binding.name,
-            type_name=local_binding.var_type.name,
             type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, local_binding.var_type),
         )
 

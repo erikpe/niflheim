@@ -228,10 +228,10 @@ Step 1.7 status:
 - no executable tests were added for this slice because step `1.7` is a documentation and audit checkpoint; its validation is the refreshed field-by-field migration table and reader summary.
 
 2. Remove copied local readability and declared-type data from local use sites
-  - [ ] stop treating `LocalRefExpr.name`, `LocalRefExpr.type_name`, `LocalLValue.name`, and similar fields as semantic data
-  - [ ] decide whether those fields should be removed outright or retained only in debug-only wrappers/builders
-  - [ ] update diagnostics and codegen helpers to recover display metadata strictly through owner-local lookup APIs
-  - [ ] finish the same cleanup for `SemanticVarDecl` compatibility fields if any remaining downstream users still depend on them
+  - [x] stop treating `LocalRefExpr.name`, `LocalRefExpr.type_name`, `LocalLValue.name`, and similar fields as semantic data
+  - [x] decide whether those fields should be removed outright or retained only in debug-only wrappers/builders
+  - [x] update diagnostics and codegen helpers to recover display metadata strictly through owner-local lookup APIs
+  - [x] finish the same cleanup for `SemanticVarDecl` compatibility fields if any remaining downstream users still depend on them
   - Purpose:
     make `LocalId` plus owner metadata the only semantic local source of truth
   - Expected outcome:
@@ -239,6 +239,14 @@ Step 1.7 status:
   - Tests to add:
     - diagnostics tests proving local names still appear correctly after copied name removal
     - codegen and optimization tests using synthetic or rewritten semantic functions with owner metadata only
+
+Step 2 status:
+
+- complete
+- `LocalRefExpr` and `LocalLValue` now carry only `LocalId`, canonical `type_ref`, and span data; copied display names and declared type strings have been removed.
+- lowering no longer threads copied local readability metadata through resolved local targets, so owner-local metadata is the only semantic source of truth for local display and declared-type recovery.
+- codegen diagnostics now recover local display names through `local_display_name_for_owner(...)` when an owner is available, and generic local result-type rendering goes through canonical `SemanticTypeRef` display helpers.
+- `SemanticVarDecl` compatibility fields required no extra step-2 migration beyond the earlier removal slice; the remaining downstream checks now assert owner-local metadata directly instead of copied use-site fields.
 
 3. Normalize semantic operations away from raw source-token strings
   - [ ] introduce canonical enums or operation descriptors for unary, binary, cast, and type-test semantics where raw strings still do semantic work

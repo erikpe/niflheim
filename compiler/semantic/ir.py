@@ -167,8 +167,6 @@ def local_ref_expr_for_owner(owner: SemanticFunctionLike, local_id: LocalId, *, 
     local_info = require_local_info_for_owner(owner, local_id)
     return LocalRefExpr(
         local_id=local_id,
-        name=local_info.display_name,
-        type_name=local_info.type_name,
         type_ref=local_info.type_ref,
         span=span,
     )
@@ -266,8 +264,6 @@ class SemanticForIn:
 @dataclass(frozen=True)
 class LocalLValue:
     local_id: LocalId
-    name: str
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -308,8 +304,6 @@ class SliceLValue:
 @dataclass(frozen=True)
 class LocalRefExpr:
     local_id: LocalId
-    name: str
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -588,7 +582,7 @@ SemanticExpr = (
 
 
 def expression_type_name(expr: SemanticExpr) -> str:
-    if isinstance(expr, (FunctionRefExpr, ClassRefExpr, MethodRefExpr)):
+    if isinstance(expr, (LocalRefExpr, FunctionRefExpr, ClassRefExpr, MethodRefExpr)):
         return semantic_type_display_name(expr.type_ref)
     return expr.type_name
 

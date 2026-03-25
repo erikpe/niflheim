@@ -553,8 +553,6 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
                                 SemanticReturn(
                                     value=LocalRefExpr(
                                         local_id=first_local_id,
-                                        name="value",
-                                        type_name="i64",
                                         type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                         span=span,
                                     ),

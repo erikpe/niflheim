@@ -150,7 +150,7 @@ def _fold_lvalue(target: SemanticLValue, env: _ConstantEnv, stats: _FoldStats) -
 def _fold_expr(expr: SemanticExpr, env: _ConstantEnv, stats: _FoldStats) -> SemanticExpr:
     if isinstance(expr, LocalRefExpr):
         propagated = env.get(expr.local_id)
-        if propagated is None or propagated.type_name != expr.type_name:
+        if propagated is None or expression_type_ref(propagated) != expr.type_ref:
             return expr
         stats.successful_folds += 1
         return replace(propagated, span=expr.span)

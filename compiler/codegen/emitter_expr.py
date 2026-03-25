@@ -117,8 +117,9 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
 def _emit_local_ref_expr(codegen: CodeGenerator, expr: LocalRefExpr, ctx: EmitContext) -> None:
     offset = ctx.layout.local_slot_offsets.get(expr.local_id)
     if offset is None:
+        local_label = str(expr.local_id) if ctx.owner is None else local_display_name_for_owner(ctx.owner, expr.local_id)
         codegen_types.raise_codegen_error(
-            f"identifier '{expr.name}' is not materialized in stack layout", span=expr.span
+            f"identifier '{local_label}' is not materialized in stack layout", span=expr.span
         )
     codegen.asm.instr(f"mov rax, {offset_operand(offset)}")
 

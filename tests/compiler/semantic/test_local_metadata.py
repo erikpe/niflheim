@@ -54,6 +54,8 @@ def test_lower_program_records_function_local_metadata_by_local_id(tmp_path: Pat
     assert any(local_info.binding_kind == "for_in_length" for local_info in function.local_info_by_id.values())
     assert any(local_info.binding_kind == "for_in_index" for local_info in function.local_info_by_id.values())
     assert local_display_name_for_owner(function, return_stmt.value.local_id) == "total"
+    assert not hasattr(return_stmt.value, "name")
+    assert not hasattr(return_stmt.value, "type_name")
 
 
 def test_lower_program_records_method_receiver_metadata(tmp_path: Path) -> None:

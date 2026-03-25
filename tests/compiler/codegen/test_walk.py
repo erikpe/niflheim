@@ -16,6 +16,9 @@ from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, Interfac
 from compiler.semantic.types import best_effort_semantic_type_ref_from_name, semantic_type_ref_for_class_id, semantic_type_ref_for_interface_id
 
 
+_LOCAL_DISPLAY_NAMES: dict[LocalId, str] = {}
+
+
 def _span() -> SourceSpan:
     pos = SourcePos(path="<test>", offset=0, line=1, column=1)
     return SourceSpan(start=pos, end=pos)
@@ -23,7 +26,7 @@ def _span() -> SourceSpan:
 
 def _describe_expr(expr: SemanticExpr) -> str:
     if isinstance(expr, LocalRefExpr):
-        return f"LocalRefExpr:{expr.name}"
+        return f"LocalRefExpr:{_LOCAL_DISPLAY_NAMES[expr.local_id]}"
     if isinstance(expr, LiteralExprS):
         return f"LiteralExprS:{_describe_constant(expr.constant)}"
     return type(expr).__name__
@@ -36,10 +39,10 @@ def _describe_constant(constant: SemanticConstant) -> str:
 
 
 def _local_ref(name: str, type_name: str, span: SourceSpan) -> LocalRefExpr:
+    local_id = LocalId(owner_id=FunctionId(module_path=("test",), name="walk"), ordinal=sum(ord(ch) for ch in name))
+    _LOCAL_DISPLAY_NAMES[local_id] = name
     return LocalRefExpr(
-        local_id=LocalId(owner_id=FunctionId(module_path=("test",), name="walk"), ordinal=sum(ord(ch) for ch in name)),
-        name=name,
-        type_name=type_name,
+        local_id=local_id,
         type_ref=best_effort_semantic_type_ref_from_name(("test",), type_name),
         span=span,
     )

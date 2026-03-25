@@ -117,8 +117,9 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
     if isinstance(target, LocalLValue):
         offset = layout.local_slot_offsets.get(target.local_id)
         if offset is None:
+            local_label = str(target.local_id) if ctx.owner is None else local_display_name_for_owner(ctx.owner, target.local_id)
             codegen_types.raise_codegen_error(
-                f"identifier '{target.name}' is not materialized in stack layout", span=stmt.span
+                f"identifier '{local_label}' is not materialized in stack layout", span=stmt.span
             )
         emit_expr(codegen, stmt.value, ctx)
         codegen.asm.instr(f"mov {offset_operand(offset)}, rax")
