@@ -8,13 +8,14 @@ from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.semantic.lowered_ir import LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticStmt
 from compiler.semantic.ir import *
+from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
 
 
 def emit_statement(
     codegen,
     stmt: SemanticStmt | LoweredSemanticStmt,
     epilogue_label: str,
-    function_return_type_name: str,
+    function_return_type_ref: SemanticTypeRef,
     ctx: EmitContext,
     loop_labels: list[tuple[str, str]],
 ) -> None:
@@ -29,7 +30,7 @@ def emit_statement(
     if isinstance(stmt, SemanticReturn):
         if stmt.value is not None:
             emit_expr(codegen, stmt.value, ctx)
-        if function_return_type_name == TYPE_NAME_DOUBLE:
+        if semantic_type_canonical_name(function_return_type_ref) == TYPE_NAME_DOUBLE:
             codegen.asm.instr("movq xmm0, rax")
         codegen.asm.instr(f"jmp {epilogue_label}")
         return
@@ -58,7 +59,7 @@ def emit_statement(
 
     if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
         for nested in stmt.statements:
-            emit_statement(codegen, nested, epilogue_label, function_return_type_name, ctx, loop_labels)
+            emit_statement(codegen, nested, epilogue_label, function_return_type_ref, ctx, loop_labels)
         return
 
     if isinstance(stmt, SemanticBreak):
@@ -81,11 +82,11 @@ def emit_statement(
         emit_expr(codegen, stmt.condition, ctx)
         codegen.asm.instr("cmp rax, 0")
         codegen.asm.instr(f"je {else_label}")
-        emit_statement(codegen, stmt.then_block, epilogue_label, function_return_type_name, ctx, loop_labels)
+        emit_statement(codegen, stmt.then_block, epilogue_label, function_return_type_ref, ctx, loop_labels)
         codegen.asm.instr(f"jmp {end_label}")
         codegen.asm.label(else_label)
         if stmt.else_block is not None:
-            emit_statement(codegen, stmt.else_block, epilogue_label, function_return_type_name, ctx, loop_labels)
+            emit_statement(codegen, stmt.else_block, epilogue_label, function_return_type_ref, ctx, loop_labels)
         codegen.asm.label(end_label)
         return
 
@@ -97,14 +98,14 @@ def emit_statement(
         codegen.asm.instr("cmp rax, 0")
         codegen.asm.instr(f"je {end_label}")
         loop_labels.append((start_label, end_label))
-        emit_statement(codegen, stmt.body, epilogue_label, function_return_type_name, ctx, loop_labels)
+        emit_statement(codegen, stmt.body, epilogue_label, function_return_type_ref, ctx, loop_labels)
         loop_labels.pop()
         codegen.asm.instr(f"jmp {start_label}")
         codegen.asm.label(end_label)
         return
 
     if isinstance(stmt, LoweredSemanticForIn):
-        _emit_for_in(codegen, stmt, epilogue_label, function_return_type_name, ctx, loop_labels)
+        _emit_for_in(codegen, stmt, epilogue_label, function_return_type_ref, ctx, loop_labels)
         return
 
     codegen_types.raise_codegen_error(
@@ -166,7 +167,7 @@ def _emit_for_in(
     codegen,
     stmt: LoweredSemanticForIn,
     epilogue_label: str,
-    function_return_type_name: str,
+    function_return_type_ref: SemanticTypeRef,
     ctx: EmitContext,
     loop_labels: list[tuple[str, str]],
 ) -> None:
@@ -208,7 +209,7 @@ def _emit_for_in(
     codegen.asm.instr(f"mov {offset_operand(element_offset)}, rax")
 
     loop_labels.append((loop_continue, loop_done))
-    emit_statement(codegen, stmt.body, epilogue_label, function_return_type_name, ctx, loop_labels)
+    emit_statement(codegen, stmt.body, epilogue_label, function_return_type_ref, ctx, loop_labels)
     loop_labels.pop()
 
     codegen.asm.label(loop_continue)

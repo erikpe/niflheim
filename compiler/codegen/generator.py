@@ -11,6 +11,7 @@ from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.model import FunctionLayout
 from compiler.codegen.abi.runtime import RUNTIME_REF_ARG_INDICES
+from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
 
 if TYPE_CHECKING:
     from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
@@ -91,8 +92,8 @@ class CodeGenerator:
         for offset in layout.temp_root_slot_offsets:
             self.asm.instr(f"mov {offset_operand(offset)}, 0")
 
-    def emit_param_spills(self, param_slots: list[tuple[int, str, object | None]]) -> None:
-        param_type_names = [type_name for _offset, type_name, _span in param_slots]
+    def emit_param_spills(self, param_slots: list[tuple[int, SemanticTypeRef, object | None]]) -> None:
+        param_type_names = [semantic_type_canonical_name(type_ref) for _offset, type_ref, _span in param_slots]
         arg_locations = plan_sysv_arg_locations(param_type_names)
 
         for (slot_offset, _param_type_name, param_span), (location_kind, location_register, stack_index) in zip(
@@ -136,7 +137,8 @@ class CodeGenerator:
         self.asm.instr(f"lea rsi, [rbp - {abs(layout.root_frame_offset)}]")
         self.asm.instr("call rt_push_roots")
 
-    def emit_function_epilogue(self, layout: FunctionLayout, return_type_name: str) -> None:
+    def emit_function_epilogue(self, layout: FunctionLayout, return_type_ref: SemanticTypeRef) -> None:
+        return_type_name = semantic_type_canonical_name(return_type_ref)
         if return_type_name == TYPE_NAME_DOUBLE:
             self.asm.instr("sub rsp, 8")
             self.asm.instr("movq qword ptr [rsp], xmm0")

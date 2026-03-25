@@ -3,13 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.semantic.symbols import LocalId
+from compiler.semantic.types import SemanticTypeRef
 
 
 @dataclass(frozen=True)
 class LayoutSlot:
     key: str
     display_name: str
-    type_name: str
+    type_ref: SemanticTypeRef
     offset: int
     local_id: LocalId | None = None
     root_index: int | None = None
@@ -22,7 +23,7 @@ class FunctionLayout:
     slot_names: list[str]
     slot_offsets: dict[str, int]
     local_slot_offsets: dict[LocalId, int]
-    slot_type_names: dict[str, str]
+    slot_type_refs: dict[str, SemanticTypeRef]
     root_slots: list[LayoutSlot]
     root_slot_names: list[str]
     root_slot_indices: dict[str, int]

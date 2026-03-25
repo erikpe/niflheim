@@ -1,3 +1,11 @@
+from dataclasses import replace
+
+from compiler.codegen.generator import emit_asm
+from compiler.resolver import resolve_program
+from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
+from compiler.semantic.lowering.orchestration import lower_program
+from compiler.semantic.optimizations.pipeline import optimize_semantic_program
 from tests.compiler.codegen.helpers import emit_source_asm
 
 
@@ -177,6 +185,56 @@ fn main() -> i64 {
     assert "    movq xmm0, qword ptr [r10]" in asm
     assert "    movq xmm1, qword ptr [r10 + 8]" in asm
     assert "    addsd xmm0, xmm1" in asm
+
+
+def test_emit_asm_uses_canonical_signature_type_refs_when_signature_strings_are_stale(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+fn add(a: double, b: double) -> double {
+    return a + b;
+}
+
+fn main() -> i64 {
+    return (i64)add(1.0, 2.0);
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    program = resolve_program(source, project_root=tmp_path)
+    linked_program = link_semantic_program(optimize_semantic_program(lower_program(program)))
+    lowered_program = lower_linked_semantic_program(linked_program)
+    add_fn = next(
+        fn for fn in lowered_program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "add"
+    )
+    stale_add_fn = replace(
+        add_fn,
+        params=[replace(param, type_name="i64") for param in add_fn.params],
+        return_type_name="i64",
+    )
+    stale_modules = tuple(
+        replace(
+            module,
+            functions=[stale_add_fn if fn.function_id == add_fn.function_id else fn for fn in module.functions],
+        )
+        if module.module_path == ("main",)
+        else module
+        for module in lowered_program.ordered_modules
+    )
+    stale_program = replace(
+        lowered_program,
+        ordered_modules=stale_modules,
+        functions=tuple(stale_add_fn if fn.function_id == add_fn.function_id else fn for fn in lowered_program.functions),
+    )
+
+    asm = emit_asm(stale_program)
+
+    assert "    movq qword ptr [rbp - 8], xmm0" in asm
+    assert "    movq qword ptr [rbp - 16], xmm1" in asm
+    assert "    addsd xmm0, xmm1" in asm
+    assert "    movq qword ptr [rsp], xmm0" in asm
 
 
 def test_emit_asm_expression_with_params_and_local_slot(tmp_path) -> None:

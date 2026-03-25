@@ -27,7 +27,7 @@ def _emit_debug_symbol_literals(codegen, *, target_label: str, function_name: st
     return fn_label, file_label
 
 
-def _function_param_spills(fn: SemanticFunction, layout) -> list[tuple[int, str, object]]:
+def _function_param_spills(fn: SemanticFunction, layout) -> list[tuple[int, SemanticTypeRef, object]]:
     param_locals = sorted(
         (local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind in {"receiver", "param"}),
         key=lambda local_info: local_info.local_id.ordinal,
@@ -35,13 +35,13 @@ def _function_param_spills(fn: SemanticFunction, layout) -> list[tuple[int, str,
     if len(param_locals) != len(fn.params):
         raise ValueError("function emission requires owner-local metadata for every parameter slot")
     return [
-        (layout.local_slot_offsets[local_info.local_id], param.type_name, param.span)
+        (layout.local_slot_offsets[local_info.local_id], param.type_ref, param.span)
         for param, local_info in zip(fn.params, param_locals, strict=True)
     ]
 
 
-def _constructor_param_spills(params: list[SemanticParam], layout) -> list[tuple[int, str, object]]:
-    return [(layout.slot_offsets[param.name], param.type_name, param.span) for param in params]
+def _constructor_param_spills(params: list[SemanticParam], layout) -> list[tuple[int, SemanticTypeRef, object]]:
+    return [(layout.slot_offsets[param.name], param.type_ref, param.span) for param in params]
 
 
 def emit_function(
@@ -90,10 +90,10 @@ def emit_function(
     )
 
     for stmt in fn.body.statements:
-        emit_statement(codegen, stmt, epilogue, fn.return_type_name, emit_ctx, loop_labels=[])
+        emit_statement(codegen, stmt, epilogue, fn.return_type_ref, emit_ctx, loop_labels=[])
 
     codegen.asm.label(epilogue)
-    codegen.emit_function_epilogue(layout, fn.return_type_name)
+    codegen.emit_function_epilogue(layout, fn.return_type_ref)
 
 
 def emit_method(codegen, declaration_tables, cls: SemanticClass, method: SemanticMethod) -> None:

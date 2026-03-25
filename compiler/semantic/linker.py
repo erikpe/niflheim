@@ -6,6 +6,7 @@ from compiler.common.type_names import TYPE_NAME_I64
 from compiler.common.span import SourceSpan
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import SemanticClass, SemanticFunction, SemanticModule, SemanticProgram
+from compiler.semantic.types import semantic_type_canonical_name
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ def require_main_function(program: LinkedSemanticProgram) -> None:
         raise ValueError("Invalid main signature: expected concrete definition 'fn main() -> i64'")
     if main_decl.params:
         raise ValueError("Invalid main signature: expected 'fn main() -> i64' (no parameters)")
-    if main_decl.return_type_name != TYPE_NAME_I64:
+    if semantic_type_canonical_name(main_decl.return_type_ref) != TYPE_NAME_I64:
         raise ValueError("Invalid main signature: expected return type 'i64'")
 
 

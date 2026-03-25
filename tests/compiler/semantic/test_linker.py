@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from pathlib import Path
 
 import pytest
@@ -176,3 +178,25 @@ def test_require_main_function_validates_entrypoint(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Invalid main signature: expected return type 'i64'"):
         require_main_function(program)
+
+
+def test_require_main_function_uses_canonical_return_type_ref_when_return_type_name_is_stale(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    main_fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
+    stale_program = replace(
+        program,
+        functions=tuple(
+            replace(fn, return_type_name="unit") if fn.function_id == main_fn.function_id else fn for fn in program.functions
+        ),
+    )
+
+    require_main_function(stale_program)

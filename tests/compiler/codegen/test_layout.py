@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from compiler.codegen.layout import build_constructor_layout, build_layout
@@ -41,6 +43,39 @@ def test_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) ->
     assert [slot.display_name for slot in layout.root_slots] == ["a"]
     assert layout.root_slot_count >= 7
     assert layout.stack_size % 16 == 0
+
+
+def test_codegen_build_layout_uses_canonical_local_type_refs_when_local_type_names_are_stale(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        fn g(value: Obj) -> unit {
+            return;
+        }
+
+        fn f(a: Obj) -> unit {
+            g(a);
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "f")
+
+    stale_local_info_by_id = {
+        local_id: replace(local_info, type_name="i64") if local_info.display_name == "a" else local_info
+        for local_id, local_info in fn.local_info_by_id.items()
+    }
+    stale_fn = replace(fn, local_info_by_id=stale_local_info_by_id)
+
+    layout = build_layout(stale_fn)
+
+    assert [slot.display_name for slot in layout.root_slots] == ["a"]
 
 
 def test_codegen_build_constructor_layout_tracks_params_and_allocated_object_root(tmp_path) -> None:
