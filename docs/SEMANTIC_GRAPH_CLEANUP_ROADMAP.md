@@ -83,7 +83,7 @@ The order below is deliberate.
   - [x] define which current `*_type_name` fields remain true compatibility views and which should be removed entirely
   - [x] add helper APIs for display rendering and simple predicates so semantic consumers do not need raw type-name strings
   - [x] migrate semantic passes that still reinterpret type strings to use canonical type refs first
-  - [ ] restrict `best_effort_semantic_type_ref_from_name(...)` to tests, compatibility shims, or carefully named boundary code
+  - [x] restrict `best_effort_semantic_type_ref_from_name(...)` to tests, compatibility shims, or carefully named boundary code
   - Purpose:
     remove the largest remaining source of duplicated semantic truth
   - Expected outcome:
@@ -187,11 +187,18 @@ Step 1.4 status:
 - the remaining string result fields are now explicitly compatibility and display data for these node families rather than the only semantic type payload established at lowering time.
 
 1.5 Fence off `best_effort_semantic_type_ref_from_name(...)`
-  - [ ] move direct production usage behind carefully named compatibility helpers or clearly delimited boundary modules
-  - [ ] keep direct use in tests where synthetic semantic fixtures are still handwritten
-  - [ ] add comments or assertions clarifying that the function is a reconstruction shim, not the preferred semantic path
+  - [x] move direct production usage behind carefully named compatibility helpers or clearly delimited boundary modules
+  - [x] keep direct use in tests where synthetic semantic fixtures are still handwritten
+  - [x] add comments or assertions clarifying that the function is a reconstruction shim, not the preferred semantic path
   - Stop condition:
     the codebase makes it visually obvious which type refs are canonical lowering output and which are reconstructed compatibility values
+
+Step 1.5 status:
+
+- complete
+- direct `best_effort_semantic_type_ref_from_name(...)` usage is now confined to handwritten test fixtures; production reconstruction sites use the explicitly named `compat_semantic_type_ref_from_name(...)` boundary instead.
+- `compiler/semantic/types.py` now documents the distinction directly: `compat_...` is the production compatibility shim, while `best_effort_...` is retained as a backward-compatible convenience wrapper for tests.
+- semantic type tests pin the wrapper behavior so future cleanup can remove or rename it deliberately instead of letting production call sites drift back in implicitly.
 
 1.6 Remove the first redundant string fields
   - [x] pick a small set of high-confidence redundant fields and remove them after their consumers have switched to canonical refs

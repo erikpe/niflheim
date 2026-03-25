@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from compiler.semantic.symbols import ClassId
 from compiler.semantic.types import (
+    best_effort_semantic_type_ref_from_name,
     compat_semantic_type_ref_from_name,
     semantic_type_canonical_name,
     semantic_type_callable_params,
@@ -98,3 +99,11 @@ def test_compat_semantic_type_ref_from_name_reconstructs_arrays_and_callables() 
     assert semantic_type_is_array(return_type)
     assert semantic_type_display_name(return_type) == "Box[]"
     assert semantic_type_canonical_name(semantic_type_array_element(return_type)) == "main::Box"
+
+
+def test_best_effort_semantic_type_ref_from_name_remains_a_test_only_alias() -> None:
+    compat_type = compat_semantic_type_ref_from_name(("main",), "fn(Box, i64) -> Box[]")
+    best_effort_type = best_effort_semantic_type_ref_from_name(("main",), "fn(Box, i64) -> Box[]")
+
+    assert best_effort_type == compat_type
+    assert semantic_type_canonical_name(best_effort_type) == "fn(main::Box, i64) -> main::Box[]"

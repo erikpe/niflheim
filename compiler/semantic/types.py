@@ -184,6 +184,13 @@ def semantic_type_ref_from_type_info(current_module_path: ModulePath, type_info:
 def compat_semantic_type_ref_from_name(
     current_module_path: ModulePath, type_name: str, *, nominal_kind: Literal["reference", "interface"] = "reference"
 ) -> SemanticTypeRef:
+    """Reconstruct a semantic type from compatibility-era string data.
+
+    Prefer canonical lowering output via `semantic_type_ref_from_type_info(...)`
+    or lowering-specific checked-type helpers whenever the compiler already has
+    resolved type information. This function exists for explicit compatibility
+    boundaries that still need to interpret legacy string fields.
+    """
     text = type_name.strip()
     if is_function_type_name(text):
         params_text, return_text = _compat_split_function_type(text)
@@ -222,6 +229,12 @@ def compat_semantic_type_ref_from_name(
 def best_effort_semantic_type_ref_from_name(
     current_module_path: ModulePath, type_name: str, *, nominal_kind: Literal["reference", "interface"] = "reference"
 ) -> SemanticTypeRef:
+    """Backward-compatible test helper for handwritten semantic fixtures.
+
+    Production code should call `compat_semantic_type_ref_from_name(...)`
+    explicitly so reconstruction sites remain visually distinct from canonical
+    lowering output.
+    """
     return compat_semantic_type_ref_from_name(current_module_path, type_name, nominal_kind=nominal_kind)
 
 
