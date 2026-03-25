@@ -36,6 +36,7 @@ class EmitContext:
     layout: FunctionLayout
     fn_name: str
     current_module_path: ModulePath
+    owner: SemanticFunctionLike | None
     label_counter: list[int]
     string_literal_labels: dict[str, tuple[str, int]]
     temp_root_depth: list[int]

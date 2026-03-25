@@ -13,7 +13,6 @@ The current semantic graph already has strong global symbol identity through can
 The remaining weak spots are now mostly type identity and backend-boundary issues:
 
 - many nodes still represent types primarily as strings that later passes must reinterpret
-- codegen still synthesizes some semantic temporaries from source spans instead of consuming explicit semantic identities
 - some backend compatibility surfaces still expose display-oriented slot keys even when the underlying function-local storage is now keyed by semantic identity
 - some semantic nodes still duplicate metadata that is now also available through owner-local tables, though lowered local declarations no longer need copied display/type data
 
@@ -277,16 +276,22 @@ Step 10 status:
 - Constructor layout still exposes display-keyed slots because constructor parameter fields and the allocated object slot are backend storage values rather than semantic locals.
 
 11. Remove span-derived temps from codegen
-  - [ ] delete the codegen convention that synthesizes `for-in` helper slot names from `SourceSpan`
-  - [ ] consume explicit semantic temp identities instead
-  - [ ] ensure no backend logic depends on span structure for semantic correctness
+  - [x] delete the codegen convention that synthesizes `for-in` helper slot names from `SourceSpan`
+  - [x] consume explicit semantic temp identities instead
+  - [x] ensure no backend logic depends on span structure for semantic correctness
   - Purpose:
     finish the migration from syntax-derived semantics to semantic-owned identities
   - Expected outcome:
     codegen becomes a consumer of semantic intent rather than a place that reconstructs hidden semantics from source locations
   - Tests to add:
-    - regression tests covering multiple `for-in` loops on the same source line where practical
-    - layout and codegen tests proving helper temp identity no longer depends on span values
+    - [x] regression tests covering multiple `for-in` loops on the same source line where practical
+    - [x] layout and codegen tests proving helper temp identity no longer depends on span values
+
+Step 11 status:
+
+- Codegen no longer reconstructs `for-in` helper temp identity from `SourceSpan` or any other syntax-derived convention.
+- The `for-in` emitter now materializes helper references from owner-local semantic metadata, so even codegen-internal temporary `LocalRefExpr` values are derived from semantic local identity rather than rebuilt from ad hoc names and types.
+- A focused regression now rewrites two lowered `for-in` loops to share the same span and still emits correct code, which proves helper temp identity is no longer coupled to span structure.
 
 ## Recommended Change Boundaries
 

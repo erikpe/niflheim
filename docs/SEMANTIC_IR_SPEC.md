@@ -257,6 +257,8 @@ class SemanticForIn:
 
 The helper locals on `SemanticForIn` are compiler-introduced semantic locals for the evaluated collection value, cached iteration length, and current index. They are tracked in the same `local_info_by_id` metadata table as user-declared locals, which keeps ownership, stack layout, and future optimization boundaries explicit.
 
+Codegen now consumes those helper locals through owner-local semantic metadata rather than reconstructing helper temp identity from source spans or backend-only naming conventions.
+
 For now, `type_name` and related string fields remain the compatibility surface that codegen and some older utilities still consume. New semantic analyses should prefer canonical `SemanticTypeRef` data where it is available.
 
 Statement union:

@@ -158,6 +158,17 @@ def local_type_ref_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> 
     return require_local_info_for_owner(owner, local_id).type_ref
 
 
+def local_ref_expr_for_owner(owner: SemanticFunctionLike, local_id: LocalId, *, span: SourceSpan) -> "LocalRefExpr":
+    local_info = require_local_info_for_owner(owner, local_id)
+    return LocalRefExpr(
+        local_id=local_id,
+        name=local_info.display_name,
+        type_name=local_info.type_name,
+        type_ref=local_info.type_ref,
+        span=span,
+    )
+
+
 @dataclass(frozen=True)
 class SemanticBlock:
     statements: list["SemanticStmt"]

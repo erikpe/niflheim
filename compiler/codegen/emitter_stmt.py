@@ -7,7 +7,6 @@ import compiler.codegen.types as codegen_types
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.semantic.ir import *
-from compiler.semantic.types import best_effort_semantic_type_ref_from_name
 
 
 def emit_statement(
@@ -170,6 +169,8 @@ def _emit_for_in(
     loop_labels: list[tuple[str, str]],
 ) -> None:
     layout = ctx.layout
+    if ctx.owner is None:
+        raise ValueError("for-in statement emission requires function-like local metadata context")
     collection_offset = _require_local_offset(layout, stmt.collection_local_id, label="for-in collection temp", span=stmt.span)
     length_offset = _require_local_offset(layout, stmt.length_local_id, label="for-in length temp", span=stmt.span)
     index_offset = _require_local_offset(layout, stmt.index_local_id, label="for-in index temp", span=stmt.span)
@@ -183,15 +184,8 @@ def _emit_for_in(
     codegen.asm.instr(f"mov {offset_operand(collection_offset)}, rax")
 
     from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
-    from compiler.semantic.ir import LocalRefExpr
 
-    coll_ref = LocalRefExpr(
-        local_id=stmt.collection_local_id,
-        name="__for_in_collection",
-        type_name=expression_type_name(stmt.collection),
-        type_ref=best_effort_semantic_type_ref_from_name(ctx.current_module_path, expression_type_name(stmt.collection)),
-        span=stmt.span,
-    )
+    coll_ref = local_ref_expr_for_owner(ctx.owner, stmt.collection_local_id, span=stmt.span)
     _emit_named_call(codegen, _dispatch_target_name(stmt.iter_len_dispatch, ctx), [coll_ref], TYPE_NAME_U64, ctx)
     codegen.asm.instr(f"mov {offset_operand(length_offset)}, rax")
     codegen.asm.instr(f"mov {offset_operand(index_offset)}, 0")
@@ -201,13 +195,7 @@ def _emit_for_in(
     codegen.asm.instr(f"cmp rax, {offset_operand(length_offset)}")
     codegen.asm.instr(f"jge {loop_done}")
 
-    index_ref = LocalRefExpr(
-        local_id=stmt.index_local_id,
-        name="__for_in_index",
-        type_name=TYPE_NAME_I64,
-        type_ref=best_effort_semantic_type_ref_from_name(ctx.current_module_path, TYPE_NAME_I64),
-        span=stmt.span,
-    )
+    index_ref = local_ref_expr_for_owner(ctx.owner, stmt.index_local_id, span=stmt.span)
     _emit_named_call(
         codegen, _dispatch_target_name(stmt.iter_get_dispatch, ctx), [coll_ref, index_ref], stmt.element_type_name, ctx
     )

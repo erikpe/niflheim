@@ -251,7 +251,11 @@ def _stmt_needs_temp_runtime_roots(stmt: SemanticStmt) -> bool:
     if isinstance(stmt, SemanticWhile):
         return _expr_needs_temp_runtime_roots(stmt.condition) or _stmt_needs_temp_runtime_roots(stmt.body)
     if isinstance(stmt, SemanticForIn):
-        return _expr_needs_temp_runtime_roots(stmt.collection) or _stmt_needs_temp_runtime_roots(stmt.body)
+        return (
+            _expr_needs_temp_runtime_roots(stmt.collection)
+            or codegen_types.is_reference_type_name(expression_type_name(stmt.collection))
+            or _stmt_needs_temp_runtime_roots(stmt.body)
+        )
     return False
 
 
@@ -336,7 +340,12 @@ def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt) -> int:
     if isinstance(stmt, SemanticWhile):
         return max(_max_call_temp_root_slots_in_expr(stmt.condition), _max_call_temp_root_slots_in_stmt(stmt.body))
     if isinstance(stmt, SemanticForIn):
-        return max(_max_call_temp_root_slots_in_expr(stmt.collection), _max_call_temp_root_slots_in_stmt(stmt.body))
+        implicit_for_in_call_slots = 1 if codegen_types.is_reference_type_name(expression_type_name(stmt.collection)) else 0
+        return max(
+            _max_call_temp_root_slots_in_expr(stmt.collection),
+            implicit_for_in_call_slots,
+            _max_call_temp_root_slots_in_stmt(stmt.body),
+        )
     return 0
 
 
