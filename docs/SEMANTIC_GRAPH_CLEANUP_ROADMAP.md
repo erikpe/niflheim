@@ -173,11 +173,18 @@ Step 1.3 status:
 - this step intentionally does not migrate codegen or constant-folding result-type logic yet; those consumers still rely on string fields that remain compatibility or executable data until later slices.
 
 1.4 Tighten type ownership at the IR construction boundary
-  - [ ] make lowering populate canonical `SemanticTypeRef` values for any remaining frequently used nodes that still rely mainly on strings
-  - [ ] reduce creation of semantic nodes that have meaningful type strings but missing canonical type refs
-  - [ ] treat missing canonical type info as a bug in lowering unless the node is explicitly marked as a compatibility case
+  - [x] make lowering populate canonical `SemanticTypeRef` values for any remaining frequently used nodes that still rely mainly on strings
+  - [x] reduce creation of semantic nodes that have meaningful type strings but missing canonical type refs
+  - [x] treat missing canonical type info as a bug in lowering unless the node is explicitly marked as a compatibility case
   - Stop condition:
     newly lowered semantic nodes consistently arrive with canonical type refs wherever later semantic passes need them
+
+Step 1.4 status:
+
+- complete
+- lowering now populates canonical result `type_ref` values for the main executable expression families that previously carried only `type_name`, including literals, unary and binary expressions, casts, type tests, call nodes, array reads and slices, array constructors, and synthetic string-literal byte payloads.
+- `NullExprS` and `ArrayLenExpr` now expose built-in canonical type refs for their fixed result types, so executable semantic expressions have a uniform canonical type query even when the result type is intrinsic rather than inferred from typecheck output.
+- the remaining string result fields are now explicitly compatibility and display data for these node families rather than the only semantic type payload established at lowering time.
 
 1.5 Fence off `best_effort_semantic_type_ref_from_name(...)`
   - [ ] move direct production usage behind carefully named compatibility helpers or clearly delimited boundary modules

@@ -7,7 +7,7 @@ from compiler.frontend.ast_nodes import *
 from compiler.semantic.ir import *
 from compiler.semantic.lowering.expressions import lower_expr
 from compiler.semantic.lowering.locals import LocalIdTracker
-from compiler.semantic.types import semantic_type_ref_from_type_info
+from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
 from compiler.typecheck.context import TypeCheckContext, declare_variable, pop_scope, push_scope
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import TypeInfo
@@ -40,7 +40,7 @@ def lower_function_like_body(
     if owner_class_name is not None:
         typecheck_ctx.current_private_owner_type = canonicalize_reference_type_name(typecheck_ctx, owner_class_name)
 
-    local_id_tracker = LocalIdTracker(owner_id=owner_id)
+    local_id_tracker = LocalIdTracker(owner_id=owner_id, typecheck_ctx=typecheck_ctx)
     push_scope(typecheck_ctx)
     local_id_tracker.push_scope()
     try:
@@ -228,7 +228,7 @@ def _lower_for_in_stmt(
             typecheck_ctx, collection_type, operation=CollectionOpKind.ITER_GET
         ),
         element_type_name=element_type.name,
-        element_type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, element_type),
+        element_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, element_type),
         body=body,
         span=stmt.span,
     )

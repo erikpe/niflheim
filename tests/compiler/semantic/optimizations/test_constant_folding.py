@@ -533,6 +533,7 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
                                     initializer=LiteralExprS(
                                         constant=IntConstant(value=1, type_name="i64"),
                                         type_name="i64",
+                                        type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                         span=span,
                                     ),
                                     span=span,
@@ -544,6 +545,7 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
                                     initializer=LiteralExprS(
                                         constant=IntConstant(value=2, type_name="i64"),
                                         type_name="i64",
+                                        type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                         span=span,
                                     ),
                                     span=span,

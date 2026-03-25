@@ -61,6 +61,16 @@ def semantic_type_kind(type_ref: SemanticTypeRef) -> SemanticTypeKind:
     return type_ref.kind
 
 
+def semantic_primitive_type_ref(type_name: str) -> SemanticTypeRef:
+    if type_name not in PRIMITIVE_TYPE_NAMES:
+        raise ValueError(f"'{type_name}' is not a primitive type name")
+    return SemanticTypeRef(kind="primitive", canonical_name=type_name, display_name=type_name)
+
+
+def semantic_null_type_ref() -> SemanticTypeRef:
+    return SemanticTypeRef(kind="null", canonical_name=TYPE_NAME_NULL, display_name=TYPE_NAME_NULL)
+
+
 def semantic_type_is_primitive(type_ref: SemanticTypeRef) -> bool:
     return type_ref.kind == "primitive"
 
@@ -143,10 +153,10 @@ def semantic_type_ref_from_type_info(current_module_path: ModulePath, type_info:
         return _array_semantic_type_ref(element_type)
 
     if type_info.kind == TYPE_NAME_NULL:
-        return SemanticTypeRef(kind="null", canonical_name=TYPE_NAME_NULL, display_name=TYPE_NAME_NULL)
+        return semantic_null_type_ref()
 
     if type_info.kind == "primitive":
-        return SemanticTypeRef(kind="primitive", canonical_name=type_info.name, display_name=type_info.name)
+        return semantic_primitive_type_ref(type_info.name)
 
     if type_info.kind == "interface":
         interface_id = _compat_interface_id_from_type_name(current_module_path, type_info.name)
@@ -190,10 +200,10 @@ def compat_semantic_type_ref_from_name(
         return _array_semantic_type_ref(element_type)
 
     if text == TYPE_NAME_NULL:
-        return SemanticTypeRef(kind="null", canonical_name=TYPE_NAME_NULL, display_name=TYPE_NAME_NULL)
+        return semantic_null_type_ref()
 
     if text in PRIMITIVE_TYPE_NAMES:
-        return SemanticTypeRef(kind="primitive", canonical_name=text, display_name=text)
+        return semantic_primitive_type_ref(text)
 
     if nominal_kind == "interface":
         interface_id = _compat_interface_id_from_type_name(current_module_path, text)

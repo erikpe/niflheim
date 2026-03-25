@@ -19,7 +19,7 @@ from compiler.semantic.symbols import (
     MethodId,
     SyntheticId,
 )
-from compiler.semantic.types import SemanticTypeRef
+from compiler.semantic.types import SemanticTypeRef, semantic_null_type_ref, semantic_primitive_type_ref
 
 
 @dataclass(frozen=True)
@@ -365,6 +365,7 @@ SemanticConstant = IntConstant | FloatConstant | BoolConstant | CharConstant
 class LiteralExprS:
     constant: SemanticConstant
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -372,6 +373,7 @@ class LiteralExprS:
 class NullExprS:
     span: SourceSpan
     type_name: str = TYPE_NAME_NULL
+    type_ref: SemanticTypeRef = field(default_factory=semantic_null_type_ref)
 
 
 @dataclass(frozen=True)
@@ -379,6 +381,7 @@ class UnaryExprS:
     operator: str
     operand: "SemanticExpr"
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -388,6 +391,7 @@ class BinaryExprS:
     left: "SemanticExpr"
     right: "SemanticExpr"
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -397,6 +401,7 @@ class CastExprS:
     target_type_name: str
     target_type_ref: SemanticTypeRef
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -406,6 +411,7 @@ class TypeTestExprS:
     target_type_name: str
     target_type_ref: SemanticTypeRef
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -426,6 +432,7 @@ class FunctionCallExpr:
     function_id: FunctionId
     args: list["SemanticExpr"]
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -434,6 +441,7 @@ class StaticMethodCallExpr:
     method_id: MethodId
     args: list["SemanticExpr"]
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -445,6 +453,7 @@ class InstanceMethodCallExpr:
     receiver_type_ref: SemanticTypeRef
     args: list["SemanticExpr"]
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -457,6 +466,7 @@ class InterfaceMethodCallExpr:
     receiver_type_ref: SemanticTypeRef
     args: list["SemanticExpr"]
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -465,6 +475,7 @@ class ConstructorCallExpr:
     constructor_id: ConstructorId
     args: list["SemanticExpr"]
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -473,6 +484,7 @@ class CallableValueCallExpr:
     callee: "SemanticExpr"
     args: list["SemanticExpr"]
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -481,6 +493,7 @@ class ArrayLenExpr:
     target: "SemanticExpr"
     span: SourceSpan
     type_name: str = TYPE_NAME_U64
+    type_ref: SemanticTypeRef = field(default_factory=lambda: semantic_primitive_type_ref(TYPE_NAME_U64))
 
 
 @dataclass(frozen=True)
@@ -488,6 +501,7 @@ class IndexReadExpr:
     target: "SemanticExpr"
     index: "SemanticExpr"
     type_name: str
+    type_ref: SemanticTypeRef
     dispatch: SemanticDispatch
     span: SourceSpan
 
@@ -498,6 +512,7 @@ class SliceReadExpr:
     begin: "SemanticExpr"
     end: "SemanticExpr"
     type_name: str
+    type_ref: SemanticTypeRef
     dispatch: SemanticDispatch
     span: SourceSpan
 
@@ -514,6 +529,7 @@ class ArrayCtorExprS:
     element_type_ref: SemanticTypeRef
     length_expr: "SemanticExpr"
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -522,6 +538,7 @@ class SyntheticExpr:
     synthetic_id: SyntheticId
     args: list["SemanticExpr"]
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -570,3 +587,7 @@ SemanticExpr = (
 
 def expression_type_name(expr: SemanticExpr) -> str:
     return expr.type_name
+
+
+def expression_type_ref(expr: SemanticExpr) -> SemanticTypeRef:
+    return expr.type_ref

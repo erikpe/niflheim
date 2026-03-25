@@ -7,7 +7,9 @@ from compiler.common.type_names import TYPE_NAME_I64
 from compiler.common.type_shapes import is_str_type_name
 from compiler.frontend.ast_nodes import *
 from compiler.semantic.ir import *
+from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
 from compiler.semantic.symbols import SyntheticId
+from compiler.semantic.types import compat_semantic_type_ref_from_name, semantic_primitive_type_ref
 from compiler.typecheck.constants import I64_MIN_MAGNITUDE_LITERAL
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
@@ -32,16 +34,23 @@ def lower_string_literal_expr(
                 ),
                 args=[],
                 type_name="u8[]",
+                type_ref=compat_semantic_type_ref_from_name(typecheck_ctx.module_path, "u8[]"),
                 span=expr.span,
             )
         ],
         type_name=result_type_name,
+        type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, infer_expression_type(typecheck_ctx, expr)),
         span=expr.span,
     )
 
 
 def try_lower_string_concat_expr(
-    typecheck_ctx: TypeCheckContext, expr: BinaryExpr, result_type_name: str, *, lower_expr: LowerExpr
+    typecheck_ctx: TypeCheckContext,
+    expr: BinaryExpr,
+    result_type_name: str,
+    result_type_ref: SemanticTypeRef,
+    *,
+    lower_expr: LowerExpr,
 ) -> StaticMethodCallExpr | None:
     left_type = infer_expression_type(typecheck_ctx, expr.left)
     right_type = infer_expression_type(typecheck_ctx, expr.right)
@@ -52,6 +61,7 @@ def try_lower_string_concat_expr(
         method_id=resolve_static_method_id(typecheck_ctx, result_type_name, "concat"),
         args=[lower_expr(expr.left), lower_expr(expr.right)],
         type_name=result_type_name,
+        type_ref=result_type_ref,
         span=expr.span,
     )
 
@@ -59,6 +69,7 @@ def try_lower_string_concat_expr(
 def lower_non_string_literal_expr(typecheck_ctx: TypeCheckContext, expr: LiteralExpr) -> LiteralExprS:
     literal = expr.literal
     type_name = lowered_literal_type_name(typecheck_ctx, expr)
+    type_ref = semantic_primitive_type_ref(type_name)
 
     if isinstance(literal, BoolLiteralValue):
         constant: SemanticConstant = BoolConstant(value=literal.value, type_name=type_name)
@@ -71,7 +82,7 @@ def lower_non_string_literal_expr(typecheck_ctx: TypeCheckContext, expr: Literal
     else:
         raise TypeError(f"Unsupported non-string literal for semantic lowering: {type(literal).__name__}")
 
-    return LiteralExprS(constant=constant, type_name=type_name, span=expr.span)
+    return LiteralExprS(constant=constant, type_name=type_name, type_ref=type_ref, span=expr.span)
 
 
 def lowered_literal_type_name(typecheck_ctx: TypeCheckContext, expr: LiteralExpr) -> str:

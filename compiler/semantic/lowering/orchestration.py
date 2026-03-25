@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from compiler.frontend.ast_nodes import *
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic.ir import *
+from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
 from compiler.semantic.symbols import *
-from compiler.semantic.types import SemanticTypeRef, semantic_type_ref_from_type_info
+from compiler.semantic.types import SemanticTypeRef
 from compiler.typecheck.bodies import check_bodies
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.declarations import collect_module_declarations, validate_interface_conformance
@@ -220,4 +221,4 @@ def resolved_type_name(typecheck_ctx: TypeCheckContext, type_ref) -> str:
 
 
 def resolved_semantic_type_ref(typecheck_ctx: TypeCheckContext, type_ref) -> SemanticTypeRef:
-    return semantic_type_ref_from_type_info(typecheck_ctx.module_path, resolve_type_ref(typecheck_ctx, type_ref))
+    return semantic_type_ref_from_checked_type(typecheck_ctx, resolve_type_ref(typecheck_ctx, type_ref))

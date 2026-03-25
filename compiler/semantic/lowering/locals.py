@@ -3,15 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from compiler.semantic.ir import LocalBindingKind, SemanticLocalInfo
+from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
 from compiler.semantic.symbols import LocalId, LocalOwnerId
-from compiler.semantic.types import semantic_type_ref_from_type_info
-from compiler.typecheck.context import LocalBinding
+from compiler.typecheck.context import LocalBinding, TypeCheckContext
 from compiler.typecheck.model import TypeInfo
 
 
 @dataclass
 class LocalIdTracker:
     owner_id: LocalOwnerId
+    typecheck_ctx: TypeCheckContext
     next_ordinal: int = 0
     scope_stack: list[set[LocalBinding]] = field(default_factory=list)
     local_info_by_id: dict[LocalId, SemanticLocalInfo] = field(default_factory=dict)
@@ -63,7 +64,7 @@ class LocalIdTracker:
             owner_id=self.owner_id,
             display_name=display_name,
             type_name=var_type.name,
-            type_ref=semantic_type_ref_from_type_info(local_id.owner_id.module_path, var_type),
+            type_ref=semantic_type_ref_from_checked_type(self.typecheck_ctx, var_type),
             span=span,
             binding_kind=binding_kind,
         )

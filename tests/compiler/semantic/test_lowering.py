@@ -269,21 +269,27 @@ def test_lower_program_handles_simple_function_constructor_method_and_index_form
 
     assert isinstance(statements[0], SemanticVarDecl)
     assert isinstance(statements[0].initializer, FunctionCallExpr)
+    assert statements[0].initializer.type_ref.canonical_name == "i64"
 
     assert isinstance(statements[1], SemanticVarDecl)
     assert isinstance(statements[1].initializer, FunctionCallExpr)
+    assert statements[1].initializer.type_ref.canonical_name == "i64"
 
     assert isinstance(statements[2], SemanticVarDecl)
     assert isinstance(statements[2].initializer, ConstructorCallExpr)
+    assert statements[2].initializer.type_ref.canonical_name == "util::Box"
 
     assert isinstance(statements[3], SemanticVarDecl)
     assert isinstance(statements[3].initializer, StaticMethodCallExpr)
+    assert statements[3].initializer.type_ref.canonical_name == "util::Box"
 
     assert isinstance(statements[4], SemanticVarDecl)
     assert isinstance(statements[4].initializer, InstanceMethodCallExpr)
+    assert statements[4].initializer.type_ref.canonical_name == "i64"
 
     assert isinstance(statements[6], SemanticVarDecl)
     assert isinstance(statements[6].initializer, IndexReadExpr)
+    assert statements[6].initializer.type_ref.canonical_name == "i64"
 
     assert isinstance(statements[7], SemanticExprStmt)
     assert isinstance(statements[7].expr, FunctionRefExpr)
@@ -346,6 +352,7 @@ def test_lower_program_lowers_callable_value_calls_explicitly(tmp_path: Path) ->
     assert isinstance(holder_return.value, CallableValueCallExpr)
     assert isinstance(holder_return.value.callee, FieldReadExpr)
     assert holder_return.value.type_name == "i64"
+    assert holder_return.value.type_ref.canonical_name == "i64"
 
     main_fn = semantic.modules[("main",)].functions[3]
     statements = main_fn.body.statements
@@ -485,6 +492,7 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     assert return_stmt.value.method_id.name == "read"
     assert return_stmt.value.receiver_type_name == "Leaf"
     assert return_stmt.value.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Leaf")
+    assert return_stmt.value.type_ref.canonical_name == "i64"
 
     leaf_call = return_stmt.value.receiver
     assert isinstance(leaf_call, InstanceMethodCallExpr)
@@ -540,6 +548,7 @@ def test_lower_program_lowers_interface_receiver_calls_to_explicit_interface_nod
     assert return_stmt.value.method_id.name == "hash_code"
     assert return_stmt.value.receiver_type_name == "Hashable"
     assert return_stmt.value.receiver_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
+    assert return_stmt.value.type_ref.canonical_name == "u64"
     assert isinstance(return_stmt.value.receiver, LocalRefExpr)
     assert return_stmt.value.receiver.name == "value"
 
@@ -619,6 +628,7 @@ def test_lower_program_preserves_explicit_obj_to_interface_casts(tmp_path: Path)
     assert return_stmt.value.target_type_name == "Hashable"
     assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
     assert return_stmt.value.type_name == "Hashable"
+    assert return_stmt.value.type_ref.canonical_name == "main::Hashable"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
     assert return_stmt.value.operand.name == "value"
     assert return_stmt.value.operand.type_name == "Obj"
@@ -660,6 +670,7 @@ def test_lower_program_preserves_imported_interface_cast_target_names(tmp_path: 
     assert return_stmt.value.target_type_name == "util::Hashable"
     assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
     assert return_stmt.value.type_name == "util::Hashable"
+    assert return_stmt.value.type_ref.canonical_name == "util::Hashable"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
     assert return_stmt.value.operand.name == "value"
     assert return_stmt.value.operand.type_name == "Obj"
@@ -701,6 +712,7 @@ def test_lower_program_preserves_imported_interface_type_test_target_names(tmp_p
     assert return_stmt.value.target_type_name == "util::Hashable"
     assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
     assert return_stmt.value.type_name == "bool"
+    assert return_stmt.value.type_ref.canonical_name == "bool"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
     assert return_stmt.value.operand.name == "value"
     assert return_stmt.value.operand.type_name == "Obj"
@@ -938,9 +950,12 @@ def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp
     assert isinstance(return_stmt.value, StaticMethodCallExpr)
     assert return_stmt.value.method_id.class_name == "Str"
     assert return_stmt.value.method_id.name == "concat"
+    assert return_stmt.value.type_ref.canonical_name == "main::Str"
     assert isinstance(return_stmt.value.args[0], LocalRefExpr)
     assert isinstance(return_stmt.value.args[1], StaticMethodCallExpr)
     assert return_stmt.value.args[1].method_id.name == "from_u8_array"
+    assert return_stmt.value.args[1].type_ref.canonical_name == "main::Str"
+    assert return_stmt.value.args[1].args[0].type_ref.canonical_name == "u8[]"
 
 
 def test_lower_program_lowers_array_len_calls_to_explicit_array_len_expr(tmp_path: Path) -> None:
@@ -961,6 +976,7 @@ def test_lower_program_lowers_array_len_calls_to_explicit_array_len_expr(tmp_pat
     assert isinstance(return_stmt.value, ArrayLenExpr)
     assert isinstance(return_stmt.value.target, LocalRefExpr)
     assert return_stmt.value.target.name == "values"
+    assert return_stmt.value.type_ref.canonical_name == "u64"
 
 
 def test_lower_program_uses_ref_runtime_dispatch_for_reference_element_arrays(tmp_path: Path) -> None:
@@ -983,6 +999,7 @@ def test_lower_program_uses_ref_runtime_dispatch_for_reference_element_arrays(tm
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, IndexReadExpr)
+    assert return_stmt.value.type_ref.canonical_name == "main::Box"
     assert isinstance(return_stmt.value.dispatch, RuntimeDispatch)
     _assert_runtime_dispatch_matches_op(
         return_stmt.value.dispatch, op_kind=CollectionOpKind.ITER_GET, runtime_kind=ArrayRuntimeKind.REF
@@ -1010,6 +1027,7 @@ def test_lower_program_preserves_private_owner_context_for_in_class_constructor_
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, ConstructorCallExpr)
     assert return_stmt.value.constructor_id.class_name == "Str"
+    assert return_stmt.value.type_ref.canonical_name == "main::Str"
 
 
 def test_lower_program_lowers_null_and_array_ctor_expressions_explicitly(tmp_path: Path) -> None:
@@ -1037,14 +1055,17 @@ def test_lower_program_lowers_null_and_array_ctor_expressions_explicitly(tmp_pat
     assert isinstance(values_decl.initializer, ArrayCtorExprS)
     assert values_decl.initializer.element_type_name == "i64"
     assert values_decl.initializer.type_name == "i64[]"
+    assert values_decl.initializer.type_ref.canonical_name == "i64[]"
     assert isinstance(values_decl.initializer.length_expr, LiteralExprS)
     assert isinstance(values_decl.initializer.length_expr.constant, IntConstant)
     assert values_decl.initializer.length_expr.constant.type_name == "u64"
+    assert values_decl.initializer.length_expr.type_ref.canonical_name == "u64"
     assert values_decl.initializer.length_expr.constant.value == 2
 
     box_decl = statements[1]
     assert isinstance(box_decl, SemanticVarDecl)
     assert isinstance(box_decl.initializer, NullExprS)
+    assert box_decl.initializer.type_ref.canonical_name == "null"
 
 
 def test_lower_program_lowers_nested_blocks_with_local_refs_and_assignments(tmp_path: Path) -> None:
@@ -1246,7 +1267,9 @@ def test_lower_program_preserves_min_i64_literal_inside_unary_negation(tmp_path:
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, UnaryExprS)
+    assert return_stmt.value.type_ref.canonical_name == "i64"
     assert isinstance(return_stmt.value.operand, LiteralExprS)
     assert isinstance(return_stmt.value.operand.constant, IntConstant)
     assert return_stmt.value.operand.constant.type_name == "i64"
+    assert return_stmt.value.operand.type_ref.canonical_name == "i64"
     assert return_stmt.value.operand.constant.value == 9223372036854775808

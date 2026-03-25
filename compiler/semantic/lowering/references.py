@@ -7,8 +7,9 @@ from compiler.common.collection_protocols import CollectionOpKind
 from compiler.frontend.ast_nodes import Expression, FieldAccessExpr, IdentifierExpr, IndexExpr
 from compiler.semantic.ir import *
 from compiler.semantic.lowering.locals import LocalIdTracker
+from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
 from compiler.semantic.symbols import ClassId, LocalId, ProgramSymbolIndex
-from compiler.semantic.types import SemanticTypeRef, semantic_type_ref_from_type_info
+from compiler.semantic.types import SemanticTypeRef
 from compiler.typecheck.call_helpers import class_type_name_from_callable
 from compiler.typecheck.context import LocalBinding, TypeCheckContext, lookup_variable_binding
 from compiler.typecheck.expressions import infer_expression_type
@@ -114,7 +115,7 @@ def resolve_identifier_ref_target(
             local_id=_require_local_id(local_id_tracker, local_binding),
             name=local_binding.name,
             type_name=local_binding.var_type.name,
-            type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, local_binding.var_type),
+            type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, local_binding.var_type),
         )
 
     if expr.name in typecheck_ctx.functions:
@@ -167,11 +168,11 @@ def resolve_field_access_ref_target(
         return ResolvedFieldReadTarget(
             receiver=expr.object_expr,
             receiver_type_name=receiver_type.name,
-            receiver_type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, receiver_type),
+            receiver_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type),
             owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type.name),
             field_name=expr.field_name,
             type_name=field_type.name,
-            type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, field_type),
+            type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, field_type),
         )
 
     if expr.field_name in class_info.methods:
@@ -277,7 +278,7 @@ def resolve_lvalue_target(
             local_id=_require_local_id(local_id_tracker, local_binding),
             name=local_binding.name,
             type_name=local_binding.var_type.name,
-            type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, local_binding.var_type),
+            type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, local_binding.var_type),
         )
 
     if isinstance(expr, FieldAccessExpr):
@@ -286,11 +287,11 @@ def resolve_lvalue_target(
         return ResolvedFieldLValueTarget(
             receiver=expr.object_expr,
             receiver_type_name=receiver_type_name,
-            receiver_type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, receiver_type),
+            receiver_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type),
             owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type_name),
             field_name=expr.field_name,
             type_name=infer_expression_type(typecheck_ctx, expr).name,
-            type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, infer_expression_type(typecheck_ctx, expr)),
+            type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, infer_expression_type(typecheck_ctx, expr)),
         )
 
     if isinstance(expr, IndexExpr):
@@ -298,9 +299,7 @@ def resolve_lvalue_target(
             target=expr.object_expr,
             index=expr.index_expr,
             value_type_name=resolve_index_assignment_value_type_name(typecheck_ctx, expr),
-            value_type_ref=semantic_type_ref_from_type_info(
-                typecheck_ctx.module_path, resolve_index_assignment_value_type(typecheck_ctx, expr)
-            ),
+            value_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, resolve_index_assignment_value_type(typecheck_ctx, expr)),
         )
 
     raise TypeError(f"Unsupported lvalue for semantic lowering: {type(expr).__name__}")

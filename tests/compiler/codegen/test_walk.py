@@ -45,6 +45,10 @@ def _local_ref(name: str, type_name: str, span: SourceSpan) -> LocalRefExpr:
     )
 
 
+def _type_ref(type_name: str) -> SemanticTypeRef:
+    return best_effort_semantic_type_ref_from_name(("main",), type_name)
+
+
 def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
     span = _span()
     expr = CallableValueCallExpr(
@@ -62,18 +66,26 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
             CastExprS(
                 operand=BinaryExprS(
                     operator="+",
-                    left=LiteralExprS(constant=IntConstant(value=1, type_name="i64"), type_name="i64", span=span),
+                    left=LiteralExprS(
+                        constant=IntConstant(value=1, type_name="i64"),
+                        type_name="i64",
+                        type_ref=_type_ref("i64"),
+                        span=span,
+                    ),
                     right=_local_ref("arg", "i64", span),
                     type_name="i64",
+                    type_ref=_type_ref("i64"),
                     span=span,
                 ),
                 target_type_name="i64",
                 target_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 type_name="i64",
+                type_ref=_type_ref("i64"),
                 span=span,
             )
         ],
         type_name="i64",
+        type_ref=_type_ref("i64"),
         span=span,
     )
 
@@ -96,14 +108,21 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
     expr = TypeTestExprS(
         operand=BinaryExprS(
             operator="+",
-            left=LiteralExprS(constant=IntConstant(value=1, type_name="i64"), type_name="i64", span=span),
+            left=LiteralExprS(
+                constant=IntConstant(value=1, type_name="i64"),
+                type_name="i64",
+                type_ref=_type_ref("i64"),
+                span=span,
+            ),
             right=_local_ref("arg", "i64", span),
             type_name="i64",
+            type_ref=_type_ref("i64"),
             span=span,
         ),
         target_type_name="Box",
         target_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
         type_name="bool",
+        type_ref=_type_ref("bool"),
         span=span,
     )
 
@@ -133,8 +152,16 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
         ),
         value=FunctionCallExpr(
             function_id=FunctionId(module_path=("main",), name="compute"),
-            args=[LiteralExprS(constant=IntConstant(value=7, type_name="i64"), type_name="i64", span=span)],
+            args=[
+                LiteralExprS(
+                    constant=IntConstant(value=7, type_name="i64"),
+                    type_name="i64",
+                    type_ref=_type_ref("i64"),
+                    span=span,
+                )
+            ],
             type_name="i64",
+            type_ref=_type_ref("i64"),
             span=span,
         ),
         span=span,
@@ -239,7 +266,10 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
                 type_name="i64",
                 type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 initializer=LiteralExprS(
-                    constant=IntConstant(value=3, type_name="i64"), type_name="i64", span=span
+                    constant=IntConstant(value=3, type_name="i64"),
+                    type_name="i64",
+                    type_ref=_type_ref("i64"),
+                    span=span,
                 ),
                 is_private=False,
                 is_final=False,
@@ -288,6 +318,7 @@ def test_walk_expression_visits_interface_method_call_receiver_and_args() -> Non
         ),
         args=[_local_ref("arg", "Obj", span)],
         type_name="u64",
+        type_ref=_type_ref("u64"),
         span=span,
     )
 
@@ -321,6 +352,7 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
                         ),
                         args=[_local_ref("other", "Obj", span)],
                         type_name="u64",
+                        type_ref=_type_ref("u64"),
                         span=span,
                     ),
                     span=span,
