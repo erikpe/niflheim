@@ -136,19 +136,26 @@ Step 3 status:
 - Local names still remain on `SemanticVarDecl`, `LocalRefExpr`, and `LocalLValue` for compatibility, but readable-name recovery no longer depends on those use-site fields alone.
 - Method codegen wrappers now preserve method-local metadata when a `SemanticMethod` is re-expressed as a temporary `SemanticFunction` for emission.
 
-4. Migrate lowering to produce `LocalId` directly
-  - [ ] allocate `LocalId` values during body lowering
-  - [ ] thread local identity through nested block scopes
-  - [ ] preserve current no-shadowing behavior initially unless shadowing is introduced in the same change set intentionally
-  - [ ] remove any dependence on source name for semantic local resolution after lowering completes
+4. Finish the lowering migration around canonical local identity
+  - [x] allocate `LocalId` values during body lowering
+  - [x] thread local identity through nested block scopes
+  - [x] preserve current no-shadowing behavior initially unless shadowing is introduced in the same change set intentionally
+  - [x] remove the remaining name-keyed lookup path inside lowering so local resolution no longer depends on source spelling after typecheck lookup succeeds
   - Purpose:
-    move identity construction to the one place that understands lexical binding
+    keep lowering as the sole place that constructs lexical local identity, then remove the remaining transitional dependence on names inside the lowering implementation itself
   - Expected outcome:
-    downstream passes receive a semantically bound graph and no longer need to infer local binding from names
+    downstream passes receive a semantically bound graph and lowering no longer has to reconstruct final local identity from source spelling once a local binding is known
   - Tests to add:
-    - lowering tests for nested scopes
-    - lowering tests for `if`, `while`, and `for-in`
-    - tests showing that renamed source locals do not affect identity behavior except in diagnostics
+    - [x] lowering tests for nested scopes
+    - [x] lowering tests for `if`, `while`, and `for-in`
+    - [x] tests showing that renamed source locals do not affect identity behavior except in diagnostics
+
+Step 4 status:
+
+- Lowering already allocates `LocalId` values in `lower_function_like_body` and threads them through nested lexical scopes.
+- Local declarations, local references, local assignment targets, params, `__self`, and `for-in` element bindings are already emitted with canonical `LocalId` values.
+- The current no-shadowing behavior remains intentionally unchanged at the typecheck boundary.
+- Lowering now resolves local bindings through the typecheck scope's binding objects and only carries source names forward as metadata for diagnostics and debug readability.
 
 5. Migrate semantic optimization passes from local-name environments to `LocalId`
   - [ ] update constant folding environments to key by `LocalId`

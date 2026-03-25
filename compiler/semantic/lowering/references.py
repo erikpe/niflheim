@@ -9,7 +9,7 @@ from compiler.semantic.ir import *
 from compiler.semantic.lowering.locals import LocalIdTracker
 from compiler.semantic.symbols import ClassId, LocalId, ProgramSymbolIndex
 from compiler.typecheck.call_helpers import class_type_name_from_callable
-from compiler.typecheck.context import TypeCheckContext, lookup_variable
+from compiler.typecheck.context import LocalBinding, TypeCheckContext, lookup_variable, lookup_variable_binding
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.module_lookup import (
     lookup_class_by_type_name,
@@ -100,12 +100,12 @@ def resolve_identifier_ref_target(
     expr: IdentifierExpr,
     local_id_tracker: LocalIdTracker | None,
 ) -> ResolvedRefTarget:
-    local_type = lookup_variable(typecheck_ctx, expr.name)
-    if local_type is not None:
+    local_binding = lookup_variable_binding(typecheck_ctx, expr.name)
+    if local_binding is not None:
         return ResolvedLocalRefTarget(
-            local_id=_require_local_id(local_id_tracker, expr.name),
-            name=expr.name,
-            type_name=local_type.name,
+            local_id=_require_local_id(local_id_tracker, local_binding),
+            name=local_binding.name,
+            type_name=local_binding.var_type.name,
         )
 
     if expr.name in typecheck_ctx.functions:
@@ -247,13 +247,13 @@ def resolve_lvalue_target(
     typecheck_ctx: TypeCheckContext, expr: Expression, local_id_tracker: LocalIdTracker | None
 ) -> ResolvedLValueTarget:
     if isinstance(expr, IdentifierExpr):
-        local_type = lookup_variable(typecheck_ctx, expr.name)
-        if local_type is None:
+        local_binding = lookup_variable_binding(typecheck_ctx, expr.name)
+        if local_binding is None:
             raise ValueError(f"Unknown local assignment target '{expr.name}'")
         return ResolvedLocalLValueTarget(
-            local_id=_require_local_id(local_id_tracker, expr.name),
-            name=expr.name,
-            type_name=local_type.name,
+            local_id=_require_local_id(local_id_tracker, local_binding),
+            name=local_binding.name,
+            type_name=local_binding.var_type.name,
         )
 
     if isinstance(expr, FieldAccessExpr):
@@ -285,11 +285,11 @@ def resolve_index_assignment_value_type_name(typecheck_ctx: TypeCheckContext, ex
     return qualify_member_type_for_owner(typecheck_ctx, method_sig.params[1], object_type.name).name
 
 
-def _require_local_id(local_id_tracker: LocalIdTracker | None, name: str) -> LocalId:
+def _require_local_id(local_id_tracker: LocalIdTracker | None, binding: LocalBinding) -> LocalId:
     if local_id_tracker is None:
-        raise ValueError(f"Semantic lowering requires a LocalIdTracker for local '{name}'")
+        raise ValueError(f"Semantic lowering requires a LocalIdTracker for local '{binding.name}'")
 
-    local_id = local_id_tracker.lookup_local(name)
+    local_id = local_id_tracker.lookup_binding(binding)
     if local_id is None:
-        raise ValueError(f"Semantic lowering missing LocalId for local '{name}'")
+        raise ValueError(f"Semantic lowering missing LocalId for local '{binding.name}'")
     return local_id

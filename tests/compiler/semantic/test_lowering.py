@@ -1119,6 +1119,49 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert return_stmt.value.local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
 
 
+def test_lower_program_local_identity_is_stable_under_local_rename(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(flag: bool) -> bool {
+            var result: bool = flag;
+            return result;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "renamed.nif",
+        """
+        fn main(flag: bool) -> bool {
+            var outcome: bool = flag;
+            return outcome;
+        }
+        """,
+    )
+
+    original = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)).modules[("main",)].functions[0]
+    renamed = lower_program(resolve_program(tmp_path / "renamed.nif", project_root=tmp_path)).modules[("renamed",)].functions[0]
+
+    original_decl = original.body.statements[0]
+    renamed_decl = renamed.body.statements[0]
+    original_return = original.body.statements[1]
+    renamed_return = renamed.body.statements[1]
+
+    assert isinstance(original_decl, SemanticVarDecl)
+    assert isinstance(renamed_decl, SemanticVarDecl)
+    assert isinstance(original_return, SemanticReturn)
+    assert isinstance(renamed_return, SemanticReturn)
+    assert isinstance(original_return.value, LocalRefExpr)
+    assert isinstance(renamed_return.value, LocalRefExpr)
+
+    assert original_decl.name == "result"
+    assert renamed_decl.name == "outcome"
+    assert original_decl.local_id.ordinal == renamed_decl.local_id.ordinal == 1
+    assert original_return.value.local_id.ordinal == renamed_return.value.local_id.ordinal == 1
+    assert original_return.value.name == "result"
+    assert renamed_return.value.name == "outcome"
+
+
 def test_lower_program_preserves_min_i64_literal_inside_unary_negation(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",

@@ -8,6 +8,13 @@ from compiler.resolver import ModuleInfo, ModulePath
 from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError, TypeInfo
 
 
+@dataclass(eq=False, frozen=True)
+class LocalBinding:
+    name: str
+    var_type: TypeInfo
+    span: SourceSpan
+
+
 @dataclass
 class TypeCheckContext:
     module_ast: ModuleAst
@@ -19,7 +26,7 @@ class TypeCheckContext:
     functions: dict[str, FunctionSig] = field(default_factory=dict)
     classes: dict[str, ClassInfo] = field(default_factory=dict)
     interfaces: dict[str, InterfaceInfo] = field(default_factory=dict)
-    scope_stack: list[dict[str, TypeInfo]] = field(default_factory=list)
+    scope_stack: list[dict[str, LocalBinding]] = field(default_factory=list)
     function_local_names_stack: list[set[str]] = field(default_factory=list)
     loop_depth: int = 0
     current_private_owner_type: str | None = None
@@ -33,7 +40,7 @@ def pop_scope(ctx: TypeCheckContext) -> None:
     ctx.scope_stack.pop()
 
 
-def declare_variable(ctx: TypeCheckContext, name: str, var_type: TypeInfo, span: SourceSpan) -> None:
+def declare_variable(ctx: TypeCheckContext, name: str, var_type: TypeInfo, span: SourceSpan) -> LocalBinding:
     if ctx.function_local_names_stack:
         function_local_names = ctx.function_local_names_stack[-1]
         if name in function_local_names:
@@ -43,11 +50,19 @@ def declare_variable(ctx: TypeCheckContext, name: str, var_type: TypeInfo, span:
     scope = ctx.scope_stack[-1]
     if name in scope:
         raise TypeCheckError(f"Duplicate local variable '{name}'", span)
-    scope[name] = var_type
+    binding = LocalBinding(name=name, var_type=var_type, span=span)
+    scope[name] = binding
+    return binding
+
+
+def lookup_variable_binding(ctx: TypeCheckContext, name: str) -> LocalBinding | None:
+    for scope in reversed(ctx.scope_stack):
+        binding = scope.get(name)
+        if binding is not None:
+            return binding
+    return None
 
 
 def lookup_variable(ctx: TypeCheckContext, name: str) -> TypeInfo | None:
-    for scope in reversed(ctx.scope_stack):
-        if name in scope:
-            return scope[name]
-    return None
+    binding = lookup_variable_binding(ctx, name)
+    return None if binding is None else binding.var_type

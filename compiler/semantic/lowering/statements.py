@@ -45,22 +45,12 @@ def lower_function_like_body(
     typecheck_ctx.function_local_names_stack.append(set())
     try:
         if receiver_type is not None:
-            declare_variable(typecheck_ctx, "__self", receiver_type, body.span)
-            local_id_tracker.declare_local(
-                "__self",
-                type_name=receiver_type.name,
-                span=body.span,
-                binding_kind="receiver",
-            )
+            receiver_binding = declare_variable(typecheck_ctx, "__self", receiver_type, body.span)
+            local_id_tracker.declare_binding(receiver_binding, binding_kind="receiver")
         for param in params:
             param_type = resolve_type_ref(typecheck_ctx, param.type_ref)
-            declare_variable(typecheck_ctx, param.name, param_type, param.span)
-            local_id_tracker.declare_local(
-                param.name,
-                type_name=param_type.name,
-                span=param.span,
-                binding_kind="param",
-            )
+            param_binding = declare_variable(typecheck_ctx, param.name, param_type, param.span)
+            local_id_tracker.declare_binding(param_binding, binding_kind="param")
         lowered_body = lower_block(typecheck_ctx, body, symbol_index=symbol_index, local_id_tracker=local_id_tracker)
         return LoweredFunctionBody(
             body=lowered_body,
@@ -104,8 +94,8 @@ def lower_stmt(typecheck_ctx: TypeCheckContext, stmt: Statement, *, symbol_index
             None if stmt.initializer is None else lower_expr(typecheck_ctx, symbol_index, stmt.initializer, local_id_tracker)
         )
         var_type = resolve_type_ref(typecheck_ctx, stmt.type_ref)
-        declare_variable(typecheck_ctx, stmt.name, var_type, stmt.span)
-        local_id = local_id_tracker.declare_local(stmt.name, type_name=var_type.name, span=stmt.span)
+        binding = declare_variable(typecheck_ctx, stmt.name, var_type, stmt.span)
+        local_id = local_id_tracker.declare_binding(binding)
         return SemanticVarDecl(
             local_id=local_id,
             name=stmt.name,
@@ -201,13 +191,8 @@ def _lower_for_in_stmt(
     push_scope(typecheck_ctx)
     local_id_tracker.push_scope()
     try:
-        declare_variable(typecheck_ctx, stmt.element_name, element_type, stmt.span)
-        local_id_tracker.declare_local(
-            stmt.element_name,
-            type_name=element_type.name,
-            span=stmt.span,
-            binding_kind="for_in_element",
-        )
+        binding = declare_variable(typecheck_ctx, stmt.element_name, element_type, stmt.span)
+        local_id_tracker.declare_binding(binding, binding_kind="for_in_element")
         body = lower_block(typecheck_ctx, stmt.body, symbol_index=symbol_index, local_id_tracker=local_id_tracker)
     finally:
         local_id_tracker.pop_scope()
