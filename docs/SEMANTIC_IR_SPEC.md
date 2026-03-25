@@ -156,6 +156,7 @@ class SemanticBlock:
 
 @dataclass(frozen=True)
 class SemanticVarDecl:
+    local_id: LocalId
     name: str
     type_name: str
     initializer: SemanticExpr | None
@@ -241,6 +242,7 @@ The semantic IR should stop representing assignment targets as arbitrary express
 ```python
 @dataclass(frozen=True)
 class LocalLValue:
+    local_id: LocalId
     name: str
     type_name: str
     span: SourceSpan
@@ -285,6 +287,7 @@ SemanticLValue = LocalLValue | FieldLValue | IndexLValue | SliceLValue
 ```python
 @dataclass(frozen=True)
 class LocalRefExpr:
+    local_id: LocalId
     name: str
     type_name: str
     span: SourceSpan

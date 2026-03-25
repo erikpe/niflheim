@@ -12,7 +12,7 @@ from compiler.codegen.walk import (
 from compiler.common.span import SourcePos, SourceSpan
 from compiler.semantic.ir import *
 from compiler.semantic.linker import LinkedSemanticProgram
-from compiler.semantic.symbols import ClassId, FunctionId, MethodId
+from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, InterfaceMethodId, LocalId, MethodId
 
 
 def _span() -> SourceSpan:
@@ -34,11 +34,20 @@ def _describe_constant(constant: SemanticConstant) -> str:
     return str(constant.value)
 
 
+def _local_ref(name: str, type_name: str, span: SourceSpan) -> LocalRefExpr:
+    return LocalRefExpr(
+        local_id=LocalId(owner_id=FunctionId(module_path=("test",), name="walk"), ordinal=sum(ord(ch) for ch in name)),
+        name=name,
+        type_name=type_name,
+        span=span,
+    )
+
+
 def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
     span = _span()
     expr = CallableValueCallExpr(
         callee=FieldReadExpr(
-            receiver=LocalRefExpr(name="receiver", type_name="Box", span=span),
+            receiver=_local_ref("receiver", "Box", span),
             receiver_type_name="Box",
             owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="invoke",
@@ -50,7 +59,7 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
                 operand=BinaryExprS(
                     operator="+",
                     left=LiteralExprS(constant=IntConstant(value=1, type_name="i64"), type_name="i64", span=span),
-                    right=LocalRefExpr(name="arg", type_name="i64", span=span),
+                    right=_local_ref("arg", "i64", span),
                     type_name="i64",
                     span=span,
                 ),
@@ -83,7 +92,7 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
         operand=BinaryExprS(
             operator="+",
             left=LiteralExprS(constant=IntConstant(value=1, type_name="i64"), type_name="i64", span=span),
-            right=LocalRefExpr(name="arg", type_name="i64", span=span),
+            right=_local_ref("arg", "i64", span),
             type_name="i64",
             span=span,
         ),
@@ -107,7 +116,7 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
     span = _span()
     stmt = SemanticAssign(
         target=FieldLValue(
-            receiver=LocalRefExpr(name="target_receiver", type_name="Box", span=span),
+            receiver=_local_ref("target_receiver", "Box", span),
             receiver_type_name="Box",
             owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="value",
@@ -134,26 +143,26 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
     block = SemanticBlock(
         statements=[
             SemanticIf(
-                condition=LocalRefExpr(name="if_cond", type_name="bool", span=span),
+                condition=_local_ref("if_cond", "bool", span),
                 then_block=SemanticBlock(
                     statements=[
-                        SemanticExprStmt(expr=LocalRefExpr(name="then_expr", type_name="i64", span=span), span=span)
+                        SemanticExprStmt(expr=_local_ref("then_expr", "i64", span), span=span)
                     ],
                     span=span,
                 ),
                 else_block=SemanticBlock(
                     statements=[
-                        SemanticReturn(value=LocalRefExpr(name="else_expr", type_name="i64", span=span), span=span)
+                        SemanticReturn(value=_local_ref("else_expr", "i64", span), span=span)
                     ],
                     span=span,
                 ),
                 span=span,
             ),
             SemanticWhile(
-                condition=LocalRefExpr(name="while_cond", type_name="bool", span=span),
+                condition=_local_ref("while_cond", "bool", span),
                 body=SemanticBlock(
                     statements=[
-                        SemanticExprStmt(expr=LocalRefExpr(name="while_expr", type_name="i64", span=span), span=span)
+                        SemanticExprStmt(expr=_local_ref("while_expr", "i64", span), span=span)
                     ],
                     span=span,
                 ),
@@ -161,7 +170,7 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
             ),
             SemanticForIn(
                 element_name="value",
-                collection=LocalRefExpr(name="collection", type_name="Vec", span=span),
+                collection=_local_ref("collection", "Vec", span),
                 iter_len_dispatch=RuntimeDispatch(operation=CollectionOpKind.ITER_LEN),
                 iter_get_dispatch=RuntimeDispatch(
                     operation=CollectionOpKind.ITER_GET, runtime_kind=ArrayRuntimeKind.I64
@@ -169,7 +178,7 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
                 element_type_name="i64",
                 body=SemanticBlock(
                     statements=[
-                        SemanticExprStmt(expr=LocalRefExpr(name="for_expr", type_name="i64", span=span), span=span)
+                        SemanticExprStmt(expr=_local_ref("for_expr", "i64", span), span=span)
                     ],
                     span=span,
                 ),
@@ -200,7 +209,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
         params=[],
         return_type_name="i64",
         body=SemanticBlock(
-            statements=[SemanticReturn(value=LocalRefExpr(name="fn_expr", type_name="i64", span=span), span=span)],
+            statements=[SemanticReturn(value=_local_ref("fn_expr", "i64", span), span=span)],
             span=span,
         ),
         is_export=False,
@@ -229,7 +238,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
                 return_type_name="i64",
                 body=SemanticBlock(
                     statements=[
-                        SemanticReturn(value=LocalRefExpr(name="method_expr", type_name="i64", span=span), span=span)
+                        SemanticReturn(value=_local_ref("method_expr", "i64", span), span=span)
                     ],
                     span=span,
                 ),
@@ -256,9 +265,9 @@ def test_walk_expression_visits_interface_method_call_receiver_and_args() -> Non
     expr = InterfaceMethodCallExpr(
         interface_id=InterfaceId(module_path=("main",), name="Hashable"),
         method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
-        receiver=LocalRefExpr(name="receiver", type_name="Hashable", span=span),
+        receiver=_local_ref("receiver", "Hashable", span),
         receiver_type_name="Hashable",
-        args=[LocalRefExpr(name="arg", type_name="Obj", span=span)],
+        args=[_local_ref("arg", "Obj", span)],
         type_name="u64",
         span=span,
     )
@@ -285,9 +294,9 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
                     value=InterfaceMethodCallExpr(
                         interface_id=InterfaceId(module_path=("main",), name="Hashable"),
                         method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
-                        receiver=LocalRefExpr(name="receiver", type_name="Hashable", span=span),
+                        receiver=_local_ref("receiver", "Hashable", span),
                         receiver_type_name="Hashable",
-                        args=[LocalRefExpr(name="other", type_name="Obj", span=span)],
+                        args=[_local_ref("other", "Obj", span)],
                         type_name="u64",
                         span=span,
                     ),

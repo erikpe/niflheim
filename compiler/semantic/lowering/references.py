@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from compiler.common.collection_protocols import CollectionOpKind
 from compiler.frontend.ast_nodes import Expression, FieldAccessExpr, IdentifierExpr, IndexExpr
 from compiler.semantic.ir import *
-from compiler.semantic.symbols import ClassId, ProgramSymbolIndex
+from compiler.semantic.lowering.locals import LocalIdTracker
+from compiler.semantic.symbols import ClassId, LocalId, ProgramSymbolIndex
 from compiler.typecheck.call_helpers import class_type_name_from_callable
 from compiler.typecheck.context import TypeCheckContext, lookup_variable
 from compiler.typecheck.expressions import infer_expression_type
@@ -28,6 +29,7 @@ LowerExpr = Callable[[Expression], SemanticExpr]
 
 @dataclass(frozen=True)
 class ResolvedLocalRefTarget:
+    local_id: LocalId
     name: str
     type_name: str
 
@@ -59,6 +61,7 @@ class ResolvedFieldReadTarget:
 
 @dataclass(frozen=True)
 class ResolvedLocalLValueTarget:
+    local_id: LocalId
     name: str
     type_name: str
 
@@ -92,11 +95,18 @@ ResolvedLValueTarget = ResolvedLocalLValueTarget | ResolvedFieldLValueTarget | R
 
 
 def resolve_identifier_ref_target(
-    typecheck_ctx: TypeCheckContext, symbol_index: ProgramSymbolIndex, expr: IdentifierExpr
+    typecheck_ctx: TypeCheckContext,
+    symbol_index: ProgramSymbolIndex,
+    expr: IdentifierExpr,
+    local_id_tracker: LocalIdTracker | None,
 ) -> ResolvedRefTarget:
     local_type = lookup_variable(typecheck_ctx, expr.name)
     if local_type is not None:
-        return ResolvedLocalRefTarget(name=expr.name, type_name=local_type.name)
+        return ResolvedLocalRefTarget(
+            local_id=_require_local_id(local_id_tracker, expr.name),
+            name=expr.name,
+            type_name=local_type.name,
+        )
 
     if expr.name in typecheck_ctx.functions:
         return ResolvedFunctionRefTarget(function_id=function_id_for_local_name(typecheck_ctx, symbol_index, expr.name))
@@ -166,7 +176,12 @@ def lower_resolved_ref(
     resolved_target: ResolvedRefTarget, type_name: str, span, *, lower_expr: LowerExpr
 ) -> SemanticExpr:
     if isinstance(resolved_target, ResolvedLocalRefTarget):
-        return LocalRefExpr(name=resolved_target.name, type_name=resolved_target.type_name, span=span)
+        return LocalRefExpr(
+            local_id=resolved_target.local_id,
+            name=resolved_target.name,
+            type_name=resolved_target.type_name,
+            span=span,
+        )
 
     if isinstance(resolved_target, ResolvedFunctionRefTarget):
         return FunctionRefExpr(function_id=resolved_target.function_id, type_name=type_name, span=span)
@@ -188,11 +203,22 @@ def lower_resolved_ref(
     )
 
 
-def lower_lvalue(typecheck_ctx: TypeCheckContext, expr: Expression, *, lower_expr: LowerExpr):
-    resolved_target = resolve_lvalue_target(typecheck_ctx, expr)
+def lower_lvalue(
+    typecheck_ctx: TypeCheckContext,
+    expr: Expression,
+    *,
+    lower_expr: LowerExpr,
+    local_id_tracker: LocalIdTracker | None,
+):
+    resolved_target = resolve_lvalue_target(typecheck_ctx, expr, local_id_tracker)
 
     if isinstance(resolved_target, ResolvedLocalLValueTarget):
-        return LocalLValue(name=resolved_target.name, type_name=resolved_target.type_name, span=expr.span)
+        return LocalLValue(
+            local_id=resolved_target.local_id,
+            name=resolved_target.name,
+            type_name=resolved_target.type_name,
+            span=expr.span,
+        )
 
     if isinstance(resolved_target, ResolvedFieldLValueTarget):
         return FieldLValue(
@@ -217,12 +243,18 @@ def lower_lvalue(typecheck_ctx: TypeCheckContext, expr: Expression, *, lower_exp
     )
 
 
-def resolve_lvalue_target(typecheck_ctx: TypeCheckContext, expr: Expression) -> ResolvedLValueTarget:
+def resolve_lvalue_target(
+    typecheck_ctx: TypeCheckContext, expr: Expression, local_id_tracker: LocalIdTracker | None
+) -> ResolvedLValueTarget:
     if isinstance(expr, IdentifierExpr):
         local_type = lookup_variable(typecheck_ctx, expr.name)
         if local_type is None:
             raise ValueError(f"Unknown local assignment target '{expr.name}'")
-        return ResolvedLocalLValueTarget(name=expr.name, type_name=local_type.name)
+        return ResolvedLocalLValueTarget(
+            local_id=_require_local_id(local_id_tracker, expr.name),
+            name=expr.name,
+            type_name=local_type.name,
+        )
 
     if isinstance(expr, FieldAccessExpr):
         receiver_type_name = infer_expression_type(typecheck_ctx, expr.object_expr).name
@@ -251,3 +283,13 @@ def resolve_index_assignment_value_type_name(typecheck_ctx: TypeCheckContext, ex
 
     method_sig = ensure_structural_set_method_available_for_index_assignment(typecheck_ctx, object_type, expr.span)
     return qualify_member_type_for_owner(typecheck_ctx, method_sig.params[1], object_type.name).name
+
+
+def _require_local_id(local_id_tracker: LocalIdTracker | None, name: str) -> LocalId:
+    if local_id_tracker is None:
+        raise ValueError(f"Semantic lowering requires a LocalIdTracker for local '{name}'")
+
+    local_id = local_id_tracker.lookup_local(name)
+    if local_id is None:
+        raise ValueError(f"Semantic lowering missing LocalId for local '{name}'")
+    return local_id

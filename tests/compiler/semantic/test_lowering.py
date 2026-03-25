@@ -93,6 +93,7 @@ def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -
     function = semantic.modules[("main",)].functions[0]
 
     assert isinstance(function.body.statements[0], SemanticVarDecl)
+    assert function.body.statements[0].local_id.owner_id == function.function_id
     assert function.body.statements[0].type_name == "i64"
 
     if_stmt = function.body.statements[1]
@@ -114,8 +115,10 @@ def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -
     assert isinstance(while_assign, SemanticAssign)
     assert isinstance(while_assign.target, LocalLValue)
     assert while_assign.target.name == "total"
+    assert while_assign.target.local_id == function.body.statements[0].local_id
     assert isinstance(while_assign.value, BinaryExprS)
     assert isinstance(while_assign.value.left, LocalRefExpr)
+    assert while_assign.value.left.local_id == function.body.statements[0].local_id
 
     return_stmt = function.body.statements[3]
     assert isinstance(return_stmt, SemanticReturn)
@@ -1054,23 +1057,30 @@ def test_lower_program_lowers_nested_blocks_with_local_refs_and_assignments(tmp_
     inner_block = statements[2]
     assert isinstance(inner_block, SemanticBlock)
     assert isinstance(inner_block.statements[0], SemanticVarDecl)
+    assert inner_block.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert inner_block.statements[0].type_name == "bool"
     assert isinstance(inner_block.statements[0].initializer, LocalRefExpr)
     assert inner_block.statements[0].initializer.name == "flag"
     assert inner_block.statements[0].initializer.type_name == "bool"
+    assert inner_block.statements[0].initializer.local_id == statements[0].local_id
     assert isinstance(inner_block.statements[1], SemanticAssign)
     assert isinstance(inner_block.statements[1].target, LocalLValue)
     assert inner_block.statements[1].target.name == "result"
     assert inner_block.statements[1].target.type_name == "bool"
+    assert inner_block.statements[1].target.local_id == statements[1].local_id
     assert isinstance(inner_block.statements[1].value, LocalRefExpr)
     assert inner_block.statements[1].value.name == "inner"
     assert inner_block.statements[1].value.type_name == "bool"
+    assert inner_block.statements[1].value.local_id == inner_block.statements[0].local_id
+    assert inner_block.statements[0].local_id != statements[0].local_id
+    assert inner_block.statements[0].local_id != statements[1].local_id
 
     return_stmt = statements[3]
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, LocalRefExpr)
     assert return_stmt.value.name == "result"
     assert return_stmt.value.type_name == "bool"
+    assert return_stmt.value.local_id == statements[1].local_id
 
 
 def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(tmp_path: Path) -> None:
@@ -1095,15 +1105,18 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert loop_stmt.element_name == "item"
     assert loop_stmt.element_type_name == "i64"
     assert isinstance(loop_stmt.body.statements[0], SemanticVarDecl)
+    assert loop_stmt.body.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert isinstance(loop_stmt.body.statements[0].initializer, LocalRefExpr)
     assert loop_stmt.body.statements[0].initializer.name == "item"
     assert loop_stmt.body.statements[0].initializer.type_name == "i64"
+    assert loop_stmt.body.statements[0].initializer.local_id != loop_stmt.body.statements[0].local_id
 
     return_stmt = statements[1]
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, LocalRefExpr)
     assert return_stmt.value.name == "done"
     assert return_stmt.value.type_name == "bool"
+    assert return_stmt.value.local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
 
 
 def test_lower_program_preserves_min_i64_literal_inside_unary_negation(tmp_path: Path) -> None:

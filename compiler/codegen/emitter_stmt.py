@@ -8,6 +8,7 @@ from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.layout import for_in_temp_name
 from compiler.semantic.ir import *
+from compiler.semantic.symbols import FunctionId, LocalId
 
 
 def emit_statement(
@@ -183,7 +184,12 @@ def _emit_for_in(
     from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
     from compiler.semantic.ir import LocalRefExpr
 
-    coll_ref = LocalRefExpr(name=coll_name, type_name=expression_type_name(stmt.collection), span=stmt.span)
+    coll_ref = LocalRefExpr(
+        local_id=_codegen_temp_local_id(ctx, ordinal=0),
+        name=coll_name,
+        type_name=expression_type_name(stmt.collection),
+        span=stmt.span,
+    )
     _emit_named_call(codegen, _dispatch_target_name(stmt.iter_len_dispatch, ctx), [coll_ref], TYPE_NAME_U64, ctx)
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[len_name])}, rax")
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[index_name])}, 0")
@@ -193,7 +199,12 @@ def _emit_for_in(
     codegen.asm.instr(f"cmp rax, {offset_operand(layout.slot_offsets[len_name])}")
     codegen.asm.instr(f"jge {loop_done}")
 
-    index_ref = LocalRefExpr(name=index_name, type_name=TYPE_NAME_I64, span=stmt.span)
+    index_ref = LocalRefExpr(
+        local_id=_codegen_temp_local_id(ctx, ordinal=1),
+        name=index_name,
+        type_name=TYPE_NAME_I64,
+        span=stmt.span,
+    )
     _emit_named_call(
         codegen, _dispatch_target_name(stmt.iter_get_dispatch, ctx), [coll_ref, index_ref], stmt.element_type_name, ctx
     )
@@ -209,3 +220,7 @@ def _emit_for_in(
     codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[index_name])}, rax")
     codegen.asm.instr(f"jmp {loop_start}")
     codegen.asm.label(loop_done)
+
+
+def _codegen_temp_local_id(ctx: EmitContext, *, ordinal: int) -> LocalId:
+    return LocalId(owner_id=FunctionId(module_path=ctx.current_module_path, name=f"__codegen__:{ctx.fn_name}"), ordinal=ordinal)

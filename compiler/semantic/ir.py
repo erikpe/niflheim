@@ -7,7 +7,16 @@ from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpK
 from compiler.common.type_names import TYPE_NAME_NULL, TYPE_NAME_U64
 from compiler.common.span import SourceSpan
 from compiler.resolver import ModulePath
-from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId, SyntheticId
+from compiler.semantic.symbols import (
+    ClassId,
+    ConstructorId,
+    FunctionId,
+    InterfaceId,
+    InterfaceMethodId,
+    LocalId,
+    MethodId,
+    SyntheticId,
+)
 
 
 @dataclass(frozen=True)
@@ -99,6 +108,7 @@ class SemanticBlock:
 
 @dataclass(frozen=True)
 class SemanticVarDecl:
+    local_id: LocalId
     name: str
     type_name: str
     initializer: "SemanticExpr | None"
@@ -176,6 +186,7 @@ class SemanticForIn:
 
 @dataclass(frozen=True)
 class LocalLValue:
+    local_id: LocalId
     name: str
     type_name: str
     span: SourceSpan
@@ -212,6 +223,7 @@ class SliceLValue:
 
 @dataclass(frozen=True)
 class LocalRefExpr:
+    local_id: LocalId
     name: str
     type_name: str
     span: SourceSpan

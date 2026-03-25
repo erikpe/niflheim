@@ -97,18 +97,25 @@ Step 1 status:
 - This step intentionally does not change semantic IR nodes yet, so declarations and references still keep source names for current behavior and diagnostics.
 
 2. Extend semantic IR nodes to carry local identity explicitly
-  - [ ] update `SemanticVarDecl` to own a `LocalId`
-  - [ ] update `LocalRefExpr` to refer to `LocalId`
-  - [ ] update `LocalLValue` to refer to `LocalId`
-  - [ ] decide whether params become `SemanticParam` plus `LocalId`, or whether a function-level local declaration model should subsume params
-  - [ ] update any semantic dump or debug formatting helpers accordingly
+  - [x] update `SemanticVarDecl` to own a `LocalId`
+  - [x] update `LocalRefExpr` to refer to `LocalId`
+  - [x] update `LocalLValue` to refer to `LocalId`
+  - [x] decide whether params become `SemanticParam` plus `LocalId`, or whether a function-level local declaration model should subsume params
+  - [x] update any semantic dump or debug formatting helpers accordingly
   - Purpose:
     make local identity part of the semantic graph itself instead of an external convention
   - Expected outcome:
     local references and assignments become identity-based even while diagnostics still show user-written names
   - Tests to add:
-    - semantic lowering tests asserting declaration/reference/lvalue IDs line up
-    - semantic IR tests covering params and nested blocks
+    - [x] semantic lowering tests asserting declaration/reference/lvalue IDs line up
+    - [x] semantic IR tests covering params and nested blocks
+
+Step 2 status:
+
+- `SemanticVarDecl`, `LocalRefExpr`, and `LocalLValue` now carry both `local_id` and source `name`.
+- `LocalId` is the canonical binding identity; `name` remains on these nodes temporarily for readability, diagnostics, and compatibility with later roadmap steps.
+- Parameters remain represented as `SemanticParam` values without embedded `LocalId`s for now.
+- Lowering now allocates parameter bindings and `__self` bindings into the same `LocalId` space used by local declarations, so references to params and locals are identity-based even before a dedicated local-metadata table exists.
 
 3. Add a function-local symbol table or metadata view over semantic locals
   - [ ] introduce a stable mapping from `LocalId` to metadata such as display name, declared type, declaration span, and owning function or method

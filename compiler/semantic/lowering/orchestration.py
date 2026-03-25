@@ -155,11 +155,12 @@ def lower_function(
     if function_decl.body is not None:
         body = lower_function_like_body(
             lower_ctx.typecheck_ctx,
+            owner_id=function_id_for_decl(module_path, function_decl),
+            symbol_index=lower_ctx.symbol_index,
             params=function_decl.params,
             body=function_decl.body,
             receiver_type=None,
             owner_class_name=None,
-            lower_expr=lambda nested_expr: lower_expr(lower_ctx.typecheck_ctx, lower_ctx.symbol_index, nested_expr),
         )
 
     return SemanticFunction(
@@ -182,11 +183,12 @@ def lower_method(
 
     body = lower_function_like_body(
         lower_ctx.typecheck_ctx,
+        owner_id=method_id_for_decl(module_path, class_decl, method_decl),
+        symbol_index=lower_ctx.symbol_index,
         params=method_decl.params,
         body=method_decl.body,
         receiver_type=receiver_type,
         owner_class_name=class_decl.name,
-        lower_expr=lambda nested_expr: lower_expr(lower_ctx.typecheck_ctx, lower_ctx.symbol_index, nested_expr),
     )
     return SemanticMethod(
         method_id=method_id_for_decl(module_path, class_decl, method_decl),
