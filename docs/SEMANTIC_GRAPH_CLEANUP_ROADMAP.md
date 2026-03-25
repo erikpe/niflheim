@@ -80,8 +80,8 @@ The order below is deliberate.
 ## Ordered Checklist
 
 1. Make `SemanticTypeRef` the only authoritative semantic type representation
-  - [ ] define which current `*_type_name` fields remain true compatibility views and which should be removed entirely
-  - [ ] add helper APIs for display rendering and simple predicates so semantic consumers do not need raw type-name strings
+  - [x] define which current `*_type_name` fields remain true compatibility views and which should be removed entirely
+  - [x] add helper APIs for display rendering and simple predicates so semantic consumers do not need raw type-name strings
   - [ ] migrate semantic passes that still reinterpret type strings to use canonical type refs first
   - [ ] restrict `best_effort_semantic_type_ref_from_name(...)` to tests, compatibility shims, or carefully named boundary code
   - Purpose:
@@ -140,16 +140,23 @@ Step 1.1 status:
 - no executable tests added; this slice is a documentation and audit step, and its validation is the migration table itself
 
 1.2 Establish canonical type helper APIs
-  - [ ] add central helper APIs for common semantic questions now answered via string inspection
-  - [ ] cover at least:
+  - [x] add central helper APIs for common semantic questions now answered via string inspection
+  - [x] cover at least:
     - nominal identity
     - primitive/reference/interface/array/callable/null kind checks
     - array element access
     - callable parameter and return access
     - rendering a stable display string from `SemanticTypeRef`
-  - [ ] move string-parsing helpers behind explicitly compatibility-named boundaries
+  - [x] move string-parsing helpers behind explicitly compatibility-named boundaries
   - Stop condition:
     new semantic code can ask normal type questions without branching on raw type-name strings
+
+Step 1.2 status:
+
+- complete
+- `compiler/semantic/types.py` now exposes canonical helper APIs for type kind checks, nominal identity, array element access, callable parameter access, callable return access, display-name rendering, and canonical-name rendering.
+- raw string reconstruction now has an explicit compatibility entrypoint via `compat_semantic_type_ref_from_name(...)`.
+- the older `best_effort_semantic_type_ref_from_name(...)` name remains as a thin compatibility wrapper for now; fencing off remaining direct uses is still tracked separately in step `1.5`.
 
 1.3 Migrate semantic analyses to canonical type refs first
   - [ ] update semantic passes that currently reinterpret strings, starting with reachability and any semantic helpers that still parse nominal names or callable signatures
