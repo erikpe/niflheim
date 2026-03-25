@@ -46,6 +46,17 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
+def test_typecheck_reports_original_source_name_for_unknown_identifier() -> None:
+    source = """
+fn main() -> i64 {
+    var total: i64 = 1;
+    return missing;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Unknown identifier 'missing'"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_allows_break_continue_inside_while() -> None:
     source = """
 fn main() -> unit {

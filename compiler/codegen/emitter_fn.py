@@ -93,6 +93,7 @@ def emit_method(codegen, declaration_tables, cls: SemanticClass, method: Semanti
         is_export=False,
         is_extern=False,
         span=method.span,
+        local_info_by_id=method.local_info_by_id,
     )
     emit_function(
         codegen,

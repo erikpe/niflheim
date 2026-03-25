@@ -152,8 +152,9 @@ def lower_function(
     lower_ctx: ModuleLoweringContext, module_path: ModulePath, function_decl: FunctionDecl
 ) -> SemanticFunction:
     body: SemanticBlock | None = None
+    local_info_by_id: dict[LocalId, SemanticLocalInfo] = {}
     if function_decl.body is not None:
-        body = lower_function_like_body(
+        lowered_body = lower_function_like_body(
             lower_ctx.typecheck_ctx,
             owner_id=function_id_for_decl(module_path, function_decl),
             symbol_index=lower_ctx.symbol_index,
@@ -162,6 +163,8 @@ def lower_function(
             receiver_type=None,
             owner_class_name=None,
         )
+        body = lowered_body.body
+        local_info_by_id = lowered_body.local_info_by_id
 
     return SemanticFunction(
         function_id=function_id_for_decl(module_path, function_decl),
@@ -171,6 +174,7 @@ def lower_function(
         is_export=function_decl.is_export,
         is_extern=function_decl.is_extern,
         span=function_decl.span,
+        local_info_by_id=local_info_by_id,
     )
 
 
@@ -181,7 +185,7 @@ def lower_method(
     if not method_decl.is_static:
         receiver_type = TypeInfo(name=class_decl.name, kind="reference")
 
-    body = lower_function_like_body(
+    lowered_body = lower_function_like_body(
         lower_ctx.typecheck_ctx,
         owner_id=method_id_for_decl(module_path, class_decl, method_decl),
         symbol_index=lower_ctx.symbol_index,
@@ -194,10 +198,11 @@ def lower_method(
         method_id=method_id_for_decl(module_path, class_decl, method_decl),
         params=[lower_param(lower_ctx.typecheck_ctx, param) for param in method_decl.params],
         return_type_name=resolved_type_name(lower_ctx.typecheck_ctx, method_decl.return_type),
-        body=body,
+        body=lowered_body.body,
         is_static=method_decl.is_static,
         is_private=method_decl.is_private,
         span=method_decl.span,
+        local_info_by_id=lowered_body.local_info_by_id,
     )
 
 

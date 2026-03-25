@@ -253,11 +253,22 @@ def build_layout(fn: SemanticFunction) -> FunctionLayout:
     seen_names: set[str] = set()
     local_types_by_name: dict[str, str] = {}
 
-    for param in fn.params:
-        if param.name not in seen_names:
-            seen_names.add(param.name)
-            ordered_slot_names.append(param.name)
-            local_types_by_name[param.name] = param.type_name
+    if fn.local_info_by_id:
+        local_infos = sorted(fn.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
+        for local_info in local_infos:
+            local_types_by_name.setdefault(local_info.display_name, local_info.type_name)
+            if local_info.binding_kind not in {"receiver", "param"}:
+                continue
+            if local_info.display_name in seen_names:
+                continue
+            seen_names.add(local_info.display_name)
+            ordered_slot_names.append(local_info.display_name)
+    else:
+        for param in fn.params:
+            if param.name not in seen_names:
+                seen_names.add(param.name)
+                ordered_slot_names.append(param.name)
+                local_types_by_name[param.name] = param.type_name
 
     for stmt in fn.body.statements:
         _collect_locals(stmt, local_types_by_name)

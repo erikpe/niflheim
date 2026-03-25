@@ -118,16 +118,23 @@ Step 2 status:
 - Lowering now allocates parameter bindings and `__self` bindings into the same `LocalId` space used by local declarations, so references to params and locals are identity-based even before a dedicated local-metadata table exists.
 
 3. Add a function-local symbol table or metadata view over semantic locals
-  - [ ] introduce a stable mapping from `LocalId` to metadata such as display name, declared type, declaration span, and owning function or method
-  - [ ] decide whether the metadata lives directly on nodes, in a per-function table, or both
-  - [ ] ensure debug tooling can print readable local names without depending on identity internals
+  - [x] introduce a stable mapping from `LocalId` to metadata such as display name, declared type, declaration span, and owning function or method
+  - [x] decide whether the metadata lives directly on nodes, in a per-function table, or both
+  - [x] ensure debug tooling can print readable local names without depending on identity internals
   - Purpose:
     separate semantic identity from user-facing metadata instead of duplicating name and type information on every use-site forever
   - Expected outcome:
     later passes can use IDs while diagnostics still recover original names and declaration locations cleanly
   - Tests to add:
-    - unit tests for local metadata lookup
-    - diagnostic tests proving error messages still show original source names after the identity migration
+    - [x] unit tests for local metadata lookup
+    - [x] diagnostic tests proving error messages still show original source names after the identity migration
+
+Step 3 status:
+
+- Semantic local metadata now lives in a per-function or per-method `local_info_by_id` table keyed by `LocalId`.
+- Each metadata entry records the local display name, declared type, declaration span, binding kind, and owning function-like symbol.
+- Local names still remain on `SemanticVarDecl`, `LocalRefExpr`, and `LocalLValue` for compatibility, but readable-name recovery no longer depends on those use-site fields alone.
+- Method codegen wrappers now preserve method-local metadata when a `SemanticMethod` is re-expressed as a temporary `SemanticFunction` for emission.
 
 4. Migrate lowering to produce `LocalId` directly
   - [ ] allocate `LocalId` values during body lowering

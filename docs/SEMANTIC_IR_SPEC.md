@@ -73,7 +73,7 @@ class SyntheticId:
 
 These IDs should be the only post-typecheck representation for global symbol identity.
 
-Local identity is now defined separately in the semantic symbol layer through `LocalId`, but it is not yet wired through the baseline semantic IR described in this document. That migration is tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
+Local identity is now wired into local declarations, local references, and local assignment targets through `LocalId`. Function-like owners also carry a `local_info_by_id` metadata table so later passes can recover readable local names, declared types, declaration spans, and binding kinds without depending on identity internals alone. The remaining migration steps are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
 
 ## Exact Semantic IR Node Set
 
@@ -124,6 +124,16 @@ class SemanticParam:
 
 
 @dataclass(frozen=True)
+class SemanticLocalInfo:
+    local_id: LocalId
+    owner_id: LocalOwnerId
+    display_name: str
+    type_name: str
+    span: SourceSpan
+    binding_kind: Literal["receiver", "param", "local", "for_in_element"]
+
+
+@dataclass(frozen=True)
 class SemanticFunction:
     function_id: FunctionId
     params: list[SemanticParam]
@@ -132,6 +142,7 @@ class SemanticFunction:
     is_export: bool
     is_extern: bool
     span: SourceSpan
+    local_info_by_id: dict[LocalId, SemanticLocalInfo]
 
 
 @dataclass(frozen=True)
@@ -143,6 +154,7 @@ class SemanticMethod:
     is_static: bool
     is_private: bool
     span: SourceSpan
+    local_info_by_id: dict[LocalId, SemanticLocalInfo]
 ```
 
 ### Statement Nodes

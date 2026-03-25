@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind
 from compiler.common.type_names import TYPE_NAME_NULL, TYPE_NAME_U64
@@ -14,6 +15,7 @@ from compiler.semantic.symbols import (
     InterfaceId,
     InterfaceMethodId,
     LocalId,
+    LocalOwnerId,
     MethodId,
     SyntheticId,
 )
@@ -71,6 +73,19 @@ class SemanticClass:
     implemented_interfaces: list[InterfaceId] = field(default_factory=list)
 
 
+LocalBindingKind = Literal["receiver", "param", "local", "for_in_element"]
+
+
+@dataclass(frozen=True)
+class SemanticLocalInfo:
+    local_id: LocalId
+    owner_id: LocalOwnerId
+    display_name: str
+    type_name: str
+    span: SourceSpan
+    binding_kind: LocalBindingKind
+
+
 @dataclass(frozen=True)
 class SemanticParam:
     name: str
@@ -87,6 +102,7 @@ class SemanticFunction:
     is_export: bool
     is_extern: bool
     span: SourceSpan
+    local_info_by_id: dict[LocalId, SemanticLocalInfo] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -98,6 +114,25 @@ class SemanticMethod:
     is_static: bool
     is_private: bool
     span: SourceSpan
+    local_info_by_id: dict[LocalId, SemanticLocalInfo] = field(default_factory=dict)
+
+
+SemanticFunctionLike = SemanticFunction | SemanticMethod
+
+
+def local_info_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> SemanticLocalInfo | None:
+    return owner.local_info_by_id.get(local_id)
+
+
+def require_local_info_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> SemanticLocalInfo:
+    local_info = local_info_for_owner(owner, local_id)
+    if local_info is None:
+        raise KeyError(f"Missing semantic local metadata for {local_id}")
+    return local_info
+
+
+def local_display_name_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> str:
+    return require_local_info_for_owner(owner, local_id).display_name
 
 
 @dataclass(frozen=True)
