@@ -82,10 +82,12 @@ class CodeGenerator:
             self.asm.instr(f"sub rsp, {layout.stack_size}")
 
     def emit_zero_slots(self, layout: FunctionLayout) -> None:
-        for name in layout.slot_names:
-            self.asm.instr(f"mov {offset_operand(layout.slot_offsets[name])}, 0")
-        for name in layout.root_slot_names:
-            self.asm.instr(f"mov {offset_operand(layout.root_slot_offsets[name])}, 0")
+        for slot in layout.slots:
+            self.asm.instr(f"mov {offset_operand(slot.offset)}, 0")
+        for slot in layout.root_slots:
+            if slot.root_offset is None:
+                continue
+            self.asm.instr(f"mov {offset_operand(slot.root_offset)}, 0")
         for offset in layout.temp_root_slot_offsets:
             self.asm.instr(f"mov {offset_operand(offset)}, 0")
 
@@ -180,16 +182,16 @@ class CodeGenerator:
             self.asm.instr("call rt_trace_set_location")
 
     def emit_root_slot_updates(self, layout: FunctionLayout) -> None:
-        if not layout.root_slot_names:
+        if not layout.root_slots:
             return
 
         self.asm.comment("spill reference-typed roots to root slots")
-        for name in layout.root_slot_names:
-            value_offset = layout.slot_offsets[name]
-            slot_index = layout.root_slot_indices[name]
+        for slot in layout.root_slots:
+            if slot.root_index is None:
+                continue
             self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-            self.asm.instr(f"mov rdx, {offset_operand(value_offset)}")
-            self.asm.instr(f"mov esi, {slot_index}")
+            self.asm.instr(f"mov rdx, {offset_operand(slot.offset)}")
+            self.asm.instr(f"mov esi, {slot.root_index}")
             self.asm.instr("call rt_root_slot_store")
 
     def emit_runtime_call_arg_temp_roots(

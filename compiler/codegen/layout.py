@@ -1,43 +1,49 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.model import FunctionLayout, TEMP_RUNTIME_ROOT_SLOT_COUNT
+from compiler.codegen.model import FunctionLayout, LayoutSlot, TEMP_RUNTIME_ROOT_SLOT_COUNT
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import LocalId
 
 
+@dataclass(frozen=True)
+class _SlotSpec:
+    key: str
+    display_name: str
+    type_name: str
+    local_id: LocalId | None = None
+    is_param: bool = False
+
+
 def _build_function_layout(
-    ordered_slot_names: list[str],
-    slot_type_names: dict[str, str],
+    slot_specs: list[_SlotSpec],
     *,
     needs_temp_runtime_roots: bool,
     max_call_temp_root_slots: int,
-    local_slot_keys_by_id: dict[LocalId, str] | None = None,
-    param_slot_keys_by_name: dict[str, str] | None = None,
 ) -> FunctionLayout:
-    slot_offsets = {name: -(8 * index) for index, name in enumerate(ordered_slot_names, start=1)}
-    root_slot_names = [
-        name for name in ordered_slot_names if codegen_types.is_reference_type_name(slot_type_names[name])
-    ]
-    root_slot_indices = {name: index for index, name in enumerate(root_slot_names)}
+    slot_offsets = {slot_spec.key: -(8 * index) for index, slot_spec in enumerate(slot_specs, start=1)}
+    root_slot_keys = [slot_spec.key for slot_spec in slot_specs if codegen_types.is_reference_type_name(slot_spec.type_name)]
+    root_slot_indices = {key: index for index, key in enumerate(root_slot_keys)}
 
     temp_root_slot_count = 0
     if needs_temp_runtime_roots:
         temp_root_slot_count = max(TEMP_RUNTIME_ROOT_SLOT_COUNT, max_call_temp_root_slots)
 
-    temp_root_slot_start_index = len(root_slot_names)
-    root_slot_count = len(root_slot_names) + temp_root_slot_count
+    temp_root_slot_start_index = len(root_slot_keys)
+    root_slot_count = len(root_slot_keys) + temp_root_slot_count
 
     root_slot_offsets: dict[str, int] = {}
-    root_slots_base_offset = -(8 * (len(ordered_slot_names) + root_slot_count)) if root_slot_count > 0 else 0
-    for index, name in enumerate(root_slot_names):
-        root_slot_offsets[name] = root_slots_base_offset + (8 * index)
+    root_slots_base_offset = -(8 * (len(slot_specs) + root_slot_count)) if root_slot_count > 0 else 0
+    for index, key in enumerate(root_slot_keys):
+        root_slot_offsets[key] = root_slots_base_offset + (8 * index)
     temp_root_slot_offsets = [
-        root_slots_base_offset + (8 * (len(root_slot_names) + index)) for index in range(temp_root_slot_count)
+        root_slots_base_offset + (8 * (len(root_slot_keys) + index)) for index in range(temp_root_slot_count)
     ]
 
-    bytes_for_value_slots = len(ordered_slot_names) * 8
+    bytes_for_value_slots = len(slot_specs) * 8
     bytes_for_root_slots = root_slot_count * 8
     thread_state_offset = -(bytes_for_value_slots + bytes_for_root_slots + 8)
     root_frame_offset = thread_state_offset - 24 if root_slot_count > 0 else 0
@@ -46,24 +52,36 @@ def _build_function_layout(
     bytes_for_root_frame = 24 if root_slot_count > 0 else 0
     stack_size = _align16(bytes_for_value_slots + bytes_for_root_slots + bytes_for_thread_state + bytes_for_root_frame)
 
-    local_slot_offsets = {}
-    if local_slot_keys_by_id is not None:
-        local_slot_offsets = {
-            local_id: slot_offsets[slot_key] for local_id, slot_key in local_slot_keys_by_id.items()
-        }
+    slots = [
+        LayoutSlot(
+            key=slot_spec.key,
+            display_name=slot_spec.display_name,
+            type_name=slot_spec.type_name,
+            offset=slot_offsets[slot_spec.key],
+            local_id=slot_spec.local_id,
+            root_index=root_slot_indices.get(slot_spec.key),
+            root_offset=root_slot_offsets.get(slot_spec.key),
+        )
+        for slot_spec in slot_specs
+    ]
+    root_slots = [slot for slot in slots if slot.root_index is not None and slot.root_offset is not None]
 
-    param_slot_offsets = {}
-    if param_slot_keys_by_name is not None:
-        param_slot_offsets = {
-            param_name: slot_offsets[slot_key] for param_name, slot_key in param_slot_keys_by_name.items()
-        }
+    slot_names = [slot.key for slot in slots]
+    slot_type_names = {slot.key: slot.type_name for slot in slots}
+    local_slot_offsets = {slot.local_id: slot.offset for slot in slots if slot.local_id is not None}
+    param_slot_offsets = {
+        slot.display_name: slot.offset for slot, slot_spec in zip(slots, slot_specs) if slot_spec.is_param
+    }
+    root_slot_names = [slot.key for slot in root_slots]
 
     return FunctionLayout(
-        slot_names=ordered_slot_names,
+        slots=slots,
+        slot_names=slot_names,
         slot_offsets=slot_offsets,
         local_slot_offsets=local_slot_offsets,
         param_slot_offsets=param_slot_offsets,
         slot_type_names=slot_type_names,
+        root_slots=root_slots,
         root_slot_names=root_slot_names,
         root_slot_indices=root_slot_indices,
         root_slot_offsets=root_slot_offsets,
@@ -85,6 +103,66 @@ def _local_slot_key(display_name: str, ordinal: int, seen_display_names: set[str
         seen_display_names.add(display_name)
         return display_name
     return f"{display_name}@{ordinal}"
+
+
+def _local_slot_specs(fn: SemanticFunction) -> list[_SlotSpec]:
+    seen_display_names: set[str] = set()
+    slot_specs: list[_SlotSpec] = []
+    local_infos = sorted(fn.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
+    for local_info in local_infos:
+        slot_specs.append(
+            _SlotSpec(
+                key=_local_slot_key(local_info.display_name, local_info.local_id.ordinal, seen_display_names),
+                display_name=local_info.display_name,
+                type_name=local_info.type_name,
+                local_id=local_info.local_id,
+                is_param=local_info.binding_kind in {"receiver", "param"},
+            )
+        )
+    return slot_specs
+
+
+def _legacy_slot_specs(fn: SemanticFunction) -> list[_SlotSpec]:
+    ordered_slot_names: list[str] = []
+    local_types_by_name: dict[str, str] = {}
+    seen_names: set[str] = set()
+    for param in fn.params:
+        if param.name not in seen_names:
+            seen_names.add(param.name)
+            ordered_slot_names.append(param.name)
+            local_types_by_name[param.name] = param.type_name
+
+    for stmt in fn.body.statements:
+        _collect_locals(stmt, local_types_by_name)
+
+    for name in sorted(local_types_by_name):
+        if name not in seen_names:
+            seen_names.add(name)
+            ordered_slot_names.append(name)
+
+    return [
+        _SlotSpec(
+            key=name,
+            display_name=name,
+            type_name=local_types_by_name[name],
+            is_param=name in {param.name for param in fn.params},
+        )
+        for name in ordered_slot_names
+    ]
+
+
+def _constructor_slot_specs(cls: SemanticClass, ctor_layout, *, constructor_object_slot_name: str) -> list[_SlotSpec]:
+    field_types_by_name = {field.name: field.type_name for field in cls.fields}
+    ordered_slot_names = [*ctor_layout.param_field_names, constructor_object_slot_name]
+    return [
+        _SlotSpec(
+            key=slot_name,
+            display_name=slot_name,
+            type_name=(cls.class_id.name if slot_name == constructor_object_slot_name else field_types_by_name[slot_name]),
+            is_param=slot_name in ctor_layout.param_field_names,
+        )
+        for slot_name in ordered_slot_names
+    ]
 
 
 def _collect_locals(stmt: SemanticStmt, local_types_by_name: dict[str, str]) -> None:
@@ -265,67 +343,28 @@ def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt) -> int:
 def build_layout(fn: SemanticFunction) -> FunctionLayout:
     if fn.body is None:
         raise ValueError("semantic layout requires a concrete function body")
-
-    ordered_slot_names: list[str] = []
-    slot_type_names: dict[str, str] = {}
-    local_slot_keys_by_id: dict[LocalId, str] = {}
-    param_slot_keys_by_name: dict[str, str] = {}
-
-    if fn.local_info_by_id:
-        seen_display_names: set[str] = set()
-        local_infos = sorted(fn.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
-        for local_info in local_infos:
-            slot_key = _local_slot_key(local_info.display_name, local_info.local_id.ordinal, seen_display_names)
-            ordered_slot_names.append(slot_key)
-            slot_type_names[slot_key] = local_info.type_name
-            local_slot_keys_by_id[local_info.local_id] = slot_key
-            if local_info.binding_kind in {"receiver", "param"}:
-                param_slot_keys_by_name[local_info.display_name] = slot_key
-
-    else:
-        seen_names: set[str] = set()
-        local_types_by_name: dict[str, str] = {}
-        for param in fn.params:
-            if param.name not in seen_names:
-                seen_names.add(param.name)
-                ordered_slot_names.append(param.name)
-                local_types_by_name[param.name] = param.type_name
-
-        for stmt in fn.body.statements:
-            _collect_locals(stmt, local_types_by_name)
-
-        for name in sorted(local_types_by_name):
-            if name not in seen_names:
-                seen_names.add(name)
-                ordered_slot_names.append(name)
-        slot_type_names = local_types_by_name
+    slot_specs = _local_slot_specs(fn) if fn.local_info_by_id else _legacy_slot_specs(fn)
 
     needs_temp_runtime_roots = any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_stmt(stmt) for stmt in fn.body.statements), default=0)
     return _build_function_layout(
-        ordered_slot_names,
-        slot_type_names,
+        slot_specs,
         needs_temp_runtime_roots=needs_temp_runtime_roots,
         max_call_temp_root_slots=max_call_temp_root_slots,
-        local_slot_keys_by_id=local_slot_keys_by_id or None,
-        param_slot_keys_by_name=param_slot_keys_by_name or None,
     )
 
 
 def build_constructor_layout(cls: SemanticClass, ctor_layout, *, constructor_object_slot_name: str) -> FunctionLayout:
-    field_types_by_name = {field.name: field.type_name for field in cls.fields}
-    ordered_slot_names = [*ctor_layout.param_field_names, constructor_object_slot_name]
-    slot_type_names = {
-        **{field_name: field_types_by_name[field_name] for field_name in ctor_layout.param_field_names},
-        constructor_object_slot_name: cls.class_id.name,
-    }
+    slot_specs = _constructor_slot_specs(
+        cls,
+        ctor_layout,
+        constructor_object_slot_name=constructor_object_slot_name,
+    )
     initializer_exprs = [field.initializer for field in cls.fields if field.initializer is not None]
     needs_temp_runtime_roots = any(_expr_needs_temp_runtime_roots(expr) for expr in initializer_exprs)
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_expr(expr) for expr in initializer_exprs), default=0)
     return _build_function_layout(
-        ordered_slot_names,
-        slot_type_names,
+        slot_specs,
         needs_temp_runtime_roots=needs_temp_runtime_roots,
         max_call_temp_root_slots=max_call_temp_root_slots,
-        param_slot_keys_by_name={field_name: field_name for field_name in ctor_layout.param_field_names},
     )

@@ -5,13 +5,26 @@ from dataclasses import dataclass
 from compiler.semantic.symbols import LocalId
 
 
+@dataclass(frozen=True)
+class LayoutSlot:
+    key: str
+    display_name: str
+    type_name: str
+    offset: int
+    local_id: LocalId | None = None
+    root_index: int | None = None
+    root_offset: int | None = None
+
+
 @dataclass
 class FunctionLayout:
+    slots: list[LayoutSlot]
     slot_names: list[str]
     slot_offsets: dict[str, int]
     local_slot_offsets: dict[LocalId, int]
     param_slot_offsets: dict[str, int]
     slot_type_names: dict[str, str]
+    root_slots: list[LayoutSlot]
     root_slot_names: list[str]
     root_slot_indices: dict[str, int]
     root_slot_offsets: dict[str, int]

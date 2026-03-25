@@ -31,7 +31,7 @@ def test_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) ->
 
     layout = build_layout(fn)
 
-    assert layout.root_slot_names == ["a"]
+    assert [slot.display_name for slot in layout.root_slots] == ["a"]
     assert layout.root_slot_count >= 7
     assert layout.stack_size % 16 == 0
 
@@ -64,8 +64,8 @@ def test_codegen_build_constructor_layout_tracks_params_and_allocated_object_roo
         constructor_object_slot_name=CONSTRUCTOR_OBJECT_SLOT_NAME,
     )
 
-    assert layout.slot_names == ["next", CONSTRUCTOR_OBJECT_SLOT_NAME]
-    assert layout.root_slot_names == ["next", CONSTRUCTOR_OBJECT_SLOT_NAME]
+    assert [slot.key for slot in layout.slots] == ["next", CONSTRUCTOR_OBJECT_SLOT_NAME]
+    assert [slot.key for slot in layout.root_slots] == ["next", CONSTRUCTOR_OBJECT_SLOT_NAME]
     assert layout.root_slot_count == 2
     assert layout.stack_size % 16 == 0
 
@@ -126,3 +126,35 @@ def test_codegen_build_layout_materializes_explicit_for_in_helper_temps(tmp_path
     assert loop_stmt.collection_local_id in layout.local_slot_offsets
     assert loop_stmt.length_local_id in layout.local_slot_offsets
     assert loop_stmt.index_local_id in layout.local_slot_offsets
+
+
+def test_codegen_build_layout_tracks_identity_first_slot_records(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        class Box {
+        }
+
+        fn main(value: Box) -> Box {
+            var kept: Box = value;
+            return kept;
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
+
+    layout = build_layout(fn)
+    param_info = next(local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind == "param")
+    kept_info = next(local_info for local_info in fn.local_info_by_id.values() if local_info.display_name == "kept")
+
+    param_slot = next(slot for slot in layout.slots if slot.local_id == param_info.local_id)
+    kept_slot = next(slot for slot in layout.slots if slot.local_id == kept_info.local_id)
+
+    assert param_slot.display_name == "value"
+    assert kept_slot.display_name == "kept"
+    assert param_slot.offset == layout.local_slot_offsets[param_info.local_id]
+    assert kept_slot.offset == layout.local_slot_offsets[kept_info.local_id]
+    assert [slot.local_id for slot in layout.root_slots] == [param_info.local_id, kept_info.local_id]

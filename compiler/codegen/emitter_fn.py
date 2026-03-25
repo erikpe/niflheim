@@ -55,10 +55,12 @@ def emit_function(
 
     if layout.root_slot_count > 0:
         first_root_offset = (
-            layout.root_slot_offsets[layout.root_slot_names[0]]
-            if layout.root_slot_names
+            layout.root_slots[0].root_offset
+            if layout.root_slots
             else layout.temp_root_slot_offsets[0]
         )
+        if first_root_offset is None:
+            raise ValueError("root slot metadata missing offset for first function root")
         codegen.emit_root_frame_setup(layout, root_count=layout.root_slot_count, first_root_offset=first_root_offset)
 
     codegen.emit_trace_push(fn_debug_name_label, fn_debug_file_label, fn.span.start.line, fn.span.start.column)
@@ -134,10 +136,12 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
 
     if layout.root_slot_count > 0:
         first_root_offset = (
-            layout.root_slot_offsets[layout.root_slot_names[0]]
-            if layout.root_slot_names
+            layout.root_slots[0].root_offset
+            if layout.root_slots
             else layout.temp_root_slot_offsets[0]
         )
+        if first_root_offset is None:
+            raise ValueError("root slot metadata missing offset for first constructor root")
         codegen.emit_root_frame_setup(layout, root_count=layout.root_slot_count, first_root_offset=first_root_offset)
 
     codegen.emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)

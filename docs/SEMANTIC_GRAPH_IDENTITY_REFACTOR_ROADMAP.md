@@ -14,7 +14,7 @@ The remaining weak spots are now mostly type identity and backend-boundary issue
 
 - many nodes still represent types primarily as strings that later passes must reinterpret
 - codegen still synthesizes some semantic temporaries from source spans instead of consuming explicit semantic identities
-- frame layout and root-slot bookkeeping still rely on backend slot names rather than canonical semantic local identity
+- some backend compatibility surfaces still expose display-oriented slot keys even when the underlying function-local storage is now keyed by semantic identity
 - some semantic nodes still duplicate metadata that is now also available through owner-local tables, though lowered local declarations no longer need copied display/type data
 
 None of those are blockers for the current compiler, but together they make shadowing, stronger optimization, and future semantic cleanup harder than necessary.
@@ -60,8 +60,9 @@ Today the semantic graph has these notable properties:
 - lexical shadowing is supported for nested block locals and `for-in` element bindings while same-scope duplicates remain rejected
 - semantic optimization state that tracks locals now keys by `LocalId`
 - `for-in` helper temporaries now have explicit semantic local IDs and owner-local metadata instead of being backend-only conventions
+- function frame layout now builds around explicit slot records and `LocalId`-keyed local storage, while retaining display-name compatibility layers for diagnostics and a few backend interfaces
 - many nodes still carry resolved types as strings
-- some backend layout/debug paths still expose temp slots through display names even though semantic identity is now explicit
+- some constructor and backend compatibility paths still use display-oriented slot keys where there is no semantic local identity to attach yet
 
 This roadmap intentionally keeps the current graph usable while shifting those boundaries in a controlled order.
 
@@ -257,16 +258,23 @@ Step 9 status:
 - No dedicated temp statement form was needed yet; explicit helper-local IDs on `SemanticForIn` were enough to make the hidden loop storage semantic while keeping the IR readable.
 
 10. Move frame-layout construction from name-based to identity-based slots
-  - [ ] update layout building to use `LocalId` keys instead of source names
-  - [ ] keep a display-name layer for debug output and diagnostics
-  - [ ] ensure GC root tracking and temp root slots are still computed correctly
+  - [x] update layout building to use `LocalId` keys instead of source names
+  - [x] keep a display-name layer for debug output and diagnostics
+  - [x] ensure GC root tracking and temp root slots are still computed correctly
   - Purpose:
     make backend storage follow semantic identity instead of source spelling
   - Expected outcome:
     layout stays stable under shadowing and future transforms that rename or duplicate source-visible names
   - Tests to add:
-    - layout unit tests for distinct locals with the same source spelling
-    - end-to-end runtime tests that exercise reference-typed locals and temp roots
+    - [x] layout unit tests for distinct locals with the same source spelling
+    - [x] end-to-end runtime tests that exercise reference-typed locals and temp roots
+
+Step 10 status:
+
+- `FunctionLayout` now uses explicit slot records as its primary representation, and those records carry `LocalId` metadata whenever a slot corresponds to a semantic local.
+- Function-local frame construction now starts from owner-local metadata and derives display-oriented compatibility maps second, rather than treating slot-name strings as the source of truth.
+- GC root bookkeeping and zeroing logic now iterate the explicit slot records directly, which keeps root tracking aligned with semantic local identity while preserving readable debug names.
+- Constructor layout still exposes display-keyed slots because constructor parameter fields and the allocated object slot are backend storage values rather than semantic locals.
 
 11. Remove span-derived temps from codegen
   - [ ] delete the codegen convention that synthesizes `for-in` helper slot names from `SourceSpan`
