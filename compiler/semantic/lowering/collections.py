@@ -7,6 +7,7 @@ from compiler.common.type_names import *
 from compiler.frontend.ast_nodes import CallExpr, ExprStmt, Expression, FieldAccessExpr
 from compiler.semantic.ir import *
 from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
+from compiler.semantic.types import semantic_type_canonical_name
 from .ids import resolve_instance_method_id
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
@@ -48,7 +49,7 @@ def try_lower_array_structural_call_expr(
             index=lower_expr(expr.arguments[0]),
             type_name=result_type_name,
             type_ref=result_type_ref,
-            dispatch=runtime_dispatch_for_array_operation(receiver_type, op_kind),
+            dispatch=runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, op_kind),
             span=expr.span,
         )
 
@@ -61,7 +62,7 @@ def try_lower_array_structural_call_expr(
             end=lower_expr(expr.arguments[1]),
             type_name=result_type_name,
             type_ref=result_type_ref,
-            dispatch=runtime_dispatch_for_array_operation(receiver_type, op_kind),
+            dispatch=runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, op_kind),
             span=expr.span,
         )
 
@@ -130,7 +131,7 @@ def try_lower_array_index_assign_stmt(
             index=lower_expr(expr.arguments[0]),
             value_type_name=receiver_type.element_type.name,
             value_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type.element_type),
-            dispatch=runtime_dispatch_for_array_operation(receiver_type, CollectionOpKind.INDEX_SET),
+            dispatch=runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, CollectionOpKind.INDEX_SET),
             span=expr.span,
         ),
         value=lower_expr(expr.arguments[1]),
@@ -163,7 +164,7 @@ def try_lower_array_slice_assign_stmt(
             end=lower_expr(expr.arguments[1]),
             value_type_name=infer_expression_type(typecheck_ctx, expr.arguments[2]).name,
             value_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, infer_expression_type(typecheck_ctx, expr.arguments[2])),
-            dispatch=runtime_dispatch_for_array_operation(receiver_type, CollectionOpKind.SLICE_SET),
+            dispatch=runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, CollectionOpKind.SLICE_SET),
             span=expr.span,
         ),
         value=lower_expr(expr.arguments[2]),
@@ -203,23 +204,29 @@ def resolve_collection_dispatch(
     typecheck_ctx: TypeCheckContext, receiver_type: TypeInfo, *, operation: CollectionOpKind
 ) -> SemanticDispatch:
     if receiver_type.element_type is not None:
-        return runtime_dispatch_for_array_operation(receiver_type, operation)
+        return runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, operation)
 
-    method_id = resolve_instance_method_id(typecheck_ctx, receiver_type.name, collection_method_name(operation))
+    method_id = resolve_instance_method_id(typecheck_ctx, receiver_type, collection_method_name(operation))
     assert method_id is not None
     return MethodDispatch(method_id=method_id)
 
 
-def runtime_dispatch_for_array_operation(receiver_type: TypeInfo, operation: CollectionOpKind) -> RuntimeDispatch:
+def runtime_dispatch_for_array_operation(
+    typecheck_ctx: TypeCheckContext, receiver_type: TypeInfo, operation: CollectionOpKind
+) -> RuntimeDispatch:
     if operation in {CollectionOpKind.LEN, CollectionOpKind.ITER_LEN}:
         return RuntimeDispatch(operation=operation)
     element_type = receiver_type.element_type
     if element_type is None:
         raise ValueError(f"Array runtime dispatch requires array receiver type, got '{receiver_type.name}'")
-    return RuntimeDispatch(operation=operation, runtime_kind=array_runtime_kind(element_type.name))
+    return RuntimeDispatch(
+        operation=operation,
+        runtime_kind=array_runtime_kind(semantic_type_ref_from_checked_type(typecheck_ctx, element_type)),
+    )
 
 
-def array_runtime_kind(element_type_name: str) -> ArrayRuntimeKind:
+def array_runtime_kind(element_type_ref: SemanticTypeRef) -> ArrayRuntimeKind:
+    element_type_name = semantic_type_canonical_name(element_type_ref)
     if element_type_name == TYPE_NAME_I64:
         return ArrayRuntimeKind.I64
     if element_type_name == TYPE_NAME_U64:

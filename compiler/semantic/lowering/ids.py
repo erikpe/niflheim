@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from compiler.common.type_shapes import is_array_type_name
 from compiler.resolver import ModulePath
+from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
 from compiler.semantic.symbols import *
+from compiler.semantic.types import semantic_type_canonical_name, semantic_type_is_array
 from compiler.typecheck.context import TypeCheckContext
+from compiler.typecheck.model import TypeInfo
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
 
 
 def resolve_instance_method_id(
-    typecheck_ctx: TypeCheckContext, receiver_type_name: str, method_name: str
+    typecheck_ctx: TypeCheckContext, receiver_type: TypeInfo, method_name: str
 ) -> MethodId | None:
-    if is_array_type_name(receiver_type_name):
+    receiver_type_ref = semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type)
+    receiver_type_name = semantic_type_canonical_name(receiver_type_ref)
+    if semantic_type_is_array(receiver_type_ref):
         return None
 
     class_info = lookup_class_by_type_name(typecheck_ctx, receiver_type_name)

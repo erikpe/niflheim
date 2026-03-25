@@ -288,7 +288,7 @@ def _stmt_needs_temp_runtime_roots(stmt: SemanticStmt | LoweredSemanticStmt) -> 
     if isinstance(stmt, LoweredSemanticForIn):
         return (
             _expr_needs_temp_runtime_roots(stmt.collection)
-            or codegen_types.is_reference_type_name(expression_type_name(stmt.collection))
+            or codegen_types.is_reference_type_ref(expression_type_ref(stmt.collection))
             or _stmt_needs_temp_runtime_roots(stmt.body)
         )
     return False
@@ -301,7 +301,7 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
 
         for arg in reversed(call_arguments):
             max_slots = max(max_slots, rooted_after + _max_call_temp_root_slots_in_expr(arg))
-            if codegen_types.is_reference_type_name(expression_type_name(arg)):
+            if codegen_types.is_reference_type_ref(expression_type_ref(arg)):
                 rooted_after += 1
                 max_slots = max(max_slots, rooted_after)
 
@@ -376,7 +376,7 @@ def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt | LoweredSemanticStmt) 
     if isinstance(stmt, SemanticWhile):
         return max(_max_call_temp_root_slots_in_expr(stmt.condition), _max_call_temp_root_slots_in_stmt(stmt.body))
     if isinstance(stmt, LoweredSemanticForIn):
-        implicit_for_in_call_slots = 1 if codegen_types.is_reference_type_name(expression_type_name(stmt.collection)) else 0
+        implicit_for_in_call_slots = 1 if codegen_types.is_reference_type_ref(expression_type_ref(stmt.collection)) else 0
         return max(
             _max_call_temp_root_slots_in_expr(stmt.collection),
             implicit_for_in_call_slots,

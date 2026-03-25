@@ -375,7 +375,7 @@ def _emit_interface_method_call(
     codegen.asm.instr("push rax")
 
     call_arguments = [target.access.receiver, *expr.args]
-    call_argument_type_names = [expression_type_name(arg) for arg in call_arguments]
+    call_argument_type_names = [_canonical_expr_type_name(arg) for arg in call_arguments]
     reference_arg_indices = {
         index
         for index, type_name in enumerate(call_argument_type_names)
@@ -425,9 +425,10 @@ def _emit_interface_method_call(
     cleanup_slot_count = len(call_arguments) + len(stack_arg_indices) + 1
     if cleanup_slot_count > 0:
         codegen.asm.instr(f"add rsp, {cleanup_slot_count * 8}")
-    if expr.type_name == TYPE_NAME_DOUBLE:
+    return_type_name = semantic_type_canonical_name(expr.type_ref)
+    if return_type_name == TYPE_NAME_DOUBLE:
         codegen.asm.instr("movq rax, xmm0")
-    elif expr.type_name == TYPE_NAME_UNIT:
+    elif return_type_name == TYPE_NAME_UNIT:
         codegen.asm.instr("mov rax, 0")
 
     codegen.emit_clear_temp_root_slots(ctx.layout, temp_root_base, rooted_temp_arg_count)
@@ -468,7 +469,7 @@ def _emit_call_sequence(
         raise ValueError("call emission requires exactly one of target_name or callee_expr")
 
     layout = ctx.layout
-    call_argument_type_names = [expression_type_name(arg) for arg in call_arguments]
+    call_argument_type_names = [_canonical_expr_type_name(arg) for arg in call_arguments]
     reference_arg_indices = {
         index
         for index, type_name in enumerate(call_argument_type_names)
@@ -557,7 +558,7 @@ def _emit_string_literal_bytes_expr(codegen: CodeGenerator, expr: StringLiteralB
 
 def _emit_unary_expr(codegen: CodeGenerator, expr: UnaryExprS, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.operand, ctx)
-    operand_type_name = expression_type_name(expr.operand)
+    operand_type_name = _canonical_expr_type_name(expr.operand)
     if expr.op.flavor == UnaryOpFlavor.FLOAT and expr.op.kind == UnaryOpKind.NEGATE:
         emit_unary_negate_double(codegen.asm)
         return
@@ -576,8 +577,8 @@ def _emit_unary_expr(codegen: CodeGenerator, expr: UnaryExprS, ctx: EmitContext)
 def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContext) -> None:
     if _emit_logical_binary_expr(codegen, expr, ctx):
         return
-    left_type_name = expression_type_name(expr.left)
-    right_type_name = expression_type_name(expr.right)
+    left_type_name = _canonical_expr_type_name(expr.left)
+    right_type_name = _canonical_expr_type_name(expr.right)
     emit_expr(codegen, expr.left, ctx)
     codegen.asm.instr("push rax")
     emit_expr(codegen, expr.right, ctx)
@@ -637,6 +638,10 @@ def _emit_runtime_call_hooks_before(codegen: CodeGenerator, line: int, column: i
     codegen.emit_runtime_call_hook(
         fn_name=ctx.fn_name, phase="before", label_counter=ctx.label_counter, line=line, column=column
     )
+
+
+def _canonical_expr_type_name(expr: SemanticExpr) -> str:
+    return semantic_type_canonical_name(expression_type_ref(expr))
 
 
 def _emit_runtime_call_hooks_after(codegen: CodeGenerator, ctx: EmitContext) -> None:
