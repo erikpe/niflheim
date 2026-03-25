@@ -30,6 +30,7 @@ from compiler.semantic.types import (
     semantic_null_type_ref,
     semantic_primitive_type_ref,
     semantic_type_display_name,
+    semantic_type_display_name_relative,
 )
 
 
@@ -53,7 +54,6 @@ class SemanticModule:
 class SemanticInterfaceMethod:
     method_id: InterfaceMethodId
     params: list["SemanticParam"]
-    return_type_name: str
     return_type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -69,7 +69,6 @@ class SemanticInterface:
 @dataclass(frozen=True)
 class SemanticField:
     name: str
-    type_name: str
     type_ref: SemanticTypeRef
     initializer: "SemanticExpr | None"
     is_private: bool
@@ -103,7 +102,6 @@ class SemanticLocalInfo:
     local_id: LocalId
     owner_id: LocalOwnerId
     display_name: str
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
     binding_kind: LocalBindingKind
@@ -112,7 +110,6 @@ class SemanticLocalInfo:
 @dataclass(frozen=True)
 class SemanticParam:
     name: str
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -121,7 +118,6 @@ class SemanticParam:
 class SemanticFunction:
     function_id: FunctionId
     params: list[SemanticParam]
-    return_type_name: str
     return_type_ref: SemanticTypeRef
     body: "SemanticBlock | None"
     is_export: bool
@@ -134,7 +130,6 @@ class SemanticFunction:
 class SemanticMethod:
     method_id: MethodId
     params: list[SemanticParam]
-    return_type_name: str
     return_type_ref: SemanticTypeRef
     body: "SemanticBlock"
     is_static: bool
@@ -162,7 +157,7 @@ def local_display_name_for_owner(owner: SemanticFunctionLike, local_id: LocalId)
 
 
 def local_type_name_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> str:
-    return require_local_info_for_owner(owner, local_id).type_name
+    return semantic_type_display_name_relative(_owner_module_path(owner), local_type_ref_for_owner(owner, local_id))
 
 
 def local_type_ref_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> SemanticTypeRef:
@@ -638,3 +633,9 @@ def expression_type_name(expr: SemanticExpr) -> str:
 
 def expression_type_ref(expr: SemanticExpr) -> SemanticTypeRef:
     return expr.type_ref
+
+
+def _owner_module_path(owner: SemanticFunctionLike) -> ModulePath:
+    if hasattr(owner, "function_id"):
+        return owner.function_id.module_path
+    return owner.method_id.module_path

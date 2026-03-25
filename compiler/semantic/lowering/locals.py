@@ -63,7 +63,6 @@ class LocalIdTracker:
             local_id=local_id,
             owner_id=self.owner_id,
             display_name=display_name,
-            type_name=var_type.name,
             type_ref=semantic_type_ref_from_checked_type(self.typecheck_ctx, var_type),
             span=span,
             binding_kind=binding_kind,

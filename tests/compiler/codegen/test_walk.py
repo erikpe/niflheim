@@ -270,7 +270,6 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
     fn = SemanticFunction(
         function_id=FunctionId(module_path=("main",), name="main"),
         params=[],
-        return_type_name="i64",
         return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
         body=SemanticBlock(
             statements=[SemanticReturn(value=_local_ref("fn_expr", "i64", span), span=span)],
@@ -286,7 +285,6 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
         fields=[
             SemanticField(
                 name="value",
-                type_name="i64",
                 type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 initializer=LiteralExprS(
                     constant=IntConstant(value=3, type_name="i64"),
@@ -303,7 +301,6 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
             SemanticMethod(
                 method_id=MethodId(module_path=("main",), class_name="Box", name="read"),
                 params=[],
-                return_type_name="i64",
                 return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 body=SemanticBlock(
                     statements=[
@@ -364,7 +361,6 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
     fn = SemanticFunction(
         function_id=FunctionId(module_path=("main",), name="main"),
         params=[],
-        return_type_name="u64",
         return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "u64"),
         body=SemanticBlock(
             statements=[

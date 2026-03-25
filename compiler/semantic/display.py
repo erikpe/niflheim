@@ -18,14 +18,8 @@ from compiler.resolver import ModulePath
 from compiler.semantic.symbols import ConstructorId, FunctionId, InterfaceMethodId, LocalId, MethodId
 from compiler.semantic.types import (
     SemanticTypeRef,
-    semantic_type_array_element,
-    semantic_type_callable_params,
-    semantic_type_callable_return,
     semantic_type_display_name,
-    semantic_type_is_array,
-    semantic_type_is_callable,
-    semantic_type_is_interface,
-    semantic_type_is_reference,
+    semantic_type_display_name_relative,
 )
 
 
@@ -82,32 +76,6 @@ def semantic_call_target_display_name(target: SemanticCallTarget, *, current_mod
             return f"callable {semantic_type_display_name(callee_type)}"
         return f"callable {semantic_type_display_name_relative(current_module_path, callee_type)}"
     raise TypeError(f"Unsupported semantic call target display helper: {type(target).__name__}")
-
-
-def semantic_type_display_name_relative(current_module_path: ModulePath, type_ref: SemanticTypeRef) -> str:
-    if semantic_type_is_array(type_ref):
-        element_type = semantic_type_array_element(type_ref)
-        if element_type is None:
-            return semantic_type_display_name(type_ref)
-        return f"{semantic_type_display_name_relative(current_module_path, element_type)}[]"
-    if semantic_type_is_callable(type_ref):
-        params = ", ".join(
-            semantic_type_display_name_relative(current_module_path, param)
-            for param in semantic_type_callable_params(type_ref)
-        )
-        return_type = semantic_type_callable_return(type_ref)
-        if return_type is None:
-            return semantic_type_display_name(type_ref)
-        return f"fn({params}) -> {semantic_type_display_name_relative(current_module_path, return_type)}"
-    if semantic_type_is_reference(type_ref) and type_ref.class_id is not None:
-        if type_ref.class_id.module_path == current_module_path:
-            return type_ref.class_id.name
-        return _qualified_display_name(type_ref.class_id.module_path, type_ref.class_id.name)
-    if semantic_type_is_interface(type_ref) and type_ref.interface_id is not None:
-        if type_ref.interface_id.module_path == current_module_path:
-            return type_ref.interface_id.name
-        return _qualified_display_name(type_ref.interface_id.module_path, type_ref.interface_id.name)
-    return semantic_type_display_name(type_ref)
 
 
 def _qualified_display_name(

@@ -110,7 +110,6 @@ def lower_interface_method(
     return SemanticInterfaceMethod(
         method_id=InterfaceMethodId(module_path=module_path, interface_name=interface_decl.name, name=method_decl.name),
         params=[lower_param(lower_ctx.typecheck_ctx, param) for param in method_decl.params],
-        return_type_name=resolved_type_name(lower_ctx.typecheck_ctx, method_decl.return_type),
         return_type_ref=resolved_semantic_type_ref(lower_ctx.typecheck_ctx, method_decl.return_type),
         span=method_decl.span,
     )
@@ -138,7 +137,6 @@ def lower_field(lower_ctx: ModuleLoweringContext, field_decl) -> SemanticField:
     )
     return SemanticField(
         name=field_decl.name,
-        type_name=resolved_type_name(lower_ctx.typecheck_ctx, field_decl.type_ref),
         type_ref=resolved_semantic_type_ref(lower_ctx.typecheck_ctx, field_decl.type_ref),
         initializer=initializer,
         is_private=field_decl.is_private,
@@ -168,7 +166,6 @@ def lower_function(
     return SemanticFunction(
         function_id=function_id_for_decl(module_path, function_decl),
         params=[lower_param(lower_ctx.typecheck_ctx, param) for param in function_decl.params],
-        return_type_name=resolved_type_name(lower_ctx.typecheck_ctx, function_decl.return_type),
         return_type_ref=resolved_semantic_type_ref(lower_ctx.typecheck_ctx, function_decl.return_type),
         body=body,
         is_export=function_decl.is_export,
@@ -197,7 +194,6 @@ def lower_method(
     return SemanticMethod(
         method_id=method_id_for_decl(module_path, class_decl, method_decl),
         params=[lower_param(lower_ctx.typecheck_ctx, param) for param in method_decl.params],
-        return_type_name=resolved_type_name(lower_ctx.typecheck_ctx, method_decl.return_type),
         return_type_ref=resolved_semantic_type_ref(lower_ctx.typecheck_ctx, method_decl.return_type),
         body=lowered_body.body,
         is_static=method_decl.is_static,
@@ -210,7 +206,6 @@ def lower_method(
 def lower_param(typecheck_ctx: TypeCheckContext, param: ParamDecl) -> SemanticParam:
     return SemanticParam(
         name=param.name,
-        type_name=resolved_type_name(typecheck_ctx, param.type_ref),
         type_ref=resolved_semantic_type_ref(typecheck_ctx, param.type_ref),
         span=param.span,
     )

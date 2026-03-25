@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from compiler.resolver import resolve_program
+from compiler.semantic.display import semantic_local_type_display_name
 from compiler.semantic.ir import local_display_name_for_owner, local_type_name_for_owner, require_local_info_for_owner
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
@@ -46,7 +47,8 @@ def test_lower_program_records_function_local_metadata_by_local_id(tmp_path: Pat
     assert total_decl.name is None
     assert total_decl.type_ref is None
     assert values_info.binding_kind == "param"
-    assert values_info.type_name == "i64[]"
+    assert values_info.type_ref.canonical_name == "i64[]"
+    assert semantic_local_type_display_name(function, values_info.local_id) == "i64[]"
     assert total_info.display_name == "total"
     assert total_info.binding_kind == "local"
     assert local_type_name_for_owner(function, total_decl.local_id) == "i64"
@@ -88,7 +90,8 @@ def test_lower_program_records_method_receiver_metadata(tmp_path: Path) -> None:
     delta_info = next(local_info for local_info in method.local_info_by_id.values() if local_info.display_name == "delta")
 
     assert receiver_info.binding_kind == "receiver"
-    assert receiver_info.type_name == "Counter"
+    assert receiver_info.type_ref.canonical_name == "main::Counter"
+    assert semantic_local_type_display_name(method, receiver_info.local_id) == "Counter"
     assert delta_info.binding_kind == "param"
     assert delta_info.owner_id == method.method_id
 

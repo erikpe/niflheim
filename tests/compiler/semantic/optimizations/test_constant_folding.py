@@ -571,7 +571,6 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
                     SemanticFunction(
                         function_id=function_id,
                         params=[],
-                        return_type_name="i64",
                         return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                         body=SemanticBlock(
                             statements=[

@@ -180,7 +180,7 @@ def test_require_main_function_validates_entrypoint(tmp_path: Path) -> None:
         require_main_function(program)
 
 
-def test_require_main_function_uses_canonical_return_type_ref_when_return_type_name_is_stale(tmp_path: Path) -> None:
+def test_require_main_function_no_longer_depends_on_removed_return_type_name_cache(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -192,11 +192,6 @@ def test_require_main_function_uses_canonical_return_type_ref_when_return_type_n
 
     program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     main_fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
-    stale_program = replace(
-        program,
-        functions=tuple(
-            replace(fn, return_type_name="unit") if fn.function_id == main_fn.function_id else fn for fn in program.functions
-        ),
-    )
 
-    require_main_function(stale_program)
+    require_main_function(program)
+    assert not hasattr(main_fn, "return_type_name")

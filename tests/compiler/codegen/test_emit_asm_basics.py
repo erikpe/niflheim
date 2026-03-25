@@ -1,5 +1,3 @@
-from dataclasses import replace
-
 from compiler.codegen.generator import emit_asm
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
@@ -187,7 +185,7 @@ fn main() -> i64 {
     assert "    addsd xmm0, xmm1" in asm
 
 
-def test_emit_asm_uses_canonical_signature_type_refs_when_signature_strings_are_stale(tmp_path) -> None:
+def test_emit_asm_uses_canonical_signature_type_refs_after_signature_cache_removal(tmp_path) -> None:
     source = tmp_path / "main.nif"
     source.write_text(
         """
@@ -209,32 +207,15 @@ fn main() -> i64 {
     add_fn = next(
         fn for fn in lowered_program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "add"
     )
-    stale_add_fn = replace(
-        add_fn,
-        params=[replace(param, type_name="i64") for param in add_fn.params],
-        return_type_name="i64",
-    )
-    stale_modules = tuple(
-        replace(
-            module,
-            functions=[stale_add_fn if fn.function_id == add_fn.function_id else fn for fn in module.functions],
-        )
-        if module.module_path == ("main",)
-        else module
-        for module in lowered_program.ordered_modules
-    )
-    stale_program = replace(
-        lowered_program,
-        ordered_modules=stale_modules,
-        functions=tuple(stale_add_fn if fn.function_id == add_fn.function_id else fn for fn in lowered_program.functions),
-    )
 
-    asm = emit_asm(stale_program)
+    asm = emit_asm(lowered_program)
 
     assert "    movq qword ptr [rbp - 8], xmm0" in asm
     assert "    movq qword ptr [rbp - 16], xmm1" in asm
     assert "    addsd xmm0, xmm1" in asm
     assert "    movq qword ptr [rsp], xmm0" in asm
+    assert not hasattr(add_fn, "return_type_name")
+    assert not hasattr(add_fn.params[0], "type_name")
 
 
 def test_emit_asm_expression_with_params_and_local_slot(tmp_path) -> None:

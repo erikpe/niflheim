@@ -41,7 +41,6 @@ def test_semantic_display_helpers_render_locals_from_canonical_type_refs() -> No
     owner = SemanticFunction(
         function_id=function_id,
         params=[],
-        return_type_name="unit",
         return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "unit"),
         body=SemanticBlock(statements=[], span=span),
         is_export=False,
@@ -52,7 +51,6 @@ def test_semantic_display_helpers_render_locals_from_canonical_type_refs() -> No
                 local_id=local_id,
                 owner_id=function_id,
                 display_name="value",
-                type_name="stale-local-type",
                 type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
                 span=span,
                 binding_kind="local",

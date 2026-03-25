@@ -105,7 +105,6 @@ def emit_method(codegen, declaration_tables, cls: SemanticClass, method: Semanti
             module_path=method.method_id.module_path, name=method_label
         ),
         params=[*(_receiver_param(cls, method) if not method.is_static else []), *method.params],
-        return_type_name=method.return_type_name,
         return_type_ref=method.return_type_ref,
         body=method.body,
         is_export=False,
@@ -130,7 +129,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     if ctor_layout is None:
         raise ValueError(f"Missing constructor layout for {ctor_id}")
     ctor_params = [
-        SemanticParam(name=field.name, type_name=field.type_name, type_ref=field.type_ref, span=field.span)
+        SemanticParam(name=field.name, type_ref=field.type_ref, span=field.span)
         for field in cls.fields
         if field.initializer is None
     ]
@@ -205,7 +204,6 @@ def _receiver_param(cls: SemanticClass, method: SemanticMethod) -> list[Semantic
     return [
         SemanticParam(
             name="__self",
-            type_name=cls.class_id.name,
             type_ref=semantic_type_ref_for_class_id(cls.class_id, display_name=cls.class_id.name),
             span=method.span,
         )

@@ -18,7 +18,6 @@ from compiler.semantic.ir import (
     SemanticReturn,
     SemanticStmt,
     SemanticWhile,
-    expression_type_name,
     expression_type_ref,
 )
 from compiler.semantic.linker import LinkedSemanticProgram
@@ -39,14 +38,13 @@ class _HelperLocalAllocator:
         self.local_info_by_id = local_info_by_id
         self.next_ordinal = max((local_id.ordinal for local_id in local_info_by_id), default=-1) + 1
 
-    def declare(self, *, display_name: str, type_name: str, type_ref, span: SourceSpan, binding_kind: str) -> LocalId:
+    def declare(self, *, display_name: str, type_ref, span: SourceSpan, binding_kind: str) -> LocalId:
         local_id = LocalId(owner_id=self.owner_id, ordinal=self.next_ordinal)
         self.next_ordinal += 1
         self.local_info_by_id[local_id] = SemanticLocalInfo(
             local_id=local_id,
             owner_id=self.owner_id,
             display_name=display_name,
-            type_name=type_name,
             type_ref=type_ref,
             span=span,
             binding_kind=binding_kind,
@@ -140,21 +138,18 @@ def _lower_stmt(stmt: SemanticStmt, allocator: _HelperLocalAllocator) -> Lowered
     if isinstance(stmt, SemanticForIn):
         collection_local_id = allocator.declare(
             display_name="__for_in_collection",
-            type_name=expression_type_name(stmt.collection),
             type_ref=expression_type_ref(stmt.collection),
             span=stmt.collection.span,
             binding_kind="for_in_collection",
         )
         length_local_id = allocator.declare(
             display_name="__for_in_length",
-            type_name=TYPE_NAME_U64,
             type_ref=semantic_primitive_type_ref(TYPE_NAME_U64),
             span=stmt.span,
             binding_kind="for_in_length",
         )
         index_local_id = allocator.declare(
             display_name="__for_in_index",
-            type_name=TYPE_NAME_I64,
             type_ref=semantic_primitive_type_ref(TYPE_NAME_I64),
             span=stmt.span,
             binding_kind="for_in_index",

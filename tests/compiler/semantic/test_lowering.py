@@ -75,15 +75,11 @@ def test_lower_program_builds_semantic_declarations_and_ids(tmp_path: Path) -> N
     util_module = semantic.modules[("util",)]
     assert util_module.classes[0].class_id.module_path == ("util",)
     assert util_module.classes[0].class_id.name == "Counter"
-    assert util_module.classes[0].fields[0].type_name == "i64"
     assert util_module.classes[0].fields[0].type_ref.canonical_name == "i64"
     assert util_module.classes[0].methods[0].method_id.class_name == "Counter"
-    assert util_module.classes[0].methods[0].return_type_name == "i64"
     assert util_module.classes[0].methods[0].return_type_ref.canonical_name == "i64"
     assert util_module.functions[0].function_id.module_path == ("util",)
-    assert util_module.functions[0].params[0].type_name == "i64"
     assert util_module.functions[0].params[0].type_ref.canonical_name == "i64"
-    assert util_module.functions[0].return_type_name == "i64"
     assert util_module.functions[0].return_type_ref.canonical_name == "i64"
 
 
