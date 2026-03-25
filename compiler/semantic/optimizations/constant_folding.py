@@ -11,7 +11,7 @@ from compiler.semantic.ir import *
 
 _INTEGER_MASKS = {TYPE_NAME_I64: (1 << 64) - 1, TYPE_NAME_U64: (1 << 64) - 1, TYPE_NAME_U8: (1 << 8) - 1}
 
-_ConstantEnv = dict[str, LiteralExprS]
+_ConstantEnv = dict[LocalId, LiteralExprS]
 
 
 @dataclass
@@ -77,14 +77,14 @@ def _fold_stmt(stmt: SemanticStmt, env: _ConstantEnv, stats: _FoldStats) -> tupl
     if isinstance(stmt, SemanticVarDecl):
         initializer = None if stmt.initializer is None else _fold_expr(stmt.initializer, env, stats)
         next_env = env.copy()
-        _update_local_constant(next_env, stmt.name, initializer)
+        _update_local_constant(next_env, stmt.local_id, initializer)
         return replace(stmt, initializer=initializer), next_env
     if isinstance(stmt, SemanticAssign):
         target = _fold_lvalue(stmt.target, env, stats)
         value = _fold_expr(stmt.value, env, stats)
         next_env = env.copy()
         if isinstance(target, LocalLValue):
-            _update_local_constant(next_env, target.name, value)
+            _update_local_constant(next_env, target.local_id, value)
         return replace(stmt, target=target, value=value), next_env
     if isinstance(stmt, SemanticExprStmt):
         return replace(stmt, expr=_fold_expr(stmt.expr, env, stats)), env
@@ -129,7 +129,7 @@ def _fold_lvalue(target: SemanticLValue, env: _ConstantEnv, stats: _FoldStats) -
 
 def _fold_expr(expr: SemanticExpr, env: _ConstantEnv, stats: _FoldStats) -> SemanticExpr:
     if isinstance(expr, LocalRefExpr):
-        propagated = env.get(expr.name)
+        propagated = env.get(expr.local_id)
         if propagated is None or propagated.type_name != expr.type_name:
             return expr
         stats.successful_folds += 1
@@ -182,11 +182,11 @@ def _fold_expr(expr: SemanticExpr, env: _ConstantEnv, stats: _FoldStats) -> Sema
     raise TypeError(f"Unsupported semantic expression for constant folding: {type(expr).__name__}")
 
 
-def _update_local_constant(env: _ConstantEnv, name: str, value: SemanticExpr | None) -> None:
+def _update_local_constant(env: _ConstantEnv, local_id: LocalId, value: SemanticExpr | None) -> None:
     if isinstance(value, LiteralExprS):
-        env[name] = value
+        env[local_id] = value
         return
-    env.pop(name, None)
+    env.pop(local_id, None)
 
 
 def _try_fold_unary_expr(expr: UnaryExprS, stats: _FoldStats) -> SemanticExpr:

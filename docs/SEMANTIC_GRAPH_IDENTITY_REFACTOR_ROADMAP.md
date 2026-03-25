@@ -158,16 +158,22 @@ Step 4 status:
 - Lowering now resolves local bindings through the typecheck scope's binding objects and only carries source names forward as metadata for diagnostics and debug readability.
 
 5. Migrate semantic optimization passes from local-name environments to `LocalId`
-  - [ ] update constant folding environments to key by `LocalId`
-  - [ ] update any future flow simplification or propagation scaffolding to key by `LocalId`
-  - [ ] audit reachability and any semantic walkers for remaining local-name assumptions
+  - [x] update constant folding environments to key by `LocalId`
+  - [x] update any existing flow simplification or propagation scaffolding to key by `LocalId`
+  - [x] audit reachability and any semantic walkers for remaining local-name assumptions
   - Purpose:
     make optimization semantics match the semantic graph instead of source spelling
   - Expected outcome:
     local reasoning becomes robust against shadowing and less fragile under transforms
   - Tests to add:
-    - constant-folding tests with nested scopes and repeated source names
-    - regression tests showing propagated values do not leak across distinct locals that share a source name
+    - [x] constant-folding tests with nested scopes and repeated source names
+    - [x] regression tests showing propagated values do not leak across distinct locals that share a source name
+
+Step 5 status:
+
+- Constant folding now keys local propagation by `LocalId` instead of source name.
+- There are no other current semantic optimization environments besides constant folding that maintain local-binding propagation state; this step establishes `LocalId` as the required key shape for future passes.
+- Reachability and the existing semantic walkers were audited and do not use local source names as semantic binding identity.
 
 6. Enable lexical shadowing as a semantic feature after identity migration
   - [ ] remove the function-wide unique-local-name restriction in typechecking and lowering

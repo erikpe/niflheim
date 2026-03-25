@@ -3,24 +3,36 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.resolver import resolve_program
+from compiler.common.span import SourcePos, SourceSpan
 from compiler.semantic.ir import (
     BinaryExprS,
     BoolConstant,
     CastExprS,
+    IntConstant,
     FloatConstant,
     FunctionCallExpr,
-    IntConstant,
     LiteralExprS,
+    LocalRefExpr,
+    SemanticBlock,
+    SemanticFunction,
+    SemanticModule,
+    SemanticProgram,
     SemanticReturn,
     SemanticVarDecl,
     SemanticWhile,
 )
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.constant_folding import fold_constants
+from compiler.semantic.symbols import FunctionId, LocalId
 
 
 def _write(path: Path, text: str) -> None:
     path.write_text(text.strip() + "\n", encoding="utf-8")
+
+
+def _span() -> SourceSpan:
+    pos = SourcePos(path="<test>", offset=0, line=1, column=1)
+    return SourceSpan(start=pos, end=pos)
 
 
 def test_fold_constants_folds_literal_arithmetic_and_boolean_exprs(tmp_path: Path) -> None:
@@ -397,3 +409,77 @@ def test_fold_constants_distinguishes_literal_and_runtime_addition_paths(tmp_pat
 
     assert isinstance(runtime_sum_decl, SemanticVarDecl)
     assert isinstance(runtime_sum_decl.initializer, BinaryExprS)
+
+
+def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
+    span = _span()
+    function_id = FunctionId(module_path=("main",), name="main")
+    first_local_id = LocalId(owner_id=function_id, ordinal=0)
+    second_local_id = LocalId(owner_id=function_id, ordinal=1)
+
+    program = SemanticProgram(
+        entry_module=("main",),
+        modules={
+            ("main",): SemanticModule(
+                module_path=("main",),
+                file_path=Path("<test>"),
+                classes=[],
+                functions=[
+                    SemanticFunction(
+                        function_id=function_id,
+                        params=[],
+                        return_type_name="i64",
+                        body=SemanticBlock(
+                            statements=[
+                                SemanticVarDecl(
+                                    local_id=first_local_id,
+                                    name="value",
+                                    type_name="i64",
+                                    initializer=LiteralExprS(
+                                        constant=IntConstant(value=1, type_name="i64"),
+                                        type_name="i64",
+                                        span=span,
+                                    ),
+                                    span=span,
+                                ),
+                                SemanticVarDecl(
+                                    local_id=second_local_id,
+                                    name="value",
+                                    type_name="i64",
+                                    initializer=LiteralExprS(
+                                        constant=IntConstant(value=2, type_name="i64"),
+                                        type_name="i64",
+                                        span=span,
+                                    ),
+                                    span=span,
+                                ),
+                                SemanticReturn(
+                                    value=LocalRefExpr(
+                                        local_id=first_local_id,
+                                        name="value",
+                                        type_name="i64",
+                                        span=span,
+                                    ),
+                                    span=span,
+                                ),
+                            ],
+                            span=span,
+                        ),
+                        is_export=False,
+                        is_extern=False,
+                        span=span,
+                    )
+                ],
+                interfaces=[],
+                span=span,
+            )
+        },
+    )
+
+    folded = fold_constants(program)
+    return_stmt = folded.modules[("main",)].functions[0].body.statements[2]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LiteralExprS)
+    assert isinstance(return_stmt.value.constant, IntConstant)
+    assert return_stmt.value.constant.value == 1
