@@ -62,7 +62,6 @@ class ResolvedFieldReadTarget:
     access: ResolvedBoundMemberAccess
     owner_class_id: ClassId
     field_name: str
-    type_name: str
     type_ref: SemanticTypeRef
 
 
@@ -77,7 +76,6 @@ class ResolvedFieldLValueTarget:
     access: ResolvedBoundMemberAccess
     owner_class_id: ClassId
     field_name: str
-    type_name: str
     type_ref: SemanticTypeRef
 
 
@@ -167,7 +165,6 @@ def resolve_field_access_ref_target(
             ),
             owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type.name),
             field_name=expr.field_name,
-            type_name=field_type.name,
             type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, field_type),
         )
 
@@ -212,7 +209,6 @@ def lower_resolved_ref(
         ),
         owner_class_id=resolved_target.owner_class_id,
         field_name=resolved_target.field_name,
-        type_name=resolved_target.type_name,
         type_ref=resolved_target.type_ref,
         span=span,
     )
@@ -242,7 +238,6 @@ def lower_lvalue(
             ),
             owner_class_id=resolved_target.owner_class_id,
             field_name=resolved_target.field_name,
-            type_name=resolved_target.type_name,
             type_ref=resolved_target.type_ref,
             span=expr.span,
         )
@@ -281,7 +276,6 @@ def resolve_lvalue_target(
             ),
             owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type.name),
             field_name=expr.field_name,
-            type_name=infer_expression_type(typecheck_ctx, expr).name,
             type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, infer_expression_type(typecheck_ctx, expr)),
         )
 

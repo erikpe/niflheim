@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind
-from compiler.common.type_names import TYPE_NAME_NULL, TYPE_NAME_U64, TYPE_NAME_U8
+from compiler.common.type_names import TYPE_NAME_U64, TYPE_NAME_U8
 from compiler.common.span import SourceSpan
 from compiler.resolver import ModulePath
 from compiler.semantic.operations import (
@@ -276,7 +276,6 @@ class FieldLValue:
     access: BoundMemberAccess
     owner_class_id: ClassId
     field_name: str
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -367,7 +366,6 @@ SemanticConstant = IntConstant | FloatConstant | BoolConstant | CharConstant
 @dataclass(frozen=True)
 class LiteralExprS:
     constant: SemanticConstant
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -375,7 +373,6 @@ class LiteralExprS:
 @dataclass(frozen=True)
 class NullExprS:
     span: SourceSpan
-    type_name: str = TYPE_NAME_NULL
     type_ref: SemanticTypeRef = field(default_factory=semantic_null_type_ref)
 
 
@@ -383,7 +380,6 @@ class NullExprS:
 class UnaryExprS:
     op: SemanticUnaryOp
     operand: "SemanticExpr"
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -393,7 +389,6 @@ class BinaryExprS:
     op: SemanticBinaryOp
     left: "SemanticExpr"
     right: "SemanticExpr"
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -403,7 +398,6 @@ class CastExprS:
     operand: "SemanticExpr"
     cast_kind: CastSemanticsKind
     target_type_ref: SemanticTypeRef
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -413,7 +407,6 @@ class TypeTestExprS:
     operand: "SemanticExpr"
     test_kind: TypeTestSemanticsKind
     target_type_ref: SemanticTypeRef
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -423,7 +416,6 @@ class FieldReadExpr:
     access: BoundMemberAccess
     owner_class_id: ClassId
     field_name: str
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -513,7 +505,6 @@ def call_target_receiver_access(target: SemanticCallTarget) -> BoundMemberAccess
 class CallExprS:
     target: SemanticCallTarget
     args: list["SemanticExpr"]
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -522,7 +513,6 @@ class CallExprS:
 class ArrayLenExpr:
     target: "SemanticExpr"
     span: SourceSpan
-    type_name: str = TYPE_NAME_U64
     type_ref: SemanticTypeRef = field(default_factory=lambda: semantic_primitive_type_ref(TYPE_NAME_U64))
 
 
@@ -530,7 +520,6 @@ class ArrayLenExpr:
 class IndexReadExpr:
     target: "SemanticExpr"
     index: "SemanticExpr"
-    type_name: str
     type_ref: SemanticTypeRef
     dispatch: SemanticDispatch
     span: SourceSpan
@@ -541,7 +530,6 @@ class SliceReadExpr:
     target: "SemanticExpr"
     begin: "SemanticExpr"
     end: "SemanticExpr"
-    type_name: str
     type_ref: SemanticTypeRef
     dispatch: SemanticDispatch
     span: SourceSpan
@@ -557,7 +545,6 @@ def dispatch_method_id(dispatch: SemanticDispatch) -> MethodId | None:
 class ArrayCtorExprS:
     element_type_ref: SemanticTypeRef
     length_expr: "SemanticExpr"
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -566,7 +553,6 @@ class ArrayCtorExprS:
 class StringLiteralBytesExpr:
     literal_text: str
     span: SourceSpan
-    type_name: str = f"{TYPE_NAME_U8}[]"
     type_ref: SemanticTypeRef = field(
         default_factory=lambda: semantic_array_type_ref(semantic_primitive_type_ref(TYPE_NAME_U8))
     )
@@ -611,9 +597,7 @@ SemanticExpr = (
 
 
 def expression_type_name(expr: SemanticExpr) -> str:
-    if isinstance(expr, (LocalRefExpr, FunctionRefExpr, ClassRefExpr, MethodRefExpr)):
-        return semantic_type_display_name(expr.type_ref)
-    return expr.type_name
+    return semantic_type_display_name(expr.type_ref)
 
 
 def expression_type_ref(expr: SemanticExpr) -> SemanticTypeRef:

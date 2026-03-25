@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from compiler.semantic.types import SemanticTypeRef, semantic_type_ref_from_type_info
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.model import TypeInfo
 
 
 def semantic_type_ref_from_checked_type(typecheck_ctx: TypeCheckContext, type_info: TypeInfo) -> SemanticTypeRef:
-    return semantic_type_ref_from_type_info(typecheck_ctx.module_path, _canonicalize_checked_type(typecheck_ctx, type_info))
+    canonical_ref = semantic_type_ref_from_type_info(typecheck_ctx.module_path, _canonicalize_checked_type(typecheck_ctx, type_info))
+    display_ref = semantic_type_ref_from_type_info(typecheck_ctx.module_path, type_info)
+    return _merge_display_names(canonical_ref, display_ref)
 
 
 def _canonicalize_checked_type(typecheck_ctx: TypeCheckContext, type_info: TypeInfo) -> TypeInfo:
@@ -46,3 +50,31 @@ def _qualified_nominal_name(typecheck_ctx: TypeCheckContext, type_info: TypeInfo
         return f"{'.'.join(typecheck_ctx.module_path)}::{type_info.name}"
 
     return None
+
+
+def _merge_display_names(canonical_ref: SemanticTypeRef, display_ref: SemanticTypeRef) -> SemanticTypeRef:
+    if canonical_ref.kind != display_ref.kind:
+        return canonical_ref
+
+    element_type = canonical_ref.element_type
+    if canonical_ref.element_type is not None and display_ref.element_type is not None:
+        element_type = _merge_display_names(canonical_ref.element_type, display_ref.element_type)
+
+    param_types = canonical_ref.param_types
+    if canonical_ref.param_types and display_ref.param_types and len(canonical_ref.param_types) == len(display_ref.param_types):
+        param_types = tuple(
+            _merge_display_names(canonical_param, display_param)
+            for canonical_param, display_param in zip(canonical_ref.param_types, display_ref.param_types)
+        )
+
+    return_type = canonical_ref.return_type
+    if canonical_ref.return_type is not None and display_ref.return_type is not None:
+        return_type = _merge_display_names(canonical_ref.return_type, display_ref.return_type)
+
+    return replace(
+        canonical_ref,
+        display_name=display_ref.display_name,
+        element_type=element_type,
+        param_types=param_types,
+        return_type=return_type,
+    )

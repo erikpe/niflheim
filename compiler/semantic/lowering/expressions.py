@@ -54,11 +54,10 @@ def lower_expr(
 
     if isinstance(expr, UnaryExpr):
         operand = lower_expr(typecheck_ctx, symbol_index, expr.operand, local_id_tracker)
-        result_type_name, result_type_ref = _infer_semantic_expr_type(typecheck_ctx, expr)
+        _result_type_name, result_type_ref = _infer_semantic_expr_type(typecheck_ctx, expr)
         return UnaryExprS(
             op=semantic_unary_op_from_token(expr.operator, expression_type_ref(operand)),
             operand=operand,
-            type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
@@ -80,7 +79,6 @@ def lower_expr(
             op=semantic_binary_op_from_token(expr.operator, expression_type_ref(left), expression_type_ref(right)),
             left=left,
             right=right,
-            type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
@@ -94,7 +92,6 @@ def lower_expr(
             operand=operand,
             cast_kind=semantic_cast_kind(expression_type_ref(operand), target_type_ref),
             target_type_ref=target_type_ref,
-            type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
@@ -108,7 +105,6 @@ def lower_expr(
             operand=operand,
             test_kind=semantic_type_test_kind(target_type_ref),
             target_type_ref=target_type_ref,
-            type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
@@ -169,7 +165,6 @@ def lower_call_expr(
         return CallExprS(
             target=FunctionCallTarget(function_id=resolved_target.function_id),
             args=args,
-            type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
@@ -178,7 +173,6 @@ def lower_call_expr(
         return CallExprS(
             target=ConstructorCallTarget(constructor_id=resolved_target.constructor_id),
             args=args,
-            type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
@@ -187,7 +181,6 @@ def lower_call_expr(
         return CallExprS(
             target=StaticMethodCallTarget(method_id=resolved_target.method_id),
             args=args,
-            type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
@@ -204,7 +197,6 @@ def lower_call_expr(
                 ),
             ),
             args=args,
-            type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
@@ -222,7 +214,6 @@ def lower_call_expr(
                 ),
             ),
             args=args,
-            type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
@@ -232,7 +223,6 @@ def lower_call_expr(
             callee=lower_expr(typecheck_ctx, symbol_index, resolved_target.callee, local_id_tracker)
         ),
         args=args,
-        type_name=result_type_name,
         type_ref=result_type_ref,
         span=expr.span,
     )
@@ -281,7 +271,6 @@ def _lower_array_ctor_expr(
     return ArrayCtorExprS(
         element_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, array_type.element_type),
         length_expr=lower_expr(typecheck_ctx, symbol_index, expr.length_expr, local_id_tracker),
-        type_name=array_type.name,
         type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, array_type),
         span=expr.span,
     )
@@ -294,11 +283,10 @@ def _lower_index_expr(
     local_id_tracker: LocalIdTracker | None,
 ) -> IndexReadExpr:
     target_type = infer_expression_type(typecheck_ctx, expr.object_expr)
-    result_type_name, result_type_ref = _infer_semantic_expr_type(typecheck_ctx, expr)
+    _result_type_name, result_type_ref = _infer_semantic_expr_type(typecheck_ctx, expr)
     return IndexReadExpr(
         target=lower_expr(typecheck_ctx, symbol_index, expr.object_expr, local_id_tracker),
         index=lower_expr(typecheck_ctx, symbol_index, expr.index_expr, local_id_tracker),
-        type_name=result_type_name,
         type_ref=result_type_ref,
         dispatch=resolve_collection_dispatch(typecheck_ctx, target_type, operation=CollectionOpKind.INDEX_GET),
         span=expr.span,

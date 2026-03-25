@@ -121,7 +121,6 @@ def test_semantic_display_helpers_render_callable_value_targets_from_callee_type
         ),
         owner_class_id=ClassId(module_path=("main",), name="Box"),
         field_name="invoke",
-        type_name="fn(i64) -> i64",
         type_ref=best_effort_semantic_type_ref_from_name(("main",), "fn(i64) -> i64"),
         span=span,
     )

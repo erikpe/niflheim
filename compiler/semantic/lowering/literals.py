@@ -31,7 +31,6 @@ def lower_string_literal_expr(
         args=[
             StringLiteralBytesExpr(literal_text=expr.literal.raw_text, span=expr.span)
         ],
-        type_name=result_type_name,
         type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, infer_expression_type(typecheck_ctx, expr)),
         span=expr.span,
     )
@@ -53,7 +52,6 @@ def try_lower_string_concat_expr(
     return CallExprS(
         target=StaticMethodCallTarget(method_id=resolve_static_method_id(typecheck_ctx, result_type_name, "concat")),
         args=[lower_expr(expr.left), lower_expr(expr.right)],
-        type_name=result_type_name,
         type_ref=result_type_ref,
         span=expr.span,
     )
@@ -75,7 +73,7 @@ def lower_non_string_literal_expr(typecheck_ctx: TypeCheckContext, expr: Literal
     else:
         raise TypeError(f"Unsupported non-string literal for semantic lowering: {type(literal).__name__}")
 
-    return LiteralExprS(constant=constant, type_name=type_name, type_ref=type_ref, span=expr.span)
+    return LiteralExprS(constant=constant, type_ref=type_ref, span=expr.span)
 
 
 def lowered_literal_type_name(typecheck_ctx: TypeCheckContext, expr: LiteralExpr) -> str:

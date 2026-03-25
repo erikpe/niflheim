@@ -120,11 +120,14 @@ def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -
     assert isinstance(assign_stmt.target, FieldLValue)
     assert assign_stmt.target.field_name == "value"
     assert assign_stmt.target.owner_class_id == ClassId(module_path=("main",), name="Box")
-    assert assign_stmt.target.type_name == "i64"
+    assert assign_stmt.target.type_ref.canonical_name == "i64"
+    assert not hasattr(assign_stmt.target, "type_name")
     assert isinstance(assign_stmt.value, BinaryExprS)
     assert isinstance(assign_stmt.value.left, FieldReadExpr)
     assert assign_stmt.value.left.owner_class_id == ClassId(module_path=("main",), name="Box")
-    assert assign_stmt.value.left.type_name == "i64"
+    assert assign_stmt.value.left.type_ref.canonical_name == "i64"
+    assert expression_type_name(assign_stmt.value.left) == "i64"
+    assert not hasattr(assign_stmt.value.left, "type_name")
 
     while_stmt = function.body.statements[2]
     assert isinstance(while_stmt, SemanticWhile)
@@ -142,7 +145,9 @@ def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, FieldReadExpr)
     assert return_stmt.value.owner_class_id == ClassId(module_path=("main",), name="Box")
-    assert return_stmt.value.type_name == "i64"
+    assert return_stmt.value.type_ref.canonical_name == "i64"
+    assert expression_type_name(return_stmt.value) == "i64"
+    assert not hasattr(return_stmt.value, "type_name")
 
 
 def test_lower_program_builds_typed_semantic_constants_for_literals(tmp_path: Path) -> None:
@@ -369,8 +374,9 @@ def test_lower_program_lowers_callable_value_calls_explicitly(tmp_path: Path) ->
     assert isinstance(holder_return, SemanticReturn)
     callable_target = _assert_call_target(holder_return.value, CallableValueCallTarget)
     assert isinstance(callable_target.callee, FieldReadExpr)
-    assert holder_return.value.type_name == "i64"
     assert holder_return.value.type_ref.canonical_name == "i64"
+    assert expression_type_name(holder_return.value) == "i64"
+    assert not hasattr(holder_return.value, "type_name")
 
     main_fn = semantic.modules[("main",)].functions[3]
     statements = main_fn.body.statements
@@ -972,6 +978,7 @@ def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp
     assert prefix_target.method_id.class_name == "Str"
     assert prefix_target.method_id.name == "from_u8_array"
     assert isinstance(prefix_decl.initializer.args[0], StringLiteralBytesExpr)
+    assert not hasattr(prefix_decl.initializer.args[0], "type_name")
     assert prefix_decl.initializer.args[0].literal_text == '"hi"'
 
     return_stmt = statements[1]
@@ -985,6 +992,7 @@ def test_lower_program_lowers_string_literals_and_concat_to_explicit_helpers(tmp
     assert nested_target.method_id.name == "from_u8_array"
     assert return_stmt.value.args[1].type_ref.canonical_name == "main::Str"
     assert return_stmt.value.args[1].args[0].type_ref.canonical_name == "u8[]"
+    assert not hasattr(return_stmt.value.args[1].args[0], "type_name")
 
 
 def test_lower_program_lowers_array_len_calls_to_explicit_array_len_expr(tmp_path: Path) -> None:
@@ -1003,6 +1011,7 @@ def test_lower_program_lowers_array_len_calls_to_explicit_array_len_expr(tmp_pat
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, ArrayLenExpr)
+    assert not hasattr(return_stmt.value, "type_name")
     assert isinstance(return_stmt.value.target, LocalRefExpr)
     assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.target.local_id) == "values"
     assert return_stmt.value.type_ref.canonical_name == "u64"
@@ -1094,6 +1103,7 @@ def test_lower_program_lowers_null_and_array_ctor_expressions_explicitly(tmp_pat
     box_decl = statements[1]
     assert isinstance(box_decl, SemanticVarDecl)
     assert isinstance(box_decl.initializer, NullExprS)
+    assert not hasattr(box_decl.initializer, "type_name")
     assert box_decl.initializer.type_ref.canonical_name == "null"
 
 

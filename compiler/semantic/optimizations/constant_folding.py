@@ -536,7 +536,6 @@ def _signed_division_overflows(left_value: int, right_value: int, operand_type_n
 def _int_literal_expr(value: int, *, type_name: str, span) -> LiteralExprS:
     return LiteralExprS(
         constant=IntConstant(value=value, type_name=type_name),
-        type_name=type_name,
         type_ref=semantic_primitive_type_ref(type_name),
         span=span,
     )
@@ -545,7 +544,6 @@ def _int_literal_expr(value: int, *, type_name: str, span) -> LiteralExprS:
 def _float_literal_expr(value: float, *, span) -> LiteralExprS:
     return LiteralExprS(
         constant=FloatConstant(value=value, type_name=TYPE_NAME_DOUBLE),
-        type_name=TYPE_NAME_DOUBLE,
         type_ref=semantic_primitive_type_ref(TYPE_NAME_DOUBLE),
         span=span,
     )
@@ -554,7 +552,6 @@ def _float_literal_expr(value: float, *, span) -> LiteralExprS:
 def _bool_literal_expr(value: bool, *, span) -> LiteralExprS:
     return LiteralExprS(
         constant=BoolConstant(value=value, type_name=TYPE_NAME_BOOL),
-        type_name=TYPE_NAME_BOOL,
         type_ref=semantic_primitive_type_ref(TYPE_NAME_BOOL),
         span=span,
     )

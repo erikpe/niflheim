@@ -20,7 +20,7 @@ LowerExpr = Callable[[Expression], SemanticExpr]
 def try_lower_array_structural_call_expr(
     typecheck_ctx: TypeCheckContext,
     expr: CallExpr,
-    result_type_name: str,
+    _result_type_name: str,
     result_type_ref: SemanticTypeRef,
     *,
     lower_expr: LowerExpr,
@@ -47,7 +47,6 @@ def try_lower_array_structural_call_expr(
         return IndexReadExpr(
             target=lower_expr(expr.callee.object_expr),
             index=lower_expr(expr.arguments[0]),
-            type_name=result_type_name,
             type_ref=result_type_ref,
             dispatch=runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, op_kind),
             span=expr.span,
@@ -60,7 +59,6 @@ def try_lower_array_structural_call_expr(
             target=lower_expr(expr.callee.object_expr),
             begin=lower_expr(expr.arguments[0]),
             end=lower_expr(expr.arguments[1]),
-            type_name=result_type_name,
             type_ref=result_type_ref,
             dispatch=runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, op_kind),
             span=expr.span,
@@ -172,7 +170,7 @@ def try_lower_array_slice_assign_stmt(
 def try_lower_slice_read_expr(
     typecheck_ctx: TypeCheckContext,
     expr: CallExpr,
-    result_type_name: str,
+    _result_type_name: str,
     result_type_ref: SemanticTypeRef,
     *,
     lower_expr: LowerExpr,
@@ -190,7 +188,6 @@ def try_lower_slice_read_expr(
         target=lower_expr(expr.callee.object_expr),
         begin=lower_expr(expr.arguments[0]),
         end=lower_expr(expr.arguments[1]),
-        type_name=result_type_name,
         type_ref=result_type_ref,
         dispatch=resolve_collection_dispatch(typecheck_ctx, receiver_type, operation=CollectionOpKind.SLICE_GET),
         span=expr.span,

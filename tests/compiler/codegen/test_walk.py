@@ -77,7 +77,6 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
             access=_bound_access(_local_ref("receiver", "Box", span), "Box"),
             owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="invoke",
-            type_name="fn(i64) -> i64",
             type_ref=best_effort_semantic_type_ref_from_name(("main",), "fn(i64) -> i64"),
             span=span,
             )
@@ -88,23 +87,19 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
                     op=semantic_binary_op_from_token("+", _type_ref("i64"), _type_ref("i64")),
                     left=LiteralExprS(
                         constant=IntConstant(value=1, type_name="i64"),
-                        type_name="i64",
                         type_ref=_type_ref("i64"),
                         span=span,
                     ),
                     right=_local_ref("arg", "i64", span),
-                    type_name="i64",
                     type_ref=_type_ref("i64"),
                     span=span,
                 ),
                 cast_kind=semantic_cast_kind(_type_ref("i64"), _type_ref("i64")),
                 target_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
-                type_name="i64",
                 type_ref=_type_ref("i64"),
                 span=span,
             )
         ],
-        type_name="i64",
         type_ref=_type_ref("i64"),
         span=span,
     )
@@ -131,18 +126,15 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
             op=semantic_binary_op_from_token("+", _type_ref("i64"), _type_ref("i64")),
             left=LiteralExprS(
                 constant=IntConstant(value=1, type_name="i64"),
-                type_name="i64",
                 type_ref=_type_ref("i64"),
                 span=span,
             ),
             right=_local_ref("arg", "i64", span),
-            type_name="i64",
             type_ref=_type_ref("i64"),
             span=span,
         ),
         test_kind=semantic_type_test_kind(box_type_ref),
         target_type_ref=box_type_ref,
-        type_name="bool",
         type_ref=_type_ref("bool"),
         span=span,
     )
@@ -165,7 +157,6 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
             access=_bound_access(_local_ref("target_receiver", "Box", span), "Box"),
             owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="value",
-            type_name="i64",
             type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
             span=span,
         ),
@@ -174,12 +165,10 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
             args=[
                 LiteralExprS(
                     constant=IntConstant(value=7, type_name="i64"),
-                    type_name="i64",
                     type_ref=_type_ref("i64"),
                     span=span,
                 )
             ],
-            type_name="i64",
             type_ref=_type_ref("i64"),
             span=span,
         ),
@@ -283,7 +272,6 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
                 type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 initializer=LiteralExprS(
                     constant=IntConstant(value=3, type_name="i64"),
-                    type_name="i64",
                     type_ref=_type_ref("i64"),
                     span=span,
                 ),
@@ -335,7 +323,6 @@ def test_walk_expression_visits_interface_method_call_receiver_and_args() -> Non
             ),
         ),
         args=[_local_ref("arg", "Obj", span)],
-        type_name="u64",
         type_ref=_type_ref("u64"),
         span=span,
     )
@@ -371,7 +358,6 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
                             ),
                         ),
                         args=[_local_ref("other", "Obj", span)],
-                        type_name="u64",
                         type_ref=_type_ref("u64"),
                         span=span,
                     ),
