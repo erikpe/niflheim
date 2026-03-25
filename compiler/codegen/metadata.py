@@ -4,12 +4,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import compiler.codegen.symbols as codegen_symbols
+import compiler.codegen.types as codegen_types
 
-from compiler.common.type_shapes import is_reference_type_name
 from compiler.codegen.walk import walk_block_expressions, walk_expression
+from compiler.semantic.display import semantic_type_display_name_relative
 from compiler.semantic.ir import *
 from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
 from compiler.semantic.symbols import ClassId, InterfaceId, MethodId
+from compiler.semantic.types import semantic_type_canonical_name, semantic_type_is_interface, semantic_type_is_reference
 
 if TYPE_CHECKING:
     from compiler.codegen.program_generator import DeclarationTables
@@ -46,10 +48,21 @@ class ClassMetadataRecord:
 
 
 @dataclass(frozen=True)
+class ExtraRuntimeTypeRecord:
+    canonical_type_name: str
+    display_name: str
+    aliases: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class TypeMetadata:
     classes: tuple[ClassMetadataRecord, ...]
     interfaces: tuple[InterfaceMetadataRecord, ...]
-    extra_runtime_type_names: tuple[str, ...]
+    extra_runtime_types: tuple[ExtraRuntimeTypeRecord, ...]
+
+    @property
+    def extra_runtime_type_names(self) -> tuple[str, ...]:
+        return tuple(record.canonical_type_name for record in self.extra_runtime_types)
 
 
 def build_type_metadata(program: LoweredLinkedSemanticProgram, declaration_tables: DeclarationTables) -> TypeMetadata:
@@ -79,7 +92,7 @@ def build_type_metadata(program: LoweredLinkedSemanticProgram, declaration_table
         pointer_offsets = tuple(
             24 + (8 * field_index)
             for field_index, field in enumerate(cls.fields)
-            if is_reference_type_name(field.type_name)
+            if codegen_types.is_reference_type_ref(field.type_ref)
         )
         pointer_offsets_symbol = None
         if pointer_offsets:
@@ -128,33 +141,43 @@ def build_type_metadata(program: LoweredLinkedSemanticProgram, declaration_table
             )
         )
 
-    extra_runtime_type_names = tuple(
-        sorted(
-            type_name
-            for type_name in _collect_reference_cast_type_names(program, declaration_tables)
-            if type_name not in class_alias_names
+    extra_runtime_types = tuple(
+        ExtraRuntimeTypeRecord(
+            canonical_type_name=canonical_name,
+            display_name=display_name,
+            aliases=tuple(
+                alias
+                for alias in (display_name, canonical_name)
+                if alias not in class_alias_names and alias != ""
+            ),
         )
+        for canonical_name, display_name in sorted(
+            _collect_reference_cast_type_names(program, declaration_tables).items(), key=lambda item: item[0]
+        )
+        if canonical_name not in class_alias_names
     )
 
     return TypeMetadata(
-        classes=tuple(class_records), interfaces=interface_records, extra_runtime_type_names=extra_runtime_type_names
+        classes=tuple(class_records), interfaces=interface_records, extra_runtime_types=extra_runtime_types
     )
 
 
 def _collect_reference_cast_type_names(
     program: LoweredLinkedSemanticProgram, declaration_tables: DeclarationTables
-) -> set[str]:
-    names: set[str] = set()
+) -> dict[str, str]:
+    names: dict[str, str] = {}
 
     def _collect_expr(expr: SemanticExpr, module_path: tuple[str, ...]) -> None:
         def visit(candidate: SemanticExpr) -> None:
             if not isinstance(candidate, (CastExprS, TypeTestExprS)):
                 return
-            if not is_reference_type_name(candidate.target_type_name):
+            if not codegen_types.is_reference_type_ref(candidate.target_type_ref):
                 return
-            if declaration_tables.interface_descriptor_symbol_for_type_name(module_path, candidate.target_type_name):
+            if semantic_type_is_interface(candidate.target_type_ref):
                 return
-            names.add(candidate.target_type_name)
+            names[semantic_type_canonical_name(candidate.target_type_ref)] = semantic_type_display_name_relative(
+                module_path, candidate.target_type_ref
+            )
 
         walk_expression(expr, visit)
 

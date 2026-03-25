@@ -36,6 +36,7 @@ from compiler.semantic.operations import (
     unary_op_text,
 )
 from compiler.semantic.symbols import InterfaceMethodId, MethodId
+from compiler.semantic.types import semantic_type_array_element, semantic_type_canonical_name, semantic_type_is_array
 
 if TYPE_CHECKING:
     from compiler.codegen.generator import CodeGenerator
@@ -159,15 +160,13 @@ def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: Emit
 def _emit_reference_type_runtime_check(
     codegen: CodeGenerator,
     operand: SemanticExpr,
-    target_type_name: str,
+    target_type_ref,
     interface_runtime_call: str,
     class_runtime_call: str,
     ctx: EmitContext,
 ) -> None:
     emit_expr(codegen, operand, ctx)
-    interface_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol_for_type_name(
-        ctx.current_module_path, target_type_name
-    )
+    interface_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol_for_type_ref(target_type_ref)
     codegen.asm.instr("push rax")
     _emit_runtime_call_hooks_before(codegen, operand.span.start.line, operand.span.start.column, ctx)
     codegen.asm.instr("pop rax")
@@ -176,22 +175,24 @@ def _emit_reference_type_runtime_check(
         codegen.asm.instr(f"lea rsi, [rip + {interface_descriptor_symbol}]")
         codegen.emit_aligned_call(interface_runtime_call)
     else:
-        codegen.asm.instr(f"lea rsi, [rip + {codegen_symbols.mangle_type_symbol(target_type_name)}]")
+        codegen.asm.instr(
+            f"lea rsi, [rip + {codegen_symbols.mangle_type_symbol(semantic_type_canonical_name(target_type_ref))}]"
+        )
         codegen.emit_aligned_call(class_runtime_call)
     _emit_runtime_call_hooks_after(codegen, ctx)
 
 
 def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.operand, ctx)
-    source_type = expression_type_name(expr.operand)
-    target_type = expr.target_type_name
+    source_type = semantic_type_canonical_name(expression_type_ref(expr.operand))
+    target_type = semantic_type_canonical_name(expr.target_type_ref)
     if expr.cast_kind == CastSemanticsKind.IDENTITY:
         return
     if expr.cast_kind == CastSemanticsKind.REFERENCE_COMPATIBILITY:
         if target_type == TYPE_NAME_OBJ and source_type != TYPE_NAME_NULL and codegen_types.is_reference_type_name(source_type):
             return
-        if codegen_types.is_array_type_name(target_type) and source_type == TYPE_NAME_OBJ:
-            element_type = codegen_types.array_element_type_name(target_type, span=expr.span)
+        if semantic_type_is_array(expr.target_type_ref) and source_type == TYPE_NAME_OBJ:
+            element_type = semantic_type_array_element(expr.target_type_ref)
             array_kind_by_element_type = {
                 TYPE_NAME_I64: 1,
                 TYPE_NAME_U64: 2,
@@ -199,7 +200,7 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
                 TYPE_NAME_BOOL: 4,
                 TYPE_NAME_DOUBLE: 5,
             }
-            expected_kind = array_kind_by_element_type.get(element_type, 6)
+            expected_kind = array_kind_by_element_type.get(semantic_type_canonical_name(element_type), 6)
             codegen.asm.instr("push rax")
             _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
             codegen.asm.instr("pop rax")
@@ -208,11 +209,11 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
             codegen.emit_aligned_call("rt_checked_cast_array_kind")
             _emit_runtime_call_hooks_after(codegen, ctx)
             return
-        if codegen_types.is_reference_type_name(target_type):
+        if codegen_types.is_reference_type_ref(expr.target_type_ref):
             _emit_reference_type_runtime_check(
                 codegen,
                 expr.operand,
-                target_type,
+                expr.target_type_ref,
                 "rt_checked_cast_interface",
                 "rt_checked_cast",
                 ctx,
@@ -285,7 +286,7 @@ def _emit_type_test_expr(codegen: CodeGenerator, expr: TypeTestExprS, ctx: EmitC
     _emit_reference_type_runtime_check(
         codegen,
         expr.operand,
-        expr.target_type_name,
+        expr.target_type_ref,
         "rt_is_instance_of_interface",
         "rt_is_instance_of_type",
         ctx,
@@ -294,7 +295,7 @@ def _emit_type_test_expr(codegen: CodeGenerator, expr: TypeTestExprS, ctx: EmitC
 
 
 def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: EmitContext) -> None:
-    runtime_kind = codegen_types.array_element_runtime_kind(expr.element_type_name)
+    runtime_kind = codegen_types.array_element_runtime_kind_for_type_ref(expr.element_type_ref)
     runtime_ctor = ARRAY_CONSTRUCTOR_RUNTIME_CALLS[runtime_kind]
     emit_expr(codegen, expr.length_expr, ctx)
     codegen.asm.instr("push rax")
@@ -311,19 +312,19 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Emi
 def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -> None:
     target = expr.target
     if isinstance(target, FunctionCallTarget):
-        _emit_named_call(codegen, target.function_id.name, expr.args, expr.type_name, ctx)
+        _emit_named_call(codegen, target.function_id.name, expr.args, expr.type_ref, ctx)
         return
     if isinstance(target, StaticMethodCallTarget):
-        _emit_named_call(codegen, _method_label(target.method_id, ctx), expr.args, expr.type_name, ctx)
+        _emit_named_call(codegen, _method_label(target.method_id, ctx), expr.args, expr.type_ref, ctx)
         return
     if isinstance(target, InstanceMethodCallTarget):
-        _emit_named_call(codegen, _method_label(target.method_id, ctx), [target.access.receiver, *expr.args], expr.type_name, ctx)
+        _emit_named_call(codegen, _method_label(target.method_id, ctx), [target.access.receiver, *expr.args], expr.type_ref, ctx)
         return
     if isinstance(target, InterfaceMethodCallTarget):
         _emit_interface_method_call(codegen, expr, target, ctx)
         return
     if isinstance(target, ConstructorCallTarget):
-        _emit_named_call(codegen, _constructor_label(target.constructor_id, ctx), expr.args, expr.type_name, ctx)
+        _emit_named_call(codegen, _constructor_label(target.constructor_id, ctx), expr.args, expr.type_ref, ctx)
         return
     _emit_callable_value_call(codegen, expr, target.callee, ctx)
 
@@ -334,7 +335,7 @@ def _emit_callable_value_call(
     _emit_call_sequence(
         codegen,
         call_arguments=expr.args,
-        return_type_name=expr.type_name,
+        return_type_ref=expr.type_ref,
         ctx=ctx,
         callee_expr=callee,
         temp_root_spans=[expr.span] * len(expr.args),
@@ -437,14 +438,14 @@ def _emit_named_call(
     codegen: CodeGenerator,
     target_name: str,
     call_arguments: list[SemanticExpr],
-    return_type_name: str,
+    return_type_ref: SemanticTypeRef | str,
     ctx: EmitContext,
 ) -> None:
     runtime_hook_span = call_arguments[0].span if codegen_symbols.is_runtime_call_name(target_name) and call_arguments else None
     _emit_call_sequence(
         codegen,
         call_arguments=call_arguments,
-        return_type_name=return_type_name,
+        return_type_ref=return_type_ref,
         ctx=ctx,
         target_name=target_name,
         temp_root_spans=[arg.span for arg in call_arguments],
@@ -455,7 +456,7 @@ def _emit_named_call(
 def _emit_call_sequence(
     codegen: CodeGenerator,
     call_arguments: list[SemanticExpr],
-    return_type_name: str,
+    return_type_ref: SemanticTypeRef | str,
     ctx: EmitContext,
     *,
     target_name: str | None = None,
@@ -517,6 +518,9 @@ def _emit_call_sequence(
     cleanup_slot_count = len(call_arguments) + len(stack_arg_indices)
     if cleanup_slot_count > 0:
         codegen.asm.instr(f"add rsp, {cleanup_slot_count * 8}")
+    return_type_name = (
+        return_type_ref if isinstance(return_type_ref, str) else semantic_type_canonical_name(return_type_ref)
+    )
     if return_type_name == TYPE_NAME_DOUBLE:
         codegen.asm.instr("movq rax, xmm0")
     elif return_type_name == TYPE_NAME_UNIT:
@@ -529,12 +533,12 @@ def _emit_call_sequence(
 
 
 def _emit_index_read_expr(codegen: CodeGenerator, expr: IndexReadExpr, ctx: EmitContext) -> None:
-    _emit_named_call(codegen, _dispatch_target_name(expr.dispatch, ctx), [expr.target, expr.index], expr.type_name, ctx)
+    _emit_named_call(codegen, _dispatch_target_name(expr.dispatch, ctx), [expr.target, expr.index], expr.type_ref, ctx)
 
 
 def _emit_slice_read_expr(codegen: CodeGenerator, expr: SliceReadExpr, ctx: EmitContext) -> None:
     _emit_named_call(
-        codegen, _dispatch_target_name(expr.dispatch, ctx), [expr.target, expr.begin, expr.end], expr.type_name, ctx
+        codegen, _dispatch_target_name(expr.dispatch, ctx), [expr.target, expr.begin, expr.end], expr.type_ref, ctx
     )
 
 

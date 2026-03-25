@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from compiler.codegen.generator import CodeGenerator
@@ -304,3 +305,33 @@ def test_emitter_expr_emits_interface_dispatch_via_lookup_helper(tmp_path: Path)
     assert "    call rt_lookup_interface_method" in generator.asm.lines
     assert "    mov r11, qword ptr [r10 + 8]" in generator.asm.lines
     assert "    call r11" in generator.asm.lines
+
+
+def test_emitter_expr_uses_canonical_type_refs_when_compatibility_strings_are_stale(tmp_path: Path) -> None:
+    fn, generator, ctx = _build_emit_fixture(
+        tmp_path,
+        {
+            "main.nif": """
+            fn main() -> i64 {
+                var arr: i64[] = i64[](4u);
+                var value: u8 = (u8)258;
+                return (i64)value;
+            }
+            """
+        },
+    )
+
+    var_inits = [
+        stmt.initializer
+        for stmt in fn.body.statements
+        if hasattr(stmt, "initializer") and stmt.initializer is not None
+    ]
+    stale_array_ctor = replace(var_inits[0], element_type_name="stale_element")
+    stale_cast = replace(var_inits[1], target_type_name="stale_u8")
+
+    emit_expr(generator, stale_array_ctor, ctx)
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_I64]}" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    emit_expr(generator, stale_cast, ctx)
+    assert "    and rax, 255" in generator.asm.lines

@@ -8,7 +8,7 @@ from compiler.common.logging import get_logger
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U8, TYPE_NAME_U64
 from compiler.semantic.ir import *
 from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, UnaryOpFlavor, UnaryOpKind
-from compiler.semantic.types import semantic_primitive_type_ref
+from compiler.semantic.types import semantic_primitive_type_ref, semantic_type_canonical_name
 
 
 _INTEGER_MASKS = {TYPE_NAME_I64: (1 << 64) - 1, TYPE_NAME_U64: (1 << 64) - 1, TYPE_NAME_U8: (1 << 8) - 1}
@@ -224,20 +224,22 @@ def _try_fold_unary_expr(expr: UnaryExprS, stats: _FoldStats) -> SemanticExpr:
             stats.successful_folds += 1
             return _float_literal_expr(-constant.value, span=expr.span)
         integer_value = _integer_constant_value(constant)
-        if integer_value is None or expr.op.flavor != UnaryOpFlavor.INTEGER or expr.type_name != TYPE_NAME_I64:
+        result_type_name = semantic_type_canonical_name(expr.type_ref)
+        if integer_value is None or expr.op.flavor != UnaryOpFlavor.INTEGER or result_type_name != TYPE_NAME_I64:
             return expr
         stats.successful_folds += 1
         return _int_literal_expr(
-            _wrap_integer(-integer_value, expr.type_name), type_name=expr.type_name, span=expr.span
+            _wrap_integer(-integer_value, result_type_name), type_name=result_type_name, span=expr.span
         )
 
     if expr.op.kind == UnaryOpKind.BITWISE_NOT:
         integer_value = _integer_constant_value(constant)
-        if integer_value is None or expr.type_name not in _INTEGER_MASKS:
+        result_type_name = semantic_type_canonical_name(expr.type_ref)
+        if integer_value is None or result_type_name not in _INTEGER_MASKS:
             return expr
         stats.successful_folds += 1
         return _int_literal_expr(
-            _wrap_integer(~integer_value, expr.type_name), type_name=expr.type_name, span=expr.span
+            _wrap_integer(~integer_value, result_type_name), type_name=result_type_name, span=expr.span
         )
 
     return expr
@@ -259,7 +261,7 @@ def _try_fold_binary_expr(expr: BinaryExprS, stats: _FoldStats) -> SemanticExpr:
     right_value = _integer_constant_value(right_constant)
     if left_value is None or right_value is None:
         return expr
-    operand_type_name = expression_type_name(expr.left)
+    operand_type_name = semantic_type_canonical_name(expression_type_ref(expr.left))
     if operand_type_name not in _INTEGER_MASKS:
         return expr
     return _fold_integer_binary_expr(expr, operand_type_name, left_value, right_value, stats)
@@ -271,8 +273,8 @@ def _try_fold_cast_expr(expr: CastExprS, stats: _FoldStats) -> SemanticExpr:
     if constant is None:
         return expr
 
-    source_type_name = operand.type_name
-    target_type_name = expr.target_type_name
+    source_type_name = semantic_type_canonical_name(expression_type_ref(operand))
+    target_type_name = semantic_type_canonical_name(expr.target_type_ref)
 
     if expr.cast_kind == CastSemanticsKind.IDENTITY:
         stats.successful_folds += 1

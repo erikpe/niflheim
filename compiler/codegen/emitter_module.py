@@ -38,7 +38,7 @@ def generate_module(codegen, program, declaration_tables, type_metadata: TypeMet
 
 
 def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
-    if not type_metadata.classes and not type_metadata.extra_runtime_type_names and not type_metadata.interfaces:
+    if not type_metadata.classes and not type_metadata.extra_runtime_types and not type_metadata.interfaces:
         return
 
     codegen.asm.blank()
@@ -47,9 +47,10 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
         for alias in cls.aliases:
             codegen.asm.label(codegen_symbols.mangle_type_name_symbol(alias))
         codegen.asm.asciz(cls.display_name)
-    for type_name in type_metadata.extra_runtime_type_names:
-        codegen.asm.label(codegen_symbols.mangle_type_name_symbol(type_name))
-        codegen.asm.asciz(type_name)
+    for runtime_type in type_metadata.extra_runtime_types:
+        for alias in runtime_type.aliases:
+            codegen.asm.label(codegen_symbols.mangle_type_name_symbol(alias))
+        codegen.asm.asciz(runtime_type.display_name)
     for interface in type_metadata.interfaces:
         codegen.asm.label(codegen_symbols.mangle_interface_name_symbol(interface.display_name))
         codegen.asm.asciz(interface.display_name)
@@ -114,11 +115,12 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             interface_count=interface_count,
         )
 
-    for type_name in type_metadata.extra_runtime_type_names:
-        type_sym = codegen_symbols.mangle_type_symbol(type_name)
-        name_sym = codegen_symbols.mangle_type_name_symbol(type_name)
+    for runtime_type in type_metadata.extra_runtime_types:
+        type_sym = codegen_symbols.mangle_type_symbol(runtime_type.canonical_type_name)
+        name_sym = codegen_symbols.mangle_type_name_symbol(runtime_type.display_name)
         codegen.asm.instr(".p2align 3")
-        codegen.asm.label(type_sym)
+        for alias in runtime_type.aliases:
+            codegen.asm.label(codegen_symbols.mangle_type_symbol(alias))
         _emit_rt_type_record(
             codegen,
             flags=0,

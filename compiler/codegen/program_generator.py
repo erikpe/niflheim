@@ -11,6 +11,7 @@ from compiler.codegen.model import ConstructorLayout
 from compiler.resolver import ModulePath
 from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
 from compiler.semantic.symbols import ClassId, ConstructorId, InterfaceId, InterfaceMethodId, MethodId
+from compiler.semantic.types import SemanticTypeRef
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,11 @@ class DeclarationTables:
         if interface_id is None:
             return None
         return self.interface_descriptor_symbol(interface_id)
+
+    def interface_descriptor_symbol_for_type_ref(self, type_ref: SemanticTypeRef) -> str | None:
+        if type_ref.interface_id is None:
+            return None
+        return self.interface_descriptor_symbol(type_ref.interface_id)
 
 
 def _interface_id_from_type_name(current_module_path: ModulePath | None, type_name: str) -> InterfaceId | None:

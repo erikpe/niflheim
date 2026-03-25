@@ -199,7 +199,11 @@ def _emit_for_in(
 
     index_ref = local_ref_expr_for_owner(ctx.owner, stmt.index_local_id, span=stmt.span)
     _emit_named_call(
-        codegen, _dispatch_target_name(stmt.iter_get_dispatch, ctx), [coll_ref, index_ref], stmt.element_type_name, ctx
+        codegen,
+        _dispatch_target_name(stmt.iter_get_dispatch, ctx),
+        [coll_ref, index_ref],
+        stmt.element_type_ref,
+        ctx,
     )
     codegen.asm.instr(f"mov {offset_operand(element_offset)}, rax")
 
