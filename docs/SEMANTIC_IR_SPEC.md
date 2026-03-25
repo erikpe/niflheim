@@ -16,7 +16,7 @@ This is a structured semantic IR, not a low-level backend IR.
 
 This document describes the baseline semantic IR shape currently implemented and the invariants it was originally introduced to enforce.
 
-It is not the complete long-term semantic-graph roadmap. Planned follow-up changes around local identity, canonical type representation, and backend cleanup are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
+It is not the complete long-term semantic-graph roadmap. Planned follow-up changes around local identity are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md), and the remaining semantic-graph cleanup after that migration is tracked in [SEMANTIC_GRAPH_CLEANUP_ROADMAP.md](SEMANTIC_GRAPH_CLEANUP_ROADMAP.md).
 
 When the two documents differ, interpret this document as describing the current baseline and the roadmap document as describing the intended migration path.
 

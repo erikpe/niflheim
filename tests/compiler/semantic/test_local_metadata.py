@@ -42,7 +42,6 @@ def test_lower_program_records_function_local_metadata_by_local_id(tmp_path: Pat
     item_info = require_local_info_for_owner(function, item_ref.local_id)
 
     assert total_decl.name is None
-    assert total_decl.type_name is None
     assert total_decl.type_ref is None
     assert values_info.binding_kind == "param"
     assert values_info.type_name == "i64[]"

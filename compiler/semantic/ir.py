@@ -181,7 +181,6 @@ class SemanticVarDecl:
     initializer: "SemanticExpr | None"
     span: SourceSpan
     name: str | None = None
-    type_name: str | None = None
     type_ref: SemanticTypeRef | None = None
 
 
