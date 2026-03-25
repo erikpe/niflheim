@@ -24,6 +24,17 @@ from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_
 from compiler.codegen.runtime_calls import runtime_dispatch_call_name
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import *
+from compiler.semantic.operations import (
+    BinaryOpFlavor,
+    BinaryOpKind,
+    CastSemanticsKind,
+    TypeTestSemanticsKind,
+    UnaryOpFlavor,
+    UnaryOpKind,
+    binary_op_text,
+    binary_op_uses_u8_mask,
+    unary_op_text,
+)
 from compiler.semantic.symbols import InterfaceMethodId, MethodId
 
 if TYPE_CHECKING:
@@ -189,93 +200,99 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
     emit_expr(codegen, expr.operand, ctx)
     source_type = expression_type_name(expr.operand)
     target_type = expr.target_type_name
-    if target_type == source_type:
+    if expr.cast_kind == CastSemanticsKind.IDENTITY:
         return
-    if target_type == TYPE_NAME_OBJ and source_type != TYPE_NAME_NULL and codegen_types.is_reference_type_name(source_type):
-        return
-    if codegen_types.is_array_type_name(target_type) and source_type == TYPE_NAME_OBJ:
-        element_type = codegen_types.array_element_type_name(target_type, span=expr.span)
-        array_kind_by_element_type = {
-            TYPE_NAME_I64: 1,
-            TYPE_NAME_U64: 2,
-            TYPE_NAME_U8: 3,
-            TYPE_NAME_BOOL: 4,
-            TYPE_NAME_DOUBLE: 5,
-        }
-        expected_kind = array_kind_by_element_type.get(element_type, 6)
-        codegen.asm.instr("push rax")
-        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-        codegen.asm.instr("pop rax")
-        codegen.asm.instr("mov rdi, rax")
-        codegen.asm.instr(f"mov rsi, {expected_kind}")
-        codegen.emit_aligned_call("rt_checked_cast_array_kind")
-        _emit_runtime_call_hooks_after(codegen, ctx)
-        return
-    if codegen_types.is_reference_type_name(target_type):
-        _emit_reference_type_runtime_check(
-            codegen,
-            expr.operand,
-            target_type,
-            "rt_checked_cast_interface",
-            "rt_checked_cast",
-            ctx,
-        )
-        return
-    if target_type == TYPE_NAME_DOUBLE and source_type in {TYPE_NAME_I64, TYPE_NAME_U8, TYPE_NAME_BOOL}:
+    if expr.cast_kind == CastSemanticsKind.REFERENCE_COMPATIBILITY:
+        if target_type == TYPE_NAME_OBJ and source_type != TYPE_NAME_NULL and codegen_types.is_reference_type_name(source_type):
+            return
+        if codegen_types.is_array_type_name(target_type) and source_type == TYPE_NAME_OBJ:
+            element_type = codegen_types.array_element_type_name(target_type, span=expr.span)
+            array_kind_by_element_type = {
+                TYPE_NAME_I64: 1,
+                TYPE_NAME_U64: 2,
+                TYPE_NAME_U8: 3,
+                TYPE_NAME_BOOL: 4,
+                TYPE_NAME_DOUBLE: 5,
+            }
+            expected_kind = array_kind_by_element_type.get(element_type, 6)
+            codegen.asm.instr("push rax")
+            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+            codegen.asm.instr("pop rax")
+            codegen.asm.instr("mov rdi, rax")
+            codegen.asm.instr(f"mov rsi, {expected_kind}")
+            codegen.emit_aligned_call("rt_checked_cast_array_kind")
+            _emit_runtime_call_hooks_after(codegen, ctx)
+            return
+        if codegen_types.is_reference_type_name(target_type):
+            _emit_reference_type_runtime_check(
+                codegen,
+                expr.operand,
+                target_type,
+                "rt_checked_cast_interface",
+                "rt_checked_cast",
+                ctx,
+            )
+            return
+
+    if expr.cast_kind == CastSemanticsKind.TO_DOUBLE:
+        if source_type == TYPE_NAME_U64:
+            codegen.asm.instr("push rax")
+            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+            codegen.asm.instr("pop rax")
+            codegen.asm.instr("mov rdi, rax")
+            codegen.emit_aligned_call(U64_TO_DOUBLE_RUNTIME_CALL)
+            _emit_runtime_call_hooks_after(codegen, ctx)
+            codegen.asm.instr("movq rax, xmm0")
+            return
         codegen.asm.instr("cvtsi2sd xmm0, rax")
         codegen.asm.instr("movq rax, xmm0")
         return
-    if source_type == TYPE_NAME_U64 and target_type == TYPE_NAME_DOUBLE:
-        codegen.asm.instr("push rax")
-        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-        codegen.asm.instr("pop rax")
-        codegen.asm.instr("mov rdi, rax")
-        codegen.emit_aligned_call(U64_TO_DOUBLE_RUNTIME_CALL)
-        _emit_runtime_call_hooks_after(codegen, ctx)
-        codegen.asm.instr("movq rax, xmm0")
+
+    if expr.cast_kind == CastSemanticsKind.TO_INTEGER:
+        if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_I64:
+            codegen.asm.instr("push rax")
+            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+            codegen.asm.instr("pop rax")
+            codegen.asm.instr("movq xmm0, rax")
+            codegen.emit_aligned_call(DOUBLE_TO_I64_RUNTIME_CALL)
+            _emit_runtime_call_hooks_after(codegen, ctx)
+            return
+        if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U64:
+            codegen.asm.instr("push rax")
+            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+            codegen.asm.instr("pop rax")
+            codegen.asm.instr("movq xmm0, rax")
+            codegen.emit_aligned_call(DOUBLE_TO_U64_RUNTIME_CALL)
+            _emit_runtime_call_hooks_after(codegen, ctx)
+            return
+        if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U8:
+            codegen.asm.instr("push rax")
+            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+            codegen.asm.instr("pop rax")
+            codegen.asm.instr("movq xmm0, rax")
+            codegen.emit_aligned_call(DOUBLE_TO_U8_RUNTIME_CALL)
+            _emit_runtime_call_hooks_after(codegen, ctx)
+            return
+        if target_type == TYPE_NAME_U8:
+            codegen.asm.instr("and rax, 255")
         return
-    if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_I64:
-        codegen.asm.instr("push rax")
-        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-        codegen.asm.instr("pop rax")
-        codegen.asm.instr("movq xmm0, rax")
-        codegen.emit_aligned_call(DOUBLE_TO_I64_RUNTIME_CALL)
-        _emit_runtime_call_hooks_after(codegen, ctx)
-        return
-    if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U64:
-        codegen.asm.instr("push rax")
-        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-        codegen.asm.instr("pop rax")
-        codegen.asm.instr("movq xmm0, rax")
-        codegen.emit_aligned_call(DOUBLE_TO_U64_RUNTIME_CALL)
-        _emit_runtime_call_hooks_after(codegen, ctx)
-        return
-    if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U8:
-        codegen.asm.instr("push rax")
-        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-        codegen.asm.instr("pop rax")
-        codegen.asm.instr("movq xmm0, rax")
-        codegen.emit_aligned_call(DOUBLE_TO_U8_RUNTIME_CALL)
-        _emit_runtime_call_hooks_after(codegen, ctx)
-        return
-    if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_BOOL:
-        codegen.asm.instr("movq xmm0, rax")
-        codegen.asm.instr("xorpd xmm1, xmm1")
-        codegen.asm.instr("ucomisd xmm0, xmm1")
-        codegen.asm.instr("setne al")
-        codegen.asm.instr("setp dl")
-        codegen.asm.instr("or al, dl")
-        codegen.asm.instr("movzx rax, al")
-        return
-    if target_type == TYPE_NAME_U8:
-        codegen.asm.instr("and rax, 255")
-        return
-    if target_type == TYPE_NAME_BOOL:
+
+    if expr.cast_kind == CastSemanticsKind.TO_BOOL:
+        if source_type == TYPE_NAME_DOUBLE:
+            codegen.asm.instr("movq xmm0, rax")
+            codegen.asm.instr("xorpd xmm1, xmm1")
+            codegen.asm.instr("ucomisd xmm0, xmm1")
+            codegen.asm.instr("setne al")
+            codegen.asm.instr("setp dl")
+            codegen.asm.instr("or al, dl")
+            codegen.asm.instr("movzx rax, al")
+            return
         codegen.emit_bool_normalize()
+        return
 
 
 def _emit_type_test_expr(codegen: CodeGenerator, expr: TypeTestExprS, ctx: EmitContext) -> None:
-    if not codegen_types.is_reference_type_name(expr.target_type_name):
+    if expr.test_kind not in {TypeTestSemanticsKind.CLASS_COMPATIBILITY, TypeTestSemanticsKind.INTERFACE_COMPATIBILITY}:
         codegen_types.raise_codegen_error(
             f"type test codegen requires reference target type, got '{expr.target_type_name}'",
             span=expr.span,
@@ -532,17 +549,19 @@ def _emit_synthetic_expr(codegen: CodeGenerator, expr: SyntheticExpr, ctx: EmitC
 def _emit_unary_expr(codegen: CodeGenerator, expr: UnaryExprS, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.operand, ctx)
     operand_type_name = expression_type_name(expr.operand)
-    if expr.operator == "-" and operand_type_name == TYPE_NAME_DOUBLE:
+    if expr.op.flavor == UnaryOpFlavor.FLOAT and expr.op.kind == UnaryOpKind.NEGATE:
         emit_unary_negate_double(codegen.asm)
         return
     if emit_integer_unary_op(
         codegen.asm,
-        operator=expr.operator,
+        op_kind=expr.op.kind,
         operand_type_name=operand_type_name,
         emit_bool_normalize=codegen.emit_bool_normalize,
     ):
         return
-    codegen_types.raise_codegen_error(f"unary operator '{expr.operator}' is not supported", span=expr.span)
+    codegen_types.raise_codegen_error(
+        f"unary operator '{unary_op_text(expr.op)}' is not supported", span=expr.span
+    )
 
 
 def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContext) -> None:
@@ -555,17 +574,17 @@ def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContex
     emit_expr(codegen, expr.right, ctx)
     codegen.asm.instr("mov rcx, rax")
     codegen.asm.instr("pop rax")
-    if left_type_name == TYPE_NAME_DOUBLE and right_type_name == TYPE_NAME_DOUBLE:
+    if expr.op.flavor in {BinaryOpFlavor.FLOAT, BinaryOpFlavor.FLOAT_COMPARISON}:
         codegen.asm.instr("movq xmm1, rcx")
         codegen.asm.instr("movq xmm0, rax")
-        if emit_double_binary_op(codegen.asm, expr.operator):
+        if emit_double_binary_op(codegen.asm, expr.op.kind):
             return
         codegen_types.raise_codegen_error(
-            f"binary operator '{expr.operator}' is not supported for double operands", span=expr.span
+            f"binary operator '{binary_op_text(expr.op)}' is not supported for double operands", span=expr.span
         )
     if emit_integer_binary_op(
         codegen.asm,
-        operator=expr.operator,
+        op_kind=expr.op.kind,
         operand_type_name=left_type_name,
         fn_name=ctx.fn_name,
         label_counter=ctx.label_counter,
@@ -573,14 +592,16 @@ def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContex
         runtime_panic_message_label=codegen.runtime_panic_message_label,
         emit_aligned_call=codegen.emit_aligned_call,
     ):
-        if left_type_name == TYPE_NAME_U8 and expr.operator in {"+", "-", "*", "**", "/", "%", "&", "|", "^", "<<", ">>"}:
+        if left_type_name == TYPE_NAME_U8 and binary_op_uses_u8_mask(expr.op.kind):
             codegen.asm.instr("and rax, 255")
         return
-    codegen_types.raise_codegen_error(f"binary operator '{expr.operator}' is not supported", span=expr.span)
+    codegen_types.raise_codegen_error(
+        f"binary operator '{binary_op_text(expr.op)}' is not supported", span=expr.span
+    )
 
 
 def _emit_logical_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContext) -> bool:
-    if expr.operator not in ("&&", "||"):
+    if expr.op.kind not in (BinaryOpKind.LOGICAL_AND, BinaryOpKind.LOGICAL_OR):
         return False
     branch_id = ctx.label_counter[0]
     ctx.label_counter[0] += 1
@@ -589,7 +610,7 @@ def _emit_logical_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: Em
     emit_expr(codegen, expr.left, ctx)
     codegen.emit_bool_normalize()
     codegen.asm.instr("cmp rax, 0")
-    if expr.operator == "&&":
+    if expr.op.kind == BinaryOpKind.LOGICAL_AND:
         codegen.asm.instr(f"jne {rhs_label}")
         codegen.asm.instr("mov rax, 0")
     else:

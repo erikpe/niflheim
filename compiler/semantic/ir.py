@@ -8,6 +8,12 @@ from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpK
 from compiler.common.type_names import TYPE_NAME_NULL, TYPE_NAME_U64
 from compiler.common.span import SourceSpan
 from compiler.resolver import ModulePath
+from compiler.semantic.operations import (
+    CastSemanticsKind,
+    SemanticBinaryOp,
+    SemanticUnaryOp,
+    TypeTestSemanticsKind,
+)
 from compiler.semantic.symbols import (
     ClassId,
     ConstructorId,
@@ -374,7 +380,7 @@ class NullExprS:
 
 @dataclass(frozen=True)
 class UnaryExprS:
-    operator: str
+    op: SemanticUnaryOp
     operand: "SemanticExpr"
     type_name: str
     type_ref: SemanticTypeRef
@@ -383,7 +389,7 @@ class UnaryExprS:
 
 @dataclass(frozen=True)
 class BinaryExprS:
-    operator: str
+    op: SemanticBinaryOp
     left: "SemanticExpr"
     right: "SemanticExpr"
     type_name: str
@@ -394,6 +400,7 @@ class BinaryExprS:
 @dataclass(frozen=True)
 class CastExprS:
     operand: "SemanticExpr"
+    cast_kind: CastSemanticsKind
     target_type_name: str
     target_type_ref: SemanticTypeRef
     type_name: str
@@ -404,6 +411,7 @@ class CastExprS:
 @dataclass(frozen=True)
 class TypeTestExprS:
     operand: "SemanticExpr"
+    test_kind: TypeTestSemanticsKind
     target_type_name: str
     target_type_ref: SemanticTypeRef
     type_name: str

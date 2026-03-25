@@ -249,9 +249,9 @@ Step 2 status:
 - `SemanticVarDecl` compatibility fields required no extra step-2 migration beyond the earlier removal slice; the remaining downstream checks now assert owner-local metadata directly instead of copied use-site fields.
 
 3. Normalize semantic operations away from raw source-token strings
-  - [ ] introduce canonical enums or operation descriptors for unary, binary, cast, and type-test semantics where raw strings still do semantic work
-  - [ ] distinguish operations whose source spelling matches but whose semantics differ after type resolution
-  - [ ] keep pretty-printing helpers so test output and diagnostics stay readable
+  - [x] introduce canonical enums or operation descriptors for unary, binary, cast, and type-test semantics where raw strings still do semantic work
+  - [x] distinguish operations whose source spelling matches but whose semantics differ after type resolution
+  - [x] keep pretty-printing helpers so test output and diagnostics stay readable
   - Purpose:
     move the graph from typed syntax toward resolved semantic operations
   - Expected outcome:
@@ -259,6 +259,14 @@ Step 2 status:
   - Tests to add:
     - constant-folding and codegen tests keyed by semantic op kind rather than operator string spelling
     - regression tests for operations whose legality depends on resolved operand type
+
+Step 3 status:
+
+- complete
+- canonical semantic operation descriptors now live in `compiler/semantic/operations.py`: unary and binary expressions carry resolved op descriptors, while casts and type tests carry explicit semantic kind enums.
+- lowering now classifies operation semantics from canonical `SemanticTypeRef` values instead of copying raw source operator text into the semantic IR.
+- constant folding and codegen now branch on canonical op kinds and resolved operation flavors rather than source-token strings, while diagnostics still render readable operator text through shared pretty-print helpers.
+- focused lowering and codegen regressions cover integer vs double `+`, identity comparison, unary negation, reference-compatible casts, interface type tests, and backend integer-op helper coverage through the new canonical op model.
 
 4. Normalize resolved call and member-access modeling
   - [ ] factor the overlapping call/member fields into a clearer resolved target model

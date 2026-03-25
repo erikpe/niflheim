@@ -12,6 +12,7 @@ from compiler.codegen.walk import (
 from compiler.common.span import SourcePos, SourceSpan
 from compiler.semantic.ir import *
 from compiler.semantic.linker import LinkedSemanticProgram
+from compiler.semantic.operations import semantic_binary_op_from_token, semantic_cast_kind, semantic_type_test_kind
 from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, InterfaceMethodId, LocalId, MethodId
 from compiler.semantic.types import best_effort_semantic_type_ref_from_name, semantic_type_ref_for_class_id, semantic_type_ref_for_interface_id
 
@@ -68,7 +69,7 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
         args=[
             CastExprS(
                 operand=BinaryExprS(
-                    operator="+",
+                    op=semantic_binary_op_from_token("+", _type_ref("i64"), _type_ref("i64")),
                     left=LiteralExprS(
                         constant=IntConstant(value=1, type_name="i64"),
                         type_name="i64",
@@ -80,6 +81,7 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
                     type_ref=_type_ref("i64"),
                     span=span,
                 ),
+                cast_kind=semantic_cast_kind(_type_ref("i64"), _type_ref("i64")),
                 target_type_name="i64",
                 target_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 type_name="i64",
@@ -108,9 +110,10 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
 
 def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
     span = _span()
+    box_type_ref = semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box")
     expr = TypeTestExprS(
         operand=BinaryExprS(
-            operator="+",
+            op=semantic_binary_op_from_token("+", _type_ref("i64"), _type_ref("i64")),
             left=LiteralExprS(
                 constant=IntConstant(value=1, type_name="i64"),
                 type_name="i64",
@@ -122,8 +125,9 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
             type_ref=_type_ref("i64"),
             span=span,
         ),
+        test_kind=semantic_type_test_kind(box_type_ref),
         target_type_name="Box",
-        target_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
+        target_type_ref=box_type_ref,
         type_name="bool",
         type_ref=_type_ref("bool"),
         span=span,

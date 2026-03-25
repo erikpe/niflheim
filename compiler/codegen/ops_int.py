@@ -4,24 +4,25 @@ from collections.abc import Callable
 
 from compiler.common.type_names import TYPE_NAME_U8, UNSIGNED_INTEGER_TYPE_NAMES
 from compiler.codegen.asm import AsmBuilder
+from compiler.semantic.operations import BinaryOpKind, UnaryOpKind
 
 
 def emit_integer_unary_op(
-    asm: AsmBuilder, *, operator: str, operand_type_name: str, emit_bool_normalize: Callable[[], None]
+    asm: AsmBuilder, *, op_kind: UnaryOpKind, operand_type_name: str, emit_bool_normalize: Callable[[], None]
 ) -> bool:
-    if operator == "-":
+    if op_kind == UnaryOpKind.NEGATE:
         asm.instr("neg rax")
         if operand_type_name == TYPE_NAME_U8:
             asm.instr("and rax, 255")
         return True
 
-    if operator == "~":
+    if op_kind == UnaryOpKind.BITWISE_NOT:
         asm.instr("not rax")
         if operand_type_name == TYPE_NAME_U8:
             asm.instr("and rax, 255")
         return True
 
-    if operator == "!":
+    if op_kind == UnaryOpKind.LOGICAL_NOT:
         emit_bool_normalize()
         asm.instr("xor rax, 1")
         return True
@@ -32,7 +33,7 @@ def emit_integer_unary_op(
 def emit_integer_binary_op(
     asm: AsmBuilder,
     *,
-    operator: str,
+    op_kind: BinaryOpKind,
     operand_type_name: str,
     fn_name: str,
     label_counter: list[int],
@@ -41,16 +42,16 @@ def emit_integer_binary_op(
     emit_aligned_call: Callable[[str], None],
 ) -> bool:
     is_unsigned = operand_type_name in UNSIGNED_INTEGER_TYPE_NAMES
-    if operator == "+":
+    if op_kind == BinaryOpKind.ADD:
         asm.instr("add rax, rcx")
         return True
-    if operator == "-":
+    if op_kind == BinaryOpKind.SUBTRACT:
         asm.instr("sub rax, rcx")
         return True
-    if operator == "*":
+    if op_kind == BinaryOpKind.MULTIPLY:
         asm.instr("imul rax, rcx")
         return True
-    if operator == "**":
+    if op_kind == BinaryOpKind.POWER:
         pow_loop_label = next_label(fn_name, "pow_loop", label_counter)
         pow_done_label = next_label(fn_name, "pow_done", label_counter)
         pow_skip_mul_label = next_label(fn_name, "pow_skip_mul", label_counter)
@@ -69,7 +70,7 @@ def emit_integer_binary_op(
         asm.label(pow_done_label)
         asm.instr("mov rax, r8")
         return True
-    if operator == "/":
+    if op_kind == BinaryOpKind.DIVIDE:
         if is_unsigned:
             asm.instr("xor rdx, rdx")
             asm.instr("div rcx")
@@ -85,7 +86,7 @@ def emit_integer_binary_op(
             asm.instr("sub rax, 1")
             asm.label(done_label)
         return True
-    if operator == "%":
+    if op_kind == BinaryOpKind.REMAINDER:
         if is_unsigned:
             asm.instr("xor rdx, rdx")
             asm.instr("div rcx")
@@ -105,17 +106,17 @@ def emit_integer_binary_op(
         asm.instr("mov rax, rdx")
         return True
 
-    if operator == "&":
+    if op_kind == BinaryOpKind.BITWISE_AND:
         asm.instr("and rax, rcx")
         return True
-    if operator == "|":
+    if op_kind == BinaryOpKind.BITWISE_OR:
         asm.instr("or rax, rcx")
         return True
-    if operator == "^":
+    if op_kind == BinaryOpKind.BITWISE_XOR:
         asm.instr("xor rax, rcx")
         return True
 
-    if operator in {"<<", ">>"}:
+    if op_kind in {BinaryOpKind.SHIFT_LEFT, BinaryOpKind.SHIFT_RIGHT}:
         max_shift = 8 if operand_type_name == TYPE_NAME_U8 else 64
         shift_ok_label = next_label(fn_name, "shift_ok", label_counter)
         panic_message_label = runtime_panic_message_label("invalid shift count")
@@ -124,7 +125,7 @@ def emit_integer_binary_op(
         asm.instr(f"lea rdi, [rip + {panic_message_label}]")
         emit_aligned_call("rt_panic")
         asm.label(shift_ok_label)
-        if operator == "<<":
+        if op_kind == BinaryOpKind.SHIFT_LEFT:
             asm.instr("shl rax, cl")
         elif is_unsigned:
             asm.instr("shr rax, cl")
@@ -132,17 +133,24 @@ def emit_integer_binary_op(
             asm.instr("sar rax, cl")
         return True
 
-    if operator in ("==", "!=", "<", "<=", ">", ">="):
+    if op_kind in (
+        BinaryOpKind.EQUAL,
+        BinaryOpKind.NOT_EQUAL,
+        BinaryOpKind.LESS_THAN,
+        BinaryOpKind.LESS_EQUAL,
+        BinaryOpKind.GREATER_THAN,
+        BinaryOpKind.GREATER_EQUAL,
+    ):
         asm.instr("cmp rax, rcx")
-        if operator == "==":
+        if op_kind == BinaryOpKind.EQUAL:
             asm.instr("sete al")
-        elif operator == "!=":
+        elif op_kind == BinaryOpKind.NOT_EQUAL:
             asm.instr("setne al")
-        elif operator == "<":
+        elif op_kind == BinaryOpKind.LESS_THAN:
             asm.instr("setb al" if is_unsigned else "setl al")
-        elif operator == "<=":
+        elif op_kind == BinaryOpKind.LESS_EQUAL:
             asm.instr("setbe al" if is_unsigned else "setle al")
-        elif operator == ">":
+        elif op_kind == BinaryOpKind.GREATER_THAN:
             asm.instr("seta al" if is_unsigned else "setg al")
         else:
             asm.instr("setae al" if is_unsigned else "setge al")

@@ -4,6 +4,12 @@ from compiler.common.collection_protocols import CollectionOpKind
 from compiler.frontend.ast_nodes import *
 from compiler.semantic.ir import *
 from compiler.semantic.lowering.locals import LocalIdTracker
+from compiler.semantic.operations import (
+    semantic_binary_op_from_token,
+    semantic_cast_kind,
+    semantic_type_test_kind,
+    semantic_unary_op_from_token,
+)
 from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
 from compiler.semantic.symbols import ProgramSymbolIndex
 from compiler.semantic.types import SemanticTypeRef
@@ -47,10 +53,11 @@ def lower_expr(
         return NullExprS(span=expr.span)
 
     if isinstance(expr, UnaryExpr):
+        operand = lower_expr(typecheck_ctx, symbol_index, expr.operand, local_id_tracker)
         result_type_name, result_type_ref = _infer_semantic_expr_type(typecheck_ctx, expr)
         return UnaryExprS(
-            operator=expr.operator,
-            operand=lower_expr(typecheck_ctx, symbol_index, expr.operand, local_id_tracker),
+            op=semantic_unary_op_from_token(expr.operator, expression_type_ref(operand)),
+            operand=operand,
             type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
@@ -67,34 +74,42 @@ def lower_expr(
         )
         if string_concat is not None:
             return string_concat
+        left = lower_expr(typecheck_ctx, symbol_index, expr.left, local_id_tracker)
+        right = lower_expr(typecheck_ctx, symbol_index, expr.right, local_id_tracker)
         return BinaryExprS(
-            operator=expr.operator,
-            left=lower_expr(typecheck_ctx, symbol_index, expr.left, local_id_tracker),
-            right=lower_expr(typecheck_ctx, symbol_index, expr.right, local_id_tracker),
+            op=semantic_binary_op_from_token(expr.operator, expression_type_ref(left), expression_type_ref(right)),
+            left=left,
+            right=right,
             type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
 
     if isinstance(expr, CastExpr):
+        operand = lower_expr(typecheck_ctx, symbol_index, expr.operand, local_id_tracker)
         target_type = resolve_type_ref(typecheck_ctx, expr.type_ref)
+        target_type_ref = semantic_type_ref_from_checked_type(typecheck_ctx, target_type)
         result_type_name, result_type_ref = _infer_semantic_expr_type(typecheck_ctx, expr)
         return CastExprS(
-            operand=lower_expr(typecheck_ctx, symbol_index, expr.operand, local_id_tracker),
+            operand=operand,
+            cast_kind=semantic_cast_kind(expression_type_ref(operand), target_type_ref),
             target_type_name=target_type.name,
-            target_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, target_type),
+            target_type_ref=target_type_ref,
             type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,
         )
 
     if isinstance(expr, TypeTestExpr):
+        operand = lower_expr(typecheck_ctx, symbol_index, expr.operand, local_id_tracker)
         target_type = resolve_type_ref(typecheck_ctx, expr.type_ref)
+        target_type_ref = semantic_type_ref_from_checked_type(typecheck_ctx, target_type)
         result_type_name, result_type_ref = _infer_semantic_expr_type(typecheck_ctx, expr)
         return TypeTestExprS(
-            operand=lower_expr(typecheck_ctx, symbol_index, expr.operand, local_id_tracker),
+            operand=operand,
+            test_kind=semantic_type_test_kind(target_type_ref),
             target_type_name=target_type.name,
-            target_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, target_type),
+            target_type_ref=target_type_ref,
             type_name=result_type_name,
             type_ref=result_type_ref,
             span=expr.span,

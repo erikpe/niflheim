@@ -4,6 +4,7 @@ from pathlib import Path
 
 from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind, collection_method_name
 from compiler.semantic.ir import *
+from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, TypeTestSemanticsKind, UnaryOpFlavor, UnaryOpKind
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering.orchestration import lower_program
 
@@ -632,6 +633,7 @@ def test_lower_program_preserves_explicit_obj_to_interface_casts(tmp_path: Path)
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, CastExprS)
+    assert return_stmt.value.cast_kind is CastSemanticsKind.REFERENCE_COMPATIBILITY
     assert return_stmt.value.target_type_name == "Hashable"
     assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
     assert return_stmt.value.type_name == "Hashable"
@@ -674,6 +676,7 @@ def test_lower_program_preserves_imported_interface_cast_target_names(tmp_path: 
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, CastExprS)
+    assert return_stmt.value.cast_kind is CastSemanticsKind.REFERENCE_COMPATIBILITY
     assert return_stmt.value.target_type_name == "util::Hashable"
     assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
     assert return_stmt.value.type_name == "util::Hashable"
@@ -716,6 +719,7 @@ def test_lower_program_preserves_imported_interface_type_test_target_names(tmp_p
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, TypeTestExprS)
+    assert return_stmt.value.test_kind is TypeTestSemanticsKind.INTERFACE_COMPATIBILITY
     assert return_stmt.value.target_type_name == "util::Hashable"
     assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
     assert return_stmt.value.type_name == "bool"
@@ -1272,9 +1276,56 @@ def test_lower_program_preserves_min_i64_literal_inside_unary_negation(tmp_path:
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, UnaryExprS)
+    assert return_stmt.value.op.kind is UnaryOpKind.NEGATE
+    assert return_stmt.value.op.flavor is UnaryOpFlavor.INTEGER
     assert return_stmt.value.type_ref.canonical_name == "i64"
     assert isinstance(return_stmt.value.operand, LiteralExprS)
     assert isinstance(return_stmt.value.operand.constant, IntConstant)
     assert return_stmt.value.operand.constant.type_name == "i64"
     assert return_stmt.value.operand.type_ref.canonical_name == "i64"
     assert return_stmt.value.operand.constant.value == 9223372036854775808
+
+
+def test_lower_program_distinguishes_operation_flavors_after_type_resolution(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Box {
+            value: i64;
+        }
+
+        fn add_i64(left: i64, right: i64) -> i64 {
+            return left + right;
+        }
+
+        fn add_double(left: double, right: double) -> double {
+            return left + right;
+        }
+
+        fn same_box(left: Box, right: Box) -> bool {
+            return left == right;
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    functions = semantic.modules[("main",)].functions
+
+    int_return = functions[0].body.statements[0]
+    double_return = functions[1].body.statements[0]
+    identity_return = functions[2].body.statements[0]
+
+    assert isinstance(int_return, SemanticReturn)
+    assert isinstance(int_return.value, BinaryExprS)
+    assert int_return.value.op.kind is BinaryOpKind.ADD
+    assert int_return.value.op.flavor is BinaryOpFlavor.INTEGER
+
+    assert isinstance(double_return, SemanticReturn)
+    assert isinstance(double_return.value, BinaryExprS)
+    assert double_return.value.op.kind is BinaryOpKind.ADD
+    assert double_return.value.op.flavor is BinaryOpFlavor.FLOAT
+
+    assert isinstance(identity_return, SemanticReturn)
+    assert isinstance(identity_return.value, BinaryExprS)
+    assert identity_return.value.op.kind is BinaryOpKind.EQUAL
+    assert identity_return.value.op.flavor is BinaryOpFlavor.IDENTITY_COMPARISON

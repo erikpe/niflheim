@@ -7,6 +7,7 @@ from dataclasses import replace
 from compiler.common.logging import get_logger
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U8, TYPE_NAME_U64
 from compiler.semantic.ir import *
+from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, UnaryOpFlavor, UnaryOpKind
 from compiler.semantic.types import semantic_primitive_type_ref
 
 
@@ -214,23 +215,23 @@ def _try_fold_unary_expr(expr: UnaryExprS, stats: _FoldStats) -> SemanticExpr:
     if constant is None:
         return expr
 
-    if expr.operator == "!" and isinstance(constant, BoolConstant):
+    if expr.op.kind == UnaryOpKind.LOGICAL_NOT and isinstance(constant, BoolConstant):
         stats.successful_folds += 1
         return _bool_literal_expr(not constant.value, span=expr.span)
 
-    if expr.operator == "-":
+    if expr.op.kind == UnaryOpKind.NEGATE:
         if isinstance(constant, FloatConstant):
             stats.successful_folds += 1
             return _float_literal_expr(-constant.value, span=expr.span)
         integer_value = _integer_constant_value(constant)
-        if integer_value is None or expr.type_name != TYPE_NAME_I64:
+        if integer_value is None or expr.op.flavor != UnaryOpFlavor.INTEGER or expr.type_name != TYPE_NAME_I64:
             return expr
         stats.successful_folds += 1
         return _int_literal_expr(
             _wrap_integer(-integer_value, expr.type_name), type_name=expr.type_name, span=expr.span
         )
 
-    if expr.operator == "~":
+    if expr.op.kind == UnaryOpKind.BITWISE_NOT:
         integer_value = _integer_constant_value(constant)
         if integer_value is None or expr.type_name not in _INTEGER_MASKS:
             return expr
@@ -248,17 +249,17 @@ def _try_fold_binary_expr(expr: BinaryExprS, stats: _FoldStats) -> SemanticExpr:
     if left_constant is None or right_constant is None:
         return expr
 
-    if isinstance(left_constant, BoolConstant) and isinstance(right_constant, BoolConstant):
+    if expr.op.flavor in {BinaryOpFlavor.BOOL_LOGICAL, BinaryOpFlavor.BOOL_COMPARISON}:
         return _fold_bool_binary_expr(expr, left_constant, right_constant, stats)
 
-    if isinstance(left_constant, FloatConstant) and isinstance(right_constant, FloatConstant):
+    if expr.op.flavor in {BinaryOpFlavor.FLOAT, BinaryOpFlavor.FLOAT_COMPARISON}:
         return _fold_float_binary_expr(expr, left_constant, right_constant, stats)
 
     left_value = _integer_constant_value(left_constant)
     right_value = _integer_constant_value(right_constant)
     if left_value is None or right_value is None:
         return expr
-    operand_type_name = expr.left.type_name
+    operand_type_name = expression_type_name(expr.left)
     if operand_type_name not in _INTEGER_MASKS:
         return expr
     return _fold_integer_binary_expr(expr, operand_type_name, left_value, right_value, stats)
@@ -273,25 +274,25 @@ def _try_fold_cast_expr(expr: CastExprS, stats: _FoldStats) -> SemanticExpr:
     source_type_name = operand.type_name
     target_type_name = expr.target_type_name
 
-    if source_type_name == target_type_name:
+    if expr.cast_kind == CastSemanticsKind.IDENTITY:
         stats.successful_folds += 1
         return replace(operand, span=expr.span)
 
-    if target_type_name == TYPE_NAME_DOUBLE:
+    if expr.cast_kind == CastSemanticsKind.TO_DOUBLE:
         folded = _try_fold_cast_to_double(constant)
         if folded is None:
             return expr
         stats.successful_folds += 1
         return _float_literal_expr(folded, span=expr.span)
 
-    if target_type_name in _INTEGER_MASKS:
+    if expr.cast_kind == CastSemanticsKind.TO_INTEGER:
         folded = _try_fold_cast_to_integer(constant, target_type_name)
         if folded is None:
             return expr
         stats.successful_folds += 1
         return _int_literal_expr(folded, type_name=target_type_name, span=expr.span)
 
-    if target_type_name == TYPE_NAME_BOOL:
+    if expr.cast_kind == CastSemanticsKind.TO_BOOL:
         folded = _try_fold_cast_to_bool(constant)
         if folded is None:
             return expr
@@ -304,16 +305,16 @@ def _try_fold_cast_expr(expr: CastExprS, stats: _FoldStats) -> SemanticExpr:
 def _fold_bool_binary_expr(
     expr: BinaryExprS, left_constant: BoolConstant, right_constant: BoolConstant, stats: _FoldStats
 ) -> SemanticExpr:
-    if expr.operator == "&&":
+    if expr.op.kind == BinaryOpKind.LOGICAL_AND:
         stats.successful_folds += 1
         return _bool_literal_expr(left_constant.value and right_constant.value, span=expr.span)
-    if expr.operator == "||":
+    if expr.op.kind == BinaryOpKind.LOGICAL_OR:
         stats.successful_folds += 1
         return _bool_literal_expr(left_constant.value or right_constant.value, span=expr.span)
-    if expr.operator == "==":
+    if expr.op.kind == BinaryOpKind.EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_constant.value == right_constant.value, span=expr.span)
-    if expr.operator == "!=":
+    if expr.op.kind == BinaryOpKind.NOT_EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_constant.value != right_constant.value, span=expr.span)
     return expr
@@ -325,65 +326,64 @@ def _fold_float_binary_expr(
     left_value = left_constant.value
     right_value = right_constant.value
 
-    if expr.operator == "+":
+    if expr.op.kind == BinaryOpKind.ADD:
         stats.successful_folds += 1
         return _float_literal_expr(left_value + right_value, span=expr.span)
-    if expr.operator == "-":
+    if expr.op.kind == BinaryOpKind.SUBTRACT:
         stats.successful_folds += 1
         return _float_literal_expr(left_value - right_value, span=expr.span)
-    if expr.operator == "*":
+    if expr.op.kind == BinaryOpKind.MULTIPLY:
         stats.successful_folds += 1
         return _float_literal_expr(left_value * right_value, span=expr.span)
-    if expr.operator == "/":
+    if expr.op.kind == BinaryOpKind.DIVIDE:
         if right_value == 0.0:
             return expr
         stats.successful_folds += 1
         return _float_literal_expr(left_value / right_value, span=expr.span)
-    if expr.operator == "==":
+    if expr.op.kind == BinaryOpKind.EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value == right_value, span=expr.span)
-    if expr.operator == "!=":
+    if expr.op.kind == BinaryOpKind.NOT_EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value != right_value, span=expr.span)
-    if expr.operator == "<":
+    if expr.op.kind == BinaryOpKind.LESS_THAN:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value < right_value, span=expr.span)
-    if expr.operator == "<=":
+    if expr.op.kind == BinaryOpKind.LESS_EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value <= right_value, span=expr.span)
-    if expr.operator == ">":
+    if expr.op.kind == BinaryOpKind.GREATER_THAN:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value > right_value, span=expr.span)
-    if expr.operator == ">=":
+    if expr.op.kind == BinaryOpKind.GREATER_EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value >= right_value, span=expr.span)
     return expr
 
-
 def _fold_integer_binary_expr(
     expr: BinaryExprS, operand_type_name: str, left_value: int, right_value: int, stats: _FoldStats
 ) -> SemanticExpr:
-    if expr.operator == "+":
+    if expr.op.kind == BinaryOpKind.ADD:
         stats.successful_folds += 1
         return _int_literal_expr(
             _wrap_integer(left_value + right_value, operand_type_name), type_name=operand_type_name, span=expr.span
         )
-    if expr.operator == "-":
+    if expr.op.kind == BinaryOpKind.SUBTRACT:
         stats.successful_folds += 1
         return _int_literal_expr(
             _wrap_integer(left_value - right_value, operand_type_name), type_name=operand_type_name, span=expr.span
         )
-    if expr.operator == "*":
+    if expr.op.kind == BinaryOpKind.MULTIPLY:
         stats.successful_folds += 1
         return _int_literal_expr(
             _wrap_integer(left_value * right_value, operand_type_name), type_name=operand_type_name, span=expr.span
         )
-    if expr.operator == "**":
+    if expr.op.kind == BinaryOpKind.POWER:
         stats.successful_folds += 1
         return _int_literal_expr(
             _pow_integer(left_value, right_value, operand_type_name), type_name=operand_type_name, span=expr.span
         )
-    if expr.operator == "/":
+    if expr.op.kind == BinaryOpKind.DIVIDE:
         if right_value == 0 or _signed_division_overflows(left_value, right_value, operand_type_name):
             return expr
         stats.successful_folds += 1
@@ -392,51 +392,51 @@ def _fold_integer_binary_expr(
             type_name=operand_type_name,
             span=expr.span,
         )
-    if expr.operator == "%":
+    if expr.op.kind == BinaryOpKind.REMAINDER:
         if right_value == 0 or _signed_division_overflows(left_value, right_value, operand_type_name):
             return expr
         stats.successful_folds += 1
         return _int_literal_expr(
             _wrap_integer(left_value % right_value, operand_type_name), type_name=operand_type_name, span=expr.span
         )
-    if expr.operator == "&":
+    if expr.op.kind == BinaryOpKind.BITWISE_AND:
         stats.successful_folds += 1
         return _int_literal_expr(
             _wrap_integer(left_value & right_value, operand_type_name), type_name=operand_type_name, span=expr.span
         )
-    if expr.operator == "|":
+    if expr.op.kind == BinaryOpKind.BITWISE_OR:
         stats.successful_folds += 1
         return _int_literal_expr(
             _wrap_integer(left_value | right_value, operand_type_name), type_name=operand_type_name, span=expr.span
         )
-    if expr.operator == "^":
+    if expr.op.kind == BinaryOpKind.BITWISE_XOR:
         stats.successful_folds += 1
         return _int_literal_expr(
             _wrap_integer(left_value ^ right_value, operand_type_name), type_name=operand_type_name, span=expr.span
         )
-    if expr.operator in {"<<", ">>"}:
+    if expr.op.kind in {BinaryOpKind.SHIFT_LEFT, BinaryOpKind.SHIFT_RIGHT}:
         max_shift = 8 if operand_type_name == TYPE_NAME_U8 else 64
-        if right_value < 0 or right_value >= max_shift:
+        if right_value >= max_shift:
             return expr
-        shifted = left_value << right_value if expr.operator == "<<" else left_value >> right_value
+        shifted = left_value << right_value if expr.op.kind == BinaryOpKind.SHIFT_LEFT else left_value >> right_value
         stats.successful_folds += 1
         return _int_literal_expr(_wrap_integer(shifted, operand_type_name), type_name=operand_type_name, span=expr.span)
-    if expr.operator == "==":
+    if expr.op.kind == BinaryOpKind.EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value == right_value, span=expr.span)
-    if expr.operator == "!=":
+    if expr.op.kind == BinaryOpKind.NOT_EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value != right_value, span=expr.span)
-    if expr.operator == "<":
+    if expr.op.kind == BinaryOpKind.LESS_THAN:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value < right_value, span=expr.span)
-    if expr.operator == "<=":
+    if expr.op.kind == BinaryOpKind.LESS_EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value <= right_value, span=expr.span)
-    if expr.operator == ">":
+    if expr.op.kind == BinaryOpKind.GREATER_THAN:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value > right_value, span=expr.span)
-    if expr.operator == ">=":
+    if expr.op.kind == BinaryOpKind.GREATER_EQUAL:
         stats.successful_folds += 1
         return _bool_literal_expr(left_value >= right_value, span=expr.span)
     return expr

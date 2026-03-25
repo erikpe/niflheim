@@ -1,6 +1,7 @@
 from compiler.codegen.asm import AsmBuilder
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.codegen.symbols import next_label
+from compiler.semantic.operations import BinaryOpKind, UnaryOpKind
 
 
 def test_ops_int_emitters_cover_signed_divmod_shift_and_unary_paths() -> None:
@@ -19,19 +20,19 @@ def test_ops_int_emitters_cover_signed_divmod_shift_and_unary_paths() -> None:
 
     emit_integer_unary_op(
         builder,
-        operator="~",
+        op_kind=UnaryOpKind.BITWISE_NOT,
         operand_type_name="u8",
         emit_bool_normalize=lambda: builder.instr("normalize-bool"),
     )
     emit_integer_unary_op(
         builder,
-        operator="!",
+        op_kind=UnaryOpKind.LOGICAL_NOT,
         operand_type_name="bool",
         emit_bool_normalize=lambda: builder.instr("normalize-bool"),
     )
     div_ok = emit_integer_binary_op(
         builder,
-        operator="/",
+        op_kind=BinaryOpKind.DIVIDE,
         operand_type_name="i64",
         fn_name="f",
         label_counter=label_counter,
@@ -41,7 +42,7 @@ def test_ops_int_emitters_cover_signed_divmod_shift_and_unary_paths() -> None:
     )
     mod_ok = emit_integer_binary_op(
         builder,
-        operator="%",
+        op_kind=BinaryOpKind.REMAINDER,
         operand_type_name="i64",
         fn_name="f",
         label_counter=label_counter,
@@ -51,7 +52,7 @@ def test_ops_int_emitters_cover_signed_divmod_shift_and_unary_paths() -> None:
     )
     shift_ok = emit_integer_binary_op(
         builder,
-        operator=">>",
+        op_kind=BinaryOpKind.SHIFT_RIGHT,
         operand_type_name="u8",
         fn_name="f",
         label_counter=label_counter,
