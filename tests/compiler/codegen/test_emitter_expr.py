@@ -327,15 +327,15 @@ def test_emitter_expr_uses_canonical_type_refs_when_compatibility_strings_are_st
         for stmt in fn.body.statements
         if hasattr(stmt, "initializer") and stmt.initializer is not None
     ]
-    stale_array_ctor = replace(var_inits[0], element_type_name="stale_element")
-    stale_cast = replace(var_inits[1], target_type_name="stale_u8")
     stale_binary = replace(var_inits[2], left=replace(var_inits[2].left, type_name="stale_left"))
+    assert not hasattr(var_inits[1], "target_type_name")
+    assert not hasattr(var_inits[0], "element_type_name")
 
-    emit_expr(generator, stale_array_ctor, ctx)
+    emit_expr(generator, var_inits[0], ctx)
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_I64]}" in generator.asm.lines
 
     generator.asm.lines.clear()
-    emit_expr(generator, stale_cast, ctx)
+    emit_expr(generator, var_inits[1], ctx)
     assert "    and rax, 255" in generator.asm.lines
 
     generator.asm.lines.clear()

@@ -40,7 +40,6 @@ class LoweredSemanticForIn:
     collection: SemanticExpr
     iter_len_dispatch: SemanticDispatch
     iter_get_dispatch: SemanticDispatch
-    element_type_name: str
     element_type_ref: SemanticTypeRef
     body: LoweredSemanticBlock
     span: SourceSpan

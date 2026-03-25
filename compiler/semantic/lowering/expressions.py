@@ -93,7 +93,6 @@ def lower_expr(
         return CastExprS(
             operand=operand,
             cast_kind=semantic_cast_kind(expression_type_ref(operand), target_type_ref),
-            target_type_name=target_type.name,
             target_type_ref=target_type_ref,
             type_name=result_type_name,
             type_ref=result_type_ref,
@@ -108,7 +107,6 @@ def lower_expr(
         return TypeTestExprS(
             operand=operand,
             test_kind=semantic_type_test_kind(target_type_ref),
-            target_type_name=target_type.name,
             target_type_ref=target_type_ref,
             type_name=result_type_name,
             type_ref=result_type_ref,
@@ -200,7 +198,6 @@ def lower_call_expr(
                 method_id=resolved_target.method_id,
                 access=BoundMemberAccess(
                     receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.access.receiver, local_id_tracker),
-                    receiver_type_name=resolved_target.access.receiver_type_name,
                     receiver_type_ref=semantic_type_ref_from_checked_type(
                         typecheck_ctx, infer_expression_type(typecheck_ctx, resolved_target.access.receiver)
                     ),
@@ -219,7 +216,6 @@ def lower_call_expr(
                 method_id=resolved_target.method_id,
                 access=BoundMemberAccess(
                     receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.access.receiver, local_id_tracker),
-                    receiver_type_name=resolved_target.access.receiver_type_name,
                     receiver_type_ref=semantic_type_ref_from_checked_type(
                         typecheck_ctx, infer_expression_type(typecheck_ctx, resolved_target.access.receiver)
                     ),
@@ -283,7 +279,6 @@ def _lower_array_ctor_expr(
     array_type = resolve_type_ref(typecheck_ctx, expr.element_type_ref)
     assert array_type.element_type is not None
     return ArrayCtorExprS(
-        element_type_name=array_type.element_type.name,
         element_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, array_type.element_type),
         length_expr=lower_expr(typecheck_ctx, symbol_index, expr.length_expr, local_id_tracker),
         type_name=array_type.name,

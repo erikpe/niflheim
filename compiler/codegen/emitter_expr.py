@@ -36,7 +36,12 @@ from compiler.semantic.operations import (
     unary_op_text,
 )
 from compiler.semantic.symbols import InterfaceMethodId, MethodId
-from compiler.semantic.types import semantic_type_array_element, semantic_type_canonical_name, semantic_type_is_array
+from compiler.semantic.types import (
+    semantic_type_array_element,
+    semantic_type_canonical_name,
+    semantic_type_display_name,
+    semantic_type_is_array,
+)
 
 if TYPE_CHECKING:
     from compiler.codegen.generator import CodeGenerator
@@ -280,7 +285,7 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
 def _emit_type_test_expr(codegen: CodeGenerator, expr: TypeTestExprS, ctx: EmitContext) -> None:
     if expr.test_kind not in {TypeTestSemanticsKind.CLASS_COMPATIBILITY, TypeTestSemanticsKind.INTERFACE_COMPATIBILITY}:
         codegen_types.raise_codegen_error(
-            f"type test codegen requires reference target type, got '{expr.target_type_name}'",
+            f"type test codegen requires reference target type, got '{semantic_type_display_name(expr.target_type_ref)}'",
             span=expr.span,
         )
     _emit_reference_type_runtime_check(

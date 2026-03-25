@@ -255,22 +255,9 @@ def test_semantic_reachability_uses_canonical_type_refs_when_compatibility_strin
     function = semantic.modules[("main",)].functions[0]
     return_stmt = function.body.statements[0]
     call_expr = return_stmt.value
-    stale_target = replace(
-        call_expr.target,
-        access=replace(call_expr.target.access, receiver_type_name="stale::Receiver"),
-    )
-    stale_program = replace(
-        semantic,
-        modules={
-            **semantic.modules,
-            ("main",): replace(
-                semantic.modules[("main",)],
-                functions=[replace(function, body=replace(function.body, statements=[replace(return_stmt, value=replace(call_expr, target=stale_target))]))],
-            ),
-        },
-    )
+    assert not hasattr(call_expr.target.access, "receiver_type_name")
 
-    reachability = analyze_semantic_reachability(stale_program)
+    reachability = analyze_semantic_reachability(semantic)
 
     assert InterfaceId(module_path=("main",), name="Hashable") in reachability.reachable_interfaces
     assert ClassId(module_path=("main",), name="Key") in reachability.reachable_classes

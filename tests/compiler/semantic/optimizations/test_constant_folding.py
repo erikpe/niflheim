@@ -247,7 +247,7 @@ def test_fold_constants_preserves_casts_without_safe_backend_equivalent(tmp_path
     assert isinstance(large_to_u8_return.value, CastExprS)
 
 
-def test_fold_constants_uses_canonical_cast_target_type_ref_when_compatibility_string_is_stale(tmp_path: Path) -> None:
+def test_fold_constants_uses_canonical_cast_target_type_ref_after_target_cache_removal(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -260,31 +260,9 @@ def test_fold_constants_uses_canonical_cast_target_type_ref_when_compatibility_s
     semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
     function = semantic.modules[("main",)].functions[0]
     return_stmt = function.body.statements[0]
-    stale_program = replace(
-        semantic,
-        modules={
-            **semantic.modules,
-            ("main",): replace(
-                semantic.modules[("main",)],
-                functions=[
-                    replace(
-                        function,
-                        body=replace(
-                            function.body,
-                            statements=[
-                                replace(
-                                    return_stmt,
-                                    value=replace(return_stmt.value, target_type_name="stale_u8"),
-                                )
-                            ],
-                        ),
-                    )
-                ],
-            ),
-        },
-    )
+    assert not hasattr(return_stmt.value, "target_type_name")
 
-    folded = fold_constants(stale_program)
+    folded = fold_constants(semantic)
     folded_return = folded.modules[("main",)].functions[0].body.statements[0]
 
     assert isinstance(folded_return.value, LiteralExprS)

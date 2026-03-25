@@ -97,7 +97,6 @@ def try_lower_slice_assign_stmt(
             target=lower_expr(expr.callee.object_expr),
             begin=lower_expr(expr.arguments[0]),
             end=lower_expr(expr.arguments[1]),
-            value_type_name=infer_expression_type(typecheck_ctx, expr.arguments[2]).name,
             value_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, infer_expression_type(typecheck_ctx, expr.arguments[2])),
             dispatch=resolve_collection_dispatch(typecheck_ctx, receiver_type, operation=CollectionOpKind.SLICE_SET),
             span=expr.span,
@@ -129,7 +128,6 @@ def try_lower_array_index_assign_stmt(
         target=IndexLValue(
             target=lower_expr(expr.callee.object_expr),
             index=lower_expr(expr.arguments[0]),
-            value_type_name=receiver_type.element_type.name,
             value_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type.element_type),
             dispatch=runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, CollectionOpKind.INDEX_SET),
             span=expr.span,
@@ -162,7 +160,6 @@ def try_lower_array_slice_assign_stmt(
             target=lower_expr(expr.callee.object_expr),
             begin=lower_expr(expr.arguments[0]),
             end=lower_expr(expr.arguments[1]),
-            value_type_name=infer_expression_type(typecheck_ctx, expr.arguments[2]).name,
             value_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, infer_expression_type(typecheck_ctx, expr.arguments[2])),
             dispatch=runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, CollectionOpKind.SLICE_SET),
             span=expr.span,

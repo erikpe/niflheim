@@ -21,7 +21,6 @@ from compiler.semantic.lowering.ids import *
 @dataclass(frozen=True)
 class ResolvedBoundCallAccess:
     receiver: Expression
-    receiver_type_name: str
 
 
 @dataclass(frozen=True)
@@ -134,7 +133,6 @@ def resolve_field_access_call_target(
                 ),
                 access=ResolvedBoundCallAccess(
                     receiver=expr.callee.object_expr,
-                    receiver_type_name=receiver_type.name,
                 ),
             )
 
@@ -144,7 +142,6 @@ def resolve_field_access_call_target(
             method_id=method_id_for_type_name(typecheck_ctx.module_path, receiver_type.name, expr.callee.field_name),
             access=ResolvedBoundCallAccess(
                 receiver=expr.callee.object_expr,
-                receiver_type_name=receiver_type.name,
             ),
         )
 

@@ -206,7 +206,6 @@ def _lower_for_in_stmt(
         iter_get_dispatch=resolve_collection_dispatch(
             typecheck_ctx, collection_type, operation=CollectionOpKind.ITER_GET
         ),
-        element_type_name=element_type.name,
         element_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, element_type),
         body=body,
         span=stmt.span,

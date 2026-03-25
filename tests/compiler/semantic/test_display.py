@@ -73,7 +73,6 @@ def test_semantic_display_helpers_render_bound_member_and_call_targets_from_cano
     )
     access = BoundMemberAccess(
         receiver=receiver,
-        receiver_type_name="stale-receiver-name",
         receiver_type_ref=semantic_type_ref_for_interface_id(
             InterfaceId(module_path=("util",), name="Hashable"), display_name="util::Hashable"
         ),
@@ -89,7 +88,6 @@ def test_semantic_display_helpers_render_bound_member_and_call_targets_from_cano
             method_id=MethodId(module_path=("main",), class_name="Box", name="read"),
             access=BoundMemberAccess(
                 receiver=receiver,
-                receiver_type_name="stale-box",
                 receiver_type_ref=semantic_type_ref_for_class_id(
                     ClassId(module_path=("main",), name="Box"), display_name="Box"
                 ),
@@ -119,7 +117,6 @@ def test_semantic_display_helpers_render_callable_value_targets_from_callee_type
                 type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
                 span=span,
             ),
-            receiver_type_name="stale-box",
             receiver_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
         ),
         owner_class_id=ClassId(module_path=("main",), name="Box"),

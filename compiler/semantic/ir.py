@@ -253,7 +253,6 @@ class SemanticForIn:
     collection: "SemanticExpr"
     iter_len_dispatch: SemanticDispatch
     iter_get_dispatch: SemanticDispatch
-    element_type_name: str
     element_type_ref: SemanticTypeRef
     body: SemanticBlock
     span: SourceSpan
@@ -269,7 +268,6 @@ class LocalLValue:
 @dataclass(frozen=True)
 class BoundMemberAccess:
     receiver: "SemanticExpr"
-    receiver_type_name: str
     receiver_type_ref: SemanticTypeRef
 
 
@@ -287,10 +285,6 @@ class FieldLValue:
         return self.access.receiver
 
     @property
-    def receiver_type_name(self) -> str:
-        return self.access.receiver_type_name
-
-    @property
     def receiver_type_ref(self) -> SemanticTypeRef:
         return self.access.receiver_type_ref
 
@@ -299,7 +293,6 @@ class FieldLValue:
 class IndexLValue:
     target: "SemanticExpr"
     index: "SemanticExpr"
-    value_type_name: str
     value_type_ref: SemanticTypeRef
     dispatch: SemanticDispatch
     span: SourceSpan
@@ -310,7 +303,6 @@ class SliceLValue:
     target: "SemanticExpr"
     begin: "SemanticExpr"
     end: "SemanticExpr"
-    value_type_name: str
     value_type_ref: SemanticTypeRef
     dispatch: SemanticDispatch
     span: SourceSpan
@@ -410,7 +402,6 @@ class BinaryExprS:
 class CastExprS:
     operand: "SemanticExpr"
     cast_kind: CastSemanticsKind
-    target_type_name: str
     target_type_ref: SemanticTypeRef
     type_name: str
     type_ref: SemanticTypeRef
@@ -421,7 +412,6 @@ class CastExprS:
 class TypeTestExprS:
     operand: "SemanticExpr"
     test_kind: TypeTestSemanticsKind
-    target_type_name: str
     target_type_ref: SemanticTypeRef
     type_name: str
     type_ref: SemanticTypeRef
@@ -440,10 +430,6 @@ class FieldReadExpr:
     @property
     def receiver(self) -> "SemanticExpr":
         return self.access.receiver
-
-    @property
-    def receiver_type_name(self) -> str:
-        return self.access.receiver_type_name
 
     @property
     def receiver_type_ref(self) -> SemanticTypeRef:
@@ -569,7 +555,6 @@ def dispatch_method_id(dispatch: SemanticDispatch) -> MethodId | None:
 
 @dataclass(frozen=True)
 class ArrayCtorExprS:
-    element_type_name: str
     element_type_ref: SemanticTypeRef
     length_expr: "SemanticExpr"
     type_name: str

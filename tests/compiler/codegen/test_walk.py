@@ -59,14 +59,12 @@ def _bound_access(receiver: SemanticExpr, type_name: str) -> BoundMemberAccess:
     if type_name == "Hashable":
         return BoundMemberAccess(
             receiver=receiver,
-            receiver_type_name=type_name,
             receiver_type_ref=semantic_type_ref_for_interface_id(
                 InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
             ),
         )
     return BoundMemberAccess(
         receiver=receiver,
-        receiver_type_name=type_name,
         receiver_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name=type_name), display_name=type_name),
     )
 
@@ -100,7 +98,6 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
                     span=span,
                 ),
                 cast_kind=semantic_cast_kind(_type_ref("i64"), _type_ref("i64")),
-                target_type_name="i64",
                 target_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 type_name="i64",
                 type_ref=_type_ref("i64"),
@@ -144,7 +141,6 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
             span=span,
         ),
         test_kind=semantic_type_test_kind(box_type_ref),
-        target_type_name="Box",
         target_type_ref=box_type_ref,
         type_name="bool",
         type_ref=_type_ref("bool"),
@@ -237,7 +233,6 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
                 iter_get_dispatch=RuntimeDispatch(
                     operation=CollectionOpKind.ITER_GET, runtime_kind=ArrayRuntimeKind.I64
                 ),
-                element_type_name="i64",
                 element_type_ref=best_effort_semantic_type_ref_from_name(("test",), "i64"),
                 body=LoweredSemanticBlock(
                     statements=[
@@ -334,7 +329,6 @@ def test_walk_expression_visits_interface_method_call_receiver_and_args() -> Non
             method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
             access=BoundMemberAccess(
                 receiver=_local_ref("receiver", "Hashable", span),
-                receiver_type_name="Hashable",
                 receiver_type_ref=semantic_type_ref_for_interface_id(
                     InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
                 ),
@@ -371,7 +365,6 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
                             method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
                             access=BoundMemberAccess(
                                 receiver=_local_ref("receiver", "Hashable", span),
-                                receiver_type_name="Hashable",
                                 receiver_type_ref=semantic_type_ref_for_interface_id(
                                     InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
                                 ),

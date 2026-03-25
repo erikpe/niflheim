@@ -32,7 +32,6 @@ LowerExpr = Callable[[Expression], SemanticExpr]
 @dataclass(frozen=True)
 class ResolvedBoundMemberAccess:
     receiver: Expression
-    receiver_type_name: str
     receiver_type_ref: SemanticTypeRef
 
 
@@ -86,7 +85,6 @@ class ResolvedFieldLValueTarget:
 class ResolvedIndexLValueTarget:
     target: Expression
     index: Expression
-    value_type_name: str
     value_type_ref: SemanticTypeRef
 
 
@@ -165,7 +163,6 @@ def resolve_field_access_ref_target(
         return ResolvedFieldReadTarget(
             access=ResolvedBoundMemberAccess(
                 receiver=expr.object_expr,
-                receiver_type_name=receiver_type.name,
                 receiver_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type),
             ),
             owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type.name),
@@ -211,7 +208,6 @@ def lower_resolved_ref(
     return FieldReadExpr(
         access=BoundMemberAccess(
             receiver=lower_expr(resolved_target.access.receiver),
-            receiver_type_name=resolved_target.access.receiver_type_name,
             receiver_type_ref=resolved_target.access.receiver_type_ref,
         ),
         owner_class_id=resolved_target.owner_class_id,
@@ -242,7 +238,6 @@ def lower_lvalue(
         return FieldLValue(
             access=BoundMemberAccess(
                 receiver=lower_expr(resolved_target.access.receiver),
-                receiver_type_name=resolved_target.access.receiver_type_name,
                 receiver_type_ref=resolved_target.access.receiver_type_ref,
             ),
             owner_class_id=resolved_target.owner_class_id,
@@ -255,7 +250,6 @@ def lower_lvalue(
     return IndexLValue(
         target=lower_expr(resolved_target.target),
         index=lower_expr(resolved_target.index),
-        value_type_name=resolved_target.value_type_name,
         value_type_ref=resolved_target.value_type_ref,
         dispatch=resolve_collection_dispatch(
             typecheck_ctx,
@@ -280,14 +274,12 @@ def resolve_lvalue_target(
 
     if isinstance(expr, FieldAccessExpr):
         receiver_type = infer_expression_type(typecheck_ctx, expr.object_expr)
-        receiver_type_name = receiver_type.name
         return ResolvedFieldLValueTarget(
             access=ResolvedBoundMemberAccess(
                 receiver=expr.object_expr,
-                receiver_type_name=receiver_type_name,
                 receiver_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type),
             ),
-            owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type_name),
+            owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type.name),
             field_name=expr.field_name,
             type_name=infer_expression_type(typecheck_ctx, expr).name,
             type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, infer_expression_type(typecheck_ctx, expr)),
@@ -297,15 +289,10 @@ def resolve_lvalue_target(
         return ResolvedIndexLValueTarget(
             target=expr.object_expr,
             index=expr.index_expr,
-            value_type_name=resolve_index_assignment_value_type_name(typecheck_ctx, expr),
             value_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, resolve_index_assignment_value_type(typecheck_ctx, expr)),
         )
 
     raise TypeError(f"Unsupported lvalue for semantic lowering: {type(expr).__name__}")
-
-
-def resolve_index_assignment_value_type_name(typecheck_ctx: TypeCheckContext, expr: IndexExpr) -> str:
-    return resolve_index_assignment_value_type(typecheck_ctx, expr).name
 
 
 def resolve_index_assignment_value_type(typecheck_ctx: TypeCheckContext, expr: IndexExpr):

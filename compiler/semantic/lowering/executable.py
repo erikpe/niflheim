@@ -163,7 +163,6 @@ def _lower_stmt(stmt: SemanticStmt, allocator: _HelperLocalAllocator) -> Lowered
             collection=stmt.collection,
             iter_len_dispatch=stmt.iter_len_dispatch,
             iter_get_dispatch=stmt.iter_get_dispatch,
-            element_type_name=stmt.element_type_name,
             element_type_ref=stmt.element_type_ref,
             body=_lower_block(stmt.body, allocator),
             span=stmt.span,
