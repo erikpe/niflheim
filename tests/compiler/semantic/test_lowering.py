@@ -293,9 +293,11 @@ def test_lower_program_handles_simple_function_constructor_method_and_index_form
 
     assert isinstance(statements[7], SemanticExprStmt)
     assert isinstance(statements[7].expr, FunctionRefExpr)
+    assert expression_type_name(statements[7].expr) == "fn(i64) -> i64"
 
     assert isinstance(statements[8], SemanticExprStmt)
     assert isinstance(statements[8].expr, ClassRefExpr)
+    assert expression_type_name(statements[8].expr) == "__class__:util:Box"
 
 
 def test_lower_program_lowers_callable_value_calls_explicitly(tmp_path: Path) -> None:
@@ -359,6 +361,7 @@ def test_lower_program_lowers_callable_value_calls_explicitly(tmp_path: Path) ->
 
     assert isinstance(statements[1], SemanticVarDecl)
     assert isinstance(statements[1].initializer, MethodRefExpr)
+    assert expression_type_name(statements[1].initializer) == "fn(i64, i64) -> i64"
 
     assert isinstance(statements[3], SemanticVarDecl)
     assert isinstance(statements[3].initializer, CallableValueCallExpr)
@@ -416,6 +419,7 @@ def test_lower_program_assigns_imported_canonical_ids_to_refs_and_calls(tmp_path
     assert isinstance(function_ref.initializer, FunctionRefExpr)
     assert function_ref.initializer.function_id.module_path == ("util",)
     assert function_ref.initializer.function_id.name == "twice"
+    assert not hasattr(function_ref.initializer, "type_name")
 
     method_ref = statements[1]
     assert isinstance(method_ref, SemanticVarDecl)
@@ -424,6 +428,7 @@ def test_lower_program_assigns_imported_canonical_ids_to_refs_and_calls(tmp_path
     assert method_ref.initializer.method_id.class_name == "Box"
     assert method_ref.initializer.method_id.name == "from_i64"
     assert method_ref.initializer.receiver is None
+    assert not hasattr(method_ref.initializer, "type_name")
 
     constructor_call = statements[2]
     assert isinstance(constructor_call, SemanticVarDecl)
@@ -449,6 +454,7 @@ def test_lower_program_assigns_imported_canonical_ids_to_refs_and_calls(tmp_path
     assert isinstance(class_ref.expr, ClassRefExpr)
     assert class_ref.expr.class_id.module_path == ("util",)
     assert class_ref.expr.class_id.name == "Box"
+    assert not hasattr(class_ref.expr, "type_name")
 
 
 def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Path) -> None:

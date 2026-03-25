@@ -202,14 +202,14 @@ def lower_resolved_ref(
         )
 
     if isinstance(resolved_target, ResolvedFunctionRefTarget):
-        return FunctionRefExpr(function_id=resolved_target.function_id, type_name=type_name, type_ref=type_ref, span=span)
+        return FunctionRefExpr(function_id=resolved_target.function_id, type_ref=type_ref, span=span)
 
     if isinstance(resolved_target, ResolvedClassRefTarget):
-        return ClassRefExpr(class_id=resolved_target.class_id, type_name=type_name, type_ref=type_ref, span=span)
+        return ClassRefExpr(class_id=resolved_target.class_id, type_ref=type_ref, span=span)
 
     if isinstance(resolved_target, ResolvedMethodRefTarget):
         receiver = None if resolved_target.receiver is None else lower_expr(resolved_target.receiver)
-        return MethodRefExpr(method_id=resolved_target.method_id, receiver=receiver, type_name=type_name, type_ref=type_ref, span=span)
+        return MethodRefExpr(method_id=resolved_target.method_id, receiver=receiver, type_ref=type_ref, span=span)
 
     return FieldReadExpr(
         receiver=lower_expr(resolved_target.receiver),

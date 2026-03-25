@@ -19,7 +19,12 @@ from compiler.semantic.symbols import (
     MethodId,
     SyntheticId,
 )
-from compiler.semantic.types import SemanticTypeRef, semantic_null_type_ref, semantic_primitive_type_ref
+from compiler.semantic.types import (
+    SemanticTypeRef,
+    semantic_null_type_ref,
+    semantic_primitive_type_ref,
+    semantic_type_display_name,
+)
 
 
 @dataclass(frozen=True)
@@ -312,7 +317,6 @@ class LocalRefExpr:
 @dataclass(frozen=True)
 class FunctionRefExpr:
     function_id: FunctionId
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -320,7 +324,6 @@ class FunctionRefExpr:
 @dataclass(frozen=True)
 class ClassRefExpr:
     class_id: ClassId
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -329,7 +332,6 @@ class ClassRefExpr:
 class MethodRefExpr:
     method_id: MethodId
     receiver: "SemanticExpr | None"
-    type_name: str
     type_ref: SemanticTypeRef
     span: SourceSpan
 
@@ -586,6 +588,8 @@ SemanticExpr = (
 
 
 def expression_type_name(expr: SemanticExpr) -> str:
+    if isinstance(expr, (FunctionRefExpr, ClassRefExpr, MethodRefExpr)):
+        return semantic_type_display_name(expr.type_ref)
     return expr.type_name
 
 

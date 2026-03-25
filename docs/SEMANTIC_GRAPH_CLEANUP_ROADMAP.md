@@ -202,14 +202,16 @@ Step 1.5 status:
 
 1.6 Remove the first redundant string fields
   - [x] pick a small set of high-confidence redundant fields and remove them after their consumers have switched to canonical refs
-  - [ ] prefer fields on nodes already carrying an equivalent `SemanticTypeRef` and already consumed semantically through that ref
-  - [ ] keep display rendering centralized so diagnostics do not regress when the copied string disappears
+  - [x] prefer fields on nodes already carrying an equivalent `SemanticTypeRef` and already consumed semantically through that ref
+  - [x] keep display rendering centralized so diagnostics do not regress when the copied string disappears
   - Stop condition:
     at least one end-to-end slice proves a semantic node family can operate without duplicated type strings
 
-Step 1.6 progress note:
+Step 1.6 status:
 
 - `SemanticVarDecl.type_name` has been removed. It had no remaining production readers and was already effectively dead compatibility data after the local-metadata migration.
+- `FunctionRefExpr.type_name`, `ClassRefExpr.type_name`, and `MethodRefExpr.type_name` have also been removed. These nodes already carried equivalent canonical `type_ref` values, and no production reader required the copied string once `expression_type_name(...)` was taught to render reference-expression display names from the canonical ref.
+- this slice keeps compatibility rendering centralized in `compiler/semantic/ir.py:expression_type_name(...)`, so downstream code that still asks for a display-oriented type name does not need to know which nodes still store a copied string and which derive one from canonical metadata.
 
 1.7 Re-evaluate remaining string type fields after the first migration slice
   - [ ] update the migration table from step 1.1 with what is now truly required for compatibility
