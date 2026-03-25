@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from compiler.semantic.ir import *
-from compiler.semantic.linker import LinkedSemanticProgram
+from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram, LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticStmt
 
 
 def walk_codegen_program_expressions(
-    program: LinkedSemanticProgram, visit_expr: Callable[[SemanticExpr], None]
+    program: LoweredLinkedSemanticProgram, visit_expr: Callable[[SemanticExpr], None]
 ) -> None:
     for fn in program.functions:
         if fn.body is not None:
@@ -20,13 +20,13 @@ def walk_codegen_program_expressions(
             walk_block_expressions(method.body, visit_expr)
 
 
-def walk_block_expressions(block: SemanticBlock, visit_expr: Callable[[SemanticExpr], None]) -> None:
+def walk_block_expressions(block: SemanticBlock | LoweredSemanticBlock, visit_expr: Callable[[SemanticExpr], None]) -> None:
     for stmt in block.statements:
         walk_statement_expressions(stmt, visit_expr)
 
 
-def walk_statement_expressions(stmt: SemanticStmt, visit_expr: Callable[[SemanticExpr], None]) -> None:
-    if isinstance(stmt, SemanticBlock):
+def walk_statement_expressions(stmt: SemanticStmt | LoweredSemanticStmt, visit_expr: Callable[[SemanticExpr], None]) -> None:
+    if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
         walk_block_expressions(stmt, visit_expr)
         return
     if isinstance(stmt, SemanticVarDecl):
@@ -53,7 +53,7 @@ def walk_statement_expressions(stmt: SemanticStmt, visit_expr: Callable[[Semanti
         walk_expression(stmt.condition, visit_expr)
         walk_block_expressions(stmt.body, visit_expr)
         return
-    if isinstance(stmt, SemanticForIn):
+    if isinstance(stmt, LoweredSemanticForIn):
         walk_expression(stmt.collection, visit_expr)
         walk_block_expressions(stmt.body, visit_expr)
 

@@ -10,6 +10,7 @@ from compiler.codegen.generator import emit_asm
 from compiler.frontend.tokens import Token
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.pipeline import optimize_semantic_program
 from compiler.typecheck.api import typecheck_program
@@ -75,7 +76,8 @@ def _link_program_phase(logger, optimized_program):
 def _emit_assembly_phase(logger, linked_program) -> str:
     logger.info("Emitting assembly")
     start = perf_counter()
-    asm = emit_asm(linked_program)
+    lowered_linked_program = lower_linked_semantic_program(linked_program)
+    asm = emit_asm(lowered_linked_program)
     duration_ms = (perf_counter() - start) * 1000.0
     logger.debugv(1, "Emitted %d assembly lines in %.2f ms", len(asm.splitlines()), duration_ms)
     return asm

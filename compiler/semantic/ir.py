@@ -255,9 +255,6 @@ SemanticDispatch = RuntimeDispatch | MethodDispatch
 class SemanticForIn:
     element_name: str
     element_local_id: LocalId
-    collection_local_id: LocalId
-    length_local_id: LocalId
-    index_local_id: LocalId
     collection: "SemanticExpr"
     iter_len_dispatch: SemanticDispatch
     iter_get_dispatch: SemanticDispatch

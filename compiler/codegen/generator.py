@@ -13,7 +13,7 @@ from compiler.codegen.model import FunctionLayout
 from compiler.codegen.abi.runtime import RUNTIME_REF_ARG_INDICES
 
 if TYPE_CHECKING:
-    from compiler.semantic.linker import LinkedSemanticProgram
+    from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
 
 
 class CodeGenerator:
@@ -253,7 +253,7 @@ class CodeGenerator:
         self.asm.instr("movzx rax, al")
 
 
-def emit_asm(program: LinkedSemanticProgram) -> str:
+def emit_asm(program: LoweredLinkedSemanticProgram) -> str:
     from compiler.codegen.program_generator import emit_program
 
     return emit_program(program)

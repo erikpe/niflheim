@@ -9,7 +9,7 @@ from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.model import ConstructorLayout
 from compiler.resolver import ModulePath
-from compiler.semantic.linker import LinkedSemanticProgram
+from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
 from compiler.semantic.symbols import ClassId, ConstructorId, InterfaceId, InterfaceMethodId, MethodId
 
 
@@ -59,7 +59,7 @@ def _interface_id_from_type_name(current_module_path: ModulePath | None, type_na
 
 
 class ProgramGenerator(CodeGenerator):
-    def __init__(self, program: LinkedSemanticProgram) -> None:
+    def __init__(self, program: LoweredLinkedSemanticProgram) -> None:
         super().__init__()
         self.program = program
         self.declaration_tables: DeclarationTables | None = None
@@ -129,5 +129,5 @@ class ProgramGenerator(CodeGenerator):
         return generate_module(self, self.program, declaration_tables, type_metadata)
 
 
-def emit_program(program: LinkedSemanticProgram) -> str:
+def emit_program(program: LoweredLinkedSemanticProgram) -> str:
     return ProgramGenerator(program).generate()

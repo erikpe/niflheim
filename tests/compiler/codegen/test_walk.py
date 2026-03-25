@@ -10,8 +10,8 @@ from compiler.codegen.walk import (
     walk_statement_expressions,
 )
 from compiler.common.span import SourcePos, SourceSpan
+from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram, LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticModule
 from compiler.semantic.ir import *
-from compiler.semantic.linker import LinkedSemanticProgram
 from compiler.semantic.operations import semantic_binary_op_from_token, semantic_cast_kind, semantic_type_test_kind
 from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, InterfaceMethodId, LocalId, MethodId
 from compiler.semantic.types import best_effort_semantic_type_ref_from_name, semantic_type_ref_for_class_id, semantic_type_ref_for_interface_id
@@ -198,17 +198,17 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
 
 def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None:
     span = _span()
-    block = SemanticBlock(
+    block = LoweredSemanticBlock(
         statements=[
             SemanticIf(
                 condition=_local_ref("if_cond", "bool", span),
-                then_block=SemanticBlock(
+                then_block=LoweredSemanticBlock(
                     statements=[
                         SemanticExprStmt(expr=_local_ref("then_expr", "i64", span), span=span)
                     ],
                     span=span,
                 ),
-                else_block=SemanticBlock(
+                else_block=LoweredSemanticBlock(
                     statements=[
                         SemanticReturn(value=_local_ref("else_expr", "i64", span), span=span)
                     ],
@@ -218,7 +218,7 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
             ),
             SemanticWhile(
                 condition=_local_ref("while_cond", "bool", span),
-                body=SemanticBlock(
+                body=LoweredSemanticBlock(
                     statements=[
                         SemanticExprStmt(expr=_local_ref("while_expr", "i64", span), span=span)
                     ],
@@ -226,7 +226,7 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
                 ),
                 span=span,
             ),
-            SemanticForIn(
+            LoweredSemanticForIn(
                 element_name="value",
                 element_local_id=LocalId(owner_id=FunctionId(module_path=("test",), name="walk"), ordinal=0),
                 collection_local_id=LocalId(owner_id=FunctionId(module_path=("test",), name="walk"), ordinal=1),
@@ -239,7 +239,7 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
                 ),
                 element_type_name="i64",
                 element_type_ref=best_effort_semantic_type_ref_from_name(("test",), "i64"),
-                body=SemanticBlock(
+                body=LoweredSemanticBlock(
                     statements=[
                         SemanticExprStmt(expr=_local_ref("for_expr", "i64", span), span=span)
                     ],
@@ -318,8 +318,8 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
         ],
         span=span,
     )
-    module = SemanticModule(module_path=("main",), file_path=Path("main.nif"), classes=[cls], functions=[fn], span=span)
-    program = LinkedSemanticProgram(
+    module = LoweredSemanticModule(module_path=("main",), file_path=Path("main.nif"), classes=[cls], functions=[fn], span=span, interfaces=[])
+    program = LoweredLinkedSemanticProgram(
         entry_module=("main",), ordered_modules=(module,), classes=(cls,), functions=(fn,), span=span
     )
 
@@ -395,8 +395,8 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
         is_export=False,
         span=span,
     )
-    module = SemanticModule(module_path=("main",), file_path=Path("main.nif"), classes=[], functions=[fn], span=span)
-    program = LinkedSemanticProgram(
+    module = LoweredSemanticModule(module_path=("main",), file_path=Path("main.nif"), classes=[], functions=[fn], span=span, interfaces=[])
+    program = LoweredLinkedSemanticProgram(
         entry_module=("main",), ordered_modules=(module,), classes=(), functions=(fn,), span=span
     )
 

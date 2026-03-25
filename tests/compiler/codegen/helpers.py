@@ -3,6 +3,7 @@ from __future__ import annotations
 from compiler.codegen.generator import emit_asm
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.pipeline import optimize_semantic_program
 
@@ -14,4 +15,4 @@ def emit_source_asm(tmp_path, source: str, *, source_path: str = "main.nif", pro
     root = tmp_path if project_root is None else project_root
     program = resolve_program(entry_path, project_root=root)
     linked_program = link_semantic_program(optimize_semantic_program(lower_program(program)))
-    return emit_asm(linked_program)
+    return emit_asm(lower_linked_semantic_program(linked_program))

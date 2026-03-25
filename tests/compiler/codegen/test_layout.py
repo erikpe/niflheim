@@ -5,8 +5,10 @@ from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.common.span import SourcePos, SourceSpan
 from compiler.resolver import resolve_program
+from compiler.semantic.lowered_ir import LoweredSemanticForIn
 from compiler.semantic.ir import SemanticBlock, SemanticFunction, SemanticParam, SemanticReturn
 from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.symbols import ConstructorId, FunctionId
 from compiler.semantic.types import best_effort_semantic_type_ref_from_name
@@ -31,7 +33,7 @@ def test_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) ->
         + "\n",
         encoding="utf-8",
     )
-    program = link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
     fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "f")
 
     layout = build_layout(fn)
@@ -57,7 +59,7 @@ def test_codegen_build_constructor_layout_tracks_params_and_allocated_object_roo
         + "\n",
         encoding="utf-8",
     )
-    program = link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
     cls = next(cls for cls in program.classes if cls.class_id.module_path == ("main",) and cls.class_id.name == "Box")
     declaration_tables = ProgramGenerator(program).build_declaration_tables()
     ctor_layout = declaration_tables.constructor_layout(ConstructorId(module_path=("main",), class_name="Box"))
@@ -94,7 +96,7 @@ def test_codegen_build_layout_assigns_distinct_slots_to_shadowed_locals(tmp_path
         + "\n",
         encoding="utf-8",
     )
-    program = link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
     fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
 
     layout = build_layout(fn)
@@ -122,12 +124,13 @@ def test_codegen_build_layout_materializes_explicit_for_in_helper_temps(tmp_path
         + "\n",
         encoding="utf-8",
     )
-    program = link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
     fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
 
     layout = build_layout(fn)
     loop_stmt = fn.body.statements[1]
 
+    assert isinstance(loop_stmt, LoweredSemanticForIn)
     assert loop_stmt.collection_local_id in layout.local_slot_offsets
     assert loop_stmt.length_local_id in layout.local_slot_offsets
     assert loop_stmt.index_local_id in layout.local_slot_offsets
@@ -148,7 +151,7 @@ def test_codegen_build_layout_tracks_identity_first_slot_records(tmp_path) -> No
         + "\n",
         encoding="utf-8",
     )
-    program = link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path)))
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
     fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
 
     layout = build_layout(fn)

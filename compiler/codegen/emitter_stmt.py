@@ -6,12 +6,13 @@ import compiler.codegen.types as codegen_types
 
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
+from compiler.semantic.lowered_ir import LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticStmt
 from compiler.semantic.ir import *
 
 
 def emit_statement(
     codegen,
-    stmt: SemanticStmt,
+    stmt: SemanticStmt | LoweredSemanticStmt,
     epilogue_label: str,
     function_return_type_name: str,
     ctx: EmitContext,
@@ -55,7 +56,7 @@ def emit_statement(
         emit_expr(codegen, stmt.expr, ctx)
         return
 
-    if isinstance(stmt, SemanticBlock):
+    if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
         for nested in stmt.statements:
             emit_statement(codegen, nested, epilogue_label, function_return_type_name, ctx, loop_labels)
         return
@@ -102,7 +103,7 @@ def emit_statement(
         codegen.asm.label(end_label)
         return
 
-    if isinstance(stmt, SemanticForIn):
+    if isinstance(stmt, LoweredSemanticForIn):
         _emit_for_in(codegen, stmt, epilogue_label, function_return_type_name, ctx, loop_labels)
         return
 
@@ -163,7 +164,7 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
 
 def _emit_for_in(
     codegen,
-    stmt: SemanticForIn,
+    stmt: LoweredSemanticForIn,
     epilogue_label: str,
     function_return_type_name: str,
     ctx: EmitContext,

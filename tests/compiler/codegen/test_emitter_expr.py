@@ -18,6 +18,7 @@ from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_I64
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.ir import (
     CallExprS,
     CallableValueCallTarget,
@@ -48,8 +49,8 @@ def _build_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name:
     for relative_path, content in files.items():
         _write(tmp_path / relative_path, content)
 
-    program = link_semantic_program(
-        lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     )
     fn = next(
         fn

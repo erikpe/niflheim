@@ -311,10 +311,10 @@ Step 5 status:
 - validation covers lowering and semantic type regressions directly, and broad semantic plus codegen validation remains required for the step.
 
 6. Define an explicit split between source-level semantic IR and lowered semantic IR
-  - [ ] decide whether the compiler should keep one IR with phases or two closely related IR layers
-  - [ ] identify which current nodes belong naturally to source-level semantics versus lowered execution-oriented semantics
-  - [ ] move execution-shaped details such as `SemanticForIn` helper-local bookkeeping behind a lowered-semantic boundary if that split pays for itself
-  - [ ] keep high-level semantic analyses operating on the source-near layer wherever practical
+  - [x] decide whether the compiler should keep one IR with phases or two closely related IR layers
+  - [x] identify which current nodes belong naturally to source-level semantics versus lowered execution-oriented semantics
+  - [x] move execution-shaped details such as `SemanticForIn` helper-local bookkeeping behind a lowered-semantic boundary if that split pays for itself
+  - [x] keep high-level semantic analyses operating on the source-near layer wherever practical
   - Purpose:
     stop one semantic graph from serving two different abstraction levels indefinitely
   - Expected outcome:
@@ -322,6 +322,15 @@ Step 5 status:
   - Tests to add:
     - boundary tests proving source-level analysis output lowers deterministically into the execution-oriented layer
     - codegen regressions proving lowered helper locals remain explicit and identity-correct after the split
+
+Step 6 status:
+
+- complete
+- source semantic lowering now keeps `SemanticForIn` source-level only: element binding, collection expression, dispatches, element type, and body remain, while execution-only helper locals move out of the source IR.
+- `compiler/semantic/lowered_ir.py` defines the explicit executable-side boundary via `LoweredSemanticBlock`, `LoweredSemanticForIn`, `LoweredSemanticModule`, and `LoweredLinkedSemanticProgram`.
+- `compiler/semantic/lowering/executable.py` now lowers linked source semantics into the executable layer, allocating deterministic `__for_in_collection`, `__for_in_length`, and `__for_in_index` locals after linking.
+- semantic optimization and analysis continue to operate on the source-level semantic program, while CLI/codegen entrypoints now lower to the executable layer immediately before backend consumption.
+- validation includes focused boundary tests and broad semantic plus codegen regression coverage, including explicit checks that source lowering no longer records helper locals and that executable lowering reintroduces them deterministically.
 
 7. Audit diagnostics, walkers, and tests for over-coupling to compatibility fields
   - [ ] remove tests that assert transitional storage details instead of semantic invariants

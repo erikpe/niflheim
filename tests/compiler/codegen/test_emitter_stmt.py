@@ -8,8 +8,9 @@ from compiler.codegen.emitter_fn import emit_function
 from compiler.codegen.generator import CodeGenerator, emit_asm
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.resolver import resolve_program
-from compiler.semantic.ir import SemanticForIn
 from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowered_ir import LoweredSemanticForIn
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.codegen.program_generator import ProgramGenerator
 
@@ -22,7 +23,9 @@ def _write(path: Path, content: str) -> None:
 def _emit(tmp_path: Path, files: dict[str, str]) -> str:
     for relative_path, content in files.items():
         _write(tmp_path / relative_path, content)
-    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
     return emit_asm(program)
 
 
@@ -119,13 +122,15 @@ def test_emitter_stmt_for_in_helper_identity_does_not_depend_on_span_values(tmp_
     for relative_path, content in files.items():
         _write(tmp_path / relative_path, content)
 
-    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
     fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
     loop_one = fn.body.statements[1]
     loop_two = fn.body.statements[2]
 
-    assert isinstance(loop_one, SemanticForIn)
-    assert isinstance(loop_two, SemanticForIn)
+    assert isinstance(loop_one, LoweredSemanticForIn)
+    assert isinstance(loop_two, LoweredSemanticForIn)
 
     rewritten_fn = replace(
         fn,

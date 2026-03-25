@@ -4,6 +4,9 @@ from pathlib import Path
 
 from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind, collection_method_name
 from compiler.semantic.ir import *
+from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowered_ir import LoweredSemanticForIn
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, TypeTestSemanticsKind, UnaryOpFlavor, UnaryOpKind
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering.orchestration import lower_program
@@ -1156,17 +1159,8 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert isinstance(loop_stmt, SemanticForIn)
     assert loop_stmt.element_name == "item"
     assert loop_stmt.element_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
-    assert loop_stmt.collection_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
-    assert loop_stmt.length_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
-    assert loop_stmt.index_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert loop_stmt.element_type_name == "i64"
     assert loop_stmt.element_type_ref.canonical_name == "i64"
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.collection_local_id) == "__for_in_collection"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.collection_local_id) == "i64[]"
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.length_local_id) == "__for_in_length"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.length_local_id) == "u64"
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.index_local_id) == "__for_in_index"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.index_local_id) == "i64"
     assert isinstance(loop_stmt.body.statements[0], SemanticVarDecl)
     assert loop_stmt.body.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert isinstance(loop_stmt.body.statements[0].initializer, LocalRefExpr)
@@ -1174,6 +1168,10 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id) == "item"
     assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id) == "i64"
     assert loop_stmt.body.statements[0].initializer.local_id != loop_stmt.body.statements[0].local_id
+    assert all(
+        local_info.display_name not in {"__for_in_collection", "__for_in_length", "__for_in_index"}
+        for local_info in semantic.modules[("main",)].functions[0].local_info_by_id.values()
+    )
 
     return_stmt = statements[1]
     assert isinstance(return_stmt, SemanticReturn)
@@ -1181,6 +1179,37 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert return_stmt.value.local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.local_id) == "done"
     assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.local_id) == "bool"
+
+
+def test_lower_linked_semantic_program_materializes_for_in_helper_temps(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(values: i64[]) -> i64 {
+            var total: i64 = 0;
+            for item in values {
+                total = total + item;
+            }
+            return total;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    lowered_program = lower_linked_semantic_program(link_semantic_program(lower_program(program)))
+    fn = lowered_program.functions[0]
+    loop_stmt = fn.body.statements[1]
+
+    assert isinstance(loop_stmt, LoweredSemanticForIn)
+    assert loop_stmt.collection_local_id.owner_id == fn.function_id
+    assert loop_stmt.length_local_id.owner_id == fn.function_id
+    assert loop_stmt.index_local_id.owner_id == fn.function_id
+    assert local_display_name_for_owner(fn, loop_stmt.collection_local_id) == "__for_in_collection"
+    assert local_type_name_for_owner(fn, loop_stmt.collection_local_id) == "i64[]"
+    assert local_display_name_for_owner(fn, loop_stmt.length_local_id) == "__for_in_length"
+    assert local_type_name_for_owner(fn, loop_stmt.length_local_id) == "u64"
+    assert local_display_name_for_owner(fn, loop_stmt.index_local_id) == "__for_in_index"
+    assert local_type_name_for_owner(fn, loop_stmt.index_local_id) == "i64"
 
 
 def test_lower_program_local_identity_is_stable_under_local_rename(tmp_path: Path) -> None:

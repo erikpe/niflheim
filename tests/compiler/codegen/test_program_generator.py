@@ -7,6 +7,7 @@ import pytest
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.symbols import ClassId, ConstructorId, InterfaceId, InterfaceMethodId, MethodId
 
@@ -49,7 +50,9 @@ def test_program_generator_builds_declaration_tables_from_program(tmp_path: Path
         """,
     )
 
-    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
     generator = ProgramGenerator(program)
 
     tables = generator.build_declaration_tables()
@@ -81,7 +84,9 @@ def test_program_generator_generate_builds_module_output(tmp_path: Path) -> None
         """,
     )
 
-    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
     generator = ProgramGenerator(program)
 
     asm = generator.generate()
@@ -124,7 +129,9 @@ def test_program_generator_builds_interface_descriptor_and_slot_tables(tmp_path:
         """,
     )
 
-    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
     tables = ProgramGenerator(program).build_declaration_tables()
 
     interface_id = InterfaceId(module_path=("util",), name="Hashable")
@@ -169,7 +176,9 @@ def test_program_generator_builds_type_metadata_before_emission(tmp_path: Path) 
         """,
     )
 
-    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
     generator = ProgramGenerator(program)
 
     metadata = generator.build_type_metadata()

@@ -6,6 +6,8 @@ import pytest
 
 from compiler.resolver import resolve_program
 from compiler.semantic.ir import local_display_name_for_owner, local_type_name_for_owner, require_local_info_for_owner
+from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.symbols import LocalId
 
@@ -50,12 +52,19 @@ def test_lower_program_records_function_local_metadata_by_local_id(tmp_path: Pat
     assert local_type_name_for_owner(function, total_decl.local_id) == "i64"
     assert item_info.display_name == "item"
     assert item_info.binding_kind == "for_in_element"
-    assert any(local_info.binding_kind == "for_in_collection" for local_info in function.local_info_by_id.values())
-    assert any(local_info.binding_kind == "for_in_length" for local_info in function.local_info_by_id.values())
-    assert any(local_info.binding_kind == "for_in_index" for local_info in function.local_info_by_id.values())
+    assert all(
+        local_info.binding_kind not in {"for_in_collection", "for_in_length", "for_in_index"}
+        for local_info in function.local_info_by_id.values()
+    )
     assert local_display_name_for_owner(function, return_stmt.value.local_id) == "total"
     assert not hasattr(return_stmt.value, "name")
     assert not hasattr(return_stmt.value, "type_name")
+
+    lowered_function = lower_linked_semantic_program(link_semantic_program(semantic)).functions[0]
+
+    assert any(local_info.binding_kind == "for_in_collection" for local_info in lowered_function.local_info_by_id.values())
+    assert any(local_info.binding_kind == "for_in_length" for local_info in lowered_function.local_info_by_id.values())
+    assert any(local_info.binding_kind == "for_in_index" for local_info in lowered_function.local_info_by_id.values())
 
 
 def test_lower_program_records_method_receiver_metadata(tmp_path: Path) -> None:

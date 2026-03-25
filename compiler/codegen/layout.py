@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.model import FunctionLayout, LayoutSlot, TEMP_RUNTIME_ROOT_SLOT_COUNT
+from compiler.semantic.lowered_ir import LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticStmt
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import LocalId
 
@@ -146,12 +147,12 @@ def _function_uses_local_storage(fn: SemanticFunction) -> bool:
     return _block_uses_local_storage(fn.body)
 
 
-def _block_uses_local_storage(block: SemanticBlock) -> bool:
+def _block_uses_local_storage(block: SemanticBlock | LoweredSemanticBlock) -> bool:
     return any(_stmt_uses_local_storage(stmt) for stmt in block.statements)
 
 
-def _stmt_uses_local_storage(stmt: SemanticStmt) -> bool:
-    if isinstance(stmt, SemanticBlock):
+def _stmt_uses_local_storage(stmt: SemanticStmt | LoweredSemanticStmt) -> bool:
+    if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
         return _block_uses_local_storage(stmt)
     if isinstance(stmt, SemanticVarDecl):
         return True
@@ -169,7 +170,7 @@ def _stmt_uses_local_storage(stmt: SemanticStmt) -> bool:
         )
     if isinstance(stmt, SemanticWhile):
         return _expr_uses_local_storage(stmt.condition) or _block_uses_local_storage(stmt.body)
-    if isinstance(stmt, SemanticForIn):
+    if isinstance(stmt, LoweredSemanticForIn):
         return True
     return False
 
@@ -265,8 +266,8 @@ def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
     return False
 
 
-def _stmt_needs_temp_runtime_roots(stmt: SemanticStmt) -> bool:
-    if isinstance(stmt, SemanticBlock):
+def _stmt_needs_temp_runtime_roots(stmt: SemanticStmt | LoweredSemanticStmt) -> bool:
+    if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
         return any(_stmt_needs_temp_runtime_roots(nested) for nested in stmt.statements)
     if isinstance(stmt, SemanticVarDecl):
         return stmt.initializer is not None and _expr_needs_temp_runtime_roots(stmt.initializer)
@@ -284,7 +285,7 @@ def _stmt_needs_temp_runtime_roots(stmt: SemanticStmt) -> bool:
         )
     if isinstance(stmt, SemanticWhile):
         return _expr_needs_temp_runtime_roots(stmt.condition) or _stmt_needs_temp_runtime_roots(stmt.body)
-    if isinstance(stmt, SemanticForIn):
+    if isinstance(stmt, LoweredSemanticForIn):
         return (
             _expr_needs_temp_runtime_roots(stmt.collection)
             or codegen_types.is_reference_type_name(expression_type_name(stmt.collection))
@@ -341,8 +342,8 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
     return 0
 
 
-def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt) -> int:
-    if isinstance(stmt, SemanticBlock):
+def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt | LoweredSemanticStmt) -> int:
+    if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
         return max((_max_call_temp_root_slots_in_stmt(nested) for nested in stmt.statements), default=0)
     if isinstance(stmt, SemanticVarDecl):
         return _max_call_temp_root_slots_in_expr(stmt.initializer) if stmt.initializer is not None else 0
@@ -374,7 +375,7 @@ def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt) -> int:
         )
     if isinstance(stmt, SemanticWhile):
         return max(_max_call_temp_root_slots_in_expr(stmt.condition), _max_call_temp_root_slots_in_stmt(stmt.body))
-    if isinstance(stmt, SemanticForIn):
+    if isinstance(stmt, LoweredSemanticForIn):
         implicit_for_in_call_slots = 1 if codegen_types.is_reference_type_name(expression_type_name(stmt.collection)) else 0
         return max(
             _max_call_temp_root_slots_in_expr(stmt.collection),
