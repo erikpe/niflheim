@@ -69,9 +69,6 @@ def _build_function_layout(
     slot_names = [slot.key for slot in slots]
     slot_type_names = {slot.key: slot.type_name for slot in slots}
     local_slot_offsets = {slot.local_id: slot.offset for slot in slots if slot.local_id is not None}
-    param_slot_offsets = {
-        slot.display_name: slot.offset for slot, slot_spec in zip(slots, slot_specs) if slot_spec.is_param
-    }
     root_slot_names = [slot.key for slot in root_slots]
 
     return FunctionLayout(
@@ -79,7 +76,6 @@ def _build_function_layout(
         slot_names=slot_names,
         slot_offsets=slot_offsets,
         local_slot_offsets=local_slot_offsets,
-        param_slot_offsets=param_slot_offsets,
         slot_type_names=slot_type_names,
         root_slots=root_slots,
         root_slot_names=root_slot_names,
@@ -122,33 +118,12 @@ def _local_slot_specs(fn: SemanticFunction) -> list[_SlotSpec]:
     return slot_specs
 
 
-def _legacy_slot_specs(fn: SemanticFunction) -> list[_SlotSpec]:
-    ordered_slot_names: list[str] = []
-    local_types_by_name: dict[str, str] = {}
-    seen_names: set[str] = set()
-    for param in fn.params:
-        if param.name not in seen_names:
-            seen_names.add(param.name)
-            ordered_slot_names.append(param.name)
-            local_types_by_name[param.name] = param.type_name
-
-    for stmt in fn.body.statements:
-        _collect_locals(stmt, local_types_by_name)
-
-    for name in sorted(local_types_by_name):
-        if name not in seen_names:
-            seen_names.add(name)
-            ordered_slot_names.append(name)
-
-    return [
-        _SlotSpec(
-            key=name,
-            display_name=name,
-            type_name=local_types_by_name[name],
-            is_param=name in {param.name for param in fn.params},
-        )
-        for name in ordered_slot_names
+def _require_function_param_local_info(fn: SemanticFunction) -> None:
+    param_locals = [
+        local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind in {"receiver", "param"}
     ]
+    if len(param_locals) != len(fn.params):
+        raise ValueError("semantic layout requires owner-local metadata for every function parameter")
 
 
 def _constructor_slot_specs(cls: SemanticClass, ctor_layout, *, constructor_object_slot_name: str) -> list[_SlotSpec]:
@@ -165,27 +140,92 @@ def _constructor_slot_specs(cls: SemanticClass, ctor_layout, *, constructor_obje
     ]
 
 
-def _collect_locals(stmt: SemanticStmt, local_types_by_name: dict[str, str]) -> None:
+def _function_uses_local_storage(fn: SemanticFunction) -> bool:
+    if fn.params:
+        return True
+    return _block_uses_local_storage(fn.body)
+
+
+def _block_uses_local_storage(block: SemanticBlock) -> bool:
+    return any(_stmt_uses_local_storage(stmt) for stmt in block.statements)
+
+
+def _stmt_uses_local_storage(stmt: SemanticStmt) -> bool:
     if isinstance(stmt, SemanticBlock):
-        for nested in stmt.statements:
-            _collect_locals(nested, local_types_by_name)
-        return
+        return _block_uses_local_storage(stmt)
     if isinstance(stmt, SemanticVarDecl):
-        if stmt.name is None or stmt.type_name is None:
-            raise ValueError("legacy layout fallback requires SemanticVarDecl name/type metadata when local_info_by_id is absent")
-        local_types_by_name.setdefault(stmt.name, stmt.type_name)
-        return
+        return True
+    if isinstance(stmt, SemanticAssign):
+        return _lvalue_uses_local_storage(stmt.target) or _expr_uses_local_storage(stmt.value)
+    if isinstance(stmt, SemanticExprStmt):
+        return _expr_uses_local_storage(stmt.expr)
+    if isinstance(stmt, SemanticReturn):
+        return stmt.value is not None and _expr_uses_local_storage(stmt.value)
     if isinstance(stmt, SemanticIf):
-        _collect_locals(stmt.then_block, local_types_by_name)
-        if stmt.else_block is not None:
-            _collect_locals(stmt.else_block, local_types_by_name)
-        return
+        return (
+            _expr_uses_local_storage(stmt.condition)
+            or _block_uses_local_storage(stmt.then_block)
+            or (stmt.else_block is not None and _block_uses_local_storage(stmt.else_block))
+        )
     if isinstance(stmt, SemanticWhile):
-        _collect_locals(stmt.body, local_types_by_name)
-        return
+        return _expr_uses_local_storage(stmt.condition) or _block_uses_local_storage(stmt.body)
     if isinstance(stmt, SemanticForIn):
-        local_types_by_name.setdefault(stmt.element_name, stmt.element_type_name)
-        _collect_locals(stmt.body, local_types_by_name)
+        return True
+    return False
+
+
+def _lvalue_uses_local_storage(target: SemanticLValue) -> bool:
+    if isinstance(target, LocalLValue):
+        return True
+    if isinstance(target, FieldLValue):
+        return _expr_uses_local_storage(target.receiver)
+    if isinstance(target, IndexLValue):
+        return _expr_uses_local_storage(target.target) or _expr_uses_local_storage(target.index)
+    if isinstance(target, SliceLValue):
+        return (
+            _expr_uses_local_storage(target.target)
+            or _expr_uses_local_storage(target.begin)
+            or _expr_uses_local_storage(target.end)
+        )
+    return False
+
+
+def _expr_uses_local_storage(expr: SemanticExpr) -> bool:
+    if isinstance(expr, LocalRefExpr):
+        return True
+    if isinstance(expr, CastExprS):
+        return _expr_uses_local_storage(expr.operand)
+    if isinstance(expr, TypeTestExprS):
+        return _expr_uses_local_storage(expr.operand)
+    if isinstance(expr, UnaryExprS):
+        return _expr_uses_local_storage(expr.operand)
+    if isinstance(expr, BinaryExprS):
+        return _expr_uses_local_storage(expr.left) or _expr_uses_local_storage(expr.right)
+    if isinstance(expr, FieldReadExpr):
+        return _expr_uses_local_storage(expr.receiver)
+    if isinstance(expr, FunctionCallExpr | StaticMethodCallExpr | ConstructorCallExpr):
+        return any(_expr_uses_local_storage(arg) for arg in expr.args)
+    if isinstance(expr, CallableValueCallExpr):
+        return _expr_uses_local_storage(expr.callee) or any(_expr_uses_local_storage(arg) for arg in expr.args)
+    if isinstance(expr, InstanceMethodCallExpr):
+        return _expr_uses_local_storage(expr.receiver) or any(_expr_uses_local_storage(arg) for arg in expr.args)
+    if isinstance(expr, InterfaceMethodCallExpr):
+        return _expr_uses_local_storage(expr.receiver) or any(_expr_uses_local_storage(arg) for arg in expr.args)
+    if isinstance(expr, ArrayLenExpr):
+        return _expr_uses_local_storage(expr.target)
+    if isinstance(expr, IndexReadExpr):
+        return _expr_uses_local_storage(expr.target) or _expr_uses_local_storage(expr.index)
+    if isinstance(expr, SliceReadExpr):
+        return (
+            _expr_uses_local_storage(expr.target)
+            or _expr_uses_local_storage(expr.begin)
+            or _expr_uses_local_storage(expr.end)
+        )
+    if isinstance(expr, ArrayCtorExprS):
+        return _expr_uses_local_storage(expr.length_expr)
+    if isinstance(expr, SyntheticExpr):
+        return any(_expr_uses_local_storage(arg) for arg in expr.args)
+    return False
 
 
 def _lvalue_needs_temp_runtime_roots(target) -> bool:
@@ -352,7 +392,10 @@ def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt) -> int:
 def build_layout(fn: SemanticFunction) -> FunctionLayout:
     if fn.body is None:
         raise ValueError("semantic layout requires a concrete function body")
-    slot_specs = _local_slot_specs(fn) if fn.local_info_by_id else _legacy_slot_specs(fn)
+    if _function_uses_local_storage(fn) and not fn.local_info_by_id:
+        raise ValueError("semantic layout requires owner-local metadata for lowered local storage")
+    _require_function_param_local_info(fn)
+    slot_specs = _local_slot_specs(fn)
 
     needs_temp_runtime_roots = any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_stmt(stmt) for stmt in fn.body.statements), default=0)

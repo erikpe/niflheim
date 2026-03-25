@@ -27,8 +27,21 @@ def _emit_debug_symbol_literals(codegen, *, target_label: str, function_name: st
     return fn_label, file_label
 
 
-def _param_specs(params: list[SemanticParam]) -> list[tuple[str, str, object]]:
-    return [(param.name, param.type_name, param.span) for param in params]
+def _function_param_spills(fn: SemanticFunction, layout) -> list[tuple[int, str, object]]:
+    param_locals = sorted(
+        (local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind in {"receiver", "param"}),
+        key=lambda local_info: local_info.local_id.ordinal,
+    )
+    if len(param_locals) != len(fn.params):
+        raise ValueError("function emission requires owner-local metadata for every parameter slot")
+    return [
+        (layout.local_slot_offsets[local_info.local_id], param.type_name, param.span)
+        for param, local_info in zip(fn.params, param_locals, strict=True)
+    ]
+
+
+def _constructor_param_spills(params: list[SemanticParam], layout) -> list[tuple[int, str, object]]:
+    return [(layout.slot_offsets[param.name], param.type_name, param.span) for param in params]
 
 
 def emit_function(
@@ -51,7 +64,7 @@ def emit_function(
     )
     codegen.emit_location_comment(file_path=fn.span.start.path, line=fn.span.start.line, column=fn.span.start.column)
     codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_param_specs(fn.params), layout)
+    codegen.emit_param_spills(_function_param_spills(fn, layout))
 
     if layout.root_slot_count > 0:
         first_root_offset = (
@@ -133,7 +146,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     codegen.emit_frame_prologue(target_label, layout, global_symbol=False)
     codegen.emit_location_comment(file_path=cls.span.start.path, line=cls.span.start.line, column=cls.span.start.column)
     codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_param_specs(ctor_params), layout)
+    codegen.emit_param_spills(_constructor_param_spills(ctor_params, layout))
 
     if layout.root_slot_count > 0:
         first_root_offset = (

@@ -91,23 +91,19 @@ class CodeGenerator:
         for offset in layout.temp_root_slot_offsets:
             self.asm.instr(f"mov {offset_operand(offset)}, 0")
 
-    def emit_param_spills(self, params: list[tuple[str, str, object | None]], layout: FunctionLayout) -> None:
-        param_type_names = [type_name for _name, type_name, _span in params]
+    def emit_param_spills(self, param_slots: list[tuple[int, str, object | None]]) -> None:
+        param_type_names = [type_name for _offset, type_name, _span in param_slots]
         arg_locations = plan_sysv_arg_locations(param_type_names)
 
-        for (param_name, _param_type_name, param_span), (location_kind, location_register, stack_index) in zip(
-            params, arg_locations
+        for (slot_offset, _param_type_name, param_span), (location_kind, location_register, stack_index) in zip(
+            param_slots, arg_locations
         ):
-            offset = layout.param_slot_offsets.get(param_name)
-            if offset is None:
-                continue
-
             if location_kind == "int_reg":
-                self.asm.instr(f"mov {offset_operand(offset)}, {location_register}")
+                self.asm.instr(f"mov {offset_operand(slot_offset)}, {location_register}")
                 continue
 
             if location_kind == "float_reg":
-                self.asm.instr(f"movq {offset_operand(offset)}, {location_register}")
+                self.asm.instr(f"movq {offset_operand(slot_offset)}, {location_register}")
                 continue
 
             if location_kind == "stack":
@@ -117,7 +113,7 @@ class CodeGenerator:
                     )
                 incoming_stack_offset = 16 + (stack_index * 8)
                 self.asm.instr(f"mov rax, qword ptr [rbp + {incoming_stack_offset}]")
-                self.asm.instr(f"mov {offset_operand(offset)}, rax")
+                self.asm.instr(f"mov {offset_operand(slot_offset)}, rax")
                 continue
 
             codegen_types.raise_codegen_error(f"unsupported argument location kind '{location_kind}'", span=param_span)

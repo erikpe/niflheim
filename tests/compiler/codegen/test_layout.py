@@ -1,10 +1,15 @@
+import pytest
+
 from compiler.codegen.layout import build_constructor_layout, build_layout
 from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
 from compiler.codegen.program_generator import ProgramGenerator
+from compiler.common.span import SourcePos, SourceSpan
 from compiler.resolver import resolve_program
+from compiler.semantic.ir import SemanticBlock, SemanticFunction, SemanticParam, SemanticReturn
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
-from compiler.semantic.symbols import ConstructorId
+from compiler.semantic.symbols import ConstructorId, FunctionId
+from compiler.semantic.types import best_effort_semantic_type_ref_from_name
 
 
 def test_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) -> None:
@@ -158,3 +163,28 @@ def test_codegen_build_layout_tracks_identity_first_slot_records(tmp_path) -> No
     assert param_slot.offset == layout.local_slot_offsets[param_info.local_id]
     assert kept_slot.offset == layout.local_slot_offsets[kept_info.local_id]
     assert [slot.local_id for slot in layout.root_slots] == [param_info.local_id, kept_info.local_id]
+
+
+def test_codegen_build_layout_requires_owner_local_metadata_for_lowered_locals() -> None:
+    pos = SourcePos(path="<test>", offset=0, line=1, column=1)
+    span = SourceSpan(start=pos, end=pos)
+    fn = SemanticFunction(
+        function_id=FunctionId(module_path=("main",), name="main"),
+        params=[
+            SemanticParam(
+                name="value",
+                type_name="i64",
+                type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
+                span=span,
+            )
+        ],
+        return_type_name="i64",
+        return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
+        body=SemanticBlock(statements=[SemanticReturn(value=None, span=span)], span=span),
+        is_export=False,
+        is_extern=False,
+        span=span,
+    )
+
+    with pytest.raises(ValueError, match="owner-local metadata"):
+        build_layout(fn)

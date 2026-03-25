@@ -22,7 +22,6 @@ class FunctionLayout:
     slot_names: list[str]
     slot_offsets: dict[str, int]
     local_slot_offsets: dict[LocalId, int]
-    param_slot_offsets: dict[str, int]
     slot_type_names: dict[str, str]
     root_slots: list[LayoutSlot]
     root_slot_names: list[str]
