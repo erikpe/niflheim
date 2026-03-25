@@ -99,7 +99,7 @@ def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -
 
     assert isinstance(function.body.statements[0], SemanticVarDecl)
     assert function.body.statements[0].local_id.owner_id == function.function_id
-    assert function.body.statements[0].type_name == "i64"
+    assert local_type_name_for_owner(function, function.body.statements[0].local_id) == "i64"
 
     if_stmt = function.body.statements[1]
     assert isinstance(if_stmt, SemanticIf)
@@ -1071,7 +1071,7 @@ def test_lower_program_lowers_nested_blocks_with_local_refs_and_assignments(tmp_
     assert isinstance(inner_block, SemanticBlock)
     assert isinstance(inner_block.statements[0], SemanticVarDecl)
     assert inner_block.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
-    assert inner_block.statements[0].type_name == "bool"
+    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[0].local_id) == "bool"
     assert isinstance(inner_block.statements[0].initializer, LocalRefExpr)
     assert inner_block.statements[0].initializer.name == "flag"
     assert inner_block.statements[0].initializer.type_name == "bool"
@@ -1170,8 +1170,8 @@ def test_lower_program_local_identity_is_stable_under_local_rename(tmp_path: Pat
     assert isinstance(original_return.value, LocalRefExpr)
     assert isinstance(renamed_return.value, LocalRefExpr)
 
-    assert original_decl.name == "result"
-    assert renamed_decl.name == "outcome"
+    assert local_display_name_for_owner(original, original_decl.local_id) == "result"
+    assert local_display_name_for_owner(renamed, renamed_decl.local_id) == "outcome"
     assert original_decl.local_id.ordinal == renamed_decl.local_id.ordinal == 1
     assert original_return.value.local_id.ordinal == renamed_return.value.local_id.ordinal == 1
     assert original_return.value.name == "result"
@@ -1215,7 +1215,7 @@ def test_lower_program_assigns_distinct_ids_to_shadowed_bindings(tmp_path: Path)
     assert isinstance(return_stmt.value, LocalRefExpr)
 
     shadow_decl = inner_block.statements[0]
-    assert shadow_decl.name == "value"
+    assert local_display_name_for_owner(function, shadow_decl.local_id) == "value"
     assert shadow_decl.local_id != param_local_info.local_id
     assert inner_block.statements[1].value.right.local_id == shadow_decl.local_id
     assert return_stmt.value.local_id == param_local_info.local_id

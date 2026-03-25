@@ -97,9 +97,6 @@ def lower_stmt(typecheck_ctx: TypeCheckContext, stmt: Statement, *, symbol_index
         local_id = local_id_tracker.declare_binding(binding)
         return SemanticVarDecl(
             local_id=local_id,
-            name=stmt.name,
-            type_name=var_type.name,
-            type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, var_type),
             initializer=initializer,
             span=stmt.span,
         )

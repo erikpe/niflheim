@@ -142,6 +142,14 @@ def local_display_name_for_owner(owner: SemanticFunctionLike, local_id: LocalId)
     return require_local_info_for_owner(owner, local_id).display_name
 
 
+def local_type_name_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> str:
+    return require_local_info_for_owner(owner, local_id).type_name
+
+
+def local_type_ref_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> SemanticTypeRef:
+    return require_local_info_for_owner(owner, local_id).type_ref
+
+
 @dataclass(frozen=True)
 class SemanticBlock:
     statements: list["SemanticStmt"]
@@ -151,11 +159,11 @@ class SemanticBlock:
 @dataclass(frozen=True)
 class SemanticVarDecl:
     local_id: LocalId
-    name: str
-    type_name: str
-    type_ref: SemanticTypeRef
     initializer: "SemanticExpr | None"
     span: SourceSpan
+    name: str | None = None
+    type_name: str | None = None
+    type_ref: SemanticTypeRef | None = None
 
 
 @dataclass(frozen=True)

@@ -113,14 +113,14 @@ class _SemanticReachabilityWalker:
             self._enqueue_type_ref(function.function_id.module_path, param.type_ref)
         self._enqueue_type_ref(function.function_id.module_path, function.return_type_ref)
         if function.body is not None:
-            self._walk_block(function.function_id.module_path, function.body)
+            self._walk_block(function.function_id.module_path, function.body, function)
 
     def _visit_method(self, method: SemanticMethod) -> None:
         self._enqueue_class(ClassId(module_path=method.method_id.module_path, name=method.method_id.class_name))
         for param in method.params:
             self._enqueue_type_ref(method.method_id.module_path, param.type_ref)
         self._enqueue_type_ref(method.method_id.module_path, method.return_type_ref)
-        self._walk_block(method.method_id.module_path, method.body)
+        self._walk_block(method.method_id.module_path, method.body, method)
 
     def _visit_class(self, cls: SemanticClass) -> None:
         for field in cls.fields:
@@ -147,16 +147,16 @@ class _SemanticReachabilityWalker:
                 self._enqueue_type_ref(interface.interface_id.module_path, param.type_ref)
             self._enqueue_type_ref(interface.interface_id.module_path, method.return_type_ref)
 
-    def _walk_block(self, module_path: ModulePath, block: SemanticBlock) -> None:
+    def _walk_block(self, module_path: ModulePath, block: SemanticBlock, owner: SemanticFunctionLike) -> None:
         for stmt in block.statements:
-            self._walk_stmt(module_path, stmt)
+            self._walk_stmt(module_path, stmt, owner)
 
-    def _walk_stmt(self, module_path: ModulePath, stmt: SemanticStmt) -> None:
+    def _walk_stmt(self, module_path: ModulePath, stmt: SemanticStmt, owner: SemanticFunctionLike) -> None:
         if isinstance(stmt, SemanticBlock):
-            self._walk_block(module_path, stmt)
+            self._walk_block(module_path, stmt, owner)
             return
         if isinstance(stmt, SemanticVarDecl):
-            self._enqueue_type_ref(module_path, stmt.type_ref)
+            self._enqueue_type_ref(module_path, local_type_ref_for_owner(owner, stmt.local_id))
             if stmt.initializer is not None:
                 self._walk_expr(module_path, stmt.initializer)
             return
@@ -173,20 +173,20 @@ class _SemanticReachabilityWalker:
             return
         if isinstance(stmt, SemanticIf):
             self._walk_expr(module_path, stmt.condition)
-            self._walk_block(module_path, stmt.then_block)
+            self._walk_block(module_path, stmt.then_block, owner)
             if stmt.else_block is not None:
-                self._walk_block(module_path, stmt.else_block)
+                self._walk_block(module_path, stmt.else_block, owner)
             return
         if isinstance(stmt, SemanticWhile):
             self._walk_expr(module_path, stmt.condition)
-            self._walk_block(module_path, stmt.body)
+            self._walk_block(module_path, stmt.body, owner)
             return
         if isinstance(stmt, SemanticForIn):
             self._walk_expr(module_path, stmt.collection)
             self._enqueue_method(dispatch_method_id(stmt.iter_len_dispatch))
             self._enqueue_method(dispatch_method_id(stmt.iter_get_dispatch))
             self._enqueue_type_ref(module_path, stmt.element_type_ref)
-            self._walk_block(module_path, stmt.body)
+            self._walk_block(module_path, stmt.body, owner)
             return
         if isinstance(stmt, (SemanticBreak, SemanticContinue)):
             return

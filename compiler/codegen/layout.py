@@ -99,6 +99,8 @@ def _collect_locals(stmt: SemanticStmt, local_types_by_name: dict[str, str]) -> 
             _collect_locals(nested, local_types_by_name)
         return
     if isinstance(stmt, SemanticVarDecl):
+        if stmt.name is None or stmt.type_name is None:
+            raise ValueError("legacy layout fallback requires SemanticVarDecl name/type metadata when local_info_by_id is absent")
         local_types_by_name.setdefault(stmt.name, stmt.type_name)
         return
     if isinstance(stmt, SemanticIf):

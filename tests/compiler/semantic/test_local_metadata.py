@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from compiler.resolver import resolve_program
-from compiler.semantic.ir import local_display_name_for_owner, require_local_info_for_owner
+from compiler.semantic.ir import local_display_name_for_owner, local_type_name_for_owner, require_local_info_for_owner
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.symbols import LocalId
 
@@ -41,10 +41,14 @@ def test_lower_program_records_function_local_metadata_by_local_id(tmp_path: Pat
     item_ref = loop_stmt.body.statements[0].value.right
     item_info = require_local_info_for_owner(function, item_ref.local_id)
 
+    assert total_decl.name is None
+    assert total_decl.type_name is None
+    assert total_decl.type_ref is None
     assert values_info.binding_kind == "param"
     assert values_info.type_name == "i64[]"
     assert total_info.display_name == "total"
     assert total_info.binding_kind == "local"
+    assert local_type_name_for_owner(function, total_decl.local_id) == "i64"
     assert item_info.display_name == "item"
     assert item_info.binding_kind == "for_in_element"
     assert local_display_name_for_owner(function, return_stmt.value.local_id) == "total"

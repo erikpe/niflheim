@@ -15,7 +15,7 @@ The remaining weak spots are now mostly type identity and backend-boundary issue
 - many nodes still represent types primarily as strings that later passes must reinterpret
 - codegen still synthesizes some semantic temporaries from source spans instead of consuming explicit semantic identities
 - frame layout and root-slot bookkeeping still rely on backend slot names rather than canonical semantic local identity
-- semantic nodes still duplicate some metadata that is now also available through owner-local tables
+- some semantic nodes still duplicate metadata that is now also available through owner-local tables, though lowered local declarations no longer need copied display/type data
 
 None of those are blockers for the current compiler, but together they make shadowing, stronger optimization, and future semantic cleanup harder than necessary.
 
@@ -218,16 +218,23 @@ Step 7 status:
 - Codegen still primarily consumes `type_name` strings, which keeps this step incremental and leaves the broader backend migration for later roadmap steps.
 
 8. Reduce duplication between semantic nodes and semantic metadata
-  - [ ] audit which repeated fields should remain on every node for convenience and which should move into metadata tables
-  - [ ] consider whether receiver owner data, declared local type data, and resolved type data are duplicated more than needed
-  - [ ] update walkers and pretty-printers to use the chosen metadata boundary consistently
+  - [x] audit which repeated fields should remain on every node for convenience and which should move into metadata tables
+  - [x] consider whether receiver owner data, declared local type data, and resolved type data are duplicated more than needed
+  - [x] update walkers and pretty-printers to use the chosen metadata boundary consistently
   - Purpose:
     avoid turning the semantic graph into a large typed AST where every node repeats context that can be recovered cheaply and canonically
   - Expected outcome:
     the graph stays explicit where needed but less redundant and easier to evolve
   - Tests to add:
-    - semantic dump tests
-    - regression tests for any codegen or optimization pass that previously relied on duplicated fields
+    - [x] semantic dump or metadata-boundary tests
+    - [x] regression tests for any codegen or optimization pass that previously relied on duplicated fields
+
+Step 8 status:
+
+- Lowered `SemanticVarDecl` nodes no longer need to duplicate local display names or declared local types, because that metadata is authoritative in the owning function or method's `local_info_by_id` table.
+- Owner-aware helpers now define the supported boundary for recovering a local declaration's display name or declared type from its `LocalId`.
+- Semantic reachability and related tests were updated to use that owner-local metadata boundary instead of reading copied declaration metadata directly.
+- Use-site local names and types on `LocalRefExpr` and `LocalLValue` remain in place intentionally for now, because they still provide readability and support a few narrow downstream compatibility paths.
 
 9. Make compiler-introduced temporaries explicit semantic locals
   - [ ] model hidden loop temporaries such as `for-in` collection, length, and index values as explicit semantic locals or explicit temp declarations

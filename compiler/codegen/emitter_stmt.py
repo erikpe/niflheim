@@ -39,8 +39,9 @@ def emit_statement(
     if isinstance(stmt, SemanticVarDecl):
         offset = layout.local_slot_offsets.get(stmt.local_id)
         if offset is None:
+            local_label = stmt.name if stmt.name is not None else str(stmt.local_id)
             codegen_types.raise_codegen_error(
-                f"variable '{stmt.name}' is not materialized in stack layout", span=stmt.span
+                f"variable '{local_label}' is not materialized in stack layout", span=stmt.span
             )
         if stmt.initializer is None:
             codegen.asm.instr("mov rax, 0")

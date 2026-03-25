@@ -77,6 +77,8 @@ Local identity is now wired into local declarations, local references, and local
 
 Semantic IR now also carries canonical `SemanticTypeRef` values beside many existing `*_type_name` string fields. The canonical type refs provide stable type shape and nominal identity for semantic consumers, while the string fields remain as cached display data and compatibility surfaces for incremental downstream migration. The remaining migration steps are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
 
+Lowered local declaration nodes now rely primarily on the owner-local `local_info_by_id` table for display names and declared local types. That metadata is still keyed by the declaration's `LocalId`, but it no longer needs to be copied onto every lowered `SemanticVarDecl` by default.
+
 ## Exact Semantic IR Node Set
 
 The first semantic IR preserves module, class, function, method, block, `if`, and `while` structure, but replaces ambiguous expression and sugar forms with explicit semantic nodes.
@@ -176,12 +178,14 @@ class SemanticBlock:
 @dataclass(frozen=True)
 class SemanticVarDecl:
     local_id: LocalId
-    name: str
-    type_name: str
-    type_ref: SemanticTypeRef
     initializer: SemanticExpr | None
     span: SourceSpan
+    name: str | None = None
+    type_name: str | None = None
+    type_ref: SemanticTypeRef | None = None
 
+
+For lowered semantic programs, `SemanticVarDecl.name`, `SemanticVarDecl.type_name`, and `SemanticVarDecl.type_ref` may be omitted when the same information is already present in the owning function or method's `local_info_by_id` table. New semantic consumers should prefer the owner-local metadata helpers over direct access to those optional declaration fields.
 
 @dataclass(frozen=True)
 class SemanticAssign:
