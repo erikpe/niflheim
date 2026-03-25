@@ -6,6 +6,7 @@ from compiler.common.collection_protocols import *
 from compiler.common.type_names import *
 from compiler.frontend.ast_nodes import CallExpr, ExprStmt, Expression, FieldAccessExpr
 from compiler.semantic.ir import *
+from compiler.semantic.types import semantic_type_ref_from_type_info
 from .ids import resolve_instance_method_id
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
@@ -89,6 +90,9 @@ def try_lower_slice_assign_stmt(
             begin=lower_expr(expr.arguments[0]),
             end=lower_expr(expr.arguments[1]),
             value_type_name=infer_expression_type(typecheck_ctx, expr.arguments[2]).name,
+            value_type_ref=semantic_type_ref_from_type_info(
+                typecheck_ctx.module_path, infer_expression_type(typecheck_ctx, expr.arguments[2])
+            ),
             dispatch=resolve_collection_dispatch(typecheck_ctx, receiver_type, operation=CollectionOpKind.SLICE_SET),
             span=expr.span,
         ),
@@ -120,6 +124,7 @@ def try_lower_array_index_assign_stmt(
             target=lower_expr(expr.callee.object_expr),
             index=lower_expr(expr.arguments[0]),
             value_type_name=receiver_type.element_type.name,
+            value_type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, receiver_type.element_type),
             dispatch=runtime_dispatch_for_array_operation(receiver_type, CollectionOpKind.INDEX_SET),
             span=expr.span,
         ),
@@ -152,6 +157,9 @@ def try_lower_array_slice_assign_stmt(
             begin=lower_expr(expr.arguments[0]),
             end=lower_expr(expr.arguments[1]),
             value_type_name=infer_expression_type(typecheck_ctx, expr.arguments[2]).name,
+            value_type_ref=semantic_type_ref_from_type_info(
+                typecheck_ctx.module_path, infer_expression_type(typecheck_ctx, expr.arguments[2])
+            ),
             dispatch=runtime_dispatch_for_array_operation(receiver_type, CollectionOpKind.SLICE_SET),
             span=expr.span,
         ),

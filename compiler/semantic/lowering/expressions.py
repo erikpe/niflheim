@@ -5,6 +5,7 @@ from compiler.frontend.ast_nodes import *
 from compiler.semantic.ir import *
 from compiler.semantic.lowering.locals import LocalIdTracker
 from compiler.semantic.symbols import ProgramSymbolIndex
+from compiler.semantic.types import SemanticTypeRef, semantic_type_ref_from_type_info
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.type_resolution import resolve_type_ref
@@ -66,17 +67,21 @@ def lower_expr(
         )
 
     if isinstance(expr, CastExpr):
+        target_type = resolve_type_ref(typecheck_ctx, expr.type_ref)
         return CastExprS(
             operand=lower_expr(typecheck_ctx, symbol_index, expr.operand, local_id_tracker),
-            target_type_name=resolve_type_ref(typecheck_ctx, expr.type_ref).name,
+            target_type_name=target_type.name,
+            target_type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, target_type),
             type_name=infer_expression_type(typecheck_ctx, expr).name,
             span=expr.span,
         )
 
     if isinstance(expr, TypeTestExpr):
+        target_type = resolve_type_ref(typecheck_ctx, expr.type_ref)
         return TypeTestExprS(
             operand=lower_expr(typecheck_ctx, symbol_index, expr.operand, local_id_tracker),
-            target_type_name=resolve_type_ref(typecheck_ctx, expr.type_ref).name,
+            target_type_name=target_type.name,
+            target_type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, target_type),
             type_name=infer_expression_type(typecheck_ctx, expr).name,
             span=expr.span,
         )
@@ -150,6 +155,9 @@ def lower_call_expr(
             method_id=resolved_target.method_id,
             receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.receiver, local_id_tracker),
             receiver_type_name=resolved_target.receiver_type_name,
+            receiver_type_ref=semantic_type_ref_from_type_info(
+                typecheck_ctx.module_path, infer_expression_type(typecheck_ctx, resolved_target.receiver)
+            ),
             args=args,
             type_name=result_type_name,
             span=expr.span,
@@ -161,6 +169,9 @@ def lower_call_expr(
             method_id=resolved_target.method_id,
             receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.receiver, local_id_tracker),
             receiver_type_name=resolved_target.receiver_type_name,
+            receiver_type_ref=semantic_type_ref_from_type_info(
+                typecheck_ctx.module_path, infer_expression_type(typecheck_ctx, resolved_target.receiver)
+            ),
             args=args,
             type_name=result_type_name,
             span=expr.span,
@@ -180,9 +191,11 @@ def _lower_identifier_expr(
     expr: IdentifierExpr,
     local_id_tracker: LocalIdTracker | None,
 ) -> SemanticExpr:
+    inferred_type = infer_expression_type(typecheck_ctx, expr)
     return lower_resolved_ref(
         resolve_identifier_ref_target(typecheck_ctx, symbol_index, expr, local_id_tracker),
-        infer_expression_type(typecheck_ctx, expr).name,
+        inferred_type.name,
+        semantic_type_ref_from_type_info(typecheck_ctx.module_path, inferred_type),
         expr.span,
         lower_expr=lambda nested_expr: lower_expr(typecheck_ctx, symbol_index, nested_expr, local_id_tracker),
     )
@@ -194,9 +207,11 @@ def _lower_field_access_expr(
     expr: FieldAccessExpr,
     local_id_tracker: LocalIdTracker | None,
 ) -> SemanticExpr:
+    inferred_type = infer_expression_type(typecheck_ctx, expr)
     return lower_resolved_ref(
         resolve_field_access_ref_target(typecheck_ctx, symbol_index, expr),
-        infer_expression_type(typecheck_ctx, expr).name,
+        inferred_type.name,
+        semantic_type_ref_from_type_info(typecheck_ctx.module_path, inferred_type),
         expr.span,
         lower_expr=lambda nested_expr: lower_expr(typecheck_ctx, symbol_index, nested_expr, local_id_tracker),
     )
@@ -212,6 +227,7 @@ def _lower_array_ctor_expr(
     assert array_type.element_type is not None
     return ArrayCtorExprS(
         element_type_name=array_type.element_type.name,
+        element_type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, array_type.element_type),
         length_expr=lower_expr(typecheck_ctx, symbol_index, expr.length_expr, local_id_tracker),
         type_name=array_type.name,
         span=expr.span,

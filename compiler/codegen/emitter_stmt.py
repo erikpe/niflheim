@@ -9,6 +9,7 @@ from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.layout import for_in_temp_name
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import FunctionId, LocalId
+from compiler.semantic.types import best_effort_semantic_type_ref_from_name
 
 
 def emit_statement(
@@ -188,6 +189,7 @@ def _emit_for_in(
         local_id=_codegen_temp_local_id(ctx, ordinal=0),
         name=coll_name,
         type_name=expression_type_name(stmt.collection),
+        type_ref=best_effort_semantic_type_ref_from_name(ctx.current_module_path, expression_type_name(stmt.collection)),
         span=stmt.span,
     )
     _emit_named_call(codegen, _dispatch_target_name(stmt.iter_len_dispatch, ctx), [coll_ref], TYPE_NAME_U64, ctx)
@@ -203,6 +205,7 @@ def _emit_for_in(
         local_id=_codegen_temp_local_id(ctx, ordinal=1),
         name=index_name,
         type_name=TYPE_NAME_I64,
+        type_ref=best_effort_semantic_type_ref_from_name(ctx.current_module_path, TYPE_NAME_I64),
         span=stmt.span,
     )
     _emit_named_call(

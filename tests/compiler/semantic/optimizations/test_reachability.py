@@ -7,7 +7,7 @@ from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.reachability import analyze_semantic_reachability, prune_unreachable_semantic
-from compiler.semantic.symbols import ClassId, FunctionId, MethodId
+from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, MethodId
 
 
 def _write(path: Path, content: str) -> None:
@@ -147,6 +147,33 @@ def test_prune_unreachable_semantic_program_removes_dead_duplicate_class_symbols
 
     assert [cls.class_id.name for cls in linked.classes] == []
     assert [fn.function_id.name for fn in linked.functions] == ["main"]
+
+
+def test_semantic_reachability_follows_canonical_type_refs_on_declarations(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Box implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(box: Box) -> Hashable {
+            return box;
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    reachability = analyze_semantic_reachability(semantic)
+
+    assert ClassId(module_path=("main",), name="Box") in reachability.reachable_classes
+    assert InterfaceId(module_path=("main",), name="Hashable") in reachability.reachable_interfaces
 
 
 def test_semantic_reachability_walks_interface_method_call_receivers(tmp_path: Path) -> None:

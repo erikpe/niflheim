@@ -19,6 +19,7 @@ from compiler.semantic.symbols import (
     MethodId,
     SyntheticId,
 )
+from compiler.semantic.types import SemanticTypeRef
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,7 @@ class SemanticInterfaceMethod:
     method_id: InterfaceMethodId
     params: list["SemanticParam"]
     return_type_name: str
+    return_type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -57,6 +59,7 @@ class SemanticInterface:
 class SemanticField:
     name: str
     type_name: str
+    type_ref: SemanticTypeRef
     initializer: "SemanticExpr | None"
     is_private: bool
     is_final: bool
@@ -82,6 +85,7 @@ class SemanticLocalInfo:
     owner_id: LocalOwnerId
     display_name: str
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
     binding_kind: LocalBindingKind
 
@@ -90,6 +94,7 @@ class SemanticLocalInfo:
 class SemanticParam:
     name: str
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -98,6 +103,7 @@ class SemanticFunction:
     function_id: FunctionId
     params: list[SemanticParam]
     return_type_name: str
+    return_type_ref: SemanticTypeRef
     body: "SemanticBlock | None"
     is_export: bool
     is_extern: bool
@@ -110,6 +116,7 @@ class SemanticMethod:
     method_id: MethodId
     params: list[SemanticParam]
     return_type_name: str
+    return_type_ref: SemanticTypeRef
     body: "SemanticBlock"
     is_static: bool
     is_private: bool
@@ -146,6 +153,7 @@ class SemanticVarDecl:
     local_id: LocalId
     name: str
     type_name: str
+    type_ref: SemanticTypeRef
     initializer: "SemanticExpr | None"
     span: SourceSpan
 
@@ -216,6 +224,7 @@ class SemanticForIn:
     iter_len_dispatch: SemanticDispatch
     iter_get_dispatch: SemanticDispatch
     element_type_name: str
+    element_type_ref: SemanticTypeRef
     body: SemanticBlock
     span: SourceSpan
 
@@ -225,6 +234,7 @@ class LocalLValue:
     local_id: LocalId
     name: str
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -232,9 +242,11 @@ class LocalLValue:
 class FieldLValue:
     receiver: "SemanticExpr"
     receiver_type_name: str
+    receiver_type_ref: SemanticTypeRef
     owner_class_id: ClassId
     field_name: str
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -243,6 +255,7 @@ class IndexLValue:
     target: "SemanticExpr"
     index: "SemanticExpr"
     value_type_name: str
+    value_type_ref: SemanticTypeRef
     dispatch: SemanticDispatch
     span: SourceSpan
 
@@ -253,6 +266,7 @@ class SliceLValue:
     begin: "SemanticExpr"
     end: "SemanticExpr"
     value_type_name: str
+    value_type_ref: SemanticTypeRef
     dispatch: SemanticDispatch
     span: SourceSpan
 
@@ -262,6 +276,7 @@ class LocalRefExpr:
     local_id: LocalId
     name: str
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -269,6 +284,7 @@ class LocalRefExpr:
 class FunctionRefExpr:
     function_id: FunctionId
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -276,6 +292,7 @@ class FunctionRefExpr:
 class ClassRefExpr:
     class_id: ClassId
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -284,6 +301,7 @@ class MethodRefExpr:
     method_id: MethodId
     receiver: "SemanticExpr | None"
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -348,6 +366,7 @@ class BinaryExprS:
 class CastExprS:
     operand: "SemanticExpr"
     target_type_name: str
+    target_type_ref: SemanticTypeRef
     type_name: str
     span: SourceSpan
 
@@ -356,6 +375,7 @@ class CastExprS:
 class TypeTestExprS:
     operand: "SemanticExpr"
     target_type_name: str
+    target_type_ref: SemanticTypeRef
     type_name: str
     span: SourceSpan
 
@@ -364,9 +384,11 @@ class TypeTestExprS:
 class FieldReadExpr:
     receiver: "SemanticExpr"
     receiver_type_name: str
+    receiver_type_ref: SemanticTypeRef
     owner_class_id: ClassId
     field_name: str
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -391,6 +413,7 @@ class InstanceMethodCallExpr:
     method_id: MethodId
     receiver: "SemanticExpr"
     receiver_type_name: str
+    receiver_type_ref: SemanticTypeRef
     args: list["SemanticExpr"]
     type_name: str
     span: SourceSpan
@@ -402,6 +425,7 @@ class InterfaceMethodCallExpr:
     method_id: InterfaceMethodId
     receiver: "SemanticExpr"
     receiver_type_name: str
+    receiver_type_ref: SemanticTypeRef
     args: list["SemanticExpr"]
     type_name: str
     span: SourceSpan
@@ -458,6 +482,7 @@ def dispatch_method_id(dispatch: SemanticDispatch) -> MethodId | None:
 @dataclass(frozen=True)
 class ArrayCtorExprS:
     element_type_name: str
+    element_type_ref: SemanticTypeRef
     length_expr: "SemanticExpr"
     type_name: str
     span: SourceSpan

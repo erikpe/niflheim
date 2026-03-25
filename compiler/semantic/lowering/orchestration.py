@@ -6,6 +6,7 @@ from compiler.frontend.ast_nodes import *
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import *
+from compiler.semantic.types import SemanticTypeRef, semantic_type_ref_from_type_info
 from compiler.typecheck.bodies import check_bodies
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.declarations import collect_module_declarations, validate_interface_conformance
@@ -107,13 +108,9 @@ def lower_interface_method(
 ) -> SemanticInterfaceMethod:
     return SemanticInterfaceMethod(
         method_id=InterfaceMethodId(module_path=module_path, interface_name=interface_decl.name, name=method_decl.name),
-        params=[
-            SemanticParam(
-                name=param.name, type_name=resolved_type_name(lower_ctx.typecheck_ctx, param.type_ref), span=param.span
-            )
-            for param in method_decl.params
-        ],
+        params=[lower_param(lower_ctx.typecheck_ctx, param) for param in method_decl.params],
         return_type_name=resolved_type_name(lower_ctx.typecheck_ctx, method_decl.return_type),
+        return_type_ref=resolved_semantic_type_ref(lower_ctx.typecheck_ctx, method_decl.return_type),
         span=method_decl.span,
     )
 
@@ -141,6 +138,7 @@ def lower_field(lower_ctx: ModuleLoweringContext, field_decl) -> SemanticField:
     return SemanticField(
         name=field_decl.name,
         type_name=resolved_type_name(lower_ctx.typecheck_ctx, field_decl.type_ref),
+        type_ref=resolved_semantic_type_ref(lower_ctx.typecheck_ctx, field_decl.type_ref),
         initializer=initializer,
         is_private=field_decl.is_private,
         is_final=field_decl.is_final,
@@ -170,6 +168,7 @@ def lower_function(
         function_id=function_id_for_decl(module_path, function_decl),
         params=[lower_param(lower_ctx.typecheck_ctx, param) for param in function_decl.params],
         return_type_name=resolved_type_name(lower_ctx.typecheck_ctx, function_decl.return_type),
+        return_type_ref=resolved_semantic_type_ref(lower_ctx.typecheck_ctx, function_decl.return_type),
         body=body,
         is_export=function_decl.is_export,
         is_extern=function_decl.is_extern,
@@ -198,6 +197,7 @@ def lower_method(
         method_id=method_id_for_decl(module_path, class_decl, method_decl),
         params=[lower_param(lower_ctx.typecheck_ctx, param) for param in method_decl.params],
         return_type_name=resolved_type_name(lower_ctx.typecheck_ctx, method_decl.return_type),
+        return_type_ref=resolved_semantic_type_ref(lower_ctx.typecheck_ctx, method_decl.return_type),
         body=lowered_body.body,
         is_static=method_decl.is_static,
         is_private=method_decl.is_private,
@@ -207,8 +207,17 @@ def lower_method(
 
 
 def lower_param(typecheck_ctx: TypeCheckContext, param: ParamDecl) -> SemanticParam:
-    return SemanticParam(name=param.name, type_name=resolved_type_name(typecheck_ctx, param.type_ref), span=param.span)
+    return SemanticParam(
+        name=param.name,
+        type_name=resolved_type_name(typecheck_ctx, param.type_ref),
+        type_ref=resolved_semantic_type_ref(typecheck_ctx, param.type_ref),
+        span=param.span,
+    )
 
 
 def resolved_type_name(typecheck_ctx: TypeCheckContext, type_ref) -> str:
     return resolve_type_ref(typecheck_ctx, type_ref).name
+
+
+def resolved_semantic_type_ref(typecheck_ctx: TypeCheckContext, type_ref) -> SemanticTypeRef:
+    return semantic_type_ref_from_type_info(typecheck_ctx.module_path, resolve_type_ref(typecheck_ctx, type_ref))

@@ -10,6 +10,7 @@ from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
 from compiler.codegen.strings import escape_c_string
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import FunctionId
+from compiler.semantic.types import semantic_type_ref_for_class_id
 
 
 def _emit_debug_symbol_literals(codegen, *, target_label: str, function_name: str, file_path: str) -> tuple[str, str]:
@@ -89,6 +90,7 @@ def emit_method(codegen, declaration_tables, cls: SemanticClass, method: Semanti
         ),
         params=[*(_receiver_param(cls, method) if not method.is_static else []), *method.params],
         return_type_name=method.return_type_name,
+        return_type_ref=method.return_type_ref,
         body=method.body,
         is_export=False,
         is_extern=False,
@@ -112,7 +114,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     if ctor_layout is None:
         raise ValueError(f"Missing constructor layout for {ctor_id}")
     ctor_params = [
-        SemanticParam(name=field.name, type_name=field.type_name, span=field.span)
+        SemanticParam(name=field.name, type_name=field.type_name, type_ref=field.type_ref, span=field.span)
         for field in cls.fields
         if field.initializer is None
     ]
@@ -181,4 +183,11 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
 
 
 def _receiver_param(cls: SemanticClass, method: SemanticMethod) -> list[SemanticParam]:
-    return [SemanticParam(name="__self", type_name=cls.class_id.name, span=method.span)]
+    return [
+        SemanticParam(
+            name="__self",
+            type_name=cls.class_id.name,
+            type_ref=semantic_type_ref_for_class_id(cls.class_id, display_name=cls.class_id.name),
+            span=method.span,
+        )
+    ]

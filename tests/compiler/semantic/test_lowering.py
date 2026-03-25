@@ -60,11 +60,15 @@ def test_lower_program_builds_semantic_declarations_and_ids(tmp_path: Path) -> N
     assert util_module.classes[0].class_id.module_path == ("util",)
     assert util_module.classes[0].class_id.name == "Counter"
     assert util_module.classes[0].fields[0].type_name == "i64"
+    assert util_module.classes[0].fields[0].type_ref.canonical_name == "i64"
     assert util_module.classes[0].methods[0].method_id.class_name == "Counter"
     assert util_module.classes[0].methods[0].return_type_name == "i64"
+    assert util_module.classes[0].methods[0].return_type_ref.canonical_name == "i64"
     assert util_module.functions[0].function_id.module_path == ("util",)
     assert util_module.functions[0].params[0].type_name == "i64"
+    assert util_module.functions[0].params[0].type_ref.canonical_name == "i64"
     assert util_module.functions[0].return_type_name == "i64"
+    assert util_module.functions[0].return_type_ref.canonical_name == "i64"
 
 
 def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -> None:
@@ -91,6 +95,7 @@ def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
     semantic = lower_program(program)
     function = semantic.modules[("main",)].functions[0]
+    assert function.params[0].type_ref.canonical_name == "main::Box"
 
     assert isinstance(function.body.statements[0], SemanticVarDecl)
     assert function.body.statements[0].local_id.owner_id == function.function_id
@@ -479,18 +484,21 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     assert return_stmt.value.method_id.class_name == "Leaf"
     assert return_stmt.value.method_id.name == "read"
     assert return_stmt.value.receiver_type_name == "Leaf"
+    assert return_stmt.value.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Leaf")
 
     leaf_call = return_stmt.value.receiver
     assert isinstance(leaf_call, InstanceMethodCallExpr)
     assert leaf_call.method_id.class_name == "Mid"
     assert leaf_call.method_id.name == "leaf"
     assert leaf_call.receiver_type_name == "Mid"
+    assert leaf_call.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Mid")
 
     mid_call = leaf_call.receiver
     assert isinstance(mid_call, InstanceMethodCallExpr)
     assert mid_call.method_id.class_name == "Root"
     assert mid_call.method_id.name == "mid"
     assert mid_call.receiver_type_name == "Root"
+    assert mid_call.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Root")
     assert isinstance(mid_call.receiver, LocalRefExpr)
     assert mid_call.receiver.name == "root"
 
@@ -531,6 +539,7 @@ def test_lower_program_lowers_interface_receiver_calls_to_explicit_interface_nod
     assert return_stmt.value.method_id.interface_name == "Hashable"
     assert return_stmt.value.method_id.name == "hash_code"
     assert return_stmt.value.receiver_type_name == "Hashable"
+    assert return_stmt.value.receiver_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
     assert isinstance(return_stmt.value.receiver, LocalRefExpr)
     assert return_stmt.value.receiver.name == "value"
 
@@ -577,6 +586,7 @@ def test_lower_program_uses_imported_interface_ids_for_interface_receiver_calls(
     assert return_stmt.value.method_id.interface_name == "Hashable"
     assert return_stmt.value.method_id.name == "hash_code"
     assert return_stmt.value.receiver_type_name == "util::Hashable"
+    assert return_stmt.value.receiver_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
 
 
 def test_lower_program_preserves_explicit_obj_to_interface_casts(tmp_path: Path) -> None:
@@ -607,6 +617,7 @@ def test_lower_program_preserves_explicit_obj_to_interface_casts(tmp_path: Path)
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, CastExprS)
     assert return_stmt.value.target_type_name == "Hashable"
+    assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
     assert return_stmt.value.type_name == "Hashable"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
     assert return_stmt.value.operand.name == "value"
@@ -647,6 +658,7 @@ def test_lower_program_preserves_imported_interface_cast_target_names(tmp_path: 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, CastExprS)
     assert return_stmt.value.target_type_name == "util::Hashable"
+    assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
     assert return_stmt.value.type_name == "util::Hashable"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
     assert return_stmt.value.operand.name == "value"
@@ -687,6 +699,7 @@ def test_lower_program_preserves_imported_interface_type_test_target_names(tmp_p
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, TypeTestExprS)
     assert return_stmt.value.target_type_name == "util::Hashable"
+    assert return_stmt.value.target_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
     assert return_stmt.value.type_name == "bool"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
     assert return_stmt.value.operand.name == "value"
@@ -1105,6 +1118,7 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert loop_stmt.element_name == "item"
     assert loop_stmt.element_local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert loop_stmt.element_type_name == "i64"
+    assert loop_stmt.element_type_ref.canonical_name == "i64"
     assert isinstance(loop_stmt.body.statements[0], SemanticVarDecl)
     assert loop_stmt.body.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert isinstance(loop_stmt.body.statements[0].initializer, LocalRefExpr)

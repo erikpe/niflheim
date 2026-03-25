@@ -27,6 +27,7 @@ from compiler.semantic.ir import (
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.constant_folding import fold_constants
 from compiler.semantic.symbols import FunctionId, LocalId
+from compiler.semantic.types import best_effort_semantic_type_ref_from_name
 
 
 def _write(path: Path, text: str) -> None:
@@ -522,12 +523,14 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
                         function_id=function_id,
                         params=[],
                         return_type_name="i64",
+                        return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                         body=SemanticBlock(
                             statements=[
                                 SemanticVarDecl(
                                     local_id=first_local_id,
                                     name="value",
                                     type_name="i64",
+                                    type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                     initializer=LiteralExprS(
                                         constant=IntConstant(value=1, type_name="i64"),
                                         type_name="i64",
@@ -539,6 +542,7 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
                                     local_id=second_local_id,
                                     name="value",
                                     type_name="i64",
+                                    type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                     initializer=LiteralExprS(
                                         constant=IntConstant(value=2, type_name="i64"),
                                         type_name="i64",
@@ -551,6 +555,7 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
                                         local_id=first_local_id,
                                         name="value",
                                         type_name="i64",
+                                        type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                         span=span,
                                     ),
                                     span=span,

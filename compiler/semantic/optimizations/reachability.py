@@ -9,6 +9,7 @@ from compiler.common.type_shapes import is_array_type_name, is_function_type_nam
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import ClassId, FunctionId, MethodId
+from compiler.semantic.types import SemanticTypeRef
 
 
 @dataclass(frozen=True)
@@ -109,21 +110,21 @@ class _SemanticReachabilityWalker:
 
     def _visit_function(self, function: SemanticFunction) -> None:
         for param in function.params:
-            self._enqueue_type_name(function.function_id.module_path, param.type_name)
-        self._enqueue_type_name(function.function_id.module_path, function.return_type_name)
+            self._enqueue_type_ref(function.function_id.module_path, param.type_ref)
+        self._enqueue_type_ref(function.function_id.module_path, function.return_type_ref)
         if function.body is not None:
             self._walk_block(function.function_id.module_path, function.body)
 
     def _visit_method(self, method: SemanticMethod) -> None:
         self._enqueue_class(ClassId(module_path=method.method_id.module_path, name=method.method_id.class_name))
         for param in method.params:
-            self._enqueue_type_name(method.method_id.module_path, param.type_name)
-        self._enqueue_type_name(method.method_id.module_path, method.return_type_name)
+            self._enqueue_type_ref(method.method_id.module_path, param.type_ref)
+        self._enqueue_type_ref(method.method_id.module_path, method.return_type_ref)
         self._walk_block(method.method_id.module_path, method.body)
 
     def _visit_class(self, cls: SemanticClass) -> None:
         for field in cls.fields:
-            self._enqueue_type_name(cls.class_id.module_path, field.type_name)
+            self._enqueue_type_ref(cls.class_id.module_path, field.type_ref)
             if field.initializer is not None:
                 self._walk_expr(cls.class_id.module_path, field.initializer)
         for interface_id in cls.implemented_interfaces:
@@ -143,8 +144,8 @@ class _SemanticReachabilityWalker:
     def _visit_interface(self, interface: SemanticInterface) -> None:
         for method in interface.methods:
             for param in method.params:
-                self._enqueue_type_name(interface.interface_id.module_path, param.type_name)
-            self._enqueue_type_name(interface.interface_id.module_path, method.return_type_name)
+                self._enqueue_type_ref(interface.interface_id.module_path, param.type_ref)
+            self._enqueue_type_ref(interface.interface_id.module_path, method.return_type_ref)
 
     def _walk_block(self, module_path: ModulePath, block: SemanticBlock) -> None:
         for stmt in block.statements:
@@ -155,7 +156,7 @@ class _SemanticReachabilityWalker:
             self._walk_block(module_path, stmt)
             return
         if isinstance(stmt, SemanticVarDecl):
-            self._enqueue_type_name(module_path, stmt.type_name)
+            self._enqueue_type_ref(module_path, stmt.type_ref)
             if stmt.initializer is not None:
                 self._walk_expr(module_path, stmt.initializer)
             return
@@ -184,7 +185,7 @@ class _SemanticReachabilityWalker:
             self._walk_expr(module_path, stmt.collection)
             self._enqueue_method(dispatch_method_id(stmt.iter_len_dispatch))
             self._enqueue_method(dispatch_method_id(stmt.iter_get_dispatch))
-            self._enqueue_type_name(module_path, stmt.element_type_name)
+            self._enqueue_type_ref(module_path, stmt.element_type_ref)
             self._walk_block(module_path, stmt.body)
             return
         if isinstance(stmt, (SemanticBreak, SemanticContinue)):
@@ -194,20 +195,20 @@ class _SemanticReachabilityWalker:
     def _walk_lvalue(self, module_path: ModulePath, lvalue) -> None:
         if isinstance(lvalue, FieldLValue):
             self._walk_expr(module_path, lvalue.receiver)
-            self._enqueue_type_name(module_path, lvalue.receiver_type_name)
-            self._enqueue_type_name(module_path, lvalue.type_name)
+            self._enqueue_type_ref(module_path, lvalue.receiver_type_ref)
+            self._enqueue_type_ref(module_path, lvalue.type_ref)
             return
         if isinstance(lvalue, IndexLValue):
             self._walk_expr(module_path, lvalue.target)
             self._walk_expr(module_path, lvalue.index)
-            self._enqueue_type_name(module_path, lvalue.value_type_name)
+            self._enqueue_type_ref(module_path, lvalue.value_type_ref)
             self._enqueue_method(dispatch_method_id(lvalue.dispatch))
             return
         if isinstance(lvalue, SliceLValue):
             self._walk_expr(module_path, lvalue.target)
             self._walk_expr(module_path, lvalue.begin)
             self._walk_expr(module_path, lvalue.end)
-            self._enqueue_type_name(module_path, lvalue.value_type_name)
+            self._enqueue_type_ref(module_path, lvalue.value_type_ref)
             self._enqueue_method(dispatch_method_id(lvalue.dispatch))
 
     def _walk_expr(self, module_path: ModulePath, expr: SemanticExpr) -> None:
@@ -234,16 +235,16 @@ class _SemanticReachabilityWalker:
             return
         if isinstance(expr, CastExprS):
             self._walk_expr(module_path, expr.operand)
-            self._enqueue_type_name(module_path, expr.target_type_name)
+            self._enqueue_type_ref(module_path, expr.target_type_ref)
             return
         if isinstance(expr, TypeTestExprS):
             self._walk_expr(module_path, expr.operand)
-            self._enqueue_type_name(module_path, expr.target_type_name)
+            self._enqueue_type_ref(module_path, expr.target_type_ref)
             return
         if isinstance(expr, FieldReadExpr):
             self._walk_expr(module_path, expr.receiver)
-            self._enqueue_type_name(module_path, expr.receiver_type_name)
-            self._enqueue_type_name(module_path, expr.type_name)
+            self._enqueue_type_ref(module_path, expr.receiver_type_ref)
+            self._enqueue_type_ref(module_path, expr.type_ref)
             return
         if isinstance(expr, FunctionCallExpr):
             self._enqueue_function(expr.function_id)
@@ -258,14 +259,14 @@ class _SemanticReachabilityWalker:
         if isinstance(expr, InstanceMethodCallExpr):
             self._enqueue_method(expr.method_id)
             self._walk_expr(module_path, expr.receiver)
-            self._enqueue_type_name(module_path, expr.receiver_type_name)
+            self._enqueue_type_ref(module_path, expr.receiver_type_ref)
             for arg in expr.args:
                 self._walk_expr(module_path, arg)
             return
         if isinstance(expr, InterfaceMethodCallExpr):
             self._enqueue_interface(expr.interface_id)
             self._walk_expr(module_path, expr.receiver)
-            self._enqueue_type_name(module_path, expr.receiver_type_name)
+            self._enqueue_type_ref(module_path, expr.receiver_type_ref)
             for arg in expr.args:
                 self._walk_expr(module_path, arg)
             return
@@ -294,7 +295,7 @@ class _SemanticReachabilityWalker:
             return
         if isinstance(expr, ArrayCtorExprS):
             self._walk_expr(module_path, expr.length_expr)
-            self._enqueue_type_name(module_path, expr.element_type_name)
+            self._enqueue_type_ref(module_path, expr.element_type_ref)
             return
         if isinstance(expr, SyntheticExpr):
             for arg in expr.args:
@@ -305,6 +306,26 @@ class _SemanticReachabilityWalker:
         for class_id in _iter_class_ids_for_type_name(current_module_path, type_name):
             self._enqueue_class(class_id)
             self._enqueue_interface(InterfaceId(module_path=class_id.module_path, name=class_id.name))
+
+    def _enqueue_type_ref(self, current_module_path: ModulePath, type_ref: SemanticTypeRef) -> None:
+        if type_ref.class_id is not None:
+            self._enqueue_class(type_ref.class_id)
+        if type_ref.interface_id is not None:
+            self._enqueue_interface(type_ref.interface_id)
+        if type_ref.element_type is not None:
+            self._enqueue_type_ref(current_module_path, type_ref.element_type)
+        for param_type in type_ref.param_types:
+            self._enqueue_type_ref(current_module_path, param_type)
+        if type_ref.return_type is not None:
+            self._enqueue_type_ref(current_module_path, type_ref.return_type)
+        if (
+            type_ref.class_id is None
+            and type_ref.interface_id is None
+            and type_ref.element_type is None
+            and not type_ref.param_types
+            and type_ref.return_type is None
+        ):
+            self._enqueue_type_name(current_module_path, type_ref.canonical_name)
 
 
 def analyze_semantic_reachability(program: SemanticProgram) -> SemanticReachability:

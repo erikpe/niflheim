@@ -13,6 +13,7 @@ from compiler.common.span import SourcePos, SourceSpan
 from compiler.semantic.ir import *
 from compiler.semantic.linker import LinkedSemanticProgram
 from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, InterfaceMethodId, LocalId, MethodId
+from compiler.semantic.types import best_effort_semantic_type_ref_from_name, semantic_type_ref_for_class_id, semantic_type_ref_for_interface_id
 
 
 def _span() -> SourceSpan:
@@ -39,6 +40,7 @@ def _local_ref(name: str, type_name: str, span: SourceSpan) -> LocalRefExpr:
         local_id=LocalId(owner_id=FunctionId(module_path=("test",), name="walk"), ordinal=sum(ord(ch) for ch in name)),
         name=name,
         type_name=type_name,
+        type_ref=best_effort_semantic_type_ref_from_name(("test",), type_name),
         span=span,
     )
 
@@ -49,9 +51,11 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
         callee=FieldReadExpr(
             receiver=_local_ref("receiver", "Box", span),
             receiver_type_name="Box",
+            receiver_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
             owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="invoke",
             type_name="fn(i64) -> i64",
+            type_ref=best_effort_semantic_type_ref_from_name(("main",), "fn(i64) -> i64"),
             span=span,
         ),
         args=[
@@ -64,6 +68,7 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
                     span=span,
                 ),
                 target_type_name="i64",
+                target_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 type_name="i64",
                 span=span,
             )
@@ -97,6 +102,7 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
             span=span,
         ),
         target_type_name="Box",
+        target_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
         type_name="bool",
         span=span,
     )
@@ -118,9 +124,11 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
         target=FieldLValue(
             receiver=_local_ref("target_receiver", "Box", span),
             receiver_type_name="Box",
+            receiver_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Box"), display_name="Box"),
             owner_class_id=ClassId(module_path=("main",), name="Box"),
             field_name="value",
             type_name="i64",
+            type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
             span=span,
         ),
         value=FunctionCallExpr(
@@ -177,6 +185,7 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
                     operation=CollectionOpKind.ITER_GET, runtime_kind=ArrayRuntimeKind.I64
                 ),
                 element_type_name="i64",
+                element_type_ref=best_effort_semantic_type_ref_from_name(("test",), "i64"),
                 body=SemanticBlock(
                     statements=[
                         SemanticExprStmt(expr=_local_ref("for_expr", "i64", span), span=span)
@@ -209,6 +218,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
         function_id=FunctionId(module_path=("main",), name="main"),
         params=[],
         return_type_name="i64",
+        return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
         body=SemanticBlock(
             statements=[SemanticReturn(value=_local_ref("fn_expr", "i64", span), span=span)],
             span=span,
@@ -224,6 +234,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
             SemanticField(
                 name="value",
                 type_name="i64",
+                type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 initializer=LiteralExprS(
                     constant=IntConstant(value=3, type_name="i64"), type_name="i64", span=span
                 ),
@@ -237,6 +248,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
                 method_id=MethodId(module_path=("main",), class_name="Box", name="read"),
                 params=[],
                 return_type_name="i64",
+                return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 body=SemanticBlock(
                     statements=[
                         SemanticReturn(value=_local_ref("method_expr", "i64", span), span=span)
@@ -268,6 +280,9 @@ def test_walk_expression_visits_interface_method_call_receiver_and_args() -> Non
         method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
         receiver=_local_ref("receiver", "Hashable", span),
         receiver_type_name="Hashable",
+        receiver_type_ref=semantic_type_ref_for_interface_id(
+            InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
+        ),
         args=[_local_ref("arg", "Obj", span)],
         type_name="u64",
         span=span,
@@ -289,6 +304,7 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
         function_id=FunctionId(module_path=("main",), name="main"),
         params=[],
         return_type_name="u64",
+        return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "u64"),
         body=SemanticBlock(
             statements=[
                 SemanticReturn(
@@ -297,6 +313,9 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
                         method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
                         receiver=_local_ref("receiver", "Hashable", span),
                         receiver_type_name="Hashable",
+                        receiver_type_ref=semantic_type_ref_for_interface_id(
+                            InterfaceId(module_path=("main",), name="Hashable"), display_name="Hashable"
+                        ),
                         args=[_local_ref("other", "Obj", span)],
                         type_name="u64",
                         span=span,

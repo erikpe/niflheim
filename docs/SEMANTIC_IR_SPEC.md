@@ -73,7 +73,9 @@ class SyntheticId:
 
 These IDs should be the only post-typecheck representation for global symbol identity.
 
-Local identity is now wired into local declarations, local references, and local assignment targets through `LocalId`. Function-like owners also carry a `local_info_by_id` metadata table so later passes can recover readable local names, declared types, declaration spans, and binding kinds without depending on identity internals alone. The remaining migration steps are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
+Local identity is now wired into local declarations, local references, and local assignment targets through `LocalId`. Function-like owners also carry a `local_info_by_id` metadata table so later passes can recover readable local names, declared types, declaration spans, and binding kinds without depending on identity internals alone.
+
+Semantic IR now also carries canonical `SemanticTypeRef` values beside many existing `*_type_name` string fields. The canonical type refs provide stable type shape and nominal identity for semantic consumers, while the string fields remain as cached display data and compatibility surfaces for incremental downstream migration. The remaining migration steps are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
 
 ## Exact Semantic IR Node Set
 
@@ -101,6 +103,7 @@ class SemanticModule:
 class SemanticField:
     name: str
     type_name: str
+    type_ref: SemanticTypeRef
     initializer: SemanticExpr | None
     is_private: bool
     is_final: bool
@@ -120,6 +123,7 @@ class SemanticClass:
 class SemanticParam:
     name: str
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -129,6 +133,7 @@ class SemanticLocalInfo:
     owner_id: LocalOwnerId
     display_name: str
     type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
     binding_kind: Literal["receiver", "param", "local", "for_in_element"]
 
@@ -138,6 +143,7 @@ class SemanticFunction:
     function_id: FunctionId
     params: list[SemanticParam]
     return_type_name: str
+    return_type_ref: SemanticTypeRef
     body: SemanticBlock | None
     is_export: bool
     is_extern: bool
@@ -150,6 +156,7 @@ class SemanticMethod:
     method_id: MethodId
     params: list[SemanticParam]
     return_type_name: str
+    return_type_ref: SemanticTypeRef
     body: SemanticBlock
     is_static: bool
     is_private: bool
@@ -171,6 +178,7 @@ class SemanticVarDecl:
     local_id: LocalId
     name: str
     type_name: str
+    type_ref: SemanticTypeRef
     initializer: SemanticExpr | None
     span: SourceSpan
 
@@ -227,9 +235,12 @@ class SemanticForIn:
     iter_len_method: MethodId | None
     iter_get_method: MethodId | None
     element_type_name: str
+    element_type_ref: SemanticTypeRef
     body: SemanticBlock
     span: SourceSpan
 ```
+
+For now, `type_name` and related string fields remain the compatibility surface that codegen and some older utilities still consume. New semantic analyses should prefer canonical `SemanticTypeRef` data where it is available.
 
 Statement union:
 

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from compiler.semantic.ir import LocalBindingKind, SemanticLocalInfo
 from compiler.semantic.symbols import LocalId, LocalOwnerId
+from compiler.semantic.types import semantic_type_ref_from_type_info
 from compiler.typecheck.context import LocalBinding
 
 
@@ -38,6 +39,7 @@ class LocalIdTracker:
             owner_id=self.owner_id,
             display_name=binding.name,
             type_name=binding.var_type.name,
+            type_ref=semantic_type_ref_from_type_info(local_id.owner_id.module_path, binding.var_type),
             span=binding.span,
             binding_kind=binding_kind,
         )

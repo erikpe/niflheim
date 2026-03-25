@@ -197,18 +197,25 @@ Step 6 status:
 - There are no closure semantics in the current language, so this step only needed validation against existing callable and method-reference behavior.
 
 7. Introduce canonical semantic type references alongside or beneath `type_name` strings
-  - [ ] define a semantic type representation appropriate for the current compiler stage
-  - [ ] start with declaration and use-site nodes that most frequently force string reinterpretation
-  - [ ] decide whether `type_name` remains as cached display data or is derived from the canonical type representation
-  - [ ] keep migration incremental so codegen does not need to switch in one large change
+  - [x] define a semantic type representation appropriate for the current compiler stage
+  - [x] start with declaration and use-site nodes that most frequently force string reinterpretation
+  - [x] decide whether `type_name` remains as cached display data or is derived from the canonical type representation
+  - [x] keep migration incremental so codegen does not need to switch in one large change
   - Purpose:
     reduce repeated parsing and interpretation of type strings in later passes
   - Expected outcome:
     semantic passes can ask direct questions about type identity and shape without string conventions doing semantic work
   - Tests to add:
-    - unit tests for canonical type equality and rendering
-    - reachability tests proving type traversal still finds class and interface dependencies correctly
-    - lowering tests for qualified and unqualified type references
+    - [x] unit tests for canonical type equality and rendering
+    - [x] reachability tests proving type traversal still finds class and interface dependencies correctly
+    - [x] lowering tests for qualified and unqualified type references
+
+Step 7 status:
+
+- Semantic IR now has a canonical `SemanticTypeRef` layer that captures type shape and canonical nominal identity while keeping existing `type_name` strings as cached display data and compatibility fields.
+- Lowering populates canonical type refs for declaration nodes and the semantic use-site nodes that most often forced downstream string reinterpretation, including casts, type tests, field receivers, interface receivers, local declarations, and `for-in` element types.
+- Semantic reachability now consumes canonical type refs on migrated nodes instead of reparsing type strings wherever that information is available.
+- Codegen still primarily consumes `type_name` strings, which keeps this step incremental and leaves the broader backend migration for later roadmap steps.
 
 8. Reduce duplication between semantic nodes and semantic metadata
   - [ ] audit which repeated fields should remain on every node for convenience and which should move into metadata tables

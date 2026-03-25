@@ -7,6 +7,7 @@ from compiler.frontend.ast_nodes import *
 from compiler.semantic.ir import *
 from compiler.semantic.lowering.expressions import lower_expr
 from compiler.semantic.lowering.locals import LocalIdTracker
+from compiler.semantic.types import semantic_type_ref_from_type_info
 from compiler.typecheck.context import TypeCheckContext, declare_variable, pop_scope, push_scope
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import TypeInfo
@@ -98,6 +99,7 @@ def lower_stmt(typecheck_ctx: TypeCheckContext, stmt: Statement, *, symbol_index
             local_id=local_id,
             name=stmt.name,
             type_name=var_type.name,
+            type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, var_type),
             initializer=initializer,
             span=stmt.span,
         )
@@ -207,6 +209,7 @@ def _lower_for_in_stmt(
             typecheck_ctx, collection_type, operation=CollectionOpKind.ITER_GET
         ),
         element_type_name=element_type.name,
+        element_type_ref=semantic_type_ref_from_type_info(typecheck_ctx.module_path, element_type),
         body=body,
         span=stmt.span,
     )
