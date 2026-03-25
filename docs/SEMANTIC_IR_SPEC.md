@@ -12,6 +12,14 @@ Its purpose is to lock down:
 
 This is a structured semantic IR, not a low-level backend IR.
 
+## Status Note
+
+This document describes the baseline semantic IR shape currently implemented and the invariants it was originally introduced to enforce.
+
+It is not the complete long-term semantic-graph roadmap. Planned follow-up changes around local identity, canonical type representation, and explicit compiler-owned temporaries are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
+
+When the two documents differ, interpret this document as describing the current baseline and the roadmap document as describing the intended migration path.
+
 ## Goals
 
 - Eliminate ambiguous global/member/call resolution from later stages.
@@ -64,6 +72,8 @@ class SyntheticId:
 ```
 
 These IDs should be the only post-typecheck representation for global symbol identity.
+
+Local identity is now defined separately in the semantic symbol layer through `LocalId`, but it is not yet wired through the baseline semantic IR described in this document. That migration is tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
 
 ## Exact Semantic IR Node Set
 
@@ -501,6 +511,8 @@ There should be no surviving source-form `IndexExpr` nodes in the semantic IR.
 Every semantic expression except `NullExprS` should carry a final resolved `type_name` string.
 
 This is intentionally simple for the first IR version and avoids forcing later passes to reach back into typecheck internals.
+
+This is a baseline simplification, not a commitment that string-based type identity is the final semantic representation. See [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md) for the planned migration path.
 
 ### 6. Synthetic Dependencies Must Be Explicit
 

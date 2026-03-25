@@ -52,6 +52,19 @@ class SyntheticId:
     name: str
 
 
+LocalOwnerId = FunctionId | MethodId
+
+
+@dataclass(frozen=True)
+class LocalId:
+    owner_id: LocalOwnerId
+    ordinal: int
+
+    def __post_init__(self) -> None:
+        if self.ordinal < 0:
+            raise ValueError("LocalId ordinal must be non-negative")
+
+
 @dataclass(frozen=True)
 class ProgramSymbolIndex:
     functions: dict[FunctionId, FunctionDecl]
