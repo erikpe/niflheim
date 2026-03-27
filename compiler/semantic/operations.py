@@ -3,8 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_NULL, TYPE_NAME_OBJ, TYPE_NAME_U8, TYPE_NAME_U64
-from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name, semantic_type_is_interface, semantic_type_is_reference
+from compiler.common.type_names import (
+    TYPE_NAME_BOOL,
+    TYPE_NAME_DOUBLE,
+    TYPE_NAME_I64,
+    TYPE_NAME_NULL,
+    TYPE_NAME_OBJ,
+    TYPE_NAME_U8,
+    TYPE_NAME_U64,
+)
+from compiler.semantic.types import (
+    SemanticTypeRef,
+    semantic_type_canonical_name,
+    semantic_type_is_interface,
+    semantic_type_is_reference,
+)
 
 
 class UnaryOpKind(Enum):
@@ -76,11 +89,7 @@ class TypeTestSemanticsKind(Enum):
     INTERFACE_COMPATIBILITY = "interface_compatibility"
 
 
-_UNARY_OP_TEXT = {
-    UnaryOpKind.NEGATE: "-",
-    UnaryOpKind.BITWISE_NOT: "~",
-    UnaryOpKind.LOGICAL_NOT: "!",
-}
+_UNARY_OP_TEXT = {UnaryOpKind.NEGATE: "-", UnaryOpKind.BITWISE_NOT: "~", UnaryOpKind.LOGICAL_NOT: "!"}
 
 
 _BINARY_OP_TEXT = {

@@ -63,13 +63,13 @@ def lower_non_string_literal_expr(typecheck_ctx: TypeCheckContext, expr: Literal
     type_ref = semantic_primitive_type_ref(type_name)
 
     if isinstance(literal, BoolLiteralValue):
-        constant: SemanticConstant = BoolConstant(value=literal.value, type_name=type_name)
+        constant: SemanticConstant = BoolConstant(value=literal.value)
     elif isinstance(literal, CharLiteralValue):
-        constant = CharConstant(value=decode_char_literal(literal.raw_text), type_name=type_name)
+        constant = CharConstant(value=decode_char_literal(literal.raw_text))
     elif isinstance(literal, FloatLiteralValue):
-        constant = FloatConstant(value=literal.value, type_name=type_name)
+        constant = FloatConstant(value=literal.value)
     elif isinstance(literal, IntLiteralValue):
-        constant = IntConstant(value=literal.magnitude, type_name=type_name)
+        constant = IntConstant(value=literal.magnitude)
     else:
         raise TypeError(f"Unsupported non-string literal for semantic lowering: {type(literal).__name__}")
 

@@ -8,9 +8,9 @@ from compiler.common.type_names import NON_CLASS_TYPE_NAMES
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import ClassId, FunctionId, MethodId
+from compiler.semantic.type_compat import compat_semantic_type_ref_from_name
 from compiler.semantic.types import (
     SemanticTypeRef,
-    compat_semantic_type_ref_from_name,
     iter_semantic_nominal_ids,
     semantic_type_canonical_name,
     semantic_type_is_null,

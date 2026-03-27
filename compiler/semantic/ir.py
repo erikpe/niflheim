@@ -339,25 +339,21 @@ class MethodRefExpr:
 @dataclass(frozen=True)
 class IntConstant:
     value: int
-    type_name: str
 
 
 @dataclass(frozen=True)
 class FloatConstant:
     value: float
-    type_name: str
 
 
 @dataclass(frozen=True)
 class BoolConstant:
     value: bool
-    type_name: str
 
 
 @dataclass(frozen=True)
 class CharConstant:
     value: int
-    type_name: str
 
 
 SemanticConstant = IntConstant | FloatConstant | BoolConstant | CharConstant

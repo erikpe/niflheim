@@ -1,5 +1,5 @@
 from compiler.codegen.types import array_element_runtime_kind, array_element_runtime_kind_for_type_ref, double_value_bits
-from compiler.semantic.types import best_effort_semantic_type_ref_from_name
+from compiler.semantic.type_compat import best_effort_semantic_type_ref_from_name
 
 
 def test_codegen_double_value_bits_is_stable_for_zero() -> None:

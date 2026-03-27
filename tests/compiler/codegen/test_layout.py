@@ -11,7 +11,7 @@ from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.symbols import ConstructorId, FunctionId
-from compiler.semantic.types import best_effort_semantic_type_ref_from_name
+from compiler.semantic.type_compat import best_effort_semantic_type_ref_from_name
 
 
 def test_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) -> None:

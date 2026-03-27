@@ -14,7 +14,8 @@ from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram, LoweredSe
 from compiler.semantic.ir import *
 from compiler.semantic.operations import semantic_binary_op_from_token, semantic_cast_kind, semantic_type_test_kind
 from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, InterfaceMethodId, LocalId, MethodId
-from compiler.semantic.types import best_effort_semantic_type_ref_from_name, semantic_type_ref_for_class_id, semantic_type_ref_for_interface_id
+from compiler.semantic.type_compat import best_effort_semantic_type_ref_from_name
+from compiler.semantic.types import semantic_type_ref_for_class_id, semantic_type_ref_for_interface_id
 
 
 _LOCAL_DISPLAY_NAMES: dict[LocalId, str] = {}
@@ -86,7 +87,7 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
                 operand=BinaryExprS(
                     op=semantic_binary_op_from_token("+", _type_ref("i64"), _type_ref("i64")),
                     left=LiteralExprS(
-                        constant=IntConstant(value=1, type_name="i64"),
+                        constant=IntConstant(value=1),
                         type_ref=_type_ref("i64"),
                         span=span,
                     ),
@@ -125,7 +126,7 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
         operand=BinaryExprS(
             op=semantic_binary_op_from_token("+", _type_ref("i64"), _type_ref("i64")),
             left=LiteralExprS(
-                constant=IntConstant(value=1, type_name="i64"),
+                constant=IntConstant(value=1),
                 type_ref=_type_ref("i64"),
                 span=span,
             ),
@@ -164,7 +165,7 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
             target=FunctionCallTarget(function_id=FunctionId(module_path=("main",), name="compute")),
             args=[
                 LiteralExprS(
-                    constant=IntConstant(value=7, type_name="i64"),
+                    constant=IntConstant(value=7),
                     type_ref=_type_ref("i64"),
                     span=span,
                 )
@@ -271,7 +272,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
                 name="value",
                 type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 initializer=LiteralExprS(
-                    constant=IntConstant(value=3, type_name="i64"),
+                    constant=IntConstant(value=3),
                     type_ref=_type_ref("i64"),
                     span=span,
                 ),

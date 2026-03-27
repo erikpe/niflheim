@@ -29,7 +29,7 @@ from compiler.semantic.ir import (
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.constant_folding import fold_constants
 from compiler.semantic.symbols import FunctionId, LocalId
-from compiler.semantic.types import best_effort_semantic_type_ref_from_name
+from compiler.semantic.type_compat import best_effort_semantic_type_ref_from_name
 
 
 def _write(path: Path, text: str) -> None:
@@ -200,7 +200,8 @@ def test_fold_constants_folds_conservative_literal_casts(tmp_path: Path) -> None
 
     assert isinstance(as_u8.initializer, LiteralExprS)
     assert isinstance(as_u8.initializer.constant, IntConstant)
-    assert as_u8.initializer.constant.type_name == "u8"
+    assert as_u8.initializer.type_ref.canonical_name == "u8"
+    assert not hasattr(as_u8.initializer.constant, "type_name")
     assert as_u8.initializer.constant.value == 2
 
     assert isinstance(as_bool_from_int.initializer, LiteralExprS)
@@ -209,12 +210,14 @@ def test_fold_constants_folds_conservative_literal_casts(tmp_path: Path) -> None
 
     assert isinstance(as_i64_from_double.initializer, LiteralExprS)
     assert isinstance(as_i64_from_double.initializer.constant, IntConstant)
-    assert as_i64_from_double.initializer.constant.type_name == "i64"
+    assert as_i64_from_double.initializer.type_ref.canonical_name == "i64"
+    assert not hasattr(as_i64_from_double.initializer.constant, "type_name")
     assert as_i64_from_double.initializer.constant.value == 7
 
     assert isinstance(as_u64_from_double.initializer, LiteralExprS)
     assert isinstance(as_u64_from_double.initializer.constant, IntConstant)
-    assert as_u64_from_double.initializer.constant.type_name == "u64"
+    assert as_u64_from_double.initializer.type_ref.canonical_name == "u64"
+    assert not hasattr(as_u64_from_double.initializer.constant, "type_name")
     assert as_u64_from_double.initializer.constant.value == 7
 
     assert isinstance(as_bool_from_double.initializer, LiteralExprS)
@@ -267,7 +270,8 @@ def test_fold_constants_uses_canonical_cast_target_type_ref_after_target_cache_r
 
     assert isinstance(folded_return.value, LiteralExprS)
     assert isinstance(folded_return.value.constant, IntConstant)
-    assert folded_return.value.constant.type_name == "u8"
+    assert folded_return.value.type_ref.canonical_name == "u8"
+    assert not hasattr(folded_return.value.constant, "type_name")
     assert folded_return.value.constant.value == 2
 
 
@@ -557,7 +561,7 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
                                     name="value",
                                     type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                     initializer=LiteralExprS(
-                                        constant=IntConstant(value=1, type_name="i64"),
+                                        constant=IntConstant(value=1),
                                         type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                         span=span,
                                     ),
@@ -568,7 +572,7 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
                                     name="value",
                                     type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                     initializer=LiteralExprS(
-                                        constant=IntConstant(value=2, type_name="i64"),
+                                        constant=IntConstant(value=2),
                                         type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                                         span=span,
                                     ),

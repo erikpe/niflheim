@@ -172,31 +172,36 @@ def test_lower_program_builds_typed_semantic_constants_for_literals(tmp_path: Pa
     assert isinstance(statements[0], SemanticVarDecl)
     assert isinstance(statements[0].initializer, LiteralExprS)
     assert isinstance(statements[0].initializer.constant, IntConstant)
-    assert statements[0].initializer.constant.type_name == "i64"
+    assert statements[0].initializer.type_ref.canonical_name == "i64"
+    assert not hasattr(statements[0].initializer.constant, "type_name")
     assert statements[0].initializer.constant.value == 1
 
     assert isinstance(statements[1], SemanticVarDecl)
     assert isinstance(statements[1].initializer, LiteralExprS)
     assert isinstance(statements[1].initializer.constant, IntConstant)
-    assert statements[1].initializer.constant.type_name == "u64"
+    assert statements[1].initializer.type_ref.canonical_name == "u64"
+    assert not hasattr(statements[1].initializer.constant, "type_name")
     assert statements[1].initializer.constant.value == 2
 
     assert isinstance(statements[2], SemanticVarDecl)
     assert isinstance(statements[2].initializer, LiteralExprS)
     assert isinstance(statements[2].initializer.constant, CharConstant)
-    assert statements[2].initializer.constant.type_name == "u8"
+    assert statements[2].initializer.type_ref.canonical_name == "u8"
+    assert not hasattr(statements[2].initializer.constant, "type_name")
     assert statements[2].initializer.constant.value == ord("q")
 
     assert isinstance(statements[3], SemanticVarDecl)
     assert isinstance(statements[3].initializer, LiteralExprS)
     assert isinstance(statements[3].initializer.constant, BoolConstant)
-    assert statements[3].initializer.constant.type_name == "bool"
+    assert statements[3].initializer.type_ref.canonical_name == "bool"
+    assert not hasattr(statements[3].initializer.constant, "type_name")
     assert statements[3].initializer.constant.value is False
 
     assert isinstance(statements[4], SemanticVarDecl)
     assert isinstance(statements[4].initializer, LiteralExprS)
     assert isinstance(statements[4].initializer.constant, FloatConstant)
-    assert statements[4].initializer.constant.type_name == "double"
+    assert statements[4].initializer.type_ref.canonical_name == "double"
+    assert not hasattr(statements[4].initializer.constant, "type_name")
     assert statements[4].initializer.constant.value == 1.5
 
 
@@ -220,19 +225,22 @@ def test_lower_program_builds_typed_semantic_constants_for_hex_literals(tmp_path
     assert isinstance(statements[0], SemanticVarDecl)
     assert isinstance(statements[0].initializer, LiteralExprS)
     assert isinstance(statements[0].initializer.constant, IntConstant)
-    assert statements[0].initializer.constant.type_name == "i64"
+    assert statements[0].initializer.type_ref.canonical_name == "i64"
+    assert not hasattr(statements[0].initializer.constant, "type_name")
     assert statements[0].initializer.constant.value == 42
 
     assert isinstance(statements[1], SemanticVarDecl)
     assert isinstance(statements[1].initializer, LiteralExprS)
     assert isinstance(statements[1].initializer.constant, IntConstant)
-    assert statements[1].initializer.constant.type_name == "u64"
+    assert statements[1].initializer.type_ref.canonical_name == "u64"
+    assert not hasattr(statements[1].initializer.constant, "type_name")
     assert statements[1].initializer.constant.value == 42
 
     assert isinstance(statements[2], SemanticVarDecl)
     assert isinstance(statements[2].initializer, LiteralExprS)
     assert isinstance(statements[2].initializer.constant, IntConstant)
-    assert statements[2].initializer.constant.type_name == "u8"
+    assert statements[2].initializer.type_ref.canonical_name == "u8"
+    assert not hasattr(statements[2].initializer.constant, "type_name")
     assert statements[2].initializer.constant.value == 255
 
 
@@ -1096,8 +1104,8 @@ def test_lower_program_lowers_null_and_array_ctor_expressions_explicitly(tmp_pat
     assert values_decl.initializer.type_ref.canonical_name == "i64[]"
     assert isinstance(values_decl.initializer.length_expr, LiteralExprS)
     assert isinstance(values_decl.initializer.length_expr.constant, IntConstant)
-    assert values_decl.initializer.length_expr.constant.type_name == "u64"
     assert values_decl.initializer.length_expr.type_ref.canonical_name == "u64"
+    assert not hasattr(values_decl.initializer.length_expr.constant, "type_name")
     assert values_decl.initializer.length_expr.constant.value == 2
 
     box_decl = statements[1]
@@ -1335,8 +1343,8 @@ def test_lower_program_preserves_min_i64_literal_inside_unary_negation(tmp_path:
     assert return_stmt.value.type_ref.canonical_name == "i64"
     assert isinstance(return_stmt.value.operand, LiteralExprS)
     assert isinstance(return_stmt.value.operand.constant, IntConstant)
-    assert return_stmt.value.operand.constant.type_name == "i64"
     assert return_stmt.value.operand.type_ref.canonical_name == "i64"
+    assert not hasattr(return_stmt.value.operand.constant, "type_name")
     assert return_stmt.value.operand.constant.value == 9223372036854775808
 
 

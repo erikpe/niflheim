@@ -21,8 +21,8 @@ from compiler.semantic.ir import (
     SemanticLocalInfo,
 )
 from compiler.semantic.symbols import FunctionId, InterfaceMethodId, LocalId, MethodId
+from compiler.semantic.type_compat import best_effort_semantic_type_ref_from_name
 from compiler.semantic.types import (
-    best_effort_semantic_type_ref_from_name,
     semantic_type_ref_for_class_id,
     semantic_type_ref_for_interface_id,
 )

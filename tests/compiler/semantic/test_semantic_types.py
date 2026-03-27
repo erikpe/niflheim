@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from compiler.semantic.symbols import ClassId
-from compiler.semantic.types import (
+from compiler.semantic.type_compat import (
     best_effort_semantic_type_ref_from_name,
     compat_semantic_type_ref_from_name,
+)
+from compiler.semantic.types import (
     semantic_array_type_ref,
     semantic_type_canonical_name,
     semantic_type_callable_params,
