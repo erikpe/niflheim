@@ -5,7 +5,13 @@ from dataclasses import dataclass
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.model import FunctionLayout, LayoutSlot, TEMP_RUNTIME_ROOT_SLOT_COUNT
-from compiler.semantic.lowered_ir import LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticStmt
+from compiler.semantic.lowered_ir import (
+    LoweredSemanticBlock,
+    LoweredSemanticForIn,
+    LoweredSemanticIf,
+    LoweredSemanticStmt,
+    LoweredSemanticWhile,
+)
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import LocalId
 from compiler.semantic.types import semantic_type_ref_for_class_id
@@ -21,13 +27,12 @@ class _SlotSpec:
 
 
 def _build_function_layout(
-    slot_specs: list[_SlotSpec],
-    *,
-    needs_temp_runtime_roots: bool,
-    max_call_temp_root_slots: int,
+    slot_specs: list[_SlotSpec], *, needs_temp_runtime_roots: bool, max_call_temp_root_slots: int
 ) -> FunctionLayout:
     slot_offsets = {slot_spec.key: -(8 * index) for index, slot_spec in enumerate(slot_specs, start=1)}
-    root_slot_keys = [slot_spec.key for slot_spec in slot_specs if codegen_types.is_reference_type_ref(slot_spec.type_ref)]
+    root_slot_keys = [
+        slot_spec.key for slot_spec in slot_specs if codegen_types.is_reference_type_ref(slot_spec.type_ref)
+    ]
     root_slot_indices = {key: index for index, key in enumerate(root_slot_keys)}
 
     temp_root_slot_count = 0
@@ -167,13 +172,13 @@ def _stmt_uses_local_storage(stmt: SemanticStmt | LoweredSemanticStmt) -> bool:
         return _expr_uses_local_storage(stmt.expr)
     if isinstance(stmt, SemanticReturn):
         return stmt.value is not None and _expr_uses_local_storage(stmt.value)
-    if isinstance(stmt, SemanticIf):
+    if isinstance(stmt, LoweredSemanticIf):
         return (
             _expr_uses_local_storage(stmt.condition)
             or _block_uses_local_storage(stmt.then_block)
             or (stmt.else_block is not None and _block_uses_local_storage(stmt.else_block))
         )
-    if isinstance(stmt, SemanticWhile):
+    if isinstance(stmt, LoweredSemanticWhile):
         return _expr_uses_local_storage(stmt.condition) or _block_uses_local_storage(stmt.body)
     if isinstance(stmt, LoweredSemanticForIn):
         return True
@@ -247,15 +252,7 @@ def _lvalue_needs_temp_runtime_roots(target) -> bool:
 
 def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
     if isinstance(
-        expr,
-        (
-            CallExprS,
-            IndexReadExpr,
-            SliceReadExpr,
-            ArrayCtorExprS,
-            ArrayLenExpr,
-            StringLiteralBytesExpr,
-        ),
+        expr, (CallExprS, IndexReadExpr, SliceReadExpr, ArrayCtorExprS, ArrayLenExpr, StringLiteralBytesExpr)
     ):
         return True
     if isinstance(expr, CastExprS):
@@ -282,13 +279,13 @@ def _stmt_needs_temp_runtime_roots(stmt: SemanticStmt | LoweredSemanticStmt) -> 
         return _expr_needs_temp_runtime_roots(stmt.expr)
     if isinstance(stmt, SemanticReturn):
         return stmt.value is not None and _expr_needs_temp_runtime_roots(stmt.value)
-    if isinstance(stmt, SemanticIf):
+    if isinstance(stmt, LoweredSemanticIf):
         return (
             _expr_needs_temp_runtime_roots(stmt.condition)
             or _stmt_needs_temp_runtime_roots(stmt.then_block)
             or (stmt.else_block is not None and _stmt_needs_temp_runtime_roots(stmt.else_block))
         )
-    if isinstance(stmt, SemanticWhile):
+    if isinstance(stmt, LoweredSemanticWhile):
         return _expr_needs_temp_runtime_roots(stmt.condition) or _stmt_needs_temp_runtime_roots(stmt.body)
     if isinstance(stmt, LoweredSemanticForIn):
         return (
@@ -372,16 +369,18 @@ def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt | LoweredSemanticStmt) 
         return _max_call_temp_root_slots_in_expr(stmt.expr)
     if isinstance(stmt, SemanticReturn):
         return _max_call_temp_root_slots_in_expr(stmt.value) if stmt.value is not None else 0
-    if isinstance(stmt, SemanticIf):
+    if isinstance(stmt, LoweredSemanticIf):
         return max(
             _max_call_temp_root_slots_in_expr(stmt.condition),
             _max_call_temp_root_slots_in_stmt(stmt.then_block),
             _max_call_temp_root_slots_in_stmt(stmt.else_block) if stmt.else_block is not None else 0,
         )
-    if isinstance(stmt, SemanticWhile):
+    if isinstance(stmt, LoweredSemanticWhile):
         return max(_max_call_temp_root_slots_in_expr(stmt.condition), _max_call_temp_root_slots_in_stmt(stmt.body))
     if isinstance(stmt, LoweredSemanticForIn):
-        implicit_for_in_call_slots = 1 if codegen_types.is_reference_type_ref(expression_type_ref(stmt.collection)) else 0
+        implicit_for_in_call_slots = (
+            1 if codegen_types.is_reference_type_ref(expression_type_ref(stmt.collection)) else 0
+        )
         return max(
             _max_call_temp_root_slots_in_expr(stmt.collection),
             implicit_for_in_call_slots,
@@ -401,23 +400,15 @@ def build_layout(fn: SemanticFunction) -> FunctionLayout:
     needs_temp_runtime_roots = any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_stmt(stmt) for stmt in fn.body.statements), default=0)
     return _build_function_layout(
-        slot_specs,
-        needs_temp_runtime_roots=needs_temp_runtime_roots,
-        max_call_temp_root_slots=max_call_temp_root_slots,
+        slot_specs, needs_temp_runtime_roots=needs_temp_runtime_roots, max_call_temp_root_slots=max_call_temp_root_slots
     )
 
 
 def build_constructor_layout(cls: SemanticClass, ctor_layout, *, constructor_object_slot_name: str) -> FunctionLayout:
-    slot_specs = _constructor_slot_specs(
-        cls,
-        ctor_layout,
-        constructor_object_slot_name=constructor_object_slot_name,
-    )
+    slot_specs = _constructor_slot_specs(cls, ctor_layout, constructor_object_slot_name=constructor_object_slot_name)
     initializer_exprs = [field.initializer for field in cls.fields if field.initializer is not None]
     needs_temp_runtime_roots = any(_expr_needs_temp_runtime_roots(expr) for expr in initializer_exprs)
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_expr(expr) for expr in initializer_exprs), default=0)
     return _build_function_layout(
-        slot_specs,
-        needs_temp_runtime_roots=needs_temp_runtime_roots,
-        max_call_temp_root_slots=max_call_temp_root_slots,
+        slot_specs, needs_temp_runtime_roots=needs_temp_runtime_roots, max_call_temp_root_slots=max_call_temp_root_slots
     )

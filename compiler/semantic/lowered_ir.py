@@ -15,8 +15,6 @@ from compiler.semantic.ir import (
     SemanticAssign,
     SemanticExprStmt,
     SemanticReturn,
-    SemanticIf,
-    SemanticWhile,
     SemanticBreak,
     SemanticContinue,
 )
@@ -45,14 +43,29 @@ class LoweredSemanticForIn:
     span: SourceSpan
 
 
+@dataclass(frozen=True)
+class LoweredSemanticIf:
+    condition: SemanticExpr
+    then_block: LoweredSemanticBlock
+    else_block: LoweredSemanticBlock | None
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class LoweredSemanticWhile:
+    condition: SemanticExpr
+    body: LoweredSemanticBlock
+    span: SourceSpan
+
+
 LoweredSemanticStmt = (
     LoweredSemanticBlock
     | SemanticVarDecl
     | SemanticAssign
     | SemanticExprStmt
     | SemanticReturn
-    | SemanticIf
-    | SemanticWhile
+    | LoweredSemanticIf
+    | LoweredSemanticWhile
     | LoweredSemanticForIn
     | SemanticBreak
     | SemanticContinue
@@ -76,4 +89,3 @@ class LoweredLinkedSemanticProgram:
     classes: tuple[SemanticClass, ...]
     functions: tuple[SemanticFunction, ...]
     span: SourceSpan
-

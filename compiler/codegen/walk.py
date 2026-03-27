@@ -3,7 +3,14 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from compiler.semantic.ir import *
-from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram, LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticStmt
+from compiler.semantic.lowered_ir import (
+    LoweredLinkedSemanticProgram,
+    LoweredSemanticBlock,
+    LoweredSemanticForIn,
+    LoweredSemanticIf,
+    LoweredSemanticStmt,
+    LoweredSemanticWhile,
+)
 
 
 def walk_codegen_program_expressions(
@@ -20,12 +27,16 @@ def walk_codegen_program_expressions(
             walk_block_expressions(method.body, visit_expr)
 
 
-def walk_block_expressions(block: SemanticBlock | LoweredSemanticBlock, visit_expr: Callable[[SemanticExpr], None]) -> None:
+def walk_block_expressions(
+    block: SemanticBlock | LoweredSemanticBlock, visit_expr: Callable[[SemanticExpr], None]
+) -> None:
     for stmt in block.statements:
         walk_statement_expressions(stmt, visit_expr)
 
 
-def walk_statement_expressions(stmt: SemanticStmt | LoweredSemanticStmt, visit_expr: Callable[[SemanticExpr], None]) -> None:
+def walk_statement_expressions(
+    stmt: SemanticStmt | LoweredSemanticStmt, visit_expr: Callable[[SemanticExpr], None]
+) -> None:
     if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
         walk_block_expressions(stmt, visit_expr)
         return
@@ -43,13 +54,13 @@ def walk_statement_expressions(stmt: SemanticStmt | LoweredSemanticStmt, visit_e
         if stmt.value is not None:
             walk_expression(stmt.value, visit_expr)
         return
-    if isinstance(stmt, SemanticIf):
+    if isinstance(stmt, LoweredSemanticIf):
         walk_expression(stmt.condition, visit_expr)
         walk_block_expressions(stmt.then_block, visit_expr)
         if stmt.else_block is not None:
             walk_block_expressions(stmt.else_block, visit_expr)
         return
-    if isinstance(stmt, SemanticWhile):
+    if isinstance(stmt, LoweredSemanticWhile):
         walk_expression(stmt.condition, visit_expr)
         walk_block_expressions(stmt.body, visit_expr)
         return

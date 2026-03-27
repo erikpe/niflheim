@@ -39,13 +39,13 @@ def test_lower_program_records_function_local_metadata_by_local_id(tmp_path: Pat
     loop_stmt = function.body.statements[1]
     return_stmt = function.body.statements[2]
 
-    values_info = next(local_info for local_info in function.local_info_by_id.values() if local_info.display_name == "values")
+    values_info = next(
+        local_info for local_info in function.local_info_by_id.values() if local_info.display_name == "values"
+    )
     total_info = require_local_info_for_owner(function, total_decl.local_id)
     item_ref = loop_stmt.body.statements[0].value.right
     item_info = require_local_info_for_owner(function, item_ref.local_id)
 
-    assert total_decl.name is None
-    assert total_decl.type_ref is None
     assert values_info.binding_kind == "param"
     assert values_info.type_ref.canonical_name == "i64[]"
     assert semantic_local_type_display_name(function, values_info.local_id) == "i64[]"
@@ -64,7 +64,9 @@ def test_lower_program_records_function_local_metadata_by_local_id(tmp_path: Pat
 
     lowered_function = lower_linked_semantic_program(link_semantic_program(semantic)).functions[0]
 
-    assert any(local_info.binding_kind == "for_in_collection" for local_info in lowered_function.local_info_by_id.values())
+    assert any(
+        local_info.binding_kind == "for_in_collection" for local_info in lowered_function.local_info_by_id.values()
+    )
     assert any(local_info.binding_kind == "for_in_length" for local_info in lowered_function.local_info_by_id.values())
     assert any(local_info.binding_kind == "for_in_index" for local_info in lowered_function.local_info_by_id.values())
 
@@ -86,8 +88,12 @@ def test_lower_program_records_method_receiver_metadata(tmp_path: Path) -> None:
     semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
     method = semantic.modules[("main",)].classes[0].methods[0]
 
-    receiver_info = next(local_info for local_info in method.local_info_by_id.values() if local_info.display_name == "__self")
-    delta_info = next(local_info for local_info in method.local_info_by_id.values() if local_info.display_name == "delta")
+    receiver_info = next(
+        local_info for local_info in method.local_info_by_id.values() if local_info.display_name == "__self"
+    )
+    delta_info = next(
+        local_info for local_info in method.local_info_by_id.values() if local_info.display_name == "delta"
+    )
 
     assert receiver_info.binding_kind == "receiver"
     assert receiver_info.type_ref.canonical_name == "main::Counter"

@@ -25,8 +25,10 @@ from compiler.semantic.lowered_ir import (
     LoweredLinkedSemanticProgram,
     LoweredSemanticBlock,
     LoweredSemanticForIn,
+    LoweredSemanticIf,
     LoweredSemanticModule,
     LoweredSemanticStmt,
+    LoweredSemanticWhile,
 )
 from compiler.semantic.symbols import LocalId, LocalOwnerId
 from compiler.semantic.types import semantic_primitive_type_ref
@@ -118,23 +120,21 @@ def _lower_method(method: SemanticMethod) -> SemanticMethod:
 
 
 def _lower_block(block: SemanticBlock, allocator: _HelperLocalAllocator) -> LoweredSemanticBlock:
-    return LoweredSemanticBlock(
-        statements=[_lower_stmt(stmt, allocator) for stmt in block.statements],
-        span=block.span,
-    )
+    return LoweredSemanticBlock(statements=[_lower_stmt(stmt, allocator) for stmt in block.statements], span=block.span)
 
 
 def _lower_stmt(stmt: SemanticStmt, allocator: _HelperLocalAllocator) -> LoweredSemanticStmt:
     if isinstance(stmt, SemanticBlock):
         return _lower_block(stmt, allocator)
     if isinstance(stmt, SemanticIf):
-        return replace(
-            stmt,
+        return LoweredSemanticIf(
+            condition=stmt.condition,
             then_block=_lower_block(stmt.then_block, allocator),
             else_block=None if stmt.else_block is None else _lower_block(stmt.else_block, allocator),
+            span=stmt.span,
         )
     if isinstance(stmt, SemanticWhile):
-        return replace(stmt, body=_lower_block(stmt.body, allocator))
+        return LoweredSemanticWhile(condition=stmt.condition, body=_lower_block(stmt.body, allocator), span=stmt.span)
     if isinstance(stmt, SemanticForIn):
         collection_local_id = allocator.declare(
             display_name="__for_in_collection",

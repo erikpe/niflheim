@@ -6,7 +6,13 @@ import compiler.codegen.types as codegen_types
 
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
-from compiler.semantic.lowered_ir import LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticStmt
+from compiler.semantic.lowered_ir import (
+    LoweredSemanticBlock,
+    LoweredSemanticForIn,
+    LoweredSemanticIf,
+    LoweredSemanticStmt,
+    LoweredSemanticWhile,
+)
 from compiler.semantic.ir import *
 from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
 
@@ -38,7 +44,7 @@ def emit_statement(
     if isinstance(stmt, SemanticVarDecl):
         offset = layout.local_slot_offsets.get(stmt.local_id)
         if offset is None:
-            local_label = stmt.name if stmt.name is not None else str(stmt.local_id)
+            local_label = str(stmt.local_id) if ctx.owner is None else local_display_name_for_owner(ctx.owner, stmt.local_id)
             codegen_types.raise_codegen_error(
                 f"variable '{local_label}' is not materialized in stack layout", span=stmt.span
             )
@@ -76,7 +82,7 @@ def emit_statement(
         codegen.asm.instr(f"jmp {loop_continue}")
         return
 
-    if isinstance(stmt, SemanticIf):
+    if isinstance(stmt, LoweredSemanticIf):
         else_label = codegen_symbols.next_label(fn_name, "if_else", label_counter)
         end_label = codegen_symbols.next_label(fn_name, "if_end", label_counter)
         emit_expr(codegen, stmt.condition, ctx)
@@ -90,7 +96,7 @@ def emit_statement(
         codegen.asm.label(end_label)
         return
 
-    if isinstance(stmt, SemanticWhile):
+    if isinstance(stmt, LoweredSemanticWhile):
         start_label = codegen_symbols.next_label(fn_name, "while_start", label_counter)
         end_label = codegen_symbols.next_label(fn_name, "while_end", label_counter)
         codegen.asm.label(start_label)

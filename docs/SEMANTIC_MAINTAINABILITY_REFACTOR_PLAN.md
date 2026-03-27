@@ -199,12 +199,12 @@ Reduce conceptual blur between source-near semantic IR and codegen-shaped lowere
 ### Concrete Changes
 
 - `compiler/semantic/lowered_ir.py`
-  - make lowered-only statement shapes more explicit
-  - consider introducing lowered wrappers for more execution-shaped constructs instead of mixing source and lowered statements in the same union
+  - [x] make lowered-only statement shapes more explicit
+  - [x] introduce lowered wrappers for execution-shaped control-flow constructs instead of mixing source and lowered statements in the same union
 - `compiler/semantic/lowering/executable.py`
-  - keep source-to-lowered rewrites localized and explicit
+  - [x] keep source-to-lowered rewrites localized and explicit
 - `compiler/semantic/ir.py`
-  - re-evaluate whether compatibility fields such as optional var-decl metadata still belong on the source-semantic graph
+  - [x] re-evaluate whether compatibility fields such as optional var-decl metadata still belong on the source-semantic graph
 
 ### Expected Outcome
 

@@ -12,7 +12,7 @@ from compiler.semantic.display import (
 )
 from compiler.semantic.ir import *
 from compiler.semantic.linker import link_semantic_program
-from compiler.semantic.lowered_ir import LoweredSemanticForIn
+from compiler.semantic.lowered_ir import LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticIf, LoweredSemanticWhile
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, TypeTestSemanticsKind, UnaryOpFlavor, UnaryOpKind
 from compiler.resolver import resolve_program
@@ -1236,6 +1236,39 @@ def test_lower_linked_semantic_program_materializes_for_in_helper_temps(tmp_path
     assert local_type_name_for_owner(fn, loop_stmt.length_local_id) == "u64"
     assert local_display_name_for_owner(fn, loop_stmt.index_local_id) == "__for_in_index"
     assert local_type_name_for_owner(fn, loop_stmt.index_local_id) == "i64"
+
+
+def test_lower_linked_semantic_program_uses_explicit_lowered_control_flow_nodes(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main(flag: bool) -> i64 {
+            var total: i64 = 0;
+            if flag {
+                total = 1;
+            } else {
+                total = 2;
+            }
+            while flag {
+                return total;
+            }
+            return total;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    lowered_program = lower_linked_semantic_program(link_semantic_program(lower_program(program)))
+    fn = lowered_program.functions[0]
+
+    if_stmt = fn.body.statements[1]
+    while_stmt = fn.body.statements[2]
+
+    assert isinstance(if_stmt, LoweredSemanticIf)
+    assert isinstance(if_stmt.then_block, LoweredSemanticBlock)
+    assert isinstance(if_stmt.else_block, LoweredSemanticBlock)
+    assert isinstance(while_stmt, LoweredSemanticWhile)
+    assert isinstance(while_stmt.body, LoweredSemanticBlock)
 
 
 def test_lower_program_local_identity_is_stable_under_local_rename(tmp_path: Path) -> None:

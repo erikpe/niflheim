@@ -10,7 +10,14 @@ from compiler.codegen.walk import (
     walk_statement_expressions,
 )
 from compiler.common.span import SourcePos, SourceSpan
-from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram, LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticModule
+from compiler.semantic.lowered_ir import (
+    LoweredLinkedSemanticProgram,
+    LoweredSemanticBlock,
+    LoweredSemanticForIn,
+    LoweredSemanticIf,
+    LoweredSemanticModule,
+    LoweredSemanticWhile,
+)
 from compiler.semantic.ir import *
 from compiler.semantic.operations import semantic_binary_op_from_token, semantic_cast_kind, semantic_type_test_kind
 from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, InterfaceMethodId, LocalId, MethodId
@@ -46,9 +53,7 @@ def _local_ref(name: str, type_name: str, span: SourceSpan) -> LocalRefExpr:
     local_id = LocalId(owner_id=FunctionId(module_path=("test",), name="walk"), ordinal=sum(ord(ch) for ch in name))
     _LOCAL_DISPLAY_NAMES[local_id] = name
     return LocalRefExpr(
-        local_id=local_id,
-        type_ref=best_effort_semantic_type_ref_from_name(("test",), type_name),
-        span=span,
+        local_id=local_id, type_ref=best_effort_semantic_type_ref_from_name(("test",), type_name), span=span
     )
 
 
@@ -66,7 +71,9 @@ def _bound_access(receiver: SemanticExpr, type_name: str) -> BoundMemberAccess:
         )
     return BoundMemberAccess(
         receiver=receiver,
-        receiver_type_ref=semantic_type_ref_for_class_id(ClassId(module_path=("main",), name=type_name), display_name=type_name),
+        receiver_type_ref=semantic_type_ref_for_class_id(
+            ClassId(module_path=("main",), name=type_name), display_name=type_name
+        ),
     )
 
 
@@ -75,22 +82,18 @@ def test_walk_expression_visits_callable_value_call_in_preorder() -> None:
     expr = CallExprS(
         target=CallableValueCallTarget(
             callee=FieldReadExpr(
-            access=_bound_access(_local_ref("receiver", "Box", span), "Box"),
-            owner_class_id=ClassId(module_path=("main",), name="Box"),
-            field_name="invoke",
-            type_ref=best_effort_semantic_type_ref_from_name(("main",), "fn(i64) -> i64"),
-            span=span,
+                access=_bound_access(_local_ref("receiver", "Box", span), "Box"),
+                owner_class_id=ClassId(module_path=("main",), name="Box"),
+                field_name="invoke",
+                type_ref=best_effort_semantic_type_ref_from_name(("main",), "fn(i64) -> i64"),
+                span=span,
             )
         ),
         args=[
             CastExprS(
                 operand=BinaryExprS(
                     op=semantic_binary_op_from_token("+", _type_ref("i64"), _type_ref("i64")),
-                    left=LiteralExprS(
-                        constant=IntConstant(value=1),
-                        type_ref=_type_ref("i64"),
-                        span=span,
-                    ),
+                    left=LiteralExprS(constant=IntConstant(value=1), type_ref=_type_ref("i64"), span=span),
                     right=_local_ref("arg", "i64", span),
                     type_ref=_type_ref("i64"),
                     span=span,
@@ -125,11 +128,7 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
     expr = TypeTestExprS(
         operand=BinaryExprS(
             op=semantic_binary_op_from_token("+", _type_ref("i64"), _type_ref("i64")),
-            left=LiteralExprS(
-                constant=IntConstant(value=1),
-                type_ref=_type_ref("i64"),
-                span=span,
-            ),
+            left=LiteralExprS(constant=IntConstant(value=1), type_ref=_type_ref("i64"), span=span),
             right=_local_ref("arg", "i64", span),
             type_ref=_type_ref("i64"),
             span=span,
@@ -143,12 +142,7 @@ def test_walk_expression_visits_type_test_operand_in_preorder() -> None:
     seen: list[str] = []
     walk_expression(expr, lambda current: seen.append(_describe_expr(current)))
 
-    assert seen == [
-        "TypeTestExprS",
-        "BinaryExprS",
-        "LiteralExprS:1",
-        "LocalRefExpr:arg",
-    ]
+    assert seen == ["TypeTestExprS", "BinaryExprS", "LiteralExprS:1", "LocalRefExpr:arg"]
 
 
 def test_walk_statement_expressions_skips_assignment_target_expressions() -> None:
@@ -163,13 +157,7 @@ def test_walk_statement_expressions_skips_assignment_target_expressions() -> Non
         ),
         value=CallExprS(
             target=FunctionCallTarget(function_id=FunctionId(module_path=("main",), name="compute")),
-            args=[
-                LiteralExprS(
-                    constant=IntConstant(value=7),
-                    type_ref=_type_ref("i64"),
-                    span=span,
-                )
-            ],
+            args=[LiteralExprS(constant=IntConstant(value=7), type_ref=_type_ref("i64"), span=span)],
             type_ref=_type_ref("i64"),
             span=span,
         ),
@@ -186,29 +174,20 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
     span = _span()
     block = LoweredSemanticBlock(
         statements=[
-            SemanticIf(
+            LoweredSemanticIf(
                 condition=_local_ref("if_cond", "bool", span),
                 then_block=LoweredSemanticBlock(
-                    statements=[
-                        SemanticExprStmt(expr=_local_ref("then_expr", "i64", span), span=span)
-                    ],
-                    span=span,
+                    statements=[SemanticExprStmt(expr=_local_ref("then_expr", "i64", span), span=span)], span=span
                 ),
                 else_block=LoweredSemanticBlock(
-                    statements=[
-                        SemanticReturn(value=_local_ref("else_expr", "i64", span), span=span)
-                    ],
-                    span=span,
+                    statements=[SemanticReturn(value=_local_ref("else_expr", "i64", span), span=span)], span=span
                 ),
                 span=span,
             ),
-            SemanticWhile(
+            LoweredSemanticWhile(
                 condition=_local_ref("while_cond", "bool", span),
                 body=LoweredSemanticBlock(
-                    statements=[
-                        SemanticExprStmt(expr=_local_ref("while_expr", "i64", span), span=span)
-                    ],
-                    span=span,
+                    statements=[SemanticExprStmt(expr=_local_ref("while_expr", "i64", span), span=span)], span=span
                 ),
                 span=span,
             ),
@@ -225,10 +204,7 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
                 ),
                 element_type_ref=best_effort_semantic_type_ref_from_name(("test",), "i64"),
                 body=LoweredSemanticBlock(
-                    statements=[
-                        SemanticExprStmt(expr=_local_ref("for_expr", "i64", span), span=span)
-                    ],
-                    span=span,
+                    statements=[SemanticExprStmt(expr=_local_ref("for_expr", "i64", span), span=span)], span=span
                 ),
                 span=span,
             ),
@@ -256,10 +232,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
         function_id=FunctionId(module_path=("main",), name="main"),
         params=[],
         return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
-        body=SemanticBlock(
-            statements=[SemanticReturn(value=_local_ref("fn_expr", "i64", span), span=span)],
-            span=span,
-        ),
+        body=SemanticBlock(statements=[SemanticReturn(value=_local_ref("fn_expr", "i64", span), span=span)], span=span),
         is_export=False,
         is_extern=False,
         span=span,
@@ -271,11 +244,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
             SemanticField(
                 name="value",
                 type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
-                initializer=LiteralExprS(
-                    constant=IntConstant(value=3),
-                    type_ref=_type_ref("i64"),
-                    span=span,
-                ),
+                initializer=LiteralExprS(constant=IntConstant(value=3), type_ref=_type_ref("i64"), span=span),
                 is_private=False,
                 is_final=False,
                 span=span,
@@ -287,10 +256,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
                 params=[],
                 return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 body=SemanticBlock(
-                    statements=[
-                        SemanticReturn(value=_local_ref("method_expr", "i64", span), span=span)
-                    ],
-                    span=span,
+                    statements=[SemanticReturn(value=_local_ref("method_expr", "i64", span), span=span)], span=span
                 ),
                 is_static=False,
                 is_private=False,
@@ -299,7 +265,9 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
         ],
         span=span,
     )
-    module = LoweredSemanticModule(module_path=("main",), file_path=Path("main.nif"), classes=[cls], functions=[fn], span=span, interfaces=[])
+    module = LoweredSemanticModule(
+        module_path=("main",), file_path=Path("main.nif"), classes=[cls], functions=[fn], span=span, interfaces=[]
+    )
     program = LoweredLinkedSemanticProgram(
         entry_module=("main",), ordered_modules=(module,), classes=(cls,), functions=(fn,), span=span
     )
@@ -331,11 +299,7 @@ def test_walk_expression_visits_interface_method_call_receiver_and_args() -> Non
     seen: list[str] = []
     walk_expression(expr, lambda current: seen.append(_describe_expr(current)))
 
-    assert seen == [
-        "CallExprS:interface_method",
-        "LocalRefExpr:receiver",
-        "LocalRefExpr:arg",
-    ]
+    assert seen == ["CallExprS:interface_method", "LocalRefExpr:receiver", "LocalRefExpr:arg"]
 
 
 def test_walk_codegen_program_expressions_visits_interface_method_calls_in_function_bodies() -> None:
@@ -350,7 +314,9 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
                     value=CallExprS(
                         target=InterfaceMethodCallTarget(
                             interface_id=InterfaceId(module_path=("main",), name="Hashable"),
-                            method_id=InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
+                            method_id=InterfaceMethodId(
+                                module_path=("main",), interface_name="Hashable", name="hash_code"
+                            ),
                             access=BoundMemberAccess(
                                 receiver=_local_ref("receiver", "Hashable", span),
                                 receiver_type_ref=semantic_type_ref_for_interface_id(
@@ -371,7 +337,9 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
         is_export=False,
         span=span,
     )
-    module = LoweredSemanticModule(module_path=("main",), file_path=Path("main.nif"), classes=[], functions=[fn], span=span, interfaces=[])
+    module = LoweredSemanticModule(
+        module_path=("main",), file_path=Path("main.nif"), classes=[], functions=[fn], span=span, interfaces=[]
+    )
     program = LoweredLinkedSemanticProgram(
         entry_module=("main",), ordered_modules=(module,), classes=(), functions=(fn,), span=span
     )
@@ -379,8 +347,4 @@ def test_walk_codegen_program_expressions_visits_interface_method_calls_in_funct
     seen: list[str] = []
     walk_codegen_program_expressions(program, lambda expr: seen.append(_describe_expr(expr)))
 
-    assert seen == [
-        "CallExprS:interface_method",
-        "LocalRefExpr:receiver",
-        "LocalRefExpr:other",
-    ]
+    assert seen == ["CallExprS:interface_method", "LocalRefExpr:receiver", "LocalRefExpr:other"]

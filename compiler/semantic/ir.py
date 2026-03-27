@@ -8,12 +8,7 @@ from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpK
 from compiler.common.type_names import TYPE_NAME_U64, TYPE_NAME_U8
 from compiler.common.span import SourceSpan
 from compiler.resolver import ModulePath
-from compiler.semantic.operations import (
-    CastSemanticsKind,
-    SemanticBinaryOp,
-    SemanticUnaryOp,
-    TypeTestSemanticsKind,
-)
+from compiler.semantic.operations import CastSemanticsKind, SemanticBinaryOp, SemanticUnaryOp, TypeTestSemanticsKind
 from compiler.semantic.symbols import (
     ClassId,
     ConstructorId,
@@ -87,13 +82,7 @@ class SemanticClass:
 
 
 LocalBindingKind = Literal[
-    "receiver",
-    "param",
-    "local",
-    "for_in_element",
-    "for_in_collection",
-    "for_in_length",
-    "for_in_index",
+    "receiver", "param", "local", "for_in_element", "for_in_collection", "for_in_length", "for_in_index"
 ]
 
 
@@ -166,11 +155,7 @@ def local_type_ref_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> 
 
 def local_ref_expr_for_owner(owner: SemanticFunctionLike, local_id: LocalId, *, span: SourceSpan) -> "LocalRefExpr":
     local_info = require_local_info_for_owner(owner, local_id)
-    return LocalRefExpr(
-        local_id=local_id,
-        type_ref=local_info.type_ref,
-        span=span,
-    )
+    return LocalRefExpr(local_id=local_id, type_ref=local_info.type_ref, span=span)
 
 
 @dataclass(frozen=True)
@@ -184,8 +169,6 @@ class SemanticVarDecl:
     local_id: LocalId
     initializer: "SemanticExpr | None"
     span: SourceSpan
-    name: str | None = None
-    type_ref: SemanticTypeRef | None = None
 
 
 @dataclass(frozen=True)
@@ -468,12 +451,7 @@ SemanticCallTarget = (
 
 
 CallDispatchMode = Literal[
-    "function",
-    "static_method",
-    "instance_method",
-    "interface_method",
-    "constructor",
-    "callable_value",
+    "function", "static_method", "instance_method", "interface_method", "constructor", "callable_value"
 ]
 
 
