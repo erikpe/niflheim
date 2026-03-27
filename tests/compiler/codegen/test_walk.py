@@ -13,6 +13,7 @@ from compiler.common.span import SourcePos, SourceSpan
 from compiler.semantic.lowered_ir import (
     LoweredSemanticClass,
     LoweredSemanticFunction,
+    LoweredSemanticField,
     LoweredSemanticMethod,
     LoweredLinkedSemanticProgram,
     LoweredSemanticBlock,
@@ -246,7 +247,7 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
         class_id=ClassId(module_path=("main",), name="Box"),
         is_export=False,
         fields=[
-            SemanticField(
+            LoweredSemanticField(
                 name="value",
                 type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
                 initializer=LiteralExprS(constant=IntConstant(value=3), type_ref=_type_ref("i64"), span=span),

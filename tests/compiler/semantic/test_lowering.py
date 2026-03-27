@@ -15,6 +15,7 @@ from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowered_ir import (
     LoweredSemanticClass,
     LoweredSemanticBlock,
+    LoweredSemanticField,
     LoweredSemanticForIn,
     LoweredSemanticFunction,
     LoweredSemanticIf,
@@ -1389,6 +1390,7 @@ def test_lower_linked_semantic_program_uses_explicit_lowered_function_and_class_
     assert isinstance(fn, LoweredSemanticFunction)
     assert isinstance(fn.body, LoweredSemanticBlock)
     assert isinstance(cls, LoweredSemanticClass)
+    assert isinstance(cls.fields[0], LoweredSemanticField)
     assert isinstance(method, LoweredSemanticMethod)
     assert isinstance(method.body, LoweredSemanticBlock)
 

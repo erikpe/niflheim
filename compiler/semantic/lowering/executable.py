@@ -20,6 +20,7 @@ from compiler.semantic.lowered_ir import (
     LoweredLinkedSemanticProgram,
     LoweredSemanticBlock,
     LoweredSemanticClass,
+    LoweredSemanticField,
     LoweredSemanticForIn,
     LoweredSemanticFunction,
     LoweredSemanticIf,
@@ -104,8 +105,15 @@ def _lower_class(cls: SemanticClass) -> LoweredSemanticClass:
     )
 
 
-def _lower_field(field: SemanticField) -> SemanticField:
-    return field
+def _lower_field(field: SemanticField) -> LoweredSemanticField:
+    return LoweredSemanticField(
+        name=field.name,
+        type_ref=field.type_ref,
+        initializer=field.initializer,
+        is_private=field.is_private,
+        is_final=field.is_final,
+        span=field.span,
+    )
 
 
 def _lower_function(fn: SemanticFunction) -> LoweredSemanticFunction:

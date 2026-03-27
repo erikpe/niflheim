@@ -8,7 +8,6 @@ from compiler.resolver import ModulePath
 from compiler.semantic.ir import (
     SemanticDispatch,
     SemanticExpr,
-    SemanticField,
     SemanticInterface,
     SemanticLocalInfo,
     SemanticParam,
@@ -19,7 +18,7 @@ from compiler.semantic.ir import (
     SemanticBreak,
     SemanticContinue,
 )
-from compiler.semantic.symbols import ClassId, FunctionId, LocalId, MethodId
+from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, LocalId, MethodId
 from compiler.semantic.types import SemanticTypeRef
 
 
@@ -60,6 +59,16 @@ class LoweredSemanticWhile:
 
 
 @dataclass(frozen=True)
+class LoweredSemanticField:
+    name: str
+    type_ref: SemanticTypeRef
+    initializer: SemanticExpr | None
+    is_private: bool
+    is_final: bool
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class LoweredSemanticFunction:
     function_id: FunctionId
     params: list[SemanticParam]
@@ -87,10 +96,10 @@ class LoweredSemanticMethod:
 class LoweredSemanticClass:
     class_id: ClassId
     is_export: bool
-    fields: list[SemanticField]
+    fields: list[LoweredSemanticField]
     methods: list[LoweredSemanticMethod]
     span: SourceSpan
-    implemented_interfaces: list = field(default_factory=list)
+    implemented_interfaces: list[InterfaceId] = field(default_factory=list)
 
 
 LoweredSemanticFunctionLike = LoweredSemanticFunction | LoweredSemanticMethod
