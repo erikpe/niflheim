@@ -157,13 +157,13 @@ Clarify what semantic lowering expects from typecheck and reduce the amount of h
 ### Concrete Changes
 
 - `compiler/semantic/lowering/orchestration.py`
-  - make the lowering entry contract explicit in types and naming
-  - consider introducing a `CheckedProgram` or `CheckedModuleContext` style wrapper instead of passing raw `TypeCheckContext` everywhere
+  - [x] make the lowering entry contract explicit in types and naming
+  - [x] introduce a `CheckedProgram` or `CheckedModuleContext` style wrapper instead of passing raw `TypeCheckContext` everywhere
 - `compiler/semantic/lowering/statements.py`
-  - pull scope and binding bridging into a dedicated helper object so `lower_stmt(...)` is less state-management-heavy
+  - [x] pull scope and binding bridging into a dedicated helper object so `lower_stmt(...)` is less state-management-heavy
 - `compiler/semantic/lowering/locals.py`
-  - formalize the bridge from typecheck bindings to `LocalId` allocation and local metadata snapshots
-- add module-level documentation comments explaining which typecheck facts lowering is allowed to depend on
+  - [x] formalize the bridge from typecheck bindings to `LocalId` allocation and local metadata snapshots
+- [x] add module-level documentation comments explaining which typecheck facts lowering is allowed to depend on
 
 ### Expected Outcome
 

@@ -1,3 +1,5 @@
+"""Semantic lowering consumes a fully checked program snapshot before building semantic IR."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,32 +21,68 @@ from compiler.semantic.lowering.ids import interface_id_for_type_name
 from compiler.semantic.lowering.statements import lower_function_like_body
 
 
-@dataclass
-class ModuleLoweringContext:
+@dataclass(frozen=True)
+class CheckedModuleContext:
+    module_path: ModulePath
     typecheck_ctx: TypeCheckContext
+
+
+@dataclass(frozen=True)
+class CheckedProgram:
+    program: ProgramInfo
     symbol_index: ProgramSymbolIndex
+    module_contexts: dict[ModulePath, CheckedModuleContext]
+
+
+@dataclass(frozen=True)
+class ModuleLoweringContext:
+    checked_module: CheckedModuleContext
+    symbol_index: ProgramSymbolIndex
+
+    @property
+    def module_path(self) -> ModulePath:
+        return self.checked_module.module_path
+
+    @property
+    def typecheck_ctx(self) -> TypeCheckContext:
+        return self.checked_module.typecheck_ctx
 
 
 def lower_program(program: ProgramInfo) -> SemanticProgram:
+    return lower_checked_program(build_checked_program(program))
+
+
+def build_checked_program(program: ProgramInfo) -> CheckedProgram:
     symbol_index = build_program_symbol_index(program)
-    module_contexts = build_typecheck_contexts(program)
+    module_contexts = _build_checked_module_contexts(program)
+    return CheckedProgram(program=program, symbol_index=symbol_index, module_contexts=module_contexts)
+
+
+def lower_checked_program(checked_program: CheckedProgram) -> SemanticProgram:
     modules = {
-        module_path: lower_module(program, module_path, module_contexts[module_path], symbol_index)
-        for module_path in program.modules
+        module_path: lower_module(checked_program, module_path) for module_path in checked_program.program.modules
     }
-    return SemanticProgram(entry_module=program.entry_module, modules=modules)
+    return SemanticProgram(entry_module=checked_program.program.entry_module, modules=modules)
 
 
 def build_typecheck_contexts(program: ProgramInfo) -> dict[ModulePath, TypeCheckContext]:
+    checked_program = build_checked_program(program)
+    return {
+        module_path: checked_module.typecheck_ctx
+        for module_path, checked_module in checked_program.module_contexts.items()
+    }
+
+
+def _build_checked_module_contexts(program: ProgramInfo) -> dict[ModulePath, CheckedModuleContext]:
     module_function_sigs: dict[ModulePath, dict[str, FunctionSig]] = {
         module_path: {} for module_path in program.modules
     }
     module_class_infos: dict[ModulePath, dict[str, ClassInfo]] = {module_path: {} for module_path in program.modules}
     module_interface_infos = {module_path: {} for module_path in program.modules}
-    contexts: dict[ModulePath, TypeCheckContext] = {}
+    typecheck_contexts: dict[ModulePath, TypeCheckContext] = {}
 
     for module_path, module_info in program.modules.items():
-        contexts[module_path] = TypeCheckContext(
+        typecheck_contexts[module_path] = TypeCheckContext(
             module_ast=module_info.ast,
             module_path=module_path,
             modules=program.modules,
@@ -56,23 +94,27 @@ def build_typecheck_contexts(program: ProgramInfo) -> dict[ModulePath, TypeCheck
             interfaces=module_interface_infos[module_path],
         )
 
-    for ctx in contexts.values():
+    for ctx in typecheck_contexts.values():
         collect_module_declarations(ctx)
 
-    for ctx in contexts.values():
+    for ctx in typecheck_contexts.values():
         validate_interface_conformance(ctx)
 
-    for ctx in contexts.values():
+    for ctx in typecheck_contexts.values():
         check_bodies(ctx)
 
-    return contexts
+    return {
+        module_path: CheckedModuleContext(module_path=module_path, typecheck_ctx=typecheck_contexts[module_path])
+        for module_path in program.modules
+    }
 
 
-def lower_module(
-    program: ProgramInfo, module_path: ModulePath, typecheck_ctx: TypeCheckContext, symbol_index: ProgramSymbolIndex
-) -> SemanticModule:
-    module_info = program.modules[module_path]
-    lower_ctx = ModuleLoweringContext(typecheck_ctx=typecheck_ctx, symbol_index=symbol_index)
+def lower_module(checked_program: CheckedProgram, module_path: ModulePath) -> SemanticModule:
+    module_info = checked_program.program.modules[module_path]
+    lower_ctx = ModuleLoweringContext(
+        checked_module=checked_program.module_contexts[module_path],
+        symbol_index=checked_program.symbol_index,
+    )
     return SemanticModule(
         module_path=module_path,
         file_path=module_info.file_path,

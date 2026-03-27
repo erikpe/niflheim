@@ -1,12 +1,18 @@
+"""Local metadata helpers and the binding bridge between checked scopes and semantic locals."""
+
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
+from compiler.frontend.ast_nodes import ParamDecl
 from compiler.semantic.ir import LocalBindingKind, SemanticLocalInfo
 from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
 from compiler.semantic.symbols import LocalId, LocalOwnerId
-from compiler.typecheck.context import LocalBinding, TypeCheckContext
+from compiler.typecheck.context import LocalBinding, TypeCheckContext, declare_variable, pop_scope, push_scope
 from compiler.typecheck.model import TypeInfo
+from compiler.typecheck.relations import canonicalize_reference_type_name
+from compiler.typecheck.type_resolution import resolve_type_ref
 
 
 @dataclass
@@ -95,3 +101,56 @@ class LocalIdTracker:
 
     def snapshot_local_info_by_id(self) -> dict[LocalId, SemanticLocalInfo]:
         return dict(self.local_info_by_id)
+
+
+@dataclass
+class LoweringBindingBridge:
+    typecheck_ctx: TypeCheckContext
+    local_id_tracker: LocalIdTracker
+
+    @contextmanager
+    def private_owner(self, owner_class_name: str | None):
+        previous_owner = self.typecheck_ctx.current_private_owner_type
+        if owner_class_name is not None:
+            self.typecheck_ctx.current_private_owner_type = canonicalize_reference_type_name(
+                self.typecheck_ctx, owner_class_name
+            )
+        try:
+            yield
+        finally:
+            self.typecheck_ctx.current_private_owner_type = previous_owner
+
+    @contextmanager
+    def scope(self):
+        push_scope(self.typecheck_ctx)
+        self.local_id_tracker.push_scope()
+        try:
+            yield
+        finally:
+            self.local_id_tracker.pop_scope()
+            pop_scope(self.typecheck_ctx)
+
+    def declare_receiver(self, receiver_type: TypeInfo, span) -> LocalId:
+        return self.declare_local(name="__self", var_type=receiver_type, span=span, binding_kind="receiver")
+
+    def declare_param(self, param: ParamDecl) -> LocalId:
+        return self.declare_local(
+            name=param.name,
+            var_type=resolve_type_ref(self.typecheck_ctx, param.type_ref),
+            span=param.span,
+            binding_kind="param",
+        )
+
+    def declare_local(
+        self,
+        *,
+        name: str,
+        var_type: TypeInfo,
+        span,
+        binding_kind: LocalBindingKind = "local",
+    ) -> LocalId:
+        binding = declare_variable(self.typecheck_ctx, name, var_type, span)
+        return self.local_id_tracker.declare_binding(binding, binding_kind=binding_kind)
+
+    def snapshot_local_info_by_id(self) -> dict[LocalId, SemanticLocalInfo]:
+        return self.local_id_tracker.snapshot_local_info_by_id()
