@@ -11,6 +11,9 @@ from compiler.codegen.walk import (
 )
 from compiler.common.span import SourcePos, SourceSpan
 from compiler.semantic.lowered_ir import (
+    LoweredSemanticClass,
+    LoweredSemanticFunction,
+    LoweredSemanticMethod,
     LoweredLinkedSemanticProgram,
     LoweredSemanticBlock,
     LoweredSemanticForIn,
@@ -228,16 +231,18 @@ def test_walk_block_expressions_visits_nested_control_flow_expressions() -> None
 
 def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() -> None:
     span = _span()
-    fn = SemanticFunction(
+    fn = LoweredSemanticFunction(
         function_id=FunctionId(module_path=("main",), name="main"),
         params=[],
         return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
-        body=SemanticBlock(statements=[SemanticReturn(value=_local_ref("fn_expr", "i64", span), span=span)], span=span),
+        body=LoweredSemanticBlock(
+            statements=[SemanticReturn(value=_local_ref("fn_expr", "i64", span), span=span)], span=span
+        ),
         is_export=False,
         is_extern=False,
         span=span,
     )
-    cls = SemanticClass(
+    cls = LoweredSemanticClass(
         class_id=ClassId(module_path=("main",), name="Box"),
         is_export=False,
         fields=[
@@ -251,11 +256,11 @@ def test_walk_codegen_program_expressions_visits_functions_fields_and_methods() 
             )
         ],
         methods=[
-            SemanticMethod(
+            LoweredSemanticMethod(
                 method_id=MethodId(module_path=("main",), class_name="Box", name="read"),
                 params=[],
                 return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
-                body=SemanticBlock(
+                body=LoweredSemanticBlock(
                     statements=[SemanticReturn(value=_local_ref("method_expr", "i64", span), span=span)], span=span
                 ),
                 is_static=False,
@@ -304,11 +309,11 @@ def test_walk_expression_visits_interface_method_call_receiver_and_args() -> Non
 
 def test_walk_codegen_program_expressions_visits_interface_method_calls_in_function_bodies() -> None:
     span = _span()
-    fn = SemanticFunction(
+    fn = LoweredSemanticFunction(
         function_id=FunctionId(module_path=("main",), name="main"),
         params=[],
         return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "u64"),
-        body=SemanticBlock(
+        body=LoweredSemanticBlock(
             statements=[
                 SemanticReturn(
                     value=CallExprS(

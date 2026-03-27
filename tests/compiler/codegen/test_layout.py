@@ -5,8 +5,8 @@ from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.common.span import SourcePos, SourceSpan
 from compiler.resolver import resolve_program
-from compiler.semantic.lowered_ir import LoweredSemanticForIn
-from compiler.semantic.ir import SemanticBlock, SemanticFunction, SemanticParam, SemanticReturn
+from compiler.semantic.lowered_ir import LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticFunction
+from compiler.semantic.ir import SemanticParam, SemanticReturn
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
@@ -199,7 +199,7 @@ def test_codegen_build_layout_tracks_identity_first_slot_records(tmp_path) -> No
 def test_codegen_build_layout_requires_owner_local_metadata_for_lowered_locals() -> None:
     pos = SourcePos(path="<test>", offset=0, line=1, column=1)
     span = SourceSpan(start=pos, end=pos)
-    fn = SemanticFunction(
+    fn = LoweredSemanticFunction(
         function_id=FunctionId(module_path=("main",), name="main"),
         params=[
             SemanticParam(
@@ -209,7 +209,7 @@ def test_codegen_build_layout_requires_owner_local_metadata_for_lowered_locals()
             )
         ],
         return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
-        body=SemanticBlock(statements=[SemanticReturn(value=None, span=span)], span=span),
+        body=LoweredSemanticBlock(statements=[SemanticReturn(value=None, span=span)], span=span),
         is_export=False,
         is_extern=False,
         span=span,

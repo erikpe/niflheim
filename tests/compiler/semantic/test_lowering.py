@@ -12,9 +12,24 @@ from compiler.semantic.display import (
 )
 from compiler.semantic.ir import *
 from compiler.semantic.linker import link_semantic_program
-from compiler.semantic.lowered_ir import LoweredSemanticBlock, LoweredSemanticForIn, LoweredSemanticIf, LoweredSemanticWhile
+from compiler.semantic.lowered_ir import (
+    LoweredSemanticClass,
+    LoweredSemanticBlock,
+    LoweredSemanticForIn,
+    LoweredSemanticFunction,
+    LoweredSemanticIf,
+    LoweredSemanticMethod,
+    LoweredSemanticWhile,
+)
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
-from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, TypeTestSemanticsKind, UnaryOpFlavor, UnaryOpKind
+from compiler.semantic.operations import (
+    BinaryOpFlavor,
+    BinaryOpKind,
+    CastSemanticsKind,
+    TypeTestSemanticsKind,
+    UnaryOpFlavor,
+    UnaryOpKind,
+)
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering.orchestration import lower_program
 
@@ -34,6 +49,7 @@ def _assert_runtime_dispatch_matches_op(
 ) -> None:
     assert dispatch.operation is op_kind
     assert dispatch.runtime_kind is runtime_kind
+
 
 def _assert_call_target(expr: SemanticExpr, expected_target_type: type[object]):
     assert isinstance(expr, CallExprS)
@@ -547,7 +563,10 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     assert semantic_call_target_display_name(mid_target, current_module_path=("main",)) == "Root.mid"
     assert mid_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Root")
     assert isinstance(mid_target.access.receiver, LocalRefExpr)
-    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], mid_target.access.receiver.local_id) == "root"
+    assert (
+        semantic_local_display_name(semantic.modules[("main",)].functions[0], mid_target.access.receiver.local_id)
+        == "root"
+    )
 
 
 def test_lower_program_lowers_interface_receiver_calls_to_explicit_interface_nodes(tmp_path: Path) -> None:
@@ -585,12 +604,18 @@ def test_lower_program_lowers_interface_receiver_calls_to_explicit_interface_nod
     assert interface_target.method_id.module_path == ("main",)
     assert interface_target.method_id.interface_name == "Hashable"
     assert interface_target.method_id.name == "hash_code"
-    assert semantic_bound_member_receiver_display_name(interface_target.access, current_module_path=("main",)) == "Hashable"
+    assert (
+        semantic_bound_member_receiver_display_name(interface_target.access, current_module_path=("main",))
+        == "Hashable"
+    )
     assert semantic_call_target_display_name(interface_target, current_module_path=("main",)) == "Hashable.hash_code"
     assert interface_target.access.receiver_type_ref.interface_id == InterfaceId(module_path=("main",), name="Hashable")
     assert return_stmt.value.type_ref.canonical_name == "u64"
     assert isinstance(interface_target.access.receiver, LocalRefExpr)
-    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], interface_target.access.receiver.local_id) == "value"
+    assert (
+        semantic_local_display_name(semantic.modules[("main",)].functions[0], interface_target.access.receiver.local_id)
+        == "value"
+    )
 
 
 def test_lower_program_uses_imported_interface_ids_for_interface_receiver_calls(tmp_path: Path) -> None:
@@ -634,8 +659,13 @@ def test_lower_program_uses_imported_interface_ids_for_interface_receiver_calls(
     assert interface_target.method_id.module_path == ("util",)
     assert interface_target.method_id.interface_name == "Hashable"
     assert interface_target.method_id.name == "hash_code"
-    assert semantic_bound_member_receiver_display_name(interface_target.access, current_module_path=("main",)) == "util::Hashable"
-    assert semantic_call_target_display_name(interface_target, current_module_path=("main",)) == "util::Hashable.hash_code"
+    assert (
+        semantic_bound_member_receiver_display_name(interface_target.access, current_module_path=("main",))
+        == "util::Hashable"
+    )
+    assert (
+        semantic_call_target_display_name(interface_target, current_module_path=("main",)) == "util::Hashable.hash_code"
+    )
     assert interface_target.access.receiver_type_ref.interface_id == InterfaceId(module_path=("util",), name="Hashable")
 
 
@@ -672,8 +702,14 @@ def test_lower_program_preserves_explicit_obj_to_interface_casts(tmp_path: Path)
     assert expression_type_name(return_stmt.value) == "Hashable"
     assert return_stmt.value.type_ref.canonical_name == "main::Hashable"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
-    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "value"
-    assert semantic_local_type_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "Obj"
+    assert (
+        semantic_local_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id)
+        == "value"
+    )
+    assert (
+        semantic_local_type_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id)
+        == "Obj"
+    )
 
 
 def test_lower_program_preserves_imported_interface_cast_target_names(tmp_path: Path) -> None:
@@ -715,8 +751,14 @@ def test_lower_program_preserves_imported_interface_cast_target_names(tmp_path: 
     assert expression_type_name(return_stmt.value) == "util::Hashable"
     assert return_stmt.value.type_ref.canonical_name == "util::Hashable"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
-    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "value"
-    assert semantic_local_type_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "Obj"
+    assert (
+        semantic_local_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id)
+        == "value"
+    )
+    assert (
+        semantic_local_type_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id)
+        == "Obj"
+    )
 
 
 def test_lower_program_preserves_imported_interface_type_test_target_names(tmp_path: Path) -> None:
@@ -758,8 +800,14 @@ def test_lower_program_preserves_imported_interface_type_test_target_names(tmp_p
     assert expression_type_name(return_stmt.value) == "bool"
     assert return_stmt.value.type_ref.canonical_name == "bool"
     assert isinstance(return_stmt.value.operand, LocalRefExpr)
-    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "value"
-    assert semantic_local_type_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id) == "Obj"
+    assert (
+        semantic_local_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id)
+        == "value"
+    )
+    assert (
+        semantic_local_type_display_name(semantic.modules[("main",)].functions[0], return_stmt.value.operand.local_id)
+        == "Obj"
+    )
 
 
 def test_lower_program_resolves_structural_index_slice_and_for_in_methods(tmp_path: Path) -> None:
@@ -1021,7 +1069,10 @@ def test_lower_program_lowers_array_len_calls_to_explicit_array_len_expr(tmp_pat
     assert isinstance(return_stmt.value, ArrayLenExpr)
     assert not hasattr(return_stmt.value, "type_name")
     assert isinstance(return_stmt.value.target, LocalRefExpr)
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.target.local_id) == "values"
+    assert (
+        local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.target.local_id)
+        == "values"
+    )
     assert return_stmt.value.type_ref.canonical_name == "u64"
 
 
@@ -1139,20 +1190,47 @@ def test_lower_program_lowers_nested_blocks_with_local_refs_and_assignments(tmp_
     assert isinstance(inner_block, SemanticBlock)
     assert isinstance(inner_block.statements[0], SemanticVarDecl)
     assert inner_block.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[0].local_id) == "bool"
+    assert (
+        local_type_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[0].local_id)
+        == "bool"
+    )
     assert isinstance(inner_block.statements[0].initializer, LocalRefExpr)
     assert inner_block.statements[0].initializer.local_id == statements[0].local_id
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[0].initializer.local_id) == "flag"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[0].initializer.local_id) == "bool"
+    assert (
+        local_display_name_for_owner(
+            semantic.modules[("main",)].functions[0], inner_block.statements[0].initializer.local_id
+        )
+        == "flag"
+    )
+    assert (
+        local_type_name_for_owner(
+            semantic.modules[("main",)].functions[0], inner_block.statements[0].initializer.local_id
+        )
+        == "bool"
+    )
     assert isinstance(inner_block.statements[1], SemanticAssign)
     assert isinstance(inner_block.statements[1].target, LocalLValue)
     assert inner_block.statements[1].target.local_id == statements[1].local_id
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[1].target.local_id) == "result"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[1].target.local_id) == "bool"
+    assert (
+        local_display_name_for_owner(
+            semantic.modules[("main",)].functions[0], inner_block.statements[1].target.local_id
+        )
+        == "result"
+    )
+    assert (
+        local_type_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[1].target.local_id)
+        == "bool"
+    )
     assert isinstance(inner_block.statements[1].value, LocalRefExpr)
     assert inner_block.statements[1].value.local_id == inner_block.statements[0].local_id
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[1].value.local_id) == "inner"
-    assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[1].value.local_id) == "bool"
+    assert (
+        local_display_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[1].value.local_id)
+        == "inner"
+    )
+    assert (
+        local_type_name_for_owner(semantic.modules[("main",)].functions[0], inner_block.statements[1].value.local_id)
+        == "bool"
+    )
     assert inner_block.statements[0].local_id != statements[0].local_id
     assert inner_block.statements[0].local_id != statements[1].local_id
 
@@ -1160,7 +1238,9 @@ def test_lower_program_lowers_nested_blocks_with_local_refs_and_assignments(tmp_
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, LocalRefExpr)
     assert return_stmt.value.local_id == statements[1].local_id
-    assert local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.local_id) == "result"
+    assert (
+        local_display_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.local_id) == "result"
+    )
     assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.local_id) == "bool"
 
 
@@ -1191,8 +1271,18 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert loop_stmt.body.statements[0].local_id.owner_id == semantic.modules[("main",)].functions[0].function_id
     assert isinstance(loop_stmt.body.statements[0].initializer, LocalRefExpr)
     assert loop_stmt.body.statements[0].initializer.local_id == loop_stmt.element_local_id
-    assert semantic_local_display_name(semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id) == "item"
-    assert semantic_local_type_display_name(semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id) == "i64"
+    assert (
+        semantic_local_display_name(
+            semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id
+        )
+        == "item"
+    )
+    assert (
+        semantic_local_type_display_name(
+            semantic.modules[("main",)].functions[0], loop_stmt.body.statements[0].initializer.local_id
+        )
+        == "i64"
+    )
     assert loop_stmt.body.statements[0].initializer.local_id != loop_stmt.body.statements[0].local_id
     assert all(
         local_info.display_name not in {"__for_in_collection", "__for_in_length", "__for_in_index"}
@@ -1271,6 +1361,38 @@ def test_lower_linked_semantic_program_uses_explicit_lowered_control_flow_nodes(
     assert isinstance(while_stmt.body, LoweredSemanticBlock)
 
 
+def test_lower_linked_semantic_program_uses_explicit_lowered_function_and_class_wrappers(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Box {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+
+        fn main(box: Box) -> i64 {
+            return box.read();
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    lowered_program = lower_linked_semantic_program(link_semantic_program(lower_program(program)))
+
+    fn = lowered_program.functions[0]
+    cls = lowered_program.classes[0]
+    method = cls.methods[0]
+
+    assert isinstance(fn, LoweredSemanticFunction)
+    assert isinstance(fn.body, LoweredSemanticBlock)
+    assert isinstance(cls, LoweredSemanticClass)
+    assert isinstance(method, LoweredSemanticMethod)
+    assert isinstance(method.body, LoweredSemanticBlock)
+
+
 def test_lower_program_local_identity_is_stable_under_local_rename(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
@@ -1291,8 +1413,14 @@ def test_lower_program_local_identity_is_stable_under_local_rename(tmp_path: Pat
         """,
     )
 
-    original = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)).modules[("main",)].functions[0]
-    renamed = lower_program(resolve_program(tmp_path / "renamed.nif", project_root=tmp_path)).modules[("renamed",)].functions[0]
+    original = (
+        lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)).modules[("main",)].functions[0]
+    )
+    renamed = (
+        lower_program(resolve_program(tmp_path / "renamed.nif", project_root=tmp_path))
+        .modules[("renamed",)]
+        .functions[0]
+    )
 
     original_decl = original.body.statements[0]
     renamed_decl = renamed.body.statements[0]

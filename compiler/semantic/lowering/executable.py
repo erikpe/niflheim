@@ -1,21 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import replace
-
 from compiler.common.span import SourceSpan
 from compiler.common.type_names import TYPE_NAME_I64, TYPE_NAME_U64
 from compiler.semantic.ir import (
     SemanticBlock,
     SemanticClass,
-    SemanticContinue,
     SemanticField,
     SemanticForIn,
     SemanticFunction,
-    SemanticFunctionLike,
     SemanticIf,
     SemanticLocalInfo,
     SemanticMethod,
-    SemanticReturn,
     SemanticStmt,
     SemanticWhile,
     expression_type_ref,
@@ -24,8 +19,11 @@ from compiler.semantic.linker import LinkedSemanticProgram
 from compiler.semantic.lowered_ir import (
     LoweredLinkedSemanticProgram,
     LoweredSemanticBlock,
+    LoweredSemanticClass,
     LoweredSemanticForIn,
+    LoweredSemanticFunction,
     LoweredSemanticIf,
+    LoweredSemanticMethod,
     LoweredSemanticModule,
     LoweredSemanticStmt,
     LoweredSemanticWhile,
@@ -56,12 +54,12 @@ class _HelperLocalAllocator:
 
 def lower_linked_semantic_program(program: LinkedSemanticProgram) -> LoweredLinkedSemanticProgram:
     lowered_modules: list[LoweredSemanticModule] = []
-    lowered_functions: list[SemanticFunction] = []
-    lowered_classes: list[SemanticClass] = []
+    lowered_functions: list[LoweredSemanticFunction] = []
+    lowered_classes: list[LoweredSemanticClass] = []
 
     for module in program.ordered_modules:
-        module_functions: list[SemanticFunction] = []
-        module_classes: list[SemanticClass] = []
+        module_functions: list[LoweredSemanticFunction] = []
+        module_classes: list[LoweredSemanticClass] = []
 
         for cls in module.classes:
             lowered_class = _lower_class(cls)
@@ -93,30 +91,64 @@ def lower_linked_semantic_program(program: LinkedSemanticProgram) -> LoweredLink
     )
 
 
-def _lower_class(cls: SemanticClass) -> SemanticClass:
+def _lower_class(cls: SemanticClass) -> LoweredSemanticClass:
     lowered_fields = [_lower_field(field) for field in cls.fields]
     lowered_methods = [_lower_method(method) for method in cls.methods]
-    return replace(cls, fields=lowered_fields, methods=lowered_methods)
+    return LoweredSemanticClass(
+        class_id=cls.class_id,
+        is_export=cls.is_export,
+        fields=lowered_fields,
+        methods=lowered_methods,
+        span=cls.span,
+        implemented_interfaces=list(cls.implemented_interfaces),
+    )
 
 
 def _lower_field(field: SemanticField) -> SemanticField:
     return field
 
 
-def _lower_function(fn: SemanticFunction) -> SemanticFunction:
+def _lower_function(fn: SemanticFunction) -> LoweredSemanticFunction:
     if fn.body is None:
-        return fn
+        return LoweredSemanticFunction(
+            function_id=fn.function_id,
+            params=list(fn.params),
+            return_type_ref=fn.return_type_ref,
+            body=None,
+            is_export=fn.is_export,
+            is_extern=fn.is_extern,
+            span=fn.span,
+            local_info_by_id=dict(fn.local_info_by_id),
+        )
     local_info_by_id = dict(fn.local_info_by_id)
     allocator = _HelperLocalAllocator(fn.function_id, local_info_by_id)
     lowered_body = _lower_block(fn.body, allocator)
-    return replace(fn, body=lowered_body, local_info_by_id=local_info_by_id)
+    return LoweredSemanticFunction(
+        function_id=fn.function_id,
+        params=list(fn.params),
+        return_type_ref=fn.return_type_ref,
+        body=lowered_body,
+        is_export=fn.is_export,
+        is_extern=fn.is_extern,
+        span=fn.span,
+        local_info_by_id=local_info_by_id,
+    )
 
 
-def _lower_method(method: SemanticMethod) -> SemanticMethod:
+def _lower_method(method: SemanticMethod) -> LoweredSemanticMethod:
     local_info_by_id = dict(method.local_info_by_id)
     allocator = _HelperLocalAllocator(method.method_id, local_info_by_id)
     lowered_body = _lower_block(method.body, allocator)
-    return replace(method, body=lowered_body, local_info_by_id=local_info_by_id)
+    return LoweredSemanticMethod(
+        method_id=method.method_id,
+        params=list(method.params),
+        return_type_ref=method.return_type_ref,
+        body=lowered_body,
+        is_static=method.is_static,
+        is_private=method.is_private,
+        span=method.span,
+        local_info_by_id=local_info_by_id,
+    )
 
 
 def _lower_block(block: SemanticBlock, allocator: _HelperLocalAllocator) -> LoweredSemanticBlock:

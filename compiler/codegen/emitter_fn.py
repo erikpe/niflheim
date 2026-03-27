@@ -9,6 +9,7 @@ from compiler.codegen.layout import build_constructor_layout, build_layout
 from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
 from compiler.codegen.strings import escape_c_string
 from compiler.semantic.ir import *
+from compiler.semantic.lowered_ir import LoweredSemanticClass, LoweredSemanticFunction, LoweredSemanticMethod
 from compiler.semantic.symbols import FunctionId
 from compiler.semantic.types import semantic_type_ref_for_class_id
 
@@ -27,7 +28,7 @@ def _emit_debug_symbol_literals(codegen, *, target_label: str, function_name: st
     return fn_label, file_label
 
 
-def _function_param_spills(fn: SemanticFunction, layout) -> list[tuple[int, SemanticTypeRef, object]]:
+def _function_param_spills(fn: SemanticFunction | LoweredSemanticFunction, layout) -> list[tuple[int, SemanticTypeRef, object]]:
     param_locals = sorted(
         (local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind in {"receiver", "param"}),
         key=lambda local_info: local_info.local_id.ordinal,
@@ -45,7 +46,12 @@ def _constructor_param_spills(params: list[SemanticParam], layout) -> list[tuple
 
 
 def emit_function(
-    codegen, declaration_tables, fn: SemanticFunction, *, label: str | None = None, global_symbol: bool | None = None
+    codegen,
+    declaration_tables,
+    fn: SemanticFunction | LoweredSemanticFunction,
+    *,
+    label: str | None = None,
+    global_symbol: bool | None = None,
 ) -> None:
     if fn.body is None:
         raise ValueError("semantic function emission requires a concrete body")
@@ -96,11 +102,11 @@ def emit_function(
     codegen.emit_function_epilogue(layout, fn.return_type_ref)
 
 
-def emit_method(codegen, declaration_tables, cls: SemanticClass, method: SemanticMethod) -> None:
+def emit_method(codegen, declaration_tables, cls: LoweredSemanticClass, method: LoweredSemanticMethod) -> None:
     method_label = declaration_tables.method_label(method.method_id)
     if method_label is None:
         raise ValueError(f"Missing method label for {method.method_id}")
-    method_fn = SemanticFunction(
+    method_fn = LoweredSemanticFunction(
         function_id=FunctionId(
             module_path=method.method_id.module_path, name=method_label
         ),
@@ -121,7 +127,7 @@ def emit_method(codegen, declaration_tables, cls: SemanticClass, method: Semanti
     )
 
 
-def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
+def emit_constructor(codegen, declaration_tables, cls: LoweredSemanticClass) -> None:
     from compiler.semantic.symbols import ConstructorId
 
     ctor_id = ConstructorId(module_path=cls.class_id.module_path, class_name=cls.class_id.name)
@@ -200,7 +206,7 @@ def emit_constructor(codegen, declaration_tables, cls: SemanticClass) -> None:
     codegen.emit_ref_epilogue(layout)
 
 
-def _receiver_param(cls: SemanticClass, method: SemanticMethod) -> list[SemanticParam]:
+def _receiver_param(cls: LoweredSemanticClass, method: LoweredSemanticMethod) -> list[SemanticParam]:
     return [
         SemanticParam(
             name="__self",

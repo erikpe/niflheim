@@ -7,7 +7,9 @@ import compiler.codegen.types as codegen_types
 from compiler.codegen.model import FunctionLayout, LayoutSlot, TEMP_RUNTIME_ROOT_SLOT_COUNT
 from compiler.semantic.lowered_ir import (
     LoweredSemanticBlock,
+    LoweredSemanticClass,
     LoweredSemanticForIn,
+    LoweredSemanticFunction,
     LoweredSemanticIf,
     LoweredSemanticStmt,
     LoweredSemanticWhile,
@@ -108,7 +110,7 @@ def _local_slot_key(display_name: str, ordinal: int, seen_display_names: set[str
     return f"{display_name}@{ordinal}"
 
 
-def _local_slot_specs(fn: SemanticFunction) -> list[_SlotSpec]:
+def _local_slot_specs(fn: SemanticFunction | LoweredSemanticFunction) -> list[_SlotSpec]:
     seen_display_names: set[str] = set()
     slot_specs: list[_SlotSpec] = []
     local_infos = sorted(fn.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
@@ -125,7 +127,7 @@ def _local_slot_specs(fn: SemanticFunction) -> list[_SlotSpec]:
     return slot_specs
 
 
-def _require_function_param_local_info(fn: SemanticFunction) -> None:
+def _require_function_param_local_info(fn: SemanticFunction | LoweredSemanticFunction) -> None:
     param_locals = [
         local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind in {"receiver", "param"}
     ]
@@ -133,7 +135,9 @@ def _require_function_param_local_info(fn: SemanticFunction) -> None:
         raise ValueError("semantic layout requires owner-local metadata for every function parameter")
 
 
-def _constructor_slot_specs(cls: SemanticClass, ctor_layout, *, constructor_object_slot_name: str) -> list[_SlotSpec]:
+def _constructor_slot_specs(
+    cls: SemanticClass | LoweredSemanticClass, ctor_layout, *, constructor_object_slot_name: str
+) -> list[_SlotSpec]:
     field_types_by_name = {field.name: field.type_ref for field in cls.fields}
     ordered_slot_names = [*ctor_layout.param_field_names, constructor_object_slot_name]
     return [
@@ -151,7 +155,7 @@ def _constructor_slot_specs(cls: SemanticClass, ctor_layout, *, constructor_obje
     ]
 
 
-def _function_uses_local_storage(fn: SemanticFunction) -> bool:
+def _function_uses_local_storage(fn: SemanticFunction | LoweredSemanticFunction) -> bool:
     if fn.params:
         return True
     return _block_uses_local_storage(fn.body)
@@ -389,7 +393,7 @@ def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt | LoweredSemanticStmt) 
     return 0
 
 
-def build_layout(fn: SemanticFunction) -> FunctionLayout:
+def build_layout(fn: SemanticFunction | LoweredSemanticFunction) -> FunctionLayout:
     if fn.body is None:
         raise ValueError("semantic layout requires a concrete function body")
     if _function_uses_local_storage(fn) and not fn.local_info_by_id:
@@ -404,7 +408,9 @@ def build_layout(fn: SemanticFunction) -> FunctionLayout:
     )
 
 
-def build_constructor_layout(cls: SemanticClass, ctor_layout, *, constructor_object_slot_name: str) -> FunctionLayout:
+def build_constructor_layout(
+    cls: SemanticClass | LoweredSemanticClass, ctor_layout, *, constructor_object_slot_name: str
+) -> FunctionLayout:
     slot_specs = _constructor_slot_specs(cls, ctor_layout, constructor_object_slot_name=constructor_object_slot_name)
     initializer_exprs = [field.initializer for field in cls.fields if field.initializer is not None]
     needs_temp_runtime_roots = any(_expr_needs_temp_runtime_roots(expr) for expr in initializer_exprs)

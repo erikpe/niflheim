@@ -24,6 +24,7 @@ from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_
 from compiler.codegen.runtime_calls import runtime_dispatch_call_name
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import *
+from compiler.semantic.lowered_ir import LoweredSemanticFunctionLike
 from compiler.semantic.operations import (
     BinaryOpFlavor,
     BinaryOpKind,
@@ -53,7 +54,7 @@ class EmitContext:
     layout: FunctionLayout
     fn_name: str
     current_module_path: ModulePath
-    owner: SemanticFunctionLike | None
+    owner: SemanticFunctionLike | LoweredSemanticFunctionLike | None
     label_counter: list[int]
     string_literal_labels: dict[str, tuple[str, int]]
     temp_root_depth: list[int]
