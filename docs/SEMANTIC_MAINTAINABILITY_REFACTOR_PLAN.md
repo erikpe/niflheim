@@ -114,13 +114,13 @@ Remove duplicated lowering logic so member resolution rules live in one place in
 
 ### Concrete Changes
 
-- introduce a shared lowering resolver module, for example `compiler/semantic/lowering/resolution.py`, that owns:
+- [x] introduce a shared lowering resolver module, for example `compiler/semantic/lowering/resolution.py`, that owns:
   - identifier target classification
   - module-member classification
   - receiver/member lookup for field reads, method refs, and calls
   - callable-class detection behind a named helper
-- convert `references.py` and `calls.py` into thin adapters that translate shared resolved targets into semantic IR nodes
-- replace raw `receiver_type.name.startswith("__class__:")` checks with a typed helper or explicit predicate in one place
+- [x] convert `references.py` and `calls.py` into thin adapters that translate shared resolved targets into semantic IR nodes
+- [x] replace raw `receiver_type.name.startswith("__class__:")` checks with a typed helper or explicit predicate in one place
 
 ### Expected Outcome
 

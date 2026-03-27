@@ -120,11 +120,7 @@ def lower_expr(
 
     if isinstance(expr, CallExpr):
         return lower_call_expr(
-            typecheck_ctx,
-            symbol_index,
-            expr,
-            infer_expression_type(typecheck_ctx, expr).name,
-            local_id_tracker,
+            typecheck_ctx, symbol_index, expr, infer_expression_type(typecheck_ctx, expr).name, local_id_tracker
         )
 
     raise TypeError(f"Unsupported expression for semantic lowering: {type(expr).__name__}")
@@ -191,9 +187,7 @@ def lower_call_expr(
                 method_id=resolved_target.method_id,
                 access=BoundMemberAccess(
                     receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.access.receiver, local_id_tracker),
-                    receiver_type_ref=semantic_type_ref_from_checked_type(
-                        typecheck_ctx, infer_expression_type(typecheck_ctx, resolved_target.access.receiver)
-                    ),
+                    receiver_type_ref=resolved_target.access.receiver_type_ref,
                 ),
             ),
             args=args,
@@ -208,9 +202,7 @@ def lower_call_expr(
                 method_id=resolved_target.method_id,
                 access=BoundMemberAccess(
                     receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.access.receiver, local_id_tracker),
-                    receiver_type_ref=semantic_type_ref_from_checked_type(
-                        typecheck_ctx, infer_expression_type(typecheck_ctx, resolved_target.access.receiver)
-                    ),
+                    receiver_type_ref=resolved_target.access.receiver_type_ref,
                 ),
             ),
             args=args,
