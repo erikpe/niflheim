@@ -11,7 +11,7 @@ from .constant_fold import constant_fold
 from .copy_propagation import copy_propagation
 from .dead_store_elimination import dead_store_elimination
 from .dead_stmt_prune import dead_stmt_prune
-from .reachability import prune_unreachable_semantic
+from .unreachable_prune import unreachable_prune
 from .redundant_cast_elimination import redundant_cast_elimination
 from .simplify_control_flow import simplify_control_flow
 
@@ -33,7 +33,7 @@ DEFAULT_SEMANTIC_OPTIMIZATION_PASSES: tuple[SemanticOptimizationPass, ...] = (
     SemanticOptimizationPass(name="dead_store_elimination", transform=dead_store_elimination),
     SemanticOptimizationPass(name="constant_fold", transform=constant_fold),
     SemanticOptimizationPass(name="dead_stmt_prune", transform=dead_stmt_prune),
-    SemanticOptimizationPass(name="prune_unreachable", transform=prune_unreachable_semantic),
+    SemanticOptimizationPass(name="unreachable_prune", transform=unreachable_prune),
 )
 
 

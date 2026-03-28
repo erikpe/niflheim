@@ -39,6 +39,14 @@ class _CompilerLogFormatter(logging.Formatter):
         return f"nifc: {record.levelname.lower()}: {message}"
 
 
+class _StderrProxy:
+    def write(self, message: str) -> int:
+        return sys.stderr.write(message)
+
+    def flush(self) -> None:
+        sys.stderr.flush()
+
+
 class CompilerLogger(logging.LoggerAdapter[logging.Logger]):
     def process(self, msg: object, kwargs: dict[str, object]) -> tuple[object, dict[str, object]]:
         extra = kwargs.setdefault("extra", {})
@@ -88,12 +96,14 @@ def resolve_log_settings(level_name: str | None, verbose: int, quiet: int) -> Lo
 
 def configure_logging(settings: LogSettings) -> None:
     root_logger = logging.getLogger("nifc")
+    for handler in root_logger.handlers:
+        handler.close()
     root_logger.handlers.clear()
     root_logger.filters.clear()
     root_logger.setLevel(logging.DEBUG)
     root_logger.propagate = False
 
-    handler = logging.StreamHandler(sys.stderr)
+    handler = logging.StreamHandler(_StderrProxy())
     handler.setLevel(settings.level_value)
     handler.addFilter(_VerbosityFilter(settings.verbosity))
     handler.setFormatter(_CompilerLogFormatter())

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from compiler.common.logging import resolve_log_settings
+from contextlib import redirect_stderr
+from io import StringIO
+
+from compiler.common.logging import configure_logging, get_logger, resolve_log_settings
 
 
 def test_resolve_log_settings_defaults_to_warning_without_verbosity_flags() -> None:
@@ -29,3 +32,17 @@ def test_resolve_log_settings_explicit_level_keeps_severity_independent() -> Non
 
     assert settings.level_name == "warning"
     assert settings.verbosity == 2
+
+
+def test_configure_logging_tracks_current_stderr_stream() -> None:
+    first_stderr = StringIO()
+    with redirect_stderr(first_stderr):
+        configure_logging(resolve_log_settings("info", verbose=0, quiet=0))
+
+    first_stderr.close()
+
+    current_stderr = StringIO()
+    with redirect_stderr(current_stderr):
+        get_logger(__name__).info("hello")
+
+    assert current_stderr.getvalue().strip() == "nifc: info: hello"

@@ -331,7 +331,7 @@ def analyze_semantic_reachability(program: SemanticProgram) -> SemanticReachabil
     return _SemanticReachabilityWalker(program).walk()
 
 
-def prune_unreachable(program: SemanticProgram) -> SemanticProgram:
+def unreachable_prune(program: SemanticProgram) -> SemanticProgram:
     logger = get_logger(__name__)
     reachability = analyze_semantic_reachability(program)
     pruned_modules: dict[ModulePath, SemanticModule] = {}
@@ -361,7 +361,7 @@ def prune_unreachable(program: SemanticProgram) -> SemanticProgram:
 
     logger.debugv(
         1,
-        "Optimization pass prune_unreachable removed %d functions, %d methods, %d classes, %d interfaces",
+        "Optimization pass unreachable_prune removed %d functions, %d methods, %d classes, %d interfaces",
         removed_function_count,
         removed_method_count,
         removed_class_count,
@@ -369,7 +369,3 @@ def prune_unreachable(program: SemanticProgram) -> SemanticProgram:
     )
 
     return SemanticProgram(entry_module=program.entry_module, modules=pruned_modules)
-
-
-def prune_unreachable_semantic(program: SemanticProgram) -> SemanticProgram:
-    return prune_unreachable(program)

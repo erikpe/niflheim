@@ -7,7 +7,7 @@ from compiler.common.collection_protocols import CollectionOpKind, collection_me
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
-from compiler.semantic.optimizations.reachability import analyze_semantic_reachability, prune_unreachable_semantic
+from compiler.semantic.optimizations.unreachable_prune import analyze_semantic_reachability, unreachable_prune
 from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, MethodId
 
 
@@ -71,7 +71,7 @@ def test_semantic_reachability_follows_functions_methods_and_structural_edges(tm
     assert MethodId(module_path=("main",), class_name="Buffer", name="dead") not in reachability.reachable_methods
 
 
-def test_prune_unreachable_semantic_program_drops_dead_functions_and_methods(tmp_path: Path) -> None:
+def test_unreachable_prune_program_drops_dead_functions_and_methods(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -106,7 +106,7 @@ def test_prune_unreachable_semantic_program_drops_dead_functions_and_methods(tmp
         """,
     )
 
-    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = unreachable_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     module = pruned.modules[("main",)]
 
     assert [fn.function_id.name for fn in module.functions] == ["helper", "main"]
@@ -114,7 +114,7 @@ def test_prune_unreachable_semantic_program_drops_dead_functions_and_methods(tmp
     assert [method.method_id.name for method in module.classes[0].methods] == ["make", "read"]
 
 
-def test_prune_unreachable_semantic_program_removes_dead_duplicate_class_symbols_before_link(tmp_path: Path) -> None:
+def test_unreachable_prune_removes_dead_duplicate_class_symbols_before_link(tmp_path: Path) -> None:
     _write(
         tmp_path / "left.nif",
         """
@@ -143,7 +143,7 @@ def test_prune_unreachable_semantic_program_removes_dead_duplicate_class_symbols
         """,
     )
 
-    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = unreachable_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     linked = link_semantic_program(pruned)
 
     assert [cls.class_id.name for cls in linked.classes] == []
@@ -263,7 +263,7 @@ def test_semantic_reachability_uses_canonical_type_refs_when_compatibility_strin
     assert ClassId(module_path=("main",), name="Key") in reachability.reachable_classes
 
 
-def test_prune_unreachable_semantic_keeps_interface_impl_methods_for_reachable_classes(tmp_path: Path) -> None:
+def test_unreachable_prune_keeps_interface_impl_methods_for_reachable_classes(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -292,14 +292,14 @@ def test_prune_unreachable_semantic_keeps_interface_impl_methods_for_reachable_c
         """,
     )
 
-    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = unreachable_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     module = pruned.modules[("main",)]
 
     assert [cls.class_id.name for cls in module.classes] == ["Key"]
     assert [method.method_id.name for method in module.classes[0].methods] == ["hash_code", "equals"]
 
 
-def test_prune_unreachable_semantic_keeps_imported_interface_impl_methods_for_reachable_classes(tmp_path: Path) -> None:
+def test_unreachable_prune_keeps_imported_interface_impl_methods_for_reachable_classes(tmp_path: Path) -> None:
     _write(
         tmp_path / "contracts.nif",
         """
@@ -335,14 +335,14 @@ def test_prune_unreachable_semantic_keeps_imported_interface_impl_methods_for_re
         """,
     )
 
-    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = unreachable_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
 
     assert [fn.function_id.name for fn in pruned.modules[("model",)].functions] == ["make"]
     assert [cls.class_id.name for cls in pruned.modules[("model",)].classes] == ["Key"]
     assert [method.method_id.name for method in pruned.modules[("model",)].classes[0].methods] == ["hash_code"]
 
 
-def test_prune_unreachable_semantic_drops_dead_interfaces_but_keeps_referenced_ones(tmp_path: Path) -> None:
+def test_unreachable_prune_drops_dead_interfaces_but_keeps_referenced_ones(tmp_path: Path) -> None:
     _write(
         tmp_path / "contracts.nif",
         """
@@ -382,7 +382,7 @@ def test_prune_unreachable_semantic_drops_dead_interfaces_but_keeps_referenced_o
         """,
     )
 
-    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = unreachable_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
 
     assert [interface.interface_id.name for interface in pruned.modules[("contracts",)].interfaces] == ["Hashable"]
     assert pruned.modules[("model",)].classes[0].implemented_interfaces == [
@@ -390,7 +390,7 @@ def test_prune_unreachable_semantic_drops_dead_interfaces_but_keeps_referenced_o
     ]
 
 
-def test_prune_unreachable_semantic_drops_dead_extern_functions(tmp_path: Path) -> None:
+def test_unreachable_prune_drops_dead_extern_functions(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",
         """
@@ -409,6 +409,6 @@ def test_prune_unreachable_semantic_drops_dead_extern_functions(tmp_path: Path) 
         """,
     )
 
-    pruned = prune_unreachable_semantic(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = unreachable_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
 
     assert [fn.function_id.name for fn in pruned.modules[("util",)].functions] == ["helper"]
