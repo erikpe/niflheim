@@ -119,7 +119,7 @@ fn main() -> i64 {
     return 1;
 }
 """
-    asm = emit_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"redundant_cast_elimination"})
 
     assert ".section .rodata" in asm
     assert "__nif_type_name_Obj:" in asm
@@ -339,7 +339,10 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert "__nif_interface_methods_main__Key__main__Hashable:" in asm
-    assert "__nif_interface_methods_main__Key__main__Hashable:\n    .quad __nif_method_Key_hash_code\n    .quad __nif_method_Key_equals" in asm
+    assert (
+        "__nif_interface_methods_main__Key__main__Hashable:\n    .quad __nif_method_Key_hash_code\n    .quad __nif_method_Key_equals"
+        in asm
+    )
     assert "__nif_interface_impls_main__Key:" in asm
     assert "    .quad __nif_interface_main__Hashable" in asm
     assert "    .quad __nif_interface_methods_main__Key__main__Hashable" in asm

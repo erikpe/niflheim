@@ -15,6 +15,7 @@ from compiler.semantic.optimizations.pipeline import (
     optimize_semantic_program,
 )
 from compiler.semantic.optimizations.reachability import prune_unreachable_semantic
+from compiler.semantic.optimizations.redundant_cast_elimination import redundant_cast_elimination
 from compiler.semantic.optimizations.simplify_control_flow import simplify_control_flow
 
 
@@ -41,7 +42,11 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
     optimized = optimize_semantic_program(semantic)
     expected = prune_unreachable_semantic(
         dead_stmt_prune(
-            fold_constants(dead_store_elimination(copy_propagation(simplify_control_flow(fold_constants(semantic)))))
+            fold_constants(
+                dead_store_elimination(
+                    redundant_cast_elimination(copy_propagation(simplify_control_flow(fold_constants(semantic))))
+                )
+            )
         )
     )
 
@@ -49,6 +54,7 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
         "constant_fold",
         "simplify_control_flow",
         "copy_propagation",
+        "redundant_cast_elimination",
         "dead_store_elimination",
         "constant_fold",
         "dead_stmt_prune",
