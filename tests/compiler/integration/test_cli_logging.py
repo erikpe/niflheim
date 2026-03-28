@@ -79,8 +79,10 @@ def test_cli_debug_logs_respect_verbosity_threshold(tmp_path: Path, monkeypatch,
     assert "nifc: debug: Resolver parsed " in captured.err
     assert " tokens from 2 token streams in " in captured.err
     assert "nifc: debug: Type checked program in" in captured.err
-    assert "nifc: debug: Optimization pass constant_fold performed " in captured.err
-    assert "nifc: debug: Optimization pass constant_fold completed in" in captured.err
+    assert captured.err.count("nifc: debug: Optimization pass constant_fold performed ") == 2
+    assert captured.err.count("nifc: debug: Optimization pass constant_fold completed in") == 2
+    assert "nifc: debug: Optimization pass simplify_control_flow simplified " in captured.err
+    assert "nifc: debug: Optimization pass simplify_control_flow completed in" in captured.err
     assert "nifc: debug: Optimization pass prune_unreachable removed " in captured.err
     assert "nifc: debug: Optimization pass prune_unreachable completed in" in captured.err
     assert "nifc: debug: Emitted" in captured.err

@@ -12,6 +12,7 @@ from compiler.semantic.optimizations.pipeline import (
     optimize_semantic_program,
 )
 from compiler.semantic.optimizations.reachability import prune_unreachable_semantic
+from compiler.semantic.optimizations.simplify_control_flow import simplify_control_flow
 
 
 def _write(path: Path, text: str) -> None:
@@ -35,9 +36,11 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
     semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
 
     optimized = optimize_semantic_program(semantic)
-    expected = prune_unreachable_semantic(fold_constants(semantic))
+    expected = prune_unreachable_semantic(fold_constants(simplify_control_flow(fold_constants(semantic))))
 
     assert [optimization_pass.name for optimization_pass in DEFAULT_SEMANTIC_OPTIMIZATION_PASSES] == [
+        "constant_fold",
+        "simplify_control_flow",
         "constant_fold",
         "prune_unreachable",
     ]

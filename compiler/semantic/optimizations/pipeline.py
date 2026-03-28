@@ -9,6 +9,7 @@ from compiler.semantic.ir import SemanticProgram
 
 from .constant_folding import fold_constants
 from .reachability import prune_unreachable_semantic
+from .simplify_control_flow import simplify_control_flow
 
 
 SemanticOptimization = Callable[[SemanticProgram], SemanticProgram]
@@ -21,6 +22,8 @@ class SemanticOptimizationPass:
 
 
 DEFAULT_SEMANTIC_OPTIMIZATION_PASSES: tuple[SemanticOptimizationPass, ...] = (
+    SemanticOptimizationPass(name="constant_fold", transform=fold_constants),
+    SemanticOptimizationPass(name="simplify_control_flow", transform=simplify_control_flow),
     SemanticOptimizationPass(name="constant_fold", transform=fold_constants),
     SemanticOptimizationPass(name="prune_unreachable", transform=prune_unreachable_semantic),
 )

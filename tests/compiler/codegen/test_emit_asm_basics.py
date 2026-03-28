@@ -41,7 +41,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert asm.count("jmp .Lf_epilogue") == 2
+    assert asm.count("jmp .Lf_epilogue") == 1
     assert asm.count(".Lf_epilogue:") == 1
 
 
@@ -205,7 +205,9 @@ fn main() -> i64 {
     linked_program = link_semantic_program(optimize_semantic_program(lower_program(program)))
     lowered_program = lower_linked_semantic_program(linked_program)
     add_fn = next(
-        fn for fn in lowered_program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "add"
+        fn
+        for fn in lowered_program.functions
+        if fn.function_id.module_path == ("main",) and fn.function_id.name == "add"
     )
 
     asm = emit_asm(lowered_program)
