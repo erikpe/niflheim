@@ -165,6 +165,8 @@ This overhaul should be implemented in ordered slices.
 
 ## Slice 1: Add call-effect metadata
 
+Status: implemented
+
 Payoff: high
 
 Risk: low
@@ -181,13 +183,13 @@ Give the backend enough information to distinguish GC-capable calls from non-GC 
 
 ### Concrete Changes
 
-- replace or supplement `RUNTIME_REF_ARG_INDICES` with a richer metadata table such as:
+- [x] replace or supplement `RUNTIME_REF_ARG_INDICES` with a richer metadata table such as:
   - runtime target name
   - reference argument indices
   - `may_gc`
   - optional `needs_runtime_hooks` if hooks later become separately tunable
-- add helper accessors so emission code asks for runtime call properties instead of hard-coding policy by call name
-- update the shared call-emission path to branch on `may_gc`
+- [x] add helper accessors so emission code asks for runtime call properties instead of hard-coding policy by call name
+- [x] update the shared call-emission path to branch on `may_gc`
 
 ### Expected Outcome
 
@@ -196,8 +198,8 @@ Give the backend enough information to distinguish GC-capable calls from non-GC 
 
 ### Tests
 
-- add unit tests for runtime-call metadata classification
-- update codegen tests to distinguish:
+- [x] add unit tests for runtime-call metadata classification
+- [x] update codegen tests to distinguish:
   - GC-capable runtime calls
   - non-GC runtime calls
   - ordinary user-defined calls
@@ -632,8 +634,8 @@ Mitigation:
 
 ## Ordered Implementation Checklist
 
-1. Add runtime call-effect metadata in [compiler/codegen/abi/runtime.py](compiler/codegen/abi/runtime.py)
-2. Update shared call emission to branch on `may_gc`
+1. [x] Add runtime call-effect metadata in [compiler/codegen/abi/runtime.py](compiler/codegen/abi/runtime.py)
+2. [x] Update shared call emission to branch on `may_gc`
 3. Replace helper-based named-root synchronization with direct stores in [compiler/codegen/generator.py](compiler/codegen/generator.py)
 4. Update codegen tests to assert root-slot state and reduced scaffolding rather than helper-call presence
 5. Add a lowered-IR named-root liveness analysis module

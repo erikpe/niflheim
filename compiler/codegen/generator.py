@@ -10,7 +10,7 @@ import compiler.codegen.types as codegen_types
 from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.model import FunctionLayout
-from compiler.codegen.abi.runtime import RUNTIME_REF_ARG_INDICES
+from compiler.codegen.abi.runtime import runtime_call_metadata
 from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
 
 if TYPE_CHECKING:
@@ -197,7 +197,10 @@ class CodeGenerator:
     ) -> int:
         if layout.root_slot_count <= 0:
             return 0
-        ref_indices = [index for index in RUNTIME_REF_ARG_INDICES.get(target_name, ()) if index < arg_count]
+        metadata = runtime_call_metadata(target_name)
+        if not metadata.may_gc:
+            return 0
+        ref_indices = [index for index in metadata.ref_arg_indices if index < arg_count]
         if not ref_indices:
             return 0
         if len(ref_indices) > len(layout.temp_root_slot_offsets):

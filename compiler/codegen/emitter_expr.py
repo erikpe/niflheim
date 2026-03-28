@@ -17,6 +17,8 @@ from compiler.codegen.abi.runtime import (
     DOUBLE_TO_U64_RUNTIME_CALL,
     DOUBLE_TO_U8_RUNTIME_CALL,
     U64_TO_DOUBLE_RUNTIME_CALL,
+    RuntimeCallMetadata,
+    runtime_call_metadata,
 )
 from compiler.codegen.model import FunctionLayout
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
@@ -120,7 +122,9 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
 def _emit_local_ref_expr(codegen: CodeGenerator, expr: LocalRefExpr, ctx: EmitContext) -> None:
     offset = ctx.layout.local_slot_offsets.get(expr.local_id)
     if offset is None:
-        local_label = str(expr.local_id) if ctx.owner is None else local_display_name_for_owner(ctx.owner, expr.local_id)
+        local_label = (
+            str(expr.local_id) if ctx.owner is None else local_display_name_for_owner(ctx.owner, expr.local_id)
+        )
         codegen_types.raise_codegen_error(
             f"identifier '{local_label}' is not materialized in stack layout", span=expr.span
         )
@@ -147,9 +151,7 @@ def _emit_literal_expr(codegen: CodeGenerator, expr: LiteralExprS) -> None:
     if isinstance(constant, IntConstant):
         codegen.asm.instr(f"mov rax, {constant.value}")
         return
-    codegen_types.raise_codegen_error(
-        f"literal codegen not implemented for {type(constant).__name__}", span=expr.span
-    )
+    codegen_types.raise_codegen_error(f"literal codegen not implemented for {type(constant).__name__}", span=expr.span)
 
 
 def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: EmitContext) -> None:
@@ -173,19 +175,22 @@ def _emit_reference_type_runtime_check(
 ) -> None:
     emit_expr(codegen, operand, ctx)
     interface_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol_for_type_ref(target_type_ref)
-    codegen.asm.instr("push rax")
-    _emit_runtime_call_hooks_before(codegen, operand.span.start.line, operand.span.start.column, ctx)
-    codegen.asm.instr("pop rax")
+    runtime_call = interface_runtime_call if interface_descriptor_symbol is not None else class_runtime_call
+    if _runtime_call_emits_safepoint_hooks(runtime_call):
+        codegen.asm.instr("push rax")
+        _emit_runtime_call_hooks_before(codegen, operand.span.start.line, operand.span.start.column, ctx)
+        codegen.asm.instr("pop rax")
     codegen.asm.instr("mov rdi, rax")
     if interface_descriptor_symbol is not None:
         codegen.asm.instr(f"lea rsi, [rip + {interface_descriptor_symbol}]")
-        codegen.emit_aligned_call(interface_runtime_call)
+        codegen.emit_aligned_call(runtime_call)
     else:
         codegen.asm.instr(
             f"lea rsi, [rip + {codegen_symbols.mangle_type_symbol(semantic_type_canonical_name(target_type_ref))}]"
         )
-        codegen.emit_aligned_call(class_runtime_call)
-    _emit_runtime_call_hooks_after(codegen, ctx)
+        codegen.emit_aligned_call(runtime_call)
+    if _runtime_call_emits_safepoint_hooks(runtime_call):
+        _emit_runtime_call_hooks_after(codegen, ctx)
 
 
 def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -> None:
@@ -195,7 +200,11 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
     if expr.cast_kind == CastSemanticsKind.IDENTITY:
         return
     if expr.cast_kind == CastSemanticsKind.REFERENCE_COMPATIBILITY:
-        if target_type == TYPE_NAME_OBJ and source_type != TYPE_NAME_NULL and codegen_types.is_reference_type_name(source_type):
+        if (
+            target_type == TYPE_NAME_OBJ
+            and source_type != TYPE_NAME_NULL
+            and codegen_types.is_reference_type_name(source_type)
+        ):
             return
         if semantic_type_is_array(expr.target_type_ref) and source_type == TYPE_NAME_OBJ:
             element_type = semantic_type_array_element(expr.target_type_ref)
@@ -207,33 +216,32 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
                 TYPE_NAME_DOUBLE: 5,
             }
             expected_kind = array_kind_by_element_type.get(semantic_type_canonical_name(element_type), 6)
-            codegen.asm.instr("push rax")
-            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-            codegen.asm.instr("pop rax")
+            if _runtime_call_emits_safepoint_hooks("rt_checked_cast_array_kind"):
+                codegen.asm.instr("push rax")
+                _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+                codegen.asm.instr("pop rax")
             codegen.asm.instr("mov rdi, rax")
             codegen.asm.instr(f"mov rsi, {expected_kind}")
             codegen.emit_aligned_call("rt_checked_cast_array_kind")
-            _emit_runtime_call_hooks_after(codegen, ctx)
+            if _runtime_call_emits_safepoint_hooks("rt_checked_cast_array_kind"):
+                _emit_runtime_call_hooks_after(codegen, ctx)
             return
         if codegen_types.is_reference_type_ref(expr.target_type_ref):
             _emit_reference_type_runtime_check(
-                codegen,
-                expr.operand,
-                expr.target_type_ref,
-                "rt_checked_cast_interface",
-                "rt_checked_cast",
-                ctx,
+                codegen, expr.operand, expr.target_type_ref, "rt_checked_cast_interface", "rt_checked_cast", ctx
             )
             return
 
     if expr.cast_kind == CastSemanticsKind.TO_DOUBLE:
         if source_type == TYPE_NAME_U64:
-            codegen.asm.instr("push rax")
-            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-            codegen.asm.instr("pop rax")
+            if _runtime_call_emits_safepoint_hooks(U64_TO_DOUBLE_RUNTIME_CALL):
+                codegen.asm.instr("push rax")
+                _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+                codegen.asm.instr("pop rax")
             codegen.asm.instr("mov rdi, rax")
             codegen.emit_aligned_call(U64_TO_DOUBLE_RUNTIME_CALL)
-            _emit_runtime_call_hooks_after(codegen, ctx)
+            if _runtime_call_emits_safepoint_hooks(U64_TO_DOUBLE_RUNTIME_CALL):
+                _emit_runtime_call_hooks_after(codegen, ctx)
             codegen.asm.instr("movq rax, xmm0")
             return
         codegen.asm.instr("cvtsi2sd xmm0, rax")
@@ -242,28 +250,34 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
 
     if expr.cast_kind == CastSemanticsKind.TO_INTEGER:
         if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_I64:
-            codegen.asm.instr("push rax")
-            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-            codegen.asm.instr("pop rax")
+            if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_I64_RUNTIME_CALL):
+                codegen.asm.instr("push rax")
+                _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+                codegen.asm.instr("pop rax")
             codegen.asm.instr("movq xmm0, rax")
             codegen.emit_aligned_call(DOUBLE_TO_I64_RUNTIME_CALL)
-            _emit_runtime_call_hooks_after(codegen, ctx)
+            if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_I64_RUNTIME_CALL):
+                _emit_runtime_call_hooks_after(codegen, ctx)
             return
         if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U64:
-            codegen.asm.instr("push rax")
-            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-            codegen.asm.instr("pop rax")
+            if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_U64_RUNTIME_CALL):
+                codegen.asm.instr("push rax")
+                _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+                codegen.asm.instr("pop rax")
             codegen.asm.instr("movq xmm0, rax")
             codegen.emit_aligned_call(DOUBLE_TO_U64_RUNTIME_CALL)
-            _emit_runtime_call_hooks_after(codegen, ctx)
+            if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_U64_RUNTIME_CALL):
+                _emit_runtime_call_hooks_after(codegen, ctx)
             return
         if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U8:
-            codegen.asm.instr("push rax")
-            _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-            codegen.asm.instr("pop rax")
+            if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_U8_RUNTIME_CALL):
+                codegen.asm.instr("push rax")
+                _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+                codegen.asm.instr("pop rax")
             codegen.asm.instr("movq xmm0, rax")
             codegen.emit_aligned_call(DOUBLE_TO_U8_RUNTIME_CALL)
-            _emit_runtime_call_hooks_after(codegen, ctx)
+            if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_U8_RUNTIME_CALL):
+                _emit_runtime_call_hooks_after(codegen, ctx)
             return
         if target_type == TYPE_NAME_U8:
             codegen.asm.instr("and rax, 255")
@@ -290,12 +304,7 @@ def _emit_type_test_expr(codegen: CodeGenerator, expr: TypeTestExprS, ctx: EmitC
             span=expr.span,
         )
     _emit_reference_type_runtime_check(
-        codegen,
-        expr.operand,
-        expr.target_type_ref,
-        "rt_is_instance_of_interface",
-        "rt_is_instance_of_type",
-        ctx,
+        codegen, expr.operand, expr.target_type_ref, "rt_is_instance_of_interface", "rt_is_instance_of_type", ctx
     )
     codegen.emit_bool_normalize()
 
@@ -324,7 +333,9 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
         _emit_named_call(codegen, _method_label(target.method_id, ctx), expr.args, expr.type_ref, ctx)
         return
     if isinstance(target, InstanceMethodCallTarget):
-        _emit_named_call(codegen, _method_label(target.method_id, ctx), [target.access.receiver, *expr.args], expr.type_ref, ctx)
+        _emit_named_call(
+            codegen, _method_label(target.method_id, ctx), [target.access.receiver, *expr.args], expr.type_ref, ctx
+        )
         return
     if isinstance(target, InterfaceMethodCallTarget):
         _emit_interface_method_call(codegen, expr, target, ctx)
@@ -335,9 +346,7 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
     _emit_callable_value_call(codegen, expr, target.callee, ctx)
 
 
-def _emit_callable_value_call(
-    codegen: CodeGenerator, expr: CallExprS, callee: SemanticExpr, ctx: EmitContext
-) -> None:
+def _emit_callable_value_call(codegen: CodeGenerator, expr: CallExprS, callee: SemanticExpr, ctx: EmitContext) -> None:
     _emit_call_sequence(
         codegen,
         call_arguments=expr.args,
@@ -368,15 +377,18 @@ def _emit_interface_method_call(
     codegen.asm.instr(f"mov rax, {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}")
 
     codegen.asm.instr("push rax")
-    _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-    codegen.emit_root_slot_updates(ctx.layout)
-    codegen.emit_temp_arg_root_from_rsp(ctx.layout, receiver_temp_index, 0, span=expr.span)
+    if _runtime_call_emits_safepoint_hooks("rt_lookup_interface_method"):
+        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
+    if _runtime_call_may_gc("rt_lookup_interface_method"):
+        codegen.emit_root_slot_updates(ctx.layout)
+        codegen.emit_temp_arg_root_from_rsp(ctx.layout, receiver_temp_index, 0, span=expr.span)
     codegen.asm.instr("mov rdi, qword ptr [rsp]")
     codegen.asm.instr(f"lea rsi, [rip + {descriptor_symbol}]")
     codegen.asm.instr(f"mov edx, {method_slot}")
     codegen.emit_aligned_call("rt_lookup_interface_method")
     codegen.asm.instr("add rsp, 8")
-    _emit_runtime_call_hooks_after(codegen, ctx)
+    if _runtime_call_emits_safepoint_hooks("rt_lookup_interface_method"):
+        _emit_runtime_call_hooks_after(codegen, ctx)
 
     codegen.asm.instr("push rax")
 
@@ -394,12 +406,7 @@ def _emit_interface_method_call(
         codegen.asm.instr("push rax")
         call_arg_index = arg_index + 1
         if call_arg_index in reference_arg_indices:
-            codegen.emit_temp_arg_root_from_rsp(
-                ctx.layout,
-                temp_root_base + rooted_temp_arg_count,
-                0,
-                span=arg.span,
-            )
+            codegen.emit_temp_arg_root_from_rsp(ctx.layout, temp_root_base + rooted_temp_arg_count, 0, span=arg.span)
             rooted_temp_arg_count += 1
             ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
 
@@ -448,7 +455,12 @@ def _emit_named_call(
     return_type_ref: SemanticTypeRef | str,
     ctx: EmitContext,
 ) -> None:
-    runtime_hook_span = call_arguments[0].span if codegen_symbols.is_runtime_call_name(target_name) and call_arguments else None
+    runtime_metadata = _runtime_call_metadata_for_target(target_name)
+    runtime_hook_span = (
+        call_arguments[0].span
+        if runtime_metadata is not None and runtime_metadata.emits_safepoint_hooks and call_arguments
+        else None
+    )
     _emit_call_sequence(
         codegen,
         call_arguments=call_arguments,
@@ -487,19 +499,17 @@ def _emit_call_sequence(
         for index, (location_kind, _location_register, _stack_index) in enumerate(arg_locations)
         if location_kind == "stack"
     ]
+    runtime_metadata = _runtime_call_metadata_for_target(target_name)
+    should_temp_root_reference_args = runtime_metadata is None or runtime_metadata.may_gc
+    should_sync_named_roots = runtime_metadata is None or runtime_metadata.may_gc
     temp_root_base = ctx.temp_root_depth[0]
     if runtime_hook_span is not None:
-        _emit_runtime_call_hooks_before(
-            codegen,
-            runtime_hook_span.start.line,
-            runtime_hook_span.start.column,
-            ctx,
-        )
+        _emit_runtime_call_hooks_before(codegen, runtime_hook_span.start.line, runtime_hook_span.start.column, ctx)
     rooted_temp_arg_count = 0
     for arg_index in range(len(call_arguments) - 1, -1, -1):
         emit_expr(codegen, call_arguments[arg_index], ctx)
         codegen.asm.instr("push rax")
-        if arg_index in reference_arg_indices:
+        if should_temp_root_reference_args and arg_index in reference_arg_indices:
             codegen.emit_temp_arg_root_from_rsp(
                 layout, temp_root_base + rooted_temp_arg_count, 0, span=temp_root_spans[arg_index]
             )
@@ -510,7 +520,8 @@ def _emit_call_sequence(
         emit_expr(codegen, callee_expr, ctx)
         codegen.asm.instr("mov r11, rax")
         call_target = "r11"
-    codegen.emit_root_slot_updates(layout)
+    if should_sync_named_roots:
+        codegen.emit_root_slot_updates(layout)
     codegen.asm.instr("mov r10, rsp")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
         arg_operand = stack_slot_operand("r10", arg_index * 8)
@@ -575,9 +586,7 @@ def _emit_unary_expr(codegen: CodeGenerator, expr: UnaryExprS, ctx: EmitContext)
         emit_bool_normalize=codegen.emit_bool_normalize,
     ):
         return
-    codegen_types.raise_codegen_error(
-        f"unary operator '{unary_op_text(expr.op)}' is not supported", span=expr.span
-    )
+    codegen_types.raise_codegen_error(f"unary operator '{unary_op_text(expr.op)}' is not supported", span=expr.span)
 
 
 def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContext) -> None:
@@ -611,9 +620,7 @@ def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContex
         if left_type_name == TYPE_NAME_U8 and binary_op_uses_u8_mask(expr.op.kind):
             codegen.asm.instr("and rax, 255")
         return
-    codegen_types.raise_codegen_error(
-        f"binary operator '{binary_op_text(expr.op)}' is not supported", span=expr.span
-    )
+    codegen_types.raise_codegen_error(f"binary operator '{binary_op_text(expr.op)}' is not supported", span=expr.span)
 
 
 def _emit_logical_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContext) -> bool:
@@ -652,6 +659,20 @@ def _canonical_expr_type_name(expr: SemanticExpr) -> str:
 
 def _emit_runtime_call_hooks_after(codegen: CodeGenerator, ctx: EmitContext) -> None:
     codegen.emit_runtime_call_hook(fn_name=ctx.fn_name, phase="after", label_counter=ctx.label_counter)
+
+
+def _runtime_call_metadata_for_target(target_name: str | None) -> RuntimeCallMetadata | None:
+    if target_name is None or not codegen_symbols.is_runtime_call_name(target_name):
+        return None
+    return runtime_call_metadata(target_name)
+
+
+def _runtime_call_emits_safepoint_hooks(target_name: str) -> bool:
+    return runtime_call_metadata(target_name).emits_safepoint_hooks
+
+
+def _runtime_call_may_gc(target_name: str) -> bool:
+    return runtime_call_metadata(target_name).may_gc
 
 
 def _method_label(method_id: MethodId, ctx: EmitContext) -> str:

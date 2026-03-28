@@ -1,3 +1,4 @@
+from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS, ARRAY_LEN_RUNTIME_CALL
 from tests.compiler.codegen.helpers import emit_source_asm
 
 
@@ -20,6 +21,29 @@ fn main() -> i64 {
     assert ".Lf_rt_safepoint_before_" in asm
     assert ".Lf_rt_safepoint_after_" in asm
     assert "    call rt_gc_collect" in asm
+
+
+def test_emit_asm_gc_capable_runtime_helper_keeps_root_sync_and_safepoint_hooks(tmp_path) -> None:
+    source = """
+fn make(seed: Obj, len: u64) -> Obj[] {
+    var local: Obj = seed;
+    return Obj[](len);
+}
+
+fn main() -> i64 {
+    if make(null, 1u) == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
+    make_body = asm[asm.index("make:") : asm.index(".Lmake_epilogue:")]
+
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in make_body
+    assert ".Lmake_rt_safepoint_before_" in make_body
+    assert ".Lmake_rt_safepoint_after_" in make_body
+    assert "    call rt_root_slot_store" in make_body
 
 
 def test_emit_asm_skips_extern_declaration_body_emission(tmp_path) -> None:
@@ -273,6 +297,25 @@ fn main() -> i64 {
     assert "    call callee" in asm
     assert "rt_safepoint_before" not in asm
     assert "rt_safepoint_after" not in asm
+
+
+def test_emit_asm_non_gc_runtime_helper_skips_gc_barrier_scaffolding(tmp_path) -> None:
+    source = """
+fn measure(values: Obj[]) -> u64 {
+    return values.len();
+}
+
+fn main() -> i64 {
+    return (i64)measure(null);
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    measure_body = asm[asm.index("measure:") : asm.index(".Lmeasure_epilogue:")]
+
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" in measure_body
+    assert "    call rt_root_slot_store" not in measure_body
+    assert "rt_safepoint_before" not in measure_body
+    assert "rt_safepoint_after" not in measure_body
 
 
 def test_emit_asm_ordinary_call_still_spills_root_slots(tmp_path) -> None:
