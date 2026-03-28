@@ -206,6 +206,8 @@ Give the backend enough information to distinguish GC-capable calls from non-GC 
 
 ## Slice 2: Stop using helper calls for named-root synchronization
 
+Status: implemented
+
 Payoff: very high
 
 Risk: low to medium
@@ -222,9 +224,9 @@ Replace helper-call-based named-root updates with direct stores into stack-resid
 
 ### Concrete Changes
 
-- replace `emit_root_slot_updates(layout)` with an API that emits direct stores to root-slot offsets
-- make the API accept the specific set of named locals to synchronize instead of always iterating all named root slots
-- preserve the existing root-frame setup and root-slot layout; only change the synchronization mechanism
+- [x] replace `emit_root_slot_updates(layout)` with an API that emits direct stores to root-slot offsets
+- [x] make the API accept the specific set of named locals to synchronize instead of always iterating all named root slots
+- [x] preserve the existing root-frame setup and root-slot layout; only change the synchronization mechanism
 
 ### Expected Outcome
 
@@ -233,10 +235,10 @@ Replace helper-call-based named-root updates with direct stores into stack-resid
 
 ### Tests
 
-- update [tests/compiler/codegen/test_emit_asm_runtime_roots.py](tests/compiler/codegen/test_emit_asm_runtime_roots.py)
+- [x] update [tests/compiler/codegen/test_emit_asm_runtime_roots.py](tests/compiler/codegen/test_emit_asm_runtime_roots.py)
   - stop asserting helper-call presence for named-root refreshes
   - instead assert the correct stack-slot stores and correct root-frame setup
-- keep tests that verify constructor/root-frame ABI unchanged unless emitted structure genuinely improves
+- [x] keep tests that verify constructor/root-frame ABI unchanged unless emitted structure genuinely improves
 
 ## Slice 3: Add lowered-IR named-root liveness analysis
 
@@ -636,8 +638,8 @@ Mitigation:
 
 1. [x] Add runtime call-effect metadata in [compiler/codegen/abi/runtime.py](compiler/codegen/abi/runtime.py)
 2. [x] Update shared call emission to branch on `may_gc`
-3. Replace helper-based named-root synchronization with direct stores in [compiler/codegen/generator.py](compiler/codegen/generator.py)
-4. Update codegen tests to assert root-slot state and reduced scaffolding rather than helper-call presence
+3. [x] Replace helper-based named-root synchronization with direct stores in [compiler/codegen/generator.py](compiler/codegen/generator.py)
+4. [x] Update codegen tests to assert root-slot state and reduced scaffolding rather than helper-call presence
 5. Add a lowered-IR named-root liveness analysis module
 6. Integrate the analysis into call-site emission in [compiler/codegen/emitter_expr.py](compiler/codegen/emitter_expr.py)
 7. Extend `EmitContext` with dirty-root tracking

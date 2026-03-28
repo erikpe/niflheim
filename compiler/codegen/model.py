@@ -28,6 +28,7 @@ class FunctionLayout:
     root_slot_names: list[str]
     root_slot_indices: dict[str, int]
     root_slot_offsets: dict[str, int]
+    root_slot_offsets_by_local_id: dict[LocalId, int]
     temp_root_slot_offsets: list[int]
     temp_root_slot_start_index: int
     root_slot_count: int

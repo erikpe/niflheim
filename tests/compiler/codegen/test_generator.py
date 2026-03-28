@@ -1,3 +1,6 @@
+from compiler.codegen.asm import offset_operand
+from compiler.codegen.generator import CodeGenerator
+from compiler.codegen.layout import build_layout
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
@@ -139,3 +142,41 @@ def test_codegen_orchestrates_sections_and_class_symbols(tmp_path) -> None:
     assert "__nif_method_Box_get" in asm
     assert "__nif_ctor_Box" in asm
     assert '.section .note.GNU-stack,"",@progbits' in asm
+
+
+def test_codegen_named_root_slot_updates_can_target_specific_locals(tmp_path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn f(a: Obj, b: Obj) -> unit {
+            return;
+        }
+
+        fn main() -> i64 {
+            f(null, null);
+            return 0;
+        }
+        """,
+    )
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "f")
+    layout = build_layout(fn)
+    generator = CodeGenerator()
+
+    local_infos = sorted(
+        (local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind == "param"),
+        key=lambda local_info: local_info.local_id.ordinal,
+    )
+    first_param = local_infos[0].local_id
+    second_param = local_infos[1].local_id
+
+    generator.emit_named_root_slot_updates(layout, local_ids={first_param})
+
+    asm = "\n".join(generator.asm.lines)
+    assert f"    mov rax, {offset_operand(layout.local_slot_offsets[first_param])}" in asm
+    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[first_param])}, rax" in asm
+    assert f"    mov rax, {offset_operand(layout.local_slot_offsets[second_param])}" not in asm
+    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[second_param])}, rax" not in asm
+    assert "    call rt_root_slot_store" not in asm

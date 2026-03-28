@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from compiler.common.type_names import TYPE_NAME_DOUBLE
@@ -11,6 +12,7 @@ from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
 from compiler.codegen.model import FunctionLayout
 from compiler.codegen.abi.runtime import runtime_call_metadata
+from compiler.semantic.symbols import LocalId
 from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
 
 if TYPE_CHECKING:
@@ -179,18 +181,35 @@ class CodeGenerator:
             self.asm.instr(f"mov esi, {column}")
             self.asm.instr("call rt_trace_set_location")
 
-    def emit_root_slot_updates(self, layout: FunctionLayout) -> None:
-        if not layout.root_slots:
+    def emit_named_root_slot_updates(
+        self, layout: FunctionLayout, *, local_ids: Iterable[LocalId] | None = None
+    ) -> None:
+        root_slots = self._selected_named_root_slots(layout, local_ids=local_ids)
+        if not root_slots:
             return
 
-        self.asm.comment("spill reference-typed roots to root slots")
-        for slot in layout.root_slots:
-            if slot.root_index is None:
-                continue
-            self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-            self.asm.instr(f"mov rdx, {offset_operand(slot.offset)}")
-            self.asm.instr(f"mov esi, {slot.root_index}")
-            self.asm.instr("call rt_root_slot_store")
+        self.asm.comment("mirror named reference slots into shadow-stack slots")
+        for slot in root_slots:
+            if slot.root_offset is None:
+                raise ValueError(f"missing root slot offset for named root '{slot.key}'")
+            self.asm.instr(f"mov rax, {offset_operand(slot.offset)}")
+            self.asm.instr(f"mov {offset_operand(slot.root_offset)}, rax")
+
+    def _selected_named_root_slots(
+        self, layout: FunctionLayout, *, local_ids: Iterable[LocalId] | None
+    ) -> tuple[object, ...]:
+        if local_ids is None:
+            return tuple(layout.root_slots)
+
+        requested_local_ids = set(local_ids)
+        if not requested_local_ids:
+            return ()
+
+        unknown_local_ids = requested_local_ids.difference(layout.root_slot_offsets_by_local_id)
+        if unknown_local_ids:
+            raise ValueError("named root sync requested for locals without root slots")
+
+        return tuple(slot for slot in layout.root_slots if slot.local_id in requested_local_ids)
 
     def emit_runtime_call_arg_temp_roots(
         self, layout: FunctionLayout, target_name: str, arg_count: int, *, span: object | None = None

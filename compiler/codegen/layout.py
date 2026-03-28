@@ -79,6 +79,11 @@ def _build_function_layout(
     slot_type_refs = {slot.key: slot.type_ref for slot in slots}
     local_slot_offsets = {slot.local_id: slot.offset for slot in slots if slot.local_id is not None}
     root_slot_names = [slot.key for slot in root_slots]
+    root_slot_offsets_by_local_id = {
+        slot.local_id: slot.root_offset
+        for slot in root_slots
+        if slot.local_id is not None and slot.root_offset is not None
+    }
 
     return FunctionLayout(
         slots=slots,
@@ -90,6 +95,7 @@ def _build_function_layout(
         root_slot_names=root_slot_names,
         root_slot_indices=root_slot_indices,
         root_slot_offsets=root_slot_offsets,
+        root_slot_offsets_by_local_id=root_slot_offsets_by_local_id,
         temp_root_slot_offsets=temp_root_slot_offsets,
         temp_root_slot_start_index=temp_root_slot_start_index,
         root_slot_count=root_slot_count,

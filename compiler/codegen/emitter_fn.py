@@ -165,7 +165,7 @@ def emit_constructor(codegen, declaration_tables, cls: LoweredSemanticClass) -> 
 
     codegen.emit_trace_push(fn_debug_name_label, fn_debug_file_label, cls.span.start.line, cls.span.start.column)
     codegen.emit_runtime_call_hook(fn_name=target_label, phase="before", label_counter=label_counter)
-    codegen.emit_root_slot_updates(layout)
+    codegen.emit_named_root_slot_updates(layout)
     codegen.asm.instr("call rt_thread_state")
     codegen.asm.instr("mov rdi, rax")
     codegen.asm.instr(f"lea rsi, [rip + {ctor_layout.type_symbol}]")

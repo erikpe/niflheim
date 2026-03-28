@@ -2,6 +2,17 @@ from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS, ARRAY_
 from tests.compiler.codegen.helpers import emit_source_asm
 
 
+def _assert_named_root_store_block(asm: str, *, expected_store_count: int) -> None:
+    pattern = (
+        r"# mirror named reference slots into shadow-stack slots\n"
+        + (r"\s+mov rax, qword ptr \[rbp - \d+\]\n\s+mov qword ptr \[rbp - \d+\], rax\n" * expected_store_count)
+    )
+    assert pattern is not None
+    import re
+
+    assert re.search(pattern, asm)
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;
@@ -43,7 +54,8 @@ fn main() -> i64 {
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in make_body
     assert ".Lmake_rt_safepoint_before_" in make_body
     assert ".Lmake_rt_safepoint_after_" in make_body
-    assert "    call rt_root_slot_store" in make_body
+    assert "    call rt_root_slot_store" not in make_body
+    _assert_named_root_store_block(make_body, expected_store_count=2)
 
 
 def test_emit_asm_skips_extern_declaration_body_emission(tmp_path) -> None:
@@ -83,8 +95,7 @@ fn main() -> i64 {
     assert "    mov qword ptr [rbp - 8], rdi" in f_body
     assert "    mov qword ptr [rbp - 16], rax" in f_body
     assert "    call rt_root_slot_store" in f_body
-    assert "    mov esi, 0" in f_body
-    assert "    mov esi, 1" in f_body
+    _assert_named_root_store_block(f_body, expected_store_count=2)
     assert "    call rt_gc_collect" in f_body
 
 
@@ -242,9 +253,8 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
 
-    assert "    mov esi, 0" in f_body
-    assert "    mov esi, 1" in f_body
-    assert f_body.count("    call rt_root_slot_store") >= 2
+    _assert_named_root_store_block(f_body, expected_store_count=1)
+    assert "    mov rax, qword ptr [rbp - 16]" not in f_body
 
 
 def test_emit_asm_no_runtime_root_frame_for_primitive_only_function(tmp_path) -> None:
@@ -339,7 +349,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert "    call callee" in asm
-    assert "    call rt_root_slot_store" in asm
+    _assert_named_root_store_block(asm, expected_store_count=2)
     assert "rt_safepoint_before" not in asm
 
 

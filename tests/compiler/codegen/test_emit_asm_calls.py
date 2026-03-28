@@ -262,7 +262,7 @@ fn main() -> i64 {
     assert "    call rt_lookup_interface_method" in asm
     assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in asm
     assert "    mov edx, 0" in asm
-    assert re.search(r"call rt_root_slot_store\n\s+mov rax, qword ptr \[rbp - \d+\]\n\s+push rax", asm)
+    assert re.search(r"mov qword ptr \[rbp - \d+\], rax\n\s+mov r10, rsp", asm)
     assert "    mov r11, qword ptr [r10 + 8]" in asm
     assert "    call r11" in asm
 
@@ -323,4 +323,5 @@ fn main() -> i64 {
 
     assert "    call rt_lookup_interface_method" in asm
     assert "    call rt_root_slot_store" in asm
+    assert re.search(r"mov qword ptr \[rbp - \d+\], rax\n\s+mov r10, rsp", asm)
     assert "    call r11" in asm

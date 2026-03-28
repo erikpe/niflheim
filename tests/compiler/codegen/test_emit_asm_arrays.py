@@ -196,7 +196,7 @@ fn main() -> i64 {
     assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
 
 
-def test_emit_asm_array_reference_set_roots_reference_value_argument_for_runtime_call(tmp_path) -> None:
+def test_emit_asm_array_reference_set_avoids_named_root_helper_calls(tmp_path) -> None:
     source = """
 class Person {
     age: i64;
@@ -210,10 +210,10 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
-    assert "    mov esi, 2" in asm
-    assert asm.count("    call rt_root_slot_store") >= 3
+    assert "    call rt_root_slot_store" not in main_body
 
 
 def test_emit_asm_array_index_assignment_roots_runtime_value_argument(tmp_path) -> None:
@@ -232,7 +232,6 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
-    assert "    mov esi, 2" in asm
 
 
 def test_emit_asm_array_ctor_runtime_call_dynamic_aligns_with_prior_pushed_arg(tmp_path) -> None:
