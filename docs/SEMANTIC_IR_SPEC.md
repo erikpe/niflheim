@@ -1,14 +1,13 @@
 # Semantic IR Specification
 
-This document defines the initial semantic IR for the semantic-pipeline refactor.
+This document defines the semantic IR used by the compiler.
 
 Its purpose is to lock down:
 
 - the exact node set
 - the invariants the IR must satisfy
-- which nodes are mandatory in early passes
-- which nodes may begin as thin wrappers
-- which nodes are deliberately deferred
+- the layering boundaries between source semantic IR and lowered semantic IR
+- the semantic forms that are intentionally not represented in this IR
 
 This is a structured semantic IR, not a low-level backend IR.
 
@@ -16,23 +15,21 @@ This is a structured semantic IR, not a low-level backend IR.
 
 This document describes the baseline semantic IR shape currently implemented and the invariants it was originally introduced to enforce.
 
-It is not the complete long-term semantic-graph roadmap. Planned follow-up changes around local identity are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md), and the remaining semantic-graph cleanup after that migration is tracked in [SEMANTIC_GRAPH_CLEANUP_ROADMAP.md](SEMANTIC_GRAPH_CLEANUP_ROADMAP.md).
-
-When the two documents differ, interpret this document as describing the current baseline and the roadmap document as describing the intended migration path.
+It documents the stable current architecture. When implementation details moved during semantic cleanups, this document remains the source of truth for the current node families, identity rules, and lowering boundaries.
 
 ## Goals
 
 - Eliminate ambiguous global/member/call resolution from later stages.
 - Make reachability traverse explicit semantic edges instead of source syntax.
-- Preserve enough source structure that diagnostics and migration stay manageable.
+- Preserve enough source structure that diagnostics stay manageable.
 - Avoid prematurely introducing CFG, SSA, or backend temporary forms.
 
 ## Non-Goals
 
 - Do not define a low-level backend IR here.
-- Do not introduce CFG nodes in the first semantic IR.
-- Do not introduce SSA/value numbering in the first semantic IR.
-- Do not force all future optimization needs into the initial design.
+- Do not introduce CFG nodes in this IR.
+- Do not introduce SSA/value numbering in this IR.
+- Do not force all future optimization needs into this design.
 
 ## Canonical Symbol Identity
 
@@ -65,23 +62,47 @@ class ConstructorId:
 
 
 @dataclass(frozen=True)
-class SyntheticId:
-    kind: str
-    owner: str
+class InterfaceId:
+    module_path: ModulePath
     name: str
+
+
+@dataclass(frozen=True)
+class InterfaceMethodId:
+    module_path: ModulePath
+    interface_name: str
+    name: str
+
+
+LocalOwnerId = FunctionId | MethodId
+
+
+@dataclass(frozen=True)
+class LocalId:
+    owner_id: LocalOwnerId
+    ordinal: int
 ```
 
-These IDs should be the only post-typecheck representation for global symbol identity.
+These IDs are the post-typecheck representation for global symbol identity. `LocalId` is the canonical local identity inside a single function-like owner; it is not derived from source names and stays stable across semantic lowering and optimization.
 
-Local identity is now wired into local declarations, local references, and local assignment targets through `LocalId`. Function-like owners also carry a `local_info_by_id` metadata table so later passes can recover readable local names, declared types, declaration spans, and binding kinds without depending on identity internals alone.
+Local identity is wired into local declarations, local references, and local assignment targets through `LocalId`. Function-like owners also carry a `local_info_by_id` metadata table so later passes can recover readable local names, declared types, declaration spans, and binding kinds without depending on names or AST shape.
 
-Semantic IR now also carries canonical `SemanticTypeRef` values beside many existing `*_type_name` string fields. The canonical type refs provide stable type shape and nominal identity for semantic consumers, while the string fields remain as cached display data and compatibility surfaces for incremental downstream migration. The remaining migration steps are tracked in [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md).
+Semantic IR now carries canonical `SemanticTypeRef` values for semantic consumers. Some declaration metadata still preserves display-oriented `*_type_name` strings for diagnostics and compatibility helpers, but semantic analyses and downstream lowering should treat `SemanticTypeRef` as the type authority.
 
 Lowered local declaration nodes now rely primarily on the owner-local `local_info_by_id` table for display names and declared local types. That metadata is still keyed by the declaration's `LocalId`, but it no longer needs to be copied onto every lowered `SemanticVarDecl` by default.
 
+## Source Semantic IR And Lowered Semantic IR
+
+The semantic pipeline intentionally uses two closely related structured IR layers.
+
+- Source semantic IR in `compiler/semantic/ir.py` preserves source-level structured control flow and resolved semantic operations.
+- Lowered semantic IR in `compiler/semantic/lowered_ir.py` keeps the same typed semantic surface, but moves compiler-introduced control-flow scaffolding and helper locals into explicit lowered nodes such as `LoweredSemanticIf`, `LoweredSemanticWhile`, and `LoweredSemanticForIn`.
+
+This split keeps source-facing reasoning simple while giving later lowering and codegen phases a deterministic, explicit execution-oriented form.
+
 ## Exact Semantic IR Node Set
 
-The first semantic IR preserves module, class, function, method, block, `if`, and `while` structure, but replaces ambiguous expression and sugar forms with explicit semantic nodes.
+The semantic IR preserves module, class, function, method, block, `if`, and `while` structure, but replaces ambiguous expression and sugar forms with explicit semantic nodes.
 
 ### Program And Declaration Nodes
 
@@ -243,23 +264,19 @@ class SemanticContinue:
 class SemanticForIn:
     element_name: str
     element_local_id: LocalId
-    collection_local_id: LocalId
-    length_local_id: LocalId
-    index_local_id: LocalId
     collection: SemanticExpr
     iter_len_dispatch: SemanticDispatch
     iter_get_dispatch: SemanticDispatch
-    element_type_name: str
     element_type_ref: SemanticTypeRef
     body: SemanticBlock
     span: SourceSpan
 ```
 
-The helper locals on `SemanticForIn` are compiler-introduced semantic locals for the evaluated collection value, cached iteration length, and current index. They are tracked in the same `local_info_by_id` metadata table as user-declared locals, which keeps ownership, stack layout, and future optimization boundaries explicit.
+Source semantic `SemanticForIn` only records the user-visible loop element and the resolved iteration dispatch. The compiler-introduced helper locals for cached collection, length, and index live on `LoweredSemanticForIn` after executable-oriented lowering.
 
-Codegen now consumes those helper locals through owner-local semantic metadata rather than reconstructing helper temp identity from source spans or backend-only naming conventions.
+Those helper locals are tracked in the same `local_info_by_id` metadata table as user-declared locals, which keeps ownership and later stack/layout decisions explicit without inventing backend-only naming conventions.
 
-For now, `type_name` and related string fields remain the compatibility surface that codegen and some older utilities still consume. New semantic analyses should prefer canonical `SemanticTypeRef` data where it is available.
+Codegen and newer semantic utilities should prefer canonical `SemanticTypeRef` data where it is available.
 
 Statement union:
 
@@ -286,17 +303,22 @@ The semantic IR should stop representing assignment targets as arbitrary express
 @dataclass(frozen=True)
 class LocalLValue:
     local_id: LocalId
-    name: str
-    type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
-class FieldLValue:
+class BoundMemberAccess:
     receiver: SemanticExpr
-    receiver_type_name: str
+    receiver_type_ref: SemanticTypeRef
+
+
+@dataclass(frozen=True)
+class FieldLValue:
+    access: BoundMemberAccess
+    owner_class_id: ClassId
     field_name: str
-    field_type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -304,8 +326,8 @@ class FieldLValue:
 class IndexLValue:
     target: SemanticExpr
     index: SemanticExpr
-    value_type_name: str
-    set_method: MethodId | None
+    value_type_ref: SemanticTypeRef
+    dispatch: SemanticDispatch
     span: SourceSpan
 
 
@@ -314,8 +336,8 @@ class SliceLValue:
     target: SemanticExpr
     begin: SemanticExpr
     end: SemanticExpr
-    value_type_name: str
-    set_method: MethodId | None
+    value_type_ref: SemanticTypeRef
+    dispatch: SemanticDispatch
     span: SourceSpan
 ```
 
@@ -331,22 +353,21 @@ SemanticLValue = LocalLValue | FieldLValue | IndexLValue | SliceLValue
 @dataclass(frozen=True)
 class LocalRefExpr:
     local_id: LocalId
-    name: str
-    type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
 class FunctionRefExpr:
     function_id: FunctionId
-    type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
 class ClassRefExpr:
     class_id: ClassId
-    type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -354,95 +375,122 @@ class ClassRefExpr:
 class MethodRefExpr:
     method_id: MethodId
     receiver: SemanticExpr | None
-    type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
 class LiteralExprS:
-    value: str
-    type_name: str
+    constant: SemanticConstant
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
 class NullExprS:
     span: SourceSpan
+    type_ref: SemanticTypeRef = field(default_factory=semantic_null_type_ref)
 
 
 @dataclass(frozen=True)
 class UnaryExprS:
-    operator: str
+    op: SemanticUnaryOp
     operand: SemanticExpr
-    type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
 class BinaryExprS:
-    operator: str
+    op: SemanticBinaryOp
     left: SemanticExpr
     right: SemanticExpr
-    type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
 class CastExprS:
     operand: SemanticExpr
-    target_type_name: str
-    type_name: str
+    cast_kind: CastSemanticsKind
+    target_type_ref: SemanticTypeRef
+    type_ref: SemanticTypeRef
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
+class TypeTestExprS:
+    operand: SemanticExpr
+    test_kind: TypeTestSemanticsKind
+    target_type_ref: SemanticTypeRef
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
 class FieldReadExpr:
-    receiver: SemanticExpr
-    receiver_type_name: str
+    access: BoundMemberAccess
+    owner_class_id: ClassId
     field_name: str
-    field_type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
-class FunctionCallExpr:
+class FunctionCallTarget:
     function_id: FunctionId
-    args: list[SemanticExpr]
-    type_name: str
-    span: SourceSpan
 
 
 @dataclass(frozen=True)
-class StaticMethodCallExpr:
+class StaticMethodCallTarget:
     method_id: MethodId
-    args: list[SemanticExpr]
-    type_name: str
-    span: SourceSpan
 
 
 @dataclass(frozen=True)
-class InstanceMethodCallExpr:
+class InstanceMethodCallTarget:
     method_id: MethodId
-    receiver: SemanticExpr
-    receiver_type_name: str
-    args: list[SemanticExpr]
-    type_name: str
-    span: SourceSpan
+    access: BoundMemberAccess
 
 
 @dataclass(frozen=True)
-class ConstructorCallExpr:
+class InterfaceMethodCallTarget:
+    interface_id: InterfaceId
+    method_id: InterfaceMethodId
+    access: BoundMemberAccess
+
+
+@dataclass(frozen=True)
+class ConstructorCallTarget:
     constructor_id: ConstructorId
+
+
+@dataclass(frozen=True)
+class CallableValueCallTarget:
+    callee: SemanticExpr
+
+
+SemanticCallTarget = (
+    FunctionCallTarget
+    | StaticMethodCallTarget
+    | InstanceMethodCallTarget
+    | InterfaceMethodCallTarget
+    | ConstructorCallTarget
+    | CallableValueCallTarget
+)
+
+
+@dataclass(frozen=True)
+class CallExprS:
+    target: SemanticCallTarget
     args: list[SemanticExpr]
-    type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
-class CallableValueCallExpr:
-    callee: SemanticExpr
-    args: list[SemanticExpr]
-    type_name: str
+class ArrayLenExpr:
+    target: SemanticExpr
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
@@ -450,8 +498,8 @@ class CallableValueCallExpr:
 class IndexReadExpr:
     target: SemanticExpr
     index: SemanticExpr
-    result_type_name: str
-    get_method: MethodId | None
+    type_ref: SemanticTypeRef
+    dispatch: SemanticDispatch
     span: SourceSpan
 
 
@@ -460,24 +508,23 @@ class SliceReadExpr:
     target: SemanticExpr
     begin: SemanticExpr
     end: SemanticExpr
-    result_type_name: str
-    get_method: MethodId | None
+    type_ref: SemanticTypeRef
+    dispatch: SemanticDispatch
     span: SourceSpan
 
 
 @dataclass(frozen=True)
 class ArrayCtorExprS:
-    element_type_name: str
+    element_type_ref: SemanticTypeRef
     length_expr: SemanticExpr
-    type_name: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 
 
 @dataclass(frozen=True)
-class SyntheticExpr:
-    synthetic_id: SyntheticId
-    args: list[SemanticExpr]
-    type_name: str
+class StringLiteralBytesExpr:
+    literal_text: str
+    type_ref: SemanticTypeRef
     span: SourceSpan
 ```
 
@@ -494,21 +541,20 @@ SemanticExpr = (
     | UnaryExprS
     | BinaryExprS
     | CastExprS
+    | TypeTestExprS
     | FieldReadExpr
-    | FunctionCallExpr
-    | StaticMethodCallExpr
-    | InstanceMethodCallExpr
-    | ConstructorCallExpr
+    | CallExprS
+    | ArrayLenExpr
     | IndexReadExpr
     | SliceReadExpr
     | ArrayCtorExprS
-    | SyntheticExpr
+    | StringLiteralBytesExpr
 )
 ```
 
 ## Required Invariants
 
-The semantic IR should obey these rules from day one.
+The semantic IR must obey these rules.
 
 ### 1. No Ambiguous Global References
 
@@ -531,12 +577,12 @@ There should be no semantic equivalent of the current source `CallExpr` where th
 
 Every call must be one of:
 
-- function call
-- static method call
-- instance method call
-- constructor call
-- callable-value call
-- synthetic helper call
+- a `CallExprS` with a `FunctionCallTarget`
+- a `CallExprS` with a `StaticMethodCallTarget`
+- a `CallExprS` with an `InstanceMethodCallTarget`
+- a `CallExprS` with an `InterfaceMethodCallTarget`
+- a `CallExprS` with a `ConstructorCallTarget`
+- a `CallExprS` with a `CallableValueCallTarget`
 
 ### 3. No Raw `FieldAccessExpr` For Methods
 
@@ -544,7 +590,7 @@ Field reads and method references/calls must be split.
 
 - field load -> `FieldReadExpr`
 - first-class method reference -> `MethodRefExpr`
-- method invocation -> explicit resolved call node
+- method invocation -> `CallExprS` with an explicit call target and, for receiver-based calls, a `BoundMemberAccess`
 
 ### 4. No Raw Index/Slice Syntax
 
@@ -552,162 +598,36 @@ Indexing and slicing must be represented as resolved semantic operations.
 
 There should be no surviving source-form `IndexExpr` nodes in the semantic IR.
 
-### 5. Every Expression Carries A Type Name
+### 5. Every Expression Carries A Canonical Type
 
-Every semantic expression except `NullExprS` should carry a final resolved `type_name` string.
+Every semantic expression carries a final resolved `SemanticTypeRef`.
 
-This is intentionally simple for the first IR version and avoids forcing later passes to reach back into typecheck internals.
+This keeps later semantic passes and codegen off of ad hoc type-name reconstruction.
 
-This is a baseline simplification, not a commitment that string-based type identity is the final semantic representation. See [SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md](SEMANTIC_GRAPH_IDENTITY_REFACTOR_ROADMAP.md) for the planned migration path.
+Display-oriented string fields may still exist on declarations and metadata helpers, but they are not the semantic source of truth.
 
 ### 6. Synthetic Dependencies Must Be Explicit
 
 If codegen would otherwise invent a helper edge, semantic lowering must emit an explicit semantic node or explicit resolved call instead.
 
-Initial mandatory cases:
+Important cases include:
 
 - string literal construction
 - string concatenation
 
-## Pass Classification
+Current practice prefers explicit resolved calls for helper-backed operations and uses dedicated semantic nodes such as `StringLiteralBytesExpr` only when the semantic surface itself needs to preserve a non-source helper dependency.
 
-The node set should not be implemented all at once. Nodes are divided into three categories for the early refactor:
+## Deliberate Omissions
 
-- mandatory: must exist as explicit semantic nodes in that pass
-- wrappers: may start as thin typed wrappers over current AST forms in that pass
-- deferred: may remain outside the active lowering surface until a later pass
-
-### Pass 2: IR Skeleton Classification
-
-Pass 2 should introduce the full declaration/statement container surface and the minimum expression surface needed to construct semantic modules and preserve typed structure.
-
-Mandatory in pass 2:
-
-- `SemanticProgram`
-- `SemanticModule`
-- `SemanticField`
-- `SemanticClass`
-- `SemanticParam`
-- `SemanticFunction`
-- `SemanticMethod`
-- `SemanticBlock`
-- `SemanticVarDecl`
-- `SemanticAssign`
-- `SemanticExprStmt`
-- `SemanticReturn`
-- `SemanticIf`
-- `SemanticWhile`
-- `SemanticBreak`
-- `SemanticContinue`
-- `LocalLValue`
-- `FieldLValue`
-- `LocalRefExpr`
-- `FunctionRefExpr`
-- `ClassRefExpr`
-- `LiteralExprS`
-- `NullExprS`
-- `UnaryExprS`
-- `BinaryExprS`
-- `CastExprS`
-- `FieldReadExpr`
-- `ArrayCtorExprS`
-
-Wrappers in pass 2:
-
-- `LiteralExprS`
-- `UnaryExprS`
-- `BinaryExprS`
-- `CastExprS`
-- `ArrayCtorExprS`
-- `FieldReadExpr`
-
-Deferred in pass 2:
-
-- `MethodRefExpr`
-- `FunctionCallExpr`
-- `StaticMethodCallExpr`
-- `InstanceMethodCallExpr`
-- `ConstructorCallExpr`
-- `IndexReadExpr`
-- `SliceReadExpr`
-- `IndexLValue`
-- `SliceLValue`
-- `SemanticForIn`
-- `SyntheticExpr`
-
-### Pass 3: Resolved Call Classification
-
-Pass 3 is where ambiguous call interpretation disappears.
-
-Mandatory in pass 3:
-
-- `FunctionCallExpr`
-- `StaticMethodCallExpr`
-- `InstanceMethodCallExpr`
-- `ConstructorCallExpr`
-- `CallableValueCallExpr`
-- `MethodRefExpr` if first-class callable values remain supported at this stage
-- `CallExpr` -> `FunctionCallExpr`, `StaticMethodCallExpr`, `InstanceMethodCallExpr`, `ConstructorCallExpr`, `CallableValueCallExpr`, or `SyntheticExpr`
-
-Wrappers in pass 3:
-
-- `LocalRefExpr`
-- `FunctionRefExpr`
-- `ClassRefExpr`
-- `FieldReadExpr`
-
-Deferred in pass 3:
-
-- `IndexReadExpr`
-- `SliceReadExpr`
-- `IndexLValue`
-- `SliceLValue`
-- `SemanticForIn`
-- `SyntheticExpr`
-
-### Pass 4: Structural Sugar And Synthetic Classification
-
-Pass 4 should make all structural and hidden-helper semantics explicit.
-
-Mandatory in pass 4:
-
-- `IndexReadExpr`
-- `SliceReadExpr`
-- `IndexLValue`
-- `SliceLValue`
-- `SemanticForIn`
-
-Mandatory in pass 4 if helper cannot be modeled as an ordinary resolved call:
-
-- `SyntheticExpr`
-
-Preferred rule for pass 4:
-
-- if a hidden dependency is a real source-backed method like `Str.from_u8_array` or `Str.concat`, lower it to `StaticMethodCallExpr`
-- use `SyntheticExpr` only when there is no real source-backed callable to point at
-
-Deferred beyond pass 4:
+The semantic IR intentionally omits these forms:
 
 - CFG nodes
 - SSA/value form
 - backend runtime op nodes
 
-## Recommended Implementation Interpretation
-
-To keep the refactor manageable:
-
-1. The declaration and structured statement nodes should appear early because they define the semantic container shape.
-2. Explicit resolved call nodes are the highest-value semantic upgrade and should be the first non-wrapper expression family to become mandatory.
-3. Structural sugar nodes should wait until the call-resolution path is stable.
-4. `SyntheticExpr` should remain a last resort, not a default encoding.
-
-## Deliberate Omissions From The First Semantic IR
-
-To keep the first refactor manageable, the semantic IR should not attempt these yet.
-
 ### 1. No CFG Nodes
 
-The first IR is still structured, not control-flow-graph based.
+The IR is structured, not control-flow-graph based.
 
 ### 2. No SSA Or Temporary Value Form
 
@@ -723,11 +643,11 @@ Array constructor and array indexing can remain semantic expression nodes withou
 
 ## Mapping From Current Source AST
 
-The initial lowering should roughly map as follows:
+Lowering should roughly map as follows:
 
 - `IdentifierExpr` -> `LocalRefExpr`, `FunctionRefExpr`, or `ClassRefExpr`
-- `LiteralExpr` -> `LiteralExprS` or explicit synthetic form when the literal implies helper construction
-- `FieldAccessExpr` -> `FieldReadExpr`, `MethodRefExpr`, `StaticMethodCallExpr`, or `InstanceMethodCallExpr`
+- `LiteralExpr` -> `LiteralExprS` or a dedicated helper node such as `StringLiteralBytesExpr` when the literal implies helper construction
+- `FieldAccessExpr` -> `FieldReadExpr`, `MethodRefExpr`, or receiver-bearing call-target construction via `BoundMemberAccess`
 - `CallExpr` -> one explicit resolved call node
 - `IndexExpr` -> `IndexReadExpr`
 - parser-lowered slice call forms -> `SliceReadExpr` or `SliceLValue`
@@ -739,6 +659,6 @@ This node set is deliberately chosen to do three things and no more:
 
 1. eliminate ambiguous call and member-resolution work from later stages
 2. make reachability edges explicit
-3. preserve enough source structure that diagnostics and migration stay manageable
+3. preserve enough source structure that diagnostics stay manageable
 
 If a later pass still has to flatten field chains or infer whether a call is a constructor or method call, then the node set is still too weak.

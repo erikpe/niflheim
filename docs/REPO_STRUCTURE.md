@@ -19,12 +19,21 @@ Stage-0 compiler implementation in Python.
 	- `ast_dump.py` - deterministic AST debug serialization used by golden tests.
 - `resolver.py` - module graph loading and import/export visibility resolution.
 - `semantic/` - typed semantic IR and post-lowering semantic passes.
-	- `ir.py`, `symbols.py` - semantic node definitions and canonical semantic symbol identities.
+	- `ir.py` - source-oriented semantic IR node definitions.
+	- `lowered_ir.py` - lowered semantic IR used after executable-oriented lowering.
+	- `symbols.py` - canonical semantic symbol identities, including owner-scoped `LocalId`.
+	- `types.py`, `type_compat.py` - canonical semantic type references and compatibility helpers.
+	- `display.py` - semantic display-name helpers for locals, members, and call targets.
+	- `operations.py` - shared semantic operator and dispatch helpers.
 	- `lowering/` - semantic IR construction from resolved, typechecked source.
+		- `orchestration.py` - explicit lowering entry point and phase composition.
+		- `resolution.py` - shared resolver/context helpers used across lowering modules.
+		- `calls.py`, `collections.py`, `expressions.py`, `references.py`, `statements.py`, `type_refs.py`, `ids.py`, `locals.py`, `literals.py`, `executable.py` - lowering helpers split by concern.
 	- `linker.py` - semantic-program ordering and duplicate-symbol consolidation.
 	- `optimizations/` - post-lowering semantic passes and transforms.
 		- `pipeline.py` - semantic optimization pass sequencing entry point.
-		- `reachability.py` - semantic reachability analysis and unreachable declaration pruning.
+		- `unreachable_prune.py` - semantic reachability analysis and unreachable declaration pruning.
+		- `constant_fold.py`, `copy_propagation.py`, `dead_stmt_prune.py`, `dead_store_elimination.py`, `redundant_cast_elimination.py`, `simplify_control_flow.py` - current semantic optimization passes.
 - `typecheck/` - typecheck package modules.
 	- `api.py` - typecheck entry points (`typecheck`, `typecheck_program`).
 	- `model.py` - shared typechecker data model/constants/errors.
@@ -64,15 +73,13 @@ Minimal C runtime skeleton for upcoming backend/GC work.
 
 Current active suites:
 
-- `lexer/` - tokenization and lexer diagnostics.
-- `parser/` - parser behavior, precedence, spans, golden AST shape tests.
-- `resolver/` - module graph and visibility enforcement tests.
-- `typecheck/` - type-checking behavior across single-module and multi-module flows.
-- `integration/` - end-to-end placeholder suite.
+- `compiler/` - compiler unit and integration coverage across frontend, resolver, typecheck, semantic, codegen, and CLI behavior.
+- `runtime/` - runtime-focused tests and supporting fixtures.
+- `golden/` - snapshot-style outputs used by selected end-to-end checks.
 
-## `examples/`
+## `samples/`
 
-Small `.nif` source programs used for language bring-up and experimentation.
+Small `.nif` source programs used for language bring-up, runtime checks, and experimentation.
 
 ## `scripts/`
 
@@ -83,8 +90,10 @@ Utility scripts for repository workflows (for example golden refresh/build helpe
 Supporting documentation:
 
 - [REPO_STRUCTURE.md](REPO_STRUCTURE.md) - this file.
+- [CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md](CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md) - implementation plan for precise root-slot liveness and reduced runtime-call scaffolding in codegen.
 - [GRAMMAR_EBNF.md](GRAMMAR_EBNF.md) - grammar conventions and parser-facing notes.
 - [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) - canonical language and implementation checklist.
+- [SEMANTIC_IR_SPEC.md](SEMANTIC_IR_SPEC.md) - current semantic IR node set, invariants, and layering boundaries.
 - [ROADMAP_v0.1.md](ROADMAP_v0.1.md) - milestone/iteration plan.
 - [INTERFACES_V1.md](INTERFACES_V1.md) - future-facing design for interface types, casts, and dispatch.
 - [ABI_NOTES.md](ABI_NOTES.md) - compiler/runtime ABI notes.
