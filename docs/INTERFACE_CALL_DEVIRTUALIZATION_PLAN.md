@@ -299,7 +299,7 @@ Implemented in:
 
 ## Slice 3: Rewrite proven-monomorphic interface calls
 
-Status: planned
+Status: implemented
 
 Payoff: very high
 
@@ -328,6 +328,10 @@ Replace interface dispatch with direct instance dispatch when the receiver local
   - skipped interface calls with only compatibility facts
   - skipped interface calls without local receivers
 
+Implemented in:
+
+- [compiler/semantic/optimizations/interface_call_devirtualization.py](compiler/semantic/optimizations/interface_call_devirtualization.py)
+
 ### Expected Outcome
 
 - fewer semantic interface-call targets survive to codegen
@@ -343,9 +347,13 @@ Replace interface dispatch with direct instance dispatch when the receiver local
   - reassignment invalidates devirtualization
   - interface-compatible but not exact facts do not rewrite
 
+Implemented in:
+
+- [tests/compiler/semantic/optimizations/test_interface_call_devirtualization.py](tests/compiler/semantic/optimizations/test_interface_call_devirtualization.py)
+
 ## Slice 4: Re-run structural cleanup after devirtualization
 
-Status: planned
+Status: implemented
 
 Payoff: medium
 
@@ -370,6 +378,10 @@ Let the simpler direct-call shape participate in later cleanup.
   - `dead_stmt_prune`
   - `unreachable_prune`
 
+Implemented in:
+
+- [compiler/semantic/optimizations/pipeline.py](compiler/semantic/optimizations/pipeline.py)
+
 ### Expected Outcome
 
 - devirtualized call targets become part of the normal optimized semantic program
@@ -379,6 +391,10 @@ Let the simpler direct-call shape participate in later cleanup.
 
 - update pipeline tests to reflect the new pass order
 - add pipeline coverage showing devirtualization composes with narrowing and later cleanup
+
+Implemented in:
+
+- [tests/compiler/semantic/optimizations/test_pipeline.py](tests/compiler/semantic/optimizations/test_pipeline.py)
 
 ## Recommended Initial Pass Order
 

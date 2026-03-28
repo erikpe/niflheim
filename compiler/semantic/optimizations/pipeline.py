@@ -12,6 +12,7 @@ from .copy_propagation import copy_propagation
 from .dead_store_elimination import dead_store_elimination
 from .dead_stmt_prune import dead_stmt_prune
 from .flow_sensitive_type_narrowing import flow_sensitive_type_narrowing
+from .interface_call_devirtualization import interface_call_devirtualization
 from .unreachable_prune import unreachable_prune
 from .redundant_cast_elimination import redundant_cast_elimination
 from .simplify_control_flow import simplify_control_flow
@@ -31,6 +32,7 @@ DEFAULT_SEMANTIC_OPTIMIZATION_PASSES: tuple[SemanticOptimizationPass, ...] = (
     SemanticOptimizationPass(name="simplify_control_flow", transform=simplify_control_flow),
     SemanticOptimizationPass(name="copy_propagation", transform=copy_propagation),
     SemanticOptimizationPass(name="flow_sensitive_type_narrowing", transform=flow_sensitive_type_narrowing),
+    SemanticOptimizationPass(name="interface_call_devirtualization", transform=interface_call_devirtualization),
     SemanticOptimizationPass(name="redundant_cast_elimination", transform=redundant_cast_elimination),
     SemanticOptimizationPass(name="dead_store_elimination", transform=dead_store_elimination),
     SemanticOptimizationPass(name="constant_fold", transform=constant_fold),
