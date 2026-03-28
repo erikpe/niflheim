@@ -23,6 +23,12 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text.strip() + "\n", encoding="utf-8")
 
 
+def _run_dead_stmt_prune(tmp_path: Path) -> object:
+    # Keep this as a direct pass unit test so overlapping pipeline passes like
+    # dead_store_elimination stay disabled for the assertions in this module.
+    return dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+
+
 def test_dead_stmt_prune_removes_unused_pure_statements(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
@@ -35,7 +41,7 @@ def test_dead_stmt_prune_removes_unused_pure_statements(tmp_path: Path) -> None:
         """,
     )
 
-    pruned = dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = _run_dead_stmt_prune(tmp_path)
     statements = pruned.modules[("main",)].functions[0].body.statements
 
     assert len(statements) == 1
@@ -61,7 +67,7 @@ def test_dead_stmt_prune_rewrites_dead_effectful_statements_to_expr_statements(t
         """,
     )
 
-    pruned = dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = _run_dead_stmt_prune(tmp_path)
     statements = pruned.modules[("main",)].functions[1].body.statements
 
     assert len(statements) == 3
@@ -114,7 +120,7 @@ def test_dead_stmt_prune_preserves_dead_cast_expression_statements(tmp_path: Pat
         """,
     )
 
-    pruned = dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = _run_dead_stmt_prune(tmp_path)
     statements = pruned.modules[("main",)].functions[0].body.statements
 
     assert len(statements) == 2
@@ -142,7 +148,7 @@ def test_dead_stmt_prune_preserves_loop_carried_updates(tmp_path: Path) -> None:
         """,
     )
 
-    pruned = dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = _run_dead_stmt_prune(tmp_path)
     loop_stmt = pruned.modules[("main",)].functions[0].body.statements[2]
 
     assert isinstance(loop_stmt, SemanticWhile)
@@ -165,7 +171,7 @@ def test_dead_stmt_prune_removes_dead_statements_inside_while_loop(tmp_path: Pat
         """,
     )
 
-    pruned = dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = _run_dead_stmt_prune(tmp_path)
     loop_stmt = pruned.modules[("main",)].functions[0].body.statements[1]
 
     assert isinstance(loop_stmt, SemanticWhile)
@@ -187,7 +193,7 @@ def test_dead_stmt_prune_removes_dead_statements_inside_for_in_loop(tmp_path: Pa
         """,
     )
 
-    pruned = dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = _run_dead_stmt_prune(tmp_path)
     loop_stmt = pruned.modules[("main",)].functions[0].body.statements[1]
 
     assert isinstance(loop_stmt, SemanticForIn)
@@ -214,7 +220,7 @@ def test_dead_stmt_prune_preserves_continue_branch_updates_needed_after_loop(tmp
         """,
     )
 
-    pruned = dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = _run_dead_stmt_prune(tmp_path)
     loop_stmt = pruned.modules[("main",)].functions[0].body.statements[2]
 
     assert isinstance(loop_stmt, SemanticWhile)
@@ -241,7 +247,7 @@ def test_dead_stmt_prune_preserves_break_branch_updates_needed_after_loop(tmp_pa
         """,
     )
 
-    pruned = dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = _run_dead_stmt_prune(tmp_path)
     loop_stmt = pruned.modules[("main",)].functions[0].body.statements[2]
 
     assert isinstance(loop_stmt, SemanticWhile)
@@ -261,7 +267,7 @@ def test_dead_stmt_prune_preserves_trapping_shift_expression_statements(tmp_path
         """,
     )
 
-    pruned = dead_stmt_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    pruned = _run_dead_stmt_prune(tmp_path)
     statements = pruned.modules[("main",)].functions[0].body.statements
 
     assert len(statements) == 3
