@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
@@ -8,101 +8,17 @@ from compiler.semantic.operations import CastSemanticsKind, TypeTestSemanticsKin
 from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
 
 from .helpers.program_structure import rewrite_program_structure
+from .helpers.narrowing_state import (
+    NarrowState as _NarrowState,
+    TypeFacts as _TypeFacts,
+    apply_branch_seed,
+    branch_seeds_for_condition,
+    update_local_facts_from_value,
+)
 from .helpers.type_compatibility import (
     TypeCompatibilityIndex,
     build_type_compatibility_index,
-    is_exact_runtime_target,
-    proven_compatible_type_names,
 )
-
-
-@dataclass(frozen=True)
-class _TypeFacts:
-    exact_type: SemanticTypeRef | None = None
-    compatible_type_names: frozenset[str] = frozenset()
-
-    def with_proven_target(
-        self, compatibility_index: TypeCompatibilityIndex, target_type_ref: SemanticTypeRef
-    ) -> "_TypeFacts":
-        compatible_type_names = self.compatible_type_names | proven_compatible_type_names(
-            compatibility_index, target_type_ref
-        )
-        exact_type = self.exact_type
-        if exact_type is None and is_exact_runtime_target(target_type_ref):
-            exact_type = target_type_ref
-        return _TypeFacts(exact_type=exact_type, compatible_type_names=compatible_type_names)
-
-    def intersect(self, other: "_TypeFacts") -> "_TypeFacts":
-        exact_type = None
-        if self.exact_type is not None and other.exact_type is not None:
-            if semantic_type_canonical_name(self.exact_type) == semantic_type_canonical_name(other.exact_type):
-                exact_type = self.exact_type
-        compatible_type_names = self.compatible_type_names & other.compatible_type_names
-        if exact_type is not None and semantic_type_canonical_name(exact_type) not in compatible_type_names:
-            exact_type = None
-        return _TypeFacts(exact_type=exact_type, compatible_type_names=compatible_type_names)
-
-    def proves(self, target_type_ref: SemanticTypeRef) -> bool:
-        return semantic_type_canonical_name(target_type_ref) in self.compatible_type_names
-
-    def is_empty(self) -> bool:
-        return self.exact_type is None and not self.compatible_type_names
-
-
-@dataclass
-class _NarrowState:
-    facts_by_local_id: dict[LocalId, _TypeFacts] = field(default_factory=dict)
-
-    @classmethod
-    def empty(cls) -> "_NarrowState":
-        return cls()
-
-    def fork(self) -> "_NarrowState":
-        return _NarrowState(facts_by_local_id=self.facts_by_local_id.copy())
-
-    def facts_for_local(self, local_id: LocalId) -> _TypeFacts | None:
-        return self.facts_by_local_id.get(local_id)
-
-    def set_facts(self, local_id: LocalId, facts: _TypeFacts | None) -> None:
-        if facts is None or facts.is_empty():
-            self.facts_by_local_id.pop(local_id, None)
-            return
-        self.facts_by_local_id[local_id] = facts
-
-    def invalidate_local(self, local_id: LocalId) -> None:
-        self.facts_by_local_id.pop(local_id, None)
-
-    def drop_scoped_local(self, local_id: LocalId) -> None:
-        self.invalidate_local(local_id)
-
-    def copy_local_facts(self, target_local_id: LocalId, source_local_id: LocalId) -> None:
-        self.set_facts(target_local_id, self.facts_for_local(source_local_id))
-
-    def prove_local_target(
-        self, compatibility_index: TypeCompatibilityIndex, local_id: LocalId, target_type_ref: SemanticTypeRef
-    ) -> bool:
-        current_facts = self.facts_for_local(local_id) or _TypeFacts()
-        next_facts = current_facts.with_proven_target(compatibility_index, target_type_ref)
-        changed = next_facts != current_facts
-        self.set_facts(local_id, next_facts)
-        return changed
-
-    @classmethod
-    def merge_branches(cls, *states: "_NarrowState") -> "_NarrowState":
-        if not states:
-            return cls.empty()
-
-        shared_local_ids = set(states[0].facts_by_local_id)
-        for state in states[1:]:
-            shared_local_ids &= set(state.facts_by_local_id)
-
-        merged_state = cls.empty()
-        for local_id in shared_local_ids:
-            merged_facts = states[0].facts_by_local_id[local_id]
-            for state in states[1:]:
-                merged_facts = merged_facts.intersect(state.facts_by_local_id[local_id])
-            merged_state.set_facts(local_id, merged_facts)
-        return merged_state
 
 
 @dataclass
@@ -111,12 +27,6 @@ class _NarrowingStats:
     folded_type_tests: int = 0
     seeded_branch_facts: int = 0
     seeded_cast_facts: int = 0
-
-
-@dataclass(frozen=True)
-class _BranchSeed:
-    local_id: LocalId
-    target_type_ref: SemanticTypeRef
 
 
 def flow_sensitive_type_narrowing(program: SemanticProgram) -> SemanticProgram:
@@ -198,13 +108,13 @@ def _rewrite_stmt(
     if isinstance(stmt, SemanticVarDecl):
         initializer = None if stmt.initializer is None else _rewrite_expr(stmt.initializer, state, compatibility_index, stats)
         next_state = state.fork()
-        _update_local_facts_from_value(
+        if update_local_facts_from_value(
             next_state,
             stmt.local_id,
             initializer,
             compatibility_index,
-            stats,
-        )
+        ):
+            stats.seeded_cast_facts += 1
         return replace(stmt, initializer=initializer), next_state
 
     if isinstance(stmt, SemanticAssign):
@@ -212,7 +122,8 @@ def _rewrite_stmt(
         value = _rewrite_expr(stmt.value, state, compatibility_index, stats)
         next_state = state.fork()
         if isinstance(target, LocalLValue):
-            _update_local_facts_from_value(next_state, target.local_id, value, compatibility_index, stats)
+            if update_local_facts_from_value(next_state, target.local_id, value, compatibility_index):
+                stats.seeded_cast_facts += 1
         return replace(stmt, target=target, value=value), next_state
 
     if isinstance(stmt, SemanticExprStmt):
@@ -224,9 +135,10 @@ def _rewrite_stmt(
 
     if isinstance(stmt, SemanticIf):
         rewritten_condition = _rewrite_expr(stmt.condition, state, compatibility_index, stats)
-        then_seed, else_seed = _branch_seeds_for_condition(rewritten_condition)
-        then_state = _apply_branch_seed(state, then_seed, compatibility_index, stats)
-        else_state = _apply_branch_seed(state, else_seed, compatibility_index, stats)
+        then_seed, else_seed = branch_seeds_for_condition(rewritten_condition)
+        then_state, then_seeded = apply_branch_seed(state, then_seed, compatibility_index)
+        else_state, else_seeded = apply_branch_seed(state, else_seed, compatibility_index)
+        stats.seeded_branch_facts += int(then_seeded) + int(else_seeded)
         then_block, then_exit_state = _rewrite_nested_block(stmt.then_block, then_state, compatibility_index, stats)
         else_block = None
         else_exit_state = else_state
@@ -399,79 +311,6 @@ def _rewrite_expr(
         return replace(expr, length_expr=_rewrite_expr(expr.length_expr, state, compatibility_index, stats))
 
     raise TypeError(f"Unsupported semantic expression for flow-sensitive narrowing: {type(expr).__name__}")
-
-
-def _update_local_facts_from_value(
-    state: _NarrowState,
-    target_local_id: LocalId,
-    value: SemanticExpr | None,
-    compatibility_index: TypeCompatibilityIndex,
-    stats: _NarrowingStats,
-) -> None:
-    state.invalidate_local(target_local_id)
-    if value is None:
-        return
-
-    if isinstance(value, LocalRefExpr):
-        state.copy_local_facts(target_local_id, value.local_id)
-        return
-
-    successful_cast = _successful_local_checked_cast(value)
-    if successful_cast is None:
-        return
-
-    source_local_id, target_type_ref = successful_cast
-    source_changed = state.prove_local_target(compatibility_index, source_local_id, target_type_ref)
-    target_facts = state.facts_for_local(source_local_id) or _TypeFacts()
-    target_facts = target_facts.with_proven_target(compatibility_index, target_type_ref)
-    target_changed = target_facts != (_TypeFacts())
-    state.set_facts(target_local_id, target_facts)
-    if source_changed or target_changed:
-        stats.seeded_cast_facts += 1
-
-
-def _successful_local_checked_cast(expr: SemanticExpr) -> tuple[LocalId, SemanticTypeRef] | None:
-    if not isinstance(expr, CastExprS):
-        return None
-    if expr.cast_kind is not CastSemanticsKind.REFERENCE_COMPATIBILITY:
-        return None
-    if not isinstance(expr.operand, LocalRefExpr):
-        return None
-    return expr.operand.local_id, expr.target_type_ref
-
-
-def _branch_seeds_for_condition(condition: SemanticExpr) -> tuple[_BranchSeed | None, _BranchSeed | None]:
-    if isinstance(condition, TypeTestExprS) and isinstance(condition.operand, LocalRefExpr):
-        return _BranchSeed(local_id=condition.operand.local_id, target_type_ref=condition.target_type_ref), None
-
-    if (
-        isinstance(condition, UnaryExprS)
-        and condition.op.kind is UnaryOpKind.LOGICAL_NOT
-        and isinstance(condition.operand, TypeTestExprS)
-        and isinstance(condition.operand.operand, LocalRefExpr)
-    ):
-        return None, _BranchSeed(
-            local_id=condition.operand.operand.local_id,
-            target_type_ref=condition.operand.target_type_ref,
-        )
-
-    return None, None
-
-
-def _apply_branch_seed(
-    state: _NarrowState,
-    seed: _BranchSeed | None,
-    compatibility_index: TypeCompatibilityIndex,
-    stats: _NarrowingStats,
-) -> _NarrowState:
-    next_state = state.fork()
-    if seed is None:
-        return next_state
-    if next_state.prove_local_target(compatibility_index, seed.local_id, seed.target_type_ref):
-        stats.seeded_branch_facts += 1
-    return next_state
-
-
 def _block_always_exits(block: SemanticBlock) -> bool:
     return any(_stmt_always_exits(stmt) for stmt in block.statements)
 
