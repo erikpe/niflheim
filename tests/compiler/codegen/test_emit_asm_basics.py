@@ -39,7 +39,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune"})
 
     assert asm.count("jmp .Lf_epilogue") == 1
     assert asm.count(".Lf_epilogue:") == 1
@@ -331,7 +331,7 @@ fn classify(x: i64) -> i64 {
 }
 """
     source += "\nfn main() -> i64 { return classify(0); }\n"
-    asm = emit_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune"})
 
     assert asm.count("_if_else_") >= 2
     assert "    mov qword ptr [rbp - 16], rax" in asm

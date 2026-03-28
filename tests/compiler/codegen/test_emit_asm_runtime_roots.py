@@ -15,7 +15,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune"})
 
     assert ".Lf_rt_safepoint_before_" in asm
     assert ".Lf_rt_safepoint_after_" in asm
@@ -53,7 +53,7 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune"})
     f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
 
     assert "    mov qword ptr [rbp - 8], rdi" in f_body

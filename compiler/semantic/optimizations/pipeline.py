@@ -9,6 +9,7 @@ from compiler.semantic.ir import SemanticProgram
 
 from .copy_propagation import copy_propagation
 from .constant_folding import fold_constants
+from .dead_stmt_prune import dead_stmt_prune
 from .reachability import prune_unreachable_semantic
 from .simplify_control_flow import simplify_control_flow
 
@@ -27,6 +28,7 @@ DEFAULT_SEMANTIC_OPTIMIZATION_PASSES: tuple[SemanticOptimizationPass, ...] = (
     SemanticOptimizationPass(name="simplify_control_flow", transform=simplify_control_flow),
     SemanticOptimizationPass(name="copy_propagation", transform=copy_propagation),
     SemanticOptimizationPass(name="constant_fold", transform=fold_constants),
+    SemanticOptimizationPass(name="dead_stmt_prune", transform=dead_stmt_prune),
     SemanticOptimizationPass(name="prune_unreachable", transform=prune_unreachable_semantic),
 )
 

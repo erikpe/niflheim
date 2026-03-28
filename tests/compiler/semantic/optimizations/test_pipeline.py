@@ -7,6 +7,7 @@ from compiler.semantic.ir import CallExprS, FunctionCallTarget, IntConstant, Lit
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.copy_propagation import copy_propagation
 from compiler.semantic.optimizations.constant_folding import fold_constants
+from compiler.semantic.optimizations.dead_stmt_prune import dead_stmt_prune
 from compiler.semantic.optimizations.pipeline import (
     DEFAULT_SEMANTIC_OPTIMIZATION_PASSES,
     SemanticOptimizationPass,
@@ -38,7 +39,7 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
 
     optimized = optimize_semantic_program(semantic)
     expected = prune_unreachable_semantic(
-        fold_constants(copy_propagation(simplify_control_flow(fold_constants(semantic))))
+        dead_stmt_prune(fold_constants(copy_propagation(simplify_control_flow(fold_constants(semantic)))))
     )
 
     assert [optimization_pass.name for optimization_pass in DEFAULT_SEMANTIC_OPTIMIZATION_PASSES] == [
@@ -46,6 +47,7 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
         "simplify_control_flow",
         "copy_propagation",
         "constant_fold",
+        "dead_stmt_prune",
         "prune_unreachable",
     ]
     assert optimized == expected
