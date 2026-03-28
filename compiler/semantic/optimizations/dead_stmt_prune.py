@@ -7,6 +7,10 @@ from compiler.semantic.ir import *
 
 from .dataflow import LoopControlFlowState, solve_loop_fixed_point
 from .local_usage import is_pure_expr, read_locals_expr, read_locals_lvalue
+from .semantic_rewriter import SemanticTreeRewriter
+
+
+_TREE_REWRITER = SemanticTreeRewriter()
 
 
 @dataclass
@@ -184,56 +188,11 @@ def _prune_stmt(
 
 
 def _prune_lvalue(target: SemanticLValue) -> SemanticLValue:
-    if isinstance(target, LocalLValue):
-        return target
-    if isinstance(target, FieldLValue):
-        return replace(target, access=replace(target.access, receiver=_prune_expr(target.access.receiver)))
-    if isinstance(target, IndexLValue):
-        return replace(target, target=_prune_expr(target.target), index=_prune_expr(target.index))
-    if isinstance(target, SliceLValue):
-        return replace(
-            target, target=_prune_expr(target.target), begin=_prune_expr(target.begin), end=_prune_expr(target.end)
-        )
-    raise TypeError(f"Unsupported semantic lvalue for dead statement pruning: {type(target).__name__}")
+    return _TREE_REWRITER.rewrite_lvalue(target)
 
 
 def _prune_expr(expr: SemanticExpr) -> SemanticExpr:
-    if isinstance(expr, (LocalRefExpr, FunctionRefExpr, ClassRefExpr, LiteralExprS, NullExprS, StringLiteralBytesExpr)):
-        return expr
-    if isinstance(expr, MethodRefExpr):
-        receiver = None if expr.receiver is None else _prune_expr(expr.receiver)
-        return replace(expr, receiver=receiver)
-    if isinstance(expr, UnaryExprS):
-        return replace(expr, operand=_prune_expr(expr.operand))
-    if isinstance(expr, BinaryExprS):
-        return replace(expr, left=_prune_expr(expr.left), right=_prune_expr(expr.right))
-    if isinstance(expr, CastExprS):
-        return replace(expr, operand=_prune_expr(expr.operand))
-    if isinstance(expr, TypeTestExprS):
-        return replace(expr, operand=_prune_expr(expr.operand))
-    if isinstance(expr, FieldReadExpr):
-        return replace(expr, access=replace(expr.access, receiver=_prune_expr(expr.access.receiver)))
-    if isinstance(expr, CallExprS):
-        pruned_args = [_prune_expr(arg) for arg in expr.args]
-        if isinstance(expr.target, CallableValueCallTarget):
-            return replace(expr, target=replace(expr.target, callee=_prune_expr(expr.target.callee)), args=pruned_args)
-        access = call_target_receiver_access(expr.target)
-        if access is None:
-            return replace(expr, args=pruned_args)
-        return replace(
-            expr,
-            target=replace(expr.target, access=replace(access, receiver=_prune_expr(access.receiver))),
-            args=pruned_args,
-        )
-    if isinstance(expr, ArrayLenExpr):
-        return replace(expr, target=_prune_expr(expr.target))
-    if isinstance(expr, IndexReadExpr):
-        return replace(expr, target=_prune_expr(expr.target), index=_prune_expr(expr.index))
-    if isinstance(expr, SliceReadExpr):
-        return replace(expr, target=_prune_expr(expr.target), begin=_prune_expr(expr.begin), end=_prune_expr(expr.end))
-    if isinstance(expr, ArrayCtorExprS):
-        return replace(expr, length_expr=_prune_expr(expr.length_expr))
-    raise TypeError(f"Unsupported semantic expression for dead statement pruning: {type(expr).__name__}")
+    return _TREE_REWRITER.rewrite_expr(expr)
 
 
 def _rewrite_effectful_expr_stmt(
