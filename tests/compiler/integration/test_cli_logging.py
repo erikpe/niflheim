@@ -81,10 +81,12 @@ def test_cli_debug_logs_respect_verbosity_threshold(tmp_path: Path, monkeypatch,
     assert "nifc: debug: Type checked program in" in captured.err
     assert captured.err.count("nifc: debug: Optimization pass constant_fold performed ") == 2
     assert captured.err.count("nifc: debug: Optimization pass constant_fold completed in") == 2
-    assert "nifc: debug: Optimization pass simplify_control_flow simplified " in captured.err
-    assert "nifc: debug: Optimization pass simplify_control_flow completed in" in captured.err
+    assert captured.err.count("nifc: debug: Optimization pass simplify_control_flow simplified ") == 2
+    assert captured.err.count("nifc: debug: Optimization pass simplify_control_flow completed in") == 2
     assert "nifc: debug: Optimization pass copy_propagation performed " in captured.err
     assert "nifc: debug: Optimization pass copy_propagation completed in" in captured.err
+    assert "nifc: debug: Optimization pass flow_sensitive_type_narrowing removed " in captured.err
+    assert "nifc: debug: Optimization pass flow_sensitive_type_narrowing completed in" in captured.err
     assert "nifc: debug: Optimization pass redundant_cast_elimination removed " in captured.err
     assert "nifc: debug: Optimization pass redundant_cast_elimination completed in" in captured.err
     assert "nifc: debug: Optimization pass dead_store_elimination removed " in captured.err

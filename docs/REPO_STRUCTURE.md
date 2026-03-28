@@ -91,6 +91,7 @@ Supporting documentation:
 
 - [REPO_STRUCTURE.md](REPO_STRUCTURE.md) - this file.
 - [CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md](CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md) - implementation plan for precise root-slot liveness and reduced runtime-call scaffolding in codegen.
+- [FLOW_SENSITIVE_TYPE_NARROWING_PLAN.md](FLOW_SENSITIVE_TYPE_NARROWING_PLAN.md) - implementation plan for eliminating redundant runtime type checks using branch-local type facts.
 - [GRAMMAR_EBNF.md](GRAMMAR_EBNF.md) - grammar conventions and parser-facing notes.
 - [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) - canonical language and implementation checklist.
 - [SEMANTIC_IR_SPEC.md](SEMANTIC_IR_SPEC.md) - current semantic IR node set, invariants, and layering boundaries.

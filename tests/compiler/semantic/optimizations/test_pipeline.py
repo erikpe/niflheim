@@ -9,6 +9,7 @@ from compiler.semantic.optimizations.copy_propagation import copy_propagation
 from compiler.semantic.optimizations.constant_fold import constant_fold
 from compiler.semantic.optimizations.dead_store_elimination import dead_store_elimination
 from compiler.semantic.optimizations.dead_stmt_prune import dead_stmt_prune
+from compiler.semantic.optimizations.flow_sensitive_type_narrowing import flow_sensitive_type_narrowing
 from compiler.semantic.optimizations.pipeline import (
     DEFAULT_SEMANTIC_OPTIMIZATION_PASSES,
     SemanticOptimizationPass,
@@ -42,9 +43,13 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
     optimized = optimize_semantic_program(semantic)
     expected = unreachable_prune(
         dead_stmt_prune(
-            constant_fold(
-                dead_store_elimination(
-                    redundant_cast_elimination(copy_propagation(simplify_control_flow(constant_fold(semantic))))
+            simplify_control_flow(
+                constant_fold(
+                    dead_store_elimination(
+                        redundant_cast_elimination(
+                            flow_sensitive_type_narrowing(copy_propagation(simplify_control_flow(constant_fold(semantic))))
+                        )
+                    )
                 )
             )
         )
@@ -54,9 +59,11 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
         "constant_fold",
         "simplify_control_flow",
         "copy_propagation",
+        "flow_sensitive_type_narrowing",
         "redundant_cast_elimination",
         "dead_store_elimination",
         "constant_fold",
+        "simplify_control_flow",
         "dead_stmt_prune",
         "unreachable_prune",
     ]
