@@ -265,6 +265,8 @@ fn main() -> i64 {
     assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in call_hash_body
     assert "    mov edx, 0" in call_hash_body
     assert "# mirror named reference slots into shadow-stack slots" not in call_hash_body
+    lookup_call_index = call_hash_body.index("    call rt_lookup_interface_method")
+    assert "    call rt_root_slot_store" not in call_hash_body[:lookup_call_index]
     assert re.search(r"push rax\n\s+mov r10, rsp", call_hash_body)
     assert "    mov r11, qword ptr [r10 + 8]" in call_hash_body
     assert "    call r11" in call_hash_body
@@ -328,6 +330,9 @@ fn main() -> i64 {
     assert "    call rt_lookup_interface_method" in call_next_body
     assert "    call rt_root_slot_store" in call_next_body
     assert "# mirror named reference slots into shadow-stack slots" not in call_next_body
+    lookup_call_index = call_next_body.index("    call rt_lookup_interface_method")
+    first_temp_root_index = call_next_body.index("    call rt_root_slot_store")
+    assert lookup_call_index < first_temp_root_index
     assert re.search(r"push rax\n\s+mov r10, rsp", call_next_body)
     assert "    call r11" in call_next_body
 

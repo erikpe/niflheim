@@ -371,6 +371,8 @@ Avoid temporary root-slot setup for runtime calls that cannot collect.
 
 ## Slice 6: Normalize interface-dispatch call structure
 
+Status: implemented
+
 Payoff: medium to high
 
 Risk: medium
@@ -385,9 +387,9 @@ Apply the new call-effect rules to interface dispatch, which currently performs 
 
 ### Concrete Changes
 
-- classify `rt_lookup_interface_method` as non-GC
-- stop treating the lookup call like a full GC boundary
-- keep conservative rooting only for the actual indirect call that follows
+- [x] classify `rt_lookup_interface_method` as non-GC
+- [x] stop treating the lookup call like a full GC boundary
+- [x] keep conservative rooting only for the actual indirect call that follows
 
 ### Expected Outcome
 
@@ -395,7 +397,7 @@ Apply the new call-effect rules to interface dispatch, which currently performs 
 
 ### Tests
 
-- update [tests/compiler/codegen/test_emit_asm_calls.py](tests/compiler/codegen/test_emit_asm_calls.py)
+- [x] update [tests/compiler/codegen/test_emit_asm_calls.py](tests/compiler/codegen/test_emit_asm_calls.py)
   - interface lookup should still occur
   - root synchronization around the lookup itself should be reduced
 
@@ -652,7 +654,7 @@ Mitigation:
 8. [x] Mark ref locals dirty from prologue spills, var declarations, and local assignments
 9. [x] Synchronize only `live ∩ dirty` named roots before GC-capable calls
 10. [x] Gate temp-root setup and clearing on call effects
-11. Tighten interface lookup emission so the lookup helper is treated as non-GC
+11. [x] Tighten interface lookup emission so the lookup helper is treated as non-GC
 12. [x] Re-run the full codegen and runtime-root test suite
 13. Measure emitted scaffolding and representative runtime kernels
 14. Only after the above, decide whether dead-root clearing is worth a follow-up slice

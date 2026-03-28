@@ -440,26 +440,19 @@ def _emit_interface_method_call(
     method_slot = _interface_method_slot(target.method_id, ctx)
     temp_root_base = ctx.temp_root_depth[0]
     receiver_temp_index = temp_root_base
-    rooted_temp_arg_count = 1
+    rooted_temp_arg_count = 0
 
     emit_expr(codegen, target.access.receiver, ctx)
-    codegen.emit_temp_root_slot_store(ctx.layout, receiver_temp_index, "rax", span=expr.span)
-    ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
-    codegen.asm.instr(f"mov rax, {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}")
-
     codegen.asm.instr("push rax")
-    if _runtime_call_emits_safepoint_hooks("rt_lookup_interface_method"):
-        _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-    if _runtime_call_may_gc("rt_lookup_interface_method"):
-        _sync_named_roots_if_needed(codegen, ctx, None)
-        codegen.emit_temp_arg_root_from_rsp(ctx.layout, receiver_temp_index, 0, span=expr.span)
     codegen.asm.instr("mov rdi, qword ptr [rsp]")
     codegen.asm.instr(f"lea rsi, [rip + {descriptor_symbol}]")
     codegen.asm.instr(f"mov edx, {method_slot}")
     codegen.emit_aligned_call("rt_lookup_interface_method")
+    codegen.asm.instr("mov rcx, qword ptr [rsp]")
+    codegen.asm.instr(f"mov {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}, rcx")
+    rooted_temp_arg_count = 1
+    ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
     codegen.asm.instr("add rsp, 8")
-    if _runtime_call_emits_safepoint_hooks("rt_lookup_interface_method"):
-        _emit_runtime_call_hooks_after(codegen, ctx)
 
     codegen.asm.instr("push rax")
 
