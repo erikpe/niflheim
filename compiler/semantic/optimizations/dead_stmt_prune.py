@@ -4,9 +4,9 @@ from dataclasses import dataclass, replace
 
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
-from compiler.semantic.operations import BinaryOpKind
 
 from .dataflow import LoopControlFlowState, solve_loop_fixed_point
+from .local_usage import is_pure_expr, read_locals_expr, read_locals_lvalue
 
 
 @dataclass
@@ -15,6 +15,8 @@ class _DeadStmtPruneStats:
     removed_local_assignments: int = 0
     removed_expression_statements: int = 0
     rewritten_effectful_statements: int = 0
+
+
 def dead_stmt_prune(program: SemanticProgram) -> SemanticProgram:
     logger = get_logger(__name__)
     stats = _DeadStmtPruneStats()
@@ -108,14 +110,14 @@ def _prune_stmt(
             live_before = set(live_after)
             live_before.discard(stmt.local_id)
             if initializer is not None:
-                live_before.update(_read_locals_expr(initializer))
+                live_before.update(read_locals_expr(initializer))
             return replace(stmt, initializer=initializer), live_before
 
         stats.removed_var_declarations += 1
         replacement = _rewrite_effectful_expr_stmt(initializer, stmt.span, stats)
         live_before = set(live_after)
         if replacement is not None:
-            live_before.update(_read_locals_expr(replacement.expr))
+            live_before.update(read_locals_expr(replacement.expr))
         return replacement, live_before
 
     if isinstance(stmt, SemanticAssign):
@@ -124,34 +126,34 @@ def _prune_stmt(
             if stmt.target.local_id in live_after:
                 live_before = set(live_after)
                 live_before.discard(stmt.target.local_id)
-                live_before.update(_read_locals_expr(pruned_value))
+                live_before.update(read_locals_expr(pruned_value))
                 return replace(stmt, value=pruned_value), live_before
 
             stats.removed_local_assignments += 1
             replacement = _rewrite_effectful_expr_stmt(pruned_value, stmt.span, stats)
             live_before = set(live_after)
             if replacement is not None:
-                live_before.update(_read_locals_expr(replacement.expr))
+                live_before.update(read_locals_expr(replacement.expr))
             return replacement, live_before
 
         pruned_target = _prune_lvalue(stmt.target)
         live_before = set(live_after)
-        live_before.update(_read_locals_lvalue(pruned_target))
-        live_before.update(_read_locals_expr(pruned_value))
+        live_before.update(read_locals_lvalue(pruned_target))
+        live_before.update(read_locals_expr(pruned_value))
         return replace(stmt, target=pruned_target, value=pruned_value), live_before
 
     if isinstance(stmt, SemanticExprStmt):
         pruned_expr = _prune_expr(stmt.expr)
-        if _is_pure_expr(pruned_expr):
+        if is_pure_expr(pruned_expr):
             stats.removed_expression_statements += 1
             return None, set(live_after)
         live_before = set(live_after)
-        live_before.update(_read_locals_expr(pruned_expr))
+        live_before.update(read_locals_expr(pruned_expr))
         return replace(stmt, expr=pruned_expr), live_before
 
     if isinstance(stmt, SemanticReturn):
         value = None if stmt.value is None else _prune_expr(stmt.value)
-        return replace(stmt, value=value), _read_locals_expr(value)
+        return replace(stmt, value=value), read_locals_expr(value)
 
     if isinstance(stmt, SemanticIf):
         pruned_condition = _prune_expr(stmt.condition)
@@ -162,7 +164,7 @@ def _prune_stmt(
         else:
             else_block, else_live = _prune_block(stmt.else_block, live_after, stats, loop_context=loop_context)
 
-        live_before = set(then_live) | set(else_live) | _read_locals_expr(pruned_condition)
+        live_before = set(then_live) | set(else_live) | read_locals_expr(pruned_condition)
         return replace(stmt, condition=pruned_condition, then_block=then_block, else_block=else_block), live_before
 
     if isinstance(stmt, SemanticWhile):
@@ -237,40 +239,17 @@ def _prune_expr(expr: SemanticExpr) -> SemanticExpr:
 def _rewrite_effectful_expr_stmt(
     expr: SemanticExpr | None, span: SourceSpan, stats: _DeadStmtPruneStats
 ) -> SemanticExprStmt | None:
-    if expr is None or _is_pure_expr(expr):
+    if expr is None or is_pure_expr(expr):
         return None
     stats.rewritten_effectful_statements += 1
     return SemanticExprStmt(expr=expr, span=span)
-
-
-def _is_pure_expr(expr: SemanticExpr) -> bool:
-    if isinstance(expr, (LocalRefExpr, FunctionRefExpr, ClassRefExpr, LiteralExprS, NullExprS, StringLiteralBytesExpr)):
-        return True
-    if isinstance(expr, MethodRefExpr):
-        return expr.receiver is None or _is_pure_expr(expr.receiver)
-    if isinstance(expr, UnaryExprS):
-        return _is_pure_expr(expr.operand)
-    if isinstance(expr, BinaryExprS):
-        if expr.op.kind in {
-            BinaryOpKind.DIVIDE,
-            BinaryOpKind.REMAINDER,
-            BinaryOpKind.SHIFT_LEFT,
-            BinaryOpKind.SHIFT_RIGHT,
-        }:
-            return False
-        return _is_pure_expr(expr.left) and _is_pure_expr(expr.right)
-    if isinstance(expr, CastExprS):
-        return False
-    if isinstance(expr, TypeTestExprS):
-        return _is_pure_expr(expr.operand)
-    return False
 
 
 def _prune_while_stmt(
     stmt: SemanticWhile, live_after: set[LocalId], stats: _DeadStmtPruneStats
 ) -> tuple[SemanticWhile, set[LocalId]]:
     pruned_condition = _prune_expr(stmt.condition)
-    condition_reads = _read_locals_expr(pruned_condition)
+    condition_reads = read_locals_expr(pruned_condition)
 
     def extend_live_set(body_live_before: set[LocalId]) -> set[LocalId]:
         return set(live_after) | condition_reads | body_live_before
@@ -286,7 +265,7 @@ def _prune_for_in_stmt(
     stmt: SemanticForIn, live_after: set[LocalId], stats: _DeadStmtPruneStats
 ) -> tuple[SemanticForIn, set[LocalId]]:
     pruned_collection = _prune_expr(stmt.collection)
-    collection_reads = _read_locals_expr(pruned_collection)
+    collection_reads = read_locals_expr(pruned_collection)
 
     def extend_live_set(body_live_before: set[LocalId]) -> set[LocalId]:
         return set(live_after) | (body_live_before - {stmt.element_local_id})
@@ -309,20 +288,10 @@ def _prune_loop_body_to_fixed_point(
         initial_state=set(initial_live_after),
         loop_exit_state=set(outer_live_after),
         next_state=lambda loop_live_after, loop_context: extend_live_set(
-            _prune_block(
-                body,
-                loop_live_after,
-                _DeadStmtPruneStats(),
-                loop_context=loop_context,
-            )[1]
+            _prune_block(body, loop_live_after, _DeadStmtPruneStats(), loop_context=loop_context)[1]
         ),
     )
-    pruned_body, _ = _prune_block(
-        body,
-        stable_loop_live_after,
-        stats,
-        loop_context=stable_loop_context,
-    )
+    pruned_body, _ = _prune_block(body, stable_loop_live_after, stats, loop_context=stable_loop_context)
     return pruned_body, stable_loop_live_after
 
 
@@ -337,72 +306,22 @@ def _read_locals_stmt(stmt: SemanticStmt) -> set[LocalId]:
     if isinstance(stmt, SemanticBlock):
         return _read_locals_block(stmt)
     if isinstance(stmt, SemanticVarDecl):
-        return _read_locals_expr(stmt.initializer)
+        return read_locals_expr(stmt.initializer)
     if isinstance(stmt, SemanticAssign):
-        return _read_locals_lvalue(stmt.target) | _read_locals_expr(stmt.value)
+        return read_locals_lvalue(stmt.target) | read_locals_expr(stmt.value)
     if isinstance(stmt, SemanticExprStmt):
-        return _read_locals_expr(stmt.expr)
+        return read_locals_expr(stmt.expr)
     if isinstance(stmt, SemanticReturn):
-        return _read_locals_expr(stmt.value)
+        return read_locals_expr(stmt.value)
     if isinstance(stmt, SemanticIf):
-        reads = _read_locals_expr(stmt.condition) | _read_locals_block(stmt.then_block)
+        reads = read_locals_expr(stmt.condition) | _read_locals_block(stmt.then_block)
         if stmt.else_block is not None:
             reads |= _read_locals_block(stmt.else_block)
         return reads
     if isinstance(stmt, SemanticWhile):
-        return _read_locals_expr(stmt.condition) | _read_locals_block(stmt.body)
+        return read_locals_expr(stmt.condition) | _read_locals_block(stmt.body)
     if isinstance(stmt, SemanticForIn):
-        return _read_locals_expr(stmt.collection) | (_read_locals_block(stmt.body) - {stmt.element_local_id})
+        return read_locals_expr(stmt.collection) | (_read_locals_block(stmt.body) - {stmt.element_local_id})
     if isinstance(stmt, (SemanticBreak, SemanticContinue)):
         return set()
     raise TypeError(f"Unsupported semantic statement for dead statement pruning reads: {type(stmt).__name__}")
-
-
-def _read_locals_lvalue(target: SemanticLValue) -> set[LocalId]:
-    if isinstance(target, LocalLValue):
-        return set()
-    if isinstance(target, FieldLValue):
-        return _read_locals_expr(target.access.receiver)
-    if isinstance(target, IndexLValue):
-        return _read_locals_expr(target.target) | _read_locals_expr(target.index)
-    if isinstance(target, SliceLValue):
-        return _read_locals_expr(target.target) | _read_locals_expr(target.begin) | _read_locals_expr(target.end)
-    raise TypeError(f"Unsupported semantic lvalue for dead statement pruning: {type(target).__name__}")
-
-
-def _read_locals_expr(expr: SemanticExpr | None) -> set[LocalId]:
-    if expr is None:
-        return set()
-    if isinstance(expr, LocalRefExpr):
-        return {expr.local_id}
-    if isinstance(expr, (FunctionRefExpr, ClassRefExpr, LiteralExprS, NullExprS, StringLiteralBytesExpr)):
-        return set()
-    if isinstance(expr, MethodRefExpr):
-        return set() if expr.receiver is None else _read_locals_expr(expr.receiver)
-    if isinstance(expr, UnaryExprS):
-        return _read_locals_expr(expr.operand)
-    if isinstance(expr, BinaryExprS):
-        return _read_locals_expr(expr.left) | _read_locals_expr(expr.right)
-    if isinstance(expr, CastExprS):
-        return _read_locals_expr(expr.operand)
-    if isinstance(expr, TypeTestExprS):
-        return _read_locals_expr(expr.operand)
-    if isinstance(expr, FieldReadExpr):
-        return _read_locals_expr(expr.access.receiver)
-    if isinstance(expr, CallExprS):
-        reads = set().union(*(_read_locals_expr(arg) for arg in expr.args)) if expr.args else set()
-        if isinstance(expr.target, CallableValueCallTarget):
-            return reads | _read_locals_expr(expr.target.callee)
-        access = call_target_receiver_access(expr.target)
-        if access is None:
-            return reads
-        return reads | _read_locals_expr(access.receiver)
-    if isinstance(expr, ArrayLenExpr):
-        return _read_locals_expr(expr.target)
-    if isinstance(expr, IndexReadExpr):
-        return _read_locals_expr(expr.target) | _read_locals_expr(expr.index)
-    if isinstance(expr, SliceReadExpr):
-        return _read_locals_expr(expr.target) | _read_locals_expr(expr.begin) | _read_locals_expr(expr.end)
-    if isinstance(expr, ArrayCtorExprS):
-        return _read_locals_expr(expr.length_expr)
-    raise TypeError(f"Unsupported semantic expression for dead statement pruning: {type(expr).__name__}")

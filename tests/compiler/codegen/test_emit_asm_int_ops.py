@@ -14,7 +14,7 @@ fn main() -> i64 {
     return (i64)f(7u8, 3u8);
 }
 """
-    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune"})
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
 
     assert "    add rax, rcx" in asm
     assert "    sub rax, rcx" in asm
@@ -35,7 +35,7 @@ fn main() -> i64 {
     return f(7u8, 3u8, 12, 5);
 }
 """
-    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune"})
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
 
     assert "    and rax, rcx" in asm
     assert "    or rax, rcx" in asm
@@ -57,7 +57,7 @@ fn main() -> i64 {
     return f(8u, 12, 7u8);
 }
 """
-    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune"})
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
 
     assert "    shl rax, cl" in asm
     assert "    sar rax, cl" in asm
@@ -79,7 +79,7 @@ fn main() -> i64 {
     return (i64)f(2u, 3u8);
 }
 """
-    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune"})
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
 
     assert "    test rcx, rcx" in asm
     assert "    test rcx, 1" in asm
