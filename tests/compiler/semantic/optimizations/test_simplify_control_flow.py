@@ -6,7 +6,7 @@ from compiler.common.logging import configure_logging, resolve_log_settings
 from compiler.resolver import resolve_program
 from compiler.semantic.ir import BoolConstant, LiteralExprS, SemanticIf, SemanticReturn, SemanticWhile
 from compiler.semantic.lowering.orchestration import lower_program
-from compiler.semantic.optimizations.constant_folding import fold_constants
+from compiler.semantic.optimizations.constant_fold import constant_fold
 from compiler.semantic.optimizations.simplify_control_flow import simplify_control_flow
 
 
@@ -28,7 +28,7 @@ def test_simplify_control_flow_chooses_then_branch_for_true_condition(tmp_path: 
         """,
     )
 
-    semantic = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    semantic = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     simplified = simplify_control_flow(semantic)
     statements = simplified.modules[("main",)].functions[0].body.statements
 

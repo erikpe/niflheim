@@ -7,8 +7,8 @@ from time import perf_counter
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import SemanticProgram
 
+from .constant_fold import constant_fold
 from .copy_propagation import copy_propagation
-from .constant_folding import fold_constants
 from .dead_store_elimination import dead_store_elimination
 from .dead_stmt_prune import dead_stmt_prune
 from .reachability import prune_unreachable_semantic
@@ -26,12 +26,12 @@ class SemanticOptimizationPass:
 
 
 DEFAULT_SEMANTIC_OPTIMIZATION_PASSES: tuple[SemanticOptimizationPass, ...] = (
-    SemanticOptimizationPass(name="constant_fold", transform=fold_constants),
+    SemanticOptimizationPass(name="constant_fold", transform=constant_fold),
     SemanticOptimizationPass(name="simplify_control_flow", transform=simplify_control_flow),
     SemanticOptimizationPass(name="copy_propagation", transform=copy_propagation),
     SemanticOptimizationPass(name="redundant_cast_elimination", transform=redundant_cast_elimination),
     SemanticOptimizationPass(name="dead_store_elimination", transform=dead_store_elimination),
-    SemanticOptimizationPass(name="constant_fold", transform=fold_constants),
+    SemanticOptimizationPass(name="constant_fold", transform=constant_fold),
     SemanticOptimizationPass(name="dead_stmt_prune", transform=dead_stmt_prune),
     SemanticOptimizationPass(name="prune_unreachable", transform=prune_unreachable_semantic),
 )

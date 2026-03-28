@@ -27,7 +27,7 @@ from compiler.semantic.ir import (
     SemanticWhile,
 )
 from compiler.semantic.lowering.orchestration import lower_program
-from compiler.semantic.optimizations.constant_folding import fold_constants
+from compiler.semantic.optimizations.constant_fold import constant_fold
 from compiler.semantic.symbols import FunctionId, LocalId
 from compiler.semantic.type_compat import best_effort_semantic_type_ref_from_name
 
@@ -41,7 +41,7 @@ def _span() -> SourceSpan:
     return SourceSpan(start=pos, end=pos)
 
 
-def test_fold_constants_folds_literal_arithmetic_and_boolean_exprs(tmp_path: Path) -> None:
+def test_constant_fold_folds_literal_arithmetic_and_boolean_exprs(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -55,7 +55,7 @@ def test_fold_constants_folds_literal_arithmetic_and_boolean_exprs(tmp_path: Pat
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     math_return = folded.modules[("main",)].functions[0].body.statements[0]
     flags_return = folded.modules[("main",)].functions[1].body.statements[0]
 
@@ -70,7 +70,7 @@ def test_fold_constants_folds_literal_arithmetic_and_boolean_exprs(tmp_path: Pat
     assert flags_return.value.constant.value is True
 
 
-def test_fold_constants_uses_python_style_signed_integer_division(tmp_path: Path) -> None:
+def test_constant_fold_uses_python_style_signed_integer_division(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -88,7 +88,7 @@ def test_fold_constants_uses_python_style_signed_integer_division(tmp_path: Path
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     small_negative_return = folded.modules[("main",)].functions[0].body.statements[0]
     mixed_sign_return = folded.modules[("main",)].functions[1].body.statements[0]
     positive_mixed_sign_return = folded.modules[("main",)].functions[2].body.statements[0]
@@ -109,7 +109,7 @@ def test_fold_constants_uses_python_style_signed_integer_division(tmp_path: Path
     assert positive_mixed_sign_return.value.constant.value == -15
 
 
-def test_fold_constants_folds_field_initializers_and_call_arguments(tmp_path: Path) -> None:
+def test_constant_fold_folds_field_initializers_and_call_arguments(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -127,7 +127,7 @@ def test_fold_constants_folds_field_initializers_and_call_arguments(tmp_path: Pa
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     field_initializer = folded.modules[("main",)].classes[0].fields[0].initializer
     call_return = folded.modules[("main",)].functions[1].body.statements[0]
 
@@ -143,7 +143,7 @@ def test_fold_constants_folds_field_initializers_and_call_arguments(tmp_path: Pa
     assert call_return.value.args[0].constant.value == 3
 
 
-def test_fold_constants_preserves_runtime_checked_integer_operations(tmp_path: Path) -> None:
+def test_constant_fold_preserves_runtime_checked_integer_operations(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -157,7 +157,7 @@ def test_fold_constants_preserves_runtime_checked_integer_operations(tmp_path: P
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     div_return = folded.modules[("main",)].functions[0].body.statements[0]
     shift_return = folded.modules[("main",)].functions[1].body.statements[0]
 
@@ -168,7 +168,7 @@ def test_fold_constants_preserves_runtime_checked_integer_operations(tmp_path: P
     assert isinstance(shift_return.value, BinaryExprS)
 
 
-def test_fold_constants_folds_conservative_literal_casts(tmp_path: Path) -> None:
+def test_constant_fold_folds_conservative_literal_casts(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -184,7 +184,7 @@ def test_fold_constants_folds_conservative_literal_casts(tmp_path: Path) -> None
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     statements = folded.modules[("main",)].functions[0].body.statements
 
     as_double = statements[0]
@@ -225,7 +225,7 @@ def test_fold_constants_folds_conservative_literal_casts(tmp_path: Path) -> None
     assert as_bool_from_double.initializer.constant.value is True
 
 
-def test_fold_constants_preserves_casts_without_safe_backend_equivalent(tmp_path: Path) -> None:
+def test_constant_fold_preserves_casts_without_safe_backend_equivalent(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -239,7 +239,7 @@ def test_fold_constants_preserves_casts_without_safe_backend_equivalent(tmp_path
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     large_to_i64_return = folded.modules[("main",)].functions[0].body.statements[0]
     large_to_u8_return = folded.modules[("main",)].functions[1].body.statements[0]
 
@@ -250,7 +250,7 @@ def test_fold_constants_preserves_casts_without_safe_backend_equivalent(tmp_path
     assert isinstance(large_to_u8_return.value, CastExprS)
 
 
-def test_fold_constants_uses_canonical_cast_target_type_ref_after_target_cache_removal(tmp_path: Path) -> None:
+def test_constant_fold_uses_canonical_cast_target_type_ref_after_target_cache_removal(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -265,7 +265,7 @@ def test_fold_constants_uses_canonical_cast_target_type_ref_after_target_cache_r
     return_stmt = function.body.statements[0]
     assert not hasattr(return_stmt.value, "target_type_name")
 
-    folded = fold_constants(semantic)
+    folded = constant_fold(semantic)
     folded_return = folded.modules[("main",)].functions[0].body.statements[0]
 
     assert isinstance(folded_return.value, LiteralExprS)
@@ -275,7 +275,7 @@ def test_fold_constants_uses_canonical_cast_target_type_ref_after_target_cache_r
     assert folded_return.value.constant.value == 2
 
 
-def test_fold_constants_folds_u64_to_double_using_unsigned_numeric_conversion(tmp_path: Path) -> None:
+def test_constant_fold_folds_u64_to_double_using_unsigned_numeric_conversion(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -285,7 +285,7 @@ def test_fold_constants_folds_u64_to_double_using_unsigned_numeric_conversion(tm
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     return_stmt = folded.modules[("main",)].functions[0].body.statements[0]
 
     assert isinstance(return_stmt, SemanticReturn)
@@ -294,7 +294,7 @@ def test_fold_constants_folds_u64_to_double_using_unsigned_numeric_conversion(tm
     assert return_stmt.value.constant.value == float(18446744073709551615)
 
 
-def test_fold_constants_propagates_literal_locals_within_a_block(tmp_path: Path) -> None:
+def test_constant_fold_propagates_literal_locals_within_a_block(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -306,7 +306,7 @@ def test_fold_constants_propagates_literal_locals_within_a_block(tmp_path: Path)
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     statements = folded.modules[("main",)].functions[0].body.statements
 
     y_decl = statements[1]
@@ -323,7 +323,7 @@ def test_fold_constants_propagates_literal_locals_within_a_block(tmp_path: Path)
     assert return_stmt.value.constant.value == 40
 
 
-def test_fold_constants_propagates_folded_locals_across_multiple_bindings(tmp_path: Path) -> None:
+def test_constant_fold_propagates_folded_locals_across_multiple_bindings(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -335,7 +335,7 @@ def test_fold_constants_propagates_folded_locals_across_multiple_bindings(tmp_pa
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     statements = folded.modules[("main",)].functions[0].body.statements
 
     a_decl = statements[0]
@@ -358,7 +358,7 @@ def test_fold_constants_propagates_folded_locals_across_multiple_bindings(tmp_pa
     assert return_stmt.value.constant.value == 10
 
 
-def test_fold_constants_invalidates_propagation_after_local_assignment(tmp_path: Path) -> None:
+def test_constant_fold_invalidates_propagation_after_local_assignment(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -370,14 +370,14 @@ def test_fold_constants_invalidates_propagation_after_local_assignment(tmp_path:
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     return_stmt = folded.modules[("main",)].functions[0].body.statements[2]
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, BinaryExprS)
 
 
-def test_fold_constants_preserves_outer_local_updates_from_nested_block(tmp_path: Path) -> None:
+def test_constant_fold_preserves_outer_local_updates_from_nested_block(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -395,7 +395,7 @@ def test_fold_constants_preserves_outer_local_updates_from_nested_block(tmp_path
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     statements = folded.modules[("main",)].functions[0].body.statements
 
     assert isinstance(statements[2], SemanticBlock)
@@ -411,7 +411,7 @@ def test_fold_constants_preserves_outer_local_updates_from_nested_block(tmp_path
     assert return_stmt.value.constant.value == 21
 
 
-def test_fold_constants_is_conservative_across_control_flow(tmp_path: Path) -> None:
+def test_constant_fold_is_conservative_across_control_flow(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -424,14 +424,14 @@ def test_fold_constants_is_conservative_across_control_flow(tmp_path: Path) -> N
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     return_stmt = folded.modules[("main",)].functions[0].body.statements[2]
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, BinaryExprS)
 
 
-def test_fold_constants_folds_branch_locals_but_does_not_leak_branch_env(tmp_path: Path) -> None:
+def test_constant_fold_folds_branch_locals_but_does_not_leak_branch_env(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -445,7 +445,7 @@ def test_fold_constants_folds_branch_locals_but_does_not_leak_branch_env(tmp_pat
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     statements = folded.modules[("main",)].functions[0].body.statements
 
     if_stmt = statements[1]
@@ -460,7 +460,7 @@ def test_fold_constants_folds_branch_locals_but_does_not_leak_branch_env(tmp_pat
     assert isinstance(return_stmt.value, BinaryExprS)
 
 
-def test_fold_constants_does_not_propagate_into_while_loops(tmp_path: Path) -> None:
+def test_constant_fold_does_not_propagate_into_while_loops(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -474,14 +474,14 @@ def test_fold_constants_does_not_propagate_into_while_loops(tmp_path: Path) -> N
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     while_stmt = folded.modules[("main",)].functions[0].body.statements[1]
 
     assert isinstance(while_stmt, SemanticWhile)
     assert isinstance(while_stmt.condition, BinaryExprS)
 
 
-def test_fold_constants_does_not_propagate_outer_constants_into_for_in_loops(tmp_path: Path) -> None:
+def test_constant_fold_does_not_propagate_outer_constants_into_for_in_loops(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -500,7 +500,7 @@ def test_fold_constants_does_not_propagate_outer_constants_into_for_in_loops(tmp
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     loop_stmt = folded.modules[("main",)].functions[0].body.statements[3]
 
     assert isinstance(loop_stmt, SemanticForIn)
@@ -508,7 +508,7 @@ def test_fold_constants_does_not_propagate_outer_constants_into_for_in_loops(tmp
     assert isinstance(loop_stmt.body.statements[0].initializer, BinaryExprS)
 
 
-def test_fold_constants_distinguishes_literal_and_runtime_addition_paths(tmp_path: Path) -> None:
+def test_constant_fold_distinguishes_literal_and_runtime_addition_paths(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -521,7 +521,7 @@ def test_fold_constants_distinguishes_literal_and_runtime_addition_paths(tmp_pat
         """,
     )
 
-    folded = fold_constants(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
     statements = folded.modules[("main",)].functions[0].body.statements
 
     literal_sum_decl = statements[0]
@@ -536,7 +536,7 @@ def test_fold_constants_distinguishes_literal_and_runtime_addition_paths(tmp_pat
     assert isinstance(runtime_sum_decl.initializer, BinaryExprS)
 
 
-def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
+def test_constant_fold_distinguishes_same_named_locals_by_local_id() -> None:
     span = _span()
     function_id = FunctionId(module_path=("main",), name="main")
     first_local_id = LocalId(owner_id=function_id, ordinal=0)
@@ -596,7 +596,7 @@ def test_fold_constants_distinguishes_same_named_locals_by_local_id() -> None:
         },
     )
 
-    folded = fold_constants(program)
+    folded = constant_fold(program)
     return_stmt = folded.modules[("main",)].functions[0].body.statements[2]
 
     assert isinstance(return_stmt, SemanticReturn)

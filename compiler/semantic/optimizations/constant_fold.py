@@ -36,10 +36,6 @@ def constant_fold(program: SemanticProgram) -> SemanticProgram:
     return folded_program
 
 
-def fold_constants(program: SemanticProgram) -> SemanticProgram:
-    return constant_fold(program)
-
-
 def _fold_field(field: SemanticField, stats: _FoldStats) -> SemanticField:
     if field.initializer is None:
         return field

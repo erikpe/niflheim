@@ -6,7 +6,7 @@ from compiler.resolver import resolve_program
 from compiler.semantic.ir import CallExprS, FunctionCallTarget, IntConstant, LiteralExprS, SemanticReturn
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.copy_propagation import copy_propagation
-from compiler.semantic.optimizations.constant_folding import fold_constants
+from compiler.semantic.optimizations.constant_fold import constant_fold
 from compiler.semantic.optimizations.dead_store_elimination import dead_store_elimination
 from compiler.semantic.optimizations.dead_stmt_prune import dead_stmt_prune
 from compiler.semantic.optimizations.pipeline import (
@@ -42,9 +42,9 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
     optimized = optimize_semantic_program(semantic)
     expected = prune_unreachable_semantic(
         dead_stmt_prune(
-            fold_constants(
+            constant_fold(
                 dead_store_elimination(
-                    redundant_cast_elimination(copy_propagation(simplify_control_flow(fold_constants(semantic))))
+                    redundant_cast_elimination(copy_propagation(simplify_control_flow(constant_fold(semantic))))
                 )
             )
         )
