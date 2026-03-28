@@ -258,13 +258,15 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    call_hash_body = asm[asm.index("call_hash:") : asm.index(".Lcall_hash_epilogue:")]
 
-    assert "    call rt_lookup_interface_method" in asm
-    assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in asm
-    assert "    mov edx, 0" in asm
-    assert re.search(r"mov qword ptr \[rbp - \d+\], rax\n\s+mov r10, rsp", asm)
-    assert "    mov r11, qword ptr [r10 + 8]" in asm
-    assert "    call r11" in asm
+    assert "    call rt_lookup_interface_method" in call_hash_body
+    assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in call_hash_body
+    assert "    mov edx, 0" in call_hash_body
+    assert "# mirror named reference slots into shadow-stack slots" not in call_hash_body
+    assert re.search(r"push rax\n\s+mov r10, rsp", call_hash_body)
+    assert "    mov r11, qword ptr [r10 + 8]" in call_hash_body
+    assert "    call r11" in call_hash_body
 
 
 def test_emit_asm_interface_method_call_preserves_receiver_and_arg_order(tmp_path) -> None:
@@ -320,8 +322,10 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    call_next_body = asm[asm.index("call_next:") : asm.index(".Lcall_next_epilogue:")]
 
-    assert "    call rt_lookup_interface_method" in asm
-    assert "    call rt_root_slot_store" in asm
-    assert re.search(r"mov qword ptr \[rbp - \d+\], rax\n\s+mov r10, rsp", asm)
-    assert "    call r11" in asm
+    assert "    call rt_lookup_interface_method" in call_next_body
+    assert "    call rt_root_slot_store" in call_next_body
+    assert "# mirror named reference slots into shadow-stack slots" not in call_next_body
+    assert re.search(r"push rax\n\s+mov r10, rsp", call_next_body)
+    assert "    call r11" in call_next_body

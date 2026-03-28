@@ -7,6 +7,7 @@ from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.emitter_stmt import emit_statement
 from compiler.codegen.layout import build_constructor_layout, build_layout
 from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
+from compiler.codegen.root_liveness import analyze_named_root_liveness
 from compiler.codegen.strings import escape_c_string
 from compiler.semantic.ir import *
 from compiler.semantic.lowered_ir import LoweredSemanticClass, LoweredSemanticFunction, LoweredSemanticMethod
@@ -93,6 +94,7 @@ def emit_function(
         string_literal_labels=codegen.string_literal_labels,
         temp_root_depth=[0],
         declaration_tables=declaration_tables,
+        named_root_liveness=analyze_named_root_liveness(fn),
     )
 
     for stmt in fn.body.statements:
@@ -183,6 +185,7 @@ def emit_constructor(codegen, declaration_tables, cls: LoweredSemanticClass) -> 
         string_literal_labels=codegen.string_literal_labels,
         temp_root_depth=[0],
         declaration_tables=declaration_tables,
+        named_root_liveness=None,
     )
 
     param_fields = set(ctor_layout.param_field_names)

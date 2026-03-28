@@ -44,7 +44,9 @@ def emit_statement(
     if isinstance(stmt, SemanticVarDecl):
         offset = layout.local_slot_offsets.get(stmt.local_id)
         if offset is None:
-            local_label = str(stmt.local_id) if ctx.owner is None else local_display_name_for_owner(ctx.owner, stmt.local_id)
+            local_label = (
+                str(stmt.local_id) if ctx.owner is None else local_display_name_for_owner(ctx.owner, stmt.local_id)
+            )
             codegen_types.raise_codegen_error(
                 f"variable '{local_label}' is not materialized in stack layout", span=stmt.span
             )
@@ -125,7 +127,9 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
     if isinstance(target, LocalLValue):
         offset = layout.local_slot_offsets.get(target.local_id)
         if offset is None:
-            local_label = str(target.local_id) if ctx.owner is None else local_display_name_for_owner(ctx.owner, target.local_id)
+            local_label = (
+                str(target.local_id) if ctx.owner is None else local_display_name_for_owner(ctx.owner, target.local_id)
+            )
             codegen_types.raise_codegen_error(
                 f"identifier '{local_label}' is not materialized in stack layout", span=stmt.span
             )
@@ -146,7 +150,7 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         codegen.asm.instr(f"mov qword ptr [rcx + {field_offset}], rax")
         return
     if isinstance(target, IndexLValue):
-        from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
+        from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call, _named_root_sync_local_ids_for_lvalue_call
 
         _emit_named_call(
             codegen,
@@ -154,10 +158,11 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
             [target.target, target.index, stmt.value],
             TYPE_NAME_UNIT,
             ctx,
+            named_root_local_ids=_named_root_sync_local_ids_for_lvalue_call(ctx, target),
         )
         return
     if isinstance(target, SliceLValue):
-        from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
+        from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call, _named_root_sync_local_ids_for_lvalue_call
 
         _emit_named_call(
             codegen,
@@ -165,6 +170,7 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
             [target.target, target.begin, target.end, stmt.value],
             TYPE_NAME_UNIT,
             ctx,
+            named_root_local_ids=_named_root_sync_local_ids_for_lvalue_call(ctx, target),
         )
         return
 
@@ -180,7 +186,9 @@ def _emit_for_in(
     layout = ctx.layout
     if ctx.owner is None:
         raise ValueError("for-in statement emission requires function-like local metadata context")
-    collection_offset = _require_local_offset(layout, stmt.collection_local_id, label="for-in collection temp", span=stmt.span)
+    collection_offset = _require_local_offset(
+        layout, stmt.collection_local_id, label="for-in collection temp", span=stmt.span
+    )
     length_offset = _require_local_offset(layout, stmt.length_local_id, label="for-in length temp", span=stmt.span)
     index_offset = _require_local_offset(layout, stmt.index_local_id, label="for-in index temp", span=stmt.span)
     element_offset = _require_local_offset(layout, stmt.element_local_id, label=stmt.element_name, span=stmt.span)
@@ -195,7 +203,15 @@ def _emit_for_in(
     from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
 
     coll_ref = local_ref_expr_for_owner(ctx.owner, stmt.collection_local_id, span=stmt.span)
-    _emit_named_call(codegen, _dispatch_target_name(stmt.iter_len_dispatch, ctx), [coll_ref], TYPE_NAME_U64, ctx)
+    iter_len_named_roots = None if ctx.named_root_liveness is None else ctx.named_root_liveness.for_for_in_iter_len(stmt)
+    _emit_named_call(
+        codegen,
+        _dispatch_target_name(stmt.iter_len_dispatch, ctx),
+        [coll_ref],
+        TYPE_NAME_U64,
+        ctx,
+        named_root_local_ids=iter_len_named_roots,
+    )
     codegen.asm.instr(f"mov {offset_operand(length_offset)}, rax")
     codegen.asm.instr(f"mov {offset_operand(index_offset)}, 0")
 
@@ -205,12 +221,14 @@ def _emit_for_in(
     codegen.asm.instr(f"jge {loop_done}")
 
     index_ref = local_ref_expr_for_owner(ctx.owner, stmt.index_local_id, span=stmt.span)
+    iter_get_named_roots = None if ctx.named_root_liveness is None else ctx.named_root_liveness.for_for_in_iter_get(stmt)
     _emit_named_call(
         codegen,
         _dispatch_target_name(stmt.iter_get_dispatch, ctx),
         [coll_ref, index_ref],
         stmt.element_type_ref,
         ctx,
+        named_root_local_ids=iter_get_named_roots,
     )
     codegen.asm.instr(f"mov {offset_operand(element_offset)}, rax")
 

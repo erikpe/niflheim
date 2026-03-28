@@ -15,6 +15,7 @@ from compiler.codegen.abi.runtime import (
 )
 from compiler.codegen.program_generator import ProgramGenerator
 from compiler.codegen.layout import build_layout
+from compiler.codegen.root_liveness import analyze_named_root_liveness
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_I64
 from compiler.resolver import resolve_program
@@ -70,6 +71,7 @@ def _build_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name:
         string_literal_labels={},
         temp_root_depth=[0],
         declaration_tables=tables,
+        named_root_liveness=analyze_named_root_liveness(fn),
     )
     return fn, generator, emit_ctx
 

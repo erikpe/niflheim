@@ -21,6 +21,7 @@ from compiler.codegen.abi.runtime import (
     runtime_call_metadata,
 )
 from compiler.codegen.model import FunctionLayout
+from compiler.codegen.root_liveness import NamedRootLiveness
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
 from compiler.codegen.ops_int import emit_integer_binary_op, emit_integer_unary_op
 from compiler.codegen.runtime_calls import runtime_dispatch_call_name
@@ -61,6 +62,7 @@ class EmitContext:
     string_literal_labels: dict[str, tuple[str, int]]
     temp_root_depth: list[int]
     declaration_tables: DeclarationTables
+    named_root_liveness: NamedRootLiveness | None = None
 
 
 def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> None:
@@ -97,7 +99,14 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
         _emit_call_expr(codegen, expr, ctx)
         return
     if isinstance(expr, ArrayLenExpr):
-        _emit_named_call(codegen, ARRAY_LEN_RUNTIME_CALL, [expr.target], TYPE_NAME_U64, ctx)
+        _emit_named_call(
+            codegen,
+            ARRAY_LEN_RUNTIME_CALL,
+            [expr.target],
+            TYPE_NAME_U64,
+            ctx,
+            named_root_local_ids=_named_root_sync_local_ids_for_expr(ctx, expr),
+        )
         return
     if isinstance(expr, IndexReadExpr):
         _emit_index_read_expr(codegen, expr, ctx)
@@ -321,7 +330,7 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Emi
     emit_expr(codegen, expr.length_expr, ctx)
     codegen.asm.instr("push rax")
     _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-    codegen.emit_named_root_slot_updates(ctx.layout)
+    codegen.emit_named_root_slot_updates(ctx.layout, local_ids=_named_root_sync_local_ids_for_expr(ctx, expr))
     rooted_runtime_arg_count = codegen.emit_runtime_call_arg_temp_roots(ctx.layout, runtime_ctor, 1, span=expr.span)
     codegen.asm.instr("pop rdi")
     codegen.emit_aligned_call(runtime_ctor)
@@ -332,26 +341,43 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Emi
 
 def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -> None:
     target = expr.target
+    named_root_local_ids = _named_root_sync_local_ids_for_expr(ctx, expr)
     if isinstance(target, FunctionCallTarget):
-        _emit_named_call(codegen, target.function_id.name, expr.args, expr.type_ref, ctx)
+        _emit_named_call(codegen, target.function_id.name, expr.args, expr.type_ref, ctx, named_root_local_ids=named_root_local_ids)
         return
     if isinstance(target, StaticMethodCallTarget):
-        _emit_named_call(codegen, _method_label(target.method_id, ctx), expr.args, expr.type_ref, ctx)
+        _emit_named_call(
+            codegen, _method_label(target.method_id, ctx), expr.args, expr.type_ref, ctx, named_root_local_ids=named_root_local_ids
+        )
         return
     if isinstance(target, InstanceMethodCallTarget):
-        _emit_named_call(codegen, _method_label(target.method_id, ctx), [target.access.receiver, *expr.args], expr.type_ref, ctx)
+        _emit_named_call(
+            codegen,
+            _method_label(target.method_id, ctx),
+            [target.access.receiver, *expr.args],
+            expr.type_ref,
+            ctx,
+            named_root_local_ids=named_root_local_ids,
+        )
         return
     if isinstance(target, InterfaceMethodCallTarget):
         _emit_interface_method_call(codegen, expr, target, ctx)
         return
     if isinstance(target, ConstructorCallTarget):
-        _emit_named_call(codegen, _constructor_label(target.constructor_id, ctx), expr.args, expr.type_ref, ctx)
+        _emit_named_call(
+            codegen, _constructor_label(target.constructor_id, ctx), expr.args, expr.type_ref, ctx, named_root_local_ids=named_root_local_ids
+        )
         return
-    _emit_callable_value_call(codegen, expr, target.callee, ctx)
+    _emit_callable_value_call(codegen, expr, target.callee, ctx, named_root_local_ids=named_root_local_ids)
 
 
 def _emit_callable_value_call(
-    codegen: CodeGenerator, expr: CallExprS, callee: SemanticExpr, ctx: EmitContext
+    codegen: CodeGenerator,
+    expr: CallExprS,
+    callee: SemanticExpr,
+    ctx: EmitContext,
+    *,
+    named_root_local_ids: frozenset[LocalId] | None,
 ) -> None:
     _emit_call_sequence(
         codegen,
@@ -360,6 +386,7 @@ def _emit_callable_value_call(
         ctx=ctx,
         callee_expr=callee,
         temp_root_spans=[expr.span] * len(expr.args),
+        named_root_local_ids=named_root_local_ids,
     )
 
 
@@ -431,7 +458,7 @@ def _emit_interface_method_call(
         if location_kind == "stack"
     ]
 
-    codegen.emit_named_root_slot_updates(ctx.layout)
+    codegen.emit_named_root_slot_updates(ctx.layout, local_ids=_named_root_sync_local_ids_for_expr(ctx, expr))
     codegen.asm.instr("mov r10, rsp")
     codegen.asm.instr(f"mov r11, {stack_slot_operand('r10', len(call_arguments) * 8)}")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
@@ -465,6 +492,8 @@ def _emit_named_call(
     call_arguments: list[SemanticExpr],
     return_type_ref: SemanticTypeRef | str,
     ctx: EmitContext,
+    *,
+    named_root_local_ids: frozenset[LocalId] | None = None,
 ) -> None:
     runtime_metadata = _runtime_call_metadata_for_target(target_name)
     runtime_hook_span = (
@@ -480,6 +509,7 @@ def _emit_named_call(
         target_name=target_name,
         temp_root_spans=[arg.span for arg in call_arguments],
         runtime_hook_span=runtime_hook_span,
+        named_root_local_ids=named_root_local_ids,
     )
 
 
@@ -493,6 +523,7 @@ def _emit_call_sequence(
     callee_expr: SemanticExpr | None = None,
     temp_root_spans: list[object | None],
     runtime_hook_span: object | None = None,
+    named_root_local_ids: frozenset[LocalId] | None = None,
 ) -> None:
     if (target_name is None) == (callee_expr is None):
         raise ValueError("call emission requires exactly one of target_name or callee_expr")
@@ -537,7 +568,7 @@ def _emit_call_sequence(
         codegen.asm.instr("mov r11, rax")
         call_target = "r11"
     if should_sync_named_roots:
-        codegen.emit_named_root_slot_updates(layout)
+        codegen.emit_named_root_slot_updates(layout, local_ids=named_root_local_ids)
     codegen.asm.instr("mov r10, rsp")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
         arg_operand = stack_slot_operand("r10", arg_index * 8)
@@ -567,12 +598,24 @@ def _emit_call_sequence(
 
 
 def _emit_index_read_expr(codegen: CodeGenerator, expr: IndexReadExpr, ctx: EmitContext) -> None:
-    _emit_named_call(codegen, _dispatch_target_name(expr.dispatch, ctx), [expr.target, expr.index], expr.type_ref, ctx)
+    _emit_named_call(
+        codegen,
+        _dispatch_target_name(expr.dispatch, ctx),
+        [expr.target, expr.index],
+        expr.type_ref,
+        ctx,
+        named_root_local_ids=_named_root_sync_local_ids_for_expr(ctx, expr),
+    )
 
 
 def _emit_slice_read_expr(codegen: CodeGenerator, expr: SliceReadExpr, ctx: EmitContext) -> None:
     _emit_named_call(
-        codegen, _dispatch_target_name(expr.dispatch, ctx), [expr.target, expr.begin, expr.end], expr.type_ref, ctx
+        codegen,
+        _dispatch_target_name(expr.dispatch, ctx),
+        [expr.target, expr.begin, expr.end],
+        expr.type_ref,
+        ctx,
+        named_root_local_ids=_named_root_sync_local_ids_for_expr(ctx, expr),
     )
 
 
@@ -582,7 +625,7 @@ def _emit_string_literal_bytes_expr(codegen: CodeGenerator, expr: StringLiteralB
         codegen_types.raise_codegen_error("missing string literal lowering metadata", span=expr.span)
     data_label, data_len = label_and_len
     _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-    codegen.emit_named_root_slot_updates(ctx.layout)
+    codegen.emit_named_root_slot_updates(ctx.layout, local_ids=_named_root_sync_local_ids_for_expr(ctx, expr))
     codegen.asm.instr(f"lea rdi, [rip + {data_label}]")
     codegen.asm.instr(f"mov rsi, {data_len}")
     codegen.emit_aligned_call(ARRAY_FROM_BYTES_U8_RUNTIME_CALL)
@@ -693,6 +736,22 @@ def _runtime_call_emits_safepoint_hooks(target_name: str) -> bool:
 
 def _runtime_call_may_gc(target_name: str) -> bool:
     return runtime_call_metadata(target_name).may_gc
+
+
+def _named_root_sync_local_ids_for_expr(
+    ctx: EmitContext, expr: SemanticExpr
+) -> frozenset[LocalId] | None:
+    if ctx.named_root_liveness is None:
+        return None
+    return ctx.named_root_liveness.for_expr(expr)
+
+
+def _named_root_sync_local_ids_for_lvalue_call(
+    ctx: EmitContext, target: SemanticLValue
+) -> frozenset[LocalId] | None:
+    if ctx.named_root_liveness is None:
+        return None
+    return ctx.named_root_liveness.for_lvalue_call(target)
 
 
 def _method_label(method_id: MethodId, ctx: EmitContext) -> str:

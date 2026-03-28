@@ -3,6 +3,10 @@ from tests.compiler.codegen.helpers import emit_source_asm
 
 
 def _assert_named_root_store_block(asm: str, *, expected_store_count: int) -> None:
+    if expected_store_count == 0:
+        assert "# mirror named reference slots into shadow-stack slots" not in asm
+        return
+
     pattern = (
         r"# mirror named reference slots into shadow-stack slots\n"
         + (r"\s+mov rax, qword ptr \[rbp - \d+\]\n\s+mov qword ptr \[rbp - \d+\], rax\n" * expected_store_count)
@@ -55,7 +59,7 @@ fn main() -> i64 {
     assert ".Lmake_rt_safepoint_before_" in make_body
     assert ".Lmake_rt_safepoint_after_" in make_body
     assert "    call rt_root_slot_store" not in make_body
-    _assert_named_root_store_block(make_body, expected_store_count=2)
+    _assert_named_root_store_block(make_body, expected_store_count=0)
 
 
 def test_emit_asm_skips_extern_declaration_body_emission(tmp_path) -> None:
@@ -95,7 +99,7 @@ fn main() -> i64 {
     assert "    mov qword ptr [rbp - 8], rdi" in f_body
     assert "    mov qword ptr [rbp - 16], rax" in f_body
     assert "    call rt_root_slot_store" in f_body
-    _assert_named_root_store_block(f_body, expected_store_count=2)
+    _assert_named_root_store_block(f_body, expected_store_count=0)
     assert "    call rt_gc_collect" in f_body
 
 
@@ -253,7 +257,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
 
-    _assert_named_root_store_block(f_body, expected_store_count=1)
+    _assert_named_root_store_block(f_body, expected_store_count=0)
     assert "    mov rax, qword ptr [rbp - 16]" not in f_body
 
 
@@ -348,9 +352,39 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call callee" in asm
-    _assert_named_root_store_block(asm, expected_store_count=2)
-    assert "rt_safepoint_before" not in asm
+    caller_body = asm[asm.index("caller:") : asm.index(".Lcaller_epilogue:")]
+
+    assert "    call callee" in caller_body
+    _assert_named_root_store_block(caller_body, expected_store_count=0)
+    assert "rt_safepoint_before" not in caller_body
+
+
+def test_emit_asm_gc_capable_call_syncs_only_live_named_roots(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn f(a: Obj, b: Obj) -> Obj {
+    var keep: Obj = a;
+    var dead: Obj = b;
+    rt_gc_collect(keep);
+    return keep;
+}
+
+fn main() -> i64 {
+    if f(null, null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+
+    _assert_named_root_store_block(f_body, expected_store_count=1)
 
 
 def test_emit_asm_roots_temporary_reference_args_for_non_runtime_call(tmp_path) -> None:

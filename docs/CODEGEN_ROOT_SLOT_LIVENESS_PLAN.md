@@ -242,6 +242,8 @@ Replace helper-call-based named-root updates with direct stores into stack-resid
 
 ## Slice 3: Add lowered-IR named-root liveness analysis
 
+Status: implemented
+
 Payoff: very high
 
 Risk: medium
@@ -266,10 +268,10 @@ The analysis should run after executable lowering because:
 
 ### Concrete Changes
 
-- implement backward liveness for lowered statements
-- implement expression-local liveness that mirrors actual codegen evaluation order
-- produce a call-site plan describing which named reference locals are live across each call
-- initially scope this to named locals only; keep temp-root logic separate
+- [x] implement backward liveness for lowered statements
+- [x] implement expression-local liveness that mirrors actual codegen evaluation order
+- [x] produce a call-site plan describing which named reference locals are live across each call
+- [x] initially scope this to named locals only; keep temp-root logic separate
 
 ### Expected Outcome
 
@@ -278,13 +280,13 @@ The analysis should run after executable lowering because:
 
 ### Tests
 
-- add analysis-focused unit tests for:
+- [x] add analysis-focused unit tests for:
   - straight-line calls
   - nested calls
   - branches
   - loops
   - lowered `for-in`
-- add codegen regressions showing that dead reference locals are no longer synchronized before GC-capable calls
+- [x] add codegen regressions showing that dead reference locals are no longer synchronized before GC-capable calls
 
 ## Slice 4: Add dirty-root tracking in emission context
 
@@ -640,8 +642,8 @@ Mitigation:
 2. [x] Update shared call emission to branch on `may_gc`
 3. [x] Replace helper-based named-root synchronization with direct stores in [compiler/codegen/generator.py](compiler/codegen/generator.py)
 4. [x] Update codegen tests to assert root-slot state and reduced scaffolding rather than helper-call presence
-5. Add a lowered-IR named-root liveness analysis module
-6. Integrate the analysis into call-site emission in [compiler/codegen/emitter_expr.py](compiler/codegen/emitter_expr.py)
+5. [x] Add a lowered-IR named-root liveness analysis module
+6. [x] Integrate the analysis into call-site emission in [compiler/codegen/emitter_expr.py](compiler/codegen/emitter_expr.py)
 7. Extend `EmitContext` with dirty-root tracking
 8. Mark ref locals dirty from prologue spills, var declarations, and local assignments
 9. Synchronize only `live ∩ dirty` named roots before GC-capable calls
