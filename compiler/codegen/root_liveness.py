@@ -18,10 +18,14 @@ from compiler.semantic.ir import *
 
 @dataclass(frozen=True)
 class NamedRootLiveness:
+    stmt_live_after: dict[int, frozenset[LocalId]] = field(default_factory=dict)
     expr_call_live_after: dict[int, frozenset[LocalId]] = field(default_factory=dict)
     lvalue_call_live_after: dict[int, frozenset[LocalId]] = field(default_factory=dict)
     for_in_iter_len_live_after: dict[int, frozenset[LocalId]] = field(default_factory=dict)
     for_in_iter_get_live_after: dict[int, frozenset[LocalId]] = field(default_factory=dict)
+
+    def for_stmt(self, stmt: SemanticStmt | LoweredSemanticStmt) -> frozenset[LocalId]:
+        return self.stmt_live_after.get(id(stmt), frozenset())
 
     def for_expr(self, expr: SemanticExpr) -> frozenset[LocalId]:
         return self.expr_call_live_after.get(id(expr), frozenset())
@@ -53,6 +57,7 @@ class _NamedRootLivenessAnalyzer:
             for local_info in owner.local_info_by_id.values()
             if codegen_types.is_reference_type_ref(local_info.type_ref)
         }
+        self._stmt_live_after: dict[int, frozenset[LocalId]] = {}
         self._expr_call_live_after: dict[int, frozenset[LocalId]] = {}
         self._lvalue_call_live_after: dict[int, frozenset[LocalId]] = {}
         self._for_in_iter_len_live_after: dict[int, frozenset[LocalId]] = {}
@@ -63,6 +68,7 @@ class _NamedRootLivenessAnalyzer:
         if body is not None:
             self._analyze_block(body, live_after=set(), loop_continue_live=set(), loop_break_live=set())
         return NamedRootLiveness(
+            stmt_live_after=self._stmt_live_after,
             expr_call_live_after=self._expr_call_live_after,
             lvalue_call_live_after=self._lvalue_call_live_after,
             for_in_iter_len_live_after=self._for_in_iter_len_live_after,
@@ -95,6 +101,7 @@ class _NamedRootLivenessAnalyzer:
         loop_continue_live: set[LocalId],
         loop_break_live: set[LocalId],
     ) -> set[LocalId]:
+        self._record_stmt_live_after(stmt, live_after)
         if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
             return self._analyze_block(
                 stmt,
@@ -270,6 +277,9 @@ class _NamedRootLivenessAnalyzer:
 
     def _record_expr_call(self, expr: SemanticExpr, live_after: set[LocalId]) -> None:
         self._expr_call_live_after[id(expr)] = self._existing_union(self._expr_call_live_after.get(id(expr)), live_after)
+
+    def _record_stmt_live_after(self, stmt: SemanticStmt | LoweredSemanticStmt, live_after: set[LocalId]) -> None:
+        self._stmt_live_after[id(stmt)] = self._existing_union(self._stmt_live_after.get(id(stmt)), live_after)
 
     def _record_lvalue_call(self, target: SemanticLValue, live_after: set[LocalId]) -> None:
         self._lvalue_call_live_after[id(target)] = self._existing_union(

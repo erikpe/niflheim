@@ -66,6 +66,7 @@ class EmitContext:
     named_root_liveness: NamedRootLiveness | None = None
     tracked_named_root_local_ids: frozenset[LocalId] = frozenset()
     dirty_named_root_local_ids: set[LocalId] | None = None
+    known_cleared_named_root_local_ids: set[LocalId] | None = None
 
     def snapshot_dirty_named_roots(self) -> set[LocalId]:
         if self.dirty_named_root_local_ids is None:
@@ -80,17 +81,40 @@ class EmitContext:
             local_id for local_id in dirty_local_ids if local_id in self.tracked_named_root_local_ids
         )
 
+    def snapshot_known_cleared_named_roots(self) -> set[LocalId]:
+        if self.known_cleared_named_root_local_ids is None:
+            return set()
+        return set(self.known_cleared_named_root_local_ids)
+
+    def restore_known_cleared_named_roots(self, cleared_local_ids: set[LocalId]) -> None:
+        if self.known_cleared_named_root_local_ids is None:
+            return
+        self.known_cleared_named_root_local_ids.clear()
+        self.known_cleared_named_root_local_ids.update(
+            local_id for local_id in cleared_local_ids if local_id in self.tracked_named_root_local_ids
+        )
+
     def merge_dirty_named_roots(self, *dirty_states: set[LocalId]) -> None:
         merged: set[LocalId] = set()
         for dirty_state in dirty_states:
             merged.update(dirty_state)
         self.restore_dirty_named_roots(merged)
 
+    def intersect_known_cleared_named_roots(self, *cleared_states: set[LocalId]) -> None:
+        if self.known_cleared_named_root_local_ids is None:
+            return
+        intersected = set(self.tracked_named_root_local_ids)
+        for cleared_state in cleared_states:
+            intersected.intersection_update(cleared_state)
+        self.restore_known_cleared_named_roots(intersected)
+
     def invalidate_all_named_roots(self) -> None:
         if self.dirty_named_root_local_ids is None:
             return
         self.dirty_named_root_local_ids.clear()
         self.dirty_named_root_local_ids.update(self.tracked_named_root_local_ids)
+        if self.known_cleared_named_root_local_ids is not None:
+            self.known_cleared_named_root_local_ids.clear()
 
     def mark_named_root_dirty(self, local_id: LocalId) -> None:
         if self.dirty_named_root_local_ids is None or local_id not in self.tracked_named_root_local_ids:
@@ -101,6 +125,18 @@ class EmitContext:
         if self.dirty_named_root_local_ids is None:
             return
         self.dirty_named_root_local_ids.difference_update(local_ids)
+
+    def mark_named_roots_synced(self, local_ids: Iterable[LocalId]) -> None:
+        tracked_local_ids = {local_id for local_id in local_ids if local_id in self.tracked_named_root_local_ids}
+        self.mark_named_roots_clean(tracked_local_ids)
+        if self.known_cleared_named_root_local_ids is not None:
+            self.known_cleared_named_root_local_ids.difference_update(tracked_local_ids)
+
+    def mark_named_roots_cleared(self, local_ids: Iterable[LocalId]) -> None:
+        tracked_local_ids = {local_id for local_id in local_ids if local_id in self.tracked_named_root_local_ids}
+        self.mark_named_roots_clean(tracked_local_ids)
+        if self.known_cleared_named_root_local_ids is not None:
+            self.known_cleared_named_root_local_ids.update(tracked_local_ids)
 
 
 def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> None:
@@ -780,7 +816,7 @@ def _sync_named_roots_if_needed(
 
     local_ids_to_sync = _dirty_named_root_local_ids_to_sync(ctx, live_local_ids)
     codegen.emit_named_root_slot_updates(ctx.layout, local_ids=local_ids_to_sync)
-    ctx.mark_named_roots_clean(local_ids_to_sync)
+    ctx.mark_named_roots_synced(local_ids_to_sync)
     return local_ids_to_sync
 
 

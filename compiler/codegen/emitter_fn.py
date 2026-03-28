@@ -113,6 +113,7 @@ def emit_function(
         named_root_liveness=analyze_named_root_liveness(fn),
         tracked_named_root_local_ids=_tracked_named_root_local_ids(layout),
         dirty_named_root_local_ids=_initial_dirty_named_root_local_ids(fn, layout),
+        known_cleared_named_root_local_ids=set(_tracked_named_root_local_ids(layout)),
     )
 
     for stmt in fn.body.statements:

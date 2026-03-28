@@ -57,25 +57,30 @@ def emit_statement(
         codegen.asm.instr(f"mov {offset_operand(offset)}, rax")
         if stmt.initializer is not None:
             ctx.mark_named_root_dirty(stmt.local_id)
+        _clear_dead_named_roots_if_needed(codegen, ctx, stmt, loop_labels=loop_labels)
         return
 
     if isinstance(stmt, SemanticAssign):
         _emit_assign(codegen, stmt, ctx)
+        _clear_dead_named_roots_if_needed(codegen, ctx, stmt, loop_labels=loop_labels)
         return
 
     if isinstance(stmt, SemanticExprStmt):
         emit_expr(codegen, stmt.expr, ctx)
+        _clear_dead_named_roots_if_needed(codegen, ctx, stmt, loop_labels=loop_labels)
         return
 
     if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
         for nested in stmt.statements:
             emit_statement(codegen, nested, epilogue_label, function_return_type_ref, ctx, loop_labels)
+        _clear_dead_named_roots_if_needed(codegen, ctx, stmt, loop_labels=loop_labels)
         return
 
     if isinstance(stmt, SemanticBreak):
         if not loop_labels:
             codegen_types.raise_codegen_error("break codegen requires enclosing loop", span=stmt.span)
         _loop_continue, loop_end = loop_labels[-1]
+        _clear_dead_named_roots_if_needed(codegen, ctx, stmt, loop_labels=loop_labels)
         codegen.asm.instr(f"jmp {loop_end}")
         return
 
@@ -83,6 +88,7 @@ def emit_statement(
         if not loop_labels:
             codegen_types.raise_codegen_error("continue codegen requires enclosing loop", span=stmt.span)
         loop_continue, _loop_end = loop_labels[-1]
+        _clear_dead_named_roots_if_needed(codegen, ctx, stmt, loop_labels=loop_labels)
         codegen.asm.instr(f"jmp {loop_continue}")
         return
 
@@ -91,24 +97,32 @@ def emit_statement(
         end_label = codegen_symbols.next_label(fn_name, "if_end", label_counter)
         emit_expr(codegen, stmt.condition, ctx)
         condition_dirty = ctx.snapshot_dirty_named_roots()
+        condition_cleared = ctx.snapshot_known_cleared_named_roots()
         codegen.asm.instr("cmp rax, 0")
         codegen.asm.instr(f"je {else_label}")
         emit_statement(codegen, stmt.then_block, epilogue_label, function_return_type_ref, ctx, loop_labels)
         then_dirty = ctx.snapshot_dirty_named_roots()
+        then_cleared = ctx.snapshot_known_cleared_named_roots()
         codegen.asm.instr(f"jmp {end_label}")
         codegen.asm.label(else_label)
         ctx.restore_dirty_named_roots(condition_dirty)
+        ctx.restore_known_cleared_named_roots(condition_cleared)
         if stmt.else_block is not None:
             emit_statement(codegen, stmt.else_block, epilogue_label, function_return_type_ref, ctx, loop_labels)
             else_dirty = ctx.snapshot_dirty_named_roots()
+            else_cleared = ctx.snapshot_known_cleared_named_roots()
         else:
             else_dirty = set(condition_dirty)
+            else_cleared = set(condition_cleared)
         ctx.merge_dirty_named_roots(then_dirty, else_dirty)
+        ctx.intersect_known_cleared_named_roots(then_cleared, else_cleared)
         codegen.asm.label(end_label)
+        _clear_dead_named_roots_if_needed(codegen, ctx, stmt, loop_labels=loop_labels)
         return
 
     if isinstance(stmt, LoweredSemanticWhile):
         loop_entry_dirty = ctx.snapshot_dirty_named_roots()
+        loop_entry_cleared = ctx.snapshot_known_cleared_named_roots()
         start_label = codegen_symbols.next_label(fn_name, "while_start", label_counter)
         end_label = codegen_symbols.next_label(fn_name, "while_end", label_counter)
         codegen.asm.label(start_label)
@@ -121,10 +135,13 @@ def emit_statement(
         codegen.asm.instr(f"jmp {start_label}")
         codegen.asm.label(end_label)
         ctx.merge_dirty_named_roots(loop_entry_dirty, ctx.snapshot_dirty_named_roots())
+        ctx.intersect_known_cleared_named_roots(loop_entry_cleared, ctx.snapshot_known_cleared_named_roots())
+        _clear_dead_named_roots_if_needed(codegen, ctx, stmt, loop_labels=loop_labels)
         return
 
     if isinstance(stmt, LoweredSemanticForIn):
         _emit_for_in(codegen, stmt, epilogue_label, function_return_type_ref, ctx, loop_labels)
+        _clear_dead_named_roots_if_needed(codegen, ctx, stmt, loop_labels=loop_labels)
         return
 
     codegen_types.raise_codegen_error(
@@ -266,3 +283,28 @@ def _require_local_offset(layout, local_id: LocalId, *, label: str, span) -> int
     if offset is None:
         codegen_types.raise_codegen_error(f"identifier '{label}' is not materialized in stack layout", span=span)
     return offset
+
+
+def _clear_dead_named_roots_if_needed(
+    codegen,
+    ctx: EmitContext,
+    stmt: SemanticStmt | LoweredSemanticStmt,
+    *,
+    loop_labels: list[tuple[str, str]],
+) -> None:
+    if ctx.named_root_liveness is None or ctx.known_cleared_named_root_local_ids is None:
+        return
+    if loop_labels:
+        return
+
+    live_local_ids = ctx.named_root_liveness.for_stmt(stmt)
+    local_ids_to_clear = frozenset(
+        local_id
+        for local_id in ctx.tracked_named_root_local_ids
+        if local_id not in live_local_ids and local_id not in ctx.known_cleared_named_root_local_ids
+    )
+    if not local_ids_to_clear:
+        return
+
+    codegen.emit_named_root_slot_clears(ctx.layout, local_ids=local_ids_to_clear)
+    ctx.mark_named_roots_cleared(local_ids_to_clear)

@@ -403,6 +403,8 @@ Apply the new call-effect rules to interface dispatch, which currently performs 
 
 ## Slice 7: Optional dead-root clearing follow-up
 
+Status: implemented
+
 Payoff: medium
 
 Risk: medium
@@ -429,7 +431,8 @@ This is not required for the main performance win. It adds writes, so it should 
 
 ### Tests
 
-- only add this slice if runtime/GC measurements justify it
+- [x] add codegen regressions proving that dead named roots are cleared after their last live use
+- [x] add regressions proving that stale named roots are cleared after dead local writes
 
 ## Detailed File-Level Change Map
 
@@ -657,7 +660,7 @@ Mitigation:
 11. [x] Tighten interface lookup emission so the lookup helper is treated as non-GC
 12. [x] Re-run the full codegen and runtime-root test suite
 13. Measure emitted scaffolding and representative runtime kernels
-14. Only after the above, decide whether dead-root clearing is worth a follow-up slice
+14. [x] Decide to land dead-root clearing as a follow-up slice (implemented ahead of item 13 at user request)
 
 ## Definition Of Success
 

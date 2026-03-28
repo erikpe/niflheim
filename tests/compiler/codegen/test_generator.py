@@ -180,3 +180,39 @@ def test_codegen_named_root_slot_updates_can_target_specific_locals(tmp_path) ->
     assert f"    mov rax, {offset_operand(layout.local_slot_offsets[second_param])}" not in asm
     assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[second_param])}, rax" not in asm
     assert "    call rt_root_slot_store" not in asm
+
+
+def test_codegen_named_root_slot_clears_can_target_specific_locals(tmp_path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn f(a: Obj, b: Obj) -> unit {
+            return;
+        }
+
+        fn main() -> i64 {
+            f(null, null);
+            return 0;
+        }
+        """,
+    )
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "f")
+    layout = build_layout(fn)
+    generator = CodeGenerator()
+
+    local_infos = sorted(
+        (local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind == "param"),
+        key=lambda local_info: local_info.local_id.ordinal,
+    )
+    first_param = local_infos[0].local_id
+    second_param = local_infos[1].local_id
+
+    generator.emit_named_root_slot_clears(layout, local_ids={first_param})
+
+    asm = "\n".join(generator.asm.lines)
+    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[first_param])}, 0" in asm
+    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[second_param])}, 0" not in asm
+    assert "    call rt_root_slot_store" not in asm

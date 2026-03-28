@@ -29,6 +29,18 @@ def _named_root_store_counts(asm: str) -> list[int]:
     return [len(re.findall(pair_pattern, block)) for block in blocks]
 
 
+def _named_root_clear_counts(asm: str) -> list[int]:
+    import re
+
+    clear_pattern = r"\s+mov qword ptr \[rbp - \d+\], 0\n"
+    block_pattern = (
+        r"# clear dead named reference shadow-stack slots\n"
+        r"((?:\s+mov qword ptr \[rbp - \d+\], 0\n)+)"
+    )
+    blocks = re.findall(block_pattern, asm)
+    return [len(re.findall(clear_pattern, block)) for block in blocks]
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;
@@ -287,6 +299,96 @@ fn sum(a: i64, b: i64) -> i64 {
     assert "rt_root_frame_init" not in sum_body
     assert "rt_push_roots" not in sum_body
     assert "rt_pop_roots" not in sum_body
+
+
+def test_emit_asm_clears_clean_named_roots_after_their_last_live_use(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn f(dead: Obj, keep: Obj) -> Obj {
+    rt_gc_collect(keep);
+    rt_gc_collect(dead);
+    rt_gc_collect(keep);
+    return keep;
+}
+
+fn main() -> i64 {
+    if f(null, null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
+    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+
+    clear_block_i = f_body.index("# clear dead named reference shadow-stack slots")
+    second_stmt_i = f_body.index(":5:5 | rt_gc_collect(dead);")
+    third_stmt_i = f_body.index(":6:5 | rt_gc_collect(keep);")
+
+    assert second_stmt_i < clear_block_i < third_stmt_i
+    assert _named_root_clear_counts(f_body) == [1]
+
+
+def test_emit_asm_clears_stale_named_roots_after_dead_local_writes(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn f(first: Obj, second: Obj, keep: Obj) -> Obj {
+    var dead: Obj = first;
+    rt_gc_collect(keep);
+    rt_gc_collect(dead);
+    dead = second;
+    rt_gc_collect(keep);
+    return keep;
+}
+
+fn main() -> i64 {
+    if f(null, null, null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
+    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+
+    assign_stmt_i = f_body.index(":7:5 | dead = second;")
+    next_call_stmt_i = f_body.index(":8:5 | rt_gc_collect(keep);")
+    clear_block_i = f_body.rindex("# clear dead named reference shadow-stack slots")
+
+    assert assign_stmt_i < clear_block_i < next_call_stmt_i
+    assert _named_root_clear_counts(f_body) == [1, 1]
+
+
+def test_emit_asm_does_not_clear_loop_carried_named_roots_inside_loop_body(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn f(flag: bool, keep: Obj) -> Obj {
+    var i: i64 = 0;
+    while flag && i < 2 {
+        rt_gc_collect(keep);
+        i = i + 1;
+    }
+    return keep;
+}
+
+fn main() -> i64 {
+    if f(false, null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
+    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+
+    loop_start_i = f_body.index(".Lf_while_start_")
+    loop_end_i = f_body.index(".Lf_while_end_")
+    loop_body = f_body[loop_start_i:loop_end_i]
+
+    assert "# clear dead named reference shadow-stack slots" not in loop_body
 
 
 def test_emit_asm_preserves_rax_across_rt_pop_roots(tmp_path) -> None:

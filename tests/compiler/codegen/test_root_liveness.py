@@ -9,7 +9,7 @@ from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.lowered_ir import LoweredSemanticForIn, LoweredSemanticIf, LoweredSemanticWhile
 from compiler.semantic.optimizations.pipeline import DEFAULT_SEMANTIC_OPTIMIZATION_PASSES, optimize_semantic_program
-from compiler.semantic.ir import CallExprS, SemanticExprStmt, SemanticReturn
+from compiler.semantic.ir import CallExprS, SemanticAssign, SemanticExprStmt, SemanticReturn
 
 
 def _lower_function(
@@ -178,3 +178,24 @@ def test_root_liveness_tracks_lowered_for_in_dispatch_calls(tmp_path: Path) -> N
 
     assert liveness.for_for_in_iter_len(for_in_stmt) == {for_in_stmt.collection_local_id}
     assert liveness.for_for_in_iter_get(for_in_stmt) == {for_in_stmt.collection_local_id}
+
+
+def test_root_liveness_tracks_statement_live_after_sets(tmp_path: Path) -> None:
+    fn = _lower_function(
+        tmp_path,
+        """
+        fn f(a: Obj, b: Obj) -> Obj {
+            var dead: Obj = a;
+            var keep: Obj = b;
+            dead = keep;
+            return keep;
+        }
+        """,
+        function_name="f",
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    liveness = analyze_named_root_liveness(fn)
+
+    assign_stmt = next(stmt for stmt in fn.body.statements if isinstance(stmt, SemanticAssign))
+
+    assert liveness.for_stmt(assign_stmt) == {_local_id_by_name(fn, "keep")}

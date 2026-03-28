@@ -79,6 +79,7 @@ def _build_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name:
             if local_info.binding_kind in {"receiver", "param"}
             and local_info.local_id in layout.root_slot_offsets_by_local_id
         },
+        known_cleared_named_root_local_ids=set(layout.root_slot_offsets_by_local_id),
     )
     return fn, generator, emit_ctx
 

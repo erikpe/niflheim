@@ -195,6 +195,19 @@ class CodeGenerator:
             self.asm.instr(f"mov rax, {offset_operand(slot.offset)}")
             self.asm.instr(f"mov {offset_operand(slot.root_offset)}, rax")
 
+    def emit_named_root_slot_clears(
+        self, layout: FunctionLayout, *, local_ids: Iterable[LocalId] | None = None
+    ) -> None:
+        root_slots = self._selected_named_root_slots(layout, local_ids=local_ids)
+        if not root_slots:
+            return
+
+        self.asm.comment("clear dead named reference shadow-stack slots")
+        for slot in root_slots:
+            if slot.root_offset is None:
+                raise ValueError(f"missing root slot offset for named root '{slot.key}'")
+            self.asm.instr(f"mov {offset_operand(slot.root_offset)}, 0")
+
     def _selected_named_root_slots(
         self, layout: FunctionLayout, *, local_ids: Iterable[LocalId] | None
     ) -> tuple[object, ...]:
