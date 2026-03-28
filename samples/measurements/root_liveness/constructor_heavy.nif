@@ -1,0 +1,26 @@
+import std.box;
+
+class Pair {
+    left: Obj;
+    right: Obj;
+}
+
+fn constructor_loop(count: u64) -> u64 {
+    var i: u64 = 0u;
+    var total: u64 = 0u;
+    while i < count {
+        var pair: Pair = Pair(BoxU64(i), BoxU64(i + 1u));
+        total = total + ((BoxU64)pair.left).val + ((BoxU64)pair.right).val;
+        i = i + 1u;
+    }
+    return total;
+}
+
+fn main() -> i64 {
+    var count: u64 = 4096u;
+    var total: u64 = constructor_loop(count);
+    if total == (count * count) {
+        return 0;
+    }
+    return 1;
+}

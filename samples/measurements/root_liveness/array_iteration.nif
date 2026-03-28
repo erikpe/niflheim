@@ -1,0 +1,36 @@
+import std.box;
+
+fn build_values(count: u64) -> Obj[] {
+    var values: Obj[] = Obj[](count);
+    var i: i64 = 0;
+    while (u64)i < count {
+        values[i] = BoxU64((u64)i + 1u);
+        i = i + 1;
+    }
+    return values;
+}
+
+fn measure(values: Obj[]) -> u64 {
+    var total: u64 = 0u;
+    var i: i64 = 0;
+    while (u64)i < values.len() {
+        total = total + ((BoxU64)values[i]).val;
+        i = i + 1;
+    }
+    return total;
+}
+
+fn main() -> i64 {
+    var values: Obj[] = build_values(512u);
+    var reps: u64 = 0u;
+    var total: u64 = 0u;
+    while reps < 128u {
+        total = total + measure(values);
+        reps = reps + 1u;
+    }
+
+    if total == 16809984u {
+        return 0;
+    }
+    return 1;
+}

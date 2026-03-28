@@ -1,0 +1,32 @@
+import std.box;
+
+fn probe(value: Obj) -> u64 {
+    if value is BoxU64 {
+        return ((BoxU64)value).val;
+    }
+    if value is BoxI64 {
+        return (u64)((BoxI64)value).val;
+    }
+    return 0u;
+}
+
+fn main() -> i64 {
+    var count: u64 = 20000u;
+    var i: u64 = 0u;
+    var total: u64 = 0u;
+    while i < count {
+        var value: Obj;
+        if (i % 2u) == 0u {
+            value = BoxU64(i);
+        } else {
+            value = BoxI64((i64)i);
+        }
+        total = total + probe(value);
+        i = i + 1u;
+    }
+
+    if total == ((count * (count - 1u)) / 2u) {
+        return 0;
+    }
+    return 1;
+}

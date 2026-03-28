@@ -659,8 +659,18 @@ Mitigation:
 10. [x] Gate temp-root setup and clearing on call effects
 11. [x] Tighten interface lookup emission so the lookup helper is treated as non-GC
 12. [x] Re-run the full codegen and runtime-root test suite
-13. Measure emitted scaffolding and representative runtime kernels
+13. [x] Measure emitted scaffolding and representative runtime kernels
 14. [x] Decide to land dead-root clearing as a follow-up slice (implemented ahead of item 13 at user request)
+
+Measurement implementation:
+
+- [x] add [scripts/measure_root_liveness.py](scripts/measure_root_liveness.py) for repeatable measurement runs
+- [x] add representative kernels under [samples/measurements/root_liveness](samples/measurements/root_liveness)
+- [x] report focused-function assembly lines, instruction counts, helper-call counts, sync/clear block counts, binary size, and runtime timings
+
+Suggested command:
+
+- `python3 scripts/measure_root_liveness.py`
 
 ## Definition Of Success
 

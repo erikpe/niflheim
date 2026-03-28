@@ -1,0 +1,30 @@
+interface Metric {
+    fn measure() -> u64;
+}
+
+class Counter implements Metric {
+    value: u64;
+
+    fn measure() -> u64 {
+        return __self.value + 1u;
+    }
+}
+
+fn dispatch_loop(metric: Metric, reps: u64) -> u64 {
+    var i: u64 = 0u;
+    var total: u64 = 0u;
+    while i < reps {
+        total = total + metric.measure();
+        i = i + 1u;
+    }
+    return total;
+}
+
+fn main() -> i64 {
+    var metric: Metric = Counter(41u);
+    var total: u64 = dispatch_loop(metric, 200000u);
+    if total == 8400000u {
+        return 0;
+    }
+    return 1;
+}
