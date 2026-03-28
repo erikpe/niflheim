@@ -5,9 +5,10 @@ from dataclasses import dataclass, replace
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
 
-from .dataflow import LoopControlFlowState, solve_loop_fixed_point
-from .local_usage import is_pure_expr, read_locals_expr, read_locals_lvalue
-from .semantic_rewriter import SemanticTreeRewriter
+from .helpers.dataflow import LoopControlFlowState, solve_loop_fixed_point
+from .helpers.local_usage import is_pure_expr, read_locals_expr, read_locals_lvalue
+from .helpers.program_structure import rewrite_program_structure
+from .helpers.semantic_rewriter import SemanticTreeRewriter
 
 
 _TREE_REWRITER = SemanticTreeRewriter()
@@ -24,9 +25,11 @@ class _DeadStmtPruneStats:
 def dead_stmt_prune(program: SemanticProgram) -> SemanticProgram:
     logger = get_logger(__name__)
     stats = _DeadStmtPruneStats()
-    pruned_program = SemanticProgram(
-        entry_module=program.entry_module,
-        modules={module_path: _prune_module(module, stats) for module_path, module in program.modules.items()},
+    pruned_program = rewrite_program_structure(
+        program,
+        rewrite_field=lambda field: _prune_field(field, stats),
+        rewrite_function=lambda fn: _prune_function(fn, stats),
+        rewrite_method=lambda method: _prune_method(method, stats),
     )
     logger.debugv(
         1,
@@ -37,23 +40,6 @@ def dead_stmt_prune(program: SemanticProgram) -> SemanticProgram:
         stats.rewritten_effectful_statements,
     )
     return pruned_program
-
-
-def _prune_module(module: SemanticModule, stats: _DeadStmtPruneStats) -> SemanticModule:
-    return replace(
-        module,
-        classes=[_prune_class(cls, stats) for cls in module.classes],
-        functions=[_prune_function(fn, stats) for fn in module.functions],
-        interfaces=list(module.interfaces),
-    )
-
-
-def _prune_class(cls: SemanticClass, stats: _DeadStmtPruneStats) -> SemanticClass:
-    return replace(
-        cls,
-        fields=[_prune_field(field, stats) for field in cls.fields],
-        methods=[_prune_method(method, stats) for method in cls.methods],
-    )
 
 
 def _prune_field(field: SemanticField, stats: _DeadStmtPruneStats) -> SemanticField:

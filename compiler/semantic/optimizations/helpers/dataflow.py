@@ -22,10 +22,7 @@ def solve_loop_fixed_point(
     current_state = initial_state
 
     while True:
-        control_flow = LoopControlFlowState(
-            continue_state=current_state,
-            break_state=loop_exit_state,
-        )
+        control_flow = LoopControlFlowState(continue_state=current_state, break_state=loop_exit_state)
         updated_state = next_state(current_state, control_flow)
         if updated_state == current_state:
             return current_state, control_flow

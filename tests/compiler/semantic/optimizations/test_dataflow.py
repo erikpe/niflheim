@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from compiler.semantic.optimizations.dataflow import solve_loop_fixed_point
+from compiler.semantic.optimizations.helpers.dataflow import solve_loop_fixed_point
 
 
 def test_solve_loop_fixed_point_converges_to_stable_state() -> None:
     stable_state, control_flow = solve_loop_fixed_point(
-        initial_state=0,
-        loop_exit_state=10,
-        next_state=lambda current, _control: min(current + 1, 3),
+        initial_state=0, loop_exit_state=10, next_state=lambda current, _control: min(current + 1, 3)
     )
 
     assert stable_state == 3

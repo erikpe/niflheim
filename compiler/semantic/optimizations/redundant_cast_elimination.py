@@ -6,7 +6,7 @@ from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
 from compiler.semantic.types import semantic_type_canonical_name
 
-from .semantic_rewriter import SemanticTreeRewriter
+from .helpers.semantic_rewriter import SemanticTreeRewriter
 
 
 @dataclass

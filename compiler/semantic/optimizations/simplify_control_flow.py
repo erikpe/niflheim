@@ -5,6 +5,8 @@ from dataclasses import dataclass, replace
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
 
+from .helpers.program_structure import rewrite_program_structure
+
 
 @dataclass
 class _SimplifyStats:
@@ -16,9 +18,11 @@ class _SimplifyStats:
 def simplify_control_flow(program: SemanticProgram) -> SemanticProgram:
     logger = get_logger(__name__)
     stats = _SimplifyStats()
-    simplified_program = SemanticProgram(
-        entry_module=program.entry_module,
-        modules={module_path: _simplify_module(module, stats) for module_path, module in program.modules.items()},
+    simplified_program = rewrite_program_structure(
+        program,
+        rewrite_field=lambda field: field,
+        rewrite_function=lambda fn: _simplify_function(fn, stats),
+        rewrite_method=lambda method: _simplify_method(method, stats),
     )
     logger.debugv(
         1,
@@ -28,19 +32,6 @@ def simplify_control_flow(program: SemanticProgram) -> SemanticProgram:
         stats.pruned_unreachable_statements,
     )
     return simplified_program
-
-
-def _simplify_module(module: SemanticModule, stats: _SimplifyStats) -> SemanticModule:
-    return replace(
-        module,
-        classes=[_simplify_class(cls, stats) for cls in module.classes],
-        functions=[_simplify_function(fn, stats) for fn in module.functions],
-        interfaces=list(module.interfaces),
-    )
-
-
-def _simplify_class(cls: SemanticClass, stats: _SimplifyStats) -> SemanticClass:
-    return replace(cls, fields=list(cls.fields), methods=[_simplify_method(method, stats) for method in cls.methods])
 
 
 def _simplify_function(fn: SemanticFunction, stats: _SimplifyStats) -> SemanticFunction:

@@ -10,6 +10,8 @@ from compiler.semantic.ir import *
 from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, UnaryOpFlavor, UnaryOpKind
 from compiler.semantic.types import semantic_primitive_type_ref, semantic_type_canonical_name
 
+from .helpers.program_structure import rewrite_program_structure
+
 
 _INTEGER_MASKS = {TYPE_NAME_I64: (1 << 64) - 1, TYPE_NAME_U64: (1 << 64) - 1, TYPE_NAME_U8: (1 << 8) - 1}
 
@@ -21,31 +23,21 @@ class _FoldStats:
     successful_folds: int = 0
 
 
-def fold_constants(program: SemanticProgram) -> SemanticProgram:
+def constant_fold(program: SemanticProgram) -> SemanticProgram:
     logger = get_logger(__name__)
     stats = _FoldStats()
-    folded_program = SemanticProgram(
-        entry_module=program.entry_module,
-        modules={module_path: _fold_module(module, stats) for module_path, module in program.modules.items()},
+    folded_program = rewrite_program_structure(
+        program,
+        rewrite_field=lambda field: _fold_field(field, stats),
+        rewrite_function=lambda fn: _fold_function(fn, stats),
+        rewrite_method=lambda method: _fold_method(method, stats),
     )
     logger.debugv(1, "Optimization pass constant_fold performed %d successful folds", stats.successful_folds)
     return folded_program
 
 
-def _fold_module(module: SemanticModule, stats: _FoldStats) -> SemanticModule:
-    return replace(
-        module,
-        classes=[_fold_class(cls, stats) for cls in module.classes],
-        functions=[_fold_function(fn, stats) for fn in module.functions],
-    )
-
-
-def _fold_class(cls: SemanticClass, stats: _FoldStats) -> SemanticClass:
-    return replace(
-        cls,
-        fields=[_fold_field(field, stats) for field in cls.fields],
-        methods=[_fold_method(method, stats) for method in cls.methods],
-    )
+def fold_constants(program: SemanticProgram) -> SemanticProgram:
+    return constant_fold(program)
 
 
 def _fold_field(field: SemanticField, stats: _FoldStats) -> SemanticField:

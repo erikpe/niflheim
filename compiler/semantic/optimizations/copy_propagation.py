@@ -5,6 +5,8 @@ from dataclasses import dataclass, field, replace
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
 
+from .helpers.program_structure import rewrite_program_structure
+
 
 _CopyEnv = dict[LocalId, LocalId]
 
@@ -91,31 +93,16 @@ class _CopyMerge:
 def copy_propagation(program: SemanticProgram) -> SemanticProgram:
     logger = get_logger(__name__)
     stats = _CopyStats()
-    propagated_program = SemanticProgram(
-        entry_module=program.entry_module,
-        modules={module_path: _propagate_module(module, stats) for module_path, module in program.modules.items()},
+    propagated_program = rewrite_program_structure(
+        program,
+        rewrite_field=lambda field: _propagate_field(field, stats),
+        rewrite_function=lambda fn: _propagate_function(fn, stats),
+        rewrite_method=lambda method: _propagate_method(method, stats),
     )
     logger.debugv(
         1, "Optimization pass copy_propagation performed %d successful propagations", stats.successful_propagations
     )
     return propagated_program
-
-
-def _propagate_module(module: SemanticModule, stats: _CopyStats) -> SemanticModule:
-    return replace(
-        module,
-        classes=[_propagate_class(cls, stats) for cls in module.classes],
-        functions=[_propagate_function(fn, stats) for fn in module.functions],
-        interfaces=list(module.interfaces),
-    )
-
-
-def _propagate_class(cls: SemanticClass, stats: _CopyStats) -> SemanticClass:
-    return replace(
-        cls,
-        fields=[_propagate_field(field, stats) for field in cls.fields],
-        methods=[_propagate_method(method, stats) for method in cls.methods],
-    )
 
 
 def _propagate_field(field: SemanticField, stats: _CopyStats) -> SemanticField:

@@ -6,8 +6,9 @@ from compiler.common.logging import get_logger
 from compiler.common.span import SourceSpan
 from compiler.semantic.ir import *
 
-from .dataflow import LoopControlFlowState, solve_loop_fixed_point
-from .local_usage import is_pure_expr, read_locals_expr, read_locals_lvalue
+from .helpers.dataflow import LoopControlFlowState, solve_loop_fixed_point
+from .helpers.local_usage import is_pure_expr, read_locals_expr, read_locals_lvalue
+from .helpers.program_structure import rewrite_program_structure
 
 
 @dataclass
@@ -20,9 +21,11 @@ class _DeadStoreStats:
 def dead_store_elimination(program: SemanticProgram) -> SemanticProgram:
     logger = get_logger(__name__)
     stats = _DeadStoreStats()
-    optimized_program = SemanticProgram(
-        entry_module=program.entry_module,
-        modules={module_path: _eliminate_module(module, stats) for module_path, module in program.modules.items()},
+    optimized_program = rewrite_program_structure(
+        program,
+        rewrite_field=lambda field: field,
+        rewrite_function=lambda fn: _eliminate_function(fn, stats),
+        rewrite_method=lambda method: _eliminate_method(method, stats),
     )
     logger.debugv(
         1,
@@ -32,19 +35,6 @@ def dead_store_elimination(program: SemanticProgram) -> SemanticProgram:
         stats.rewritten_effectful_statements,
     )
     return optimized_program
-
-
-def _eliminate_module(module: SemanticModule, stats: _DeadStoreStats) -> SemanticModule:
-    return replace(
-        module,
-        classes=[_eliminate_class(cls, stats) for cls in module.classes],
-        functions=[_eliminate_function(fn, stats) for fn in module.functions],
-        interfaces=list(module.interfaces),
-    )
-
-
-def _eliminate_class(cls: SemanticClass, stats: _DeadStoreStats) -> SemanticClass:
-    return replace(cls, fields=list(cls.fields), methods=[_eliminate_method(method, stats) for method in cls.methods])
 
 
 def _eliminate_function(fn: SemanticFunction, stats: _DeadStoreStats) -> SemanticFunction:

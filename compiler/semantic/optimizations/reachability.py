@@ -331,7 +331,7 @@ def analyze_semantic_reachability(program: SemanticProgram) -> SemanticReachabil
     return _SemanticReachabilityWalker(program).walk()
 
 
-def prune_unreachable_semantic(program: SemanticProgram) -> SemanticProgram:
+def prune_unreachable(program: SemanticProgram) -> SemanticProgram:
     logger = get_logger(__name__)
     reachability = analyze_semantic_reachability(program)
     pruned_modules: dict[ModulePath, SemanticModule] = {}
@@ -369,3 +369,7 @@ def prune_unreachable_semantic(program: SemanticProgram) -> SemanticProgram:
     )
 
     return SemanticProgram(entry_module=program.entry_module, modules=pruned_modules)
+
+
+def prune_unreachable_semantic(program: SemanticProgram) -> SemanticProgram:
+    return prune_unreachable(program)
