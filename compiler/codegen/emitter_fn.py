@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import compiler.codegen.symbols as codegen_symbols
+import compiler.codegen.types as codegen_types
 
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
@@ -44,6 +45,21 @@ def _function_param_spills(fn: SemanticFunction | LoweredSemanticFunction, layou
 
 def _constructor_param_spills(params: list[SemanticParam], layout) -> list[tuple[int, SemanticTypeRef, object]]:
     return [(layout.slot_offsets[param.name], param.type_ref, param.span) for param in params]
+
+
+def _tracked_named_root_local_ids(layout) -> frozenset[LocalId]:
+    return frozenset(layout.root_slot_offsets_by_local_id)
+
+
+def _initial_dirty_named_root_local_ids(fn: SemanticFunction | LoweredSemanticFunction, layout) -> set[LocalId]:
+    tracked_local_ids = _tracked_named_root_local_ids(layout)
+    return {
+        local_info.local_id
+        for local_info in fn.local_info_by_id.values()
+        if local_info.local_id in tracked_local_ids
+        and local_info.binding_kind in {"receiver", "param"}
+        and codegen_types.is_reference_type_ref(local_info.type_ref)
+    }
 
 
 def emit_function(
@@ -95,6 +111,8 @@ def emit_function(
         temp_root_depth=[0],
         declaration_tables=declaration_tables,
         named_root_liveness=analyze_named_root_liveness(fn),
+        tracked_named_root_local_ids=_tracked_named_root_local_ids(layout),
+        dirty_named_root_local_ids=_initial_dirty_named_root_local_ids(fn, layout),
     )
 
     for stmt in fn.body.statements:

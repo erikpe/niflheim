@@ -17,6 +17,18 @@ def _assert_named_root_store_block(asm: str, *, expected_store_count: int) -> No
     assert re.search(pattern, asm)
 
 
+def _named_root_store_counts(asm: str) -> list[int]:
+    import re
+
+    pair_pattern = r"\s+mov rax, qword ptr \[rbp - \d+\]\n\s+mov qword ptr \[rbp - \d+\], rax\n"
+    block_pattern = (
+        r"# mirror named reference slots into shadow-stack slots\n"
+        r"((?:\s+mov rax, qword ptr \[rbp - \d+\]\n\s+mov qword ptr \[rbp - \d+\], rax\n)+)"
+    )
+    blocks = re.findall(block_pattern, asm)
+    return [len(re.findall(pair_pattern, block)) for block in blocks]
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;
@@ -385,6 +397,97 @@ fn main() -> i64 {
     f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
 
     _assert_named_root_store_block(f_body, expected_store_count=1)
+
+
+def test_emit_asm_gc_capable_calls_skip_redundant_named_root_resync(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn f(value: Obj) -> Obj {
+    var keep: Obj = value;
+    rt_gc_collect(keep);
+    rt_gc_collect(keep);
+    return keep;
+}
+
+fn main() -> i64 {
+    if f(null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+
+    assert "    call rt_gc_collect" in f_body
+    assert _named_root_store_counts(f_body) == [1]
+
+
+def test_emit_asm_gc_capable_call_resyncs_only_stale_live_named_roots(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn f(a: Obj, b: Obj, c: Obj) -> Obj {
+    var keep: Obj = a;
+    var later: Obj = b;
+    rt_gc_collect(keep);
+    keep = c;
+    rt_gc_collect(later);
+    return keep;
+}
+
+fn main() -> i64 {
+    if f(null, null, null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+
+    assert "    call rt_gc_collect" in f_body
+    assert _named_root_store_counts(f_body) == [2, 1]
+
+
+def test_emit_asm_loop_body_skips_redundant_named_root_resync_without_writes(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn f(flag: bool, keep: Obj) -> Obj {
+    while flag {
+        rt_gc_collect(keep);
+        rt_gc_collect(keep);
+        break;
+    }
+    return keep;
+}
+
+fn main() -> i64 {
+    if f(true, null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+
+    assert "    call rt_gc_collect" in f_body
+    assert _named_root_store_counts(f_body) == [1]
 
 
 def test_emit_asm_roots_temporary_reference_args_for_non_runtime_call(tmp_path) -> None:

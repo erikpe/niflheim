@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from compiler.common.type_names import *
@@ -63,6 +64,43 @@ class EmitContext:
     temp_root_depth: list[int]
     declaration_tables: DeclarationTables
     named_root_liveness: NamedRootLiveness | None = None
+    tracked_named_root_local_ids: frozenset[LocalId] = frozenset()
+    dirty_named_root_local_ids: set[LocalId] | None = None
+
+    def snapshot_dirty_named_roots(self) -> set[LocalId]:
+        if self.dirty_named_root_local_ids is None:
+            return set()
+        return set(self.dirty_named_root_local_ids)
+
+    def restore_dirty_named_roots(self, dirty_local_ids: set[LocalId]) -> None:
+        if self.dirty_named_root_local_ids is None:
+            return
+        self.dirty_named_root_local_ids.clear()
+        self.dirty_named_root_local_ids.update(
+            local_id for local_id in dirty_local_ids if local_id in self.tracked_named_root_local_ids
+        )
+
+    def merge_dirty_named_roots(self, *dirty_states: set[LocalId]) -> None:
+        merged: set[LocalId] = set()
+        for dirty_state in dirty_states:
+            merged.update(dirty_state)
+        self.restore_dirty_named_roots(merged)
+
+    def invalidate_all_named_roots(self) -> None:
+        if self.dirty_named_root_local_ids is None:
+            return
+        self.dirty_named_root_local_ids.clear()
+        self.dirty_named_root_local_ids.update(self.tracked_named_root_local_ids)
+
+    def mark_named_root_dirty(self, local_id: LocalId) -> None:
+        if self.dirty_named_root_local_ids is None or local_id not in self.tracked_named_root_local_ids:
+            return
+        self.dirty_named_root_local_ids.add(local_id)
+
+    def mark_named_roots_clean(self, local_ids: Iterable[LocalId]) -> None:
+        if self.dirty_named_root_local_ids is None:
+            return
+        self.dirty_named_root_local_ids.difference_update(local_ids)
 
 
 def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> None:
@@ -330,7 +368,7 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Emi
     emit_expr(codegen, expr.length_expr, ctx)
     codegen.asm.instr("push rax")
     _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-    codegen.emit_named_root_slot_updates(ctx.layout, local_ids=_named_root_sync_local_ids_for_expr(ctx, expr))
+    _sync_named_roots_if_needed(codegen, ctx, _named_root_sync_local_ids_for_expr(ctx, expr))
     rooted_runtime_arg_count = codegen.emit_runtime_call_arg_temp_roots(ctx.layout, runtime_ctor, 1, span=expr.span)
     codegen.asm.instr("pop rdi")
     codegen.emit_aligned_call(runtime_ctor)
@@ -413,7 +451,7 @@ def _emit_interface_method_call(
     if _runtime_call_emits_safepoint_hooks("rt_lookup_interface_method"):
         _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
     if _runtime_call_may_gc("rt_lookup_interface_method"):
-        codegen.emit_named_root_slot_updates(ctx.layout)
+        _sync_named_roots_if_needed(codegen, ctx, None)
         codegen.emit_temp_arg_root_from_rsp(ctx.layout, receiver_temp_index, 0, span=expr.span)
     codegen.asm.instr("mov rdi, qword ptr [rsp]")
     codegen.asm.instr(f"lea rsi, [rip + {descriptor_symbol}]")
@@ -458,7 +496,7 @@ def _emit_interface_method_call(
         if location_kind == "stack"
     ]
 
-    codegen.emit_named_root_slot_updates(ctx.layout, local_ids=_named_root_sync_local_ids_for_expr(ctx, expr))
+    _sync_named_roots_if_needed(codegen, ctx, _named_root_sync_local_ids_for_expr(ctx, expr))
     codegen.asm.instr("mov r10, rsp")
     codegen.asm.instr(f"mov r11, {stack_slot_operand('r10', len(call_arguments) * 8)}")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
@@ -568,7 +606,7 @@ def _emit_call_sequence(
         codegen.asm.instr("mov r11, rax")
         call_target = "r11"
     if should_sync_named_roots:
-        codegen.emit_named_root_slot_updates(layout, local_ids=named_root_local_ids)
+        _sync_named_roots_if_needed(codegen, ctx, named_root_local_ids)
     codegen.asm.instr("mov r10, rsp")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
         arg_operand = stack_slot_operand("r10", arg_index * 8)
@@ -625,7 +663,7 @@ def _emit_string_literal_bytes_expr(codegen: CodeGenerator, expr: StringLiteralB
         codegen_types.raise_codegen_error("missing string literal lowering metadata", span=expr.span)
     data_label, data_len = label_and_len
     _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-    codegen.emit_named_root_slot_updates(ctx.layout, local_ids=_named_root_sync_local_ids_for_expr(ctx, expr))
+    _sync_named_roots_if_needed(codegen, ctx, _named_root_sync_local_ids_for_expr(ctx, expr))
     codegen.asm.instr(f"lea rdi, [rip + {data_label}]")
     codegen.asm.instr(f"mov rsi, {data_len}")
     codegen.emit_aligned_call(ARRAY_FROM_BYTES_U8_RUNTIME_CALL)
@@ -736,6 +774,32 @@ def _runtime_call_emits_safepoint_hooks(target_name: str) -> bool:
 
 def _runtime_call_may_gc(target_name: str) -> bool:
     return runtime_call_metadata(target_name).may_gc
+
+
+def _sync_named_roots_if_needed(
+    codegen: CodeGenerator,
+    ctx: EmitContext,
+    live_local_ids: frozenset[LocalId] | None,
+) -> frozenset[LocalId] | None:
+    if ctx.dirty_named_root_local_ids is None:
+        codegen.emit_named_root_slot_updates(ctx.layout, local_ids=live_local_ids)
+        return live_local_ids
+
+    local_ids_to_sync = _dirty_named_root_local_ids_to_sync(ctx, live_local_ids)
+    codegen.emit_named_root_slot_updates(ctx.layout, local_ids=local_ids_to_sync)
+    ctx.mark_named_roots_clean(local_ids_to_sync)
+    return local_ids_to_sync
+
+
+def _dirty_named_root_local_ids_to_sync(
+    ctx: EmitContext,
+    live_local_ids: frozenset[LocalId] | None,
+) -> frozenset[LocalId]:
+    if ctx.dirty_named_root_local_ids is None:
+        return frozenset() if live_local_ids is None else live_local_ids
+    if live_local_ids is None:
+        return frozenset(ctx.dirty_named_root_local_ids)
+    return frozenset(local_id for local_id in live_local_ids if local_id in ctx.dirty_named_root_local_ids)
 
 
 def _named_root_sync_local_ids_for_expr(

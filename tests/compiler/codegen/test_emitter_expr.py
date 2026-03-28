@@ -72,6 +72,13 @@ def _build_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name:
         temp_root_depth=[0],
         declaration_tables=tables,
         named_root_liveness=analyze_named_root_liveness(fn),
+        tracked_named_root_local_ids=frozenset(layout.root_slot_offsets_by_local_id),
+        dirty_named_root_local_ids={
+            local_info.local_id
+            for local_info in fn.local_info_by_id.values()
+            if local_info.binding_kind in {"receiver", "param"}
+            and local_info.local_id in layout.root_slot_offsets_by_local_id
+        },
     )
     return fn, generator, emit_ctx
 

@@ -290,6 +290,8 @@ The analysis should run after executable lowering because:
 
 ## Slice 4: Add dirty-root tracking in emission context
 
+Status: implemented
+
 Payoff: very high
 
 Risk: medium
@@ -306,15 +308,15 @@ Synchronize only named roots that are both live across the call and stale.
 
 ### Concrete Changes
 
-- extend `EmitContext` with dirty-root state
-- mark reference locals dirty when their value slot changes:
+- [x] extend `EmitContext` with dirty-root state
+- [x] mark reference locals dirty when their value slot changes:
   - param spills in function prologue
   - ref-typed `SemanticVarDecl` initialization
   - ref-typed `SemanticAssign` to locals
-- before a GC-capable call, compute:
+- [x] before a GC-capable call, compute:
   - `locals_to_sync = live_named_roots_at_call ∩ dirty_named_roots`
-- emit synchronization only for `locals_to_sync`
-- mark synchronized locals clean after the refresh
+- [x] emit synchronization only for `locals_to_sync`
+- [x] mark synchronized locals clean after the refresh
 
 ### Expected Outcome
 
@@ -323,7 +325,7 @@ Synchronize only named roots that are both live across the call and stale.
 
 ### Tests
 
-- add codegen tests where:
+- [x] add codegen tests where:
   - a reference local is written once and used across several calls
   - only one of several reference locals changes before the next GC-capable call
   - loops repeatedly call a GC-capable helper without mutating every reference local
@@ -644,9 +646,9 @@ Mitigation:
 4. [x] Update codegen tests to assert root-slot state and reduced scaffolding rather than helper-call presence
 5. [x] Add a lowered-IR named-root liveness analysis module
 6. [x] Integrate the analysis into call-site emission in [compiler/codegen/emitter_expr.py](compiler/codegen/emitter_expr.py)
-7. Extend `EmitContext` with dirty-root tracking
-8. Mark ref locals dirty from prologue spills, var declarations, and local assignments
-9. Synchronize only `live ∩ dirty` named roots before GC-capable calls
+7. [x] Extend `EmitContext` with dirty-root tracking
+8. [x] Mark ref locals dirty from prologue spills, var declarations, and local assignments
+9. [x] Synchronize only `live ∩ dirty` named roots before GC-capable calls
 10. Gate temp-root setup and clearing on call effects
 11. Tighten interface lookup emission so the lookup helper is treated as non-GC
 12. Re-run the full codegen and runtime-root test suite

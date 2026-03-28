@@ -55,6 +55,8 @@ def emit_statement(
         else:
             emit_expr(codegen, stmt.initializer, ctx)
         codegen.asm.instr(f"mov {offset_operand(offset)}, rax")
+        if stmt.initializer is not None:
+            ctx.mark_named_root_dirty(stmt.local_id)
         return
 
     if isinstance(stmt, SemanticAssign):
@@ -88,17 +90,25 @@ def emit_statement(
         else_label = codegen_symbols.next_label(fn_name, "if_else", label_counter)
         end_label = codegen_symbols.next_label(fn_name, "if_end", label_counter)
         emit_expr(codegen, stmt.condition, ctx)
+        condition_dirty = ctx.snapshot_dirty_named_roots()
         codegen.asm.instr("cmp rax, 0")
         codegen.asm.instr(f"je {else_label}")
         emit_statement(codegen, stmt.then_block, epilogue_label, function_return_type_ref, ctx, loop_labels)
+        then_dirty = ctx.snapshot_dirty_named_roots()
         codegen.asm.instr(f"jmp {end_label}")
         codegen.asm.label(else_label)
+        ctx.restore_dirty_named_roots(condition_dirty)
         if stmt.else_block is not None:
             emit_statement(codegen, stmt.else_block, epilogue_label, function_return_type_ref, ctx, loop_labels)
+            else_dirty = ctx.snapshot_dirty_named_roots()
+        else:
+            else_dirty = set(condition_dirty)
+        ctx.merge_dirty_named_roots(then_dirty, else_dirty)
         codegen.asm.label(end_label)
         return
 
     if isinstance(stmt, LoweredSemanticWhile):
+        loop_entry_dirty = ctx.snapshot_dirty_named_roots()
         start_label = codegen_symbols.next_label(fn_name, "while_start", label_counter)
         end_label = codegen_symbols.next_label(fn_name, "while_end", label_counter)
         codegen.asm.label(start_label)
@@ -110,6 +120,7 @@ def emit_statement(
         loop_labels.pop()
         codegen.asm.instr(f"jmp {start_label}")
         codegen.asm.label(end_label)
+        ctx.merge_dirty_named_roots(loop_entry_dirty, ctx.snapshot_dirty_named_roots())
         return
 
     if isinstance(stmt, LoweredSemanticForIn):
@@ -135,6 +146,8 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
             )
         emit_expr(codegen, stmt.value, ctx)
         codegen.asm.instr(f"mov {offset_operand(offset)}, rax")
+        if codegen_types.is_reference_type_ref(target.type_ref):
+            ctx.mark_named_root_dirty(target.local_id)
         return
     if isinstance(target, FieldLValue):
         emit_expr(codegen, target.receiver, ctx)
@@ -199,6 +212,7 @@ def _emit_for_in(
 
     emit_expr(codegen, stmt.collection, ctx)
     codegen.asm.instr(f"mov {offset_operand(collection_offset)}, rax")
+    ctx.mark_named_root_dirty(stmt.collection_local_id)
 
     from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
 
@@ -231,6 +245,8 @@ def _emit_for_in(
         named_root_local_ids=iter_get_named_roots,
     )
     codegen.asm.instr(f"mov {offset_operand(element_offset)}, rax")
+    if codegen_types.is_reference_type_ref(stmt.element_type_ref):
+        ctx.mark_named_root_dirty(stmt.element_local_id)
 
     loop_labels.append((loop_continue, loop_done))
     emit_statement(codegen, stmt.body, epilogue_label, function_return_type_ref, ctx, loop_labels)
@@ -242,6 +258,7 @@ def _emit_for_in(
     codegen.asm.instr(f"mov {offset_operand(index_offset)}, rax")
     codegen.asm.instr(f"jmp {loop_start}")
     codegen.asm.label(loop_done)
+    ctx.invalidate_all_named_roots()
 
 
 def _require_local_offset(layout, local_id: LocalId, *, label: str, span) -> int:
