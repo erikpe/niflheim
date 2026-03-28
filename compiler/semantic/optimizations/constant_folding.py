@@ -73,7 +73,9 @@ def _fold_block(block: SemanticBlock, env: _ConstantEnv | None = None, *, stats:
     return replace(block, statements=folded_statements)
 
 
-def _fold_nested_block(block: SemanticBlock, env: _ConstantEnv, stats: _FoldStats) -> tuple[SemanticBlock, _ConstantEnv]:
+def _fold_nested_block(
+    block: SemanticBlock, env: _ConstantEnv, stats: _FoldStats
+) -> tuple[SemanticBlock, _ConstantEnv]:
     current_env = env.copy()
     declared_local_ids: set[LocalId] = set()
     folded_statements: list[SemanticStmt] = []
@@ -121,11 +123,21 @@ def _fold_stmt(stmt: SemanticStmt, env: _ConstantEnv, stats: _FoldStats) -> tupl
             {},
         )
     if isinstance(stmt, SemanticWhile):
-        return replace(stmt, condition=_fold_expr(stmt.condition, {}, stats), body=_fold_block(stmt.body, {}, stats=stats)), {}
+        return (
+            replace(
+                stmt, condition=_fold_expr(stmt.condition, {}, stats), body=_fold_block(stmt.body, {}, stats=stats)
+            ),
+            {},
+        )
     if isinstance(stmt, SemanticForIn):
         # Keep loop bodies isolated from incoming constants until this pass grows
         # a stronger model for iteration and loop-carried state.
-        return replace(stmt, collection=_fold_expr(stmt.collection, env, stats), body=_fold_block(stmt.body, {}, stats=stats)), {}
+        return (
+            replace(
+                stmt, collection=_fold_expr(stmt.collection, env, stats), body=_fold_block(stmt.body, {}, stats=stats)
+            ),
+            {},
+        )
     if isinstance(stmt, (SemanticBreak, SemanticContinue)):
         return stmt, env
     raise TypeError(f"Unsupported semantic statement for constant folding: {type(stmt).__name__}")
@@ -176,7 +188,9 @@ def _fold_expr(expr: SemanticExpr, env: _ConstantEnv, stats: _FoldStats) -> Sema
     if isinstance(expr, CallExprS):
         folded_args = [_fold_expr(arg, env, stats) for arg in expr.args]
         if isinstance(expr.target, CallableValueCallTarget):
-            return replace(expr, target=replace(expr.target, callee=_fold_expr(expr.target.callee, env, stats)), args=folded_args)
+            return replace(
+                expr, target=replace(expr.target, callee=_fold_expr(expr.target.callee, env, stats)), args=folded_args
+            )
         access = call_target_receiver_access(expr.target)
         if access is None:
             return replace(expr, args=folded_args)
@@ -362,6 +376,7 @@ def _fold_float_binary_expr(
         return _bool_literal_expr(left_value >= right_value, span=expr.span)
     return expr
 
+
 def _fold_integer_binary_expr(
     expr: BinaryExprS, operand_type_name: str, left_value: int, right_value: int, stats: _FoldStats
 ) -> SemanticExpr:
@@ -390,9 +405,7 @@ def _fold_integer_binary_expr(
             return expr
         stats.successful_folds += 1
         return _int_literal_expr(
-            _wrap_integer(left_value // right_value, operand_type_name),
-            type_name=operand_type_name,
-            span=expr.span,
+            _wrap_integer(left_value // right_value, operand_type_name), type_name=operand_type_name, span=expr.span
         )
     if expr.op.kind == BinaryOpKind.REMAINDER:
         if right_value == 0 or _signed_division_overflows(left_value, right_value, operand_type_name):
@@ -534,24 +547,16 @@ def _signed_division_overflows(left_value: int, right_value: int, operand_type_n
 
 
 def _int_literal_expr(value: int, *, type_name: str, span) -> LiteralExprS:
-    return LiteralExprS(
-        constant=IntConstant(value=value),
-        type_ref=semantic_primitive_type_ref(type_name),
-        span=span,
-    )
+    return LiteralExprS(constant=IntConstant(value=value), type_ref=semantic_primitive_type_ref(type_name), span=span)
 
 
 def _float_literal_expr(value: float, *, span) -> LiteralExprS:
     return LiteralExprS(
-        constant=FloatConstant(value=value),
-        type_ref=semantic_primitive_type_ref(TYPE_NAME_DOUBLE),
-        span=span,
+        constant=FloatConstant(value=value), type_ref=semantic_primitive_type_ref(TYPE_NAME_DOUBLE), span=span
     )
 
 
 def _bool_literal_expr(value: bool, *, span) -> LiteralExprS:
     return LiteralExprS(
-        constant=BoolConstant(value=value),
-        type_ref=semantic_primitive_type_ref(TYPE_NAME_BOOL),
-        span=span,
+        constant=BoolConstant(value=value), type_ref=semantic_primitive_type_ref(TYPE_NAME_BOOL), span=span
     )

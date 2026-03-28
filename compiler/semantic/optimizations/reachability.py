@@ -267,7 +267,9 @@ class _SemanticReachabilityWalker:
                 self._enqueue_type_ref(module_path, expr.target.access.receiver_type_ref)
             elif isinstance(expr.target, ConstructorCallTarget):
                 self._enqueue_class(
-                    ClassId(module_path=expr.target.constructor_id.module_path, name=expr.target.constructor_id.class_name)
+                    ClassId(
+                        module_path=expr.target.constructor_id.module_path, name=expr.target.constructor_id.class_name
+                    )
                 )
             else:
                 self._walk_expr(module_path, expr.target.callee)
@@ -300,12 +302,10 @@ class _SemanticReachabilityWalker:
         # Fallback type-name reconstruction stays compatibility-only. Real semantic
         # edges should arrive through canonical SemanticTypeRef metadata.
         self._enqueue_type_ref(
-            current_module_path,
-            compat_semantic_type_ref_from_name(current_module_path, text, nominal_kind="reference"),
+            current_module_path, compat_semantic_type_ref_from_name(current_module_path, text, nominal_kind="reference")
         )
         self._enqueue_type_ref(
-            current_module_path,
-            compat_semantic_type_ref_from_name(current_module_path, text, nominal_kind="interface"),
+            current_module_path, compat_semantic_type_ref_from_name(current_module_path, text, nominal_kind="interface")
         )
 
     def _enqueue_type_ref(self, current_module_path: ModulePath, type_ref: SemanticTypeRef) -> None:
