@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from compiler.codegen.abi.runtime import ARRAY_LEN_RUNTIME_CALL, runtime_call_metadata
+from compiler.codegen.runtime_calls import runtime_dispatch_call_name
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.model import FunctionLayout, LayoutSlot, TEMP_RUNTIME_ROOT_SLOT_COUNT
@@ -16,7 +18,7 @@ from compiler.semantic.lowered_ir import (
 )
 from compiler.semantic.ir import *
 from compiler.semantic.symbols import LocalId
-from compiler.semantic.types import semantic_type_ref_for_class_id
+from compiler.semantic.types import semantic_type_canonical_name, semantic_type_ref_for_class_id
 
 
 @dataclass(frozen=True)
@@ -249,96 +251,133 @@ def _expr_uses_local_storage(expr: SemanticExpr) -> bool:
 
 
 def _lvalue_needs_temp_runtime_roots(target) -> bool:
-    if isinstance(target, LocalLValue):
-        return False
-    if isinstance(target, FieldLValue):
-        return _expr_needs_temp_runtime_roots(target.receiver)
-    if isinstance(target, IndexLValue):
-        return True
-    if isinstance(target, SliceLValue):
-        return True
-    return False
+    return _max_call_temp_root_slots_for_lvalue(target) > 0
 
 
 def _expr_needs_temp_runtime_roots(expr: SemanticExpr) -> bool:
-    if isinstance(
-        expr, (CallExprS, IndexReadExpr, SliceReadExpr, ArrayCtorExprS, ArrayLenExpr, StringLiteralBytesExpr)
-    ):
-        return True
-    if isinstance(expr, CastExprS):
-        return _expr_needs_temp_runtime_roots(expr.operand)
-    if isinstance(expr, TypeTestExprS):
-        return _expr_needs_temp_runtime_roots(expr.operand)
-    if isinstance(expr, UnaryExprS):
-        return _expr_needs_temp_runtime_roots(expr.operand)
-    if isinstance(expr, BinaryExprS):
-        return _expr_needs_temp_runtime_roots(expr.left) or _expr_needs_temp_runtime_roots(expr.right)
-    if isinstance(expr, FieldReadExpr):
-        return _expr_needs_temp_runtime_roots(expr.access.receiver)
-    return False
+    return _max_call_temp_root_slots_in_expr(expr) > 0
 
 
-def _stmt_needs_temp_runtime_roots(stmt: SemanticStmt | LoweredSemanticStmt) -> bool:
-    if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
-        return any(_stmt_needs_temp_runtime_roots(nested) for nested in stmt.statements)
-    if isinstance(stmt, SemanticVarDecl):
-        return stmt.initializer is not None and _expr_needs_temp_runtime_roots(stmt.initializer)
-    if isinstance(stmt, SemanticAssign):
-        return _lvalue_needs_temp_runtime_roots(stmt.target) or _expr_needs_temp_runtime_roots(stmt.value)
-    if isinstance(stmt, SemanticExprStmt):
-        return _expr_needs_temp_runtime_roots(stmt.expr)
-    if isinstance(stmt, SemanticReturn):
-        return stmt.value is not None and _expr_needs_temp_runtime_roots(stmt.value)
-    if isinstance(stmt, LoweredSemanticIf):
-        return (
-            _expr_needs_temp_runtime_roots(stmt.condition)
-            or _stmt_needs_temp_runtime_roots(stmt.then_block)
-            or (stmt.else_block is not None and _stmt_needs_temp_runtime_roots(stmt.else_block))
+def _stmt_needs_temp_runtime_roots(
+    stmt: SemanticStmt | LoweredSemanticStmt,
+    *,
+    owner: SemanticFunction | LoweredSemanticFunction | None = None,
+) -> bool:
+    return _max_call_temp_root_slots_in_stmt(stmt, owner=owner) > 0
+
+
+def _reference_arg_indices(call_arguments: list[SemanticExpr]) -> frozenset[int]:
+    return frozenset(
+        index
+        for index, arg in enumerate(call_arguments)
+        if codegen_types.is_reference_type_name(semantic_type_canonical_name(expression_type_ref(arg)))
+    )
+
+
+def _runtime_reference_arg_indices(target_name: str, call_arguments: list[SemanticExpr]) -> frozenset[int]:
+    metadata = runtime_call_metadata(target_name)
+    if not metadata.may_gc:
+        return frozenset()
+    return _reference_arg_indices(call_arguments)
+
+
+def _dispatch_reference_arg_indices(dispatch: SemanticDispatch, call_arguments: list[SemanticExpr]) -> frozenset[int]:
+    if isinstance(dispatch, RuntimeDispatch):
+        return _runtime_reference_arg_indices(runtime_dispatch_call_name(dispatch), call_arguments)
+    return _reference_arg_indices(call_arguments)
+
+
+def _max_rooted_sequence(
+    call_arguments: list[SemanticExpr],
+    *,
+    rooted_arg_indices: frozenset[int],
+    trailing_expr: SemanticExpr | None = None,
+) -> int:
+    rooted_after = 0
+    max_slots = 0
+
+    for arg_index in range(len(call_arguments) - 1, -1, -1):
+        arg = call_arguments[arg_index]
+        max_slots = max(max_slots, rooted_after + _max_call_temp_root_slots_in_expr(arg))
+        if arg_index in rooted_arg_indices:
+            rooted_after += 1
+            max_slots = max(max_slots, rooted_after)
+
+    if trailing_expr is not None:
+        max_slots = max(max_slots, rooted_after + _max_call_temp_root_slots_in_expr(trailing_expr))
+
+    return max(max_slots, rooted_after)
+
+
+def _max_call_temp_root_slots_for_lvalue(target: SemanticLValue) -> int:
+    if isinstance(target, LocalLValue):
+        return 0
+    if isinstance(target, FieldLValue):
+        return _max_call_temp_root_slots_in_expr(target.receiver)
+    if isinstance(target, IndexLValue):
+        call_arguments = [target.target, target.index]
+        return _max_rooted_sequence(
+            call_arguments,
+            rooted_arg_indices=_dispatch_reference_arg_indices(target.dispatch, call_arguments),
         )
-    if isinstance(stmt, LoweredSemanticWhile):
-        return _expr_needs_temp_runtime_roots(stmt.condition) or _stmt_needs_temp_runtime_roots(stmt.body)
-    if isinstance(stmt, LoweredSemanticForIn):
-        return (
-            _expr_needs_temp_runtime_roots(stmt.collection)
-            or codegen_types.is_reference_type_ref(expression_type_ref(stmt.collection))
-            or _stmt_needs_temp_runtime_roots(stmt.body)
+    if isinstance(target, SliceLValue):
+        call_arguments = [target.target, target.begin, target.end]
+        return _max_rooted_sequence(
+            call_arguments,
+            rooted_arg_indices=_dispatch_reference_arg_indices(target.dispatch, call_arguments),
         )
-    return False
+    return 0
 
 
 def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
-    def _max_rooted_sequence(call_arguments: list[SemanticExpr], *, trailing_expr: SemanticExpr | None = None) -> int:
-        rooted_after = 0
-        max_slots = 0
-
-        for arg in reversed(call_arguments):
-            max_slots = max(max_slots, rooted_after + _max_call_temp_root_slots_in_expr(arg))
-            if codegen_types.is_reference_type_ref(expression_type_ref(arg)):
-                rooted_after += 1
-                max_slots = max(max_slots, rooted_after)
-
-        if trailing_expr is not None:
-            max_slots = max(max_slots, rooted_after + _max_call_temp_root_slots_in_expr(trailing_expr))
-
-        return max(max_slots, rooted_after)
-
     if isinstance(expr, CallExprS):
         if isinstance(expr.target, CallableValueCallTarget):
-            return _max_rooted_sequence(expr.args, trailing_expr=expr.target.callee)
+            return _max_rooted_sequence(
+                expr.args,
+                rooted_arg_indices=_reference_arg_indices(expr.args),
+                trailing_expr=expr.target.callee,
+            )
+        if isinstance(expr.target, FunctionCallTarget):
+            return _max_rooted_sequence(
+                expr.args,
+                rooted_arg_indices=(
+                    _runtime_reference_arg_indices(expr.target.function_id.name, expr.args)
+                    if expr.target.function_id.name.startswith("rt_")
+                    else _reference_arg_indices(expr.args)
+                ),
+            )
         access = call_target_receiver_access(expr.target)
         if access is None:
-            return _max_rooted_sequence(expr.args)
+            return _max_rooted_sequence(expr.args, rooted_arg_indices=_reference_arg_indices(expr.args))
         if isinstance(expr.target, InterfaceMethodCallTarget):
-            return max(_max_call_temp_root_slots_in_expr(access.receiver), 1 + _max_rooted_sequence(expr.args))
-        return _max_rooted_sequence([access.receiver, *expr.args])
+            return max(
+                _max_call_temp_root_slots_in_expr(access.receiver),
+                1 + _max_rooted_sequence(expr.args, rooted_arg_indices=_reference_arg_indices(expr.args)),
+            )
+        call_arguments = [access.receiver, *expr.args]
+        return _max_rooted_sequence(call_arguments, rooted_arg_indices=_reference_arg_indices(call_arguments))
     if isinstance(expr, ArrayLenExpr):
-        return _max_rooted_sequence([expr.target])
+        return _max_rooted_sequence(
+            [expr.target],
+            rooted_arg_indices=_runtime_reference_arg_indices(ARRAY_LEN_RUNTIME_CALL, [expr.target]),
+        )
     if isinstance(expr, IndexReadExpr):
-        return _max_rooted_sequence([expr.target, expr.index])
+        call_arguments = [expr.target, expr.index]
+        return _max_rooted_sequence(
+            call_arguments,
+            rooted_arg_indices=_dispatch_reference_arg_indices(expr.dispatch, call_arguments),
+        )
     if isinstance(expr, SliceReadExpr):
-        return _max_rooted_sequence([expr.target, expr.begin, expr.end])
+        call_arguments = [expr.target, expr.begin, expr.end]
+        return _max_rooted_sequence(
+            call_arguments,
+            rooted_arg_indices=_dispatch_reference_arg_indices(expr.dispatch, call_arguments),
+        )
     if isinstance(expr, ArrayCtorExprS):
-        return _max_call_temp_root_slots_in_expr(expr.length_expr)
+        return _max_rooted_sequence(
+            [expr.length_expr],
+            rooted_arg_indices=frozenset(),
+        )
     if isinstance(expr, StringLiteralBytesExpr):
         return 0
     if isinstance(expr, CastExprS):
@@ -354,26 +393,17 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
     return 0
 
 
-def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt | LoweredSemanticStmt) -> int:
+def _max_call_temp_root_slots_in_stmt(
+    stmt: SemanticStmt | LoweredSemanticStmt,
+    *,
+    owner: SemanticFunction | LoweredSemanticFunction | None = None,
+) -> int:
     if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
-        return max((_max_call_temp_root_slots_in_stmt(nested) for nested in stmt.statements), default=0)
+        return max((_max_call_temp_root_slots_in_stmt(nested, owner=owner) for nested in stmt.statements), default=0)
     if isinstance(stmt, SemanticVarDecl):
         return _max_call_temp_root_slots_in_expr(stmt.initializer) if stmt.initializer is not None else 0
     if isinstance(stmt, SemanticAssign):
-        target_slots = 0
-        if isinstance(stmt.target, FieldLValue):
-            target_slots = _max_call_temp_root_slots_in_expr(stmt.target.receiver)
-        elif isinstance(stmt.target, IndexLValue):
-            target_slots = max(
-                _max_call_temp_root_slots_in_expr(stmt.target.target),
-                _max_call_temp_root_slots_in_expr(stmt.target.index),
-            )
-        elif isinstance(stmt.target, SliceLValue):
-            target_slots = max(
-                _max_call_temp_root_slots_in_expr(stmt.target.target),
-                _max_call_temp_root_slots_in_expr(stmt.target.begin),
-                _max_call_temp_root_slots_in_expr(stmt.target.end),
-            )
+        target_slots = _max_call_temp_root_slots_for_lvalue(stmt.target)
         return max(target_slots, _max_call_temp_root_slots_in_expr(stmt.value))
     if isinstance(stmt, SemanticExprStmt):
         return _max_call_temp_root_slots_in_expr(stmt.expr)
@@ -382,19 +412,28 @@ def _max_call_temp_root_slots_in_stmt(stmt: SemanticStmt | LoweredSemanticStmt) 
     if isinstance(stmt, LoweredSemanticIf):
         return max(
             _max_call_temp_root_slots_in_expr(stmt.condition),
-            _max_call_temp_root_slots_in_stmt(stmt.then_block),
-            _max_call_temp_root_slots_in_stmt(stmt.else_block) if stmt.else_block is not None else 0,
+            _max_call_temp_root_slots_in_stmt(stmt.then_block, owner=owner),
+            _max_call_temp_root_slots_in_stmt(stmt.else_block, owner=owner) if stmt.else_block is not None else 0,
         )
     if isinstance(stmt, LoweredSemanticWhile):
-        return max(_max_call_temp_root_slots_in_expr(stmt.condition), _max_call_temp_root_slots_in_stmt(stmt.body))
+        return max(
+            _max_call_temp_root_slots_in_expr(stmt.condition),
+            _max_call_temp_root_slots_in_stmt(stmt.body, owner=owner),
+        )
     if isinstance(stmt, LoweredSemanticForIn):
-        implicit_for_in_call_slots = (
-            1 if codegen_types.is_reference_type_ref(expression_type_ref(stmt.collection)) else 0
+        if owner is None:
+            raise ValueError("for-in temp-root sizing requires owner-local metadata")
+        collection_ref = local_ref_expr_for_owner(owner, stmt.collection_local_id, span=stmt.span)
+        index_ref = local_ref_expr_for_owner(owner, stmt.index_local_id, span=stmt.span)
+        iter_len_rooted_slots = len(_dispatch_reference_arg_indices(stmt.iter_len_dispatch, [collection_ref]))
+        iter_get_rooted_slots = len(
+            _dispatch_reference_arg_indices(stmt.iter_get_dispatch, [collection_ref, index_ref])
         )
         return max(
             _max_call_temp_root_slots_in_expr(stmt.collection),
-            implicit_for_in_call_slots,
-            _max_call_temp_root_slots_in_stmt(stmt.body),
+            iter_len_rooted_slots,
+            iter_get_rooted_slots,
+            _max_call_temp_root_slots_in_stmt(stmt.body, owner=owner),
         )
     return 0
 
@@ -407,8 +446,11 @@ def build_layout(fn: SemanticFunction | LoweredSemanticFunction) -> FunctionLayo
     _require_function_param_local_info(fn)
     slot_specs = _local_slot_specs(fn)
 
-    needs_temp_runtime_roots = any(_stmt_needs_temp_runtime_roots(stmt) for stmt in fn.body.statements)
-    max_call_temp_root_slots = max((_max_call_temp_root_slots_in_stmt(stmt) for stmt in fn.body.statements), default=0)
+    max_call_temp_root_slots = max(
+        (_max_call_temp_root_slots_in_stmt(stmt, owner=fn) for stmt in fn.body.statements),
+        default=0,
+    )
+    needs_temp_runtime_roots = max_call_temp_root_slots > 0
     return _build_function_layout(
         slot_specs, needs_temp_runtime_roots=needs_temp_runtime_roots, max_call_temp_root_slots=max_call_temp_root_slots
     )
@@ -419,8 +461,8 @@ def build_constructor_layout(
 ) -> FunctionLayout:
     slot_specs = _constructor_slot_specs(cls, ctor_layout, constructor_object_slot_name=constructor_object_slot_name)
     initializer_exprs = [field.initializer for field in cls.fields if field.initializer is not None]
-    needs_temp_runtime_roots = any(_expr_needs_temp_runtime_roots(expr) for expr in initializer_exprs)
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_expr(expr) for expr in initializer_exprs), default=0)
+    needs_temp_runtime_roots = max_call_temp_root_slots > 0
     return _build_function_layout(
         slot_specs, needs_temp_runtime_roots=needs_temp_runtime_roots, max_call_temp_root_slots=max_call_temp_root_slots
     )

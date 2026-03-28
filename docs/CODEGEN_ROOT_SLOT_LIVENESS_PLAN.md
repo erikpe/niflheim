@@ -332,6 +332,8 @@ Synchronize only named roots that are both live across the call and stale.
 
 ## Slice 5: Gate temp-rooting on call effects
 
+Status: implemented
+
 Payoff: high
 
 Risk: medium
@@ -348,13 +350,13 @@ Avoid temporary root-slot setup for runtime calls that cannot collect.
 
 ### Concrete Changes
 
-- for non-GC runtime calls, skip temp-root setup for ephemeral values whose lifetime only needs to span that call
-- keep temp-rooting for:
+- [x] for non-GC runtime calls, skip temp-root setup for ephemeral values whose lifetime only needs to span that call
+- [x] keep temp-rooting for:
   - allocation paths
   - array slice constructors
   - ordinary user-defined calls
   - indirect calls until proven otherwise
-- revisit the sizing logic in `layout.py` once temp-root demand becomes more precise
+- [x] revisit the sizing logic in `layout.py` once temp-root demand becomes more precise
 
 ### Expected Outcome
 
@@ -363,9 +365,9 @@ Avoid temporary root-slot setup for runtime calls that cannot collect.
 
 ### Tests
 
-- extend [tests/compiler/codegen/test_emit_asm_calls.py](tests/compiler/codegen/test_emit_asm_calls.py)
-- extend [tests/compiler/codegen/test_emit_asm_arrays.py](tests/compiler/codegen/test_emit_asm_arrays.py)
-- add targeted tests proving that non-GC runtime helpers do not receive unnecessary temp-root scaffolding
+- [x] extend [tests/compiler/codegen/test_emit_asm_calls.py](tests/compiler/codegen/test_emit_asm_calls.py)
+- [x] extend [tests/compiler/codegen/test_emit_asm_arrays.py](tests/compiler/codegen/test_emit_asm_arrays.py)
+- [x] add targeted tests proving that non-GC runtime helpers do not receive unnecessary temp-root scaffolding
 
 ## Slice 6: Normalize interface-dispatch call structure
 
@@ -649,9 +651,9 @@ Mitigation:
 7. [x] Extend `EmitContext` with dirty-root tracking
 8. [x] Mark ref locals dirty from prologue spills, var declarations, and local assignments
 9. [x] Synchronize only `live ∩ dirty` named roots before GC-capable calls
-10. Gate temp-root setup and clearing on call effects
+10. [x] Gate temp-root setup and clearing on call effects
 11. Tighten interface lookup emission so the lookup helper is treated as non-GC
-12. Re-run the full codegen and runtime-root test suite
+12. [x] Re-run the full codegen and runtime-root test suite
 13. Measure emitted scaffolding and representative runtime kernels
 14. Only after the above, decide whether dead-root clearing is worth a follow-up slice
 

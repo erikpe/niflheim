@@ -1,5 +1,6 @@
 import re
 
+from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS
 from tests.compiler.codegen.helpers import emit_source_asm
 from tests.compiler.integration.stdlib_fixtures import install_std_io_fixture
 
@@ -329,3 +330,21 @@ fn main() -> i64 {
     assert "# mirror named reference slots into shadow-stack slots" not in call_next_body
     assert re.search(r"push rax\n\s+mov r10, rsp", call_next_body)
     assert "    call r11" in call_next_body
+
+
+def test_emit_asm_direct_non_gc_runtime_call_on_temporary_ref_omits_temp_root_scaffolding(tmp_path) -> None:
+    source = """
+extern fn rt_array_len(values: Obj[]) -> u64;
+
+fn main() -> i64 {
+    return (i64)rt_array_len(Obj[](1u));
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
+
+    assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in main_body
+    assert "    call rt_array_len" in main_body
+    assert "rt_root_frame_init" not in main_body
+    assert "rt_push_roots" not in main_body
+    assert "rt_root_slot_store" not in main_body
