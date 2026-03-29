@@ -178,7 +178,7 @@ fn main() -> i64 {
     assert f"    call {ARRAY_SLICE_SET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in asm
 
 
-def test_emit_asm_for_in_over_array_lowers_to_array_iter_runtime_calls(tmp_path) -> None:
+def test_emit_asm_for_in_over_array_uses_direct_iteration(tmp_path) -> None:
     source = """
 fn main() -> i64 {
     var values: i64[] = i64[](2u);
@@ -195,8 +195,33 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" in asm
-    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" not in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in asm
+
+
+def test_emit_asm_for_in_over_reference_array_uses_direct_iteration(tmp_path) -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn main() -> i64 {
+    var people: Person[] = Person[](2u);
+    people[0] = Person(4);
+    people[1] = Person(6);
+
+    var sum: i64 = 0;
+    for person in people {
+        sum = sum + person.age;
+    }
+
+    return sum;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" not in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
 
 
 def test_emit_asm_array_reference_set_avoids_named_root_helper_calls(tmp_path) -> None:

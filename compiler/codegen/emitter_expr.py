@@ -8,7 +8,7 @@ from compiler.common.type_names import *
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.abi.array import array_length_operand
+from compiler.codegen.abi.array import ARRAY_API_NULL_PANIC_MESSAGE, array_length_operand
 from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
 from compiler.codegen.abi.runtime import (
@@ -414,7 +414,7 @@ def _emit_array_len_expr(codegen: CodeGenerator, expr: ArrayLenExpr, ctx: EmitCo
 
 def _emit_array_null_check(codegen: CodeGenerator, *, ctx: EmitContext) -> None:
     non_null_label = codegen_symbols.next_label(ctx.fn_name, "array_non_null", ctx.label_counter)
-    panic_message_label = codegen.runtime_panic_message_label("Array API called with null object")
+    panic_message_label = codegen.runtime_panic_message_label(ARRAY_API_NULL_PANIC_MESSAGE)
 
     codegen.asm.instr("test rax, rax")
     codegen.asm.instr(f"jne {non_null_label}")

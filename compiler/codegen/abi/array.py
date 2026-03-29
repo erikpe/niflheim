@@ -4,6 +4,9 @@ from compiler.codegen.asm import stack_slot_operand
 from compiler.common.collection_protocols import ArrayRuntimeKind
 
 
+ARRAY_API_NULL_PANIC_MESSAGE = "Array API called with null object"
+
+
 # These constants mirror runtime/src/array.c:RtArrayObj and runtime/include/runtime.h:RtObjHeader.
 # RtObjHeader is 24 bytes on the stage-0 ABI: 8-byte type pointer, 8-byte size,
 # 4-byte gc_flags, and 4-byte reserved padding.

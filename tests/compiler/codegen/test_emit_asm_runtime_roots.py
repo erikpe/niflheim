@@ -616,3 +616,37 @@ fn main() -> i64 {
     caller_body = asm[caller_start:caller_end]
     assert "    call takes_two" in caller_body
     assert caller_body.count("    call rt_root_slot_store") >= 2
+
+
+def test_emit_asm_array_direct_for_in_keeps_collection_and_element_live_across_gc_call(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+class Box {
+    value: i64;
+}
+
+fn f(values: Box[]) -> i64 {
+    var sum: i64 = 0;
+    for value in values {
+        rt_gc_collect(null);
+        sum = sum + value.value;
+    }
+    return sum;
+}
+
+fn main() -> i64 {
+    return f(null);
+}
+"""
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+
+    assert "    call rt_gc_collect" in f_body
+    assert "    call rt_array_len" not in f_body
+    assert "    call rt_array_get_ref" not in f_body
+    assert _named_root_store_counts(f_body) == [2]

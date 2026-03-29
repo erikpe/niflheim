@@ -299,7 +299,7 @@ Replace `rt_array_len` runtime calls with direct field loads for structural arra
 
 ## Slice 4: Add specialized array `for-in` emission
 
-Status: proposed
+Status: implemented
 
 Payoff: very high
 
@@ -318,19 +318,19 @@ Replace the generic `iter_get` runtime call loop with direct array iteration whe
 
 ### Concrete Changes
 
-- keep the existing helper locals for collection, length, and index, but specialize how they are populated and consumed for array-backed loops
-- emit loop setup as:
+- [x] keep the existing helper locals for collection, length, and index, but specialize how they are populated and consumed for array-backed loops
+- [x] emit loop setup as:
   - evaluate collection once
   - store collection local once
   - null-check once
   - load array length once directly
   - initialize index local
-- emit loop body setup as:
+- [x] emit loop body setup as:
   - compare index against cached length
   - compute element address directly from `data + index * element_size`
   - load element into the element local
   - continue with normal lowered loop body
-- preserve the generic protocol-dispatch path for non-array receivers
+- [x] preserve the generic protocol-dispatch path for non-array receivers
 
 ### Expected Outcome
 
@@ -340,9 +340,9 @@ Replace the generic `iter_get` runtime call loop with direct array iteration whe
 
 ### Tests
 
-- add codegen tests proving array-backed `for-in` emits no `rt_array_len` or `rt_array_get_*` call
-- add tests for primitive and reference arrays separately
-- add runtime behavior tests for loop correctness, including null and bounds-relevant cases
+- [x] add codegen tests proving array-backed `for-in` emits no `rt_array_len` or `rt_array_get_*` call
+- [x] add tests for primitive and reference arrays separately
+- [x] add runtime behavior tests for loop correctness, including null and bounds-relevant cases
 
 ## Slice 5: Add direct array indexed-read emission
 
@@ -683,9 +683,9 @@ Mitigation:
 4. [x] Update executable lowering to preserve array-backed iteration strategy explicitly
 5. [x] Emit direct array length loads for `ArrayLenExpr`
 6. [x] Add codegen tests proving structural arrays no longer call `rt_array_len`
-7. [ ] Emit specialized array-backed `for-in` loops without `rt_array_get_*` runtime calls
-8. [ ] Add codegen and runtime tests for primitive-array iteration
-9. [ ] Add codegen and runtime tests for reference-array iteration
+7. [x] Emit specialized array-backed `for-in` loops without `rt_array_get_*` runtime calls
+8. [x] Add codegen and runtime tests for primitive-array iteration
+9. [x] Add codegen and runtime tests for reference-array iteration
 10. [ ] Emit direct structural-array indexed reads without `rt_array_get_*` runtime calls
 11. [ ] Add negative tests for null and out-of-bounds behavior under direct indexed-read fast paths
 12. [ ] Confirm slice operations remain unchanged on the runtime path

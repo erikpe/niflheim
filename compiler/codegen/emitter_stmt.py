@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from compiler.common.type_names import TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_UNIT
+from compiler.common.type_names import TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_UNIT
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
+from compiler.codegen.abi.array import ARRAY_API_NULL_PANIC_MESSAGE, array_data_index_address, array_length_operand
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.semantic.lowered_ir import (
     LoweredSemanticBlock,
     LoweredSemanticForIn,
+    LoweredSemanticForInStrategy,
     LoweredSemanticIf,
     LoweredSemanticStmt,
     LoweredSemanticWhile,
@@ -231,6 +233,24 @@ def _emit_for_in(
     codegen.asm.instr(f"mov {offset_operand(collection_offset)}, rax")
     ctx.mark_named_root_dirty(stmt.collection_local_id)
 
+    if stmt.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT:
+        _emit_array_direct_for_in(
+            codegen,
+            stmt,
+            epilogue_label,
+            function_return_type_ref,
+            ctx,
+            loop_labels,
+            collection_offset=collection_offset,
+            length_offset=length_offset,
+            index_offset=index_offset,
+            element_offset=element_offset,
+            loop_start=loop_start,
+            loop_continue=loop_continue,
+            loop_done=loop_done,
+        )
+        return
+
     from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
 
     coll_ref = local_ref_expr_for_owner(ctx.owner, stmt.collection_local_id, span=stmt.span)
@@ -261,6 +281,105 @@ def _emit_for_in(
         ctx,
         named_root_local_ids=iter_get_named_roots,
     )
+    codegen.asm.instr(f"mov {offset_operand(element_offset)}, rax")
+    if codegen_types.is_reference_type_ref(stmt.element_type_ref):
+        ctx.mark_named_root_dirty(stmt.element_local_id)
+
+    loop_labels.append((loop_continue, loop_done))
+    emit_statement(codegen, stmt.body, epilogue_label, function_return_type_ref, ctx, loop_labels)
+    loop_labels.pop()
+
+    codegen.asm.label(loop_continue)
+    codegen.asm.instr(f"mov rax, {offset_operand(index_offset)}")
+    codegen.asm.instr("add rax, 1")
+    codegen.asm.instr(f"mov {offset_operand(index_offset)}, rax")
+    codegen.asm.instr(f"jmp {loop_start}")
+    codegen.asm.label(loop_done)
+    ctx.invalidate_all_named_roots()
+
+
+def _emit_array_direct_for_in(
+    codegen,
+    stmt: LoweredSemanticForIn,
+    epilogue_label: str,
+    function_return_type_ref: SemanticTypeRef,
+    ctx: EmitContext,
+    loop_labels: list[tuple[str, str]],
+    *,
+    collection_offset: int,
+    length_offset: int,
+    index_offset: int,
+    element_offset: int,
+    loop_start: str,
+    loop_continue: str,
+    loop_done: str,
+) -> None:
+    codegen.asm.instr(f"mov rax, {offset_operand(collection_offset)}")
+    _emit_array_direct_null_check(codegen, ctx)
+    codegen.asm.instr(f"mov rax, {array_length_operand('rax')}")
+    codegen.asm.instr(f"mov {offset_operand(length_offset)}, rax")
+    codegen.asm.instr(f"mov {offset_operand(index_offset)}, 0")
+
+    codegen.asm.label(loop_start)
+    codegen.asm.instr(f"mov rax, {offset_operand(index_offset)}")
+    codegen.asm.instr(f"cmp rax, {offset_operand(length_offset)}")
+    codegen.asm.instr(f"jge {loop_done}")
+
+    codegen.asm.instr(f"mov rcx, {offset_operand(collection_offset)}")
+    _emit_array_direct_element_load(codegen, stmt.element_type_ref, span=stmt.span)
+    _emit_loaded_for_in_element(
+        codegen,
+        stmt,
+        epilogue_label,
+        function_return_type_ref,
+        ctx,
+        loop_labels,
+        element_offset=element_offset,
+        index_offset=index_offset,
+        loop_continue=loop_continue,
+        loop_done=loop_done,
+        loop_start=loop_start,
+    )
+
+
+def _emit_array_direct_null_check(codegen, ctx: EmitContext) -> None:
+    non_null_label = codegen_symbols.next_label(ctx.fn_name, "array_non_null", ctx.label_counter)
+    panic_message_label = codegen.runtime_panic_message_label(ARRAY_API_NULL_PANIC_MESSAGE)
+
+    codegen.asm.instr("test rax, rax")
+    codegen.asm.instr(f"jne {non_null_label}")
+    codegen.asm.instr(f"lea rdi, [rip + {panic_message_label}]")
+    codegen.emit_aligned_call("rt_panic")
+    codegen.asm.label(non_null_label)
+
+
+def _emit_array_direct_element_load(codegen, element_type_ref: SemanticTypeRef, *, span) -> None:
+    element_type_name = semantic_type_canonical_name(element_type_ref)
+    if element_type_name == TYPE_NAME_U8:
+        address = array_data_index_address("rcx", "rax", element_size=1)
+        codegen.asm.instr(f"movzx eax, byte ptr {address}")
+        return
+    if element_type_name == TYPE_NAME_UNIT:
+        codegen_types.raise_codegen_error("array iteration does not support unit elements", span=span)
+
+    address = array_data_index_address("rcx", "rax", element_size=8)
+    codegen.asm.instr(f"mov rax, qword ptr {address}")
+
+
+def _emit_loaded_for_in_element(
+    codegen,
+    stmt: LoweredSemanticForIn,
+    epilogue_label: str,
+    function_return_type_ref: SemanticTypeRef,
+    ctx: EmitContext,
+    loop_labels: list[tuple[str, str]],
+    *,
+    element_offset: int,
+    index_offset: int,
+    loop_continue: str,
+    loop_done: str,
+    loop_start: str,
+) -> None:
     codegen.asm.instr(f"mov {offset_operand(element_offset)}, rax")
     if codegen_types.is_reference_type_ref(stmt.element_type_ref):
         ctx.mark_named_root_dirty(stmt.element_local_id)

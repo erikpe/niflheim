@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from compiler.codegen.abi.runtime import ARRAY_INDEX_GET_RUNTIME_CALLS, ARRAY_INDEX_SET_RUNTIME_CALLS, ARRAY_LEN_RUNTIME_CALL
+from compiler.codegen.abi.runtime import ARRAY_INDEX_GET_RUNTIME_CALLS, ARRAY_INDEX_SET_RUNTIME_CALLS
 from compiler.codegen.emitter_fn import emit_function
 from compiler.codegen.generator import CodeGenerator, emit_asm
 from compiler.common.collection_protocols import ArrayRuntimeKind
@@ -150,5 +150,5 @@ def test_emitter_stmt_for_in_helper_identity_does_not_depend_on_span_values(tmp_
     emit_function(codegen, declaration_tables, rewritten_fn)
     asm = "\n".join(codegen.asm.lines)
 
-    assert asm.count(f"call {ARRAY_LEN_RUNTIME_CALL}") >= 2
-    assert asm.count(f"call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}") >= 2
+    assert "call rt_array_len" not in asm
+    assert f"call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in asm
