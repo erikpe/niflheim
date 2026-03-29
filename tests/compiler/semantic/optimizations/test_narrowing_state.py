@@ -33,7 +33,11 @@ def _local_id(ordinal: int) -> LocalId:
 
 def _compatibility_index() -> TypeCompatibilityIndex:
     return TypeCompatibilityIndex(
-        implemented_interfaces_by_class_name={"main::Key": frozenset({"main::Hashable"})}
+        implemented_interfaces_by_class_id={
+            ClassId(module_path=("main",), name="Key"): frozenset(
+                {InterfaceId(module_path=("main",), name="Hashable")}
+            )
+        }
     )
 
 

@@ -216,6 +216,12 @@ This feature should be implemented in ordered slices.
 
 Status: implemented
 
+Implementation notes:
+
+- implemented in [compiler/semantic/optimizations/helpers/type_compatibility.py](compiler/semantic/optimizations/helpers/type_compatibility.py)
+- directly covered by [tests/compiler/semantic/optimizations/test_type_compatibility.py](tests/compiler/semantic/optimizations/test_type_compatibility.py)
+- exercised by downstream fact-engine tests in [tests/compiler/semantic/optimizations/test_narrowing_state.py](tests/compiler/semantic/optimizations/test_narrowing_state.py)
+
 Payoff: medium
 
 Risk: low

@@ -4,8 +4,10 @@ from dataclasses import dataclass
 
 from compiler.common.type_names import TYPE_NAME_OBJ
 from compiler.semantic.ir import SemanticProgram
+from compiler.semantic.symbols import ClassId, InterfaceId
 from compiler.semantic.types import (
     SemanticTypeRef,
+    semantic_type_ref_for_interface_id,
     semantic_type_canonical_name,
     semantic_type_is_array,
     semantic_type_is_interface,
@@ -15,25 +17,47 @@ from compiler.semantic.types import (
 
 @dataclass(frozen=True)
 class TypeCompatibilityIndex:
-    implemented_interfaces_by_class_name: dict[str, frozenset[str]]
+    implemented_interfaces_by_class_id: dict[ClassId, frozenset[InterfaceId]]
 
 
 def build_type_compatibility_index(program: SemanticProgram) -> TypeCompatibilityIndex:
-    implemented_interfaces_by_class_name: dict[str, frozenset[str]] = {}
+    implemented_interfaces_by_class_id: dict[ClassId, frozenset[InterfaceId]] = {}
 
     for module in program.modules.values():
         for cls in module.classes:
-            class_name = f"{'.'.join(cls.class_id.module_path)}::{cls.class_id.name}"
-            implemented_interfaces_by_class_name[class_name] = frozenset(
-                f"{'.'.join(interface_id.module_path)}::{interface_id.name}"
-                for interface_id in cls.implemented_interfaces
-            )
+            implemented_interfaces_by_class_id[cls.class_id] = frozenset(cls.implemented_interfaces)
 
-    return TypeCompatibilityIndex(implemented_interfaces_by_class_name=implemented_interfaces_by_class_name)
+    return TypeCompatibilityIndex(implemented_interfaces_by_class_id=implemented_interfaces_by_class_id)
+
+
+def class_implements_interface(
+    compatibility_index: TypeCompatibilityIndex, class_id: ClassId, interface_id: InterfaceId
+) -> bool:
+    return interface_id in compatibility_index.implemented_interfaces_by_class_id.get(class_id, frozenset())
 
 
 def is_exact_runtime_target(type_ref: SemanticTypeRef) -> bool:
     return type_ref.class_id is not None or semantic_type_is_array(type_ref)
+
+
+def exact_type_implies_runtime_compatibility(
+    compatibility_index: TypeCompatibilityIndex,
+    exact_type_ref: SemanticTypeRef,
+    target_type_ref: SemanticTypeRef,
+) -> bool:
+    if semantic_type_canonical_name(exact_type_ref) == semantic_type_canonical_name(target_type_ref):
+        return True
+
+    if not is_exact_runtime_target(exact_type_ref):
+        return False
+
+    if semantic_type_canonical_name(target_type_ref) == TYPE_NAME_OBJ:
+        return semantic_type_is_reference(exact_type_ref) or semantic_type_is_interface(exact_type_ref)
+
+    if exact_type_ref.class_id is None or target_type_ref.interface_id is None:
+        return False
+
+    return class_implements_interface(compatibility_index, exact_type_ref.class_id, target_type_ref.interface_id)
 
 
 def proven_compatible_type_names(
@@ -46,6 +70,9 @@ def proven_compatible_type_names(
         compatible_names.add(TYPE_NAME_OBJ)
 
     if target_type_ref.class_id is not None:
-        compatible_names.update(compatibility_index.implemented_interfaces_by_class_name.get(target_type_name, ()))
+        compatible_names.update(
+            semantic_type_canonical_name(semantic_type_ref_for_interface_id(interface_id))
+            for interface_id in compatibility_index.implemented_interfaces_by_class_id.get(target_type_ref.class_id, ())
+        )
 
     return frozenset(compatible_names)
