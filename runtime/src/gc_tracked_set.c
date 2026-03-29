@@ -17,6 +17,7 @@ enum {
 static RtObjHeader** g_tracked_set_slots = NULL;
 static uint64_t g_tracked_set_capacity = 0;
 static uint64_t g_tracked_set_size = 0;
+static uint64_t g_tracked_set_occupied = 0;
 
 
 static uint64_t rt_hash_ptr_uint64(uintptr_t value) {
@@ -68,6 +69,7 @@ static void rt_tracked_set_rebuild(uint64_t new_capacity) {
     g_tracked_set_slots = new_slots;
     g_tracked_set_capacity = new_capacity;
     g_tracked_set_size = new_size;
+    g_tracked_set_occupied = new_size;
 }
 
 
@@ -78,6 +80,15 @@ static void rt_tracked_set_ensure_capacity_for_insert(void) {
     }
 
     uint64_t threshold = (g_tracked_set_capacity * 7u) / 10u;
+    if (g_tracked_set_occupied + 1u > threshold) {
+        uint64_t new_capacity = g_tracked_set_capacity;
+        if (g_tracked_set_size + 1u > threshold) {
+            new_capacity = g_tracked_set_capacity * 2u;
+        }
+        rt_tracked_set_rebuild(new_capacity);
+        return;
+    }
+
     if (g_tracked_set_size + 1u > threshold) {
         rt_tracked_set_rebuild(g_tracked_set_capacity * 2u);
     }
@@ -96,7 +107,7 @@ static uint64_t rt_tracked_set_find_slot(const RtObjHeader* obj, int* out_found)
     uint64_t index = rt_hash_ptr_uint64((uintptr_t)obj) & mask;
     uint64_t first_tombstone = UINT64_MAX;
 
-    while (1) {
+    for (uint64_t probes = 0u; probes < g_tracked_set_capacity; probes++) {
         RtObjHeader* slot = g_tracked_set_slots[index];
         if (slot == NULL) {
             return (first_tombstone != UINT64_MAX) ? first_tombstone : index;
@@ -113,6 +124,8 @@ static uint64_t rt_tracked_set_find_slot(const RtObjHeader* obj, int* out_found)
         }
         index = (index + 1u) & mask;
     }
+
+    return first_tombstone;
 }
 
 
@@ -129,6 +142,9 @@ void rt_gc_tracked_set_insert(RtObjHeader* obj) {
         return;
     }
 
+    if (g_tracked_set_slots[index] == NULL) {
+        g_tracked_set_occupied++;
+    }
     g_tracked_set_slots[index] = obj;
     g_tracked_set_size++;
 }
@@ -160,4 +176,5 @@ void rt_gc_tracked_set_reset(void) {
     g_tracked_set_slots = NULL;
     g_tracked_set_capacity = 0u;
     g_tracked_set_size = 0u;
+    g_tracked_set_occupied = 0u;
 }
