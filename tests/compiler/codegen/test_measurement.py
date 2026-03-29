@@ -1,4 +1,9 @@
-from compiler.codegen.abi.runtime import ARRAY_INDEX_GET_RUNTIME_CALLS, ARRAY_LEN_RUNTIME_CALL
+from compiler.codegen.abi.runtime import (
+    ARRAY_INDEX_GET_RUNTIME_CALLS,
+    ARRAY_LEN_RUNTIME_CALL,
+    ARRAY_SLICE_GET_RUNTIME_CALLS,
+    ARRAY_SLICE_SET_RUNTIME_CALLS,
+)
 from compiler.codegen.measurement import analyze_assembly_metrics, extract_function_asm
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from tests.compiler.codegen.helpers import emit_source_asm
@@ -107,3 +112,36 @@ fn main() -> i64 {
     fallback_metrics = analyze_assembly_metrics(fallback_measure)
 
     assert fast_metrics.line_count != fallback_metrics.line_count
+
+
+def test_emit_source_asm_keeps_slice_operations_on_runtime_path_when_fast_paths_toggle(tmp_path) -> None:
+    source = """
+fn measure(values: u64[]) -> u64 {
+    var part: u64[] = values.slice_get(0, 2);
+    values.slice_set(1, 3, part);
+    return 0u;
+}
+
+fn main() -> i64 {
+    var values: u64[] = u64[](4u);
+    values[0] = 10u;
+    values[1] = 20u;
+    values[2] = 30u;
+    values[3] = 40u;
+    return (i64)measure(values);
+}
+"""
+
+    fast_asm = emit_source_asm(tmp_path, source)
+    fallback_asm = emit_source_asm(tmp_path, source, collection_fast_paths_enabled=False)
+
+    fast_measure = extract_function_asm(fast_asm, "measure")
+    fallback_measure = extract_function_asm(fallback_asm, "measure")
+
+    assert fast_measure is not None
+    assert fallback_measure is not None
+    assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in fast_measure
+    assert f"    call {ARRAY_SLICE_SET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in fast_measure
+    assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in fallback_measure
+    assert f"    call {ARRAY_SLICE_SET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in fallback_measure
+    assert fast_measure == fallback_measure

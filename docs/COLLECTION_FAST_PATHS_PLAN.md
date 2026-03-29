@@ -403,7 +403,7 @@ Replace `rt_array_get_*` runtime calls with direct indexed loads when the compil
 
 ## Slice 6: Leave slices on runtime helpers initially
 
-Status: proposed
+Status: implemented
 
 Payoff: medium
 
@@ -432,8 +432,9 @@ They are not the same kind of cheap access as length and indexed reads.
 
 ### Tests
 
-- keep existing slice tests unchanged initially
-- ensure array fast-path rollout does not change slice emission accidentally
+- [x] keep slice operations on the runtime-helper path under normal codegen
+- [x] add a codegen regression proving slice emission is unchanged when collection fast paths are toggled on and off
+- [x] add runtime-facing regressions proving slice read/write behavior and invalid-range panic behavior remain unchanged
 
 ## Slice 7: Direct primitive array indexed-write slice
 
@@ -862,7 +863,7 @@ Mitigation:
 9. [x] Add codegen and runtime tests for reference-array iteration
 10. [x] Emit direct structural-array indexed reads without `rt_array_get_*` runtime calls
 11. [x] Add negative tests for null and out-of-bounds behavior under direct indexed-read fast paths
-12. [ ] Confirm slice operations remain unchanged on the runtime path
+12. [x] Confirm slice operations remain unchanged on the runtime path
 13. [x] Measure instruction-count and runtime improvements on representative collection kernels
 14. [x] Decide whether direct indexed writes are worth a follow-up plan
 15. [ ] Implement primitive-only direct indexed-write fast paths for `i64[]`, `u64[]`, `u8[]`, `bool[]`, and `double[]`
