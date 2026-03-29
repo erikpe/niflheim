@@ -1,3 +1,4 @@
+from compiler.codegen.abi.array import array_length_operand
 from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_INDEX_GET_RUNTIME_CALLS,
@@ -59,7 +60,7 @@ fn main() -> i64 {
     assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
 
 
-def test_emit_asm_array_len_and_slice_lower_to_runtime_calls(tmp_path) -> None:
+def test_emit_asm_array_len_uses_direct_load_and_slice_stays_on_runtime_path(tmp_path) -> None:
     source = """
 class Person {
     age: i64;
@@ -80,7 +81,9 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" in asm
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" not in asm
+    assert "    call rt_panic" in asm
+    assert f"    mov rax, {array_length_operand('rax')}" in asm
     assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" in asm
     assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
 

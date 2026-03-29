@@ -8,12 +8,12 @@ from compiler.common.type_names import *
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
+from compiler.codegen.abi.array import array_length_operand
 from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
 from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
-    ARRAY_LEN_RUNTIME_CALL,
     DOUBLE_TO_I64_RUNTIME_CALL,
     DOUBLE_TO_U64_RUNTIME_CALL,
     DOUBLE_TO_U8_RUNTIME_CALL,
@@ -173,14 +173,7 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
         _emit_call_expr(codegen, expr, ctx)
         return
     if isinstance(expr, ArrayLenExpr):
-        _emit_named_call(
-            codegen,
-            ARRAY_LEN_RUNTIME_CALL,
-            [expr.target],
-            TYPE_NAME_U64,
-            ctx,
-            named_root_local_ids=_named_root_sync_local_ids_for_expr(ctx, expr),
-        )
+        _emit_array_len_expr(codegen, expr, ctx)
         return
     if isinstance(expr, IndexReadExpr):
         _emit_index_read_expr(codegen, expr, ctx)
@@ -411,6 +404,23 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Emi
     if rooted_runtime_arg_count > 0:
         codegen.emit_clear_runtime_call_arg_temp_roots(ctx.layout, rooted_runtime_arg_count)
     _emit_runtime_call_hooks_after(codegen, ctx)
+
+
+def _emit_array_len_expr(codegen: CodeGenerator, expr: ArrayLenExpr, ctx: EmitContext) -> None:
+    emit_expr(codegen, expr.target, ctx)
+    _emit_array_null_check(codegen, ctx=ctx)
+    codegen.asm.instr(f"mov rax, {array_length_operand('rax')}")
+
+
+def _emit_array_null_check(codegen: CodeGenerator, *, ctx: EmitContext) -> None:
+    non_null_label = codegen_symbols.next_label(ctx.fn_name, "array_non_null", ctx.label_counter)
+    panic_message_label = codegen.runtime_panic_message_label("Array API called with null object")
+
+    codegen.asm.instr("test rax, rax")
+    codegen.asm.instr(f"jne {non_null_label}")
+    codegen.asm.instr(f"lea rdi, [rip + {panic_message_label}]")
+    codegen.emit_aligned_call("rt_panic")
+    codegen.asm.label(non_null_label)
 
 
 def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -> None:

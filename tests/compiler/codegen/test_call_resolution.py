@@ -1,7 +1,7 @@
+from compiler.codegen.abi.array import array_length_operand
 from compiler.codegen.abi.runtime import (
     ARRAY_INDEX_GET_RUNTIME_CALLS,
     ARRAY_INDEX_SET_RUNTIME_CALLS,
-    ARRAY_LEN_RUNTIME_CALL,
     ARRAY_SLICE_SET_RUNTIME_CALLS,
 )
 from compiler.common.collection_protocols import ArrayRuntimeKind
@@ -29,7 +29,7 @@ fn main() -> i64 {
     assert "    call r11" in asm
 
 
-def test_codegen_handles_runtime_array_len_calls(tmp_path) -> None:
+def test_codegen_handles_structural_array_len_via_direct_load(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,
         """
@@ -39,7 +39,8 @@ def test_codegen_handles_runtime_array_len_calls(tmp_path) -> None:
         """,
     )
 
-    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" in asm
+    assert f"    mov rax, {array_length_operand('rax')}" in asm
+    assert "    call rt_array_len" not in asm
 
 
 def test_codegen_dispatches_array_methods_to_runtime_calls(tmp_path) -> None:

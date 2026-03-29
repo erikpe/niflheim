@@ -3,11 +3,13 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from compiler.codegen.abi.array import array_length_operand
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
+    ARRAY_LEN_RUNTIME_CALL,
     ARRAY_INDEX_GET_RUNTIME_CALLS,
     ARRAY_SLICE_GET_RUNTIME_CALLS,
     DOUBLE_TO_I64_RUNTIME_CALL,
@@ -22,6 +24,7 @@ from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.ir import (
+    ArrayLenExpr,
     CallExprS,
     CallableValueCallTarget,
     ConstructorCallTarget,
@@ -171,12 +174,13 @@ def test_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path) -> None:
             "main.nif": """
             fn main() -> i64 {
                 var arr: i64[] = i64[](4u);
+                var n: u64 = arr.len();
                 var x: i64 = arr[0];
                 var y: double = (double)x;
                 var big: u64 = 42u;
                 var z: double = (double)big;
                 var b: bool = (bool)0.5;
-                return (i64)y + (i64)z + (i64)b;
+                return (i64)n + (i64)y + (i64)z + (i64)b;
             }
             """
         },
@@ -193,20 +197,26 @@ def test_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path) -> None:
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_I64]}" in generator.asm.lines
 
     generator.asm.lines.clear()
-    assert isinstance(var_inits[1], IndexReadExpr)
+    assert isinstance(var_inits[1], ArrayLenExpr)
     emit_expr(generator, var_inits[1], ctx)
+    assert f"    mov rax, {array_length_operand('rax')}" in generator.asm.lines
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" not in generator.asm.lines
+
+    generator.asm.lines.clear()
+    assert isinstance(var_inits[2], IndexReadExpr)
+    emit_expr(generator, var_inits[2], ctx)
     assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in generator.asm.lines
 
     generator.asm.lines.clear()
-    emit_expr(generator, var_inits[2], ctx)
+    emit_expr(generator, var_inits[3], ctx)
     assert "    cvtsi2sd xmm0, rax" in generator.asm.lines
 
     generator.asm.lines.clear()
-    emit_expr(generator, var_inits[4], ctx)
+    emit_expr(generator, var_inits[5], ctx)
     assert f"    call {U64_TO_DOUBLE_RUNTIME_CALL}" in generator.asm.lines
 
     generator.asm.lines.clear()
-    emit_expr(generator, var_inits[5], ctx)
+    emit_expr(generator, var_inits[6], ctx)
     assert "    ucomisd xmm0, xmm1" in generator.asm.lines
     assert "    setp dl" in generator.asm.lines
 

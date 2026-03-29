@@ -259,7 +259,7 @@ Preserve array fast-path eligibility across executable lowering so codegen does 
 
 ## Slice 3: Add direct array length emission
 
-Status: proposed
+Status: implemented
 
 Payoff: high
 
@@ -277,11 +277,11 @@ Replace `rt_array_len` runtime calls with direct field loads for structural arra
 
 ### Concrete Changes
 
-- teach `ArrayLenExpr` emission to:
+- [x] teach `ArrayLenExpr` emission to:
   - evaluate the array operand once
   - preserve null semantics through an inline check or dedicated helper emission
   - load `len` directly from the array object
-- skip:
+- [x] skip:
   - runtime call hooks for `rt_array_len`
   - runtime call argument setup
   - generic runtime dispatch for structural arrays
@@ -294,8 +294,8 @@ Replace `rt_array_len` runtime calls with direct field loads for structural arra
 
 ### Tests
 
-- update or add codegen tests asserting that structural array length emits no `rt_array_len` call
-- add runtime-facing tests proving null behavior remains correct
+- [x] update or add codegen tests asserting that structural array length emits no `rt_array_len` call
+- [x] add runtime-facing tests proving null behavior remains correct
 
 ## Slice 4: Add specialized array `for-in` emission
 
@@ -681,8 +681,8 @@ Mitigation:
 2. [x] Document the compiler/runtime array-layout dependency in code comments near the new ABI helpers
 3. [x] Extend lowered IR to carry explicit array fast-path strategy for `for-in`
 4. [x] Update executable lowering to preserve array-backed iteration strategy explicitly
-5. [ ] Emit direct array length loads for `ArrayLenExpr`
-6. [ ] Add codegen tests proving structural arrays no longer call `rt_array_len`
+5. [x] Emit direct array length loads for `ArrayLenExpr`
+6. [x] Add codegen tests proving structural arrays no longer call `rt_array_len`
 7. [ ] Emit specialized array-backed `for-in` loops without `rt_array_get_*` runtime calls
 8. [ ] Add codegen and runtime tests for primitive-array iteration
 9. [ ] Add codegen and runtime tests for reference-array iteration

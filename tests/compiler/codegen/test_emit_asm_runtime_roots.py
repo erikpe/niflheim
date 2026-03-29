@@ -1,3 +1,4 @@
+from compiler.codegen.abi.array import array_length_operand
 from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS, ARRAY_LEN_RUNTIME_CALL
 from tests.compiler.codegen.helpers import emit_source_asm
 
@@ -440,7 +441,9 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     measure_body = asm[asm.index("measure:") : asm.index(".Lmeasure_epilogue:")]
 
-    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" in measure_body
+    assert f"    mov rax, {array_length_operand('rax')}" in measure_body
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" not in measure_body
+    assert "    call rt_panic" in measure_body
     assert "    call rt_root_slot_store" not in measure_body
     assert "rt_safepoint_before" not in measure_body
     assert "rt_safepoint_after" not in measure_body
