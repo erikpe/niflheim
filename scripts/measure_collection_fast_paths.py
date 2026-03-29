@@ -60,6 +60,7 @@ class VariantMeasurement:
     total_metrics: dict[str, int]
     array_len_call_count: int
     array_get_call_count: int
+    array_set_call_count: int
     binary_size_bytes: int
     runtime: dict[str, float | int] | None
 
@@ -76,6 +77,9 @@ class KernelMeasurement:
 KERNEL_SPECS: tuple[KernelSpec, ...] = (
     KernelSpec("len_hot_loop", SAMPLE_ROOT / "len_hot_loop.nif", "measure"),
     KernelSpec("index_reads_i64", SAMPLE_ROOT / "index_reads_i64.nif", "measure"),
+    KernelSpec("index_writes_i64", SAMPLE_ROOT / "index_writes_i64.nif", "measure"),
+    KernelSpec("index_writes_ref", SAMPLE_ROOT / "index_writes_ref.nif", "measure"),
+    KernelSpec("index_writes_ref_pure", SAMPLE_ROOT / "index_writes_ref_pure.nif", "measure"),
     KernelSpec("for_in_i64", SAMPLE_ROOT / "for_in_i64.nif", "measure"),
     KernelSpec("for_in_ref", SAMPLE_ROOT / "for_in_ref.nif", "measure"),
 )
@@ -164,6 +168,7 @@ def _measure_variant(
         total_metrics=analyze_assembly_metrics(asm_text).to_dict(),
         array_len_call_count=_count_lines_with_prefix(focus_body, "call rt_array_len"),
         array_get_call_count=_count_lines_with_prefix(focus_body, "call rt_array_get_"),
+        array_set_call_count=_count_lines_with_prefix(focus_body, "call rt_array_set_"),
         binary_size_bytes=binary_path.stat().st_size,
         runtime=None if runtime_metrics is None else asdict(runtime_metrics),
     )
@@ -204,6 +209,8 @@ def _print_table(measurements: list[KernelMeasurement]) -> None:
         "fallback_len_calls",
         "fast_get_calls",
         "fallback_get_calls",
+        "fast_set_calls",
+        "fallback_set_calls",
         "fast_ms",
         "fallback_ms",
         "speedup",
@@ -229,6 +236,8 @@ def _print_table(measurements: list[KernelMeasurement]) -> None:
                 str(measurement.fallback.array_len_call_count),
                 str(measurement.fast.array_get_call_count),
                 str(measurement.fallback.array_get_call_count),
+                str(measurement.fast.array_set_call_count),
+                str(measurement.fallback.array_set_call_count),
                 fast_runtime_ms,
                 fallback_runtime_ms,
                 speedup,

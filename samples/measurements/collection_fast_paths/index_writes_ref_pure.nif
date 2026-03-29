@@ -1,0 +1,28 @@
+class Box {
+    value: i64;
+}
+
+fn measure(target: Box[], fill: Box) -> i64 {
+    var rounds: i64 = 0;
+    var n: i64 = (i64)target.len();
+    var writes: i64 = 0;
+    while rounds < 5000 {
+        var i: i64 = 0;
+        while i < n {
+            target[i] = fill;
+            writes = writes + 1;
+            i = i + 1;
+        }
+        rounds = rounds + 1;
+    }
+    return writes;
+}
+
+fn main() -> i64 {
+    var target: Box[] = Box[](128u);
+    var fill: Box = Box(7);
+    if measure(target, fill) == 640000 {
+        return 0;
+    }
+    return 1;
+}

@@ -419,9 +419,9 @@ They are not the same kind of cheap access as length and indexed reads.
 - keep existing slice tests unchanged initially
 - ensure array fast-path rollout does not change slice emission accidentally
 
-## Slice 7: Optional direct array indexed-write follow-up
+## Slice 7: Direct primitive array indexed-write follow-up
 
-Status: proposed
+Status: recommended next
 
 Payoff: medium
 
@@ -429,16 +429,21 @@ Risk: medium to high
 
 ### Purpose
 
-Consider direct array writes only after length, iteration, and indexed reads are stable.
+Capture the next remaining helper-dominated hot path after array length, iteration, and indexed reads.
 
 ### Why This Is A Follow-Up
 
 While the current runtime implementation for `rt_array_set_*` is direct bounds-checked mutation, writes are a more future-sensitive area if GC write barriers or additional mutation invariants are introduced later.
 
+The current recommendation is therefore:
+
+- pursue direct indexed writes next for primitive arrays (`i64[]`, `u64[]`, `u8[]`, `bool[]`, `double[]`)
+- keep `ref[]` indexed writes on the runtime path until write-barrier policy is clearer
+
 ### Expected Outcome
 
-- possible additional speedup for mutation-heavy kernels
-- intentionally deferred to avoid coupling the initial plan to future GC write semantics
+- additional speedup for mutation-heavy primitive-array kernels
+- a narrower and safer follow-up than treating primitive and reference writes as one feature
 
 ## Detailed File-Level Change Map
 
@@ -643,12 +648,25 @@ Current measurement snapshot from `python3 scripts/measure_collection_fast_paths
 
 | kernel | fast focus instructions | fallback focus instructions | fast `rt_array_len` calls | fallback `rt_array_len` calls | fast `rt_array_get_*` calls | fallback `rt_array_get_*` calls | fast median ms | fallback median ms | speedup |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `len_hot_loop` | 64 | 64 | 0 | 2 | 0 | 0 | 3.821 | 13.136 | 3.44x |
-| `index_reads_i64` | 115 | 102 | 0 | 2 | 0 | 2 | 5.172 | 20.160 | 3.90x |
-| `for_in_i64` | 86 | 99 | 0 | 2 | 0 | 2 | 3.129 | 21.183 | 6.77x |
-| `for_in_ref` | 89 | 102 | 0 | 2 | 0 | 2 | 1.139 | 5.371 | 4.72x |
+| `len_hot_loop` | 64 | 64 | 0 | 2 | 0 | 0 | 3.688 | 16.294 | 4.42x |
+| `index_reads_i64` | 115 | 102 | 0 | 2 | 0 | 2 | 4.660 | 20.435 | 4.38x |
+| `index_writes_i64` | 129 | 116 | 0 | 2 | 0 | 2 | 20.659 | 20.585 | 1.00x |
+| `index_writes_ref` | 155 | 129 | 0 | 2 | 0 | 4 | 6.055 | 17.935 | 2.96x |
+| `index_writes_ref_pure` | 110 | 110 | 0 | 2 | 0 | 0 | 5.953 | 5.946 | 1.00x |
+| `for_in_i64` | 86 | 99 | 0 | 2 | 0 | 2 | 3.108 | 18.789 | 6.05x |
+| `for_in_ref` | 89 | 102 | 0 | 2 | 0 | 2 | 1.499 | 5.889 | 3.93x |
 
 These measurements confirm the expected tradeoff: helper-call removal delivers substantial runtime wins even when static focus-function instruction count stays flat or rises slightly in some kernels.
+
+They also make the indexed-write decision clear:
+
+- `index_writes_i64` is almost unchanged between fast and fallback modes at 1.01x, even though both variants still retain `rt_array_set_*` in the hot path
+- that means the already-landed read fast paths no longer move the needle much for primitive write-heavy kernels; the remaining cost is dominated by runtime indexed writes
+- `index_writes_ref` still improves from read-side fast paths because it also performs structural reads
+- the new pure write kernel `index_writes_ref_pure` is effectively flat at 1.00x and removes the read-side confounder entirely
+- that shows the current residual hot cost for `ref[]` write-heavy kernels is the runtime write helper itself, not leftover read overhead
+
+Conclusion: direct indexed writes are worth doing next, but the follow-up should be primitive-only at first.
 
 ## Risks And Mitigations
 
@@ -705,7 +723,7 @@ Mitigation:
 11. [x] Add negative tests for null and out-of-bounds behavior under direct indexed-read fast paths
 12. [ ] Confirm slice operations remain unchanged on the runtime path
 13. [x] Measure instruction-count and runtime improvements on representative collection kernels
-14. [ ] Decide whether direct indexed writes are worth a follow-up plan
+14. [x] Decide whether direct indexed writes are worth a follow-up plan
 
 ## Definition Of Success
 

@@ -1,0 +1,36 @@
+class Box {
+    value: i64;
+}
+
+fn build_values(count: u64) -> Box[] {
+    var values: Box[] = Box[](count);
+    var i: i64 = 0;
+    while (u64)i < count {
+        values[i] = Box(i + 1);
+        i = i + 1;
+    }
+    return values;
+}
+
+fn measure(target: Box[], source: Box[]) -> i64 {
+    var rounds: i64 = 0;
+    var n: i64 = (i64)target.len();
+    while rounds < 5000 {
+        var i: i64 = 0;
+        while i < n {
+            target[i] = source[i];
+            i = i + 1;
+        }
+        rounds = rounds + 1;
+    }
+    return target[7].value;
+}
+
+fn main() -> i64 {
+    var target: Box[] = Box[](128u);
+    var source: Box[] = build_values(128u);
+    if measure(target, source) == 8 {
+        return 0;
+    }
+    return 1;
+}

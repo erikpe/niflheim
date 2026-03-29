@@ -1,0 +1,31 @@
+fn build_values(count: u64) -> i64[] {
+    var values: i64[] = i64[](count);
+    var i: i64 = 0;
+    while (u64)i < count {
+        values[i] = i + 1;
+        i = i + 1;
+    }
+    return values;
+}
+
+fn measure(values: i64[]) -> i64 {
+    var rounds: i64 = 0;
+    var n: i64 = (i64)values.len();
+    while rounds < 10000 {
+        var i: i64 = 0;
+        while i < n {
+            values[i] = rounds + i;
+            i = i + 1;
+        }
+        rounds = rounds + 1;
+    }
+    return values[7];
+}
+
+fn main() -> i64 {
+    var values: i64[] = build_values(256u);
+    if measure(values) == 10006 {
+        return 0;
+    }
+    return 1;
+}
