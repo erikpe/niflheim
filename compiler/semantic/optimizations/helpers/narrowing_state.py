@@ -155,23 +155,30 @@ def update_local_facts_from_value(
     value: SemanticExpr | None,
     compatibility_index: TypeCompatibilityIndex,
 ) -> bool:
-    state.invalidate_local(target_local_id)
+    current_target_facts = state.facts_for_local(target_local_id)
     if value is None:
+        state.invalidate_local(target_local_id)
         return False
 
     if isinstance(value, LocalRefExpr):
-        return state.copy_local_facts(target_local_id, value.local_id)
+        next_target_facts = state.facts_for_local(value.local_id)
+        state.set_facts(target_local_id, next_target_facts)
+        return next_target_facts is not None and current_target_facts != next_target_facts
 
     successful_cast = successful_local_checked_cast(value)
     if successful_cast is None:
+        state.invalidate_local(target_local_id)
         return False
 
     source_local_id, target_type_ref = successful_cast
-    source_changed = state.prove_local_target(compatibility_index, source_local_id, target_type_ref)
-    target_facts = state.facts_for_local(source_local_id) or TypeFacts()
-    target_facts = target_facts.with_proven_target(compatibility_index, target_type_ref)
-    target_changed = target_facts != TypeFacts()
-    state.set_facts(target_local_id, target_facts)
+    source_facts = state.facts_for_local(source_local_id) or TypeFacts()
+    next_source_facts = source_facts.with_proven_target(compatibility_index, target_type_ref)
+    source_changed = next_source_facts != source_facts
+    state.set_facts(source_local_id, next_source_facts)
+
+    next_target_facts = next_source_facts.with_proven_target(compatibility_index, target_type_ref)
+    target_changed = current_target_facts != next_target_facts
+    state.set_facts(target_local_id, next_target_facts)
     return source_changed or target_changed
 
 

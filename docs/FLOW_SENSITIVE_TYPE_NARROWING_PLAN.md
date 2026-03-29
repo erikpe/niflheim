@@ -347,6 +347,13 @@ Use branch conditions to introduce positive runtime type facts on the path where
 
 Status: implemented
 
+Implementation notes:
+
+- successful-cast fallthrough seeding is implemented in [compiler/semantic/optimizations/helpers/narrowing_state.py](compiler/semantic/optimizations/helpers/narrowing_state.py) via `update_local_facts_from_value(...)`
+- structured statement integration lives in [compiler/semantic/optimizations/flow_sensitive_type_narrowing.py](compiler/semantic/optimizations/flow_sensitive_type_narrowing.py)
+- direct source/target fact propagation and self-assignment preservation are covered by [tests/compiler/semantic/optimizations/test_narrowing_state.py](tests/compiler/semantic/optimizations/test_narrowing_state.py)
+- var-decl and assignment-path behavior is covered by [tests/compiler/semantic/optimizations/test_flow_sensitive_type_narrowing.py](tests/compiler/semantic/optimizations/test_flow_sensitive_type_narrowing.py)
+
 Payoff: very high
 
 Risk: medium

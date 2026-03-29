@@ -4,7 +4,17 @@ from pathlib import Path
 
 from compiler.common.logging import configure_logging, resolve_log_settings
 from compiler.resolver import resolve_program
-from compiler.semantic.ir import BinaryExprS, BoolConstant, CastExprS, LiteralExprS, LocalRefExpr, SemanticIf, SemanticReturn, SemanticVarDecl
+from compiler.semantic.ir import (
+    BinaryExprS,
+    BoolConstant,
+    CastExprS,
+    LiteralExprS,
+    LocalRefExpr,
+    SemanticAssign,
+    SemanticIf,
+    SemanticReturn,
+    SemanticVarDecl,
+)
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.flow_sensitive_type_narrowing import flow_sensitive_type_narrowing
 
@@ -119,6 +129,54 @@ def test_flow_sensitive_type_narrowing_folds_later_type_test_after_successful_ca
     assert isinstance(return_stmt.value, LiteralExprS)
     assert isinstance(return_stmt.value.constant, BoolConstant)
     assert return_stmt.value.constant.value is True
+
+
+def test_flow_sensitive_type_narrowing_tracks_destination_local_after_cast_assignment(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Key {
+            value: i64;
+        }
+
+        fn main(value: Obj) -> Key {
+            var narrowed: Obj = null;
+            narrowed = (Key)value;
+            return (Key)narrowed;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[2]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LocalRefExpr)
+
+
+def test_flow_sensitive_type_narrowing_preserves_narrowing_across_rewritten_self_assignment(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Key {
+            value: i64;
+        }
+
+        fn main(value: Obj) -> Key {
+            value = (Key)value;
+            value = (Key)value;
+            return (Key)value;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[1], SemanticAssign)
+    assert isinstance(statements[1].value, LocalRefExpr)
+    assert isinstance(statements[2], SemanticReturn)
+    assert isinstance(statements[2].value, LocalRefExpr)
 
 
 def test_flow_sensitive_type_narrowing_handles_negated_type_test_fallthrough(tmp_path: Path) -> None:

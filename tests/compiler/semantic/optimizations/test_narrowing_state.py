@@ -129,6 +129,79 @@ def test_update_local_facts_from_value_reports_change_when_copying_existing_fact
     assert state.facts_for_local(target_local_id) == state.facts_for_local(source_local_id)
 
 
+def test_update_local_facts_from_value_preserves_facts_on_self_copy_assignment() -> None:
+    compatibility_index = _compatibility_index()
+    local_id = _local_id(0)
+    key_type_ref = semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Key"))
+
+    state = NarrowState.empty()
+    state.prove_local_target(compatibility_index, local_id, key_type_ref)
+
+    changed = update_local_facts_from_value(
+        state,
+        local_id,
+        LocalRefExpr(local_id=local_id, type_ref=_obj_type_ref(), span=_span()),
+        compatibility_index,
+    )
+
+    assert changed is False
+    assert state.facts_for_local(local_id) is not None
+    assert state.facts_for_local(local_id).proves(key_type_ref)
+
+
+def test_update_local_facts_from_value_seeds_source_and_target_from_successful_cast() -> None:
+    compatibility_index = _compatibility_index()
+    source_local_id = _local_id(0)
+    target_local_id = _local_id(1)
+    key_type_ref = semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Key"))
+
+    state = NarrowState.empty()
+    changed = update_local_facts_from_value(
+        state,
+        target_local_id,
+        CastExprS(
+            operand=LocalRefExpr(local_id=source_local_id, type_ref=_obj_type_ref(), span=_span()),
+            cast_kind=CastSemanticsKind.REFERENCE_COMPATIBILITY,
+            target_type_ref=key_type_ref,
+            type_ref=key_type_ref,
+            span=_span(),
+        ),
+        compatibility_index,
+    )
+
+    assert changed is True
+    assert state.facts_for_local(source_local_id) is not None
+    assert state.facts_for_local(source_local_id).proves(key_type_ref)
+    assert state.facts_for_local(target_local_id) is not None
+    assert state.facts_for_local(target_local_id).proves(key_type_ref)
+
+
+def test_update_local_facts_from_value_reports_no_change_when_successful_cast_facts_already_exist() -> None:
+    compatibility_index = _compatibility_index()
+    source_local_id = _local_id(0)
+    target_local_id = _local_id(1)
+    key_type_ref = semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Key"))
+
+    state = NarrowState.empty()
+    state.prove_local_target(compatibility_index, source_local_id, key_type_ref)
+    state.prove_local_target(compatibility_index, target_local_id, key_type_ref)
+
+    changed = update_local_facts_from_value(
+        state,
+        target_local_id,
+        CastExprS(
+            operand=LocalRefExpr(local_id=source_local_id, type_ref=_obj_type_ref(), span=_span()),
+            cast_kind=CastSemanticsKind.REFERENCE_COMPATIBILITY,
+            target_type_ref=key_type_ref,
+            type_ref=key_type_ref,
+            span=_span(),
+        ),
+        compatibility_index,
+    )
+
+    assert changed is False
+
+
 def test_narrow_state_drop_scoped_local_removes_local_facts() -> None:
     compatibility_index = _compatibility_index()
     local_id = _local_id(0)
