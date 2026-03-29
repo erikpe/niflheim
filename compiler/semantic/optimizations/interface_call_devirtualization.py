@@ -6,7 +6,13 @@ from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
 
 from .helpers.interface_dispatch import build_interface_dispatch_index, resolve_implementing_method
-from .helpers.narrowing_state import NarrowState, apply_branch_seed, branch_seeds_for_condition, update_local_facts_from_value
+from .helpers.narrowing_state import (
+    NarrowMerge,
+    NarrowState,
+    apply_branch_seed,
+    branch_seeds_for_condition,
+    update_local_facts_from_value,
+)
 from .helpers.program_structure import rewrite_program_structure
 from .helpers.type_compatibility import TypeCompatibilityIndex, build_type_compatibility_index
 
@@ -167,7 +173,7 @@ def _rewrite_stmt(
         elif else_exits and not then_exits:
             next_state = then_exit_state
         else:
-            next_state = NarrowState.merge_branches(then_exit_state, else_exit_state)
+            next_state = NarrowMerge.merge_branches(state, then_exit_state, else_exit_state).apply(state)
 
         return replace(stmt, condition=rewritten_condition, then_block=then_block, else_block=else_block), next_state
 
@@ -178,7 +184,7 @@ def _rewrite_stmt(
                 condition=_rewrite_expr(stmt.condition, NarrowState.empty(), compatibility_index, dispatch_index, stats),
                 body=_rewrite_nested_block(stmt.body, NarrowState.empty(), compatibility_index, dispatch_index, stats)[0],
             ),
-            NarrowState.empty(),
+            NarrowMerge.reset(state).apply(state),
         )
 
     if isinstance(stmt, SemanticForIn):
@@ -188,7 +194,7 @@ def _rewrite_stmt(
                 collection=_rewrite_expr(stmt.collection, state, compatibility_index, dispatch_index, stats),
                 body=_rewrite_nested_block(stmt.body, NarrowState.empty(), compatibility_index, dispatch_index, stats)[0],
             ),
-            NarrowState.empty(),
+            NarrowMerge.reset(state).apply(state),
         )
 
     if isinstance(stmt, (SemanticBreak, SemanticContinue)):

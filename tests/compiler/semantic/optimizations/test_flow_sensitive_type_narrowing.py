@@ -201,6 +201,57 @@ def test_flow_sensitive_type_narrowing_invalidates_facts_after_reassignment(tmp_
     assert isinstance(statements[3].value, CastExprS)
 
 
+def test_flow_sensitive_type_narrowing_resets_facts_after_while_loop(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Key {
+            value: i64;
+        }
+
+        fn main(value: Obj, keep_looping: bool) -> Key {
+            var key: Key = (Key)value;
+            while keep_looping {
+                return key;
+            }
+            return (Key)value;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[2], SemanticReturn)
+    assert isinstance(statements[2].value, CastExprS)
+
+
+def test_flow_sensitive_type_narrowing_preserves_shared_facts_after_if_merge(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Key {
+            value: i64;
+        }
+
+        fn main(flag: bool, value: Obj) -> Key {
+            if flag {
+                var left: Key = (Key)value;
+            } else {
+                var right: Key = (Key)value;
+            }
+            return (Key)value;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[1], SemanticReturn)
+    assert isinstance(statements[1].value, LocalRefExpr)
+
+
 def test_flow_sensitive_type_narrowing_logs_exact_summary_counts(tmp_path: Path, capsys) -> None:
     _write(
         tmp_path / "main.nif",

@@ -258,6 +258,13 @@ Centralize the logic for proving whether one semantic type implies runtime compa
 
 Status: implemented
 
+Implementation notes:
+
+- implemented in [compiler/semantic/optimizations/helpers/narrowing_state.py](compiler/semantic/optimizations/helpers/narrowing_state.py)
+- integrated into structured statement walking in [compiler/semantic/optimizations/flow_sensitive_type_narrowing.py](compiler/semantic/optimizations/flow_sensitive_type_narrowing.py)
+- directly covered by [tests/compiler/semantic/optimizations/test_narrowing_state.py](tests/compiler/semantic/optimizations/test_narrowing_state.py)
+- integration behavior around merge/reset is covered by [tests/compiler/semantic/optimizations/test_flow_sensitive_type_narrowing.py](tests/compiler/semantic/optimizations/test_flow_sensitive_type_narrowing.py)
+
 Payoff: high
 
 Risk: medium

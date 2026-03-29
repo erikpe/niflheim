@@ -22,11 +22,14 @@ class TypeFacts:
     def with_proven_target(
         self, compatibility_index: TypeCompatibilityIndex, target_type_ref: SemanticTypeRef
     ) -> "TypeFacts":
+        target_type_name = semantic_type_canonical_name(target_type_ref)
         compatible_type_names = self.compatible_type_names | proven_compatible_type_names(
             compatibility_index, target_type_ref
         )
         exact_type = self.exact_type
-        if exact_type is None and is_exact_runtime_target(target_type_ref):
+        if is_exact_runtime_target(target_type_ref) and (
+            exact_type is None or semantic_type_canonical_name(exact_type) != target_type_name
+        ):
             exact_type = target_type_ref
         return TypeFacts(exact_type=exact_type, compatible_type_names=compatible_type_names)
 
@@ -73,8 +76,12 @@ class NarrowState:
     def drop_scoped_local(self, local_id: LocalId) -> None:
         self.invalidate_local(local_id)
 
-    def copy_local_facts(self, target_local_id: LocalId, source_local_id: LocalId) -> None:
-        self.set_facts(target_local_id, self.facts_for_local(source_local_id))
+    def copy_local_facts(self, target_local_id: LocalId, source_local_id: LocalId) -> bool:
+        current_facts = self.facts_for_local(target_local_id)
+        next_facts = self.facts_for_local(source_local_id)
+        changed = current_facts != next_facts
+        self.set_facts(target_local_id, next_facts)
+        return changed
 
     def prove_local_target(
         self, compatibility_index: TypeCompatibilityIndex, local_id: LocalId, target_type_ref: SemanticTypeRef
@@ -85,21 +92,44 @@ class NarrowState:
         self.set_facts(local_id, next_facts)
         return changed
 
+
+@dataclass(frozen=True)
+class NarrowMerge:
+    invalidated_local_ids: frozenset[LocalId] = frozenset()
+    fact_updates: dict[LocalId, TypeFacts] = field(default_factory=dict)
+
     @classmethod
-    def merge_branches(cls, *states: "NarrowState") -> "NarrowState":
-        if not states:
-            return cls.empty()
+    def reset(cls, state: NarrowState) -> "NarrowMerge":
+        return cls(invalidated_local_ids=frozenset(state.facts_by_local_id))
 
-        shared_local_ids = set(states[0].facts_by_local_id)
-        for state in states[1:]:
-            shared_local_ids &= set(state.facts_by_local_id)
+    @classmethod
+    def merge_branches(cls, state: NarrowState, *branch_states: NarrowState) -> "NarrowMerge":
+        if not branch_states:
+            return cls()
 
-        merged_state = cls.empty()
+        shared_local_ids = set(branch_states[0].facts_by_local_id)
+        for branch_state in branch_states[1:]:
+            shared_local_ids &= set(branch_state.facts_by_local_id)
+
+        fact_updates: dict[LocalId, TypeFacts] = {}
         for local_id in shared_local_ids:
-            merged_facts = states[0].facts_by_local_id[local_id]
-            for state in states[1:]:
-                merged_facts = merged_facts.intersect(state.facts_by_local_id[local_id])
-            merged_state.set_facts(local_id, merged_facts)
+            merged_facts = branch_states[0].facts_by_local_id[local_id]
+            for branch_state in branch_states[1:]:
+                merged_facts = merged_facts.intersect(branch_state.facts_by_local_id[local_id])
+            if not merged_facts.is_empty():
+                fact_updates[local_id] = merged_facts
+
+        invalidated_local_ids = frozenset(
+            local_id for local_id in state.facts_by_local_id if local_id not in fact_updates
+        )
+        return cls(invalidated_local_ids=invalidated_local_ids, fact_updates=fact_updates)
+
+    def apply(self, state: NarrowState) -> NarrowState:
+        merged_state = state.fork()
+        for local_id in self.invalidated_local_ids:
+            merged_state.invalidate_local(local_id)
+        for local_id, facts in self.fact_updates.items():
+            merged_state.set_facts(local_id, facts)
         return merged_state
 
 
@@ -130,8 +160,7 @@ def update_local_facts_from_value(
         return False
 
     if isinstance(value, LocalRefExpr):
-        state.copy_local_facts(target_local_id, value.local_id)
-        return False
+        return state.copy_local_facts(target_local_id, value.local_id)
 
     successful_cast = successful_local_checked_cast(value)
     if successful_cast is None:

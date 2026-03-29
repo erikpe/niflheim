@@ -4,13 +4,12 @@ from dataclasses import dataclass, replace
 
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
-from compiler.semantic.operations import CastSemanticsKind, TypeTestSemanticsKind, UnaryOpKind
-from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
+from compiler.semantic.operations import CastSemanticsKind
 
 from .helpers.program_structure import rewrite_program_structure
 from .helpers.narrowing_state import (
+    NarrowMerge as _NarrowMerge,
     NarrowState as _NarrowState,
-    TypeFacts as _TypeFacts,
     apply_branch_seed,
     branch_seeds_for_condition,
     update_local_facts_from_value,
@@ -152,7 +151,7 @@ def _rewrite_stmt(
         elif else_exits and not then_exits:
             next_state = then_exit_state
         else:
-            next_state = _NarrowState.merge_branches(then_exit_state, else_exit_state)
+            next_state = _NarrowMerge.merge_branches(state, then_exit_state, else_exit_state).apply(state)
 
         return (
             replace(stmt, condition=rewritten_condition, then_block=then_block, else_block=else_block),
@@ -166,7 +165,7 @@ def _rewrite_stmt(
                 condition=_rewrite_expr(stmt.condition, _NarrowState.empty(), compatibility_index, stats),
                 body=_rewrite_nested_block(stmt.body, _NarrowState.empty(), compatibility_index, stats)[0],
             ),
-            _NarrowState.empty(),
+            _NarrowMerge.reset(state).apply(state),
         )
 
     if isinstance(stmt, SemanticForIn):
@@ -176,7 +175,7 @@ def _rewrite_stmt(
                 collection=_rewrite_expr(stmt.collection, state, compatibility_index, stats),
                 body=_rewrite_nested_block(stmt.body, _NarrowState.empty(), compatibility_index, stats)[0],
             ),
-            _NarrowState.empty(),
+            _NarrowMerge.reset(state).apply(state),
         )
 
     if isinstance(stmt, (SemanticBreak, SemanticContinue)):
@@ -311,6 +310,8 @@ def _rewrite_expr(
         return replace(expr, length_expr=_rewrite_expr(expr.length_expr, state, compatibility_index, stats))
 
     raise TypeError(f"Unsupported semantic expression for flow-sensitive narrowing: {type(expr).__name__}")
+
+
 def _block_always_exits(block: SemanticBlock) -> bool:
     return any(_stmt_always_exits(stmt) for stmt in block.statements)
 
