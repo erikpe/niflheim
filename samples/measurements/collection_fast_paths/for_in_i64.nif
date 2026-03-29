@@ -1,0 +1,29 @@
+fn build_values(count: u64) -> i64[] {
+    var values: i64[] = i64[](count);
+    var i: i64 = 0;
+    while (u64)i < count {
+        values[i] = i + 1;
+        i = i + 1;
+    }
+    return values;
+}
+
+fn measure(values: i64[]) -> i64 {
+    var rounds: i64 = 0;
+    var total: i64 = 0;
+    while rounds < 10000 {
+        for value in values {
+            total = total + value;
+        }
+        rounds = rounds + 1;
+    }
+    return total;
+}
+
+fn main() -> i64 {
+    var values: i64[] = build_values(256u);
+    if measure(values) == 328960000 {
+        return 0;
+    }
+    return 1;
+}

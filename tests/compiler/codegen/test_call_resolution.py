@@ -1,6 +1,5 @@
-from compiler.codegen.abi.array import array_length_operand
+from compiler.codegen.abi.array import array_data_index_address, array_length_operand
 from compiler.codegen.abi.runtime import (
-    ARRAY_INDEX_GET_RUNTIME_CALLS,
     ARRAY_INDEX_SET_RUNTIME_CALLS,
     ARRAY_SLICE_SET_RUNTIME_CALLS,
 )
@@ -43,7 +42,7 @@ def test_codegen_handles_structural_array_len_via_direct_load(tmp_path) -> None:
     assert "    call rt_array_len" not in asm
 
 
-def test_codegen_dispatches_array_methods_to_runtime_calls(tmp_path) -> None:
+def test_codegen_dispatches_array_methods_to_mixed_direct_and_runtime_paths(tmp_path) -> None:
     source = """
 fn main(values: i64[], refs: Obj[]) -> i64 {
     values.index_set(0, 7);
@@ -55,4 +54,5 @@ fn main(values: i64[], refs: Obj[]) -> i64 {
 
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
     assert f"    call {ARRAY_SLICE_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
-    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
+    assert "    call rt_array_get_i64" not in asm
+    assert f"    mov rax, qword ptr {array_data_index_address('rax', 'rcx', element_size=8)}" in asm

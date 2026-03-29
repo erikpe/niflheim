@@ -11,7 +11,13 @@ from compiler.semantic.optimizations.pipeline import DEFAULT_SEMANTIC_OPTIMIZATI
 
 
 def emit_source_asm(
-    tmp_path, source: str, *, source_path: str = "main.nif", project_root=None, disabled_passes: Iterable[str] = ()
+    tmp_path,
+    source: str,
+    *,
+    source_path: str = "main.nif",
+    project_root=None,
+    disabled_passes: Iterable[str] = (),
+    collection_fast_paths_enabled: bool = True,
 ) -> str:
     entry_path = tmp_path / source_path
     entry_path.parent.mkdir(parents=True, exist_ok=True)
@@ -27,4 +33,7 @@ def emit_source_asm(
     linked_program = link_semantic_program(
         optimize_semantic_program(lower_program(program), passes=optimization_passes)
     )
-    return emit_asm(lower_linked_semantic_program(linked_program))
+    return emit_asm(
+        lower_linked_semantic_program(linked_program),
+        collection_fast_paths_enabled=collection_fast_paths_enabled,
+    )

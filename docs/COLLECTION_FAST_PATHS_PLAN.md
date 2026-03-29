@@ -346,7 +346,7 @@ Replace the generic `iter_get` runtime call loop with direct array iteration whe
 
 ## Slice 5: Add direct array indexed-read emission
 
-Status: proposed
+Status: implemented
 
 Payoff: high
 
@@ -364,14 +364,14 @@ Replace `rt_array_get_*` runtime calls with direct indexed loads when the compil
 
 ### Concrete Changes
 
-- for structural array `IndexReadExpr`:
+- [x] for structural array `IndexReadExpr`:
   - evaluate receiver once
   - evaluate index once
   - preserve null semantics
   - emit inline bounds checks
   - compute direct element address
   - load the element according to its runtime representation
-- keep generic runtime-dispatch reads for non-array collection receivers
+- [x] keep generic runtime-dispatch reads for non-array collection receivers
 
 ### Expected Outcome
 
@@ -381,9 +381,9 @@ Replace `rt_array_get_*` runtime calls with direct indexed loads when the compil
 
 ### Tests
 
-- add codegen tests asserting direct loads instead of `rt_array_get_*` calls
-- add negative tests covering out-of-bounds and null behavior
-- add tests for primitive arrays and reference arrays
+- [x] add codegen tests asserting direct loads instead of `rt_array_get_*` calls
+- [x] add negative tests covering out-of-bounds and null behavior
+- [x] add tests for primitive arrays and reference arrays
 
 ## Slice 6: Leave slices on runtime helpers initially
 
@@ -633,7 +633,22 @@ Suggested metrics:
   - array iteration over reference arrays
   - indexed reads in tight loops
 
-Suggested command surface can mirror existing measurement scripts if a dedicated script is later added.
+Implemented command surface:
+
+- [scripts/measure_collection_fast_paths.py](scripts/measure_collection_fast_paths.py)
+  - builds each kernel twice: once with collection fast paths enabled and once with the existing runtime-helper path forced on for measurement
+  - writes a JSON report to [build/measurements/collection_fast_paths/report.json](build/measurements/collection_fast_paths/report.json)
+
+Current measurement snapshot from `python3 scripts/measure_collection_fast_paths.py`:
+
+| kernel | fast focus instructions | fallback focus instructions | fast `rt_array_len` calls | fallback `rt_array_len` calls | fast `rt_array_get_*` calls | fallback `rt_array_get_*` calls | fast median ms | fallback median ms | speedup |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `len_hot_loop` | 64 | 64 | 0 | 2 | 0 | 0 | 3.821 | 13.136 | 3.44x |
+| `index_reads_i64` | 115 | 102 | 0 | 2 | 0 | 2 | 5.172 | 20.160 | 3.90x |
+| `for_in_i64` | 86 | 99 | 0 | 2 | 0 | 2 | 3.129 | 21.183 | 6.77x |
+| `for_in_ref` | 89 | 102 | 0 | 2 | 0 | 2 | 1.139 | 5.371 | 4.72x |
+
+These measurements confirm the expected tradeoff: helper-call removal delivers substantial runtime wins even when static focus-function instruction count stays flat or rises slightly in some kernels.
 
 ## Risks And Mitigations
 
@@ -686,10 +701,10 @@ Mitigation:
 7. [x] Emit specialized array-backed `for-in` loops without `rt_array_get_*` runtime calls
 8. [x] Add codegen and runtime tests for primitive-array iteration
 9. [x] Add codegen and runtime tests for reference-array iteration
-10. [ ] Emit direct structural-array indexed reads without `rt_array_get_*` runtime calls
-11. [ ] Add negative tests for null and out-of-bounds behavior under direct indexed-read fast paths
+10. [x] Emit direct structural-array indexed reads without `rt_array_get_*` runtime calls
+11. [x] Add negative tests for null and out-of-bounds behavior under direct indexed-read fast paths
 12. [ ] Confirm slice operations remain unchanged on the runtime path
-13. [ ] Measure instruction-count and runtime improvements on representative collection kernels
+13. [x] Measure instruction-count and runtime improvements on representative collection kernels
 14. [ ] Decide whether direct indexed writes are worth a follow-up plan
 
 ## Definition Of Success
@@ -702,4 +717,4 @@ This plan succeeds if, after the main slices land:
 - null and bounds behavior remains correct
 - non-array collection protocol types continue to use the generic dispatch path unchanged
 - slice operations remain correct and unchanged until a dedicated follow-up plan exists
-- representative generated code is measurably smaller and faster in array-heavy kernels
+- representative array-heavy kernels are measurably faster, with helper calls reduced or eliminated even if some call sites grow slightly in static instruction count

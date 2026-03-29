@@ -8,12 +8,13 @@ from compiler.common.type_names import *
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.abi.array import ARRAY_API_NULL_PANIC_MESSAGE, array_length_operand
+from compiler.codegen.abi.array import ARRAY_API_NULL_PANIC_MESSAGE, array_data_index_address, array_length_operand
 from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
 from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
+    ARRAY_LEN_RUNTIME_CALL,
     DOUBLE_TO_I64_RUNTIME_CALL,
     DOUBLE_TO_U64_RUNTIME_CALL,
     DOUBLE_TO_U8_RUNTIME_CALL,
@@ -407,6 +408,16 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Emi
 
 
 def _emit_array_len_expr(codegen: CodeGenerator, expr: ArrayLenExpr, ctx: EmitContext) -> None:
+    if not codegen.collection_fast_paths_enabled:
+        _emit_named_call(
+            codegen,
+            ARRAY_LEN_RUNTIME_CALL,
+            [expr.target],
+            TYPE_NAME_U64,
+            ctx,
+            named_root_local_ids=_named_root_sync_local_ids_for_expr(ctx, expr),
+        )
+        return
     emit_expr(codegen, expr.target, ctx)
     _emit_array_null_check(codegen, ctx=ctx)
     codegen.asm.instr(f"mov rax, {array_length_operand('rax')}")
@@ -421,6 +432,50 @@ def _emit_array_null_check(codegen: CodeGenerator, *, ctx: EmitContext) -> None:
     codegen.asm.instr(f"lea rdi, [rip + {panic_message_label}]")
     codegen.emit_aligned_call("rt_panic")
     codegen.asm.label(non_null_label)
+
+
+def _emit_array_index_bounds_check(codegen: CodeGenerator, dispatch: RuntimeDispatch, *, ctx: EmitContext) -> None:
+    in_bounds_label = codegen_symbols.next_label(ctx.fn_name, "array_index_in_bounds", ctx.label_counter)
+    panic_message_label = codegen.runtime_panic_message_label(
+        f"{runtime_dispatch_call_name(dispatch)}: index out of bounds"
+    )
+
+    codegen.asm.instr("cmp rcx, 0")
+    codegen.asm.instr(f"jl {in_bounds_label}_panic")
+    codegen.asm.instr(f"cmp rcx, {array_length_operand('rax')}")
+    codegen.asm.instr(f"jb {in_bounds_label}")
+    codegen.asm.label(f"{in_bounds_label}_panic")
+    codegen.asm.instr(f"lea rdi, [rip + {panic_message_label}]")
+    codegen.emit_aligned_call("rt_panic")
+    codegen.asm.label(in_bounds_label)
+
+
+def _emit_array_direct_element_load(
+    codegen: CodeGenerator,
+    element_type_ref: SemanticTypeRef,
+    *,
+    array_register: str,
+    index_register: str,
+    span,
+) -> None:
+    element_type_name = semantic_type_canonical_name(element_type_ref)
+    if element_type_name == TYPE_NAME_U8:
+        address = array_data_index_address(array_register, index_register, element_size=1)
+        codegen.asm.instr(f"movzx eax, byte ptr {address}")
+        return
+    if element_type_name == TYPE_NAME_UNIT:
+        codegen_types.raise_codegen_error("array direct loads do not support unit elements", span=span)
+
+    address = array_data_index_address(array_register, index_register, element_size=8)
+    codegen.asm.instr(f"mov rax, qword ptr {address}")
+
+
+def _is_direct_array_index_read_dispatch(dispatch: SemanticDispatch) -> bool:
+    return (
+        isinstance(dispatch, RuntimeDispatch)
+        and dispatch.runtime_kind is not None
+        and dispatch.operation in {CollectionOpKind.INDEX_GET, CollectionOpKind.ITER_GET}
+    )
 
 
 def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -> None:
@@ -675,6 +730,9 @@ def _emit_call_sequence(
 
 
 def _emit_index_read_expr(codegen: CodeGenerator, expr: IndexReadExpr, ctx: EmitContext) -> None:
+    if codegen.collection_fast_paths_enabled and _is_direct_array_index_read_dispatch(expr.dispatch):
+        _emit_direct_array_index_read_expr(codegen, expr, ctx)
+        return
     _emit_named_call(
         codegen,
         _dispatch_target_name(expr.dispatch, ctx),
@@ -683,6 +741,25 @@ def _emit_index_read_expr(codegen: CodeGenerator, expr: IndexReadExpr, ctx: Emit
         ctx,
         named_root_local_ids=_named_root_sync_local_ids_for_expr(ctx, expr),
     )
+
+
+def _emit_direct_array_index_read_expr(codegen: CodeGenerator, expr: IndexReadExpr, ctx: EmitContext) -> None:
+    assert isinstance(expr.dispatch, RuntimeDispatch)
+
+    emit_expr(codegen, expr.index, ctx)
+    codegen.asm.instr("push rax")
+    emit_expr(codegen, expr.target, ctx)
+    codegen.asm.instr("mov rcx, qword ptr [rsp]")
+    _emit_array_null_check(codegen, ctx=ctx)
+    _emit_array_index_bounds_check(codegen, expr.dispatch, ctx=ctx)
+    _emit_array_direct_element_load(
+        codegen,
+        expr.type_ref,
+        array_register="rax",
+        index_register="rcx",
+        span=expr.span,
+    )
+    codegen.asm.instr("add rsp, 8")
 
 
 def _emit_slice_read_expr(codegen: CodeGenerator, expr: SliceReadExpr, ctx: EmitContext) -> None:

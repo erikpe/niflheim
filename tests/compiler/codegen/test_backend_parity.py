@@ -3,7 +3,6 @@ from __future__ import annotations
 from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
-    ARRAY_INDEX_GET_RUNTIME_CALLS,
     ARRAY_INDEX_SET_RUNTIME_CALLS,
     ARRAY_SLICE_GET_RUNTIME_CALLS,
 )
@@ -87,7 +86,6 @@ def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
     for expected in [
         f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_U8]}",
         f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}",
-        f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}",
         f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}",
         f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}",
         "    call __nif_method_Str_from_u8_array",
@@ -97,6 +95,7 @@ def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
         "__nif_type_Person:",
     ]:
         assert expected in asm
+    assert "    call rt_array_get_u8" not in asm
 
 
 def test_backend_emits_expected_object_fields_and_control_flow(tmp_path) -> None:

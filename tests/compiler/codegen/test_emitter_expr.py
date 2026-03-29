@@ -3,14 +3,13 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from compiler.codegen.abi.array import array_length_operand
+from compiler.codegen.abi.array import array_data_index_address, array_length_operand
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
 from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
     ARRAY_LEN_RUNTIME_CALL,
-    ARRAY_INDEX_GET_RUNTIME_CALLS,
     ARRAY_SLICE_GET_RUNTIME_CALLS,
     DOUBLE_TO_I64_RUNTIME_CALL,
     U64_TO_DOUBLE_RUNTIME_CALL,
@@ -205,7 +204,7 @@ def test_emitter_expr_emits_numeric_casts_and_array_ops(tmp_path: Path) -> None:
     generator.asm.lines.clear()
     assert isinstance(var_inits[2], IndexReadExpr)
     emit_expr(generator, var_inits[2], ctx)
-    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in generator.asm.lines
+    assert f"    mov rax, qword ptr {array_data_index_address('rax', 'rcx', element_size=8)}" in generator.asm.lines
 
     generator.asm.lines.clear()
     emit_expr(generator, var_inits[3], ctx)

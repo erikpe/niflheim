@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from compiler.codegen.abi.runtime import ARRAY_INDEX_GET_RUNTIME_CALLS, ARRAY_INDEX_SET_RUNTIME_CALLS
+from compiler.codegen.abi.array import array_data_index_address
+from compiler.codegen.abi.runtime import ARRAY_INDEX_SET_RUNTIME_CALLS
 from compiler.codegen.emitter_fn import emit_function
 from compiler.codegen.generator import CodeGenerator, emit_asm
 from compiler.common.collection_protocols import ArrayRuntimeKind
@@ -105,7 +106,8 @@ def test_emitter_stmt_emits_for_in_and_structural_writes(tmp_path: Path) -> None
     assert "call __nif_method_Buffer_iter_len" in asm
     assert "call __nif_method_Buffer_iter_get" in asm
     assert f"call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
-    assert f"call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
+    assert "call rt_array_get_i64" not in asm
+    assert f"mov rax, qword ptr {array_data_index_address('rax', 'rcx', element_size=8)}" in asm
 
 
 def test_emitter_stmt_for_in_helper_identity_does_not_depend_on_span_values(tmp_path: Path) -> None:
@@ -151,4 +153,4 @@ def test_emitter_stmt_for_in_helper_identity_does_not_depend_on_span_values(tmp_
     asm = "\n".join(codegen.asm.lines)
 
     assert "call rt_array_len" not in asm
-    assert f"call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in asm
+    assert "call rt_array_get_i64" not in asm

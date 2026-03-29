@@ -4,9 +4,9 @@ from compiler.common.type_names import TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAM
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.abi.array import ARRAY_API_NULL_PANIC_MESSAGE, array_data_index_address, array_length_operand
+from compiler.codegen.abi.array import array_length_operand
 from compiler.codegen.asm import offset_operand
-from compiler.codegen.emitter_expr import EmitContext, emit_expr
+from compiler.codegen.emitter_expr import EmitContext, _emit_array_direct_element_load, _emit_array_null_check, emit_expr
 from compiler.semantic.lowered_ir import (
     LoweredSemanticBlock,
     LoweredSemanticForIn,
@@ -233,7 +233,7 @@ def _emit_for_in(
     codegen.asm.instr(f"mov {offset_operand(collection_offset)}, rax")
     ctx.mark_named_root_dirty(stmt.collection_local_id)
 
-    if stmt.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT:
+    if stmt.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT and codegen.collection_fast_paths_enabled:
         _emit_array_direct_for_in(
             codegen,
             stmt,
@@ -315,7 +315,7 @@ def _emit_array_direct_for_in(
     loop_done: str,
 ) -> None:
     codegen.asm.instr(f"mov rax, {offset_operand(collection_offset)}")
-    _emit_array_direct_null_check(codegen, ctx)
+    _emit_array_null_check(codegen, ctx=ctx)
     codegen.asm.instr(f"mov rax, {array_length_operand('rax')}")
     codegen.asm.instr(f"mov {offset_operand(length_offset)}, rax")
     codegen.asm.instr(f"mov {offset_operand(index_offset)}, 0")
@@ -326,7 +326,13 @@ def _emit_array_direct_for_in(
     codegen.asm.instr(f"jge {loop_done}")
 
     codegen.asm.instr(f"mov rcx, {offset_operand(collection_offset)}")
-    _emit_array_direct_element_load(codegen, stmt.element_type_ref, span=stmt.span)
+    _emit_array_direct_element_load(
+        codegen,
+        stmt.element_type_ref,
+        array_register="rcx",
+        index_register="rax",
+        span=stmt.span,
+    )
     _emit_loaded_for_in_element(
         codegen,
         stmt,
@@ -340,30 +346,6 @@ def _emit_array_direct_for_in(
         loop_done=loop_done,
         loop_start=loop_start,
     )
-
-
-def _emit_array_direct_null_check(codegen, ctx: EmitContext) -> None:
-    non_null_label = codegen_symbols.next_label(ctx.fn_name, "array_non_null", ctx.label_counter)
-    panic_message_label = codegen.runtime_panic_message_label(ARRAY_API_NULL_PANIC_MESSAGE)
-
-    codegen.asm.instr("test rax, rax")
-    codegen.asm.instr(f"jne {non_null_label}")
-    codegen.asm.instr(f"lea rdi, [rip + {panic_message_label}]")
-    codegen.emit_aligned_call("rt_panic")
-    codegen.asm.label(non_null_label)
-
-
-def _emit_array_direct_element_load(codegen, element_type_ref: SemanticTypeRef, *, span) -> None:
-    element_type_name = semantic_type_canonical_name(element_type_ref)
-    if element_type_name == TYPE_NAME_U8:
-        address = array_data_index_address("rcx", "rax", element_size=1)
-        codegen.asm.instr(f"movzx eax, byte ptr {address}")
-        return
-    if element_type_name == TYPE_NAME_UNIT:
-        codegen_types.raise_codegen_error("array iteration does not support unit elements", span=span)
-
-    address = array_data_index_address("rcx", "rax", element_size=8)
-    codegen.asm.instr(f"mov rax, qword ptr {address}")
 
 
 def _emit_loaded_for_in_element(

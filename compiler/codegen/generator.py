@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from compiler.common.type_names import TYPE_NAME_DOUBLE
@@ -19,14 +20,24 @@ if TYPE_CHECKING:
     from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
 
 
+@dataclass(frozen=True)
+class CodegenOptions:
+    collection_fast_paths_enabled: bool = True
+
+
 class CodeGenerator:
-    def __init__(self) -> None:
+    def __init__(self, *, options: CodegenOptions | None = None) -> None:
+        self.options = CodegenOptions() if options is None else options
         self.asm = AsmBuilder()
         self.string_literal_labels: dict[str, tuple[str, int]] = {}
         self.runtime_panic_message_labels: dict[str, str] = {}
         self.source_lines_by_path: dict[str, list[str] | None] = {}
         self.last_emitted_comment_location: tuple[str, int] | None = None
         self.aligned_call_label_counter: int = 0
+
+    @property
+    def collection_fast_paths_enabled(self) -> bool:
+        return self.options.collection_fast_paths_enabled
 
     def runtime_panic_message_label(self, message: str) -> str:
         label = self.runtime_panic_message_labels.get(message)
@@ -290,7 +301,10 @@ class CodeGenerator:
         self.asm.instr("movzx rax, al")
 
 
-def emit_asm(program: LoweredLinkedSemanticProgram) -> str:
+def emit_asm(program: LoweredLinkedSemanticProgram, *, collection_fast_paths_enabled: bool = True) -> str:
     from compiler.codegen.program_generator import emit_program
 
-    return emit_program(program)
+    return emit_program(
+        program,
+        options=CodegenOptions(collection_fast_paths_enabled=collection_fast_paths_enabled),
+    )

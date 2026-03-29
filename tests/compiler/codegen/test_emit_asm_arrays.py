@@ -32,7 +32,7 @@ fn main() -> i64 {
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in asm
 
 
-def test_emit_asm_array_index_get_set_lowers_to_runtime_calls(tmp_path) -> None:
+def test_emit_asm_array_index_reads_use_direct_loads_and_writes_stay_on_runtime_calls(tmp_path) -> None:
     source = """
 class Person {
     age: i64;
@@ -55,9 +55,9 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" in asm
-    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" in asm
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
-    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" not in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
 
 
 def test_emit_asm_array_len_uses_direct_load_and_slice_stays_on_runtime_path(tmp_path) -> None:
@@ -119,8 +119,8 @@ fn main() -> i64 {
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in asm
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_I64]}" in asm
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
-    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
-    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in asm
 
 
 def test_emit_asm_nested_array_chained_field_access_lowers(tmp_path) -> None:
@@ -138,7 +138,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert asm.count(f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}") >= 2
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
     assert "    mov rax, qword ptr [rax + 24]" in asm
 
 
@@ -156,10 +156,10 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" in asm
-    assert asm.count(f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}") >= 3
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
 
 
-def test_emit_asm_array_method_form_get_set_slice_lowers_to_runtime_calls(tmp_path) -> None:
+def test_emit_asm_array_method_form_get_uses_direct_load_while_set_and_slice_stay_runtime_backed(tmp_path) -> None:
     source = """
 fn main() -> i64 {
     var nums: u64[] = u64[](4u);
@@ -173,7 +173,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in asm
-    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" not in asm
     assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in asm
     assert f"    call {ARRAY_SLICE_SET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in asm
 

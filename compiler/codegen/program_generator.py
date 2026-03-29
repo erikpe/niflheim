@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import compiler.codegen.symbols as codegen_symbols
 
 from compiler.codegen.metadata import TypeMetadata, build_type_metadata, qualified_interface_type_name
-from compiler.codegen.generator import CodeGenerator
+from compiler.codegen.generator import CodeGenerator, CodegenOptions
 from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.model import ConstructorLayout
 from compiler.resolver import ModulePath
@@ -65,8 +65,8 @@ def _interface_id_from_type_name(current_module_path: ModulePath | None, type_na
 
 
 class ProgramGenerator(CodeGenerator):
-    def __init__(self, program: LoweredLinkedSemanticProgram) -> None:
-        super().__init__()
+    def __init__(self, program: LoweredLinkedSemanticProgram, *, options: CodegenOptions | None = None) -> None:
+        super().__init__(options=options)
         self.program = program
         self.declaration_tables: DeclarationTables | None = None
         self.type_metadata: TypeMetadata | None = None
@@ -135,5 +135,5 @@ class ProgramGenerator(CodeGenerator):
         return generate_module(self, self.program, declaration_tables, type_metadata)
 
 
-def emit_program(program: LoweredLinkedSemanticProgram) -> str:
-    return ProgramGenerator(program).generate()
+def emit_program(program: LoweredLinkedSemanticProgram, *, options: CodegenOptions | None = None) -> str:
+    return ProgramGenerator(program, options=options).generate()
