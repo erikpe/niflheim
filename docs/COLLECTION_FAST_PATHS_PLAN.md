@@ -175,6 +175,22 @@ Avoid accidental semantic weakening while removing generic helper overhead.
 - performance improvement without behavior drift
 - safer staged rollout
 
+## 6. Any `ref[]` fast write must go through one compiler-side helper
+
+Direct primitive stores can safely inline payload writes under the current runtime contract. `ref[]` fast writes are different because they are the most likely future mutation point for GC write barriers, remembered sets, or other store-side invariants if the collector evolves.
+
+If `ref[]` indexed writes ever join the fast path, the backend must not emit raw reference-slot stores from multiple places. One compiler-side helper in the array ABI/emission layer must be the only legal fast-path mutation site.
+
+### Purpose
+
+Keep GC-sensitive reference mutation centralized so future collector upgrades do not require a broad backend audit.
+
+### Expected Outcome
+
+- `ref[]` fast writes remain reasonably safe under the current stop-the-world non-moving collector
+- a future GC change has one clear barrier insertion point instead of many scattered raw stores
+- the hazard is documented explicitly in compiler/runtime notes rather than being implicit backend knowledge
+
 ## High-Level Plan
 
 This work should be implemented in ordered slices.
@@ -419,13 +435,13 @@ They are not the same kind of cheap access as length and indexed reads.
 - keep existing slice tests unchanged initially
 - ensure array fast-path rollout does not change slice emission accidentally
 
-## Slice 7: Direct primitive array indexed-write follow-up
+## Slice 7: Direct primitive array indexed-write slice
 
 Status: recommended next
 
 Payoff: medium
 
-Risk: medium to high
+Risk: medium
 
 ### Purpose
 
@@ -440,10 +456,90 @@ The current recommendation is therefore:
 - pursue direct indexed writes next for primitive arrays (`i64[]`, `u64[]`, `u8[]`, `bool[]`, `double[]`)
 - keep `ref[]` indexed writes on the runtime path until write-barrier policy is clearer
 
+### Where To Change
+
+- [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py)
+- [compiler/codegen/emitter_stmt.py](compiler/codegen/emitter_stmt.py)
+- [compiler/semantic/lowering/collections.py](compiler/semantic/lowering/collections.py) only for comments or minor normalization updates if needed
+- [tests/compiler/codegen/test_emit_asm_arrays.py](tests/compiler/codegen/test_emit_asm_arrays.py)
+- [tests/compiler/codegen/test_emitter_stmt.py](tests/compiler/codegen/test_emitter_stmt.py)
+- [tests/compiler/integration/test_cli_runtime_smoke.py](tests/compiler/integration/test_cli_runtime_smoke.py)
+
+### Concrete Changes
+
+- [ ] add compiler-side direct store helpers for primitive array elements in [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py)
+- [ ] teach structural primitive `IndexLValue` emission in [compiler/codegen/emitter_stmt.py](compiler/codegen/emitter_stmt.py) to:
+  - evaluate receiver once
+  - evaluate index once
+  - evaluate value once
+  - preserve null semantics through an inline check
+  - preserve bounds behavior through an inline check
+  - compute the direct element address from array data and element size
+  - store the primitive payload directly without `rt_array_set_*`
+- [ ] keep `ref[]` indexed writes on the runtime path for now
+- [ ] rely on the existing lowering normalization in [compiler/semantic/lowering/collections.py](compiler/semantic/lowering/collections.py) so both `arr[i] = value` and structural method-form `arr.index_set(i, value)` flow through the same `IndexLValue` codegen path
+
 ### Expected Outcome
 
-- additional speedup for mutation-heavy primitive-array kernels
-- a narrower and safer follow-up than treating primitive and reference writes as one feature
+- no `rt_array_set_*` call for structural primitive array writes
+- lower call overhead in mutation-heavy numeric kernels
+- one shared write path for assignment sugar and structural method-form `index_set`
+
+### Tests
+
+- [ ] add codegen tests proving primitive `arr[i] = value` emits no `rt_array_set_*` call
+- [ ] add codegen tests proving primitive `arr.index_set(i, value)` emits no `rt_array_set_*` call
+- [ ] add negative tests covering null and out-of-bounds behavior for primitive direct writes
+- [ ] add runtime-facing tests for representative primitive kinds (`i64`, `u8`, and one of `bool` or `double`)
+
+## Slice 8: Guarded `ref[]` indexed-write follow-up
+
+Status: deferred guarded follow-up
+
+Payoff: potentially high
+
+Risk: high
+
+### Purpose
+
+Allow `ref[]` indexed writes to benefit from the fast path without scattering future GC-sensitive mutation logic across the backend.
+
+### Guard Rule
+
+If this slice is taken, a dedicated ref-array store helper in [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py) must be the only legal fast-path mutation site.
+
+No other emitter may open-code raw reference-slot stores for structural array writes.
+
+### Where To Change
+
+- [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py)
+- [compiler/codegen/emitter_stmt.py](compiler/codegen/emitter_stmt.py)
+- [compiler/codegen/abi/runtime.py](compiler/codegen/abi/runtime.py) for comments/policy notes
+- [docs/COLLECTION_FAST_PATHS_PLAN.md](docs/COLLECTION_FAST_PATHS_PLAN.md)
+- [docs/ABI_NOTES.md](docs/ABI_NOTES.md)
+- [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md) or a future GC-design note if that becomes the better home for collector-evolution constraints
+
+### Concrete Changes
+
+- [ ] add a dedicated compiler-side ref-array fast-store helper that centralizes:
+  - null checks
+  - bounds checks
+  - the final reference-slot store
+- [ ] document in code comments that this helper is the future barrier insertion point if the GC later becomes generational, incremental, concurrent, or otherwise mutation-sensitive
+- [ ] keep all structural `ref[]` fast writes routed through that helper and through no other direct store path
+- [ ] update general documentation to note that compiler-emitted ref-array fast stores are a GC-upgrade-sensitive spot and must be revisited if collector invariants change
+
+### Expected Outcome
+
+- `ref[]` fast writes become possible without hiding a future GC hazard in scattered backend code
+- the collector-upgrade-sensitive mutation site is visible in both code and documentation
+
+### Tests
+
+- [ ] add runtime tests covering store of a freshly allocated object into `ref[]` followed by GC
+- [ ] add runtime tests covering overwrite of the last retained reference followed by GC
+- [ ] add tests covering `null` stores and aliasing cases such as `arr[i] = arr[j]`
+- [ ] add codegen regressions proving structural `ref[]` writes use the dedicated helper path if this slice lands
 
 ## Detailed File-Level Change Map
 
@@ -456,6 +552,7 @@ Remain the source of truth for recognizing structural array operations.
 ### Changes
 
 - keep existing structural array recognition
+- keep using `SemanticAssign(IndexLValue(...))` as the normalized lowering surface for structural array writes, including method-form `index_set`
 - ensure the lowering surface exposes enough information for later fast-path selection
 
 ### Expected Outcome
@@ -515,7 +612,10 @@ Become the authoritative compiler-side source for direct array access ABI detail
 ### Changes
 
 - define array layout offsets and helper routines for direct loads and element-address computation
+- add direct primitive array store helpers for indexed-write fast paths
+- if `ref[]` fast writes are later enabled, add the dedicated ref-array store helper here and nowhere else
 - document correspondence to runtime array layout
+- document that the ref-array store helper is the GC-upgrade-sensitive mutation boundary
 
 ### Expected Outcome
 
@@ -541,16 +641,19 @@ Emit direct array loads where lowered IR says a structural array fast path is va
 
 ### Purpose
 
-Emit specialized array iteration loops from lowered array fast-path forms.
+Emit specialized array iteration loops and structural array write fast paths from lowered statement forms.
 
 ### Changes
 
 - add direct array-backed `for-in` emission path
+- add direct primitive array indexed-write emission for structural `IndexLValue`
 - keep current generic lowered `for-in` path for non-array iteration
+- keep `ref[]` indexed writes runtime-backed unless the guarded follow-up slice lands
 
 ### Expected Outcome
 
 - no per-iteration `rt_array_get_*` call in array-backed loops
+- no `rt_array_set_*` call for structural primitive array writes once Slice 7 lands
 
 ## `compiler/codegen/abi/runtime.py`
 
@@ -562,6 +665,7 @@ Remain the source of runtime-call effects and helper metadata.
 
 - minimal changes expected
 - may gain comments or helpers clarifying which array helpers remain on the runtime path versus which are bypassed for structural arrays
+- should explicitly document that `rt_array_set_ref` stays the semantic reference path until the guarded ref-array write slice lands
 
 ### Expected Outcome
 
@@ -577,10 +681,28 @@ Remain the runtime ABI reference for array object layout and semantics.
 
 - no algorithmic runtime change required for the initial fast-path plan
 - optional future comment updates documenting the compiler’s direct-layout dependency
+- if `ref[]` fast writes are ever added, runtime comments should continue to make `rt_array_set_ref` the fallback/reference semantics baseline
 
 ### Expected Outcome
 
 - no runtime churn required for the first rollout
+
+## Documentation Updates For Future GC Changes
+
+### Purpose
+
+Record explicitly that compiler-emitted `ref[]` fast writes are safe under the current collector model but become a potential unsafe spot if the GC later gains store-side invariants.
+
+### Changes
+
+- update [docs/ABI_NOTES.md](docs/ABI_NOTES.md) to note that any compiler-side ref-array fast-store helper is the future mutation-barrier insertion point
+- update [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md) or a future GC-design document to note that collector upgrades may require revisiting compiler-emitted `ref[]` mutation fast paths
+- keep [docs/COLLECTION_FAST_PATHS_PLAN.md](docs/COLLECTION_FAST_PATHS_PLAN.md) aligned with the current chosen policy for `ref[]` writes
+
+### Expected Outcome
+
+- future GC upgrades have an explicit documentation breadcrumb for the mutation-sensitive spot
+- the risk is discoverable without reverse-engineering the backend
 
 ## What To Test
 
@@ -590,16 +712,20 @@ Tests should focus on emitted structure, preserved behavior, and separation betw
 
 - array length still preserves null behavior
 - array indexed reads still preserve bounds behavior
+- primitive array indexed writes still preserve null and bounds behavior
 - array-backed `for-in` still evaluates the collection once
 - array-backed `for-in` still preserves element values and iteration order
 - reference-array iteration keeps the collection safely alive across the loop
 - non-array collection-protocol types still go through the generic dispatch path
+- if `ref[]` fast writes land later, they still preserve reachability and overwrite semantics across GC
 
 ## Precision Tests
 
 - structural array length emits no `rt_array_len` call
 - structural array indexing emits no `rt_array_get_*` call
+- structural primitive array writes emit no `rt_array_set_*` call
 - structural array `for-in` emits no `rt_array_len` or `rt_array_get_*` call
+- structural `ref[]` writes remain on the runtime path unless the guarded follow-up slice explicitly lands
 - slice operations still use the runtime helpers unchanged
 - non-array protocol iteration still uses dispatch rather than array-specific direct access
 
@@ -621,6 +747,10 @@ Tests should focus on emitted structure, preserved behavior, and separation betw
 5. non-array collection-protocol implementation still lowers and emits through generic dispatch
 6. slice reads and slice writes remain on the runtime path after fast-path rollout
 7. negative index and out-of-bounds indexed reads still preserve failure behavior
+8. primitive `arr[i] = value` emits direct stores and no `rt_array_set_*`
+9. primitive `arr.index_set(i, value)` emits direct stores and no `rt_array_set_*`
+10. structural `ref[]` writes remain runtime-backed until the guarded follow-up slice lands
+11. if `ref[]` fast writes are later enabled, all such stores route through the dedicated helper rather than scattered raw stores
 
 ## Measurement Strategy
 
@@ -630,6 +760,7 @@ Suggested metrics:
 
 - count of emitted `rt_array_len` calls before and after
 - count of emitted `rt_array_get_*` calls before and after
+- count of emitted `rt_array_set_*` calls before and after
 - total emitted instruction count for array-length, array-indexing, and array-iteration kernels
 - loop body instruction count for representative `for-in` examples
 - microbenchmarks for:
@@ -637,6 +768,8 @@ Suggested metrics:
   - array iteration over primitive arrays
   - array iteration over reference arrays
   - indexed reads in tight loops
+  - indexed writes in tight loops for primitive arrays
+  - pure `ref[]` indexed writes with no read-side work in the hot loop
 
 Implemented command surface:
 
@@ -646,21 +779,21 @@ Implemented command surface:
 
 Current measurement snapshot from `python3 scripts/measure_collection_fast_paths.py`:
 
-| kernel | fast focus instructions | fallback focus instructions | fast `rt_array_len` calls | fallback `rt_array_len` calls | fast `rt_array_get_*` calls | fallback `rt_array_get_*` calls | fast median ms | fallback median ms | speedup |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `len_hot_loop` | 64 | 64 | 0 | 2 | 0 | 0 | 3.688 | 16.294 | 4.42x |
-| `index_reads_i64` | 115 | 102 | 0 | 2 | 0 | 2 | 4.660 | 20.435 | 4.38x |
-| `index_writes_i64` | 129 | 116 | 0 | 2 | 0 | 2 | 20.659 | 20.585 | 1.00x |
-| `index_writes_ref` | 155 | 129 | 0 | 2 | 0 | 4 | 6.055 | 17.935 | 2.96x |
-| `index_writes_ref_pure` | 110 | 110 | 0 | 2 | 0 | 0 | 5.953 | 5.946 | 1.00x |
-| `for_in_i64` | 86 | 99 | 0 | 2 | 0 | 2 | 3.108 | 18.789 | 6.05x |
-| `for_in_ref` | 89 | 102 | 0 | 2 | 0 | 2 | 1.499 | 5.889 | 3.93x |
+| kernel | fast focus instructions | fallback focus instructions | fast `rt_array_len` calls | fallback `rt_array_len` calls | fast `rt_array_get_*` calls | fallback `rt_array_get_*` calls | fast `rt_array_set_*` calls | fallback `rt_array_set_*` calls | fast median ms | fallback median ms | speedup |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `len_hot_loop` | 64 | 64 | 0 | 2 | 0 | 0 | 0 | 0 | 3.688 | 16.294 | 4.42x |
+| `index_reads_i64` | 115 | 102 | 0 | 2 | 0 | 2 | 0 | 0 | 4.660 | 20.435 | 4.38x |
+| `index_writes_i64` | 129 | 116 | 0 | 2 | 0 | 2 | 2 | 2 | 20.659 | 20.585 | 1.00x |
+| `index_writes_ref` | 155 | 129 | 0 | 2 | 0 | 4 | 2 | 2 | 6.055 | 17.935 | 2.96x |
+| `index_writes_ref_pure` | 110 | 110 | 0 | 2 | 0 | 0 | 2 | 2 | 5.953 | 5.946 | 1.00x |
+| `for_in_i64` | 86 | 99 | 0 | 2 | 0 | 2 | 0 | 0 | 3.108 | 18.789 | 6.05x |
+| `for_in_ref` | 89 | 102 | 0 | 2 | 0 | 2 | 0 | 0 | 1.499 | 5.889 | 3.93x |
 
 These measurements confirm the expected tradeoff: helper-call removal delivers substantial runtime wins even when static focus-function instruction count stays flat or rises slightly in some kernels.
 
 They also make the indexed-write decision clear:
 
-- `index_writes_i64` is almost unchanged between fast and fallback modes at 1.01x, even though both variants still retain `rt_array_set_*` in the hot path
+- `index_writes_i64` is effectively unchanged between fast and fallback modes at 1.00x, even though both variants still retain `rt_array_set_*` in the hot path
 - that means the already-landed read fast paths no longer move the needle much for primitive write-heavy kernels; the remaining cost is dominated by runtime indexed writes
 - `index_writes_ref` still improves from read-side fast paths because it also performs structural reads
 - the new pure write kernel `index_writes_ref_pure` is effectively flat at 1.00x and removes the read-side confounder entirely
@@ -708,6 +841,14 @@ Mitigation:
 - defer slices and writes
 - keep non-array protocol dispatch unchanged initially
 
+## Risk 6: `ref[]` fast writes become a hidden future GC hazard
+
+Mitigation:
+
+- make the dedicated compiler-side ref-array store helper the only legal fast-path mutation site
+- keep `ref[]` writes out of the primitive write slice
+- update [docs/ABI_NOTES.md](docs/ABI_NOTES.md) and this plan if `ref[]` fast writes land so the future collector-upgrade-sensitive spot is explicit
+
 ## Ordered Implementation Checklist
 
 1. [x] Add compiler-side array ABI helpers in a new module such as [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py)
@@ -724,6 +865,12 @@ Mitigation:
 12. [ ] Confirm slice operations remain unchanged on the runtime path
 13. [x] Measure instruction-count and runtime improvements on representative collection kernels
 14. [x] Decide whether direct indexed writes are worth a follow-up plan
+15. [ ] Implement primitive-only direct indexed-write fast paths for `i64[]`, `u64[]`, `u8[]`, `bool[]`, and `double[]`
+16. [ ] Add codegen tests proving primitive structural writes emit no `rt_array_set_*` call for both `arr[i] = value` and structural method-form `arr.index_set(i, value)`
+17. [ ] Add runtime tests proving primitive direct writes preserve null and bounds behavior
+18. [x] Define the rule that a dedicated ref-array store helper is the only legal fast-path mutation site if `ref[]` writes later join the fast path
+19. [x] Decide to keep `ref[]` indexed writes as a guarded follow-up rather than folding them into the primitive write slice
+20. [ ] If `ref[]` fast writes are later enabled, route them through the dedicated helper and update general ABI/runtime documentation to mark it as a future GC-barrier insertion point
 
 ## Definition Of Success
 
@@ -732,7 +879,9 @@ This plan succeeds if, after the main slices land:
 - structural array length no longer emits `rt_array_len`
 - structural array-backed `for-in` no longer emits generic `iter_len` and per-iteration `iter_get` runtime calls
 - structural array indexed reads no longer emit `rt_array_get_*`
+- structural primitive array indexed writes no longer emit `rt_array_set_*`
 - null and bounds behavior remains correct
 - non-array collection protocol types continue to use the generic dispatch path unchanged
 - slice operations remain correct and unchanged until a dedicated follow-up plan exists
+- any future `ref[]` fast write path remains centralized behind one documented helper so GC upgrades have a single mutation-sensitive insertion point
 - representative array-heavy kernels are measurably faster, with helper calls reduced or eliminated even if some call sites grow slightly in static instruction count
