@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from compiler.semantic.ir import CastExprS, LocalRefExpr, SemanticExpr, TypeTestExprS, UnaryExprS
-from compiler.semantic.operations import CastSemanticsKind, UnaryOpKind
+from compiler.semantic.ir import BinaryExprS, CastExprS, LocalRefExpr, SemanticExpr, TypeTestExprS, UnaryExprS
+from compiler.semantic.operations import BinaryOpKind, CastSemanticsKind, UnaryOpKind
 from compiler.semantic.symbols import LocalId
 from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
 
@@ -202,3 +202,33 @@ def apply_branch_seed(
     if seed is None:
         return next_state, False
     return next_state, next_state.prove_local_target(compatibility_index, seed.local_id, seed.target_type_ref)
+
+
+def branch_states_for_condition(
+    state: NarrowState,
+    condition: SemanticExpr,
+    compatibility_index: TypeCompatibilityIndex,
+) -> tuple[NarrowState, NarrowState, int]:
+    then_seed, else_seed = branch_seeds_for_condition(condition)
+    if then_seed is not None or else_seed is not None:
+        then_state, then_seeded = apply_branch_seed(state, then_seed, compatibility_index)
+        else_state, else_seeded = apply_branch_seed(state, else_seed, compatibility_index)
+        return then_state, else_state, int(then_seeded) + int(else_seeded)
+
+    if isinstance(condition, UnaryExprS) and condition.op.kind is UnaryOpKind.LOGICAL_NOT:
+        negated_then_state, negated_else_state, seeded_count = branch_states_for_condition(
+            state, condition.operand, compatibility_index
+        )
+        return negated_else_state, negated_then_state, seeded_count
+
+    if isinstance(condition, BinaryExprS) and condition.op.kind is BinaryOpKind.LOGICAL_AND:
+        left_then_state, left_else_state, left_seeded_count = branch_states_for_condition(
+            state, condition.left, compatibility_index
+        )
+        right_then_state, right_else_state, right_seeded_count = branch_states_for_condition(
+            left_then_state, condition.right, compatibility_index
+        )
+        else_state = NarrowMerge.merge_branches(state, left_else_state, right_else_state).apply(state)
+        return right_then_state, else_state, left_seeded_count + right_seeded_count
+
+    return state.fork(), state.fork(), 0

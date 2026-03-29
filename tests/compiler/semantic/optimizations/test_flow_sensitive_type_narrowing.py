@@ -4,7 +4,7 @@ from pathlib import Path
 
 from compiler.common.logging import configure_logging, resolve_log_settings
 from compiler.resolver import resolve_program
-from compiler.semantic.ir import BoolConstant, CastExprS, LiteralExprS, LocalRefExpr, SemanticIf, SemanticReturn, SemanticVarDecl
+from compiler.semantic.ir import BinaryExprS, BoolConstant, CastExprS, LiteralExprS, LocalRefExpr, SemanticIf, SemanticReturn, SemanticVarDecl
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.flow_sensitive_type_narrowing import flow_sensitive_type_narrowing
 
@@ -149,6 +149,64 @@ def test_flow_sensitive_type_narrowing_handles_negated_type_test_fallthrough(tmp
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, LocalRefExpr)
+
+
+def test_flow_sensitive_type_narrowing_seeds_then_branch_for_short_circuit_and_condition(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(ready: bool, value: Obj) -> Hashable {
+            if ready && value is Hashable {
+                return (Hashable)value;
+            }
+            return null;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    if_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(if_stmt, SemanticIf)
+    assert isinstance(if_stmt.then_block.statements[0], SemanticReturn)
+    assert isinstance(if_stmt.then_block.statements[0].value, LocalRefExpr)
+
+
+def test_flow_sensitive_type_narrowing_folds_rhs_type_test_inside_short_circuit_and_condition(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Key {
+            value: i64;
+        }
+
+        fn main(value: Obj) -> bool {
+            if value is Key && value is Key {
+                return true;
+            }
+            return false;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    if_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(if_stmt, SemanticIf)
+    assert isinstance(if_stmt.condition, BinaryExprS)
+    assert isinstance(if_stmt.condition.right, LiteralExprS)
+    assert isinstance(if_stmt.condition.right.constant, BoolConstant)
+    assert if_stmt.condition.right.constant.value is True
 
 
 def test_flow_sensitive_type_narrowing_is_conservative_across_if_merge(tmp_path: Path) -> None:

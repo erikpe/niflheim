@@ -9,8 +9,7 @@ from .helpers.interface_dispatch import build_interface_dispatch_index, resolve_
 from .helpers.narrowing_state import (
     NarrowMerge,
     NarrowState,
-    apply_branch_seed,
-    branch_seeds_for_condition,
+    branch_states_for_condition,
     update_local_facts_from_value,
 )
 from .helpers.program_structure import rewrite_program_structure
@@ -145,9 +144,7 @@ def _rewrite_stmt(
 
     if isinstance(stmt, SemanticIf):
         rewritten_condition = _rewrite_expr(stmt.condition, state, compatibility_index, dispatch_index, stats)
-        then_seed, else_seed = branch_seeds_for_condition(rewritten_condition)
-        then_state, _ = apply_branch_seed(state, then_seed, compatibility_index)
-        else_state, _ = apply_branch_seed(state, else_seed, compatibility_index)
+        then_state, else_state, _ = branch_states_for_condition(state, rewritten_condition, compatibility_index)
         then_block, then_exit_state = _rewrite_nested_block(
             stmt.then_block,
             then_state,

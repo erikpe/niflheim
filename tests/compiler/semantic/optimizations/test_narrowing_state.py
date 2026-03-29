@@ -1,13 +1,23 @@
 from __future__ import annotations
 
 from compiler.common.span import SourcePos, SourceSpan
-from compiler.semantic.ir import CastExprS, LocalRefExpr, TypeTestExprS, UnaryExprS
-from compiler.semantic.operations import CastSemanticsKind, SemanticUnaryOp, TypeTestSemanticsKind, UnaryOpFlavor, UnaryOpKind
+from compiler.semantic.ir import BinaryExprS, CastExprS, LocalRefExpr, TypeTestExprS, UnaryExprS
+from compiler.semantic.operations import (
+    BinaryOpFlavor,
+    BinaryOpKind,
+    CastSemanticsKind,
+    SemanticBinaryOp,
+    SemanticUnaryOp,
+    TypeTestSemanticsKind,
+    UnaryOpFlavor,
+    UnaryOpKind,
+)
 from compiler.semantic.optimizations.helpers.narrowing_state import (
     NarrowMerge,
     NarrowState,
     TypeFacts,
     apply_branch_seed,
+    branch_states_for_condition,
     branch_seeds_for_condition,
     update_local_facts_from_value,
 )
@@ -205,3 +215,33 @@ def test_apply_branch_seed_seeds_state_when_fact_is_new() -> None:
     assert changed is True
     assert state.facts_for_local(local_id) is not None
     assert state.facts_for_local(local_id).proves(hashable_type_ref)
+
+
+def test_branch_states_for_logical_and_seed_then_branch_and_keep_else_conservative() -> None:
+    compatibility_index = _compatibility_index()
+    local_id = _local_id(0)
+    flag_local_id = _local_id(1)
+    hashable_type_ref = semantic_type_ref_for_interface_id(InterfaceId(module_path=("main",), name="Hashable"))
+    bool_type_ref = semantic_primitive_type_ref("bool")
+    condition = BinaryExprS(
+        op=SemanticBinaryOp(kind=BinaryOpKind.LOGICAL_AND, flavor=BinaryOpFlavor.BOOL_LOGICAL),
+        left=TypeTestExprS(
+            operand=LocalRefExpr(local_id=local_id, type_ref=_obj_type_ref(), span=_span()),
+            test_kind=TypeTestSemanticsKind.INTERFACE_COMPATIBILITY,
+            target_type_ref=hashable_type_ref,
+            type_ref=bool_type_ref,
+            span=_span(),
+        ),
+        right=LocalRefExpr(local_id=flag_local_id, type_ref=bool_type_ref, span=_span()),
+        type_ref=bool_type_ref,
+        span=_span(),
+    )
+
+    then_state, else_state, seeded_count = branch_states_for_condition(
+        NarrowState.empty(), condition, compatibility_index
+    )
+
+    assert seeded_count == 1
+    assert then_state.facts_for_local(local_id) is not None
+    assert then_state.facts_for_local(local_id).proves(hashable_type_ref)
+    assert else_state.facts_for_local(local_id) is None

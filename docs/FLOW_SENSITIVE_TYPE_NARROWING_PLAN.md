@@ -304,6 +304,13 @@ Create the fact engine needed to carry runtime type knowledge across statements 
 
 Status: implemented
 
+Implementation notes:
+
+- implemented in [compiler/semantic/optimizations/flow_sensitive_type_narrowing.py](compiler/semantic/optimizations/flow_sensitive_type_narrowing.py)
+- shared condition-branch state extraction lives in [compiler/semantic/optimizations/helpers/narrowing_state.py](compiler/semantic/optimizations/helpers/narrowing_state.py)
+- directly covered by [tests/compiler/semantic/optimizations/test_flow_sensitive_type_narrowing.py](tests/compiler/semantic/optimizations/test_flow_sensitive_type_narrowing.py)
+- branch-state extraction is covered by [tests/compiler/semantic/optimizations/test_narrowing_state.py](tests/compiler/semantic/optimizations/test_narrowing_state.py)
+
 Payoff: very high
 
 Risk: medium

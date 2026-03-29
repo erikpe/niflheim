@@ -4,14 +4,13 @@ from dataclasses import dataclass, replace
 
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
-from compiler.semantic.operations import CastSemanticsKind
+from compiler.semantic.operations import BinaryOpKind, CastSemanticsKind, UnaryOpKind
 
 from .helpers.program_structure import rewrite_program_structure
 from .helpers.narrowing_state import (
     NarrowMerge as _NarrowMerge,
     NarrowState as _NarrowState,
-    apply_branch_seed,
-    branch_seeds_for_condition,
+    branch_states_for_condition,
     update_local_facts_from_value,
 )
 from .helpers.type_compatibility import (
@@ -133,11 +132,10 @@ def _rewrite_stmt(
         return replace(stmt, value=value), state
 
     if isinstance(stmt, SemanticIf):
-        rewritten_condition = _rewrite_expr(stmt.condition, state, compatibility_index, stats)
-        then_seed, else_seed = branch_seeds_for_condition(rewritten_condition)
-        then_state, then_seeded = apply_branch_seed(state, then_seed, compatibility_index)
-        else_state, else_seeded = apply_branch_seed(state, else_seed, compatibility_index)
-        stats.seeded_branch_facts += int(then_seeded) + int(else_seeded)
+        rewritten_condition, then_state, else_state, seeded_count = _rewrite_condition_expr(
+            stmt.condition, state, compatibility_index, stats
+        )
+        stats.seeded_branch_facts += seeded_count
         then_block, then_exit_state = _rewrite_nested_block(stmt.then_block, then_state, compatibility_index, stats)
         else_block = None
         else_exit_state = else_state
@@ -182,6 +180,38 @@ def _rewrite_stmt(
         return stmt, state
 
     raise TypeError(f"Unsupported semantic statement for flow-sensitive narrowing: {type(stmt).__name__}")
+
+
+def _rewrite_condition_expr(
+    expr: SemanticExpr,
+    state: _NarrowState,
+    compatibility_index: TypeCompatibilityIndex,
+    stats: _NarrowingStats,
+) -> tuple[SemanticExpr, _NarrowState, _NarrowState, int]:
+    if isinstance(expr, UnaryExprS) and expr.op.kind is UnaryOpKind.LOGICAL_NOT:
+        rewritten_operand, then_state, else_state, seeded_count = _rewrite_condition_expr(
+            expr.operand, state, compatibility_index, stats
+        )
+        return replace(expr, operand=rewritten_operand), else_state, then_state, seeded_count
+
+    if isinstance(expr, BinaryExprS) and expr.op.kind is BinaryOpKind.LOGICAL_AND:
+        rewritten_left, left_then_state, left_else_state, left_seeded_count = _rewrite_condition_expr(
+            expr.left, state, compatibility_index, stats
+        )
+        rewritten_right, right_then_state, right_else_state, right_seeded_count = _rewrite_condition_expr(
+            expr.right, left_then_state, compatibility_index, stats
+        )
+        else_state = _NarrowMerge.merge_branches(state, left_else_state, right_else_state).apply(state)
+        return (
+            replace(expr, left=rewritten_left, right=rewritten_right),
+            right_then_state,
+            else_state,
+            left_seeded_count + right_seeded_count,
+        )
+
+    rewritten_expr = _rewrite_expr(expr, state, compatibility_index, stats)
+    then_state, else_state, seeded_count = branch_states_for_condition(state, rewritten_expr, compatibility_index)
+    return rewritten_expr, then_state, else_state, seeded_count
 
 
 def _rewrite_lvalue(
