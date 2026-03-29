@@ -1,4 +1,4 @@
-from compiler.codegen.abi.array import array_data_index_address, array_length_operand
+from compiler.codegen.abi.array import array_data_index_address, array_length_operand, direct_primitive_array_store_operand
 from compiler.codegen.abi.runtime import (
     ARRAY_INDEX_SET_RUNTIME_CALLS,
     ARRAY_SLICE_SET_RUNTIME_CALLS,
@@ -52,7 +52,8 @@ fn main(values: i64[], refs: Obj[]) -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in asm
     assert f"    call {ARRAY_SLICE_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
     assert "    call rt_array_get_i64" not in asm
     assert f"    mov rax, qword ptr {array_data_index_address('rax', 'rcx', element_size=8)}" in asm
+    assert f"    mov {direct_primitive_array_store_operand('rax', 'rcx', runtime_kind=ArrayRuntimeKind.I64)}, rdx" in asm

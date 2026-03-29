@@ -6,6 +6,7 @@ from compiler.codegen.abi.runtime import (
     ARRAY_INDEX_SET_RUNTIME_CALLS,
     ARRAY_SLICE_GET_RUNTIME_CALLS,
 )
+from compiler.codegen.abi.array import direct_primitive_array_store_operand
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_U8
 from tests.compiler.codegen.helpers import emit_source_asm
@@ -85,7 +86,6 @@ def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
 
     for expected in [
         f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_U8]}",
-        f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}",
         f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}",
         f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}",
         "    call __nif_method_Str_from_u8_array",
@@ -93,8 +93,10 @@ def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
         "    call rt_checked_cast",
         "__nif_type_name_Person:",
         "__nif_type_Person:",
+        f"    mov {direct_primitive_array_store_operand('rax', 'rcx', runtime_kind=ArrayRuntimeKind.U8)}, dl",
     ]:
         assert expected in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" not in asm
     assert "    call rt_array_get_u8" not in asm
 
 

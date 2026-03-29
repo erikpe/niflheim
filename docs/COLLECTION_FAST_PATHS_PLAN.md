@@ -438,7 +438,7 @@ They are not the same kind of cheap access as length and indexed reads.
 
 ## Slice 7: Direct primitive array indexed-write slice
 
-Status: recommended next
+Status: implemented
 
 Payoff: medium
 
@@ -452,10 +452,10 @@ Capture the next remaining helper-dominated hot path after array length, iterati
 
 While the current runtime implementation for `rt_array_set_*` is direct bounds-checked mutation, writes are a more future-sensitive area if GC write barriers or additional mutation invariants are introduced later.
 
-The current recommendation is therefore:
+This slice therefore takes the bounded version of the write fast path:
 
-- pursue direct indexed writes next for primitive arrays (`i64[]`, `u64[]`, `u8[]`, `bool[]`, `double[]`)
-- keep `ref[]` indexed writes on the runtime path until write-barrier policy is clearer
+- direct indexed writes are now emitted for primitive arrays (`i64[]`, `u64[]`, `u8[]`, `bool[]`, `double[]`)
+- `ref[]` indexed writes remain on the runtime path until write-barrier policy is clearer
 
 ### Where To Change
 
@@ -468,8 +468,8 @@ The current recommendation is therefore:
 
 ### Concrete Changes
 
-- [ ] add compiler-side direct store helpers for primitive array elements in [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py)
-- [ ] teach structural primitive `IndexLValue` emission in [compiler/codegen/emitter_stmt.py](compiler/codegen/emitter_stmt.py) to:
+- [x] add compiler-side direct store helpers for primitive array elements in [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py)
+- [x] teach structural primitive `IndexLValue` emission in [compiler/codegen/emitter_stmt.py](compiler/codegen/emitter_stmt.py) to:
   - evaluate receiver once
   - evaluate index once
   - evaluate value once
@@ -477,8 +477,8 @@ The current recommendation is therefore:
   - preserve bounds behavior through an inline check
   - compute the direct element address from array data and element size
   - store the primitive payload directly without `rt_array_set_*`
-- [ ] keep `ref[]` indexed writes on the runtime path for now
-- [ ] rely on the existing lowering normalization in [compiler/semantic/lowering/collections.py](compiler/semantic/lowering/collections.py) so both `arr[i] = value` and structural method-form `arr.index_set(i, value)` flow through the same `IndexLValue` codegen path
+- [x] keep `ref[]` indexed writes on the runtime path for now
+- [x] rely on the existing lowering normalization in [compiler/semantic/lowering/collections.py](compiler/semantic/lowering/collections.py) so both `arr[i] = value` and structural method-form `arr.index_set(i, value)` flow through the same `IndexLValue` codegen path
 
 ### Expected Outcome
 
@@ -488,10 +488,10 @@ The current recommendation is therefore:
 
 ### Tests
 
-- [ ] add codegen tests proving primitive `arr[i] = value` emits no `rt_array_set_*` call
-- [ ] add codegen tests proving primitive `arr.index_set(i, value)` emits no `rt_array_set_*` call
-- [ ] add negative tests covering null and out-of-bounds behavior for primitive direct writes
-- [ ] add runtime-facing tests for representative primitive kinds (`i64`, `u8`, and one of `bool` or `double`)
+- [x] add codegen tests proving primitive `arr[i] = value` emits no `rt_array_set_*` call
+- [x] add codegen tests proving primitive `arr.index_set(i, value)` emits no `rt_array_set_*` call
+- [x] add negative tests covering null and out-of-bounds behavior for primitive direct writes
+- [x] add runtime-facing tests for representative primitive kinds (`i64`, `u8`, and one of `bool` or `double`)
 
 ## Slice 8: Guarded `ref[]` indexed-write follow-up
 
@@ -654,7 +654,7 @@ Emit specialized array iteration loops and structural array write fast paths fro
 ### Expected Outcome
 
 - no per-iteration `rt_array_get_*` call in array-backed loops
-- no `rt_array_set_*` call for structural primitive array writes once Slice 7 lands
+- no `rt_array_set_*` call for structural primitive array writes
 
 ## `compiler/codegen/abi/runtime.py`
 
@@ -778,29 +778,28 @@ Implemented command surface:
   - builds each kernel twice: once with collection fast paths enabled and once with the existing runtime-helper path forced on for measurement
   - writes a JSON report to [build/measurements/collection_fast_paths/report.json](build/measurements/collection_fast_paths/report.json)
 
-Current measurement snapshot from `python3 scripts/measure_collection_fast_paths.py`:
+Current measurement snapshot from `python3 scripts/measure_collection_fast_paths.py` after Slice 7:
 
 | kernel | fast focus instructions | fallback focus instructions | fast `rt_array_len` calls | fallback `rt_array_len` calls | fast `rt_array_get_*` calls | fallback `rt_array_get_*` calls | fast `rt_array_set_*` calls | fallback `rt_array_set_*` calls | fast median ms | fallback median ms | speedup |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `len_hot_loop` | 64 | 64 | 0 | 2 | 0 | 0 | 0 | 0 | 3.688 | 16.294 | 4.42x |
-| `index_reads_i64` | 115 | 102 | 0 | 2 | 0 | 2 | 0 | 0 | 4.660 | 20.435 | 4.38x |
-| `index_writes_i64` | 129 | 116 | 0 | 2 | 0 | 2 | 2 | 2 | 20.659 | 20.585 | 1.00x |
-| `index_writes_ref` | 155 | 129 | 0 | 2 | 0 | 4 | 2 | 2 | 6.055 | 17.935 | 2.96x |
-| `index_writes_ref_pure` | 110 | 110 | 0 | 2 | 0 | 0 | 2 | 2 | 5.953 | 5.946 | 1.00x |
-| `for_in_i64` | 86 | 99 | 0 | 2 | 0 | 2 | 0 | 0 | 3.108 | 18.789 | 6.05x |
-| `for_in_ref` | 89 | 102 | 0 | 2 | 0 | 2 | 0 | 0 | 1.499 | 5.889 | 3.93x |
+| `len_hot_loop` | 64 | 64 | 0 | 2 | 0 | 0 | 0 | 0 | 4.142 | 13.132 | 3.17x |
+| `index_reads_i64` | 115 | 102 | 0 | 2 | 0 | 2 | 0 | 0 | 4.638 | 20.466 | 4.41x |
+| `index_writes_i64` | 141 | 116 | 0 | 2 | 0 | 2 | 0 | 2 | 4.838 | 21.170 | 4.38x |
+| `index_writes_ref` | 155 | 129 | 0 | 2 | 0 | 4 | 2 | 2 | 6.279 | 10.015 | 1.60x |
+| `index_writes_ref_pure` | 110 | 110 | 0 | 2 | 0 | 0 | 2 | 2 | 5.851 | 6.128 | 1.05x |
+| `for_in_i64` | 86 | 99 | 0 | 2 | 0 | 2 | 0 | 0 | 2.991 | 19.269 | 6.44x |
+| `for_in_ref` | 89 | 102 | 0 | 2 | 0 | 2 | 0 | 0 | 1.165 | 5.491 | 4.71x |
 
 These measurements confirm the expected tradeoff: helper-call removal delivers substantial runtime wins even when static focus-function instruction count stays flat or rises slightly in some kernels.
 
-They also make the indexed-write decision clear:
+They also confirm the write-path split now that Slice 7 is implemented:
 
-- `index_writes_i64` is effectively unchanged between fast and fallback modes at 1.00x, even though both variants still retain `rt_array_set_*` in the hot path
-- that means the already-landed read fast paths no longer move the needle much for primitive write-heavy kernels; the remaining cost is dominated by runtime indexed writes
-- `index_writes_ref` still improves from read-side fast paths because it also performs structural reads
-- the new pure write kernel `index_writes_ref_pure` is effectively flat at 1.00x and removes the read-side confounder entirely
-- that shows the current residual hot cost for `ref[]` write-heavy kernels is the runtime write helper itself, not leftover read overhead
+- `index_writes_i64` now drops `rt_array_set_*` from the fast variant entirely and improves to 4.38x over fallback, even though the fast function body grows from 116 to 141 instructions
+- that validates the core tradeoff for primitive writes: removing helper calls matters more than slightly increasing the local instruction footprint
+- `index_writes_ref` still benefits only from the already-landed read-side fast paths because `ref[]` writes intentionally remain helper-backed
+- the pure write kernel `index_writes_ref_pure` stays near-flat at 1.05x, which keeps pointing at `rt_array_set_ref` as the dominant remaining hot cost for pure reference-write loops
 
-Conclusion: direct indexed writes are worth doing next, but the follow-up should be primitive-only at first.
+Conclusion: the primitive-only write slice was worth landing, and the remaining write-path optimization question is now isolated to the guarded `ref[]` follow-up.
 
 ## Risks And Mitigations
 
@@ -838,8 +837,8 @@ Mitigation:
 
 Mitigation:
 
-- start with length and `for-in`
-- defer slices and writes
+- stage the work by operation class rather than changing every collection path at once
+- keep slices and `ref[]` writes on the runtime path until their separate follow-up slices are justified
 - keep non-array protocol dispatch unchanged initially
 
 ## Risk 6: `ref[]` fast writes become a hidden future GC hazard
@@ -866,9 +865,9 @@ Mitigation:
 12. [x] Confirm slice operations remain unchanged on the runtime path
 13. [x] Measure instruction-count and runtime improvements on representative collection kernels
 14. [x] Decide whether direct indexed writes are worth a follow-up plan
-15. [ ] Implement primitive-only direct indexed-write fast paths for `i64[]`, `u64[]`, `u8[]`, `bool[]`, and `double[]`
-16. [ ] Add codegen tests proving primitive structural writes emit no `rt_array_set_*` call for both `arr[i] = value` and structural method-form `arr.index_set(i, value)`
-17. [ ] Add runtime tests proving primitive direct writes preserve null and bounds behavior
+15. [x] Implement primitive-only direct indexed-write fast paths for `i64[]`, `u64[]`, `u8[]`, `bool[]`, and `double[]`
+16. [x] Add codegen tests proving primitive structural writes emit no `rt_array_set_*` call for both `arr[i] = value` and structural method-form `arr.index_set(i, value)`
+17. [x] Add runtime tests proving primitive direct writes preserve null and bounds behavior
 18. [x] Define the rule that a dedicated ref-array store helper is the only legal fast-path mutation site if `ref[]` writes later join the fast path
 19. [x] Decide to keep `ref[]` indexed writes as a guarded follow-up rather than folding them into the primitive write slice
 20. [ ] If `ref[]` fast writes are later enabled, route them through the dedicated helper and update general ABI/runtime documentation to mark it as a future GC-barrier insertion point

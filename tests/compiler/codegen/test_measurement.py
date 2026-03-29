@@ -1,5 +1,6 @@
 from compiler.codegen.abi.runtime import (
     ARRAY_INDEX_GET_RUNTIME_CALLS,
+    ARRAY_INDEX_SET_RUNTIME_CALLS,
     ARRAY_LEN_RUNTIME_CALL,
     ARRAY_SLICE_GET_RUNTIME_CALLS,
     ARRAY_SLICE_SET_RUNTIME_CALLS,
@@ -145,3 +146,33 @@ fn main() -> i64 {
     assert f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in fallback_measure
     assert f"    call {ARRAY_SLICE_SET_RUNTIME_CALLS[ArrayRuntimeKind.U64]}" in fallback_measure
     assert fast_measure == fallback_measure
+
+
+def test_emit_source_asm_can_disable_primitive_array_write_fast_paths_for_measurement(tmp_path) -> None:
+    source = """
+fn measure(values: i64[]) -> i64 {
+    var i: i64 = 0;
+    var n: i64 = (i64)values.len();
+    while i < n {
+        values[i] = i + 1;
+        i = i + 1;
+    }
+    return 0;
+}
+
+fn main() -> i64 {
+    var values: i64[] = i64[](4u);
+    return measure(values);
+}
+"""
+
+    fast_asm = emit_source_asm(tmp_path, source)
+    fallback_asm = emit_source_asm(tmp_path, source, collection_fast_paths_enabled=False)
+
+    fast_measure = extract_function_asm(fast_asm, "measure")
+    fallback_measure = extract_function_asm(fallback_asm, "measure")
+
+    assert fast_measure is not None
+    assert fallback_measure is not None
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in fast_measure
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in fallback_measure

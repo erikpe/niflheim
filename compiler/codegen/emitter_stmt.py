@@ -4,9 +4,19 @@ from compiler.common.type_names import TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAM
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.abi.array import array_length_operand
+from compiler.codegen.abi.array import (
+    array_length_operand,
+    direct_primitive_array_store_operand,
+    is_direct_primitive_array_runtime_kind,
+)
 from compiler.codegen.asm import offset_operand
-from compiler.codegen.emitter_expr import EmitContext, _emit_array_direct_element_load, _emit_array_null_check, emit_expr
+from compiler.codegen.emitter_expr import (
+    EmitContext,
+    _emit_array_direct_element_load,
+    _emit_array_index_bounds_check,
+    _emit_array_null_check,
+    emit_expr,
+)
 from compiler.semantic.lowered_ir import (
     LoweredSemanticBlock,
     LoweredSemanticForIn,
@@ -182,6 +192,9 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         codegen.asm.instr(f"mov qword ptr [rcx + {field_offset}], rax")
         return
     if isinstance(target, IndexLValue):
+        if codegen.collection_fast_paths_enabled and _is_direct_primitive_array_index_write_target(target):
+            _emit_direct_primitive_array_index_write(codegen, stmt, target, ctx)
+            return
         from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call, _named_root_sync_local_ids_for_lvalue_call
 
         _emit_named_call(
@@ -296,6 +309,66 @@ def _emit_for_in(
     codegen.asm.instr(f"jmp {loop_start}")
     codegen.asm.label(loop_done)
     ctx.invalidate_all_named_roots()
+
+
+def _is_direct_primitive_array_index_write_target(target: IndexLValue) -> bool:
+    return (
+        isinstance(target.dispatch, RuntimeDispatch)
+        and target.dispatch.operation is CollectionOpKind.INDEX_SET
+        and is_direct_primitive_array_runtime_kind(target.dispatch.runtime_kind)
+    )
+
+
+def _emit_direct_primitive_array_index_write(
+    codegen,
+    stmt: SemanticAssign,
+    target: IndexLValue,
+    ctx: EmitContext,
+) -> None:
+    assert isinstance(target.dispatch, RuntimeDispatch)
+    runtime_kind = target.dispatch.runtime_kind
+    if runtime_kind is None:
+        codegen_types.raise_codegen_error("direct primitive array write requires runtime kind", span=stmt.span)
+
+    emit_expr(codegen, stmt.value, ctx)
+    codegen.asm.instr("push rax")
+    emit_expr(codegen, target.index, ctx)
+    codegen.asm.instr("push rax")
+    emit_expr(codegen, target.target, ctx)
+
+    codegen.asm.instr("mov rcx, qword ptr [rsp]")
+    codegen.asm.instr("mov rdx, qword ptr [rsp + 8]")
+    _emit_array_null_check(codegen, ctx=ctx)
+    _emit_array_index_bounds_check(codegen, target.dispatch, ctx=ctx)
+    _emit_direct_primitive_array_store(
+        codegen,
+        runtime_kind,
+        array_register="rax",
+        index_register="rcx",
+    )
+    codegen.asm.instr("add rsp, 16")
+
+
+def _emit_direct_primitive_array_store(
+    codegen,
+    runtime_kind: ArrayRuntimeKind,
+    *,
+    array_register: str,
+    index_register: str,
+) -> None:
+    store_operand = direct_primitive_array_store_operand(
+        array_register,
+        index_register,
+        runtime_kind=runtime_kind,
+    )
+    if runtime_kind is ArrayRuntimeKind.BOOL:
+        codegen.asm.instr("test rdx, rdx")
+        codegen.asm.instr("setne dl")
+        codegen.asm.instr("movzx edx, dl")
+    if runtime_kind is ArrayRuntimeKind.U8:
+        codegen.asm.instr(f"mov {store_operand}, dl")
+        return
+    codegen.asm.instr(f"mov {store_operand}, rdx")
 
 
 def _emit_array_direct_for_in(

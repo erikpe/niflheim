@@ -32,6 +32,14 @@ ARRAY_RUNTIME_KIND_TAGS: dict[ArrayRuntimeKind, int] = {
     ArrayRuntimeKind.REF: RT_ARRAY_KIND_REF,
 }
 
+DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES: dict[ArrayRuntimeKind, int] = {
+    ArrayRuntimeKind.I64: 8,
+    ArrayRuntimeKind.U64: 8,
+    ArrayRuntimeKind.U8: 1,
+    ArrayRuntimeKind.BOOL: 8,
+    ArrayRuntimeKind.DOUBLE: 8,
+}
+
 
 def array_length_operand(array_register: str) -> str:
     return stack_slot_operand(array_register, RT_ARRAY_LEN_OFFSET)
@@ -65,3 +73,37 @@ def array_data_index_address(array_register: str, index_register: str, *, elemen
 
 def array_runtime_kind_tag(runtime_kind: ArrayRuntimeKind) -> int:
     return ARRAY_RUNTIME_KIND_TAGS[runtime_kind]
+
+
+def is_direct_primitive_array_runtime_kind(runtime_kind: ArrayRuntimeKind | None) -> bool:
+    return runtime_kind in DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES
+
+
+def direct_primitive_array_element_size(runtime_kind: ArrayRuntimeKind) -> int:
+    element_size = DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES.get(runtime_kind)
+    if element_size is None:
+        raise ValueError(f"unsupported direct primitive array runtime kind: {runtime_kind}")
+    return element_size
+
+
+def direct_primitive_array_data_index_address(
+    array_register: str, index_register: str, *, runtime_kind: ArrayRuntimeKind
+) -> str:
+    return array_data_index_address(
+        array_register,
+        index_register,
+        element_size=direct_primitive_array_element_size(runtime_kind),
+    )
+
+
+def direct_primitive_array_store_operand(
+    array_register: str, index_register: str, *, runtime_kind: ArrayRuntimeKind
+) -> str:
+    address = direct_primitive_array_data_index_address(
+        array_register,
+        index_register,
+        runtime_kind=runtime_kind,
+    )
+    if runtime_kind is ArrayRuntimeKind.U8:
+        return f"byte ptr {address}"
+    return f"qword ptr {address}"

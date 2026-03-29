@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from compiler.codegen.abi.array import array_data_index_address
+from compiler.codegen.abi.array import array_data_index_address, direct_primitive_array_store_operand
 from compiler.codegen.abi.runtime import ARRAY_INDEX_SET_RUNTIME_CALLS
 from compiler.codegen.emitter_fn import emit_function
 from compiler.codegen.generator import CodeGenerator, emit_asm
@@ -105,9 +105,10 @@ def test_emitter_stmt_emits_for_in_and_structural_writes(tmp_path: Path) -> None
     assert ".Lmain_for_in_start_" in asm
     assert "call __nif_method_Buffer_iter_len" in asm
     assert "call __nif_method_Buffer_iter_get" in asm
-    assert f"call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in asm
+    assert f"call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in asm
     assert "call rt_array_get_i64" not in asm
     assert f"mov rax, qword ptr {array_data_index_address('rax', 'rcx', element_size=8)}" in asm
+    assert f"mov {direct_primitive_array_store_operand('rax', 'rcx', runtime_kind=ArrayRuntimeKind.I64)}, rdx" in asm
 
 
 def test_emitter_stmt_for_in_helper_identity_does_not_depend_on_span_values(tmp_path: Path) -> None:

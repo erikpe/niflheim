@@ -1,5 +1,6 @@
 from compiler.codegen.abi.array import (
     ARRAY_RUNTIME_KIND_TAGS,
+    DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES,
     RT_ARRAY_DATA_OFFSET,
     RT_ARRAY_ELEMENT_KIND_OFFSET,
     RT_ARRAY_ELEMENT_SIZE_OFFSET,
@@ -14,10 +15,14 @@ from compiler.codegen.abi.array import (
     array_data_address,
     array_data_index_address,
     array_data_operand,
+    direct_primitive_array_data_index_address,
+    direct_primitive_array_element_size,
+    direct_primitive_array_store_operand,
     array_element_kind_operand,
     array_element_size_operand,
     array_length_operand,
     array_runtime_kind_tag,
+    is_direct_primitive_array_runtime_kind,
 )
 from compiler.common.collection_protocols import ArrayRuntimeKind
 
@@ -43,6 +48,20 @@ def test_array_abi_runtime_kind_tags_match_runtime_enum_values() -> None:
     assert array_runtime_kind_tag(ArrayRuntimeKind.REF) == 6
 
 
+def test_array_abi_direct_primitive_runtime_kind_metadata_matches_layout_rules() -> None:
+    assert DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES == {
+        ArrayRuntimeKind.I64: 8,
+        ArrayRuntimeKind.U64: 8,
+        ArrayRuntimeKind.U8: 1,
+        ArrayRuntimeKind.BOOL: 8,
+        ArrayRuntimeKind.DOUBLE: 8,
+    }
+    assert is_direct_primitive_array_runtime_kind(ArrayRuntimeKind.I64)
+    assert not is_direct_primitive_array_runtime_kind(ArrayRuntimeKind.REF)
+    assert direct_primitive_array_element_size(ArrayRuntimeKind.U8) == 1
+    assert direct_primitive_array_element_size(ArrayRuntimeKind.DOUBLE) == 8
+
+
 def test_array_abi_operand_helpers_format_expected_memory_operands() -> None:
     assert array_length_operand("rax") == "qword ptr [rax + 24]"
     assert array_element_kind_operand("rax") == "qword ptr [rax + 32]"
@@ -54,6 +73,22 @@ def test_array_abi_address_helpers_format_data_addresses() -> None:
     assert array_data_address("rax") == "[rax + 48]"
     assert array_data_index_address("rax", "rcx", element_size=1) == "[rax + rcx + 48]"
     assert array_data_index_address("rax", "rcx", element_size=8) == "[rax + rcx * 8 + 48]"
+    assert (
+        direct_primitive_array_data_index_address("rax", "rcx", runtime_kind=ArrayRuntimeKind.U8)
+        == "[rax + rcx + 48]"
+    )
+    assert (
+        direct_primitive_array_data_index_address("rax", "rcx", runtime_kind=ArrayRuntimeKind.I64)
+        == "[rax + rcx * 8 + 48]"
+    )
+    assert (
+        direct_primitive_array_store_operand("rax", "rcx", runtime_kind=ArrayRuntimeKind.U8)
+        == "byte ptr [rax + rcx + 48]"
+    )
+    assert (
+        direct_primitive_array_store_operand("rax", "rcx", runtime_kind=ArrayRuntimeKind.BOOL)
+        == "qword ptr [rax + rcx * 8 + 48]"
+    )
 
 
 def test_array_abi_rejects_unsupported_direct_element_sizes() -> None:
@@ -63,3 +98,12 @@ def test_array_abi_rejects_unsupported_direct_element_sizes() -> None:
         assert "unsupported direct array element size" in str(exc)
     else:
         assert False, "expected unsupported element size to be rejected"
+
+
+def test_array_abi_rejects_direct_primitive_helpers_for_reference_arrays() -> None:
+    try:
+        direct_primitive_array_element_size(ArrayRuntimeKind.REF)
+    except ValueError as exc:
+        assert "unsupported direct primitive array runtime kind" in str(exc)
+    else:
+        assert False, "expected reference arrays to be rejected"
