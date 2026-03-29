@@ -154,6 +154,44 @@ static void test_ref_slice_copy_independence(void) {
     assert_u64_eq(cleared.tracked_object_count, 0u, "all objects should reclaim after clearing roots");
 }
 
+static void test_ref_array_alias_and_overwrite_gc_semantics(void) {
+    RtThreadState* ts = rt_thread_state();
+    RtRootFrame frame;
+    void* slots[1] = {NULL};
+    rt_root_frame_init(&frame, slots, 1);
+    rt_push_roots(ts, &frame);
+
+    void* arr = rt_array_new_ref(2u);
+    rt_root_slot_store(&frame, 0, arr);
+
+    LeafObj* value = alloc_leaf(33u);
+    rt_array_set_ref(arr, 0, value);
+    rt_gc_collect(ts);
+    RtGcStats rooted = rt_gc_get_stats();
+    assert_u64_eq(rooted.tracked_object_count, 2u, "array root should keep stored ref alive");
+
+    rt_array_set_ref(arr, 1, rt_array_get_ref(arr, 0));
+    rt_gc_collect(ts);
+    RtGcStats aliased = rt_gc_get_stats();
+    assert_u64_eq(aliased.tracked_object_count, 2u, "aliasing a ref slot should not duplicate live objects");
+
+    rt_array_set_ref(arr, 0, NULL);
+    rt_gc_collect(ts);
+    RtGcStats one_alias_left = rt_gc_get_stats();
+    assert_u64_eq(one_alias_left.tracked_object_count, 2u, "remaining alias should keep object alive after overwrite");
+
+    rt_array_set_ref(arr, 1, NULL);
+    rt_gc_collect(ts);
+    RtGcStats array_only = rt_gc_get_stats();
+    assert_u64_eq(array_only.tracked_object_count, 1u, "clearing last retained alias should reclaim element");
+
+    rt_root_slot_store(&frame, 0, NULL);
+    rt_pop_roots(ts);
+    rt_gc_collect(ts);
+    RtGcStats cleared = rt_gc_get_stats();
+    assert_u64_eq(cleared.tracked_object_count, 0u, "dropping array root should reclaim ref array after alias clears");
+}
+
 int main(void) {
     rt_init();
 
@@ -161,6 +199,7 @@ int main(void) {
     test_u8_array_data_ptr_exposes_contiguous_bytes();
     test_ref_array_gc_tracing();
     test_ref_slice_copy_independence();
+    test_ref_array_alias_and_overwrite_gc_semantics();
 
     rt_shutdown();
     puts("test_array_runtime: ok");

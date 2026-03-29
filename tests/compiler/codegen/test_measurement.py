@@ -176,3 +176,32 @@ fn main() -> i64 {
     assert fallback_measure is not None
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in fast_measure
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" in fallback_measure
+
+
+def test_emit_source_asm_can_disable_ref_array_write_fast_paths_for_measurement(tmp_path) -> None:
+    source = """
+class Box {
+    value: i64;
+}
+
+fn measure(values: Box[]) -> i64 {
+    values[0] = Box(7);
+    return values[0].value;
+}
+
+fn main() -> i64 {
+    var values: Box[] = Box[](1u);
+    return measure(values);
+}
+"""
+
+    fast_asm = emit_source_asm(tmp_path, source)
+    fallback_asm = emit_source_asm(tmp_path, source, collection_fast_paths_enabled=False)
+
+    fast_measure = extract_function_asm(fast_asm, "measure")
+    fallback_measure = extract_function_asm(fallback_asm, "measure")
+
+    assert fast_measure is not None
+    assert fallback_measure is not None
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in fast_measure
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in fallback_measure

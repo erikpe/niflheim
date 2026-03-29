@@ -107,3 +107,13 @@ def direct_primitive_array_store_operand(
     if runtime_kind is ArrayRuntimeKind.U8:
         return f"byte ptr {address}"
     return f"qword ptr {address}"
+
+
+def direct_ref_array_store_operand(array_register: str, index_register: str) -> str:
+    return f"qword ptr {array_data_index_address(array_register, index_register, element_size=8)}"
+
+
+def emit_direct_ref_array_element_store(codegen, *, array_register: str, index_register: str, value_register: str) -> None:
+    # This is the only legal compiler-emitted fast-path mutation site for ref[] writes.
+    # If the collector later needs write barriers or remembered-set updates, they belong here.
+    codegen.asm.instr(f"mov {direct_ref_array_store_operand(array_register, index_register)}, {value_register}")

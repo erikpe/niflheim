@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.codegen.abi.runtime import ARRAY_LEN_RUNTIME_CALL, runtime_call_metadata
+from compiler.codegen.effects import expr_may_execute_gc
 from compiler.codegen.runtime_calls import runtime_dispatch_call_name
 import compiler.codegen.types as codegen_types
 
@@ -404,7 +405,7 @@ def _max_call_temp_root_slots_in_stmt(
         return _max_call_temp_root_slots_in_expr(stmt.initializer) if stmt.initializer is not None else 0
     if isinstance(stmt, SemanticAssign):
         target_slots = _max_call_temp_root_slots_for_lvalue(stmt.target)
-        return max(target_slots, _max_call_temp_root_slots_in_expr(stmt.value))
+        return max(target_slots, _max_call_temp_root_slots_in_expr(stmt.value), _max_call_temp_root_slots_for_ref_array_fast_write(stmt))
     if isinstance(stmt, SemanticExprStmt):
         return _max_call_temp_root_slots_in_expr(stmt.expr)
     if isinstance(stmt, SemanticReturn):
@@ -436,6 +437,28 @@ def _max_call_temp_root_slots_in_stmt(
             _max_call_temp_root_slots_in_stmt(stmt.body, owner=owner),
         )
     return 0
+
+
+def _max_call_temp_root_slots_for_ref_array_fast_write(stmt: SemanticAssign) -> int:
+    target = stmt.target
+    if not isinstance(target, IndexLValue):
+        return 0
+    if not _is_direct_ref_array_index_write_target(target):
+        return 0
+
+    later_exprs = (target.index, target.target)
+    if not any(expr_may_execute_gc(expr) for expr in later_exprs):
+        return 0
+
+    return 1 + max((_max_call_temp_root_slots_in_expr(expr) for expr in later_exprs), default=0)
+
+
+def _is_direct_ref_array_index_write_target(target: IndexLValue) -> bool:
+    return (
+        isinstance(target.dispatch, RuntimeDispatch)
+        and target.dispatch.operation is CollectionOpKind.INDEX_SET
+        and target.dispatch.runtime_kind is ArrayRuntimeKind.REF
+    )
 
 
 def build_layout(fn: SemanticFunction | LoweredSemanticFunction) -> FunctionLayout:

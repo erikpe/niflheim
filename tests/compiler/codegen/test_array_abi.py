@@ -15,6 +15,7 @@ from compiler.codegen.abi.array import (
     array_data_address,
     array_data_index_address,
     array_data_operand,
+    direct_ref_array_store_operand,
     direct_primitive_array_data_index_address,
     direct_primitive_array_element_size,
     direct_primitive_array_store_operand,
@@ -89,6 +90,7 @@ def test_array_abi_address_helpers_format_data_addresses() -> None:
         direct_primitive_array_store_operand("rax", "rcx", runtime_kind=ArrayRuntimeKind.BOOL)
         == "qword ptr [rax + rcx * 8 + 48]"
     )
+    assert direct_ref_array_store_operand("rax", "rcx") == "qword ptr [rax + rcx * 8 + 48]"
 
 
 def test_array_abi_rejects_unsupported_direct_element_sizes() -> None:

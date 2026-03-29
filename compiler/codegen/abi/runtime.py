@@ -58,6 +58,8 @@ ARRAY_INDEX_SET_RUNTIME_CALLS: dict[ArrayRuntimeKind, str] = {
     ArrayRuntimeKind.U8: "rt_array_set_u8",
     ArrayRuntimeKind.BOOL: "rt_array_set_bool",
     ArrayRuntimeKind.DOUBLE: "rt_array_set_double",
+    # rt_array_set_ref remains the fallback/reference semantics baseline and the
+    # measurement fallback path even though structural ref[] writes may bypass it.
     ArrayRuntimeKind.REF: "rt_array_set_ref",
 }
 ARRAY_SLICE_GET_RUNTIME_CALLS: dict[ArrayRuntimeKind, str] = {

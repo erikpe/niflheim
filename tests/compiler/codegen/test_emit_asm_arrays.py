@@ -1,4 +1,8 @@
-from compiler.codegen.abi.array import array_length_operand, direct_primitive_array_store_operand
+from compiler.codegen.abi.array import (
+    array_length_operand,
+    direct_primitive_array_store_operand,
+    direct_ref_array_store_operand,
+)
 from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_INDEX_GET_RUNTIME_CALLS,
@@ -55,10 +59,11 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" not in asm
-    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
     assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}" not in asm
     assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
     assert f"    mov {direct_primitive_array_store_operand('rax', 'rcx', runtime_kind=ArrayRuntimeKind.U8)}, dl" in asm
+    assert f"    mov {direct_ref_array_store_operand('rax', 'rcx')}, rdx" in asm
 
 
 def test_emit_asm_array_len_uses_direct_load_and_slice_stays_on_runtime_path(tmp_path) -> None:
@@ -119,9 +124,10 @@ fn main() -> i64 {
 
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in asm
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_I64]}" in asm
-    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
     assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
     assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in asm
+    assert f"    mov {direct_ref_array_store_operand('rax', 'rcx')}, rdx" in asm
 
 
 def test_emit_asm_nested_array_chained_field_access_lowers(tmp_path) -> None:
@@ -266,11 +272,12 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
     assert "    call rt_root_slot_store" not in main_body
+    assert f"    mov {direct_ref_array_store_operand('rax', 'rcx')}, rdx" in main_body
 
 
-def test_emit_asm_array_index_assignment_roots_runtime_value_argument(tmp_path) -> None:
+def test_emit_asm_array_index_assignment_uses_direct_ref_store(tmp_path) -> None:
     source = """
 class Person {
     age: i64;
@@ -285,7 +292,33 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" in asm
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
+    assert f"    mov {direct_ref_array_store_operand('rax', 'rcx')}, rdx" in asm
+
+
+def test_emit_asm_ref_array_fast_write_keeps_temporary_value_alive_across_target_call(tmp_path) -> None:
+    source = """
+class Person {
+    age: i64;
+}
+
+fn choose(values: Person[]) -> Person[] {
+    return values;
+}
+
+fn main() -> i64 {
+    var people: Person[] = Person[](1u);
+    choose(people)[0] = Person(7);
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
+
+    assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
+    assert "    call choose" in main_body
+    assert f"    mov {direct_ref_array_store_operand('rax', 'rcx')}, rdx" in main_body
+    assert "    mov qword ptr [rbp -" in main_body
 
 
 def test_emit_asm_array_ctor_runtime_call_dynamic_aligns_with_prior_pushed_arg(tmp_path) -> None:

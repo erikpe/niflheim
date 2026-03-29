@@ -217,6 +217,13 @@ Compiler requirements:
 - Maintain 16-byte stack alignment before `call`.
 - Spill live reference temps into root slots before allocation/runtime calls.
 
+### 8.1 Ref Array Fast-Store Boundary
+
+- Structural `ref[]` indexed writes may bypass `rt_array_set_ref` in generated code.
+- The only legal compiler-emitted fast-path mutation site for those stores is the dedicated helper in [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py).
+- Under the current single-threaded, stop-the-world, non-moving mark-sweep collector, that helper may emit a plain reference-slot store once null/bounds checks and temporary rooting are satisfied.
+- If the collector later gains remembered sets, write barriers, incremental marking, concurrent marking, or any other mutation-side invariant, that helper is the required barrier insertion point and must remain the only fast-path `ref[]` mutation site.
+
 ---
 
 ## 9) Cast and Type-Check Runtime Hooks

@@ -7,9 +7,11 @@ import compiler.codegen.types as codegen_types
 from compiler.codegen.abi.array import (
     array_length_operand,
     direct_primitive_array_store_operand,
+    emit_direct_ref_array_element_store,
     is_direct_primitive_array_runtime_kind,
 )
 from compiler.codegen.asm import offset_operand
+from compiler.codegen.effects import expr_may_execute_gc
 from compiler.codegen.emitter_expr import (
     EmitContext,
     _emit_array_direct_element_load,
@@ -195,6 +197,9 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         if codegen.collection_fast_paths_enabled and _is_direct_primitive_array_index_write_target(target):
             _emit_direct_primitive_array_index_write(codegen, stmt, target, ctx)
             return
+        if codegen.collection_fast_paths_enabled and _is_direct_ref_array_index_write_target(target):
+            _emit_direct_ref_array_index_write(codegen, stmt, target, ctx)
+            return
         from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call, _named_root_sync_local_ids_for_lvalue_call
 
         _emit_named_call(
@@ -369,6 +374,65 @@ def _emit_direct_primitive_array_store(
         codegen.asm.instr(f"mov {store_operand}, dl")
         return
     codegen.asm.instr(f"mov {store_operand}, rdx")
+
+
+def _is_direct_ref_array_index_write_target(target: IndexLValue) -> bool:
+    return (
+        isinstance(target.dispatch, RuntimeDispatch)
+        and target.dispatch.operation is CollectionOpKind.INDEX_SET
+        and target.dispatch.runtime_kind is ArrayRuntimeKind.REF
+    )
+
+
+def _emit_direct_ref_array_index_write(
+    codegen,
+    stmt: SemanticAssign,
+    target: IndexLValue,
+    ctx: EmitContext,
+) -> None:
+    temp_root_base = ctx.temp_root_depth[0]
+    needs_temp_root = _direct_ref_array_write_value_needs_temp_root(target)
+
+    emit_expr(codegen, stmt.value, ctx)
+    if needs_temp_root:
+        _emit_temp_root_slot_move(codegen, ctx, temp_root_base, source_register="rax", span=stmt.span)
+        ctx.temp_root_depth[0] = temp_root_base + 1
+    codegen.asm.instr("push rax")
+    emit_expr(codegen, target.index, ctx)
+    codegen.asm.instr("push rax")
+    emit_expr(codegen, target.target, ctx)
+
+    codegen.asm.instr("mov rcx, qword ptr [rsp]")
+    codegen.asm.instr("mov rdx, qword ptr [rsp + 8]")
+    _emit_array_null_check(codegen, ctx=ctx)
+    _emit_array_index_bounds_check(codegen, target.dispatch, ctx=ctx)
+    emit_direct_ref_array_element_store(
+        codegen,
+        array_register="rax",
+        index_register="rcx",
+        value_register="rdx",
+    )
+    codegen.asm.instr("add rsp, 16")
+    if needs_temp_root:
+        codegen.emit_clear_temp_root_slots(ctx.layout, temp_root_base, 1)
+        ctx.temp_root_depth[0] = temp_root_base
+
+
+def _direct_ref_array_write_value_needs_temp_root(target: IndexLValue) -> bool:
+    return any(expr_may_execute_gc(expr) for expr in (target.index, target.target))
+
+
+def _emit_temp_root_slot_move(
+    codegen,
+    ctx: EmitContext,
+    temp_slot_index: int,
+    *,
+    source_register: str,
+    span,
+) -> None:
+    if temp_slot_index >= len(ctx.layout.temp_root_slot_offsets):
+        codegen_types.raise_codegen_error("insufficient temporary root slots for ref[] fast write", span=span)
+    codegen.asm.instr(f"mov {offset_operand(ctx.layout.temp_root_slot_offsets[temp_slot_index])}, {source_register}")
 
 
 def _emit_array_direct_for_in(

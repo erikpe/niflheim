@@ -228,6 +228,10 @@ Implementation status note (current tree):
   - Compiler handles array syntax/desugaring and element-category runtime call routing.
   - Runtime provides storage/layout + `len/get/set/slice` primitives + bounds/GC behavior.
   - A stdlib-first array wrapper layer is a planned follow-up, not the current implementation state.
+- Current backend optimization note:
+  - Structural `ref[]` indexed writes may be emitted as direct stores rather than `rt_array_set_ref`, but only through one centralized compiler helper.
+  - This is valid under the current non-moving collector.
+  - If collector upgrades later require mutation-side barriers or remembered-set maintenance, that centralized helper must be revised instead of permitting scattered raw `ref[]` stores.
 
 ### 5.7 Sugaring Protocols (Direction)
 
