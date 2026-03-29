@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from compiler.common.span import SourceSpan
+from compiler.common.collection_protocols import CollectionOpKind
 from compiler.common.type_names import TYPE_NAME_I64, TYPE_NAME_U64
 from compiler.semantic.ir import (
+    RuntimeDispatch,
     SemanticBlock,
     SemanticClass,
     SemanticField,
@@ -22,6 +24,7 @@ from compiler.semantic.lowered_ir import (
     LoweredSemanticClass,
     LoweredSemanticField,
     LoweredSemanticForIn,
+    LoweredSemanticForInStrategy,
     LoweredSemanticFunction,
     LoweredSemanticIf,
     LoweredSemanticMethod,
@@ -206,5 +209,22 @@ def _lower_stmt(stmt: SemanticStmt, allocator: _HelperLocalAllocator) -> Lowered
             element_type_ref=stmt.element_type_ref,
             body=_lower_block(stmt.body, allocator),
             span=stmt.span,
+            strategy=_lowered_for_in_strategy(stmt),
         )
     return stmt
+
+
+def _lowered_for_in_strategy(stmt: SemanticForIn) -> LoweredSemanticForInStrategy:
+    iter_len_dispatch = stmt.iter_len_dispatch
+    iter_get_dispatch = stmt.iter_get_dispatch
+
+    if isinstance(iter_len_dispatch, RuntimeDispatch) and isinstance(iter_get_dispatch, RuntimeDispatch):
+        if (
+            iter_len_dispatch.operation is CollectionOpKind.ITER_LEN
+            and iter_get_dispatch.operation is CollectionOpKind.ITER_GET
+        ):
+            if iter_get_dispatch.runtime_kind is not None:
+                return LoweredSemanticForInStrategy.ARRAY_DIRECT
+            return LoweredSemanticForInStrategy.ARRAY_RUNTIME_DISPATCH
+
+    return LoweredSemanticForInStrategy.COLLECTION_PROTOCOL_DISPATCH

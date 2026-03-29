@@ -222,7 +222,7 @@ Create a single compiler-side place for array layout constants and direct-access
 
 ## Slice 2: Add explicit lowered-IR fast-path representation for arrays
 
-Status: proposed
+Status: implemented
 
 Payoff: high
 
@@ -240,10 +240,8 @@ Preserve array fast-path eligibility across executable lowering so codegen does 
 
 ### Concrete Changes
 
-- extend lowered IR with an explicit fast-path representation, for example:
-  - `LoweredSemanticArrayForIn`, or
-  - a `strategy` field on `LoweredSemanticForIn`
-- preserve whether the iteration receiver is:
+- [x] extend lowered IR with an explicit fast-path representation via a `strategy` field on `LoweredSemanticForIn`
+- [x] preserve whether the iteration receiver is:
   - structural array with direct fast path
   - generic runtime-dispatch array path
   - non-array protocol dispatch path
@@ -256,8 +254,8 @@ Preserve array fast-path eligibility across executable lowering so codegen does 
 
 ### Tests
 
-- add lowering tests proving array-backed `for-in` is marked for the specialized lowered form
-- add lowering tests proving generic non-array iteration remains on protocol dispatch
+- [x] add lowering tests proving array-backed `for-in` is marked for the specialized lowered form
+- [x] add lowering tests proving generic non-array iteration remains on protocol dispatch
 
 ## Slice 3: Add direct array length emission
 
@@ -681,8 +679,8 @@ Mitigation:
 
 1. [x] Add compiler-side array ABI helpers in a new module such as [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py)
 2. [x] Document the compiler/runtime array-layout dependency in code comments near the new ABI helpers
-3. [ ] Extend lowered IR to carry explicit array fast-path strategy for `for-in`
-4. [ ] Update executable lowering to preserve array-backed iteration strategy explicitly
+3. [x] Extend lowered IR to carry explicit array fast-path strategy for `for-in`
+4. [x] Update executable lowering to preserve array-backed iteration strategy explicitly
 5. [ ] Emit direct array length loads for `ArrayLenExpr`
 6. [ ] Add codegen tests proving structural arrays no longer call `rt_array_len`
 7. [ ] Emit specialized array-backed `for-in` loops without `rt_array_get_*` runtime calls

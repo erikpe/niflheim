@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 from compiler.common.span import SourceSpan
@@ -22,6 +23,12 @@ from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, LocalId,
 from compiler.semantic.types import SemanticTypeRef
 
 
+class LoweredSemanticForInStrategy(Enum):
+    ARRAY_DIRECT = "array_direct"
+    ARRAY_RUNTIME_DISPATCH = "array_runtime_dispatch"
+    COLLECTION_PROTOCOL_DISPATCH = "collection_protocol_dispatch"
+
+
 @dataclass(frozen=True)
 class LoweredSemanticBlock:
     statements: list["LoweredSemanticStmt"]
@@ -41,6 +48,7 @@ class LoweredSemanticForIn:
     element_type_ref: SemanticTypeRef
     body: LoweredSemanticBlock
     span: SourceSpan
+    strategy: LoweredSemanticForInStrategy = LoweredSemanticForInStrategy.COLLECTION_PROTOCOL_DISPATCH
 
 
 @dataclass(frozen=True)

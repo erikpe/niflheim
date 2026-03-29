@@ -17,6 +17,7 @@ from compiler.semantic.lowered_ir import (
     LoweredSemanticBlock,
     LoweredSemanticField,
     LoweredSemanticForIn,
+    LoweredSemanticForInStrategy,
     LoweredSemanticFunction,
     LoweredSemanticIf,
     LoweredSemanticMethod,
@@ -1327,6 +1328,53 @@ def test_lower_linked_semantic_program_materializes_for_in_helper_temps(tmp_path
     assert local_type_name_for_owner(fn, loop_stmt.length_local_id) == "u64"
     assert local_display_name_for_owner(fn, loop_stmt.index_local_id) == "__for_in_index"
     assert local_type_name_for_owner(fn, loop_stmt.index_local_id) == "i64"
+    assert loop_stmt.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT
+
+
+def test_lower_linked_semantic_program_preserves_for_in_iteration_strategy(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Buffer {
+            values: i64[];
+
+            fn iter_len() -> u64 {
+                return __self.values.len();
+            }
+
+            fn iter_get(index: i64) -> i64 {
+                return __self.values[index];
+            }
+        }
+
+        fn main(buffer: Buffer, values: i64[]) -> i64 {
+            var total: i64 = 0;
+            for left in buffer {
+                total = total + left;
+            }
+            for right in values {
+                total = total + right;
+            }
+            return total;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    lowered_program = lower_linked_semantic_program(link_semantic_program(lower_program(program)))
+    fn = lowered_program.functions[0]
+
+    protocol_loop = fn.body.statements[1]
+    assert isinstance(protocol_loop, LoweredSemanticForIn)
+    assert protocol_loop.strategy is LoweredSemanticForInStrategy.COLLECTION_PROTOCOL_DISPATCH
+    assert isinstance(protocol_loop.iter_len_dispatch, MethodDispatch)
+    assert isinstance(protocol_loop.iter_get_dispatch, MethodDispatch)
+
+    array_loop = fn.body.statements[2]
+    assert isinstance(array_loop, LoweredSemanticForIn)
+    assert array_loop.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT
+    assert isinstance(array_loop.iter_len_dispatch, RuntimeDispatch)
+    assert isinstance(array_loop.iter_get_dispatch, RuntimeDispatch)
 
 
 def test_lower_linked_semantic_program_uses_explicit_lowered_control_flow_nodes(tmp_path: Path) -> None:
