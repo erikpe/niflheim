@@ -73,11 +73,11 @@ def _link_program_phase(logger, optimized_program):
     return linked_program
 
 
-def _emit_assembly_phase(logger, linked_program) -> str:
+def _emit_assembly_phase(logger, linked_program, *, runtime_trace_enabled: bool) -> str:
     logger.info("Emitting assembly")
     start = perf_counter()
     lowered_linked_program = lower_linked_semantic_program(linked_program)
-    asm = emit_asm(lowered_linked_program)
+    asm = emit_asm(lowered_linked_program, runtime_trace_enabled=runtime_trace_enabled)
     duration_ms = (perf_counter() - start) * 1000.0
     logger.debugv(1, "Emitted %d assembly lines in %.2f ms", len(asm.splitlines()), duration_ms)
     return asm
@@ -110,6 +110,11 @@ def main() -> int:
         default="codegen",
         help="Stop after a compiler phase instead of continuing to full codegen",
     )
+    compilation_group.add_argument(
+        "--omit-runtime-trace",
+        action="store_true",
+        help="Do not emit rt_trace_push/pop/set_location calls in generated assembly",
+    )
 
     args = parser.parse_args()
     log_settings = resolve_log_settings(args.log_level, args.verbose, args.quiet)
@@ -128,7 +133,7 @@ def main() -> int:
         if args.stop_after == "check":
             return 0
 
-        asm = _emit_assembly_phase(logger, linked_program)
+        asm = _emit_assembly_phase(logger, linked_program, runtime_trace_enabled=not args.omit_runtime_trace)
         if args.output:
             Path(args.output).write_text(asm, encoding="utf-8")
             logger.infov(1, "Wrote assembly to %s", args.output)

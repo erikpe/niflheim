@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class CodegenOptions:
     collection_fast_paths_enabled: bool = True
+    runtime_trace_enabled: bool = True
 
 
 class CodeGenerator:
@@ -38,6 +39,10 @@ class CodeGenerator:
     @property
     def collection_fast_paths_enabled(self) -> bool:
         return self.options.collection_fast_paths_enabled
+
+    @property
+    def runtime_trace_enabled(self) -> bool:
+        return self.options.runtime_trace_enabled
 
     def runtime_panic_message_label(self, message: str) -> str:
         label = self.runtime_panic_message_labels.get(message)
@@ -133,6 +138,8 @@ class CodeGenerator:
             codegen_types.raise_codegen_error(f"unsupported argument location kind '{location_kind}'", span=param_span)
 
     def emit_trace_push(self, fn_debug_name_label: str, fn_debug_file_label: str, line: int, column: int) -> None:
+        if not self.runtime_trace_enabled:
+            return
         self.asm.instr(f"lea rdi, [rip + {fn_debug_name_label}]")
         self.asm.instr(f"lea rsi, [rip + {fn_debug_file_label}]")
         self.asm.instr(f"mov edx, {line}")
@@ -160,7 +167,8 @@ class CodeGenerator:
         if layout.root_slot_count > 0:
             self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
-        self.asm.instr("call rt_trace_pop")
+        if self.runtime_trace_enabled:
+            self.asm.instr("call rt_trace_pop")
         if return_type_name == TYPE_NAME_DOUBLE:
             self.asm.instr("movq xmm0, qword ptr [rsp]")
             self.asm.instr("add rsp, 8")
@@ -175,7 +183,8 @@ class CodeGenerator:
         if layout.root_slot_count > 0:
             self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
-        self.asm.instr("call rt_trace_pop")
+        if self.runtime_trace_enabled:
+            self.asm.instr("call rt_trace_pop")
         self.asm.instr("pop rax")
         self.asm.instr("mov rsp, rbp")
         self.asm.instr("pop rbp")
@@ -187,7 +196,7 @@ class CodeGenerator:
         label = codegen_symbols.next_label(fn_name, f"rt_safepoint_{phase}", label_counter)
         self.asm.label(label)
         self.asm.comment("runtime safepoint hook")
-        if phase == "before" and line is not None and column is not None:
+        if self.runtime_trace_enabled and phase == "before" and line is not None and column is not None:
             self.asm.instr(f"mov edi, {line}")
             self.asm.instr(f"mov esi, {column}")
             self.asm.instr("call rt_trace_set_location")
@@ -301,10 +310,18 @@ class CodeGenerator:
         self.asm.instr("movzx rax, al")
 
 
-def emit_asm(program: LoweredLinkedSemanticProgram, *, collection_fast_paths_enabled: bool = True) -> str:
+def emit_asm(
+    program: LoweredLinkedSemanticProgram,
+    *,
+    collection_fast_paths_enabled: bool = True,
+    runtime_trace_enabled: bool = True,
+) -> str:
     from compiler.codegen.program_generator import emit_program
 
     return emit_program(
         program,
-        options=CodegenOptions(collection_fast_paths_enabled=collection_fast_paths_enabled),
+        options=CodegenOptions(
+            collection_fast_paths_enabled=collection_fast_paths_enabled,
+            runtime_trace_enabled=runtime_trace_enabled,
+        ),
     )

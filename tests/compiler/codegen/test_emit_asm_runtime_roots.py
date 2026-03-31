@@ -196,6 +196,29 @@ fn f(a: i64) -> i64 {
     assert "    call rt_trace_pop" in asm
 
 
+def test_emit_asm_can_omit_runtime_trace_calls(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn f(ts: Obj) -> unit {
+    rt_gc_collect(ts);
+    return;
+}
+
+fn main() -> i64 {
+    f(null);
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source, runtime_trace_enabled=False)
+
+    assert "    call rt_trace_push" not in asm
+    assert "    call rt_trace_pop" not in asm
+    assert "    call rt_trace_set_location" not in asm
+    assert ".Lf_rt_safepoint_before_" in asm
+    assert ".Lf_rt_safepoint_after_" in asm
+
+
 def test_emit_asm_pushes_roots_before_trace_push_for_constructors(tmp_path) -> None:
     source = """
 class Boxed {

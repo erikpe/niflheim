@@ -18,6 +18,7 @@ def emit_source_asm(
     project_root=None,
     disabled_passes: Iterable[str] = (),
     collection_fast_paths_enabled: bool = True,
+    runtime_trace_enabled: bool = True,
 ) -> str:
     entry_path = tmp_path / source_path
     entry_path.parent.mkdir(parents=True, exist_ok=True)
@@ -36,4 +37,5 @@ def emit_source_asm(
     return emit_asm(
         lower_linked_semantic_program(linked_program),
         collection_fast_paths_enabled=collection_fast_paths_enabled,
+        runtime_trace_enabled=runtime_trace_enabled,
     )

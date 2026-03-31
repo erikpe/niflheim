@@ -24,8 +24,9 @@ def test_cli_defaults_to_codegen_path(tmp_path: Path, monkeypatch) -> None:
 
     seen: dict[str, object] = {}
 
-    def _fake_emit_asm(program: LoweredLinkedSemanticProgram) -> str:
+    def _fake_emit_asm(program: LoweredLinkedSemanticProgram, *, runtime_trace_enabled: bool = True) -> str:
         seen["program"] = program
+        seen["runtime_trace_enabled"] = runtime_trace_enabled
         return "; codegen backend selected\n"
 
     monkeypatch.setattr(cli, "emit_asm", _fake_emit_asm)
@@ -37,6 +38,35 @@ def test_cli_defaults_to_codegen_path(tmp_path: Path, monkeypatch) -> None:
     program = seen["program"]
     assert isinstance(program, LoweredLinkedSemanticProgram)
     assert program.entry_module == ("main",)
+    assert seen["runtime_trace_enabled"] is True
+
+
+def test_cli_can_omit_runtime_trace_calls(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    out_file = tmp_path / "out.s"
+    write(
+        entry,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    seen: dict[str, object] = {}
+
+    def _fake_emit_asm(program: LoweredLinkedSemanticProgram, *, runtime_trace_enabled: bool = True) -> str:
+        seen["program"] = program
+        seen["runtime_trace_enabled"] = runtime_trace_enabled
+        return "; codegen backend selected\n"
+
+    monkeypatch.setattr(cli, "emit_asm", _fake_emit_asm)
+
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--omit-runtime-trace", "-o", str(out_file)])
+
+    assert rc == 0
+    assert out_file.read_text(encoding="utf-8") == "; codegen backend selected\n"
+    assert seen["runtime_trace_enabled"] is False
 
 
 def test_cli_source_ast_codegen_flag_is_rejected(tmp_path: Path, monkeypatch, capsys) -> None:
