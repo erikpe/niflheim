@@ -49,7 +49,7 @@ export class Map
     }
 
     private fn _maybe_grow_for_insert() -> unit {
-        if ((__self._len + 1u) * 10u) < (__self._capacity * 7u) {
+        if ((__self._len + 1u) * 10u) < (__self._capacity * 5u) {
             return;
         }
         __self._rehash(__self._capacity * 2u);
@@ -82,13 +82,14 @@ export class Map
         var capacity_i64: i64 = (i64)__self._capacity;
         var index: i64 = (i64)(((Hashable)key).hash_code() % __self._capacity);
         var probes: i64 = 0;
+        var eq_key: Equalable = (Equalable)key;
 
         while probes < capacity_i64 {
             if !__self._occupied[index] {
                 return -1;
             }
 
-            if ((lang.Equalable)__self._keys[index]).equals(key) {
+            if eq_key.equals(__self._keys[index]) {
                 return index;
             }
 

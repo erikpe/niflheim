@@ -114,7 +114,7 @@ export class Vec
 
         var out_len: i64 = end - begin;
         var out: Vec = Vec.with_capacity((u64)out_len);
-        out._storage[0:out_len] = __self._storage[begin:end];
+        out._storage[:out_len] = __self._storage[begin:end];
         out._len = (u64)out_len;
         return out;
     }
@@ -132,7 +132,7 @@ export class Vec
             panic("Vec.slice_set: length mismatch");
         }
 
-        __self._storage[begin:end] = value._storage[0:(i64)value._len];
+        __self._storage[begin:end] = value._storage[:(i64)value._len];
     }
 
     fn map(func: fn(Obj) -> Obj) -> Vec {
