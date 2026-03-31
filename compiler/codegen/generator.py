@@ -34,7 +34,7 @@ class CodeGenerator:
         self.runtime_panic_message_labels: dict[str, str] = {}
         self.source_lines_by_path: dict[str, list[str] | None] = {}
         self.last_emitted_comment_location: tuple[str, int] | None = None
-        self.aligned_call_label_counter: int = 0
+        self.stack_depth_bytes: int = 0
 
     @property
     def collection_fast_paths_enabled(self) -> bool:
@@ -52,22 +52,40 @@ class CodeGenerator:
         self.runtime_panic_message_labels[message] = label
         return label
 
+    def _track_stack_bytes(self, delta: int) -> None:
+        self.stack_depth_bytes = (self.stack_depth_bytes + delta) % 16
+
+    def emit_push(self, operand: str) -> None:
+        self.asm.instr(f"push {operand}")
+        self._track_stack_bytes(8)
+
+    def emit_pop(self, operand: str) -> None:
+        self.asm.instr(f"pop {operand}")
+        self._track_stack_bytes(-8)
+
+    def emit_stack_reserve(self, size: int) -> None:
+        if size <= 0:
+            return
+        self.asm.instr(f"sub rsp, {size}")
+        self._track_stack_bytes(size)
+
+    def emit_stack_release(self, size: int) -> None:
+        if size <= 0:
+            return
+        self.asm.instr(f"add rsp, {size}")
+        self._track_stack_bytes(-size)
+
+    def emit_stack_reset_to_frame(self) -> None:
+        self.asm.instr("mov rsp, rbp")
+        self.stack_depth_bytes = 0
+
     def emit_aligned_call(self, target: str) -> None:
-        # Keep call-site stack ABI-correct even when surrounding code has
-        # temporary pushes we do not explicitly track in codegen state.
-        label_id = self.aligned_call_label_counter
-        self.aligned_call_label_counter += 1
-        aligned_label = f".L__nif_aligned_call_{label_id}"
-        done_label = f".L__nif_aligned_call_done_{label_id}"
-        self.asm.instr("test rsp, 8")
-        self.asm.instr(f"jz {aligned_label}")
-        self.asm.instr("sub rsp, 8")
+        if self.stack_depth_bytes != 0:
+            self.asm.instr("sub rsp, 8")
+            self.asm.instr(f"call {target}")
+            self.asm.instr("add rsp, 8")
+            return
         self.asm.instr(f"call {target}")
-        self.asm.instr("add rsp, 8")
-        self.asm.instr(f"jmp {done_label}")
-        self.asm.label(aligned_label)
-        self.asm.instr(f"call {target}")
-        self.asm.label(done_label)
 
     def _source_line_text(self, file_path: str, line: int) -> str:
         if line <= 0:
@@ -99,6 +117,7 @@ class CodeGenerator:
         self.asm.instr("mov rbp, rsp")
         if layout.stack_size > 0:
             self.asm.instr(f"sub rsp, {layout.stack_size}")
+        self.stack_depth_bytes = 0
 
     def emit_zero_slots(self, layout: FunctionLayout) -> None:
         for slot in layout.slots:
@@ -160,10 +179,10 @@ class CodeGenerator:
     def emit_function_epilogue(self, layout: FunctionLayout, return_type_ref: SemanticTypeRef) -> None:
         return_type_name = semantic_type_canonical_name(return_type_ref)
         if return_type_name == TYPE_NAME_DOUBLE:
-            self.asm.instr("sub rsp, 8")
+            self.emit_stack_reserve(8)
             self.asm.instr("movq qword ptr [rsp], xmm0")
         else:
-            self.asm.instr("push rax")
+            self.emit_push("rax")
         if layout.root_slot_count > 0:
             self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
@@ -171,22 +190,22 @@ class CodeGenerator:
             self.asm.instr("call rt_trace_pop")
         if return_type_name == TYPE_NAME_DOUBLE:
             self.asm.instr("movq xmm0, qword ptr [rsp]")
-            self.asm.instr("add rsp, 8")
+            self.emit_stack_release(8)
         else:
-            self.asm.instr("pop rax")
-        self.asm.instr("mov rsp, rbp")
+            self.emit_pop("rax")
+        self.emit_stack_reset_to_frame()
         self.asm.instr("pop rbp")
         self.asm.instr("ret")
 
     def emit_ref_epilogue(self, layout: FunctionLayout) -> None:
-        self.asm.instr("push rax")
+        self.emit_push("rax")
         if layout.root_slot_count > 0:
             self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
             self.asm.instr("call rt_pop_roots")
         if self.runtime_trace_enabled:
             self.asm.instr("call rt_trace_pop")
-        self.asm.instr("pop rax")
-        self.asm.instr("mov rsp, rbp")
+        self.emit_pop("rax")
+        self.emit_stack_reset_to_frame()
         self.asm.instr("pop rbp")
         self.asm.instr("ret")
 

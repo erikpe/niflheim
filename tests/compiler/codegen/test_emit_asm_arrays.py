@@ -321,7 +321,7 @@ fn main() -> i64 {
     assert "    mov qword ptr [rbp -" in main_body
 
 
-def test_emit_asm_array_ctor_runtime_call_dynamic_aligns_with_prior_pushed_arg(tmp_path) -> None:
+def test_emit_asm_array_ctor_runtime_call_statically_pads_with_prior_pushed_arg(tmp_path) -> None:
     source = """
 fn consume(a: Obj[], b: i64) -> u64 {
     return a.len();
@@ -338,7 +338,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in asm
-    assert "    test rsp, 8" in asm
+    assert "    test rsp, 8" not in asm
     assert "    sub rsp, 8" in asm
     assert "    add rsp, 8" in asm
 

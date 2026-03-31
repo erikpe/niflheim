@@ -254,9 +254,9 @@ def _emit_reference_type_runtime_check(
     interface_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol_for_type_ref(target_type_ref)
     runtime_call = interface_runtime_call if interface_descriptor_symbol is not None else class_runtime_call
     if _runtime_call_emits_safepoint_hooks(runtime_call):
-        codegen.asm.instr("push rax")
+        codegen.emit_push("rax")
         _emit_runtime_call_hooks_before(codegen, operand.span.start.line, operand.span.start.column, ctx)
-        codegen.asm.instr("pop rax")
+        codegen.emit_pop("rax")
     codegen.asm.instr("mov rdi, rax")
     if interface_descriptor_symbol is not None:
         codegen.asm.instr(f"lea rsi, [rip + {interface_descriptor_symbol}]")
@@ -290,9 +290,9 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
             }
             expected_kind = array_kind_by_element_type.get(semantic_type_canonical_name(element_type), 6)
             if _runtime_call_emits_safepoint_hooks("rt_checked_cast_array_kind"):
-                codegen.asm.instr("push rax")
+                codegen.emit_push("rax")
                 _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-                codegen.asm.instr("pop rax")
+                codegen.emit_pop("rax")
             codegen.asm.instr("mov rdi, rax")
             codegen.asm.instr(f"mov rsi, {expected_kind}")
             codegen.emit_aligned_call("rt_checked_cast_array_kind")
@@ -313,9 +313,9 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
     if expr.cast_kind == CastSemanticsKind.TO_DOUBLE:
         if source_type == TYPE_NAME_U64:
             if _runtime_call_emits_safepoint_hooks(U64_TO_DOUBLE_RUNTIME_CALL):
-                codegen.asm.instr("push rax")
+                codegen.emit_push("rax")
                 _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-                codegen.asm.instr("pop rax")
+                codegen.emit_pop("rax")
             codegen.asm.instr("mov rdi, rax")
             codegen.emit_aligned_call(U64_TO_DOUBLE_RUNTIME_CALL)
             if _runtime_call_emits_safepoint_hooks(U64_TO_DOUBLE_RUNTIME_CALL):
@@ -329,9 +329,9 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
     if expr.cast_kind == CastSemanticsKind.TO_INTEGER:
         if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_I64:
             if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_I64_RUNTIME_CALL):
-                codegen.asm.instr("push rax")
+                codegen.emit_push("rax")
                 _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-                codegen.asm.instr("pop rax")
+                codegen.emit_pop("rax")
             codegen.asm.instr("movq xmm0, rax")
             codegen.emit_aligned_call(DOUBLE_TO_I64_RUNTIME_CALL)
             if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_I64_RUNTIME_CALL):
@@ -339,9 +339,9 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
             return
         if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U64:
             if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_U64_RUNTIME_CALL):
-                codegen.asm.instr("push rax")
+                codegen.emit_push("rax")
                 _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-                codegen.asm.instr("pop rax")
+                codegen.emit_pop("rax")
             codegen.asm.instr("movq xmm0, rax")
             codegen.emit_aligned_call(DOUBLE_TO_U64_RUNTIME_CALL)
             if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_U64_RUNTIME_CALL):
@@ -349,9 +349,9 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
             return
         if source_type == TYPE_NAME_DOUBLE and target_type == TYPE_NAME_U8:
             if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_U8_RUNTIME_CALL):
-                codegen.asm.instr("push rax")
+                codegen.emit_push("rax")
                 _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-                codegen.asm.instr("pop rax")
+                codegen.emit_pop("rax")
             codegen.asm.instr("movq xmm0, rax")
             codegen.emit_aligned_call(DOUBLE_TO_U8_RUNTIME_CALL)
             if _runtime_call_emits_safepoint_hooks(DOUBLE_TO_U8_RUNTIME_CALL):
@@ -396,11 +396,11 @@ def _emit_array_ctor_expr(codegen: CodeGenerator, expr: ArrayCtorExprS, ctx: Emi
     runtime_kind = codegen_types.array_element_runtime_kind_for_type_ref(expr.element_type_ref)
     runtime_ctor = ARRAY_CONSTRUCTOR_RUNTIME_CALLS[runtime_kind]
     emit_expr(codegen, expr.length_expr, ctx)
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
     _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
     _sync_named_roots_if_needed(codegen, ctx, _named_root_sync_local_ids_for_expr(ctx, expr))
     rooted_runtime_arg_count = codegen.emit_runtime_call_arg_temp_roots(ctx.layout, runtime_ctor, 1, span=expr.span)
-    codegen.asm.instr("pop rdi")
+    codegen.emit_pop("rdi")
     codegen.emit_aligned_call(runtime_ctor)
     if rooted_runtime_arg_count > 0:
         codegen.emit_clear_runtime_call_arg_temp_roots(ctx.layout, rooted_runtime_arg_count)
@@ -544,7 +544,7 @@ def _emit_interface_method_call(
     rooted_temp_arg_count = 0
 
     emit_expr(codegen, target.access.receiver, ctx)
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
     codegen.asm.instr("mov rdi, qword ptr [rsp]")
     codegen.asm.instr(f"lea rsi, [rip + {descriptor_symbol}]")
     codegen.asm.instr(f"mov edx, {method_slot}")
@@ -553,9 +553,9 @@ def _emit_interface_method_call(
     codegen.asm.instr(f"mov {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}, rcx")
     rooted_temp_arg_count = 1
     ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
-    codegen.asm.instr("add rsp, 8")
+    codegen.emit_stack_release(8)
 
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
 
     call_arguments = [target.access.receiver, *expr.args]
     call_argument_type_names = [_canonical_expr_type_name(arg) for arg in call_arguments]
@@ -568,7 +568,7 @@ def _emit_interface_method_call(
     for arg_index in range(len(expr.args) - 1, -1, -1):
         arg = expr.args[arg_index]
         emit_expr(codegen, arg, ctx)
-        codegen.asm.instr("push rax")
+        codegen.emit_push("rax")
         call_arg_index = arg_index + 1
         if call_arg_index in reference_arg_indices:
             codegen.emit_temp_arg_root_from_rsp(
@@ -581,7 +581,7 @@ def _emit_interface_method_call(
             ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
 
     codegen.asm.instr(f"mov rax, {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}")
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
 
     arg_locations = plan_sysv_arg_locations(call_argument_type_names)
     stack_arg_indices = [
@@ -601,13 +601,13 @@ def _emit_interface_method_call(
             codegen.asm.instr(f"movq {location_register}, {arg_operand}")
     for arg_index in reversed(stack_arg_indices):
         codegen.asm.instr(f"mov rax, {stack_slot_operand('r10', arg_index * 8)}")
-        codegen.asm.instr("push rax")
+        codegen.emit_push("rax")
 
     codegen.emit_aligned_call("r11")
 
     cleanup_slot_count = len(call_arguments) + len(stack_arg_indices) + 1
     if cleanup_slot_count > 0:
-        codegen.asm.instr(f"add rsp, {cleanup_slot_count * 8}")
+        codegen.emit_stack_release(cleanup_slot_count * 8)
     return_type_name = semantic_type_canonical_name(expr.type_ref)
     if return_type_name == TYPE_NAME_DOUBLE:
         codegen.asm.instr("movq rax, xmm0")
@@ -687,7 +687,7 @@ def _emit_call_sequence(
     rooted_temp_arg_count = 0
     for arg_index in range(len(call_arguments) - 1, -1, -1):
         emit_expr(codegen, call_arguments[arg_index], ctx)
-        codegen.asm.instr("push rax")
+        codegen.emit_push("rax")
         if should_temp_root_reference_args and arg_index in reference_arg_indices:
             codegen.emit_temp_arg_root_from_rsp(
                 layout, temp_root_base + rooted_temp_arg_count, 0, span=temp_root_spans[arg_index]
@@ -710,11 +710,11 @@ def _emit_call_sequence(
             codegen.asm.instr(f"movq {location_register}, {arg_operand}")
     for arg_index in reversed(stack_arg_indices):
         codegen.asm.instr(f"mov rax, {stack_slot_operand('r10', arg_index * 8)}")
-        codegen.asm.instr("push rax")
+        codegen.emit_push("rax")
     codegen.emit_aligned_call(call_target)
     cleanup_slot_count = len(call_arguments) + len(stack_arg_indices)
     if cleanup_slot_count > 0:
-        codegen.asm.instr(f"add rsp, {cleanup_slot_count * 8}")
+        codegen.emit_stack_release(cleanup_slot_count * 8)
     return_type_name = (
         return_type_ref if isinstance(return_type_ref, str) else semantic_type_canonical_name(return_type_ref)
     )
@@ -747,7 +747,7 @@ def _emit_direct_array_index_read_expr(codegen: CodeGenerator, expr: IndexReadEx
     assert isinstance(expr.dispatch, RuntimeDispatch)
 
     emit_expr(codegen, expr.index, ctx)
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
     emit_expr(codegen, expr.target, ctx)
     codegen.asm.instr("mov rcx, qword ptr [rsp]")
     _emit_array_null_check(codegen, ctx=ctx)
@@ -759,7 +759,7 @@ def _emit_direct_array_index_read_expr(codegen: CodeGenerator, expr: IndexReadEx
         index_register="rcx",
         span=expr.span,
     )
-    codegen.asm.instr("add rsp, 8")
+    codegen.emit_stack_release(8)
 
 
 def _emit_slice_read_expr(codegen: CodeGenerator, expr: SliceReadExpr, ctx: EmitContext) -> None:
@@ -810,10 +810,10 @@ def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContex
     left_type_name = _canonical_expr_type_name(expr.left)
     right_type_name = _canonical_expr_type_name(expr.right)
     emit_expr(codegen, expr.left, ctx)
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
     emit_expr(codegen, expr.right, ctx)
     codegen.asm.instr("mov rcx, rax")
-    codegen.asm.instr("pop rax")
+    codegen.emit_pop("rax")
     if expr.op.flavor in {BinaryOpFlavor.FLOAT, BinaryOpFlavor.FLOAT_COMPARISON}:
         codegen.asm.instr("movq xmm1, rcx")
         codegen.asm.instr("movq xmm0, rax")

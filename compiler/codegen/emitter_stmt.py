@@ -182,9 +182,9 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         return
     if isinstance(target, FieldLValue):
         emit_expr(codegen, target.receiver, ctx)
-        codegen.asm.instr("push rax")
+        codegen.emit_push("rax")
         emit_expr(codegen, stmt.value, ctx)
-        codegen.asm.instr("pop rcx")
+        codegen.emit_pop("rcx")
         field_offset = ctx.declaration_tables.class_field_offset(target.owner_class_id, target.field_name)
         if field_offset is None:
             codegen_types.raise_codegen_error(
@@ -336,9 +336,9 @@ def _emit_direct_primitive_array_index_write(
         codegen_types.raise_codegen_error("direct primitive array write requires runtime kind", span=stmt.span)
 
     emit_expr(codegen, stmt.value, ctx)
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
     emit_expr(codegen, target.index, ctx)
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
     emit_expr(codegen, target.target, ctx)
 
     codegen.asm.instr("mov rcx, qword ptr [rsp]")
@@ -351,7 +351,7 @@ def _emit_direct_primitive_array_index_write(
         array_register="rax",
         index_register="rcx",
     )
-    codegen.asm.instr("add rsp, 16")
+    codegen.emit_stack_release(16)
 
 
 def _emit_direct_primitive_array_store(
@@ -397,9 +397,9 @@ def _emit_direct_ref_array_index_write(
     if needs_temp_root:
         _emit_temp_root_slot_move(codegen, ctx, temp_root_base, source_register="rax", span=stmt.span)
         ctx.temp_root_depth[0] = temp_root_base + 1
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
     emit_expr(codegen, target.index, ctx)
-    codegen.asm.instr("push rax")
+    codegen.emit_push("rax")
     emit_expr(codegen, target.target, ctx)
 
     codegen.asm.instr("mov rcx, qword ptr [rsp]")
@@ -412,7 +412,7 @@ def _emit_direct_ref_array_index_write(
         index_register="rcx",
         value_register="rdx",
     )
-    codegen.asm.instr("add rsp, 16")
+    codegen.emit_stack_release(16)
     if needs_temp_root:
         codegen.emit_clear_temp_root_slots(ctx.layout, temp_root_base, 1)
         ctx.temp_root_depth[0] = temp_root_base

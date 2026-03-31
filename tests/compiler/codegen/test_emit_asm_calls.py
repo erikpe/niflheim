@@ -22,9 +22,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert "    call callee" in asm
-    assert "    test rsp, 8" in asm
-    assert "\n    sub rsp, 8\n" in asm
-    assert "    add rsp, 8" in asm
+    assert "    test rsp, 8" not in asm
 
 
 def test_emit_asm_direct_call_argument_register_order(tmp_path) -> None:
@@ -116,7 +114,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert "    call id" in asm
-    assert "    test rsp, 8" in asm
+    assert "    test rsp, 8" not in asm
     assert "    sub rsp, 8" in asm
     assert "    add rsp, 8" in asm
 
@@ -154,7 +152,7 @@ fn main() -> i64 {
 
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
-    assert "    test rsp, 8" in asm
+    assert "    test rsp, 8" not in asm
     assert "    sub rsp, 8" in asm
     assert "    add rsp, 8" in asm
 
