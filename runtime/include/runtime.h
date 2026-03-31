@@ -76,11 +76,12 @@ struct RtRootFrame {
 
 struct RtThreadState {
     RtRootFrame* roots_top;
-    RtTraceFrame* trace_top;
+    RtTraceFrame* trace_frames;
+    uint32_t trace_size;
+    uint32_t trace_capacity;
 };
 
 struct RtTraceFrame {
-    RtTraceFrame* prev;
     const char* function_name;
     const char* file_path;
     uint32_t line;

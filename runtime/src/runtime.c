@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+enum {
+    RT_TRACE_FRAME_INITIAL_CAPACITY = 8,
+};
+
 static RtThreadState g_thread_state = {0};
 
 static void rt_require(int condition, const char* message) {
@@ -58,14 +62,51 @@ static RtObjHeader* rt_try_alloc_zeroed(RtThreadState* ts, uint64_t total_bytes)
     return (RtObjHeader*)calloc(1, (size_t)total_bytes);
 }
 
+static void rt_trace_release_stack(void) {
+    free(g_thread_state.trace_frames);
+    g_thread_state.trace_frames = NULL;
+    g_thread_state.trace_size = 0u;
+    g_thread_state.trace_capacity = 0u;
+}
+
+static void rt_trace_ensure_capacity(uint32_t required) {
+    if (required <= g_thread_state.trace_capacity) {
+        return;
+    }
+
+    uint32_t new_capacity = g_thread_state.trace_capacity;
+    if (new_capacity == 0u) {
+        new_capacity = RT_TRACE_FRAME_INITIAL_CAPACITY;
+    }
+    while (new_capacity < required) {
+        if (new_capacity > UINT32_MAX / 2u) {
+            new_capacity = required;
+            break;
+        }
+        new_capacity *= 2u;
+    }
+
+    RtTraceFrame* new_frames = (RtTraceFrame*)realloc(
+        g_thread_state.trace_frames,
+        (size_t)new_capacity * sizeof(RtTraceFrame)
+    );
+    if (new_frames == NULL) {
+        rt_panic("rt_trace_push: out of memory");
+    }
+
+    g_thread_state.trace_frames = new_frames;
+    g_thread_state.trace_capacity = new_capacity;
+}
+
 void rt_init(void) {
+    rt_trace_release_stack();
     g_thread_state.roots_top = NULL;
-    g_thread_state.trace_top = NULL;
 }
 
 void rt_shutdown(void) {
     rt_gc_trace_print_summary();
     rt_gc_reset_state();
+    rt_trace_release_stack();
 }
 
 RtThreadState* rt_thread_state(void) {
@@ -73,36 +114,34 @@ RtThreadState* rt_thread_state(void) {
 }
 
 void rt_trace_push(const char* function_name, const char* file_path, uint32_t line, uint32_t column) {
-    RtTraceFrame* frame = (RtTraceFrame*)calloc(1, sizeof(RtTraceFrame));
-    if (frame == NULL) {
-        rt_panic("rt_trace_push: out of memory");
+    if (g_thread_state.trace_size >= g_thread_state.trace_capacity) {
+        rt_trace_ensure_capacity(g_thread_state.trace_size + 1u);
     }
 
+    RtTraceFrame* frame = &g_thread_state.trace_frames[g_thread_state.trace_size];
     frame->function_name = function_name;
     frame->file_path = file_path;
     frame->line = line;
     frame->column = column;
-    frame->prev = g_thread_state.trace_top;
-    g_thread_state.trace_top = frame;
+    g_thread_state.trace_size += 1u;
 }
 
 void rt_trace_pop(void) {
-    if (g_thread_state.trace_top == NULL) {
+    if (g_thread_state.trace_size == 0u) {
         rt_panic("rt_trace_pop: trace stack underflow");
     }
 
-    RtTraceFrame* top = g_thread_state.trace_top;
-    g_thread_state.trace_top = top->prev;
-    free(top);
+    g_thread_state.trace_size -= 1u;
 }
 
 void rt_trace_set_location(uint32_t line, uint32_t column) {
-    if (g_thread_state.trace_top == NULL) {
+    if (g_thread_state.trace_size == 0u) {
         return;
     }
 
-    g_thread_state.trace_top->line = line;
-    g_thread_state.trace_top->column = column;
+    RtTraceFrame* top = &g_thread_state.trace_frames[g_thread_state.trace_size - 1u];
+    top->line = line;
+    top->column = column;
 }
 
 void rt_root_frame_init(RtRootFrame* frame, void** slots, uint32_t slot_count) {

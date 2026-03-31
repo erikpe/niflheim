@@ -4,17 +4,17 @@
 #include <stdlib.h>
 
 static void rt_print_stacktrace(void) {
-    const RtTraceFrame* frame = rt_thread_state()->trace_top;
-    if (frame == NULL) {
+    RtThreadState* ts = rt_thread_state();
+    if (ts->trace_size == 0u || ts->trace_frames == NULL) {
         return;
     }
 
     fprintf(stderr, "stacktrace:\n");
-    while (frame != NULL) {
+    for (uint32_t index = ts->trace_size; index > 0u; index--) {
+        const RtTraceFrame* frame = &ts->trace_frames[index - 1u];
         const char* function_name = frame->function_name ? frame->function_name : "<unknown>";
         const char* file_path = frame->file_path ? frame->file_path : "<unknown>";
         fprintf(stderr, "  at %s (%s:%u:%u)\n", function_name, file_path, frame->line, frame->column);
-        frame = frame->prev;
     }
 }
 
@@ -22,8 +22,8 @@ static __attribute__((noreturn)) void rt_abort_with_message(const char* message)
     RtThreadState* ts = rt_thread_state();
 
     fprintf(stderr, "panic: %s\n", message ? message : "unknown");
-    if (ts->trace_top != NULL) {
-        const RtTraceFrame* top = ts->trace_top;
+    if (ts->trace_size > 0u && ts->trace_frames != NULL) {
+        const RtTraceFrame* top = &ts->trace_frames[ts->trace_size - 1u];
         const char* file_path = top->file_path ? top->file_path : "<unknown>";
         fprintf(stderr, "location: %s:%u:%u\n", file_path, top->line, top->column);
     }
