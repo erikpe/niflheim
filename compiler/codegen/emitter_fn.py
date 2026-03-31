@@ -109,6 +109,7 @@ def emit_function(
         label_counter=label_counter,
         string_literal_labels=codegen.string_literal_labels,
         temp_root_depth=[0],
+        call_scratch_depth=[0],
         declaration_tables=declaration_tables,
         named_root_liveness=analyze_named_root_liveness(fn),
         tracked_named_root_local_ids=_tracked_named_root_local_ids(layout),
@@ -203,6 +204,7 @@ def emit_constructor(codegen, declaration_tables, cls: LoweredSemanticClass) -> 
         label_counter=label_counter,
         string_literal_labels=codegen.string_literal_labels,
         temp_root_depth=[0],
+        call_scratch_depth=[0],
         declaration_tables=declaration_tables,
         named_root_liveness=None,
     )

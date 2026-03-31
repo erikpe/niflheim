@@ -63,6 +63,7 @@ class EmitContext:
     label_counter: list[int]
     string_literal_labels: dict[str, tuple[str, int]]
     temp_root_depth: list[int]
+    call_scratch_depth: list[int]
     declaration_tables: DeclarationTables
     named_root_liveness: NamedRootLiveness | None = None
     tracked_named_root_local_ids: frozenset[LocalId] = frozenset()
@@ -687,6 +688,60 @@ def _emit_call_sequence(
             ctx,
         )
     rooted_temp_arg_count = 0
+    call_scratch_base = ctx.call_scratch_depth[0]
+    can_use_call_scratch_fast_path = (
+        target_name is not None
+        and callee_expr is None
+        and not stack_arg_indices
+        and call_scratch_base + len(call_arguments) <= len(layout.call_scratch_slot_offsets)
+    )
+
+    if can_use_call_scratch_fast_path:
+        staged_call_arg_count = 0
+        for arg_index in range(len(call_arguments) - 1, -1, -1):
+            emit_expr(codegen, call_arguments[arg_index], ctx)
+            scratch_slot_index = call_scratch_base + staged_call_arg_count
+            codegen.asm.instr(f"mov {offset_operand(layout.call_scratch_slot_offsets[scratch_slot_index])}, rax")
+            staged_call_arg_count += 1
+            ctx.call_scratch_depth[0] = call_scratch_base + staged_call_arg_count
+            if should_temp_root_reference_args and arg_index in reference_arg_indices:
+                codegen.emit_temp_root_slot_store(
+                    layout,
+                    temp_root_base + rooted_temp_arg_count,
+                    "rax",
+                    span=temp_root_spans[arg_index],
+                )
+                rooted_temp_arg_count += 1
+                ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
+
+        if should_sync_named_roots:
+            _sync_named_roots_if_needed(codegen, ctx, named_root_local_ids)
+
+        for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
+            scratch_slot_index = call_scratch_base + (len(call_arguments) - 1 - arg_index)
+            arg_operand = offset_operand(layout.call_scratch_slot_offsets[scratch_slot_index])
+            if location_kind == "int_reg":
+                codegen.asm.instr(f"mov {location_register}, {arg_operand}")
+            elif location_kind == "float_reg":
+                codegen.asm.instr(f"movq {location_register}, {arg_operand}")
+
+        codegen.emit_aligned_call(target_name)
+
+        return_type_name = (
+            return_type_ref if isinstance(return_type_ref, str) else semantic_type_canonical_name(return_type_ref)
+        )
+        if return_type_name == TYPE_NAME_DOUBLE:
+            codegen.asm.instr("movq rax, xmm0")
+        elif return_type_name == TYPE_NAME_UNIT:
+            codegen.asm.instr("mov rax, 0")
+        if rooted_temp_arg_count > 0:
+            codegen.emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
+        ctx.temp_root_depth[0] = temp_root_base
+        ctx.call_scratch_depth[0] = call_scratch_base
+        if runtime_hook_span is not None:
+            _emit_runtime_call_hooks_after(codegen, ctx)
+        return
+
     for arg_index in range(len(call_arguments) - 1, -1, -1):
         emit_expr(codegen, call_arguments[arg_index], ctx)
         codegen.emit_push("rax")
@@ -730,6 +785,7 @@ def _emit_call_sequence(
     if rooted_temp_arg_count > 0:
         codegen.emit_clear_temp_root_slots(layout, temp_root_base, rooted_temp_arg_count)
     ctx.temp_root_depth[0] = temp_root_base
+    ctx.call_scratch_depth[0] = call_scratch_base
     if runtime_hook_span is not None:
         _emit_runtime_call_hooks_after(codegen, ctx)
 

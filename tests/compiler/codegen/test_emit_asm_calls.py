@@ -40,9 +40,13 @@ fn main() -> i64 {
     assert "    mov rax, 3" in asm
     assert "    mov rax, 2" in asm
     assert "    mov rax, 1" in asm
-    assert "    mov rdi, qword ptr [rsp]" in asm
-    assert "    mov rsi, qword ptr [rsp + 8]" in asm
-    assert "    mov rdx, qword ptr [rsp + 16]" in asm
+    assert "    mov qword ptr [rbp - 8], rax" in asm
+    assert "    mov qword ptr [rbp - 16], rax" in asm
+    assert "    mov qword ptr [rbp - 24], rax" in asm
+    assert "    mov rdi, qword ptr [rbp - 24]" in asm
+    assert "    mov rsi, qword ptr [rbp - 16]" in asm
+    assert "    mov rdx, qword ptr [rbp - 8]" in asm
+    assert "qword ptr [rsp]" not in asm
     assert "    call sum3" in asm
 
 
@@ -101,7 +105,7 @@ fn main() -> i64 {
     assert "    add rsp, 80" in asm
 
 
-def test_emit_asm_direct_call_one_arg_inserts_alignment_pad(tmp_path) -> None:
+def test_emit_asm_direct_call_one_arg_uses_frame_scratch_without_alignment_pad(tmp_path) -> None:
     source = """
 fn id(x: i64) -> i64 {
     return x;
@@ -115,8 +119,10 @@ fn main() -> i64 {
 
     assert "    call id" in asm
     assert "    test rsp, 8" not in asm
-    assert "    sub rsp, 8" in asm
-    assert "    add rsp, 8" in asm
+    assert "    mov qword ptr [rbp - 8], rax" in asm
+    assert "    mov rdi, qword ptr [rbp - 8]" in asm
+    assert "    sub rsp, 8" not in asm
+    assert "    add rsp, 8" not in asm
 
 
 def test_emit_asm_function_value_from_top_level_function_and_indirect_call(tmp_path) -> None:

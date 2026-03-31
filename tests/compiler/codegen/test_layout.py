@@ -196,6 +196,34 @@ def test_codegen_build_layout_tracks_identity_first_slot_records(tmp_path) -> No
     assert [slot.local_id for slot in layout.root_slots] == [param_info.local_id, kept_info.local_id]
 
 
+def test_codegen_build_layout_allocates_call_scratch_slots_for_nested_register_only_direct_calls(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        fn inner(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        fn outer(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        fn main() -> i64 {
+            return outer(inner(1, 2), 3);
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
+
+    layout = build_layout(fn)
+
+    assert layout.call_scratch_slot_offsets == [-8, -16, -24]
+    assert layout.stack_size % 16 == 0
+
+
 def test_codegen_build_layout_skips_temp_roots_for_non_gc_runtime_helper_on_temporary_ref(tmp_path) -> None:
     source = tmp_path / "main.nif"
     source.write_text(

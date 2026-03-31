@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.codegen.abi.runtime import ARRAY_LEN_RUNTIME_CALL, runtime_call_metadata
+from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.effects import expr_may_execute_gc
 from compiler.codegen.runtime_calls import runtime_dispatch_call_name
 import compiler.codegen.types as codegen_types
@@ -32,9 +33,12 @@ class _SlotSpec:
 
 
 def _build_function_layout(
-    slot_specs: list[_SlotSpec], *, needs_temp_runtime_roots: bool, max_call_temp_root_slots: int
+    slot_specs: list[_SlotSpec], *, needs_temp_runtime_roots: bool, max_call_temp_root_slots: int, max_call_scratch_slots: int
 ) -> FunctionLayout:
     slot_offsets = {slot_spec.key: -(8 * index) for index, slot_spec in enumerate(slot_specs, start=1)}
+    call_scratch_slot_offsets = [
+        -(8 * (len(slot_specs) + index)) for index in range(1, max_call_scratch_slots + 1)
+    ]
     root_slot_keys = [
         slot_spec.key for slot_spec in slot_specs if codegen_types.is_reference_type_ref(slot_spec.type_ref)
     ]
@@ -48,14 +52,16 @@ def _build_function_layout(
     root_slot_count = len(root_slot_keys) + temp_root_slot_count
 
     root_slot_offsets: dict[str, int] = {}
-    root_slots_base_offset = -(8 * (len(slot_specs) + root_slot_count)) if root_slot_count > 0 else 0
+    root_slots_base_offset = (
+        -(8 * (len(slot_specs) + max_call_scratch_slots + root_slot_count)) if root_slot_count > 0 else 0
+    )
     for index, key in enumerate(root_slot_keys):
         root_slot_offsets[key] = root_slots_base_offset + (8 * index)
     temp_root_slot_offsets = [
         root_slots_base_offset + (8 * (len(root_slot_keys) + index)) for index in range(temp_root_slot_count)
     ]
 
-    bytes_for_value_slots = len(slot_specs) * 8
+    bytes_for_value_slots = (len(slot_specs) + max_call_scratch_slots) * 8
     bytes_for_root_slots = root_slot_count * 8
     thread_state_offset = -(bytes_for_value_slots + bytes_for_root_slots + 8)
     root_frame_offset = thread_state_offset - 24 if root_slot_count > 0 else 0
@@ -94,6 +100,7 @@ def _build_function_layout(
         slot_offsets=slot_offsets,
         local_slot_offsets=local_slot_offsets,
         slot_type_refs=slot_type_refs,
+        call_scratch_slot_offsets=call_scratch_slot_offsets,
         root_slots=root_slots,
         root_slot_names=root_slot_names,
         root_slot_indices=root_slot_indices,
@@ -453,6 +460,126 @@ def _max_call_temp_root_slots_for_ref_array_fast_write(stmt: SemanticAssign) -> 
     return 1 + max((_max_call_temp_root_slots_in_expr(expr) for expr in later_exprs), default=0)
 
 
+def _max_staged_call_scratch_sequence(call_arguments: list[SemanticExpr]) -> int:
+    staged_after = 0
+    max_slots = 0
+
+    for arg_index in range(len(call_arguments) - 1, -1, -1):
+        arg = call_arguments[arg_index]
+        max_slots = max(max_slots, staged_after + _max_call_scratch_slots_in_expr(arg))
+        staged_after += 1
+        max_slots = max(max_slots, staged_after)
+
+    return max_slots
+
+
+def _register_only_direct_call_arguments(expr: CallExprS) -> list[SemanticExpr] | None:
+    if isinstance(expr.target, (CallableValueCallTarget, InterfaceMethodCallTarget)):
+        return None
+    access = call_target_receiver_access(expr.target)
+    if access is not None:
+        return [access.receiver, *expr.args]
+    return list(expr.args)
+
+
+def _call_uses_only_register_arguments(call_arguments: list[SemanticExpr]) -> bool:
+    arg_type_names = [semantic_type_canonical_name(expression_type_ref(arg)) for arg in call_arguments]
+    return all(location_kind != "stack" for location_kind, _register, _stack_index in plan_sysv_arg_locations(arg_type_names))
+
+
+def _max_call_scratch_slots_for_named_call_arguments(call_arguments: list[SemanticExpr]) -> int:
+    if _call_uses_only_register_arguments(call_arguments):
+        return _max_staged_call_scratch_sequence(call_arguments)
+    return max((_max_call_scratch_slots_in_expr(arg) for arg in call_arguments), default=0)
+
+
+def _max_call_scratch_slots_in_expr(expr: SemanticExpr) -> int:
+    if isinstance(expr, CallExprS):
+        call_arguments = _register_only_direct_call_arguments(expr)
+        if call_arguments is not None and _call_uses_only_register_arguments(call_arguments):
+            return _max_staged_call_scratch_sequence(call_arguments)
+
+        nested_exprs = list(expr.args)
+        if isinstance(expr.target, CallableValueCallTarget):
+            nested_exprs.append(expr.target.callee)
+        else:
+            access = call_target_receiver_access(expr.target)
+            if access is not None:
+                nested_exprs.append(access.receiver)
+        return max((_max_call_scratch_slots_in_expr(nested) for nested in nested_exprs), default=0)
+    if isinstance(expr, ArrayLenExpr):
+        return _max_call_scratch_slots_for_named_call_arguments([expr.target])
+    if isinstance(expr, IndexReadExpr):
+        return _max_call_scratch_slots_for_named_call_arguments([expr.target, expr.index])
+    if isinstance(expr, SliceReadExpr):
+        return _max_call_scratch_slots_for_named_call_arguments([expr.target, expr.begin, expr.end])
+    if isinstance(expr, ArrayCtorExprS):
+        return _max_call_scratch_slots_in_expr(expr.length_expr)
+    if isinstance(expr, CastExprS):
+        return _max_call_scratch_slots_in_expr(expr.operand)
+    if isinstance(expr, TypeTestExprS):
+        return _max_call_scratch_slots_in_expr(expr.operand)
+    if isinstance(expr, UnaryExprS):
+        return _max_call_scratch_slots_in_expr(expr.operand)
+    if isinstance(expr, BinaryExprS):
+        return max(_max_call_scratch_slots_in_expr(expr.left), _max_call_scratch_slots_in_expr(expr.right))
+    if isinstance(expr, FieldReadExpr):
+        return _max_call_scratch_slots_in_expr(expr.access.receiver)
+    return 0
+
+
+def _max_call_scratch_slots_for_lvalue(target: SemanticLValue) -> int:
+    if isinstance(target, LocalLValue):
+        return 0
+    if isinstance(target, FieldLValue):
+        return _max_call_scratch_slots_in_expr(target.receiver)
+    if isinstance(target, IndexLValue):
+        return max(_max_call_scratch_slots_in_expr(target.target), _max_call_scratch_slots_in_expr(target.index))
+    if isinstance(target, SliceLValue):
+        return max(
+            _max_call_scratch_slots_in_expr(target.target),
+            _max_call_scratch_slots_in_expr(target.begin),
+            _max_call_scratch_slots_in_expr(target.end),
+        )
+    return 0
+
+
+def _max_call_scratch_slots_in_stmt(stmt: SemanticStmt | LoweredSemanticStmt) -> int:
+    if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
+        return max((_max_call_scratch_slots_in_stmt(nested) for nested in stmt.statements), default=0)
+    if isinstance(stmt, SemanticVarDecl):
+        return _max_call_scratch_slots_in_expr(stmt.initializer) if stmt.initializer is not None else 0
+    if isinstance(stmt, SemanticAssign):
+        if isinstance(stmt.target, IndexLValue):
+            return _max_call_scratch_slots_for_named_call_arguments([stmt.target.target, stmt.target.index, stmt.value])
+        if isinstance(stmt.target, SliceLValue):
+            return _max_call_scratch_slots_for_named_call_arguments(
+                [stmt.target.target, stmt.target.begin, stmt.target.end, stmt.value]
+            )
+        return max(_max_call_scratch_slots_in_expr(stmt.value), _max_call_scratch_slots_for_lvalue(stmt.target))
+    if isinstance(stmt, SemanticExprStmt):
+        return _max_call_scratch_slots_in_expr(stmt.expr)
+    if isinstance(stmt, SemanticReturn):
+        return _max_call_scratch_slots_in_expr(stmt.value) if stmt.value is not None else 0
+    if isinstance(stmt, LoweredSemanticIf):
+        return max(
+            _max_call_scratch_slots_in_expr(stmt.condition),
+            _max_call_scratch_slots_in_stmt(stmt.then_block),
+            _max_call_scratch_slots_in_stmt(stmt.else_block) if stmt.else_block is not None else 0,
+        )
+    if isinstance(stmt, LoweredSemanticWhile):
+        return max(
+            _max_call_scratch_slots_in_expr(stmt.condition),
+            _max_call_scratch_slots_in_stmt(stmt.body),
+        )
+    if isinstance(stmt, LoweredSemanticForIn):
+        return max(
+            _max_call_scratch_slots_in_expr(stmt.collection),
+            _max_call_scratch_slots_in_stmt(stmt.body),
+        )
+    return 0
+
+
 def _is_direct_ref_array_index_write_target(target: IndexLValue) -> bool:
     return (
         isinstance(target.dispatch, RuntimeDispatch)
@@ -473,9 +600,13 @@ def build_layout(fn: SemanticFunction | LoweredSemanticFunction) -> FunctionLayo
         (_max_call_temp_root_slots_in_stmt(stmt, owner=fn) for stmt in fn.body.statements),
         default=0,
     )
+    max_call_scratch_slots = max((_max_call_scratch_slots_in_stmt(stmt) for stmt in fn.body.statements), default=0)
     needs_temp_runtime_roots = max_call_temp_root_slots > 0
     return _build_function_layout(
-        slot_specs, needs_temp_runtime_roots=needs_temp_runtime_roots, max_call_temp_root_slots=max_call_temp_root_slots
+        slot_specs,
+        needs_temp_runtime_roots=needs_temp_runtime_roots,
+        max_call_temp_root_slots=max_call_temp_root_slots,
+        max_call_scratch_slots=max_call_scratch_slots,
     )
 
 
@@ -485,7 +616,11 @@ def build_constructor_layout(
     slot_specs = _constructor_slot_specs(cls, ctor_layout, constructor_object_slot_name=constructor_object_slot_name)
     initializer_exprs = [field.initializer for field in cls.fields if field.initializer is not None]
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_expr(expr) for expr in initializer_exprs), default=0)
+    max_call_scratch_slots = max((_max_call_scratch_slots_in_expr(expr) for expr in initializer_exprs), default=0)
     needs_temp_runtime_roots = max_call_temp_root_slots > 0
     return _build_function_layout(
-        slot_specs, needs_temp_runtime_roots=needs_temp_runtime_roots, max_call_temp_root_slots=max_call_temp_root_slots
+        slot_specs,
+        needs_temp_runtime_roots=needs_temp_runtime_roots,
+        max_call_temp_root_slots=max_call_temp_root_slots,
+        max_call_scratch_slots=max_call_scratch_slots,
     )

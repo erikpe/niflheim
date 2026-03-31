@@ -24,6 +24,7 @@ class FunctionLayout:
     slot_offsets: dict[str, int]
     local_slot_offsets: dict[LocalId, int]
     slot_type_refs: dict[str, SemanticTypeRef]
+    call_scratch_slot_offsets: list[int]
     root_slots: list[LayoutSlot]
     root_slot_names: list[str]
     root_slot_indices: dict[str, int]

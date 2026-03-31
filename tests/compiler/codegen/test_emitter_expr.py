@@ -72,6 +72,7 @@ def _build_emit_fixture(tmp_path: Path, files: dict[str, str], *, function_name:
         label_counter=[0],
         string_literal_labels={},
         temp_root_depth=[0],
+        call_scratch_depth=[0],
         declaration_tables=tables,
         named_root_liveness=analyze_named_root_liveness(fn),
         tracked_named_root_local_ids=frozenset(layout.root_slot_offsets_by_local_id),
