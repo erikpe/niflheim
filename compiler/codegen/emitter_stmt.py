@@ -341,8 +341,8 @@ def _emit_direct_primitive_array_index_write(
     codegen.emit_push("rax")
     emit_expr(codegen, target.target, ctx)
 
-    codegen.asm.instr("mov rcx, qword ptr [rsp]")
-    codegen.asm.instr("mov rdx, qword ptr [rsp + 8]")
+    codegen.emit_pop("rcx")
+    codegen.emit_pop("rdx")
     _emit_array_null_check(codegen, ctx=ctx)
     _emit_array_index_bounds_check(codegen, target.dispatch, ctx=ctx)
     _emit_direct_primitive_array_store(
@@ -351,7 +351,6 @@ def _emit_direct_primitive_array_index_write(
         array_register="rax",
         index_register="rcx",
     )
-    codegen.emit_stack_release(16)
 
 
 def _emit_direct_primitive_array_store(
@@ -402,8 +401,8 @@ def _emit_direct_ref_array_index_write(
     codegen.emit_push("rax")
     emit_expr(codegen, target.target, ctx)
 
-    codegen.asm.instr("mov rcx, qword ptr [rsp]")
-    codegen.asm.instr("mov rdx, qword ptr [rsp + 8]")
+    codegen.emit_pop("rcx")
+    codegen.emit_pop("rdx")
     _emit_array_null_check(codegen, ctx=ctx)
     _emit_array_index_bounds_check(codegen, target.dispatch, ctx=ctx)
     emit_direct_ref_array_element_store(
@@ -412,7 +411,6 @@ def _emit_direct_ref_array_index_write(
         index_register="rcx",
         value_register="rdx",
     )
-    codegen.emit_stack_release(16)
     if needs_temp_root:
         codegen.emit_clear_temp_root_slots(ctx.layout, temp_root_base, 1)
         ctx.temp_root_depth[0] = temp_root_base

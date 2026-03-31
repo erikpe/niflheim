@@ -40,9 +40,9 @@ fn main() -> i64 {
     assert "    mov rax, 3" in asm
     assert "    mov rax, 2" in asm
     assert "    mov rax, 1" in asm
-    assert "    mov rdi, qword ptr [r10]" in asm
-    assert "    mov rsi, qword ptr [r10 + 8]" in asm
-    assert "    mov rdx, qword ptr [r10 + 16]" in asm
+    assert "    mov rdi, qword ptr [rsp]" in asm
+    assert "    mov rsi, qword ptr [rsp + 8]" in asm
+    assert "    mov rdx, qword ptr [rsp + 16]" in asm
     assert "    call sum3" in asm
 
 
@@ -193,10 +193,10 @@ fn main() -> i64 {
 
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
-    assert "    movq xmm0, qword ptr [r10 + 8]" in asm
-    assert "    movq xmm1, qword ptr [r10 + 24]" in asm
-    assert "    mov rdi, qword ptr [r10]" in asm
-    assert "    mov rsi, qword ptr [r10 + 16]" in asm
+    assert "    movq xmm0, qword ptr [rsp + 8]" in asm
+    assert "    movq xmm1, qword ptr [rsp + 24]" in asm
+    assert "    mov rdi, qword ptr [rsp]" in asm
+    assert "    mov rsi, qword ptr [rsp + 16]" in asm
     assert "    movq rax, xmm0" in asm
 
 
@@ -265,8 +265,7 @@ fn main() -> i64 {
     assert "# mirror named reference slots into shadow-stack slots" not in call_hash_body
     lookup_call_index = call_hash_body.index("    call rt_lookup_interface_method")
     assert "    call rt_root_slot_store" not in call_hash_body[:lookup_call_index]
-    assert re.search(r"push rax\n\s+mov r10, rsp", call_hash_body)
-    assert "    mov r11, qword ptr [r10 + 8]" in call_hash_body
+    assert re.search(r"push rax\n\s+mov r11, qword ptr \[rsp \+ 8\]", call_hash_body)
     assert "    call r11" in call_hash_body
 
 
@@ -292,10 +291,10 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    mov rdi, qword ptr [r10]" in asm
-    assert "    mov rsi, qword ptr [r10 + 8]" in asm
-    assert "    mov rdx, qword ptr [r10 + 16]" in asm
-    assert "    mov rcx, qword ptr [r10 + 24]" in asm
+    assert "    mov rdi, qword ptr [rsp]" in asm
+    assert "    mov rsi, qword ptr [rsp + 8]" in asm
+    assert "    mov rdx, qword ptr [rsp + 16]" in asm
+    assert "    mov rcx, qword ptr [rsp + 24]" in asm
     assert "    call r11" in asm
 
 
@@ -326,12 +325,14 @@ fn main() -> i64 {
     call_next_body = asm[asm.index("call_next:") : asm.index(".Lcall_next_epilogue:")]
 
     assert "    call rt_lookup_interface_method" in call_next_body
-    assert "    call rt_root_slot_store" in call_next_body
+    assert "    call rt_root_slot_store" not in call_next_body
+    assert "    mov qword ptr [rbp - 64], rcx" in call_next_body
+    assert "    mov qword ptr [rbp - 56], rax" in call_next_body
     assert "# mirror named reference slots into shadow-stack slots" not in call_next_body
     lookup_call_index = call_next_body.index("    call rt_lookup_interface_method")
-    first_temp_root_index = call_next_body.index("    call rt_root_slot_store")
+    first_temp_root_index = call_next_body.index("    mov qword ptr [rbp - 64], rcx")
     assert lookup_call_index < first_temp_root_index
-    assert re.search(r"push rax\n\s+mov r10, rsp", call_next_body)
+    assert "    mov r11, qword ptr [rsp + 16]" in call_next_body
     assert "    call r11" in call_next_body
 
 

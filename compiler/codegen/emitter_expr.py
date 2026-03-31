@@ -549,11 +549,10 @@ def _emit_interface_method_call(
     codegen.asm.instr(f"lea rsi, [rip + {descriptor_symbol}]")
     codegen.asm.instr(f"mov edx, {method_slot}")
     codegen.emit_aligned_call("rt_lookup_interface_method")
-    codegen.asm.instr("mov rcx, qword ptr [rsp]")
-    codegen.asm.instr(f"mov {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}, rcx")
+    codegen.emit_pop("rcx")
+    codegen.emit_temp_root_slot_store(ctx.layout, receiver_temp_index, "rcx", span=expr.span)
     rooted_temp_arg_count = 1
     ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
-    codegen.emit_stack_release(8)
 
     codegen.emit_push("rax")
 
@@ -591,16 +590,19 @@ def _emit_interface_method_call(
     ]
 
     _sync_named_roots_if_needed(codegen, ctx, _named_root_sync_local_ids_for_expr(ctx, expr))
-    codegen.asm.instr("mov r10, rsp")
-    codegen.asm.instr(f"mov r11, {stack_slot_operand('r10', len(call_arguments) * 8)}")
+    stack_base_register = "rsp"
+    if stack_arg_indices:
+        codegen.asm.instr("mov r10, rsp")
+        stack_base_register = "r10"
+    codegen.asm.instr(f"mov r11, {stack_slot_operand(stack_base_register, len(call_arguments) * 8)}")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
-        arg_operand = stack_slot_operand("r10", arg_index * 8)
+        arg_operand = stack_slot_operand(stack_base_register, arg_index * 8)
         if location_kind == "int_reg":
             codegen.asm.instr(f"mov {location_register}, {arg_operand}")
         elif location_kind == "float_reg":
             codegen.asm.instr(f"movq {location_register}, {arg_operand}")
     for arg_index in reversed(stack_arg_indices):
-        codegen.asm.instr(f"mov rax, {stack_slot_operand('r10', arg_index * 8)}")
+        codegen.asm.instr(f"mov rax, {stack_slot_operand(stack_base_register, arg_index * 8)}")
         codegen.emit_push("rax")
 
     codegen.emit_aligned_call("r11")
@@ -701,15 +703,18 @@ def _emit_call_sequence(
         call_target = "r11"
     if should_sync_named_roots:
         _sync_named_roots_if_needed(codegen, ctx, named_root_local_ids)
-    codegen.asm.instr("mov r10, rsp")
+    stack_base_register = "rsp"
+    if stack_arg_indices:
+        codegen.asm.instr("mov r10, rsp")
+        stack_base_register = "r10"
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
-        arg_operand = stack_slot_operand("r10", arg_index * 8)
+        arg_operand = stack_slot_operand(stack_base_register, arg_index * 8)
         if location_kind == "int_reg":
             codegen.asm.instr(f"mov {location_register}, {arg_operand}")
         elif location_kind == "float_reg":
             codegen.asm.instr(f"movq {location_register}, {arg_operand}")
     for arg_index in reversed(stack_arg_indices):
-        codegen.asm.instr(f"mov rax, {stack_slot_operand('r10', arg_index * 8)}")
+        codegen.asm.instr(f"mov rax, {stack_slot_operand(stack_base_register, arg_index * 8)}")
         codegen.emit_push("rax")
     codegen.emit_aligned_call(call_target)
     cleanup_slot_count = len(call_arguments) + len(stack_arg_indices)
@@ -749,7 +754,7 @@ def _emit_direct_array_index_read_expr(codegen: CodeGenerator, expr: IndexReadEx
     emit_expr(codegen, expr.index, ctx)
     codegen.emit_push("rax")
     emit_expr(codegen, expr.target, ctx)
-    codegen.asm.instr("mov rcx, qword ptr [rsp]")
+    codegen.emit_pop("rcx")
     _emit_array_null_check(codegen, ctx=ctx)
     _emit_array_index_bounds_check(codegen, expr.dispatch, ctx=ctx)
     _emit_array_direct_element_load(
@@ -759,7 +764,6 @@ def _emit_direct_array_index_read_expr(codegen: CodeGenerator, expr: IndexReadEx
         index_register="rcx",
         span=expr.span,
     )
-    codegen.emit_stack_release(8)
 
 
 def _emit_slice_read_expr(codegen: CodeGenerator, expr: SliceReadExpr, ctx: EmitContext) -> None:

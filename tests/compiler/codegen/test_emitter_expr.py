@@ -322,7 +322,7 @@ def test_emitter_expr_emits_interface_dispatch_via_lookup_helper(tmp_path: Path)
     _assert_call_target(return_stmt.value, InterfaceMethodCallTarget)
     emit_expr(generator, return_stmt.value, ctx)
     assert "    call rt_lookup_interface_method" in generator.asm.lines
-    assert "    mov r11, qword ptr [r10 + 8]" in generator.asm.lines
+    assert "    mov r11, qword ptr [rsp + 8]" in generator.asm.lines
     assert "    call r11" in generator.asm.lines
 
 

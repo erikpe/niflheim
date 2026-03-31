@@ -180,8 +180,8 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    movq xmm0, qword ptr [r10]" in asm
-    assert "    movq xmm1, qword ptr [r10 + 8]" in asm
+    assert "    movq xmm0, qword ptr [rsp]" in asm
+    assert "    movq xmm1, qword ptr [rsp + 8]" in asm
     assert "    addsd xmm0, xmm1" in asm
 
 

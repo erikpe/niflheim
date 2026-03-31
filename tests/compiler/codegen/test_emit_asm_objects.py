@@ -131,8 +131,8 @@ fn main() -> i64 {
 
     assert "__nif_method_Counter_add:" in asm
     assert "    call __nif_method_Counter_add" in asm
-    assert "    mov rdi, qword ptr [r10]" in asm
-    assert "    mov rsi, qword ptr [r10 + 8]" in asm
+    assert "    mov rdi, qword ptr [rsp]" in asm
+    assert "    mov rsi, qword ptr [rsp + 8]" in asm
 
 
 def test_emit_asm_static_method_call_lowers_to_method_symbol_without_receiver_arg0(tmp_path) -> None:

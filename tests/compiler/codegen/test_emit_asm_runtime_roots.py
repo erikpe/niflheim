@@ -1,3 +1,5 @@
+import re
+
 from compiler.codegen.abi.array import array_length_operand
 from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS, ARRAY_LEN_RUNTIME_CALL
 from tests.compiler.codegen.helpers import emit_source_asm
@@ -123,7 +125,8 @@ fn main() -> i64 {
 
     assert "    mov qword ptr [rbp - 8], rdi" in f_body
     assert "    mov qword ptr [rbp - 16], rax" in f_body
-    assert "    call rt_root_slot_store" in f_body
+    assert "    call rt_root_slot_store" not in f_body
+    assert re.search(r"mov qword ptr \[rbp - \d+\], rax\n\s+mov rdi, qword ptr \[rsp\]", f_body)
     _assert_named_root_store_block(f_body, expected_store_count=0)
     assert "    call rt_gc_collect" in f_body
 
@@ -638,7 +641,9 @@ fn main() -> i64 {
     caller_end = asm.index(".Lcaller_epilogue:")
     caller_body = asm[caller_start:caller_end]
     assert "    call takes_two" in caller_body
-    assert caller_body.count("    call rt_root_slot_store") >= 2
+    assert "    call rt_root_slot_store" not in caller_body
+    assert "    mov qword ptr [rbp - 48], rax" in caller_body
+    assert "    mov qword ptr [rbp - 40], rax" in caller_body
 
 
 def test_emit_asm_array_direct_for_in_keeps_collection_and_element_live_across_gc_call(tmp_path) -> None:

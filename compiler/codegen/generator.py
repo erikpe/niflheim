@@ -280,13 +280,11 @@ class CodeGenerator:
             )
 
         for temp_index, arg_index in enumerate(ref_indices):
-            self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
             if arg_index == 0:
-                self.asm.instr("mov rdx, qword ptr [rsp]")
+                self.asm.instr("mov rax, qword ptr [rsp]")
             else:
-                self.asm.instr(f"mov rdx, qword ptr [rsp + {arg_index * 8}]")
-            self.asm.instr(f"mov esi, {layout.temp_root_slot_start_index + temp_index}")
-            self.asm.instr("call rt_root_slot_store")
+                self.asm.instr(f"mov rax, qword ptr [rsp + {arg_index * 8}]")
+            self.asm.instr(f"mov {offset_operand(layout.temp_root_slot_offsets[temp_index])}, rax")
         return len(ref_indices)
 
     def emit_clear_runtime_call_arg_temp_roots(self, layout: FunctionLayout, rooted_count: int) -> None:
@@ -296,32 +294,43 @@ class CodeGenerator:
         for temp_index in range(start_index, start_index + count):
             self.asm.instr(f"mov {offset_operand(layout.temp_root_slot_offsets[temp_index])}, 0")
 
+    def _require_temp_root_slot_offset(
+        self, layout: FunctionLayout, temp_slot_index: int, *, span: object | None, error_message: str
+    ) -> int:
+        if not layout.temp_root_slot_offsets:
+            return 0
+        if temp_slot_index >= len(layout.temp_root_slot_offsets):
+            codegen_types.raise_codegen_error(error_message, span=span)
+        return layout.temp_root_slot_offsets[temp_slot_index]
+
     def emit_temp_arg_root_from_rsp(
         self, layout: FunctionLayout, temp_slot_index: int, stack_byte_offset: int, *, span: object | None = None
     ) -> None:
         if not layout.temp_root_slot_offsets:
             return
-        if temp_slot_index >= len(layout.temp_root_slot_offsets):
-            codegen_types.raise_codegen_error("insufficient temporary root slots for call argument rooting", span=span)
+        temp_slot_offset = self._require_temp_root_slot_offset(
+            layout,
+            temp_slot_index,
+            span=span,
+            error_message="insufficient temporary root slots for call argument rooting",
+        )
 
-        self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        self.asm.instr(f"mov rdx, {stack_slot_operand('rsp', stack_byte_offset)}")
-        self.asm.instr(f"mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
-        self.asm.instr("call rt_root_slot_store")
+        self.asm.instr(f"mov rax, {stack_slot_operand('rsp', stack_byte_offset)}")
+        self.asm.instr(f"mov {offset_operand(temp_slot_offset)}, rax")
 
     def emit_temp_root_slot_store(
         self, layout: FunctionLayout, temp_slot_index: int, source_register: str, *, span: object | None = None
     ) -> None:
         if not layout.temp_root_slot_offsets:
             return
-        if temp_slot_index >= len(layout.temp_root_slot_offsets):
-            codegen_types.raise_codegen_error("insufficient temporary root slots for interface dispatch", span=span)
+        temp_slot_offset = self._require_temp_root_slot_offset(
+            layout,
+            temp_slot_index,
+            span=span,
+            error_message="insufficient temporary root slots for interface dispatch",
+        )
 
-        self.asm.instr(f"mov {offset_operand(layout.temp_root_slot_offsets[temp_slot_index])}, {source_register}")
-        self.asm.instr(f"lea rdi, [rbp - {abs(layout.root_frame_offset)}]")
-        self.asm.instr(f"mov rdx, {source_register}")
-        self.asm.instr(f"mov esi, {layout.temp_root_slot_start_index + temp_slot_index}")
-        self.asm.instr("call rt_root_slot_store")
+        self.asm.instr(f"mov {offset_operand(temp_slot_offset)}, {source_register}")
 
     def emit_bool_normalize(self) -> None:
         self.asm.instr("cmp rax, 0")
