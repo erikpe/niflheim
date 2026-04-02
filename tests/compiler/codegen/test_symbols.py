@@ -19,6 +19,7 @@ def test_codegen_symbol_helpers() -> None:
     assert next_label("f", "loop", counter) == ".Lf_loop_1"
     assert mangle_method_symbol("std::Str", "concat") == "__nif_method_std__Str_concat"
     assert mangle_constructor_symbol("std::BigInt") == "__nif_ctor_std__BigInt"
+    assert mangle_constructor_symbol("std::BigInt", 1) == "__nif_ctor_std__BigInt__1"
     assert mangle_type_pointer_offsets_symbol("main::Holder") == "__nif_type_name_main__Holder__ptr_offsets"
     assert mangle_debug_function_symbol(".Lmain:entry") == "__nif_dbg_fn__Lmain_entry"
     assert mangle_debug_file_symbol(".Lmain:entry") == "__nif_dbg_file__Lmain_entry"

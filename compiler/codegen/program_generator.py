@@ -92,16 +92,20 @@ class ProgramGenerator(CodeGenerator):
 
         for cls in self.program.classes:
             class_name = cls.class_id.name
-            constructor_id = ConstructorId(module_path=cls.class_id.module_path, class_name=class_name)
-            constructor_label = codegen_symbols.mangle_constructor_symbol(class_name)
-            constructor_layouts_by_id[constructor_id] = ConstructorLayout(
-                class_name=class_name,
-                label=constructor_label,
-                type_symbol=codegen_symbols.mangle_type_symbol(class_name),
-                payload_bytes=len(cls.fields) * 8,
-                field_names=[field.name for field in cls.fields],
-                param_field_names=[field.name for field in cls.fields if field.initializer is None],
-            )
+            for constructor in cls.constructors:
+                constructor_id = constructor.constructor_id
+                constructor_label = codegen_symbols.mangle_constructor_symbol(class_name, constructor_id.ordinal)
+                constructor_layouts_by_id[constructor_id] = ConstructorLayout(
+                    class_name=class_name,
+                    label=constructor_label,
+                    type_symbol=codegen_symbols.mangle_type_symbol(class_name),
+                    payload_bytes=len(cls.fields) * 8,
+                    field_names=[field.name for field in cls.fields],
+                    param_names=[param.name for param in constructor.params],
+                    param_field_names=[field.name for field in cls.fields if field.initializer is None]
+                    if constructor.body is None
+                    else [],
+                )
 
             for field_index, field in enumerate(cls.fields):
                 field_key = (cls.class_id, field.name)

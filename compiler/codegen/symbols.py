@@ -61,9 +61,12 @@ def mangle_method_symbol(type_name: str, method_name: str) -> str:
     return f"__nif_method_{safe_type}_{safe_method}"
 
 
-def mangle_constructor_symbol(type_name: str) -> str:
+def mangle_constructor_symbol(type_name: str, ordinal: int = 0) -> str:
     safe_type = type_name.replace(".", "_").replace(":", "_")
-    return f"__nif_ctor_{safe_type}"
+    label = f"__nif_ctor_{safe_type}"
+    if ordinal == 0:
+        return label
+    return f"{label}__{ordinal}"
 
 
 def mangle_debug_function_symbol(target_label: str) -> str:

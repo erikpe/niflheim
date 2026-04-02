@@ -1,5 +1,7 @@
 import pytest
 
+from compiler.frontend.lexer import lex
+from compiler.frontend.parser import parse
 from compiler.common.span import SourcePos, SourceSpan
 from compiler.resolver import resolve_program
 from compiler.typecheck.context import TypeCheckContext
@@ -7,6 +9,13 @@ from compiler.typecheck.declarations import collect_module_declarations
 from compiler.typecheck.model import TypeCheckError
 from compiler.typecheck.module_lookup import resolve_imported_interface_name
 from tests.compiler.typecheck.helpers import parse_and_typecheck
+
+
+def _collect_declarations(source: str) -> TypeCheckContext:
+    module = parse(lex(source))
+    ctx = TypeCheckContext(module_ast=module)
+    collect_module_declarations(ctx)
+    return ctx
 
 
 def test_typecheck_rejects_field_method_name_collision() -> None:
@@ -106,6 +115,57 @@ fn main() -> unit {
     parse_and_typecheck(source)
 
 
+def test_typecheck_collects_compatibility_constructor_when_class_declares_none() -> None:
+    source = """
+class Counter {
+    value: i64;
+    cached: bool = false;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    ctx = _collect_declarations(source)
+
+    counter_info = ctx.classes["Counter"]
+
+    assert len(counter_info.constructors) == 1
+    assert counter_info.constructors[0].ordinal == 0
+    assert counter_info.constructors[0].param_names == ["value"]
+    assert [param.name for param in counter_info.constructors[0].params] == ["i64"]
+    assert counter_info.constructors[0].is_private is False
+
+
+def test_typecheck_collects_explicit_constructors_without_compatibility_constructor() -> None:
+    source = """
+class Counter {
+    private value: i64;
+
+    constructor(value: i64) {
+        return;
+    }
+
+    private constructor() {
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    ctx = _collect_declarations(source)
+
+    counter_info = ctx.classes["Counter"]
+
+    assert len(counter_info.constructors) == 2
+    assert [constructor.ordinal for constructor in counter_info.constructors] == [0, 1]
+    assert [constructor.param_names for constructor in counter_info.constructors] == [["value"], []]
+    assert [[param.name for param in constructor.params] for constructor in counter_info.constructors] == [["i64"], []]
+    assert [constructor.is_private for constructor in counter_info.constructors] == [False, True]
+
+
 def test_typecheck_rejects_constructor_call_including_defaulted_field_argument() -> None:
     source = """
 class Counter {
@@ -119,6 +179,26 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Expected 1 arguments, got 2"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_duplicate_explicit_constructor_signatures() -> None:
+    source = """
+class Counter {
+    constructor(value: i64) {
+        return;
+    }
+
+    constructor(other: i64) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate constructor signature"):
         parse_and_typecheck(source)
 
 

@@ -1,0 +1,151 @@
+import std.io;
+
+class Config {
+    final code: i64;
+    enabled: bool = true;
+
+    constructor() {
+        __self.code = 42;
+        return;
+    }
+}
+
+class Early {
+    value: i64;
+    marker: i64 = 9;
+
+    constructor(value: i64) {
+        var temp: i64 = value + 1;
+        __self.value = temp;
+        if temp > 0 {
+            return;
+        }
+        __self.marker = 0;
+        return;
+    }
+}
+
+class Span {
+    start: i64;
+    end: i64;
+
+    constructor(start: i64) {
+        __self.start = start;
+        __self.end = start + 1;
+        return;
+    }
+
+    constructor(start: i64, end: i64) {
+        __self.start = start;
+        __self.end = end;
+        return;
+    }
+}
+
+class Tagged {
+    kind: i64;
+    payload_i: i64 = 0;
+    payload_b: bool = false;
+
+    constructor(value: i64) {
+        __self.kind = 1;
+        __self.payload_i = value;
+        return;
+    }
+
+    constructor(value: bool) {
+        __self.kind = 2;
+        __self.payload_b = value;
+        return;
+    }
+}
+
+class Envelope {
+    data: i64;
+    label: u64 = 5u;
+
+    constructor(data: i64) {
+        __self.data = data;
+        return;
+    }
+
+    constructor(data: i64, label: u64) {
+        __self.data = data;
+        __self.label = label;
+        return;
+    }
+}
+
+class Secret {
+    final value: i64;
+
+    private constructor(value: i64) {
+        __self.value = value;
+        return;
+    }
+
+    static fn make_double(value: i64) -> Secret {
+        return Secret(value * 2);
+    }
+
+    fn reveal() -> i64 {
+        return __self.value;
+    }
+}
+
+fn test_explicit_zero_arg_constructor_sets_final_and_defaults() -> i64 {
+    var cfg: Config = Config();
+    if cfg.code != 42 { return 1; }
+    if !cfg.enabled { return 2; }
+    return 0;
+}
+
+fn test_constructor_locals_and_early_return_keep_default_fields() -> i64 {
+    var e: Early = Early(6);
+    if e.value != 7 { return 3; }
+    if e.marker != 9 { return 4; }
+    return 0;
+}
+
+fn test_overloaded_constructor_by_arity() -> i64 {
+    var short: Span = Span(10);
+    var full: Span = Span(10, 25);
+    if short.start != 10 || short.end != 11 { return 5; }
+    if full.start != 10 || full.end != 25 { return 6; }
+    return 0;
+}
+
+fn test_overloaded_constructor_by_exact_type() -> i64 {
+    var tagged_i: Tagged = Tagged(7);
+    var tagged_b: Tagged = Tagged(true);
+    if tagged_i.kind != 1 || tagged_i.payload_i != 7 { return 7; }
+    if tagged_b.kind != 2 || !tagged_b.payload_b { return 8; }
+    return 0;
+}
+
+fn test_explicit_constructor_defaults_and_override_paths() -> i64 {
+    var base: Envelope = Envelope(9);
+    var custom: Envelope = Envelope(9, 17u);
+    if base.data != 9 || base.label != 5u { return 9; }
+    if custom.data != 9 || custom.label != 17u { return 10; }
+    return 0;
+}
+
+fn test_private_constructor_via_factory() -> i64 {
+    var secret: Secret = Secret.make_double(21);
+    if secret.reveal() != 42 { return 11; }
+    return 0;
+}
+
+fn main() -> i64 {
+    var select: u64 = read_stdin().strip().to_u64();
+
+    if select == 1u { return test_explicit_zero_arg_constructor_sets_final_and_defaults(); }
+    if select == 2u { return test_constructor_locals_and_early_return_keep_default_fields(); }
+    if select == 3u { return test_overloaded_constructor_by_arity(); }
+    if select == 4u { return test_overloaded_constructor_by_exact_type(); }
+    if select == 5u { return test_explicit_constructor_defaults_and_override_paths(); }
+    if select == 6u { return test_private_constructor_via_factory(); }
+
+    return 12;
+}

@@ -98,6 +98,49 @@ def test_program_generator_generate_builds_module_output(tmp_path: Path) -> None
     assert "main:" in asm
 
 
+def test_program_generator_builds_overloaded_constructor_labels(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Box {
+            value: i64;
+            other: i64 = 0;
+
+            constructor(value: i64) {
+                __self.value = value;
+                return;
+            }
+
+            constructor(value: i64, other: i64) {
+                __self.value = value;
+                __self.other = other;
+                return;
+            }
+        }
+
+        fn main() -> i64 {
+            var box: Box = Box(1, 2);
+            return box.other;
+        }
+        """,
+    )
+
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    tables = ProgramGenerator(program).build_declaration_tables()
+
+    first_ctor_id = ConstructorId(module_path=("main",), class_name="Box", ordinal=0)
+    second_ctor_id = ConstructorId(module_path=("main",), class_name="Box", ordinal=1)
+
+    assert tables.constructor_layout(first_ctor_id).label == "__nif_ctor_Box"
+    assert tables.constructor_layout(first_ctor_id).param_names == ["value"]
+    assert tables.constructor_layout(first_ctor_id).param_field_names == []
+    assert tables.constructor_layout(second_ctor_id).label == "__nif_ctor_Box__1"
+    assert tables.constructor_layout(second_ctor_id).param_names == ["value", "other"]
+    assert tables.constructor_layout(second_ctor_id).param_field_names == []
+
+
 def test_program_generator_builds_interface_descriptor_and_slot_tables(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",

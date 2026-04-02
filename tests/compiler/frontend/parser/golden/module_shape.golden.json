@@ -1,6 +1,7 @@
 {
   "classes": [
     {
+      "constructors": [],
       "fields": [
         {
           "initializer": null,

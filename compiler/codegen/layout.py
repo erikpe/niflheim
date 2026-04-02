@@ -12,9 +12,11 @@ from compiler.codegen.model import FunctionLayout, LayoutSlot, TEMP_RUNTIME_ROOT
 from compiler.semantic.lowered_ir import (
     LoweredSemanticBlock,
     LoweredSemanticClass,
+    LoweredSemanticConstructor,
     LoweredSemanticForIn,
     LoweredSemanticFunction,
     LoweredSemanticIf,
+    LoweredSemanticMethod,
     LoweredSemanticStmt,
     LoweredSemanticWhile,
 )
@@ -126,10 +128,12 @@ def _local_slot_key(display_name: str, ordinal: int, seen_display_names: set[str
     return f"{display_name}@{ordinal}"
 
 
-def _local_slot_specs(fn: SemanticFunction | LoweredSemanticFunction) -> list[_SlotSpec]:
+def _local_slot_specs(
+    owner: SemanticFunction | SemanticMethod | SemanticConstructor | LoweredSemanticFunction | LoweredSemanticMethod | LoweredSemanticConstructor,
+) -> list[_SlotSpec]:
     seen_display_names: set[str] = set()
     slot_specs: list[_SlotSpec] = []
-    local_infos = sorted(fn.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
+    local_infos = sorted(owner.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
     for local_info in local_infos:
         slot_specs.append(
             _SlotSpec(
@@ -151,11 +155,26 @@ def _require_function_param_local_info(fn: SemanticFunction | LoweredSemanticFun
         raise ValueError("semantic layout requires owner-local metadata for every function parameter")
 
 
+def _require_constructor_param_local_info(
+    constructor: SemanticConstructor | LoweredSemanticConstructor,
+) -> None:
+    param_locals = [
+        local_info for local_info in constructor.local_info_by_id.values() if local_info.binding_kind == "param"
+    ]
+    if len(param_locals) != len(constructor.params):
+        raise ValueError("semantic layout requires owner-local metadata for every constructor parameter")
+    receiver_locals = [
+        local_info for local_info in constructor.local_info_by_id.values() if local_info.binding_kind == "receiver"
+    ]
+    if len(receiver_locals) != 1:
+        raise ValueError("semantic layout requires exactly one constructor receiver local")
+
+
 def _constructor_slot_specs(
     cls: SemanticClass | LoweredSemanticClass, ctor_layout, *, constructor_object_slot_name: str
 ) -> list[_SlotSpec]:
     field_types_by_name = {field.name: field.type_ref for field in cls.fields}
-    ordered_slot_names = [*ctor_layout.param_field_names, constructor_object_slot_name]
+    ordered_slot_names = [*ctor_layout.param_names, constructor_object_slot_name]
     return [
         _SlotSpec(
             key=slot_name,
@@ -165,7 +184,7 @@ def _constructor_slot_specs(
                 if slot_name == constructor_object_slot_name
                 else field_types_by_name[slot_name]
             ),
-            is_param=slot_name in ctor_layout.param_field_names,
+            is_param=slot_name in ctor_layout.param_names,
         )
         for slot_name in ordered_slot_names
     ]
@@ -404,7 +423,13 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
 def _max_call_temp_root_slots_in_stmt(
     stmt: SemanticStmt | LoweredSemanticStmt,
     *,
-    owner: SemanticFunction | LoweredSemanticFunction | None = None,
+    owner: SemanticFunction
+    | SemanticMethod
+    | SemanticConstructor
+    | LoweredSemanticFunction
+    | LoweredSemanticMethod
+    | LoweredSemanticConstructor
+    | None = None,
 ) -> int:
     if isinstance(stmt, (SemanticBlock, LoweredSemanticBlock)):
         return max((_max_call_temp_root_slots_in_stmt(nested, owner=owner) for nested in stmt.statements), default=0)
@@ -611,8 +636,40 @@ def build_layout(fn: SemanticFunction | LoweredSemanticFunction) -> FunctionLayo
 
 
 def build_constructor_layout(
-    cls: SemanticClass | LoweredSemanticClass, ctor_layout, *, constructor_object_slot_name: str
+    cls: SemanticClass | LoweredSemanticClass,
+    ctor_layout,
+    *,
+    constructor_object_slot_name: str,
+    constructor: SemanticConstructor | LoweredSemanticConstructor | None = None,
 ) -> FunctionLayout:
+    if constructor is not None and constructor.body is not None:
+        if not constructor.local_info_by_id:
+            raise ValueError("semantic layout requires owner-local metadata for explicit constructors")
+        _require_constructor_param_local_info(constructor)
+        slot_specs = _local_slot_specs(constructor)
+        initializer_exprs = [field.initializer for field in cls.fields if field.initializer is not None]
+        max_call_temp_root_slots = max(
+            [
+                *(_max_call_temp_root_slots_in_expr(expr) for expr in initializer_exprs),
+                *(_max_call_temp_root_slots_in_stmt(stmt, owner=constructor) for stmt in constructor.body.statements),
+            ],
+            default=0,
+        )
+        max_call_scratch_slots = max(
+            [
+                *(_max_call_scratch_slots_in_expr(expr) for expr in initializer_exprs),
+                *(_max_call_scratch_slots_in_stmt(stmt) for stmt in constructor.body.statements),
+            ],
+            default=0,
+        )
+        needs_temp_runtime_roots = max_call_temp_root_slots > 0
+        return _build_function_layout(
+            slot_specs,
+            needs_temp_runtime_roots=needs_temp_runtime_roots,
+            max_call_temp_root_slots=max_call_temp_root_slots,
+            max_call_scratch_slots=max_call_scratch_slots,
+        )
+
     slot_specs = _constructor_slot_specs(cls, ctor_layout, constructor_object_slot_name=constructor_object_slot_name)
     initializer_exprs = [field.initializer for field in cls.fields if field.initializer is not None]
     max_call_temp_root_slots = max((_max_call_temp_root_slots_in_expr(expr) for expr in initializer_exprs), default=0)

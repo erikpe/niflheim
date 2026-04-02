@@ -101,6 +101,56 @@ def test_lower_program_builds_semantic_declarations_and_ids(tmp_path: Path) -> N
     assert util_module.functions[0].return_type_ref.canonical_name == "i64"
 
 
+def test_lower_program_lowers_explicit_and_compatibility_constructors(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class ExplicitBox {
+            value: i64;
+
+            constructor(value: i64) {
+                var tmp: i64 = value;
+                __self.value = tmp;
+                return;
+            }
+        }
+
+        class CompatBox {
+            value: i64;
+        }
+
+        fn main() -> i64 {
+            var a: ExplicitBox = ExplicitBox(7);
+            var b: CompatBox = CompatBox(9);
+            return 0;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    explicit_cls = next(cls for cls in semantic.modules[("main",)].classes if cls.class_id.name == "ExplicitBox")
+    compat_cls = next(cls for cls in semantic.modules[("main",)].classes if cls.class_id.name == "CompatBox")
+
+    assert len(explicit_cls.constructors) == 1
+    assert explicit_cls.constructors[0].constructor_id == ConstructorId(
+        module_path=("main",), class_name="ExplicitBox", ordinal=0
+    )
+    assert explicit_cls.constructors[0].body is not None
+    constructor_local_infos = sorted(
+        explicit_cls.constructors[0].local_info_by_id.values(),
+        key=lambda local_info: local_info.local_id.ordinal,
+    )
+    assert [local_info.binding_kind for local_info in constructor_local_infos] == ["receiver", "param", "local"]
+    assert all(local_info.owner_id == explicit_cls.constructors[0].constructor_id for local_info in constructor_local_infos)
+
+    assert len(compat_cls.constructors) == 1
+    assert compat_cls.constructors[0].constructor_id == ConstructorId(
+        module_path=("main",), class_name="CompatBox", ordinal=0
+    )
+    assert compat_cls.constructors[0].body is None
+
+
 def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",

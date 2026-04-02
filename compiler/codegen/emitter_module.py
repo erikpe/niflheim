@@ -27,8 +27,9 @@ def generate_module(codegen, program, declaration_tables, type_metadata: TypeMet
             emit_method(codegen, declaration_tables, cls, method)
 
     for cls in program.classes:
-        codegen.asm.blank()
-        emit_constructor(codegen, declaration_tables, cls)
+        for constructor in cls.constructors:
+            codegen.asm.blank()
+            emit_constructor(codegen, declaration_tables, cls, constructor)
 
     emit_runtime_panic_messages_section(codegen)
     codegen.asm.blank()

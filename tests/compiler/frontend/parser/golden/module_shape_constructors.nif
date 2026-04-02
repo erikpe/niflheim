@@ -1,0 +1,19 @@
+class Counter {
+    value: i64;
+
+    constructor() {
+        return;
+    }
+
+    private constructor(value: i64) {
+        __self.value = value;
+    }
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}
+
+fn main() -> unit {
+    return;
+}

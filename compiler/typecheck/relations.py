@@ -81,14 +81,24 @@ def require_array_index_type(actual: TypeInfo, span: SourceSpan) -> None:
     raise TypeCheckError(f"Expected '{TYPE_NAME_I64}', got '{actual.name}'", span)
 
 
-def require_assignable(ctx: TypeCheckContext, target: TypeInfo, value: TypeInfo, span: SourceSpan) -> None:
+def type_infos_equal(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> bool:
+    return _type_infos_equal(ctx, left, right)
+
+
+def is_assignable(ctx: TypeCheckContext, target: TypeInfo, value: TypeInfo) -> bool:
     if _type_infos_equal(ctx, target, value):
-        return
+        return True
     if target.kind in {"reference", "interface"} and value.kind == TYPE_NAME_NULL:
-        return
+        return True
     if target.name == TYPE_NAME_OBJ and value.kind in {"reference", "interface"}:
-        return
+        return True
     if target.kind == "interface" and value.kind == "reference" and _class_implements_interface(ctx, value.name, target.name):
+        return True
+    return False
+
+
+def require_assignable(ctx: TypeCheckContext, target: TypeInfo, value: TypeInfo, span: SourceSpan) -> None:
+    if is_assignable(ctx, target, value):
         return
     raise TypeCheckError(f"Cannot assign '{_display_type_name(value)}' to '{_display_type_name(target)}'", span)
 

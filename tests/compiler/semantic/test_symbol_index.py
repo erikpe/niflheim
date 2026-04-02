@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from compiler.frontend.ast_nodes import ConstructorDecl
 from compiler.resolver import resolve_program
 from compiler.semantic.symbols import (
     ClassId,
@@ -167,6 +168,44 @@ def test_build_program_symbol_index_maps_constructors_back_to_class_decls(tmp_pa
 
     assert index.constructors[public_box_ctor].name == "PublicBox"
     assert index.constructors[with_default_ctor].name == "WithDefault"
+
+
+def test_build_program_symbol_index_collects_explicit_constructor_ordinals(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "models.nif",
+        """
+        export class Box {
+            constructor() {
+                return;
+            }
+
+            constructor(value: i64) {
+                return;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import models;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    index = build_program_symbol_index(program)
+
+    ctor0 = ConstructorId(module_path=("models",), class_name="Box", ordinal=0)
+    ctor1 = ConstructorId(module_path=("models",), class_name="Box", ordinal=1)
+
+    assert isinstance(index.constructors[ctor0], ConstructorDecl)
+    assert isinstance(index.constructors[ctor1], ConstructorDecl)
+    assert len(index.constructors[ctor0].params) == 0
+    assert len(index.constructors[ctor1].params) == 1
 
 
 def test_build_program_symbol_index_collects_interface_ids_across_modules(tmp_path: Path) -> None:

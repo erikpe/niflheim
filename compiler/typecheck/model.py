@@ -24,16 +24,23 @@ class FunctionSig:
 
 
 @dataclass(frozen=True)
+class ConstructorInfo:
+    ordinal: int
+    params: list[TypeInfo]
+    param_names: list[str]
+    is_private: bool
+
+
+@dataclass(frozen=True)
 class ClassInfo:
     name: str
     fields: dict[str, TypeInfo]
     field_order: list[str]
-    constructor_param_order: list[str]
+    constructors: list[ConstructorInfo]
     methods: dict[str, FunctionSig]
     private_fields: set[str]
     final_fields: set[str]
     private_methods: set[str]
-    constructor_is_private: bool
     implemented_interfaces: set[str]
 
 

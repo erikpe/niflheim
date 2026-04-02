@@ -17,7 +17,12 @@ from compiler.typecheck.type_resolution import resolve_type_ref
 from compiler.typecheck.visibility import require_member_visible
 
 
-def _ensure_field_access_assignable(ctx: TypeCheckContext, expr: FieldAccessExpr) -> None:
+def _ensure_field_access_assignable(
+    ctx: TypeCheckContext,
+    expr: FieldAccessExpr,
+    *,
+    allow_final_field_assignment: bool,
+) -> None:
     object_type = infer_expression_type(ctx, expr.object_expr)
     class_info = lookup_class_by_type_name(ctx, object_type.name)
     if class_info is None:
@@ -30,17 +35,19 @@ def _ensure_field_access_assignable(ctx: TypeCheckContext, expr: FieldAccessExpr
     require_member_visible(ctx, class_info, object_type.name, expr.field_name, "field", expr.span)
 
     if expr.field_name in class_info.final_fields:
+        if allow_final_field_assignment and isinstance(expr.object_expr, IdentifierExpr) and expr.object_expr.name == "__self":
+            return
         raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)
 
 
-def _ensure_assignable_target(ctx: TypeCheckContext, expr: Expression) -> None:
+def _ensure_assignable_target(ctx: TypeCheckContext, expr: Expression, *, allow_final_field_assignment: bool) -> None:
     if isinstance(expr, IdentifierExpr):
         if lookup_variable(ctx, expr.name) is None:
             raise TypeCheckError("Invalid assignment target", expr.span)
         return
 
     if isinstance(expr, FieldAccessExpr):
-        _ensure_field_access_assignable(ctx, expr)
+        _ensure_field_access_assignable(ctx, expr, allow_final_field_assignment=allow_final_field_assignment)
         return
 
     if isinstance(expr, IndexExpr):
@@ -76,9 +83,22 @@ def _block_guarantees_return(block: BlockStmt) -> bool:
     return False
 
 
-def _check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeInfo) -> None:
+def _check_statement(
+    ctx: TypeCheckContext,
+    stmt: Statement,
+    return_type: TypeInfo,
+    *,
+    allow_value_return: bool,
+    allow_final_field_assignment: bool,
+) -> None:
     if isinstance(stmt, BlockStmt):
-        _check_block(ctx, stmt, return_type)
+        _check_block(
+            ctx,
+            stmt,
+            return_type,
+            allow_value_return=allow_value_return,
+            allow_final_field_assignment=allow_final_field_assignment,
+        )
         return
 
     if isinstance(stmt, VarDeclStmt):
@@ -92,18 +112,42 @@ def _check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeIn
     if isinstance(stmt, IfStmt):
         cond_type = infer_expression_type(ctx, stmt.condition)
         require_type_name(cond_type, TYPE_NAME_BOOL, stmt.condition.span)
-        _check_block(ctx, stmt.then_branch, return_type)
+        _check_block(
+            ctx,
+            stmt.then_branch,
+            return_type,
+            allow_value_return=allow_value_return,
+            allow_final_field_assignment=allow_final_field_assignment,
+        )
         if isinstance(stmt.else_branch, BlockStmt):
-            _check_block(ctx, stmt.else_branch, return_type)
+            _check_block(
+                ctx,
+                stmt.else_branch,
+                return_type,
+                allow_value_return=allow_value_return,
+                allow_final_field_assignment=allow_final_field_assignment,
+            )
         elif isinstance(stmt.else_branch, IfStmt):
-            _check_statement(ctx, stmt.else_branch, return_type)
+            _check_statement(
+                ctx,
+                stmt.else_branch,
+                return_type,
+                allow_value_return=allow_value_return,
+                allow_final_field_assignment=allow_final_field_assignment,
+            )
         return
 
     if isinstance(stmt, WhileStmt):
         cond_type = infer_expression_type(ctx, stmt.condition)
         require_type_name(cond_type, TYPE_NAME_BOOL, stmt.condition.span)
         ctx.loop_depth += 1
-        _check_block(ctx, stmt.body, return_type)
+        _check_block(
+            ctx,
+            stmt.body,
+            return_type,
+            allow_value_return=allow_value_return,
+            allow_final_field_assignment=allow_final_field_assignment,
+        )
         ctx.loop_depth -= 1
         return
 
@@ -117,7 +161,13 @@ def _check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeIn
         push_scope(ctx)
         try:
             declare_variable(ctx, stmt.element_name, element_type, stmt.span)
-            _check_block(ctx, stmt.body, return_type)
+            _check_block(
+                ctx,
+                stmt.body,
+                return_type,
+                allow_value_return=allow_value_return,
+                allow_final_field_assignment=allow_final_field_assignment,
+            )
         finally:
             pop_scope(ctx)
             ctx.loop_depth -= 1
@@ -138,12 +188,14 @@ def _check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeIn
             if return_type.name != TYPE_NAME_UNIT:
                 raise TypeCheckError("Non-unit function must return a value", stmt.span)
         else:
+            if not allow_value_return:
+                raise TypeCheckError("Constructors cannot return a value", stmt.value.span)
             value_type = infer_expression_type(ctx, stmt.value)
             require_assignable(ctx, return_type, value_type, stmt.value.span)
         return
 
     if isinstance(stmt, AssignStmt):
-        _ensure_assignable_target(ctx, stmt.target)
+        _ensure_assignable_target(ctx, stmt.target, allow_final_field_assignment=allow_final_field_assignment)
         if isinstance(stmt.target, IndexExpr):
             object_type = infer_expression_type(ctx, stmt.target.object_expr)
             value_type = infer_expression_type(ctx, stmt.value)
@@ -159,10 +211,23 @@ def _check_statement(ctx: TypeCheckContext, stmt: Statement, return_type: TypeIn
         infer_expression_type(ctx, stmt.expression)
 
 
-def _check_block(ctx: TypeCheckContext, block: BlockStmt, return_type: TypeInfo) -> None:
+def _check_block(
+    ctx: TypeCheckContext,
+    block: BlockStmt,
+    return_type: TypeInfo,
+    *,
+    allow_value_return: bool,
+    allow_final_field_assignment: bool,
+) -> None:
     push_scope(ctx)
     for stmt in block.statements:
-        _check_statement(ctx, stmt, return_type)
+        _check_statement(
+            ctx,
+            stmt,
+            return_type,
+            allow_value_return=allow_value_return,
+            allow_final_field_assignment=allow_final_field_assignment,
+        )
     pop_scope(ctx)
 
 
@@ -173,6 +238,8 @@ def check_function_like(
     return_type: TypeInfo,
     receiver_type: TypeInfo | None = None,
     owner_class_name: str | None = None,
+    allow_value_return: bool = True,
+    allow_final_field_assignment: bool = False,
 ) -> None:
     previous_owner = ctx.current_private_owner_type
     if owner_class_name is not None:
@@ -186,7 +253,13 @@ def check_function_like(
             param_type = resolve_type_ref(ctx, param.type_ref)
             declare_variable(ctx, param.name, param_type, param.span)
 
-        _check_block(ctx, body, return_type)
+        _check_block(
+            ctx,
+            body,
+            return_type,
+            allow_value_return=allow_value_return,
+            allow_final_field_assignment=allow_final_field_assignment,
+        )
 
         if return_type.name != TYPE_NAME_UNIT and not _block_guarantees_return(body):
             raise TypeCheckError("Non-unit function must return on all paths", body.span)

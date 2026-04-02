@@ -11,8 +11,12 @@ from compiler.semantic.symbols import (
     MethodId,
     ProgramSymbolIndex,
 )
+from compiler.typecheck.call_helpers import select_constructor_overload
+from compiler.typecheck.model import TypeInfo
 from compiler.typecheck.calls import infer_call_type
 from compiler.typecheck.context import TypeCheckContext
+from compiler.typecheck.expressions import infer_expression_type
+from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.semantic.lowering.resolution import (
     ResolvedBoundMemberAccess,
     ResolvedClassValueTarget,
@@ -94,7 +98,13 @@ def resolve_identifier_call_target(
     if isinstance(value_target, ResolvedFunctionValueTarget):
         return ResolvedFunctionCallTarget(function_id=value_target.function_id)
     if isinstance(value_target, ResolvedClassValueTarget):
-        return ResolvedConstructorCallTarget(constructor_id=value_target.constructor_id)
+        return ResolvedConstructorCallTarget(
+            constructor_id=_resolve_selected_constructor_id(
+                typecheck_ctx,
+                _class_type_name_for_module_member(value_target.class_id),
+                expr,
+            )
+        )
 
     return None
 
@@ -109,7 +119,10 @@ def resolve_field_access_call_target(
     if isinstance(module_member_target, ResolvedFunctionValueTarget):
         return ResolvedFunctionCallTarget(function_id=module_member_target.function_id)
     if isinstance(module_member_target, ResolvedClassValueTarget):
-        return ResolvedConstructorCallTarget(constructor_id=module_member_target.constructor_id)
+        class_type_name = _class_type_name_for_module_member(module_member_target.class_id)
+        return ResolvedConstructorCallTarget(
+            constructor_id=_resolve_selected_constructor_id(typecheck_ctx, class_type_name, expr)
+        )
 
     member_target = resolve_field_access_member_target(typecheck_ctx, expr.callee)
     if isinstance(member_target, ResolvedStaticMethodMemberTarget):
@@ -122,3 +135,39 @@ def resolve_field_access_call_target(
         return ResolvedInstanceMethodCallTarget(method_id=member_target.method_id, access=member_target.access)
 
     return None
+
+
+def _resolve_selected_constructor_id(
+    typecheck_ctx: TypeCheckContext,
+    class_type_name: str,
+    expr: CallExpr,
+) -> ConstructorId:
+    class_info = lookup_class_by_type_name(typecheck_ctx, class_type_name)
+    if class_info is None:
+        raise ValueError(f"Unknown class '{class_type_name}' for constructor call lowering")
+
+    arg_types = [infer_expression_type(typecheck_ctx, arg_expr) for arg_expr in expr.arguments]
+    constructor_info = select_constructor_overload(
+        typecheck_ctx,
+        class_info,
+        arg_types,
+        expr.span,
+        TypeInfo(name=class_type_name, kind="reference"),
+    )
+    owner_module, class_name = _split_class_type_name(typecheck_ctx, class_type_name)
+    return ConstructorId(module_path=owner_module, class_name=class_name, ordinal=constructor_info.ordinal)
+
+
+def _split_class_type_name(typecheck_ctx: TypeCheckContext, class_type_name: str) -> tuple[tuple[str, ...], str]:
+    if "::" in class_type_name:
+        owner_dotted, class_name = class_type_name.split("::", 1)
+        return tuple(owner_dotted.split(".")), class_name
+    module_path = typecheck_ctx.module_path
+    if module_path is None:
+        raise ValueError(f"Cannot resolve constructor owner for unqualified class '{class_type_name}'")
+    return module_path, class_type_name
+
+
+def _class_type_name_for_module_member(class_id) -> str:
+    owner_dotted = ".".join(class_id.module_path)
+    return f"{owner_dotted}::{class_id.name}"

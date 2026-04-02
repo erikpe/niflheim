@@ -267,3 +267,154 @@ fn main() -> unit {
 }
 """
     parse_and_typecheck(source)
+
+
+def test_typecheck_selects_exact_match_constructor_overload() -> None:
+    source = """
+class Key {
+}
+
+class Sink {
+    private constructor(value: Obj) {
+        return;
+    }
+
+    constructor(value: Key) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink(Key());
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_selects_more_specific_constructor_overload() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+class Sink {
+    private constructor(value: Obj) {
+        return;
+    }
+
+    constructor(value: Hashable) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink(Key());
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_no_matching_constructor_overload() -> None:
+    source = """
+class Sink {
+    constructor(value: i64) {
+        return;
+    }
+
+    constructor(value: bool) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink((u64)1);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"No constructor overload for class 'Sink' matches argument types \(u64\)"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_ambiguous_constructor_call() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+interface Equalable {
+    fn equals(other: Obj) -> bool;
+}
+
+class Key implements Hashable, Equalable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        return false;
+    }
+}
+
+class Sink {
+    constructor(value: Hashable) {
+        return;
+    }
+
+    constructor(value: Equalable) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink(Key());
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Ambiguous constructor call for class 'Sink'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_allows_explicit_cast_to_disambiguate_constructor_call() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+interface Equalable {
+    fn equals(other: Obj) -> bool;
+}
+
+class Key implements Hashable, Equalable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        return false;
+    }
+}
+
+class Sink {
+    constructor(value: Hashable) {
+        return;
+    }
+
+    constructor(value: Equalable) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink((Hashable)Key());
+    return;
+}
+"""
+    parse_and_typecheck(source)

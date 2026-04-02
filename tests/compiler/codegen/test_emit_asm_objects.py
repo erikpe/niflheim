@@ -176,6 +176,37 @@ fn main() -> i64 {
     assert "    call rt_alloc_obj" in asm
 
 
+def test_emit_asm_overloaded_constructor_call_uses_selected_constructor_label(tmp_path) -> None:
+    source = """
+class Pair {
+    left: i64;
+    right: i64 = 0;
+
+    constructor(left: i64) {
+        __self.left = left;
+        return;
+    }
+
+    constructor(left: i64, right: i64) {
+        __self.left = left;
+        __self.right = right;
+        return;
+    }
+}
+
+fn main() -> i64 {
+    var pair: Pair = Pair(1, 2);
+    return pair.right;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "__nif_ctor_Pair:" in asm
+    assert "__nif_ctor_Pair__1:" in asm
+    assert "    call __nif_ctor_Pair__1" in asm
+    assert "    call rt_alloc_obj" in asm
+
+
 def test_emit_asm_class_field_read_lowers_to_object_payload_load(tmp_path) -> None:
     source = """
 class Counter {

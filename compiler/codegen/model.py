@@ -45,6 +45,7 @@ class ConstructorLayout:
     type_symbol: str
     payload_bytes: int
     field_names: list[str]
+    param_names: list[str]
     param_field_names: list[str]
 
 

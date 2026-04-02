@@ -51,6 +51,11 @@ TARGETS: tuple[GoldenTarget, ...] = (
         parse_mode="module",
     ),
     GoldenTarget(
+        source_file="module_shape_constructors.nif",
+        golden_file="module_shape_constructors.golden.json",
+        parse_mode="module",
+    ),
+    GoldenTarget(
         source_file="expression_shape_slice_chain.nif",
         golden_file="expression_shape_slice_chain.golden.json",
         parse_mode="expression",

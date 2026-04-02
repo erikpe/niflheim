@@ -89,4 +89,6 @@ def _qualified_display_name(
 def _owner_module_path(owner: SemanticFunctionLike) -> ModulePath:
     if hasattr(owner, "function_id"):
         return owner.function_id.module_path
-    return owner.method_id.module_path
+    if hasattr(owner, "method_id"):
+        return owner.method_id.module_path
+    return owner.constructor_id.module_path

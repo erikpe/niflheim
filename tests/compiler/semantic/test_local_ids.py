@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from compiler.semantic.symbols import FunctionId, LocalId, MethodId
+from compiler.semantic.symbols import ConstructorId, FunctionId, LocalId, MethodId
 
 
 def test_local_id_equality_is_defined_by_owner_and_ordinal() -> None:
@@ -22,6 +22,13 @@ def test_local_id_distinguishes_between_owners() -> None:
     method_owner = MethodId(module_path=("main",), class_name="Box", name="compute")
 
     assert LocalId(owner_id=function_owner, ordinal=0) != LocalId(owner_id=method_owner, ordinal=0)
+
+
+def test_local_id_distinguishes_constructor_owner_from_other_owners() -> None:
+    constructor_owner = ConstructorId(module_path=("main",), class_name="Box", ordinal=0)
+    method_owner = MethodId(module_path=("main",), class_name="Box", name="compute")
+
+    assert LocalId(owner_id=constructor_owner, ordinal=0) != LocalId(owner_id=method_owner, ordinal=0)
 
 
 def test_local_id_rejects_negative_ordinals() -> None:

@@ -8,6 +8,7 @@ from compiler.common.span import SourceSpan
 from compiler.resolver import ModulePath
 from compiler.semantic.ir import (
     SemanticDispatch,
+    SemanticConstructor,
     SemanticExpr,
     SemanticInterface,
     SemanticLocalInfo,
@@ -20,6 +21,7 @@ from compiler.semantic.ir import (
     SemanticContinue,
 )
 from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, LocalId, MethodId
+from compiler.semantic.symbols import ConstructorId
 from compiler.semantic.types import SemanticTypeRef
 
 
@@ -101,6 +103,16 @@ class LoweredSemanticMethod:
 
 
 @dataclass(frozen=True)
+class LoweredSemanticConstructor:
+    constructor_id: ConstructorId
+    params: list[SemanticParam]
+    body: LoweredSemanticBlock | None
+    is_private: bool
+    span: SourceSpan
+    local_info_by_id: dict[LocalId, SemanticLocalInfo] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class LoweredSemanticClass:
     class_id: ClassId
     is_export: bool
@@ -108,9 +120,10 @@ class LoweredSemanticClass:
     methods: list[LoweredSemanticMethod]
     span: SourceSpan
     implemented_interfaces: list[InterfaceId] = field(default_factory=list)
+    constructors: list[LoweredSemanticConstructor] = field(default_factory=list)
 
 
-LoweredSemanticFunctionLike = LoweredSemanticFunction | LoweredSemanticMethod
+LoweredSemanticFunctionLike = LoweredSemanticFunction | LoweredSemanticMethod | LoweredSemanticConstructor
 
 
 LoweredSemanticStmt = (

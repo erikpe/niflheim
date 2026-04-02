@@ -7,6 +7,7 @@ from compiler.semantic.ir import (
     RuntimeDispatch,
     SemanticBlock,
     SemanticClass,
+    SemanticConstructor,
     SemanticField,
     SemanticForIn,
     SemanticFunction,
@@ -22,6 +23,7 @@ from compiler.semantic.lowered_ir import (
     LoweredLinkedSemanticProgram,
     LoweredSemanticBlock,
     LoweredSemanticClass,
+    LoweredSemanticConstructor,
     LoweredSemanticField,
     LoweredSemanticForIn,
     LoweredSemanticForInStrategy,
@@ -98,6 +100,7 @@ def lower_linked_semantic_program(program: LinkedSemanticProgram) -> LoweredLink
 def _lower_class(cls: SemanticClass) -> LoweredSemanticClass:
     lowered_fields = [_lower_field(field) for field in cls.fields]
     lowered_methods = [_lower_method(method) for method in cls.methods]
+    lowered_constructors = [_lower_constructor(constructor) for constructor in cls.constructors]
     return LoweredSemanticClass(
         class_id=cls.class_id,
         is_export=cls.is_export,
@@ -105,6 +108,7 @@ def _lower_class(cls: SemanticClass) -> LoweredSemanticClass:
         methods=lowered_methods,
         span=cls.span,
         implemented_interfaces=list(cls.implemented_interfaces),
+        constructors=lowered_constructors,
     )
 
 
@@ -158,6 +162,30 @@ def _lower_method(method: SemanticMethod) -> LoweredSemanticMethod:
         is_static=method.is_static,
         is_private=method.is_private,
         span=method.span,
+        local_info_by_id=local_info_by_id,
+    )
+
+
+def _lower_constructor(constructor: SemanticConstructor) -> LoweredSemanticConstructor:
+    if constructor.body is None:
+        return LoweredSemanticConstructor(
+            constructor_id=constructor.constructor_id,
+            params=list(constructor.params),
+            body=None,
+            is_private=constructor.is_private,
+            span=constructor.span,
+            local_info_by_id=dict(constructor.local_info_by_id),
+        )
+
+    local_info_by_id = dict(constructor.local_info_by_id)
+    allocator = _HelperLocalAllocator(constructor.constructor_id, local_info_by_id)
+    lowered_body = _lower_block(constructor.body, allocator)
+    return LoweredSemanticConstructor(
+        constructor_id=constructor.constructor_id,
+        params=list(constructor.params),
+        body=lowered_body,
+        is_private=constructor.is_private,
+        span=constructor.span,
         local_info_by_id=local_info_by_id,
     )
 

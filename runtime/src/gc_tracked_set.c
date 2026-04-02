@@ -79,7 +79,7 @@ static void rt_tracked_set_ensure_capacity_for_insert(void) {
         return;
     }
 
-    uint64_t threshold = (g_tracked_set_capacity * 7u) / 10u;
+    uint64_t threshold = (g_tracked_set_capacity * 5u) / 10u;
     if (g_tracked_set_occupied + 1u > threshold) {
         uint64_t new_capacity = g_tracked_set_capacity;
         if (g_tracked_set_size + 1u > threshold) {

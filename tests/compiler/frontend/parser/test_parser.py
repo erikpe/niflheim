@@ -128,6 +128,7 @@ export fn main() -> unit {
     assert cls.name == "Point"
     assert cls.is_export is False
     assert cls.implements == []
+    assert cls.constructors == []
     assert [field.name for field in cls.fields] == ["x", "y"]
     assert len(cls.methods) == 1
     assert cls.methods[0].name == "reset"
@@ -227,10 +228,111 @@ class Counter {
 
     assert len(module.classes) == 1
     cls = module.classes[0]
+    assert cls.constructors == []
     assert len(cls.methods) == 1
     method = cls.methods[0]
     assert method.name == "add"
     assert method.is_static is True
+
+
+def test_parse_constructor_declarations_in_class_body() -> None:
+    source = """
+class Counter {
+    value: i64;
+
+    constructor() {
+        return;
+    }
+
+    private constructor(value: i64) {
+        __self.value = value;
+    }
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/constructors_parse.nif"))
+
+    cls = module.classes[0]
+    assert len(cls.fields) == 1
+    assert len(cls.constructors) == 2
+    assert cls.constructors[0].params == []
+    assert cls.constructors[0].is_private is False
+    assert isinstance(cls.constructors[0].body, BlockStmt)
+    assert len(cls.constructors[0].body.statements) == 1
+    assert isinstance(cls.constructors[0].body.statements[0], ReturnStmt)
+
+    assert len(cls.constructors[1].params) == 1
+    assert cls.constructors[1].params[0].name == "value"
+    assert cls.constructors[1].params[0].type_ref.name == "i64"
+    assert cls.constructors[1].is_private is True
+    assert len(cls.methods) == 1
+    assert cls.methods[0].name == "read"
+
+
+def test_parse_mixed_field_constructor_and_method_members() -> None:
+    source = """
+class Counter {
+    value: i64;
+
+    constructor() {
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+
+    private constructor(value: i64) {
+        __self.value = value;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/mixed_constructor_members.nif"))
+
+    cls = module.classes[0]
+    assert [field.name for field in cls.fields] == ["value"]
+    assert [len(constructor.params) for constructor in cls.constructors] == [0, 1]
+    assert [constructor.is_private for constructor in cls.constructors] == [False, True]
+    assert [method.name for method in cls.methods] == ["read"]
+
+
+def test_parse_rejects_constructor_return_type() -> None:
+    source = """
+class Counter {
+    constructor() -> Counter {
+        return;
+    }
+}
+"""
+    with pytest.raises(ParserError, match="Constructors cannot declare a return type"):
+        parse(lex(source, source_path="examples/bad_constructor_return_type.nif"))
+
+
+def test_parse_rejects_static_constructor() -> None:
+    source = """
+class Counter {
+    static constructor() {
+        return;
+    }
+}
+"""
+    with pytest.raises(ParserError, match="'static' modifier is not allowed on constructors"):
+        parse(lex(source, source_path="examples/static_constructor_parse.nif"))
+
+
+def test_parse_rejects_final_constructor() -> None:
+    source = """
+class Counter {
+    final constructor() {
+        return;
+    }
+}
+"""
+    with pytest.raises(ParserError, match="'final' modifier is not allowed on constructors"):
+        parse(lex(source, source_path="examples/final_constructor_parse.nif"))
 
 
 def test_parse_interface_declarations_and_class_implements() -> None:
@@ -320,6 +422,7 @@ class Counter {
 
     cls = module.classes[0]
     assert len(cls.fields) == 1
+    assert cls.constructors == []
     assert cls.fields[0].name == "value"
     assert cls.fields[0].is_private is True
 

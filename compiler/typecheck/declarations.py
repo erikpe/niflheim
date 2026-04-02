@@ -2,10 +2,20 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from compiler.frontend.ast_nodes import ArrayTypeRef, FunctionDecl, FunctionTypeRef, InterfaceDecl, InterfaceMethodDecl, MethodDecl, TypeRef, TypeRefNode
+from compiler.frontend.ast_nodes import (
+    ArrayTypeRef,
+    ConstructorDecl,
+    FunctionDecl,
+    FunctionTypeRef,
+    InterfaceDecl,
+    InterfaceMethodDecl,
+    MethodDecl,
+    TypeRef,
+    TypeRefNode,
+)
 
 from compiler.typecheck.context import TypeCheckContext
-from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError, TypeInfo
+from compiler.typecheck.model import ClassInfo, ConstructorInfo, FunctionSig, InterfaceInfo, TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
     lookup_interface_by_type_name,
     resolve_imported_class_name,
@@ -31,6 +41,57 @@ def _function_sig_from_decl(ctx: TypeCheckContext, decl: FunctionDecl | MethodDe
 def _interface_sig_from_decl(ctx: TypeCheckContext, decl: InterfaceMethodDecl) -> FunctionSig:
     params = [resolve_type_ref(ctx, param.type_ref) for param in decl.params]
     return FunctionSig(name=decl.name, params=params, return_type=resolve_type_ref(ctx, decl.return_type))
+
+
+def _constructor_info_from_decl(ctx: TypeCheckContext, decl: ConstructorDecl, ordinal: int) -> ConstructorInfo:
+    params = [resolve_type_ref(ctx, param.type_ref) for param in decl.params]
+    return ConstructorInfo(
+        ordinal=ordinal,
+        params=params,
+        param_names=[param.name for param in decl.params],
+        is_private=decl.is_private,
+    )
+
+
+def _type_signature_key(type_info: TypeInfo) -> tuple:
+    element_key = None if type_info.element_type is None else _type_signature_key(type_info.element_type)
+    callable_param_keys = None
+    if type_info.callable_params is not None:
+        callable_param_keys = tuple(_type_signature_key(param) for param in type_info.callable_params)
+    callable_return_key = None
+    if type_info.callable_return is not None:
+        callable_return_key = _type_signature_key(type_info.callable_return)
+    return (type_info.name, type_info.kind, element_key, callable_param_keys, callable_return_key)
+
+
+def _constructor_signature_key(constructor_info: ConstructorInfo) -> tuple:
+    return tuple(_type_signature_key(param_type) for param_type in constructor_info.params)
+
+
+def _compatibility_constructor_info(class_decl, fields: dict[str, TypeInfo], private_fields: set[str]) -> ConstructorInfo:
+    param_names = [field_decl.name for field_decl in class_decl.fields if field_decl.initializer is None]
+    return ConstructorInfo(
+        ordinal=0,
+        params=[fields[param_name] for param_name in param_names],
+        param_names=param_names,
+        is_private=len(private_fields) > 0,
+    )
+
+
+def _collect_constructors(ctx: TypeCheckContext, class_decl, fields: dict[str, TypeInfo], private_fields: set[str]) -> list[ConstructorInfo]:
+    if not class_decl.constructors:
+        return [_compatibility_constructor_info(class_decl, fields, private_fields)]
+
+    constructors: list[ConstructorInfo] = []
+    seen_signatures: set[tuple] = set()
+    for ordinal, constructor_decl in enumerate(class_decl.constructors):
+        constructor_info = _constructor_info_from_decl(ctx, constructor_decl, ordinal)
+        signature_key = _constructor_signature_key(constructor_info)
+        if signature_key in seen_signatures:
+            raise TypeCheckError("Duplicate constructor signature", constructor_decl.span)
+        seen_signatures.add(signature_key)
+        constructors.append(constructor_info)
+    return constructors
 
 
 def _contains_interface_type(type_info: TypeInfo) -> bool:
@@ -66,12 +127,11 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
             name=class_decl.name,
             fields={},
             field_order=[],
-            constructor_param_order=[],
+            constructors=[],
             methods={},
             private_fields=set(),
             final_fields=set(),
             private_methods=set(),
-            constructor_is_private=False,
             implemented_interfaces=set(),
         )
 
@@ -87,13 +147,10 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
     for class_decl in ctx.module_ast.classes:
         fields: dict[str, TypeInfo] = {}
         field_order: list[str] = []
-        constructor_param_order: list[str] = []
         for field_decl in class_decl.fields:
             if field_decl.name in fields:
                 raise TypeCheckError(f"Duplicate field '{field_decl.name}'", field_decl.span)
             field_type = resolve_type_ref(ctx, field_decl.type_ref)
-            if field_decl.initializer is None:
-                constructor_param_order.append(field_decl.name)
             fields[field_decl.name] = field_type
             field_order.append(field_decl.name)
 
@@ -108,17 +165,17 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
         private_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_private}
         final_fields = {field_decl.name for field_decl in class_decl.fields if field_decl.is_final}
         private_methods = {method_decl.name for method_decl in class_decl.methods if method_decl.is_private}
+        constructors = _collect_constructors(ctx, class_decl, fields, private_fields)
 
         ctx.classes[class_decl.name] = ClassInfo(
             name=class_decl.name,
             fields=fields,
             field_order=field_order,
-            constructor_param_order=constructor_param_order,
+            constructors=constructors,
             methods=methods,
             private_fields=private_fields,
             final_fields=final_fields,
             private_methods=private_methods,
-            constructor_is_private=len(private_fields) > 0,
             implemented_interfaces=set(),
         )
 

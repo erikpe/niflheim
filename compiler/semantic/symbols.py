@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from compiler.frontend.ast_nodes import ClassDecl, FunctionDecl, InterfaceDecl, InterfaceMethodDecl, MethodDecl
+from compiler.frontend.ast_nodes import ClassDecl, ConstructorDecl, FunctionDecl, InterfaceDecl, InterfaceMethodDecl, MethodDecl
 from compiler.resolver import ModulePath, ProgramInfo
 
 
@@ -43,9 +43,10 @@ class InterfaceMethodId:
 class ConstructorId:
     module_path: ModulePath
     class_name: str
+    ordinal: int = 0
 
 
-LocalOwnerId = FunctionId | MethodId
+LocalOwnerId = FunctionId | MethodId | ConstructorId
 
 
 @dataclass(frozen=True)
@@ -65,7 +66,7 @@ class ProgramSymbolIndex:
     methods: dict[MethodId, MethodDecl]
     interfaces: dict[InterfaceId, InterfaceDecl]
     interface_methods: dict[InterfaceMethodId, InterfaceMethodDecl]
-    constructors: dict[ConstructorId, ClassDecl]
+    constructors: dict[ConstructorId, ClassDecl | ConstructorDecl]
     local_functions_by_module: dict[ModulePath, dict[str, FunctionId]]
     local_classes_by_module: dict[ModulePath, dict[str, ClassId]]
     local_interfaces_by_module: dict[ModulePath, dict[str, InterfaceId]]
@@ -95,8 +96,8 @@ def interface_method_id_for_decl(
     return InterfaceMethodId(module_path=module_path, interface_name=interface_decl.name, name=decl.name)
 
 
-def constructor_id_for_class(module_path: ModulePath, decl: ClassDecl) -> ConstructorId:
-    return ConstructorId(module_path=module_path, class_name=decl.name)
+def constructor_id_for_class(module_path: ModulePath, decl: ClassDecl, *, ordinal: int = 0) -> ConstructorId:
+    return ConstructorId(module_path=module_path, class_name=decl.name, ordinal=ordinal)
 
 
 def iter_program_functions(program: ProgramInfo) -> Iterator[tuple[FunctionId, FunctionDecl]]:
@@ -131,10 +132,14 @@ def iter_program_interface_methods(program: ProgramInfo) -> Iterator[tuple[Inter
                 yield interface_method_id_for_decl(module_path, interface_decl, method_decl), method_decl
 
 
-def iter_program_constructors(program: ProgramInfo) -> Iterator[tuple[ConstructorId, ClassDecl]]:
+def iter_program_constructors(program: ProgramInfo) -> Iterator[tuple[ConstructorId, ClassDecl | ConstructorDecl]]:
     for module_path, module_info in program.modules.items():
         for class_decl in module_info.ast.classes:
-            yield constructor_id_for_class(module_path, class_decl), class_decl
+            if not class_decl.constructors:
+                yield constructor_id_for_class(module_path, class_decl), class_decl
+                continue
+            for ordinal, constructor_decl in enumerate(class_decl.constructors):
+                yield constructor_id_for_class(module_path, class_decl, ordinal=ordinal), constructor_decl
 
 
 def resolve_visible_interface_id(

@@ -6,6 +6,7 @@ import compiler.codegen.types as codegen_types
 
 from compiler.semantic.lowered_ir import (
     LoweredSemanticBlock,
+    LoweredSemanticConstructor,
     LoweredSemanticForIn,
     LoweredSemanticFunction,
     LoweredSemanticIf,
@@ -41,7 +42,12 @@ class NamedRootLiveness:
 
 
 def analyze_named_root_liveness(
-    owner: SemanticFunction | SemanticMethod | LoweredSemanticFunction | LoweredSemanticMethod,
+    owner: SemanticFunction
+    | SemanticMethod
+    | SemanticConstructor
+    | LoweredSemanticFunction
+    | LoweredSemanticMethod
+    | LoweredSemanticConstructor,
 ) -> NamedRootLiveness:
     analyzer = _NamedRootLivenessAnalyzer(owner)
     return analyzer.analyze()
@@ -49,7 +55,13 @@ def analyze_named_root_liveness(
 
 class _NamedRootLivenessAnalyzer:
     def __init__(
-        self, owner: SemanticFunction | SemanticMethod | LoweredSemanticFunction | LoweredSemanticMethod
+        self,
+        owner: SemanticFunction
+        | SemanticMethod
+        | SemanticConstructor
+        | LoweredSemanticFunction
+        | LoweredSemanticMethod
+        | LoweredSemanticConstructor,
     ) -> None:
         self.owner = owner
         self._tracked_named_roots = {

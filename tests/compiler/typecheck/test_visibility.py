@@ -34,6 +34,34 @@ fn main() -> i64 {
     parse_and_typecheck(source)
 
 
+def test_typecheck_allows_private_members_inside_constructor_body() -> None:
+    source = """
+class Counter {
+    private value: i64;
+
+    private fn hidden(delta: i64) -> i64 {
+        return __self.value + delta;
+    }
+
+    constructor(value: i64) {
+        __self.value = value;
+        __self.value = __self.hidden(2);
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(5);
+    return c.read();
+}
+"""
+    parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_private_field_access_outside_class() -> None:
     source = """
 class Counter {
@@ -166,6 +194,108 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="Constructor for class 'Counter' is private"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_allows_public_explicit_constructor_on_class_with_private_field() -> None:
+    source = """
+class Counter {
+    private value: i64;
+
+    constructor(value: i64) {
+        __self.value = value;
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(1);
+    return c.read();
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_allows_public_constructor_overload_when_selected() -> None:
+    source = """
+class Key {
+}
+
+class Sink {
+    private constructor(value: Obj) {
+        return;
+    }
+
+    constructor(value: Key) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink(Key());
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_private_explicit_constructor_call_outside_class() -> None:
+    source = """
+class Counter {
+    private value: i64;
+
+    private constructor(value: i64) {
+        __self.value = value;
+        return;
+    }
+
+    static fn make(value: i64) -> Counter {
+        return Counter(value);
+    }
+}
+
+fn main() -> unit {
+    var a: Counter = Counter.make(1);
+    var b: Counter = Counter(2);
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Constructor for class 'Counter' is private"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_private_constructor_overload_when_selected() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+class Sink {
+    constructor(value: Obj) {
+        return;
+    }
+
+    private constructor(value: Hashable) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink(Key());
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Constructor for class 'Sink' is private"):
         parse_and_typecheck(source)
 
 

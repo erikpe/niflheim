@@ -79,6 +79,7 @@ class SemanticClass:
     methods: list["SemanticMethod"]
     span: SourceSpan
     implemented_interfaces: list[InterfaceId] = field(default_factory=list)
+    constructors: list["SemanticConstructor"] = field(default_factory=list)
 
 
 LocalBindingKind = Literal[
@@ -127,7 +128,17 @@ class SemanticMethod:
     local_info_by_id: dict[LocalId, SemanticLocalInfo] = field(default_factory=dict)
 
 
-SemanticFunctionLike = SemanticFunction | SemanticMethod
+@dataclass(frozen=True)
+class SemanticConstructor:
+    constructor_id: ConstructorId
+    params: list[SemanticParam]
+    body: "SemanticBlock | None"
+    is_private: bool
+    span: SourceSpan
+    local_info_by_id: dict[LocalId, SemanticLocalInfo] = field(default_factory=dict)
+
+
+SemanticFunctionLike = SemanticFunction | SemanticMethod | SemanticConstructor
 
 
 def local_info_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> SemanticLocalInfo | None:
@@ -581,4 +592,6 @@ def expression_type_ref(expr: SemanticExpr) -> SemanticTypeRef:
 def _owner_module_path(owner: SemanticFunctionLike) -> ModulePath:
     if hasattr(owner, "function_id"):
         return owner.function_id.module_path
-    return owner.method_id.module_path
+    if hasattr(owner, "method_id"):
+        return owner.method_id.module_path
+    return owner.constructor_id.module_path

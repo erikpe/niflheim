@@ -16,7 +16,7 @@ from compiler.typecheck.type_resolution import resolve_type_ref
 
 from compiler.semantic.lowering.collections import resolve_collection_dispatch, try_lower_slice_assign_stmt
 from compiler.semantic.lowering.references import lower_lvalue
-from compiler.semantic.symbols import FunctionId, MethodId
+from compiler.semantic.symbols import ConstructorId, FunctionId, MethodId
 
 
 @dataclass(frozen=True)
@@ -28,7 +28,7 @@ class LoweredFunctionBody:
 def lower_function_like_body(
     typecheck_ctx: TypeCheckContext,
     *,
-    owner_id: FunctionId | MethodId,
+    owner_id: FunctionId | MethodId | ConstructorId,
     symbol_index,
     params: list[ParamDecl],
     body: BlockStmt,

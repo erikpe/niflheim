@@ -80,6 +80,14 @@ class MethodDecl:
 
 
 @dataclass(frozen=True)
+class ConstructorDecl:
+    params: list[ParamDecl]
+    body: "BlockStmt"
+    is_private: bool
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class FunctionDecl:
     name: str
     params: list[ParamDecl]
@@ -98,6 +106,7 @@ class ClassDecl:
     is_export: bool
     span: SourceSpan
     implements: list[TypeRefNode] = field(default_factory=list)
+    constructors: list[ConstructorDecl] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

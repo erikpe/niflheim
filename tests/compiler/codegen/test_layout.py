@@ -105,6 +105,47 @@ def test_codegen_build_constructor_layout_tracks_params_and_allocated_object_roo
     assert layout.stack_size % 16 == 0
 
 
+def test_codegen_build_explicit_constructor_layout_tracks_receiver_params_and_locals(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        class Box {
+            next: Obj;
+
+            constructor(next: Obj) {
+                var tmp: Obj = next;
+                __self.next = tmp;
+                return;
+            }
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
+    cls = next(cls for cls in program.classes if cls.class_id.module_path == ("main",) and cls.class_id.name == "Box")
+    constructor = cls.constructors[0]
+    declaration_tables = ProgramGenerator(program).build_declaration_tables()
+    ctor_layout = declaration_tables.constructor_layout(ConstructorId(module_path=("main",), class_name="Box"))
+    assert ctor_layout is not None
+
+    layout = build_constructor_layout(
+        cls,
+        ctor_layout,
+        constructor_object_slot_name=CONSTRUCTOR_OBJECT_SLOT_NAME,
+        constructor=constructor,
+    )
+
+    assert [slot.key for slot in layout.slots] == ["__self", "next", "tmp"]
+    assert [slot.key for slot in layout.root_slots] == ["__self", "next", "tmp"]
+    assert CONSTRUCTOR_OBJECT_SLOT_NAME not in layout.slot_names
+    assert layout.root_slot_count == 3
+
+
 def test_codegen_build_layout_assigns_distinct_slots_to_shadowed_locals(tmp_path) -> None:
     source = tmp_path / "main.nif"
     source.write_text(

@@ -324,6 +324,47 @@ def test_typecheck_program_rejects_private_implicit_constructor_call_across_modu
         typecheck_program(program)
 
 
+def test_typecheck_program_allows_imported_overloaded_constructor_resolution(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        export class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        export class Sink {
+            private constructor(value: Obj) {
+                return;
+            }
+
+            constructor(value: Key) {
+                return;
+            }
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            var s: Sink = Sink(Key());
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_allows_imported_public_implicit_constructor_with_final_field(tmp_path: Path) -> None:
     write(
         tmp_path / "util.nif",

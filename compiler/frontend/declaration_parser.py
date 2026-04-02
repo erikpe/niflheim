@@ -145,6 +145,7 @@ class DeclarationParser:
 
         fields: list[FieldDecl] = []
         methods: list[MethodDecl] = []
+        constructors: list[ConstructorDecl] = []
         while not self.stream.check(TokenKind.RBRACE):
             if self.stream.is_at_end():
                 raise ParserError("Unterminated class body", class_token.span)
@@ -152,6 +153,8 @@ class DeclarationParser:
             member = self._parse_class_member(class_token)
             if isinstance(member, FieldDecl):
                 fields.append(member)
+            elif isinstance(member, ConstructorDecl):
+                constructors.append(member)
             else:
                 methods.append(member)
 
@@ -164,13 +167,19 @@ class DeclarationParser:
             is_export=is_export,
             span=SourceSpan(start=start_pos, end=rbrace.span.end),
             implements=implements,
+            constructors=constructors,
         )
 
-    def _parse_class_member(self, class_token: Token) -> FieldDecl | MethodDecl:
+    def _parse_class_member(self, class_token: Token) -> FieldDecl | ConstructorDecl | MethodDecl:
         modifiers = self._parse_class_member_modifiers()
 
         if self.stream.match(TokenKind.STATIC):
+            if self.stream.check(TokenKind.CONSTRUCTOR):
+                raise ParserError("'static' modifier is not allowed on constructors", self.stream.peek().span)
             return self._parse_static_method_decl(modifiers)
+
+        if self.stream.match(TokenKind.CONSTRUCTOR):
+            return self._parse_constructor_decl(modifiers)
 
         if self.stream.match(TokenKind.FN):
             return self._parse_instance_method_decl(modifiers)
@@ -223,6 +232,22 @@ class DeclarationParser:
             is_static=False,
             is_private=modifiers.is_private,
             start_token=modifiers.start_token,
+        )
+
+    def _parse_constructor_decl(self, modifiers: ClassMemberModifiers) -> ConstructorDecl:
+        if modifiers.is_final:
+            raise ParserError("'final' modifier is not allowed on constructors", modifiers.start_token.span)
+        constructor_token = self.stream.previous()
+        params = self._parse_param_list("Expected '(' after 'constructor'")
+        if self.stream.check(TokenKind.ARROW):
+            raise ParserError("Constructors cannot declare a return type", self.stream.peek().span)
+        body = self._parse_block_stmt()
+        start = modifiers.start_token.span.start if modifiers.start_token is not None else constructor_token.span.start
+        return ConstructorDecl(
+            params=params,
+            body=body,
+            is_private=modifiers.is_private,
+            span=SourceSpan(start=start, end=body.span.end),
         )
 
     def _parse_interface_decl(
@@ -326,7 +351,13 @@ class DeclarationParser:
 
     def _parse_callable_signature(self) -> tuple[str, list[ParamDecl], TypeRefNode]:
         name = self.stream.expect(TokenKind.IDENT, "Expected function name")
-        self.stream.expect(TokenKind.LPAREN, "Expected '(' after function name")
+        params = self._parse_param_list("Expected '(' after function name")
+        self.stream.expect(TokenKind.ARROW, "Expected '->' after parameter list")
+        return_type = self._parse_type_ref()
+        return name.lexeme, params, return_type
+
+    def _parse_param_list(self, lparen_message: str) -> list[ParamDecl]:
+        self.stream.expect(TokenKind.LPAREN, lparen_message)
 
         params: list[ParamDecl] = []
         if not self.stream.check(TokenKind.RPAREN):
@@ -336,9 +367,7 @@ class DeclarationParser:
                     break
 
         self.stream.expect(TokenKind.RPAREN, "Expected ')' after parameters")
-        self.stream.expect(TokenKind.ARROW, "Expected '->' after parameter list")
-        return_type = self._parse_type_ref()
-        return name.lexeme, params, return_type
+        return params
 
     def _parse_param(self) -> ParamDecl:
         name = self.stream.expect(TokenKind.IDENT, "Expected parameter name")

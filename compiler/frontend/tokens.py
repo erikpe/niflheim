@@ -20,6 +20,7 @@ class TokenKind(str, Enum):
     EXPORT = "EXPORT"
     EXTERN = "EXTERN"
     CLASS = "CLASS"
+    CONSTRUCTOR = "CONSTRUCTOR"
     INTERFACE = "INTERFACE"
     IMPLEMENTS = "IMPLEMENTS"
     PRIVATE = "PRIVATE"
@@ -99,6 +100,7 @@ KEYWORDS: dict[str, TokenKind] = {
     "export": TokenKind.EXPORT,
     "extern": TokenKind.EXTERN,
     "class": TokenKind.CLASS,
+    "constructor": TokenKind.CONSTRUCTOR,
     "interface": TokenKind.INTERFACE,
     "implements": TokenKind.IMPLEMENTS,
     "private": TokenKind.PRIVATE,

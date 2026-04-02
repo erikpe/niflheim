@@ -158,6 +158,7 @@ def lower_interface_method(
 
 
 def lower_class(lower_ctx: ModuleLoweringContext, module_path: ModulePath, class_decl: ClassDecl) -> SemanticClass:
+    class_info = lower_ctx.typecheck_ctx.classes[class_decl.name]
     return SemanticClass(
         class_id=class_id_for_decl(module_path, class_decl),
         is_export=class_decl.is_export,
@@ -168,7 +169,66 @@ def lower_class(lower_ctx: ModuleLoweringContext, module_path: ModulePath, class
             interface_id_for_type_name(module_path, resolved_type_name(lower_ctx.typecheck_ctx, interface_ref))
             for interface_ref in class_decl.implements
         ],
+        constructors=lower_constructors(lower_ctx, module_path, class_decl, class_info),
     )
+
+
+def lower_constructors(
+    lower_ctx: ModuleLoweringContext,
+    module_path: ModulePath,
+    class_decl: ClassDecl,
+    class_info: ClassInfo,
+) -> list[SemanticConstructor]:
+    if not class_decl.constructors:
+        compatibility_constructor = class_info.constructors[0]
+        return [
+            SemanticConstructor(
+                constructor_id=ConstructorId(
+                    module_path=module_path,
+                    class_name=class_decl.name,
+                    ordinal=compatibility_constructor.ordinal,
+                ),
+                params=[
+                    SemanticParam(
+                        name=param_name,
+                        type_ref=semantic_type_ref_from_checked_type(lower_ctx.typecheck_ctx, param_type),
+                        span=class_decl.span,
+                    )
+                    for param_name, param_type in zip(
+                        compatibility_constructor.param_names,
+                        compatibility_constructor.params,
+                        strict=True,
+                    )
+                ],
+                body=None,
+                is_private=compatibility_constructor.is_private,
+                span=class_decl.span,
+            )
+        ]
+
+    semantic_constructors: list[SemanticConstructor] = []
+    for ordinal, constructor_decl in enumerate(class_decl.constructors):
+        constructor_info = class_info.constructors[ordinal]
+        lowered_body = lower_function_like_body(
+            lower_ctx.typecheck_ctx,
+            owner_id=ConstructorId(module_path=module_path, class_name=class_decl.name, ordinal=ordinal),
+            symbol_index=lower_ctx.symbol_index,
+            params=constructor_decl.params,
+            body=constructor_decl.body,
+            receiver_type=TypeInfo(name=class_decl.name, kind="reference"),
+            owner_class_name=class_decl.name,
+        )
+        semantic_constructors.append(
+            SemanticConstructor(
+                constructor_id=ConstructorId(module_path=module_path, class_name=class_decl.name, ordinal=ordinal),
+                params=[lower_param(lower_ctx.typecheck_ctx, param) for param in constructor_decl.params],
+                body=lowered_body.body,
+                is_private=constructor_info.is_private,
+                span=constructor_decl.span,
+                local_info_by_id=lowered_body.local_info_by_id,
+            )
+        )
+    return semantic_constructors
 
 
 def lower_field(lower_ctx: ModuleLoweringContext, field_decl) -> SemanticField:

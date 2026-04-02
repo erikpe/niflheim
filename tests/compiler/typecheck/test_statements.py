@@ -180,3 +180,104 @@ fn main() -> unit {
 }
 """
     parse_and_typecheck(source)
+
+
+def test_typecheck_allows_implicit___self_in_constructor_body() -> None:
+    source = """
+class Counter {
+    value: i64;
+
+    constructor(value: i64) {
+        __self.value = value;
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}
+
+fn main() -> unit {
+    var c: Counter = Counter(7);
+    var value: i64 = c.read();
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_value_return_in_constructor_body() -> None:
+    source = """
+class Counter {
+    constructor() {
+        return 1;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Constructors cannot return a value"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_missing_required_field_initialization_in_constructor() -> None:
+    source = """
+class Counter {
+    value: i64;
+
+    constructor() {
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Constructor for class 'Counter' does not initialize field 'value'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_allows_single_assignment_to_final_field_in_constructor() -> None:
+    source = """
+class Counter {
+    final value: i64;
+
+    constructor(value: i64) {
+        __self.value = value;
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}
+
+fn main() -> i64 {
+    var c: Counter = Counter(7);
+    return c.read();
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_double_assignment_to_final_field_in_constructor() -> None:
+    source = """
+class Counter {
+    final value: i64;
+
+    constructor(value: i64) {
+        __self.value = value;
+        __self.value = value;
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Final field 'Counter.value' may be assigned multiple times in constructor"):
+        parse_and_typecheck(source)
