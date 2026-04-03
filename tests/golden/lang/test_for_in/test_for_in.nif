@@ -72,6 +72,20 @@ class RefSeq {
     }
 }
 
+class BaseSeq {
+    values: i64[];
+
+    fn iter_len() -> u64 {
+        return __self.values.len();
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+}
+
+class DerivedSeq extends BaseSeq {}
+
 fn test_basic_sum_and_call_counts() -> unit {
     var values: i64[] = i64[](4u);
     values[0] = 5;
@@ -249,6 +263,34 @@ fn test_for_in_over_reference_array() -> unit {
     assert(sum == 7);
 }
 
+fn test_for_in_over_inherited_iter_methods() -> unit {
+    var values: i64[] = i64[](3u);
+    values[0] = 4;
+    values[1] = 9;
+    values[2] = 1;
+
+    var seq: DerivedSeq = DerivedSeq(values);
+    var sum: i64 = 0;
+
+    for elem in seq {
+        sum = sum + elem;
+    }
+
+    assert(sum == 14);
+}
+
+fn test_for_in_loop_variable_shadowing_preserves_outer_local() -> unit {
+    var value: i64 = 100;
+    var total: i64 = 0;
+
+    for value in Range(3u) {
+        total = total + value;
+    }
+
+    assert(total == 3);
+    assert(value == 100);
+}
+
 fn main() -> i64 {
     var select: u64 = read_stdin().strip().to_u64();
 
@@ -263,6 +305,8 @@ fn main() -> i64 {
     if select == 9u { test_iter_get_returns_reference_type(); }
     if select == 10u { test_for_in_over_primitive_array(); }
     if select == 11u { test_for_in_over_reference_array(); }
+    if select == 12u { test_for_in_over_inherited_iter_methods(); }
+    if select == 13u { test_for_in_loop_variable_shadowing_preserves_outer_local(); }
 
     return 0;
 }

@@ -1,0 +1,17 @@
+class Seq {
+    fn iter_len() -> u64 {
+        return 0u;
+    }
+
+    private fn iter_get(index: i64) -> i64 {
+        return index;
+    }
+}
+
+fn main() -> unit {
+    var seq: Seq = Seq();
+    for value in seq {
+        return;
+    }
+    return;
+}

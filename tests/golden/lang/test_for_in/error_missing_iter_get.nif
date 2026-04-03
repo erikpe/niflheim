@@ -1,0 +1,13 @@
+class Seq {
+    fn iter_len() -> u64 {
+        return 0u;
+    }
+}
+
+fn main() -> unit {
+    var seq: Seq = Seq();
+    for value in seq {
+        return;
+    }
+    return;
+}

@@ -1,0 +1,6 @@
+fn main() -> unit {
+    for value in 1 {
+        return;
+    }
+    return;
+}

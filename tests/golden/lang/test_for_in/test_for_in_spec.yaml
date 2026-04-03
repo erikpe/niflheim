@@ -14,3 +14,29 @@ tests:
       - {name: "iter_get_returns_reference_type", input: {stdin: "9"}, expect: {exit_code: 0}}
       - {name: "for_in_over_primitive_array", input: {stdin: "10"}, expect: {exit_code: 0}}
       - {name: "for_in_over_reference_array", input: {stdin: "11"}, expect: {exit_code: 0}}
+      - {name: "for_in_over_inherited_iter_methods", input: {stdin: "12"}, expect: {exit_code: 0}}
+      - {name: "loop_variable_shadowing_preserves_outer_local", input: {stdin: "13"}, expect: {exit_code: 0}}
+  - mode: "compile-fail"
+    name: "non_iterable_primitive"
+    src_file: "error_non_iterable_primitive.nif"
+    compile_error_match: "Type 'i64' is not iterable (missing methods 'iter_len()' and 'iter_get(i64)')"
+  - mode: "compile-fail"
+    name: "missing_iter_get"
+    src_file: "error_missing_iter_get.nif"
+    compile_error_match: "Type 'Seq' is not iterable (missing method 'iter_get(i64)')"
+  - mode: "compile-fail"
+    name: "iter_len_must_be_instance_method"
+    src_file: "error_static_iter_len.nif"
+    compile_error_match: "Type 'Seq' is not iterable (method 'iter_len' must be instance method with 0 args)"
+  - mode: "compile-fail"
+    name: "iter_len_must_return_u64"
+    src_file: "error_iter_len_wrong_return.nif"
+    compile_error_match: "Type 'Seq' is not iterable (method 'iter_len' must return u64)"
+  - mode: "compile-fail"
+    name: "iter_get_parameter_must_be_i64"
+    src_file: "error_iter_get_wrong_param.nif"
+    compile_error_match: "Type 'Seq' is not iterable (method 'iter_get' parameter must be i64)"
+  - mode: "compile-fail"
+    name: "private_iter_get_is_not_visible"
+    src_file: "error_private_iter_get.nif"
+    compile_error_match: "Member 'Seq.iter_get' is private"
