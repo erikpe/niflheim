@@ -1,4 +1,20 @@
 import std.io;
+import tests.golden.lang.test_shadowing.util;
+
+fn choose(flag: bool) -> i64 {
+    if flag {
+        return 1;
+    }
+    return 2;
+}
+
+fn inc(v: i64) -> i64 {
+    return v + 1;
+}
+
+fn twice(v: i64) -> i64 {
+    return v * 2;
+}
 
 fn test_nested_block_shadowing() -> unit {
     var value: i64 = 10;
@@ -43,6 +59,21 @@ fn test_param_shadowing_and_outer_restore(seed: i64) -> unit {
     println_i64(sum);
 }
 
+fn test_top_level_body_shadow_uses_param_initializer(seed: i64) -> unit {
+    var seed: i64 = seed + 10;
+    println_i64(seed);
+}
+
+fn test_direct_call_prefers_local_callable_shadow() -> unit {
+    var choose: fn(i64) -> i64 = inc;
+    println_i64(choose(41));
+}
+
+fn test_direct_call_prefers_local_callable_over_imported_constructor() -> unit {
+    var Counter: fn(i64) -> i64 = twice;
+    println_i64(Counter(21));
+}
+
 fn main() -> i64 {
     var select: u64 = read_stdin().strip().to_u64();
 
@@ -56,6 +87,18 @@ fn main() -> i64 {
     }
     if select == 3u {
         test_param_shadowing_and_outer_restore(5);
+        return 0;
+    }
+    if select == 4u {
+        test_top_level_body_shadow_uses_param_initializer(5);
+        return 0;
+    }
+    if select == 5u {
+        test_direct_call_prefers_local_callable_shadow();
+        return 0;
+    }
+    if select == 6u {
+        test_direct_call_prefers_local_callable_over_imported_constructor();
         return 0;
     }
 

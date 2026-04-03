@@ -8,7 +8,7 @@ from compiler.typecheck.call_helpers import (
     class_type_name_from_callable,
     infer_constructor_call_type as infer_constructor_call_type_from_types,
 )
-from compiler.typecheck.context import TypeCheckContext
+from compiler.typecheck.context import TypeCheckContext, lookup_variable
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.module_lookup import (
@@ -51,6 +51,10 @@ def _infer_identifier_call_type(ctx: TypeCheckContext, expr: CallExpr) -> TypeIn
         return None
 
     name = expr.callee.name
+
+    # Lexical locals shadow top-level functions and constructors on direct calls.
+    if lookup_variable(ctx, name) is not None:
+        return None
 
     fn_sig = ctx.functions.get(name)
     if fn_sig is not None:

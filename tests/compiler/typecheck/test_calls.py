@@ -82,6 +82,27 @@ fn main() -> i64 {
     parse_and_typecheck(source)
 
 
+def test_typecheck_prefers_local_callable_over_same_named_function_for_direct_call() -> None:
+    source = """
+fn choose(flag: bool) -> i64 {
+    if flag {
+        return 1;
+    }
+    return 2;
+}
+
+fn inc(v: i64) -> i64 {
+    return v + 1;
+}
+
+fn main() -> i64 {
+    var choose: fn(i64) -> i64 = inc;
+    return choose(41);
+}
+"""
+    parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_instance_method_value_in_mvp() -> None:
     source = """
 class Math {

@@ -14,7 +14,7 @@ from compiler.semantic.symbols import (
 from compiler.typecheck.call_helpers import select_constructor_overload
 from compiler.typecheck.model import TypeInfo
 from compiler.typecheck.calls import infer_call_type
-from compiler.typecheck.context import TypeCheckContext
+from compiler.typecheck.context import TypeCheckContext, lookup_variable_binding
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.semantic.lowering.resolution import (
@@ -92,6 +92,9 @@ def resolve_identifier_call_target(
     typecheck_ctx: TypeCheckContext, symbol_index: ProgramSymbolIndex, expr: CallExpr
 ) -> ResolvedCallTarget | None:
     if not isinstance(expr.callee, IdentifierExpr):
+        return None
+
+    if lookup_variable_binding(typecheck_ctx, expr.callee.name) is not None:
         return None
 
     value_target = resolve_identifier_value_target(typecheck_ctx, symbol_index, expr.callee)

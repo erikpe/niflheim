@@ -1,0 +1,7 @@
+fn choose(value: i64, value: i64) -> i64 {
+    return value;
+}
+
+fn main() -> unit {
+    return;
+}

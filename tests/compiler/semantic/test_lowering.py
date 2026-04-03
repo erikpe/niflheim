@@ -585,6 +585,37 @@ def test_lower_program_lowers_callable_value_calls_explicitly(tmp_path: Path) ->
     assert isinstance(callable_target.callee, FieldReadExpr)
 
 
+def test_lower_program_prefers_local_callable_over_same_named_function_for_direct_call(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn choose(flag: bool) -> i64 {
+            if flag {
+                return 1;
+            }
+            return 2;
+        }
+
+        fn inc(v: i64) -> i64 {
+            return v + 1;
+        }
+
+        fn main() -> i64 {
+            var choose: fn(i64) -> i64 = inc;
+            return choose(41);
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    return_stmt = semantic.modules[("main",)].functions[2].body.statements[1]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    callable_target = _assert_call_target(return_stmt.value, CallableValueCallTarget)
+    assert isinstance(callable_target.callee, LocalRefExpr)
+
+
 def test_lower_program_assigns_imported_canonical_ids_to_refs_and_calls(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",

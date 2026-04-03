@@ -1,0 +1,10 @@
+fn main() -> unit {
+    var value: i64 = 1;
+
+    {
+        var value: i64 = value + 10;
+        var value: i64 = 99;
+    }
+
+    return;
+}
