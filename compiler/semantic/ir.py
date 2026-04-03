@@ -78,6 +78,7 @@ class SemanticClass:
     fields: list[SemanticField]
     methods: list["SemanticMethod"]
     span: SourceSpan
+    superclass_id: ClassId | None = None
     implemented_interfaces: list[InterfaceId] = field(default_factory=list)
     constructors: list["SemanticConstructor"] = field(default_factory=list)
 

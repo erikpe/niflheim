@@ -561,11 +561,11 @@ Purpose:
 
 Checklist:
 
-- [ ] resolve inherited field reads/writes using the declaring base owner
-- [ ] resolve inherited instance methods to the declaring base `MethodId`
-- [ ] keep semantic/lowered classes annotated with `superclass_id`
-- [ ] keep semantic class method lists declaration-local only
-- [ ] propagate transitive interfaces into semantic classes and compatibility indexes
+- [x] resolve inherited field reads/writes using the declaring base owner
+- [x] resolve inherited instance methods to the declaring base `MethodId`
+- [x] keep semantic/lowered classes annotated with `superclass_id`
+- [x] keep semantic class method lists declaration-local only
+- [x] propagate transitive interfaces into semantic classes and compatibility indexes
 
 Tests:
 

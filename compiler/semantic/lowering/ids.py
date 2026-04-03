@@ -21,12 +21,13 @@ def resolve_instance_method_id(
     if class_info is None:
         raise ValueError(f"Cannot resolve structural method '{method_name}' on non-class type '{receiver_type_name}'")
 
-    method_sig = class_info.methods.get(method_name)
-    if method_sig is None:
+    method_member = class_info.method_members.get(method_name)
+    if method_member is None:
         raise ValueError(f"Missing instance method '{method_name}' on type '{receiver_type_name}'")
+    method_sig = method_member.signature
     if method_sig.is_static:
         raise ValueError(f"Expected instance method '{method_name}' on type '{receiver_type_name}'")
-    return method_id_for_type_name(typecheck_ctx.module_path, receiver_type_name, method_name)
+    return method_id_for_type_name(typecheck_ctx.module_path, method_member.owner_class_name, method_name)
 
 
 def resolve_static_method_id(typecheck_ctx: TypeCheckContext, owner_type_name: str, method_name: str) -> MethodId:
@@ -34,12 +35,13 @@ def resolve_static_method_id(typecheck_ctx: TypeCheckContext, owner_type_name: s
     if class_info is None:
         raise ValueError(f"Cannot resolve static method '{method_name}' on non-class type '{owner_type_name}'")
 
-    method_sig = class_info.methods.get(method_name)
-    if method_sig is None:
+    method_member = class_info.method_members.get(method_name)
+    if method_member is None:
         raise ValueError(f"Missing static method '{method_name}' on type '{owner_type_name}'")
+    method_sig = method_member.signature
     if not method_sig.is_static:
         raise ValueError(f"Expected static method '{method_name}' on type '{owner_type_name}'")
-    return method_id_for_type_name(typecheck_ctx.module_path, owner_type_name, method_name)
+    return method_id_for_type_name(typecheck_ctx.module_path, method_member.owner_class_name, method_name)
 
 
 def function_id_for_local_name(

@@ -194,3 +194,39 @@ def test_proven_compatible_type_names_include_implied_interfaces_and_obj(tmp_pat
     assert proven_compatible_type_names(compatibility_index, hashable_type_ref) == frozenset(
         {"main::Hashable", "Obj"}
     )
+
+
+def test_type_compatibility_helpers_include_superclasses_and_inherited_interfaces(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Base implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        class Derived extends Base {
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    compatibility_index = build_type_compatibility_index(semantic)
+    derived_type_ref = semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Derived"))
+    base_type_ref = semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Base"))
+    hashable_type_ref = semantic_type_ref_for_interface_id(InterfaceId(module_path=("main",), name="Hashable"))
+
+    assert exact_type_implies_runtime_compatibility(compatibility_index, derived_type_ref, base_type_ref) is True
+    assert exact_type_implies_runtime_compatibility(compatibility_index, derived_type_ref, hashable_type_ref) is True
+    assert proven_compatible_type_names(compatibility_index, derived_type_ref) == frozenset(
+        {"main::Derived", "main::Base", "main::Hashable", "Obj"}
+    )

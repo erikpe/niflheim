@@ -161,12 +161,11 @@ def resolve_field_access_member_target(
         return None
 
     if expr.field_name in class_info.fields:
-        field_type = qualify_member_type_for_owner(
-            typecheck_ctx, class_info.fields[expr.field_name], receiver_type.name
-        )
+        field_member = class_info.field_members[expr.field_name]
+        field_type = qualify_member_type_for_owner(typecheck_ctx, class_info.fields[expr.field_name], field_member.owner_class_name)
         return ResolvedFieldMemberTarget(
             access=_resolve_bound_member_access(typecheck_ctx, expr.object_expr, receiver_type),
-            owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type.name),
+            owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, field_member.owner_class_name),
             field_name=expr.field_name,
             type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, field_type),
         )

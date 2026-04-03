@@ -16,7 +16,7 @@ from compiler.semantic.lowering.resolution import (
     resolve_identifier_value_target,
     resolve_module_member_value_target,
 )
-from compiler.semantic.symbols import ConstructorId, build_program_symbol_index
+from compiler.semantic.symbols import ClassId, ConstructorId, MethodId, build_program_symbol_index
 from compiler.typecheck.context import declare_variable, pop_scope, push_scope
 from compiler.typecheck.model import TypeInfo
 
@@ -242,3 +242,56 @@ def test_resolve_call_target_selects_constructor_overload_ordinal(tmp_path: Path
 
     assert isinstance(call_target, ResolvedConstructorCallTarget)
     assert call_target.constructor_id == ConstructorId(module_path=("main",), class_name="Sink", ordinal=1)
+
+
+def test_resolution_helpers_use_declaring_owner_for_inherited_members(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            value: i64 = 1;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+
+        class Derived extends Base {
+            extra: i64 = 2;
+        }
+
+        fn main() -> i64 {
+            var d: Derived = Derived();
+            d.value;
+            var value: i64 = d.read();
+            return 0;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    contexts = build_typecheck_contexts(program)
+    ctx = contexts[("main",)]
+    statements = program.modules[("main",)].ast.functions[0].body.statements
+
+    field_expr = statements[1]
+    instance_method_expr = statements[2]
+    assert isinstance(field_expr, ExprStmt)
+    assert isinstance(field_expr.expression, FieldAccessExpr)
+    assert isinstance(instance_method_expr, VarDeclStmt)
+    assert isinstance(instance_method_expr.initializer, CallExpr)
+    assert isinstance(instance_method_expr.initializer.callee, FieldAccessExpr)
+
+    push_scope(ctx)
+    try:
+        declare_variable(ctx, "d", TypeInfo(name="Derived", kind="reference"), field_expr.expression.object_expr.span)
+        field_target = resolve_field_access_member_target(ctx, field_expr.expression)
+        instance_method_target = resolve_field_access_member_target(ctx, instance_method_expr.initializer.callee)
+    finally:
+        pop_scope(ctx)
+
+    assert isinstance(field_target, ResolvedFieldMemberTarget)
+    assert field_target.owner_class_id == ClassId(module_path=("main",), name="Base")
+
+    assert isinstance(instance_method_target, ResolvedInstanceMethodMemberTarget)
+    assert instance_method_target.method_id == MethodId(module_path=("main",), class_name="Base", name="read")

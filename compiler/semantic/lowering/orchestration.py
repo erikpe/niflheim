@@ -12,12 +12,12 @@ from compiler.semantic.symbols import *
 from compiler.semantic.types import SemanticTypeRef
 from compiler.typecheck.bodies import check_bodies
 from compiler.typecheck.context import TypeCheckContext
-from compiler.typecheck.declarations import collect_module_declarations, validate_interface_conformance
+from compiler.typecheck.declarations import collect_module_declarations, seed_module_declarations, validate_interface_conformance
 from compiler.typecheck.model import ClassInfo, FunctionSig, TypeInfo
 from compiler.typecheck.type_resolution import resolve_type_ref
 
 from compiler.semantic.lowering.expressions import lower_expr
-from compiler.semantic.lowering.ids import interface_id_for_type_name
+from compiler.semantic.lowering.ids import class_id_from_type_name, interface_id_for_type_name
 from compiler.semantic.lowering.statements import lower_function_like_body
 
 
@@ -95,6 +95,9 @@ def _build_checked_module_contexts(program: ProgramInfo) -> dict[ModulePath, Che
         )
 
     for ctx in typecheck_contexts.values():
+        seed_module_declarations(ctx)
+
+    for ctx in typecheck_contexts.values():
         collect_module_declarations(ctx)
 
     for ctx in typecheck_contexts.values():
@@ -165,9 +168,14 @@ def lower_class(lower_ctx: ModuleLoweringContext, module_path: ModulePath, class
         fields=[lower_field(lower_ctx, field_decl) for field_decl in class_decl.fields],
         methods=[lower_method(lower_ctx, module_path, class_decl, method_decl) for method_decl in class_decl.methods],
         span=class_decl.span,
+        superclass_id=(
+            None
+            if class_info.superclass_name is None
+            else class_id_from_type_name(module_path, class_info.superclass_name)
+        ),
         implemented_interfaces=[
-            interface_id_for_type_name(module_path, resolved_type_name(lower_ctx.typecheck_ctx, interface_ref))
-            for interface_ref in class_decl.implements
+            interface_id_for_type_name(module_path, interface_type_name)
+            for interface_type_name in sorted(class_info.implemented_interfaces)
         ],
         constructors=lower_constructors(lower_ctx, module_path, class_decl, class_info),
     )

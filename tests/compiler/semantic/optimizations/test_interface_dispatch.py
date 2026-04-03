@@ -130,3 +130,38 @@ def test_build_interface_dispatch_index_maps_multiple_interface_methods_to_same_
     expected = MethodId(module_path=("main",), class_name="Key", name="hash_code")
     assert hashable_method_id == expected
     assert identified_method_id == expected
+
+
+def test_build_interface_dispatch_index_maps_inherited_interface_method_to_base_method(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Base implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        class Derived extends Base {
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    semantic = _lower(tmp_path)
+    dispatch_index = build_interface_dispatch_index(semantic)
+
+    method_id = resolve_implementing_method(
+        dispatch_index,
+        ClassId(module_path=("main",), name="Derived"),
+        InterfaceMethodId(module_path=("main",), interface_name="Hashable", name="hash_code"),
+    )
+
+    assert method_id == MethodId(module_path=("main",), class_name="Base", name="hash_code")

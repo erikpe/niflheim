@@ -119,6 +119,7 @@ class LoweredSemanticClass:
     fields: list[LoweredSemanticField]
     methods: list[LoweredSemanticMethod]
     span: SourceSpan
+    superclass_id: ClassId | None = None
     implemented_interfaces: list[InterfaceId] = field(default_factory=list)
     constructors: list[LoweredSemanticConstructor] = field(default_factory=list)
 

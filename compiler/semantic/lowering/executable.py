@@ -107,6 +107,7 @@ def _lower_class(cls: SemanticClass) -> LoweredSemanticClass:
         fields=lowered_fields,
         methods=lowered_methods,
         span=cls.span,
+        superclass_id=cls.superclass_id,
         implemented_interfaces=list(cls.implemented_interfaces),
         constructors=lowered_constructors,
     )

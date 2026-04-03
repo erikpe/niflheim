@@ -273,6 +273,65 @@ def test_lower_program_builds_typed_semantic_constants_for_literals(tmp_path: Pa
     assert statements[4].initializer.constant.value == 1.5
 
 
+def test_lower_program_tracks_superclass_ids_and_inherited_member_owners(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Base implements Hashable {
+            value: i64 = 1;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        class Derived extends Base {
+            extra: i64 = 2;
+        }
+
+        fn use(value: Derived) -> i64 {
+            var read_value: i64 = value.read();
+            return value.value;
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    main_module = semantic.modules[("main",)]
+    classes_by_name = {cls.class_id.name: cls for cls in main_module.classes}
+    derived_class = classes_by_name["Derived"]
+
+    assert derived_class.superclass_id == ClassId(module_path=("main",), name="Base")
+    assert derived_class.methods == []
+    assert derived_class.implemented_interfaces == [InterfaceId(module_path=("main",), name="Hashable")]
+
+    use_fn = next(fn for fn in main_module.functions if fn.function_id.name == "use")
+    read_decl = use_fn.body.statements[0]
+    assert isinstance(read_decl, SemanticVarDecl)
+    read_call = read_decl.initializer
+    assert isinstance(read_call, CallExprS)
+    assert isinstance(read_call.target, InstanceMethodCallTarget)
+    assert read_call.target.method_id == MethodId(module_path=("main",), class_name="Base", name="read")
+
+    return_stmt = use_fn.body.statements[1]
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, FieldReadExpr)
+    assert return_stmt.value.owner_class_id == ClassId(module_path=("main",), name="Base")
+
+    lowered = lower_linked_semantic_program(link_semantic_program(semantic))
+    lowered_derived = next(cls for cls in lowered.classes if cls.class_id.name == "Derived")
+    assert lowered_derived.superclass_id == ClassId(module_path=("main",), name="Base")
+    assert lowered_derived.methods == []
+
+
 def test_lower_program_builds_typed_semantic_constants_for_hex_literals(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
