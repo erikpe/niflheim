@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from compiler.common.type_names import PRIMITIVE_TYPE_NAMES, REFERENCE_BUILTIN_TYPE_NAMES
 from compiler.frontend.ast_nodes import (
     ArrayTypeRef,
+    ClassDecl,
     ConstructorDecl,
     FunctionDecl,
     FunctionTypeRef,
@@ -114,6 +116,172 @@ def _reject_interface_types_in_extern_signature(fn_decl: FunctionDecl, signature
         raise TypeCheckError("Interface types are not allowed in extern signatures in v1", fn_decl.span)
 
 
+def _placeholder_class_info(name: str) -> ClassInfo:
+    return ClassInfo(
+        name=name,
+        superclass_name=None,
+        fields={},
+        field_order=[],
+        constructors=[],
+        methods={},
+        private_fields=set(),
+        final_fields=set(),
+        private_methods=set(),
+        implemented_interfaces=set(),
+    )
+
+
+def _placeholder_interface_info(name: str) -> InterfaceInfo:
+    return InterfaceInfo(name=name, methods={})
+
+
+def _lookup_module_classes(module_ast) -> dict[str, ClassDecl]:
+    return {class_decl.name: class_decl for class_decl in module_ast.classes}
+
+
+def _lookup_module_interfaces(module_ast) -> set[str]:
+    return {interface_decl.name for interface_decl in module_ast.interfaces}
+
+
+def _lookup_context_for_module(ctx: TypeCheckContext, module_path):
+    if module_path == ctx.module_path:
+        return ctx
+
+    if ctx.modules is None or module_path is None:
+        module_ast = ctx.module_ast
+    else:
+        module_ast = ctx.modules[module_path].ast
+
+    return TypeCheckContext(
+        module_ast=module_ast,
+        module_path=module_path,
+        modules=ctx.modules,
+        module_function_sigs=ctx.module_function_sigs,
+        module_class_infos=ctx.module_class_infos,
+        module_interface_infos=ctx.module_interface_infos,
+        classes={class_decl.name: _placeholder_class_info(class_decl.name) for class_decl in module_ast.classes},
+        interfaces={
+            interface_decl.name: _placeholder_interface_info(interface_decl.name)
+            for interface_decl in module_ast.interfaces
+        },
+    )
+
+
+def _resolve_superclass_name(ctx: TypeCheckContext, lookup_ctx: TypeCheckContext, class_decl: ClassDecl) -> str | None:
+    if class_decl.base_class is None:
+        return None
+
+    if isinstance(class_decl.base_class, ArrayTypeRef | FunctionTypeRef):
+        raise TypeCheckError("Superclass must be a named class", class_decl.base_class.span)
+
+    assert isinstance(class_decl.base_class, TypeRef)
+    superclass_name = class_decl.base_class.name
+
+    if "." in superclass_name:
+        qualified_interface_name = resolve_qualified_imported_interface_name(
+            lookup_ctx, superclass_name, class_decl.base_class.span, allow_missing=True
+        )
+        if qualified_interface_name is not None:
+            raise TypeCheckError(f"Superclass '{superclass_name}' is not a class", class_decl.base_class.span)
+
+        qualified_class_name = resolve_qualified_imported_class_name(
+            lookup_ctx, superclass_name, class_decl.base_class.span
+        )
+        if qualified_class_name is not None:
+            return qualified_class_name
+
+    if superclass_name in lookup_ctx.classes:
+        return superclass_name
+
+    imported_class_name = resolve_imported_class_name(lookup_ctx, superclass_name, class_decl.base_class.span)
+    if imported_class_name is not None:
+        return imported_class_name
+
+    imported_interface_name = resolve_imported_interface_name(lookup_ctx, superclass_name, class_decl.base_class.span)
+    if (
+        superclass_name in lookup_ctx.interfaces
+        or imported_interface_name is not None
+        or superclass_name in PRIMITIVE_TYPE_NAMES
+        or superclass_name in REFERENCE_BUILTIN_TYPE_NAMES
+    ):
+        raise TypeCheckError(f"Superclass '{superclass_name}' is not a class", class_decl.base_class.span)
+
+    raise TypeCheckError(f"Unknown superclass '{superclass_name}'", class_decl.base_class.span)
+
+
+def _canonical_class_name(module_path, class_name: str) -> str:
+    if module_path is None:
+        return class_name
+    return f"{'.'.join(module_path)}::{class_name}"
+
+
+def _split_resolved_class_name(current_module_path, resolved_name: str):
+    if "::" in resolved_name:
+        owner_dotted, class_name = resolved_name.split("::", 1)
+        return tuple(owner_dotted.split(".")), class_name
+    return current_module_path, resolved_name
+
+
+def _class_decl_for_module(ctx: TypeCheckContext, module_path, class_name: str) -> ClassDecl | None:
+    if module_path == ctx.module_path or module_path is None:
+        return _lookup_module_classes(ctx.module_ast).get(class_name)
+
+    if ctx.modules is None:
+        return None
+
+    module_info = ctx.modules.get(module_path)
+    if module_info is None:
+        return None
+    return _lookup_module_classes(module_info.ast).get(class_name)
+
+
+def _ordered_class_decls(ctx: TypeCheckContext) -> tuple[list[ClassDecl], dict[str, str | None]]:
+    resolved_superclasses: dict[str, str | None] = {}
+    visit_state: dict[str, str] = {}
+    visit_stack: list[str] = []
+    ordered: list[ClassDecl] = []
+
+    def visit(module_path, class_decl: ClassDecl) -> None:
+        canonical_name = _canonical_class_name(module_path, class_decl.name)
+        current_state = visit_state.get(canonical_name)
+        if current_state == "done":
+            return
+        if current_state == "visiting":
+            cycle_start = visit_stack.index(canonical_name)
+            cycle_names = visit_stack[cycle_start:] + [canonical_name]
+            display = " -> ".join(name.split("::", 1)[-1] for name in cycle_names)
+            raise TypeCheckError(f"Inheritance cycle detected: {display}", class_decl.base_class.span)
+
+        lookup_ctx = _lookup_context_for_module(ctx, module_path)
+        resolved_superclass_name = _resolve_superclass_name(ctx, lookup_ctx, class_decl)
+        if module_path == ctx.module_path:
+            resolved_superclasses[class_decl.name] = resolved_superclass_name
+
+        visit_state[canonical_name] = "visiting"
+        visit_stack.append(canonical_name)
+
+        if resolved_superclass_name is not None:
+            superclass_module_path, superclass_name = _split_resolved_class_name(module_path, resolved_superclass_name)
+            superclass_canonical_name = _canonical_class_name(superclass_module_path, superclass_name)
+            if superclass_canonical_name == canonical_name:
+                raise TypeCheckError(f"Class '{class_decl.name}' cannot extend itself", class_decl.base_class.span)
+
+            superclass_decl = _class_decl_for_module(ctx, superclass_module_path, superclass_name)
+            if superclass_decl is None:
+                raise TypeCheckError(f"Unknown superclass '{resolved_superclass_name}'", class_decl.base_class.span)
+            visit(superclass_module_path, superclass_decl)
+
+        visit_stack.pop()
+        visit_state[canonical_name] = "done"
+        if module_path == ctx.module_path:
+            ordered.append(class_decl)
+
+    for class_decl in ctx.module_ast.classes:
+        visit(ctx.module_path, class_decl)
+
+    return ordered, resolved_superclasses
+
+
 def collect_module_declarations(ctx: TypeCheckContext) -> None:
     for interface_decl in ctx.module_ast.interfaces:
         if interface_decl.name in ctx.interfaces or interface_decl.name in ctx.classes or interface_decl.name in ctx.functions:
@@ -125,6 +293,7 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
             raise TypeCheckError(f"Duplicate declaration '{class_decl.name}'", class_decl.span)
         ctx.classes[class_decl.name] = ClassInfo(
             name=class_decl.name,
+            superclass_name=None,
             fields={},
             field_order=[],
             constructors=[],
@@ -144,7 +313,9 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
 
         ctx.interfaces[interface_decl.name] = InterfaceInfo(name=interface_decl.name, methods=methods)
 
-    for class_decl in ctx.module_ast.classes:
+    ordered_class_decls, resolved_superclasses = _ordered_class_decls(ctx)
+
+    for class_decl in ordered_class_decls:
         fields: dict[str, TypeInfo] = {}
         field_order: list[str] = []
         for field_decl in class_decl.fields:
@@ -169,6 +340,7 @@ def collect_module_declarations(ctx: TypeCheckContext) -> None:
 
         ctx.classes[class_decl.name] = ClassInfo(
             name=class_decl.name,
+            superclass_name=resolved_superclasses[class_decl.name],
             fields=fields,
             field_order=field_order,
             constructors=constructors,

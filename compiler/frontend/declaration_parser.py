@@ -135,6 +135,9 @@ class DeclarationParser:
 
     def _parse_class_decl(self, *, is_export: bool, class_token: Token, export_token: Token | None = None) -> ClassDecl:
         name_token = expect_symbol_name(self.stream, "Expected class name")
+        base_class: TypeRefNode | None = None
+        if self.stream.match(TokenKind.EXTENDS):
+            base_class = self._parse_type_ref()
         implements: list[TypeRefNode] = []
         if self.stream.match(TokenKind.IMPLEMENTS):
             while True:
@@ -166,6 +169,7 @@ class DeclarationParser:
             methods=methods,
             is_export=is_export,
             span=SourceSpan(start=start_pos, end=rbrace.span.end),
+            base_class=base_class,
             implements=implements,
             constructors=constructors,
         )

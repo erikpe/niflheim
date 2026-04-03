@@ -34,6 +34,7 @@ class ConstructorInfo:
 @dataclass(frozen=True)
 class ClassInfo:
     name: str
+    superclass_name: str | None
     fields: dict[str, TypeInfo]
     field_order: list[str]
     constructors: list[ConstructorInfo]

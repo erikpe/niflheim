@@ -130,6 +130,65 @@ def test_typecheck_program_allows_imported_interface_annotations_and_assignment(
     typecheck_program(program)
 
 
+def test_typecheck_program_allows_imported_superclass_reference(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util.nif",
+        """
+        export class Base {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        export class Derived extends util.Base {
+            extra: i64;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_rejects_imported_inheritance_cycle(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util.nif",
+        """
+        import main;
+
+        export class Base extends main.Derived {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        export class Derived extends util.Base {
+            extra: i64;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    with pytest.raises(TypeCheckError, match="Inheritance cycle detected"):
+        typecheck_program(program)
+
+
 def test_typecheck_program_rejects_private_member_access_across_modules(tmp_path: Path) -> None:
     write(
         tmp_path / "util.nif",

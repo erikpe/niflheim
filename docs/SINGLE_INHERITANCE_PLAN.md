@@ -505,11 +505,11 @@ Purpose:
 
 Checklist:
 
-- [ ] add `extends` token and parser support
-- [ ] extend `ClassDecl` with `base_class`
-- [ ] resolve superclass names through module/import lookup
-- [ ] reject unknown bases, non-class bases, self-inheritance, and cycles
-- [ ] establish topological class-processing order for declaration collection
+- [x] add `extends` token and parser support
+- [x] extend `ClassDecl` with `base_class`
+- [x] resolve superclass names through module/import lookup
+- [x] reject unknown bases, non-class bases, self-inheritance, and cycles
+- [x] establish topological class-processing order for declaration collection
 
 Tests:
 

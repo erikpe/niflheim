@@ -105,6 +105,7 @@ class ClassDecl:
     methods: list[MethodDecl]
     is_export: bool
     span: SourceSpan
+    base_class: TypeRefNode | None = None
     implements: list[TypeRefNode] = field(default_factory=list)
     constructors: list[ConstructorDecl] = field(default_factory=list)
 

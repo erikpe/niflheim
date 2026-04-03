@@ -384,6 +384,35 @@ class MyKey implements Hashable, Equalable {
     assert [type_ref.name for type_ref in cls.implements] == ["Hashable", "Equalable"]
 
 
+def test_parse_class_extends_clause_before_implements() -> None:
+    source = """
+class Derived extends Base implements Hashable {
+    fn read() -> i64 {
+        return 1;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/inheritance_parse.nif"))
+
+    cls = module.classes[0]
+    assert cls.base_class is not None
+    assert cls.base_class.name == "Base"
+    assert [type_ref.name for type_ref in cls.implements] == ["Hashable"]
+
+
+def test_parse_class_without_extends_has_no_base_class() -> None:
+    source = """
+class Base {
+    fn read() -> i64 {
+        return 1;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/no_inheritance_parse.nif"))
+
+    assert module.classes[0].base_class is None
+
+
 def test_parse_rejects_interface_method_body() -> None:
     source = """
 interface Hashable {

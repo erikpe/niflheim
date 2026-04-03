@@ -166,6 +166,109 @@ fn main() -> unit {
     assert [constructor.is_private for constructor in counter_info.constructors] == [False, True]
 
 
+def test_typecheck_collects_superclass_name_for_local_base() -> None:
+    source = """
+class Base {
+    value: i64;
+}
+
+class Derived extends Base {
+    extra: i64;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    ctx = _collect_declarations(source)
+
+    assert ctx.classes["Base"].superclass_name is None
+    assert ctx.classes["Derived"].superclass_name == "Base"
+
+
+def test_typecheck_collects_superclass_name_when_base_declared_later() -> None:
+    source = """
+class Derived extends Base {
+    extra: i64;
+}
+
+class Base {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    ctx = _collect_declarations(source)
+
+    assert ctx.classes["Derived"].superclass_name == "Base"
+
+
+def test_typecheck_rejects_unknown_superclass() -> None:
+    source = """
+class Derived extends Missing {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Unknown superclass 'Missing'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_non_class_superclass() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Derived extends Hashable {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Superclass 'Hashable' is not a class"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_self_inheritance() -> None:
+    source = """
+class Loop extends Loop {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Class 'Loop' cannot extend itself"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_inheritance_cycle() -> None:
+    source = """
+class Alpha extends Beta {
+    value: i64;
+}
+
+class Beta extends Alpha {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Inheritance cycle detected"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_constructor_call_including_defaulted_field_argument() -> None:
     source = """
 class Counter {

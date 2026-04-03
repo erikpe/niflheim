@@ -21,6 +21,7 @@ class TokenKind(str, Enum):
     EXTERN = "EXTERN"
     CLASS = "CLASS"
     CONSTRUCTOR = "CONSTRUCTOR"
+    EXTENDS = "EXTENDS"
     INTERFACE = "INTERFACE"
     IMPLEMENTS = "IMPLEMENTS"
     PRIVATE = "PRIVATE"
@@ -101,6 +102,7 @@ KEYWORDS: dict[str, TokenKind] = {
     "extern": TokenKind.EXTERN,
     "class": TokenKind.CLASS,
     "constructor": TokenKind.CONSTRUCTOR,
+    "extends": TokenKind.EXTENDS,
     "interface": TokenKind.INTERFACE,
     "implements": TokenKind.IMPLEMENTS,
     "private": TokenKind.PRIVATE,

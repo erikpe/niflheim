@@ -1,6 +1,7 @@
 {
   "classes": [
     {
+      "base_class": null,
       "constructors": [
         {
           "body": {
