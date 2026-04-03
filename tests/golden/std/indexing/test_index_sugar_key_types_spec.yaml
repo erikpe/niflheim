@@ -1,2 +1,6 @@
-runs:
-  - { name: structural_index_custom_key_types, input: { stdin: "" }, expect: { exit_code: 0 } }
+tests:
+  - mode: "run"
+    name: "test_index_sugar_key_types"
+    src_file: "test_index_sugar_key_types.nif"
+    runs:
+      - {name: "structural_index_custom_key_types", input: {stdin: ""}, expect: {exit_code: 0}}

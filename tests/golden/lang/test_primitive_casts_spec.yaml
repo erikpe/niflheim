@@ -1,258 +1,156 @@
-runs:
-  - name: bool_to_bool
-    input:
-      args: ["1", "false", "true"]
-    expect:
-      exit_code: 0
-
-  - name: bool_to_i64
-    input:
-      args: ["2", "false", "true"]
-    expect:
-      exit_code: 0
-
-  - name: bool_to_u64
-    input:
-      args: ["3", "false", "true"]
-    expect:
-      exit_code: 0
-
-  - name: bool_to_u8
-    input:
-      args: ["4", "false", "true"]
-    expect:
-      exit_code: 0
-
-  - name: bool_to_double
-    input:
-      args: ["5", "false", "true"]
-    expect:
-      exit_code: 0
-
-  - name: i64_to_bool
-    input:
-      args: ["6", "0", "1", "-1", "-9223372036854775808"]
-    expect:
-      exit_code: 0
-
-  - name: i64_to_i64
-    input:
-      args: ["7", "0", "42", "-42", "-9223372036854775808", "9223372036854775807"]
-    expect:
-      exit_code: 0
-
-  - name: i64_to_u64
-    input:
-      args: ["8", "0", "42", "-1", "9223372036854775807", "-9223372036854775808", "-9223372036854775807"]
-    expect:
-      exit_code: 0
-
-  - name: i64_to_u8
-    input:
-      args: ["9", "0", "1", "255", "256", "257", "-1", "-2"]
-    expect:
-      exit_code: 0
-
-  - name: i64_to_double
-    input:
-      args: ["10", "0", "42", "-42", "9223372036854775807", "-9223372036854775808"]
-    expect:
-      exit_code: 0
-
-  - name: u64_to_bool
-    input:
-      args: ["11", "0", "1", "18446744073709551615"]
-    expect:
-      exit_code: 0
-
-  - name: u64_to_i64
-    input:
-      args: ["12", "0", "1", "9223372036854775807", "9223372036854775808", "18446744073709551615"]
-    expect:
-      exit_code: 0
-
-  - name: u64_to_u64
-    input:
-      args: ["13", "0", "42", "9223372036854775808", "18446744073709551615"]
-    expect:
-      exit_code: 0
-
-  - name: u64_to_u8
-    input:
-      args: ["14", "0", "255", "256", "257", "18446744073709551615"]
-    expect:
-      exit_code: 0
-
-  - name: u64_to_double
-    input:
-      args: ["15", "0", "1", "42", "18446744073709551615"]
-    expect:
-      exit_code: 0
-
-  - name: u8_to_bool
-    input:
-      args: ["16", "0", "1", "255"]
-    expect:
-      exit_code: 0
-
-  - name: u8_to_i64
-    input:
-      args: ["17", "0", "1", "255"]
-    expect:
-      exit_code: 0
-
-  - name: u8_to_u64
-    input:
-      args: ["18", "0", "1", "255"]
-    expect:
-      exit_code: 0
-
-  - name: u8_to_u8
-    input:
-      args: ["19", "0", "1", "255"]
-    expect:
-      exit_code: 0
-
-  - name: u8_to_double
-    input:
-      args: ["20", "0", "1", "255"]
-    expect:
-      exit_code: 0
-
-  - name: double_to_bool
-    input:
-      args: ["21", "0.0", "-0.0", "0.5", "-0.5", "42.0"]
-    expect:
-      exit_code: 0
-
-  - name: double_to_i64
-    input:
-      args: ["22", "0.0", "-0.0", "0.5", "-0.5", "7.9", "-7.9", "4294967296.75", "-4294967296.75"]
-    expect:
-      exit_code: 0
-
-  - name: double_to_u64
-    input:
-      args: ["23", "0.0", "-0.0", "0.5", "7.9", "255.9", "4294967296.75"]
-    expect:
-      exit_code: 0
-
-  - name: double_to_u8
-    input:
-      args: ["24", "0.0", "-0.0", "0.5", "7.9", "255.9"]
-    expect:
-      exit_code: 0
-
-  - name: double_to_double
-    input:
-      args: ["25", "0.0", "-0.0", "1.5", "-2.25", "123456.125"]
-    expect:
-      exit_code: 0
-
-  - name: double_to_i64_panic_above_max
-    input:
-      args: ["26"]
-    expect:
-      panic: "numeric cast out of range (double -> i64)"
-
-  - name: double_to_i64_panic_below_min
-    input:
-      args: ["27"]
-    expect:
-      panic: "numeric cast out of range (double -> i64)"
-
-  - name: double_to_u64_panic_negative
-    input:
-      args: ["28"]
-    expect:
-      panic: "numeric cast out of range (double -> u64)"
-
-  - name: double_to_u64_panic_above_max
-    input:
-      args: ["29"]
-    expect:
-      panic: "numeric cast out of range (double -> u64)"
-
-  - name: double_to_u8_panic_negative
-    input:
-      args: ["30"]
-    expect:
-      panic: "numeric cast out of range (double -> u8)"
-
-  - name: double_to_u8_panic_above_max
-    input:
-      args: ["31"]
-    expect:
-      panic: "numeric cast out of range (double -> u8)"
-
-  - name: double_to_i64_panic_above_max_from_arg
-    input:
-      args: ["32", "9223372036854775808.0"]
-    expect:
-      panic: "numeric cast out of range (double -> i64)"
-
-  - name: double_to_i64_panic_below_min_from_arg
-    input:
-      args: ["33", "-10000000000000000000.0"]
-    expect:
-      panic: "numeric cast out of range (double -> i64)"
-
-  - name: double_to_u64_panic_negative_from_arg
-    input:
-      args: ["34", "-1.0"]
-    expect:
-      panic: "numeric cast out of range (double -> u64)"
-
-  - name: double_to_u64_panic_above_max_from_arg
-    input:
-      args: ["35", "18446744073709551615.0"]
-    expect:
-      panic: "numeric cast out of range (double -> u64)"
-
-  - name: double_to_u8_panic_negative_from_arg
-    input:
-      args: ["36", "-1.0"]
-    expect:
-      panic: "numeric cast out of range (double -> u8)"
-
-  - name: double_to_u8_panic_above_max_from_arg
-    input:
-      args: ["37", "256.0"]
-    expect:
-      panic: "numeric cast out of range (double -> u8)"
-
-  - name: double_to_i64_panic_above_max_from_var
-    input:
-      args: ["38"]
-    expect:
-      panic: "numeric cast out of range (double -> i64)"
-
-  - name: double_to_i64_panic_below_min_from_var
-    input:
-      args: ["39"]
-    expect:
-      panic: "numeric cast out of range (double -> i64)"
-
-  - name: double_to_u64_panic_negative_from_var
-    input:
-      args: ["40"]
-    expect:
-      panic: "numeric cast out of range (double -> u64)"
-
-  - name: double_to_u64_panic_above_max_from_var
-    input:
-      args: ["41"]
-    expect:
-      panic: "numeric cast out of range (double -> u64)"
-
-  - name: double_to_u8_panic_negative_from_var
-    input:
-      args: ["42"]
-    expect:
-      panic: "numeric cast out of range (double -> u8)"
-
-  - name: double_to_u8_panic_above_max_from_var
-    input:
-      args: ["43"]
-    expect:
-      panic: "numeric cast out of range (double -> u8)"
+tests:
+  - mode: "run"
+    name: "test_primitive_casts"
+    src_file: "test_primitive_casts.nif"
+    runs:
+      - {name: "bool_to_bool", input: {args: ["1", "false", "true"]}, expect: {exit_code: 0}}
+      - {name: "bool_to_i64", input: {args: ["2", "false", "true"]}, expect: {exit_code: 0}}
+      - {name: "bool_to_u64", input: {args: ["3", "false", "true"]}, expect: {exit_code: 0}}
+      - {name: "bool_to_u8", input: {args: ["4", "false", "true"]}, expect: {exit_code: 0}}
+      - {name: "bool_to_double", input: {args: ["5", "false", "true"]}, expect: {exit_code: 0}}
+      - {name: "i64_to_bool", input: {args: ["6", "0", "1", "-1", "-9223372036854775808"]}, expect: {exit_code: 0}}
+      - name: "i64_to_i64"
+        input:
+          args: ["7", "0", "42", "-42", "-9223372036854775808", "9223372036854775807"]
+        expect:
+          exit_code: 0
+      - name: "i64_to_u64"
+        input:
+          args: ["8", "0", "42", "-1", "9223372036854775807", "-9223372036854775808", "-9223372036854775807"]
+        expect:
+          exit_code: 0
+      - {name: "i64_to_u8", input: {args: ["9", "0", "1", "255", "256", "257", "-1", "-2"]}, expect: {exit_code: 0}}
+      - name: "i64_to_double"
+        input:
+          args: ["10", "0", "42", "-42", "9223372036854775807", "-9223372036854775808"]
+        expect:
+          exit_code: 0
+      - {name: "u64_to_bool", input: {args: ["11", "0", "1", "18446744073709551615"]}, expect: {exit_code: 0}}
+      - name: "u64_to_i64"
+        input:
+          args: ["12", "0", "1", "9223372036854775807", "9223372036854775808", "18446744073709551615"]
+        expect:
+          exit_code: 0
+      - name: "u64_to_u64"
+        input:
+          args: ["13", "0", "42", "9223372036854775808", "18446744073709551615"]
+        expect:
+          exit_code: 0
+      - name: "u64_to_u8"
+        input:
+          args: ["14", "0", "255", "256", "257", "18446744073709551615"]
+        expect:
+          exit_code: 0
+      - {name: "u64_to_double", input: {args: ["15", "0", "1", "42", "18446744073709551615"]}, expect: {exit_code: 0}}
+      - {name: "u8_to_bool", input: {args: ["16", "0", "1", "255"]}, expect: {exit_code: 0}}
+      - {name: "u8_to_i64", input: {args: ["17", "0", "1", "255"]}, expect: {exit_code: 0}}
+      - {name: "u8_to_u64", input: {args: ["18", "0", "1", "255"]}, expect: {exit_code: 0}}
+      - {name: "u8_to_u8", input: {args: ["19", "0", "1", "255"]}, expect: {exit_code: 0}}
+      - {name: "u8_to_double", input: {args: ["20", "0", "1", "255"]}, expect: {exit_code: 0}}
+      - {name: "double_to_bool", input: {args: ["21", "0.0", "-0.0", "0.5", "-0.5", "42.0"]}, expect: {exit_code: 0}}
+      - name: "double_to_i64"
+        input:
+          args: ["22", "0.0", "-0.0", "0.5", "-0.5", "7.9", "-7.9", "4294967296.75", "-4294967296.75"]
+        expect:
+          exit_code: 0
+      - name: "double_to_u64"
+        input:
+          args: ["23", "0.0", "-0.0", "0.5", "7.9", "255.9", "4294967296.75"]
+        expect:
+          exit_code: 0
+      - {name: "double_to_u8", input: {args: ["24", "0.0", "-0.0", "0.5", "7.9", "255.9"]}, expect: {exit_code: 0}}
+      - name: "double_to_double"
+        input:
+          args: ["25", "0.0", "-0.0", "1.5", "-2.25", "123456.125"]
+        expect:
+          exit_code: 0
+      - name: "double_to_i64_panic_above_max"
+        input:
+          args: ["26"]
+        expect:
+          panic: "numeric cast out of range (double -> i64)"
+      - name: "double_to_i64_panic_below_min"
+        input:
+          args: ["27"]
+        expect:
+          panic: "numeric cast out of range (double -> i64)"
+      - name: "double_to_u64_panic_negative"
+        input:
+          args: ["28"]
+        expect:
+          panic: "numeric cast out of range (double -> u64)"
+      - name: "double_to_u64_panic_above_max"
+        input:
+          args: ["29"]
+        expect:
+          panic: "numeric cast out of range (double -> u64)"
+      - name: "double_to_u8_panic_negative"
+        input:
+          args: ["30"]
+        expect:
+          panic: "numeric cast out of range (double -> u8)"
+      - name: "double_to_u8_panic_above_max"
+        input:
+          args: ["31"]
+        expect:
+          panic: "numeric cast out of range (double -> u8)"
+      - name: "double_to_i64_panic_above_max_from_arg"
+        input:
+          args: ["32", "9223372036854775808.0"]
+        expect:
+          panic: "numeric cast out of range (double -> i64)"
+      - name: "double_to_i64_panic_below_min_from_arg"
+        input:
+          args: ["33", "-10000000000000000000.0"]
+        expect:
+          panic: "numeric cast out of range (double -> i64)"
+      - name: "double_to_u64_panic_negative_from_arg"
+        input:
+          args: ["34", "-1.0"]
+        expect:
+          panic: "numeric cast out of range (double -> u64)"
+      - name: "double_to_u64_panic_above_max_from_arg"
+        input:
+          args: ["35", "18446744073709551615.0"]
+        expect:
+          panic: "numeric cast out of range (double -> u64)"
+      - name: "double_to_u8_panic_negative_from_arg"
+        input:
+          args: ["36", "-1.0"]
+        expect:
+          panic: "numeric cast out of range (double -> u8)"
+      - name: "double_to_u8_panic_above_max_from_arg"
+        input:
+          args: ["37", "256.0"]
+        expect:
+          panic: "numeric cast out of range (double -> u8)"
+      - name: "double_to_i64_panic_above_max_from_var"
+        input:
+          args: ["38"]
+        expect:
+          panic: "numeric cast out of range (double -> i64)"
+      - name: "double_to_i64_panic_below_min_from_var"
+        input:
+          args: ["39"]
+        expect:
+          panic: "numeric cast out of range (double -> i64)"
+      - name: "double_to_u64_panic_negative_from_var"
+        input:
+          args: ["40"]
+        expect:
+          panic: "numeric cast out of range (double -> u64)"
+      - name: "double_to_u64_panic_above_max_from_var"
+        input:
+          args: ["41"]
+        expect:
+          panic: "numeric cast out of range (double -> u64)"
+      - name: "double_to_u8_panic_negative_from_var"
+        input:
+          args: ["42"]
+        expect:
+          panic: "numeric cast out of range (double -> u8)"
+      - name: "double_to_u8_panic_above_max_from_var"
+        input:
+          args: ["43"]
+        expect:
+          panic: "numeric cast out of range (double -> u8)"

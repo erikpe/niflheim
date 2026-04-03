@@ -1,4 +1,6 @@
-runs:
-  - name: e2e_strbuf_set_u8_outside_length_panics
-    expect:
-      panic: "panic"
+tests:
+  - mode: "run"
+    name: "test_e2e_strbuf_set_u8_outside_length_panics"
+    src_file: "test_e2e_strbuf_set_u8_outside_length_panics.nif"
+    runs:
+      - {name: "e2e_strbuf_set_u8_outside_length_panics", expect: {panic: "panic"}}

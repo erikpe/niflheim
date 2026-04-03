@@ -40,6 +40,7 @@ class RunCase:
 
 @dataclass(frozen=True)
 class GoldenTest:
+    name: str
     source_path: Path
     spec_path: Path
     runs: list[RunCase]
@@ -148,39 +149,34 @@ def _parse_expect(raw: object, *, spec_path: Path, run_name: str) -> RunExpect:
     return RunExpect(exit_code=exit_code_raw, stdout=stdout, stderr=stderr, panic=panic_raw)
 
 
-def _source_path_for_spec(spec_path: Path) -> Path:
-    source_stem = spec_path.stem.removesuffix("_spec")
-    return spec_path.with_name(f"{source_stem}.nif")
+def _resolve_path_relative_to_spec(spec_path: Path, raw_path: str, label: str) -> Path:
+    path = (spec_path.parent / raw_path).resolve()
+    try:
+        path.relative_to(GOLDEN_ROOT)
+    except ValueError as error:
+        raise ValueError(f"{spec_path}: {label} must resolve under {GOLDEN_ROOT}") from error
+    return path
 
 
-def _load_test_for_spec(spec_path: Path) -> GoldenTest:
-    source_path = _source_path_for_spec(spec_path)
-    if not source_path.exists():
-        raise ValueError(f"missing source for {spec_path}: expected {source_path.name}")
+def _parse_runs(raw: object, *, spec_path: Path, test_name: str) -> list[RunCase]:
+    if raw is None:
+        raise ValueError(f"{spec_path}: test '{test_name}' missing required 'runs'")
 
-    raw_data = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
-    if raw_data is None:
-        raw_data = {}
-    _require_type(raw_data, dict, f"{spec_path}")
-    data: dict[str, object] = raw_data  # type: ignore[assignment]
-
-    runs_raw = data.get("runs")
-    if runs_raw is None:
-        raise ValueError(f"{spec_path}: missing required top-level 'runs'")
-    _require_type(runs_raw, list, f"{spec_path}: runs")
+    _require_type(raw, list, f"{spec_path}: test '{test_name}' runs")
+    runs_raw: list[object] = raw  # type: ignore[assignment]
     if len(runs_raw) == 0:
-        raise ValueError(f"{spec_path}: runs must not be empty")
+        raise ValueError(f"{spec_path}: test '{test_name}' runs must not be empty")
 
     runs: list[RunCase] = []
     names: set[str] = set()
     for index, run_raw in enumerate(runs_raw):
-        _require_type(run_raw, dict, f"{spec_path}: runs[{index}]")
+        _require_type(run_raw, dict, f"{spec_path}: test '{test_name}' runs[{index}]")
         run_obj: dict[str, object] = run_raw  # type: ignore[assignment]
 
         name_raw = run_obj.get("name")
-        _require_type(name_raw, str, f"{spec_path}: runs[{index}].name")
+        _require_type(name_raw, str, f"{spec_path}: test '{test_name}' runs[{index}].name")
         if name_raw in names:
-            raise ValueError(f"{spec_path}: duplicate run name '{name_raw}'")
+            raise ValueError(f"{spec_path}: test '{test_name}' duplicate run name '{name_raw}'")
         names.add(name_raw)
 
         run_input = _parse_input(run_obj.get("input"), spec_path=spec_path, run_name=name_raw)
@@ -188,7 +184,56 @@ def _load_test_for_spec(spec_path: Path) -> GoldenTest:
 
         runs.append(RunCase(name=name_raw, run_input=run_input, expect=expect))
 
-    return GoldenTest(source_path=source_path, spec_path=spec_path, runs=runs)
+    return runs
+
+
+def _load_tests_for_spec(spec_path: Path) -> list[GoldenTest]:
+    raw_data = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
+    if raw_data is None:
+        raw_data = {}
+    _require_type(raw_data, dict, f"{spec_path}")
+    data: dict[str, object] = raw_data  # type: ignore[assignment]
+
+    tests_raw = data.get("tests")
+    if tests_raw is None:
+        raise ValueError(f"{spec_path}: missing required top-level 'tests'")
+    _require_type(tests_raw, list, f"{spec_path}: tests")
+    if len(tests_raw) == 0:
+        raise ValueError(f"{spec_path}: tests must not be empty")
+
+    tests: list[GoldenTest] = []
+    names: set[str] = set()
+    for index, test_raw in enumerate(tests_raw):
+        _require_type(test_raw, dict, f"{spec_path}: tests[{index}]")
+        test_obj: dict[str, object] = test_raw  # type: ignore[assignment]
+
+        mode_raw = test_obj.get("mode")
+        _require_type(mode_raw, str, f"{spec_path}: tests[{index}].mode")
+        if mode_raw != "run":
+            raise ValueError(f"{spec_path}: test mode '{mode_raw}' is not supported")
+
+        name_raw = test_obj.get("name")
+        _require_type(name_raw, str, f"{spec_path}: tests[{index}].name")
+        if name_raw in names:
+            raise ValueError(f"{spec_path}: duplicate test name '{name_raw}'")
+        names.add(name_raw)
+
+        src_file_raw = test_obj.get("src_file")
+        _require_type(src_file_raw, str, f"{spec_path}: tests[{index}].src_file")
+        source_path = _resolve_path_relative_to_spec(spec_path, src_file_raw, f"test '{name_raw}' src_file")
+        if not source_path.exists():
+            raise ValueError(f"missing source for {spec_path}: expected {src_file_raw}")
+
+        tests.append(
+            GoldenTest(
+                name=name_raw,
+                source_path=source_path,
+                spec_path=spec_path,
+                runs=_parse_runs(test_obj.get("runs"), spec_path=spec_path, test_name=name_raw),
+            )
+        )
+
+    return tests
 
 
 def _matches_filter(spec_path: Path, source_path: Path, pattern: str) -> bool:
@@ -205,10 +250,14 @@ def _discover_tests(filter_glob: str | None) -> list[GoldenTest]:
 
     tests: list[GoldenTest] = []
     for spec_path in spec_files:
-        source_path = _source_path_for_spec(spec_path)
-        if filter_glob and not _matches_filter(spec_path, source_path, filter_glob):
+        spec_tests = _load_tests_for_spec(spec_path)
+        if filter_glob is None:
+            tests.extend(spec_tests)
             continue
-        tests.append(_load_test_for_spec(spec_path))
+        if fnmatch.fnmatch(spec_path.relative_to(GOLDEN_ROOT).as_posix(), filter_glob):
+            tests.extend(spec_tests)
+            continue
+        tests.extend(test for test in spec_tests if _matches_filter(spec_path, test.source_path, filter_glob))
 
     return tests
 

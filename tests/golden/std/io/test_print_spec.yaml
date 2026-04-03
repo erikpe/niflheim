@@ -1,5 +1,6 @@
-runs:
-  - name: print_all_positive_normal_and_edges
-    expect:
-      exit_code: 0
-      stdout_file: "test_print_expected.txt"
+tests:
+  - mode: "run"
+    name: "test_print"
+    src_file: "test_print.nif"
+    runs:
+      - {name: "print_all_positive_normal_and_edges", expect: {exit_code: 0, stdout_file: "test_print_expected.txt"}}

@@ -1,18 +1,8 @@
-runs:
-  - name: imported_interface_dispatch_and_return
-    input:
-      stdin: "1\n"
-    expect:
-      exit_code: 0
-
-  - name: imported_interface_array_and_storage
-    input:
-      stdin: "2\n"
-    expect:
-      exit_code: 0
-
-  - name: imported_interface_cross_module_cast
-    input:
-      stdin: "3\n"
-    expect:
-      exit_code: 0
+tests:
+  - mode: "run"
+    name: "test_interface_imports"
+    src_file: "test_interface_imports.nif"
+    runs:
+      - {name: "imported_interface_dispatch_and_return", input: {stdin: "1\n"}, expect: {exit_code: 0}}
+      - {name: "imported_interface_array_and_storage", input: {stdin: "2\n"}, expect: {exit_code: 0}}
+      - {name: "imported_interface_cross_module_cast", input: {stdin: "3\n"}, expect: {exit_code: 0}}

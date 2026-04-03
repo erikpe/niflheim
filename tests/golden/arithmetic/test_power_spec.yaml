@@ -1,5 +1,6 @@
-runs:
-  - name: power
-    expect:
-      exit_code: 0
-      stdout_file: "test_power_expected.txt"
+tests:
+  - mode: "run"
+    name: "test_power"
+    src_file: "test_power.nif"
+    runs:
+      - {name: "power", expect: {exit_code: 0, stdout_file: "test_power_expected.txt"}}

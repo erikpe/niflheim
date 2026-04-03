@@ -105,11 +105,12 @@ For quick local workflows, use scripts under `scripts/`:
 Golden tests live under `tests/golden/`.
 
 - Every `tests/golden/**/test_*_spec.yaml` file defines a golden test.
-- Each spec must have a sibling source file named `<stem-without-_spec>.nif`.
+- Each spec declares one or more test entries under `tests:`.
+- Each test entry must set `mode: run` and explicitly reference `src_file` relative to the spec file.
 	- Example source: `tests/golden/arithmetic/test_addition.nif`
 	- Example spec: `tests/golden/arithmetic/test_addition_spec.yaml`
-- Each source is compiled once via `scripts/build.sh` and output goes to `build/golden/...`.
-- The spec can define multiple runs against the compiled binary.
+- Each referenced source is compiled once via `scripts/build.sh` and output goes to `build/golden/...`.
+- Each test entry can define multiple runs against the compiled binary.
 
 Run the runner:
 
@@ -120,23 +121,28 @@ Run the runner:
 Spec format:
 
 ```yaml
-runs:
-	- name: case_name
-		input:
-			args: ["arg1", "arg2"]
-			stdin: "optional stdin text"
-			# stdin_file: "./input.txt"
-		expect:
-			exit_code: 0
-			stdout: "expected stdout"
-			# stdout_file: "./expected_stdout.txt"
-			stderr: ""
-			# stderr_file: "./expected_stderr.txt"
-			panic: "optional panic substring"
+tests:
+	- mode: "run"
+		name: "test_addition"
+		src_file: "test_addition.nif"
+		runs:
+			- name: case_name
+				input:
+					args: ["arg1", "arg2"]
+					stdin: "optional stdin text"
+					# stdin_file: "./input.txt"
+				expect:
+					exit_code: 0
+					stdout: "expected stdout"
+					# stdout_file: "./expected_stdout.txt"
+					stderr: ""
+					# stderr_file: "./expected_stderr.txt"
+					panic: "optional panic substring"
 ```
 
 Notes:
 
+- `tests[*].mode` must currently be `run`.
 - `input.stdin` and `input.stdin_file` are mutually exclusive.
 - `expect.stderr` and `expect.stderr_file` are mutually exclusive.
 - Unspecified input fields are not provided.

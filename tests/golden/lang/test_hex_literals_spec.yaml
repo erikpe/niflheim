@@ -1,5 +1,9 @@
-runs:
-  - name: hex_literals
-    expect:
-      exit_code: 0
-      stdout: "42\n42\n255\n-9223372036854775808\ntrue\ntrue\ntrue\ntrue\n"
+tests:
+  - mode: "run"
+    name: "test_hex_literals"
+    src_file: "test_hex_literals.nif"
+    runs:
+      - name: "hex_literals"
+        expect:
+          exit_code: 0
+          stdout: "42\n42\n255\n-9223372036854775808\ntrue\ntrue\ntrue\ntrue\n"

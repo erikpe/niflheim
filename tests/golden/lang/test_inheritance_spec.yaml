@@ -1,36 +1,11 @@
-runs:
-  - name: inherited_fields_and_methods
-    input:
-      stdin: "1\n"
-    expect:
-      exit_code: 0
-
-  - name: subclass_to_base_assignment_and_same_type
-    input:
-      stdin: "2\n"
-    expect:
-      exit_code: 0
-
-  - name: inherited_interface_dispatch_and_cast_chain
-    input:
-      stdin: "3\n"
-    expect:
-      exit_code: 0
-
-  - name: subtype_aware_type_tests_and_obj_casts
-    input:
-      stdin: "4\n"
-    expect:
-      exit_code: 0
-
-  - name: explicit_constructor_chaining
-    input:
-      stdin: "5\n"
-    expect:
-      exit_code: 0
-
-  - name: compatibility_constructor_chaining
-    input:
-      stdin: "6\n"
-    expect:
-      exit_code: 0
+tests:
+  - mode: "run"
+    name: "test_inheritance"
+    src_file: "test_inheritance.nif"
+    runs:
+      - {name: "inherited_fields_and_methods", input: {stdin: "1\n"}, expect: {exit_code: 0}}
+      - {name: "subclass_to_base_assignment_and_same_type", input: {stdin: "2\n"}, expect: {exit_code: 0}}
+      - {name: "inherited_interface_dispatch_and_cast_chain", input: {stdin: "3\n"}, expect: {exit_code: 0}}
+      - {name: "subtype_aware_type_tests_and_obj_casts", input: {stdin: "4\n"}, expect: {exit_code: 0}}
+      - {name: "explicit_constructor_chaining", input: {stdin: "5\n"}, expect: {exit_code: 0}}
+      - {name: "compatibility_constructor_chaining", input: {stdin: "6\n"}, expect: {exit_code: 0}}

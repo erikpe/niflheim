@@ -1,8 +1,12 @@
-runs:
-  - { name: put_get_contains, input: { stdin: "1" }, expect: { exit_code: 0 } }
-  - { name: overwrite_same_logical_key, input: { stdin: "2" }, expect: { exit_code: 0 } }
-  - { name: growth_and_probe_chains, input: { stdin: "3" }, expect: { exit_code: 0 } }
-  - { name: index_sugar_write_and_read, input: { stdin: "4" }, expect: { exit_code: 0 } }
-  - { name: null_key_support, input: { stdin: "5" }, expect: { exit_code: 0 } }
-  - { name: get_missing_panics, input: { stdin: "6" }, expect: { panic: "MapFn.index_get: key not found" } }
-  - { name: str_keys_under_load, input: { stdin: "7" }, expect: { exit_code: 0 } }
+tests:
+  - mode: "run"
+    name: "test_map_fn"
+    src_file: "test_map_fn.nif"
+    runs:
+      - {name: "put_get_contains", input: {stdin: "1"}, expect: {exit_code: 0}}
+      - {name: "overwrite_same_logical_key", input: {stdin: "2"}, expect: {exit_code: 0}}
+      - {name: "growth_and_probe_chains", input: {stdin: "3"}, expect: {exit_code: 0}}
+      - {name: "index_sugar_write_and_read", input: {stdin: "4"}, expect: {exit_code: 0}}
+      - {name: "null_key_support", input: {stdin: "5"}, expect: {exit_code: 0}}
+      - {name: "get_missing_panics", input: {stdin: "6"}, expect: {panic: "MapFn.index_get: key not found"}}
+      - {name: "str_keys_under_load", input: {stdin: "7"}, expect: {exit_code: 0}}

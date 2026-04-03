@@ -1,6 +1,10 @@
-runs:
-  - { name: same_type_str_instances, input: { stdin: "1" }, expect: { exit_code: 0 } }
-  - { name: different_type_str_vs_vec, input: { stdin: "2" }, expect: { exit_code: 0 } }
-  - { name: null_behavior, input: { stdin: "3" }, expect: { exit_code: 0 } }
-  - { name: array_type_matching, input: { stdin: "4" }, expect: { exit_code: 0 } }
-  - { name: box_type_matching, input: { stdin: "5" }, expect: { exit_code: 0 } }
+tests:
+  - mode: "run"
+    name: "test_object"
+    src_file: "test_object.nif"
+    runs:
+      - {name: "same_type_str_instances", input: {stdin: "1"}, expect: {exit_code: 0}}
+      - {name: "different_type_str_vs_vec", input: {stdin: "2"}, expect: {exit_code: 0}}
+      - {name: "null_behavior", input: {stdin: "3"}, expect: {exit_code: 0}}
+      - {name: "array_type_matching", input: {stdin: "4"}, expect: {exit_code: 0}}
+      - {name: "box_type_matching", input: {stdin: "5"}, expect: {exit_code: 0}}

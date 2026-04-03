@@ -1,5 +1,6 @@
-runs:
-  - name: negation
-    expect:
-      exit_code: 0
-      stdout_file: "test_negation_expected.txt"
+tests:
+  - mode: "run"
+    name: "test_negation"
+    src_file: "test_negation.nif"
+    runs:
+      - {name: "negation", expect: {exit_code: 0, stdout_file: "test_negation_expected.txt"}}

@@ -1,4 +1,6 @@
-runs:
-  - name: panic_substring_match
-    expect:
-      panic: "panic: Golden panic message"
+tests:
+  - mode: "run"
+    name: "test_panic_message"
+    src_file: "test_panic_message.nif"
+    runs:
+      - {name: "panic_substring_match", expect: {panic: "panic: Golden panic message"}}

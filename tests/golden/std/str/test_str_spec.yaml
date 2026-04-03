@@ -1,57 +1,61 @@
-runs:
-  - { name: baseline_get_slice, input: { stdin: "1" }, expect: { exit_code: 0 } }
-  - { name: strip, input: { stdin: "2" }, expect: { exit_code: 0 } }
-  - { name: numeric_parse_ok, input: { stdin: "3" }, expect: { exit_code: 0 } }
-  - { name: from_u8_array, input: { stdin: "4" }, expect: { exit_code: 0 } }
-  - { name: get_oob_panics, input: { stdin: "5" }, expect: { panic: "Str.index_get: index out of bounds" } }
-  - { name: negative_index_get, input: { stdin: "6" }, expect: { exit_code: 0 } }
-  - { name: slice_oob_panics, input: { stdin: "7" }, expect: { panic: "Str.slice_get: invalid slice range" } }
-  - { name: to_u64_invalid_digit_panics, input: { stdin: "8" }, expect: { panic: "Str.to_u64 invalid digit" } }
-  - { name: to_i64_overflow_panics, input: { stdin: "9" }, expect: { panic: "Str.to_i64 overflow" } }
-  - { name: strbuf_baseline, input: { stdin: "10" }, expect: { exit_code: 0 } }
-  - { name: strbuf_get_oob_panics, input: { stdin: "11" }, expect: { panic: "StrBuf.index_get: index out of bounds" } }
-  - { name: strbuf_append_char, input: { stdin: "12" }, expect: { exit_code: 0 } }
-  - { name: to_u64_and_to_i64, input: { stdin: "13" }, expect: { exit_code: 0 } }
-  - { name: to_u64_overflow1, input: { stdin: "14" }, expect: { panic: "Str.to_u64 overflow" } }
-  - { name: to_u64_overflow2, input: { stdin: "15" }, expect: { panic: "Str.to_u64 overflow" } }
-  - { name: to_u64_invalid_digit, input: { stdin: "16" }, expect: { panic: "Str.to_u64 invalid digit" } }
-  - { name: to_u64_empty_string, input: { stdin: "17" }, expect: { panic: "Str.to_u64 on empty string" } }
-  - { name: to_i64_overflow1, input: { stdin: "18" }, expect: { panic: "Str.to_i64 overflow" } }
-  - { name: to_i64_overflow2, input: { stdin: "19" }, expect: { panic: "Str.to_i64 overflow" } }
-  - { name: to_i64_overflow3, input: { stdin: "20" }, expect: { panic: "Str.to_i64 overflow" } }
-  - { name: to_i64_overflow4, input: { stdin: "21" }, expect: { panic: "Str.to_i64 overflow" } }
-  - { name: to_i64_invalid_digit, input: { stdin: "22" }, expect: { panic: "Str.to_i64 invalid digit" } }
-  - { name: to_i64_empty_string, input: { stdin: "23" }, expect: { panic: "Str.to_i64 on empty string" } }
-  - { name: to_bool, input: { stdin: "24" }, expect: { exit_code: 0 } }
-  - { name: to_bool_invalid_value, input: { stdin: "25" }, expect: { panic: "Str.to_bool invalid value" } }
-  - { name: to_bool_empty_string, input: { stdin: "26" }, expect: { panic: "Str.to_bool on empty string" } }
-  - { name: to_double, input: { stdin: "27" }, expect: { exit_code: 0 } }
-  - { name: to_double_invalid_digit, input: { stdin: "28" }, expect: { panic: "Str.to_double invalid digit" } }
-  - { name: to_double_invalid_format, input: { stdin: "29" }, expect: { panic: "Str.to_double invalid digit" } }
-  - { name: to_double_empty_string, input: { stdin: "30" }, expect: { panic: "Str.to_double on empty string" } }
-  - { name: e2e_str_from_char, input: { stdin: "31" }, expect: { exit_code: 0 } }
-  - { name: e2e_str_hex_escape, input: { stdin: "32" }, expect: { exit_code: 0 } }
-  - { name: e2e_str_literal_indexing, input: { stdin: "33" }, expect: { exit_code: 0 } }
-  - { name: e2e_str_oob_index_panics, input: { stdin: "34" }, expect: { panic: "panic" } }
-  - { name: e2e_str_oob_slice_panics, input: { stdin: "35" }, expect: { panic: "panic" } }
-  - { name: e2e_str_negative_index_and_slice, input: { stdin: "36" }, expect: { exit_code: 0 } }
-  - { name: e2e_str_slice_syntax, input: { stdin: "37" }, expect: { exit_code: 0 } }
-  - { name: e2e_str_strip_whitespace, input: { stdin: "38" }, expect: { exit_code: 0 } }
-  - { name: from_u64_edges, input: { stdin: "39" }, expect: { exit_code: 0 } }
-  - { name: from_u64_roundtrip, input: { stdin: "40" }, expect: { exit_code: 0 } }
-  - { name: compare_to, input: { stdin: "41" }, expect: { exit_code: 0 } }
-  - { name: from_i64_edges, input: { stdin: "42" }, expect: { exit_code: 0 } }
-  - { name: from_i64_roundtrip, input: { stdin: "43" }, expect: { exit_code: 0 } }
-  - { name: strbuf_append, input: { stdin: "44" }, expect: { exit_code: 0 } }
-  - { name: strbuf_append_u64, input: { stdin: "45" }, expect: { exit_code: 0 } }
-  - { name: strbuf_append_i64, input: { stdin: "46" }, expect: { exit_code: 0 } }
-  - { name: to_u8_array, input: { stdin: "47" }, expect: { exit_code: 0 } }
-  - { name: from_misc_scalars, input: { stdin: "48" }, expect: { exit_code: 0 } }
-  - { name: strbuf_append_scalars, input: { stdin: "49" }, expect: { exit_code: 0 } }
-  - { name: splitlines, input: { stdin: "50" }, expect: { exit_code: 0 } }
-  - { name: str_for_in_iteration, input: { stdin: "51" }, expect: { exit_code: 0 } }
-  - { name: strbuf_for_in_iteration, input: { stdin: "52" }, expect: { exit_code: 0 } }
-  - { name: hash_code_equal_content, input: { stdin: "53" }, expect: { exit_code: 0 } }
-  - { name: equals_obj, input: { stdin: "54" }, expect: { exit_code: 0 } }
-  - { name: split_trailing_delimiter, input: { stdin: "55" }, expect: { exit_code: 0 } }
-  - { name: concat_operator, input: { stdin: "56" }, expect: { exit_code: 0 } }
+tests:
+  - mode: "run"
+    name: "test_str"
+    src_file: "test_str.nif"
+    runs:
+      - {name: "baseline_get_slice", input: {stdin: "1"}, expect: {exit_code: 0}}
+      - {name: "strip", input: {stdin: "2"}, expect: {exit_code: 0}}
+      - {name: "numeric_parse_ok", input: {stdin: "3"}, expect: {exit_code: 0}}
+      - {name: "from_u8_array", input: {stdin: "4"}, expect: {exit_code: 0}}
+      - {name: "get_oob_panics", input: {stdin: "5"}, expect: {panic: "Str.index_get: index out of bounds"}}
+      - {name: "negative_index_get", input: {stdin: "6"}, expect: {exit_code: 0}}
+      - {name: "slice_oob_panics", input: {stdin: "7"}, expect: {panic: "Str.slice_get: invalid slice range"}}
+      - {name: "to_u64_invalid_digit_panics", input: {stdin: "8"}, expect: {panic: "Str.to_u64 invalid digit"}}
+      - {name: "to_i64_overflow_panics", input: {stdin: "9"}, expect: {panic: "Str.to_i64 overflow"}}
+      - {name: "strbuf_baseline", input: {stdin: "10"}, expect: {exit_code: 0}}
+      - {name: "strbuf_get_oob_panics", input: {stdin: "11"}, expect: {panic: "StrBuf.index_get: index out of bounds"}}
+      - {name: "strbuf_append_char", input: {stdin: "12"}, expect: {exit_code: 0}}
+      - {name: "to_u64_and_to_i64", input: {stdin: "13"}, expect: {exit_code: 0}}
+      - {name: "to_u64_overflow1", input: {stdin: "14"}, expect: {panic: "Str.to_u64 overflow"}}
+      - {name: "to_u64_overflow2", input: {stdin: "15"}, expect: {panic: "Str.to_u64 overflow"}}
+      - {name: "to_u64_invalid_digit", input: {stdin: "16"}, expect: {panic: "Str.to_u64 invalid digit"}}
+      - {name: "to_u64_empty_string", input: {stdin: "17"}, expect: {panic: "Str.to_u64 on empty string"}}
+      - {name: "to_i64_overflow1", input: {stdin: "18"}, expect: {panic: "Str.to_i64 overflow"}}
+      - {name: "to_i64_overflow2", input: {stdin: "19"}, expect: {panic: "Str.to_i64 overflow"}}
+      - {name: "to_i64_overflow3", input: {stdin: "20"}, expect: {panic: "Str.to_i64 overflow"}}
+      - {name: "to_i64_overflow4", input: {stdin: "21"}, expect: {panic: "Str.to_i64 overflow"}}
+      - {name: "to_i64_invalid_digit", input: {stdin: "22"}, expect: {panic: "Str.to_i64 invalid digit"}}
+      - {name: "to_i64_empty_string", input: {stdin: "23"}, expect: {panic: "Str.to_i64 on empty string"}}
+      - {name: "to_bool", input: {stdin: "24"}, expect: {exit_code: 0}}
+      - {name: "to_bool_invalid_value", input: {stdin: "25"}, expect: {panic: "Str.to_bool invalid value"}}
+      - {name: "to_bool_empty_string", input: {stdin: "26"}, expect: {panic: "Str.to_bool on empty string"}}
+      - {name: "to_double", input: {stdin: "27"}, expect: {exit_code: 0}}
+      - {name: "to_double_invalid_digit", input: {stdin: "28"}, expect: {panic: "Str.to_double invalid digit"}}
+      - {name: "to_double_invalid_format", input: {stdin: "29"}, expect: {panic: "Str.to_double invalid digit"}}
+      - {name: "to_double_empty_string", input: {stdin: "30"}, expect: {panic: "Str.to_double on empty string"}}
+      - {name: "e2e_str_from_char", input: {stdin: "31"}, expect: {exit_code: 0}}
+      - {name: "e2e_str_hex_escape", input: {stdin: "32"}, expect: {exit_code: 0}}
+      - {name: "e2e_str_literal_indexing", input: {stdin: "33"}, expect: {exit_code: 0}}
+      - {name: "e2e_str_oob_index_panics", input: {stdin: "34"}, expect: {panic: "panic"}}
+      - {name: "e2e_str_oob_slice_panics", input: {stdin: "35"}, expect: {panic: "panic"}}
+      - {name: "e2e_str_negative_index_and_slice", input: {stdin: "36"}, expect: {exit_code: 0}}
+      - {name: "e2e_str_slice_syntax", input: {stdin: "37"}, expect: {exit_code: 0}}
+      - {name: "e2e_str_strip_whitespace", input: {stdin: "38"}, expect: {exit_code: 0}}
+      - {name: "from_u64_edges", input: {stdin: "39"}, expect: {exit_code: 0}}
+      - {name: "from_u64_roundtrip", input: {stdin: "40"}, expect: {exit_code: 0}}
+      - {name: "compare_to", input: {stdin: "41"}, expect: {exit_code: 0}}
+      - {name: "from_i64_edges", input: {stdin: "42"}, expect: {exit_code: 0}}
+      - {name: "from_i64_roundtrip", input: {stdin: "43"}, expect: {exit_code: 0}}
+      - {name: "strbuf_append", input: {stdin: "44"}, expect: {exit_code: 0}}
+      - {name: "strbuf_append_u64", input: {stdin: "45"}, expect: {exit_code: 0}}
+      - {name: "strbuf_append_i64", input: {stdin: "46"}, expect: {exit_code: 0}}
+      - {name: "to_u8_array", input: {stdin: "47"}, expect: {exit_code: 0}}
+      - {name: "from_misc_scalars", input: {stdin: "48"}, expect: {exit_code: 0}}
+      - {name: "strbuf_append_scalars", input: {stdin: "49"}, expect: {exit_code: 0}}
+      - {name: "splitlines", input: {stdin: "50"}, expect: {exit_code: 0}}
+      - {name: "str_for_in_iteration", input: {stdin: "51"}, expect: {exit_code: 0}}
+      - {name: "strbuf_for_in_iteration", input: {stdin: "52"}, expect: {exit_code: 0}}
+      - {name: "hash_code_equal_content", input: {stdin: "53"}, expect: {exit_code: 0}}
+      - {name: "equals_obj", input: {stdin: "54"}, expect: {exit_code: 0}}
+      - {name: "split_trailing_delimiter", input: {stdin: "55"}, expect: {exit_code: 0}}
+      - {name: "concat_operator", input: {stdin: "56"}, expect: {exit_code: 0}}

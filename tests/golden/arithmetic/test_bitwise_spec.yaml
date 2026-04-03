@@ -1,5 +1,6 @@
-runs:
-  - name: bitwise
-    expect:
-      exit_code: 0
-      stdout_file: "test_bitwise_expected.txt"
+tests:
+  - mode: "run"
+    name: "test_bitwise"
+    src_file: "test_bitwise.nif"
+    runs:
+      - {name: "bitwise", expect: {exit_code: 0, stdout_file: "test_bitwise_expected.txt"}}

@@ -1,4 +1,6 @@
-runs:
-  - name: e2e_vec_cast_receiver_field_value_links_and_runs
-    expect:
-      exit_code: 42
+tests:
+  - mode: "run"
+    name: "test_e2e_vec_cast_receiver_field_value_links_and_runs"
+    src_file: "test_e2e_vec_cast_receiver_field_value_links_and_runs.nif"
+    runs:
+      - {name: "e2e_vec_cast_receiver_field_value_links_and_runs", expect: {exit_code: 42}}

@@ -1,4 +1,6 @@
-runs:
-  - name: e2e_u8_char_and_numeric_literals_link_and_run
-    expect:
-      exit_code: 83
+tests:
+  - mode: "run"
+    name: "test_e2e_u8_char_and_numeric_literals_link_and_run"
+    src_file: "test_e2e_u8_char_and_numeric_literals_link_and_run.nif"
+    runs:
+      - {name: "e2e_u8_char_and_numeric_literals_link_and_run", expect: {exit_code: 83}}
