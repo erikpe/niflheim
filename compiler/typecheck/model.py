@@ -32,16 +32,38 @@ class ConstructorInfo:
 
 
 @dataclass(frozen=True)
+class FieldMemberInfo:
+    owner_class_name: str
+    type_info: TypeInfo
+    is_private: bool
+    is_final: bool
+
+
+@dataclass(frozen=True)
+class MethodMemberInfo:
+    owner_class_name: str
+    signature: FunctionSig
+
+
+@dataclass(frozen=True)
 class ClassInfo:
     name: str
+    type_name: str
+    is_placeholder: bool
     superclass_name: str | None
+    declared_fields: dict[str, TypeInfo]
+    declared_field_order: list[str]
     fields: dict[str, TypeInfo]
     field_order: list[str]
+    field_members: dict[str, FieldMemberInfo]
     constructors: list[ConstructorInfo]
+    declared_methods: dict[str, FunctionSig]
     methods: dict[str, FunctionSig]
+    method_members: dict[str, MethodMemberInfo]
     private_fields: set[str]
     final_fields: set[str]
     private_methods: set[str]
+    declared_interfaces: set[str]
     implemented_interfaces: set[str]
 
 
@@ -49,6 +71,7 @@ class ClassInfo:
 class InterfaceInfo:
     name: str
     methods: dict[str, FunctionSig]
+    is_placeholder: bool = False
 
 
 class TypeCheckError(ValueError):

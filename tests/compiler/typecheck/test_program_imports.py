@@ -158,6 +158,51 @@ def test_typecheck_program_allows_imported_superclass_reference(tmp_path: Path) 
     typecheck_program(program)
 
 
+def test_typecheck_program_allows_imported_base_subtyping_and_inherited_members(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        export class Base implements Hashable {
+            value: i64 = 7;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        class Derived extends util.Base {
+            extra: i64 = 1;
+        }
+
+        fn main() -> unit {
+            var d: Derived = Derived();
+            var b: util.Base = d;
+            var h: util.Hashable = d;
+            var r: i64 = d.read();
+            var casted: util.Base = (util.Base)d;
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_rejects_imported_inheritance_cycle(tmp_path: Path) -> None:
     write(
         tmp_path / "util.nif",

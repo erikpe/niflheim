@@ -85,12 +85,38 @@ def type_infos_equal(ctx: TypeCheckContext, left: TypeInfo, right: TypeInfo) -> 
     return _type_infos_equal(ctx, left, right)
 
 
+def _class_is_same_or_subclass_of(ctx: TypeCheckContext, class_type_name: str, target_type_name: str) -> bool:
+    target_canonical = canonicalize_nominal_type_name(ctx, target_type_name)
+    class_info = lookup_class_by_type_name(ctx, class_type_name)
+    while class_info is not None:
+        if class_info.type_name == target_canonical:
+            return True
+        if class_info.superclass_name is None:
+            return False
+        class_info = lookup_class_by_type_name(ctx, class_info.superclass_name)
+    return False
+
+
+def _class_types_are_related(ctx: TypeCheckContext, left_type_name: str, right_type_name: str) -> bool:
+    return _class_is_same_or_subclass_of(ctx, left_type_name, right_type_name) or _class_is_same_or_subclass_of(
+        ctx, right_type_name, left_type_name
+    )
+
+
 def is_assignable(ctx: TypeCheckContext, target: TypeInfo, value: TypeInfo) -> bool:
     if _type_infos_equal(ctx, target, value):
         return True
     if target.kind in {"reference", "interface"} and value.kind == TYPE_NAME_NULL:
         return True
     if target.name == TYPE_NAME_OBJ and value.kind in {"reference", "interface"}:
+        return True
+    if (
+        target.kind == "reference"
+        and value.kind == "reference"
+        and _is_concrete_class_type(ctx, target)
+        and _is_concrete_class_type(ctx, value)
+        and _class_is_same_or_subclass_of(ctx, value.name, target.name)
+    ):
         return True
     if target.kind == "interface" and value.kind == "reference" and _class_implements_interface(ctx, value.name, target.name):
         return True
@@ -148,6 +174,14 @@ def _may_alias_under_identity_comparison(ctx: TypeCheckContext, left: TypeInfo, 
     if left.kind == "interface" and right.kind == "interface":
         return True
 
+    if (
+        left.kind == "reference"
+        and right.kind == "reference"
+        and _is_concrete_class_type(ctx, left)
+        and _is_concrete_class_type(ctx, right)
+    ):
+        return _class_types_are_related(ctx, left.name, right.name)
+
     if left.kind == "reference" and right.kind == "interface":
         return _class_implements_interface(ctx, left.name, right.name)
 
@@ -186,6 +220,15 @@ def check_explicit_cast(ctx: TypeCheckContext, source: TypeInfo, target: TypeInf
     if source.kind == "interface" and _is_concrete_class_type(ctx, target):
         return
 
+    if (
+        source.kind == "reference"
+        and target.kind == "reference"
+        and _is_concrete_class_type(ctx, source)
+        and _is_concrete_class_type(ctx, target)
+        and _class_types_are_related(ctx, source.name, target.name)
+    ):
+        return
+
     if source.kind == "reference" and target.kind == "interface" and _class_implements_interface(ctx, source.name, target.name):
         return
 
@@ -217,7 +260,7 @@ def _class_implements_interface(ctx: TypeCheckContext, class_type_name: str, int
         return False
 
     canonical_interface_name = canonicalize_nominal_type_name(ctx, interface_type_name)
-    return canonical_interface_name in {canonicalize_nominal_type_name(ctx, name) for name in class_info.implemented_interfaces}
+    return canonical_interface_name in class_info.implemented_interfaces
 
 
 def _is_concrete_class_type(ctx: TypeCheckContext, type_info: TypeInfo) -> bool:

@@ -702,6 +702,50 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
+def test_typecheck_allows_subclass_assignment_inherited_interface_casts_and_type_tests() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Base implements Hashable {
+    value: i64 = 1;
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+class Derived extends Base {
+    extra: i64 = 2;
+}
+
+fn take_base(value: Base) -> i64 {
+    return value.read();
+}
+
+fn main() -> unit {
+    var derived: Derived = Derived();
+    var base: Base = derived;
+    var hashable: Hashable = derived;
+    var upcast: Base = (Base)derived;
+    var downcast: Derived = (Derived)base;
+    var to_obj: Obj = derived;
+    var back: Base = (Base)to_obj;
+    var is_base: bool = derived is Base;
+    var is_derived: bool = base is Derived;
+    var taken: i64 = take_base(derived);
+    var cast_hashable: Hashable = (Hashable)derived;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_unrelated_reference_cast() -> None:
     source = """
 class Str {

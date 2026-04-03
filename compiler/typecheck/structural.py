@@ -37,13 +37,14 @@ def resolve_for_in_element_type(ctx: TypeCheckContext, collection_type: TypeInfo
         raise TypeCheckError(
             f"Type '{collection_type.name}' is not iterable (missing method '{COLLECTION_METHOD_ITER_LEN}()')", span
         )
-    require_member_visible(ctx, class_info, collection_type.name, COLLECTION_METHOD_ITER_LEN, "method", span)
+    iter_len_member = class_info.method_members[COLLECTION_METHOD_ITER_LEN]
+    require_member_visible(ctx, class_info, iter_len_member.owner_class_name, COLLECTION_METHOD_ITER_LEN, "method", span)
     if iter_len_sig.is_static or len(iter_len_sig.params) != 0:
         raise TypeCheckError(
             f"Type '{collection_type.name}' is not iterable (method 'iter_len' must be instance method with 0 args)",
             span,
         )
-    iter_len_return = qualify_member_type_for_owner(ctx, iter_len_sig.return_type, collection_type.name)
+    iter_len_return = qualify_member_type_for_owner(ctx, iter_len_sig.return_type, iter_len_member.owner_class_name)
     if iter_len_return.name != TYPE_NAME_U64:
         raise TypeCheckError(f"Type '{collection_type.name}' is not iterable (method 'iter_len' must return u64)", span)
 
@@ -52,20 +53,21 @@ def resolve_for_in_element_type(ctx: TypeCheckContext, collection_type: TypeInfo
         raise TypeCheckError(
             f"Type '{collection_type.name}' is not iterable (missing method '{COLLECTION_METHOD_ITER_GET}(i64)')", span
         )
-    require_member_visible(ctx, class_info, collection_type.name, COLLECTION_METHOD_ITER_GET, "method", span)
+    iter_get_member = class_info.method_members[COLLECTION_METHOD_ITER_GET]
+    require_member_visible(ctx, class_info, iter_get_member.owner_class_name, COLLECTION_METHOD_ITER_GET, "method", span)
     if iter_get_sig.is_static or len(iter_get_sig.params) != 1:
         raise TypeCheckError(
             f"Type '{collection_type.name}' is not iterable (method 'iter_get' must be instance method with 1 arg)",
             span,
         )
 
-    iter_get_param = qualify_member_type_for_owner(ctx, iter_get_sig.params[0], collection_type.name)
+    iter_get_param = qualify_member_type_for_owner(ctx, iter_get_sig.params[0], iter_get_member.owner_class_name)
     if iter_get_param.name != TYPE_NAME_I64:
         raise TypeCheckError(
             f"Type '{collection_type.name}' is not iterable (method 'iter_get' parameter must be i64)", span
         )
 
-    return qualify_member_type_for_owner(ctx, iter_get_sig.return_type, collection_type.name)
+    return qualify_member_type_for_owner(ctx, iter_get_sig.return_type, iter_get_member.owner_class_name)
 
 
 def resolve_index_expression_type(
@@ -95,7 +97,8 @@ def _resolve_structural_get_method_result_type(
         raise TypeCheckError(
             f"Type '{object_type.name}' is not indexable (missing method '{COLLECTION_METHOD_INDEX_GET}(K)')", span
         )
-    require_member_visible(ctx, class_info, object_type.name, COLLECTION_METHOD_INDEX_GET, "method", span)
+    method_member = class_info.method_members[COLLECTION_METHOD_INDEX_GET]
+    require_member_visible(ctx, class_info, method_member.owner_class_name, COLLECTION_METHOD_INDEX_GET, "method", span)
     if method_sig.is_static:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not indexable (method 'index_get' must be instance method)", span
@@ -105,10 +108,10 @@ def _resolve_structural_get_method_result_type(
             f"Type '{object_type.name}' is not indexable (method 'index_get' must take exactly 1 argument)", span
         )
 
-    qualified_index_param = qualify_member_type_for_owner(ctx, method_sig.params[0], object_type.name)
+    qualified_index_param = qualify_member_type_for_owner(ctx, method_sig.params[0], method_member.owner_class_name)
     require_assignable(ctx, qualified_index_param, index_type, index_span)
 
-    return qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
+    return qualify_member_type_for_owner(ctx, method_sig.return_type, method_member.owner_class_name)
 
 
 def ensure_structural_set_method_available_for_index_assignment(
@@ -124,7 +127,8 @@ def ensure_structural_set_method_available_for_index_assignment(
             f"Type '{object_type.name}' is not index-assignable (missing method '{COLLECTION_METHOD_INDEX_SET}(K, V)')",
             span,
         )
-    require_member_visible(ctx, class_info, object_type.name, COLLECTION_METHOD_INDEX_SET, "method", span)
+    method_member = class_info.method_members[COLLECTION_METHOD_INDEX_SET]
+    require_member_visible(ctx, class_info, method_member.owner_class_name, COLLECTION_METHOD_INDEX_SET, "method", span)
     if method_sig.is_static:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not index-assignable (method 'index_set' must be instance method)", span
@@ -135,7 +139,7 @@ def ensure_structural_set_method_available_for_index_assignment(
             span,
         )
 
-    qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
+    qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, method_member.owner_class_name)
     if qualified_return_type.name != TYPE_NAME_UNIT:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not index-assignable (method 'index_set' must return unit)", span
@@ -162,9 +166,10 @@ def _ensure_structural_set_method_for_index_assignment(
 ) -> FunctionSig:
     method_sig = ensure_structural_set_method_available_for_index_assignment(ctx, object_type, span)
     index_type = infer_expression_type(ctx, index_expr)
-    qualified_index_param = qualify_member_type_for_owner(ctx, method_sig.params[0], object_type.name)
+    method_member = lookup_class_by_type_name(ctx, object_type.name).method_members[COLLECTION_METHOD_INDEX_SET]
+    qualified_index_param = qualify_member_type_for_owner(ctx, method_sig.params[0], method_member.owner_class_name)
     require_assignable(ctx, qualified_index_param, index_type, index_expr.span)
-    qualified_value_param = qualify_member_type_for_owner(ctx, method_sig.params[1], object_type.name)
+    qualified_value_param = qualify_member_type_for_owner(ctx, method_sig.params[1], method_member.owner_class_name)
     require_assignable(ctx, qualified_value_param, value_type, span)
     return method_sig
 
@@ -178,7 +183,8 @@ def _resolve_structural_slice_method_result_type(
             f"Type '{object_type.name}' is not sliceable (missing method '{COLLECTION_METHOD_SLICE_GET}(i64, i64)')",
             span,
         )
-    require_member_visible(ctx, class_info, object_type.name, COLLECTION_METHOD_SLICE_GET, "method", span)
+    method_member = class_info.method_members[COLLECTION_METHOD_SLICE_GET]
+    require_member_visible(ctx, class_info, method_member.owner_class_name, COLLECTION_METHOD_SLICE_GET, "method", span)
     if method_sig.is_static:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not sliceable (method 'slice_get' must be instance method)", span
@@ -190,8 +196,8 @@ def _resolve_structural_slice_method_result_type(
     if len(args) != 2:
         raise TypeCheckError(f"Expected 2 arguments, got {len(args)}", span)
 
-    qualified_begin_param = qualify_member_type_for_owner(ctx, method_sig.params[0], object_type.name)
-    qualified_end_param = qualify_member_type_for_owner(ctx, method_sig.params[1], object_type.name)
+    qualified_begin_param = qualify_member_type_for_owner(ctx, method_sig.params[0], method_member.owner_class_name)
+    qualified_end_param = qualify_member_type_for_owner(ctx, method_sig.params[1], method_member.owner_class_name)
     if qualified_begin_param.name != TYPE_NAME_I64 or qualified_end_param.name != TYPE_NAME_I64:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not sliceable (method 'slice_get' parameters must be i64)", span
@@ -201,7 +207,7 @@ def _resolve_structural_slice_method_result_type(
     end_arg_type = infer_expression_type(ctx, args[1])
     require_array_index_type(begin_arg_type, args[0].span)
     require_array_index_type(end_arg_type, args[1].span)
-    return qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
+    return qualify_member_type_for_owner(ctx, method_sig.return_type, method_member.owner_class_name)
 
 
 def _resolve_structural_set_slice_method_result_type(
@@ -213,7 +219,8 @@ def _resolve_structural_set_slice_method_result_type(
             f"Type '{object_type.name}' is not slice-assignable (missing method '{COLLECTION_METHOD_SLICE_SET}(i64, i64, U)')",
             span,
         )
-    require_member_visible(ctx, class_info, object_type.name, COLLECTION_METHOD_SLICE_SET, "method", span)
+    method_member = class_info.method_members[COLLECTION_METHOD_SLICE_SET]
+    require_member_visible(ctx, class_info, method_member.owner_class_name, COLLECTION_METHOD_SLICE_SET, "method", span)
     if method_sig.is_static:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' must be instance method)", span
@@ -226,8 +233,8 @@ def _resolve_structural_set_slice_method_result_type(
     if len(args) != 3:
         raise TypeCheckError(f"Expected 3 arguments, got {len(args)}", span)
 
-    qualified_begin_param = qualify_member_type_for_owner(ctx, method_sig.params[0], object_type.name)
-    qualified_end_param = qualify_member_type_for_owner(ctx, method_sig.params[1], object_type.name)
+    qualified_begin_param = qualify_member_type_for_owner(ctx, method_sig.params[0], method_member.owner_class_name)
+    qualified_end_param = qualify_member_type_for_owner(ctx, method_sig.params[1], method_member.owner_class_name)
     if qualified_begin_param.name != TYPE_NAME_I64 or qualified_end_param.name != TYPE_NAME_I64:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' first two parameters must be i64)",
@@ -239,11 +246,11 @@ def _resolve_structural_set_slice_method_result_type(
     require_array_index_type(begin_arg_type, args[0].span)
     require_array_index_type(end_arg_type, args[1].span)
 
-    qualified_value_param = qualify_member_type_for_owner(ctx, method_sig.params[2], object_type.name)
+    qualified_value_param = qualify_member_type_for_owner(ctx, method_sig.params[2], method_member.owner_class_name)
     value_arg_type = infer_expression_type(ctx, args[2])
     require_assignable(ctx, qualified_value_param, value_arg_type, args[2].span)
 
-    qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
+    qualified_return_type = qualify_member_type_for_owner(ctx, method_sig.return_type, method_member.owner_class_name)
     if qualified_return_type.name != TYPE_NAME_UNIT:
         raise TypeCheckError(
             f"Type '{object_type.name}' is not slice-assignable (method 'slice_set' must return unit)", span

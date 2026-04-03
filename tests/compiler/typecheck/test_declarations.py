@@ -205,6 +205,85 @@ fn main() -> unit {
     assert ctx.classes["Derived"].superclass_name == "Base"
 
 
+def test_typecheck_collects_effective_inherited_members_and_interfaces() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Base implements Hashable {
+    value: i64 = 1;
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+class Derived extends Base {
+    extra: i64;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    ctx = _collect_declarations(source)
+
+    derived_info = ctx.classes["Derived"]
+
+    assert derived_info.declared_field_order == ["extra"]
+    assert derived_info.field_order == ["value", "extra"]
+    assert list(derived_info.fields) == ["value", "extra"]
+    assert derived_info.field_members["value"].owner_class_name == "Base"
+    assert derived_info.field_members["extra"].owner_class_name == "Derived"
+    assert derived_info.method_members["read"].owner_class_name == "Base"
+    assert derived_info.implemented_interfaces == {"Hashable"}
+
+
+def test_typecheck_rejects_field_redeclaration_of_inherited_field() -> None:
+    source = """
+class Base {
+    value: i64;
+}
+
+class Derived extends Base {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate field 'value'"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_method_redeclaration_of_inherited_method() -> None:
+    source = """
+class Base {
+    fn read() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    fn read() -> i64 {
+        return 2;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Duplicate method 'read'"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_unknown_superclass() -> None:
     source = """
 class Derived extends Missing {

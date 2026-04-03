@@ -114,6 +114,48 @@ fn main() -> i64 {
         parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_inherited_private_field_access_inside_subclass() -> None:
+    source = """
+class Base {
+    private value: i64;
+}
+
+class Derived extends Base {
+    fn bad() -> i64 {
+        return __self.value;
+    }
+}
+
+fn main() -> i64 {
+    return 0;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Member 'Base.value' is private"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_inherited_private_method_call_inside_subclass() -> None:
+    source = """
+class Base {
+    private fn hidden() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    fn bad() -> i64 {
+        return __self.hidden();
+    }
+}
+
+fn main() -> i64 {
+    return 0;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Member 'Base.hidden' is private"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_rejects_private_field_access_from_other_class_same_module() -> None:
     source = """
 class Counter {

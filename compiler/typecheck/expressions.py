@@ -203,16 +203,19 @@ def _infer_class_callable_field_access_type(
     method_sig = class_info.methods.get(expr.field_name)
     if method_sig is None:
         raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.field_name}'", expr.span)
-    require_member_visible(ctx, class_info, class_type_name, expr.field_name, "method", expr.span)
+    method_member = class_info.method_members[expr.field_name]
+    require_member_visible(ctx, class_info, method_member.owner_class_name, expr.field_name, "method", expr.span)
     if not method_sig.is_static:
-        raise TypeCheckError(f"Method '{class_info.name}.{expr.field_name}' is not static", expr.span)
+        owner_display_name = method_member.owner_class_name.split("::", 1)[-1]
+        raise TypeCheckError(f"Method '{owner_display_name}.{expr.field_name}' is not static", expr.span)
 
     qualified_params = [
-        qualify_member_type_for_owner(ctx, param_type, class_type_name) for param_type in method_sig.params
+        qualify_member_type_for_owner(ctx, param_type, method_member.owner_class_name) for param_type in method_sig.params
     ]
-    qualified_return = qualify_member_type_for_owner(ctx, method_sig.return_type, class_type_name)
+    qualified_return = qualify_member_type_for_owner(ctx, method_sig.return_type, method_member.owner_class_name)
+    owner_display_name = method_member.owner_class_name.split("::", 1)[-1]
     return TypeInfo(
-        name=f"__method__:{class_info.name}:{method_sig.name}",
+        name=f"__method__:{owner_display_name}:{method_sig.name}",
         kind="callable",
         callable_params=qualified_params,
         callable_return=qualified_return,
@@ -226,20 +229,24 @@ def _infer_instance_field_access_type(ctx: TypeCheckContext, expr: FieldAccessEx
 
     field_type = class_info.fields.get(expr.field_name)
     if field_type is not None:
-        require_member_visible(ctx, class_info, object_type.name, expr.field_name, "field", expr.span)
-        return qualify_member_type_for_owner(ctx, field_type, object_type.name)
+        field_member = class_info.field_members[expr.field_name]
+        require_member_visible(ctx, class_info, field_member.owner_class_name, expr.field_name, "field", expr.span)
+        return qualify_member_type_for_owner(ctx, field_type, field_member.owner_class_name)
 
     method_sig = class_info.methods.get(expr.field_name)
     if method_sig is not None:
-        require_member_visible(ctx, class_info, object_type.name, expr.field_name, "method", expr.span)
+        method_member = class_info.method_members[expr.field_name]
+        require_member_visible(ctx, class_info, method_member.owner_class_name, expr.field_name, "method", expr.span)
         if not method_sig.is_static:
             raise TypeCheckError("Instance methods are not first-class values in MVP", expr.span)
         qualified_params = [
-            qualify_member_type_for_owner(ctx, param_type, object_type.name) for param_type in method_sig.params
+            qualify_member_type_for_owner(ctx, param_type, method_member.owner_class_name)
+            for param_type in method_sig.params
         ]
-        qualified_return = qualify_member_type_for_owner(ctx, method_sig.return_type, object_type.name)
+        qualified_return = qualify_member_type_for_owner(ctx, method_sig.return_type, method_member.owner_class_name)
+        owner_display_name = method_member.owner_class_name.split("::", 1)[-1]
         return TypeInfo(
-            name=f"__method__:{class_info.name}:{method_sig.name}",
+            name=f"__method__:{owner_display_name}:{method_sig.name}",
             kind="callable",
             callable_params=qualified_params,
             callable_return=qualified_return,

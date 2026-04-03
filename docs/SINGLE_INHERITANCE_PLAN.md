@@ -531,13 +531,13 @@ Purpose:
 
 Checklist:
 
-- [ ] extend `ClassInfo` with superclass and effective member/interface views
-- [ ] compute effective field order with base-prefix semantics
-- [ ] compute effective method lookup with declaring-owner metadata
-- [ ] compute transitive effective interfaces
-- [ ] make `is_assignable` accept subclass-to-base assignment
-- [ ] make explicit casts and `is` tests class-hierarchy aware
-- [ ] keep exact-type semantics for `same_type`
+- [x] extend `ClassInfo` with superclass and effective member/interface views
+- [x] compute effective field order with base-prefix semantics
+- [x] compute effective method lookup with declaring-owner metadata
+- [x] compute transitive effective interfaces
+- [x] make `is_assignable` accept subclass-to-base assignment
+- [x] make explicit casts and `is` tests class-hierarchy aware
+- [x] keep exact-type semantics for `same_type`
 
 Tests:
 

@@ -32,12 +32,14 @@ def _ensure_field_access_assignable(
     if field_type is None:
         raise TypeCheckError("Invalid assignment target", expr.span)
 
-    require_member_visible(ctx, class_info, object_type.name, expr.field_name, "field", expr.span)
+    field_member = class_info.field_members[expr.field_name]
+    require_member_visible(ctx, class_info, field_member.owner_class_name, expr.field_name, "field", expr.span)
 
-    if expr.field_name in class_info.final_fields:
+    if field_member.is_final:
         if allow_final_field_assignment and isinstance(expr.object_expr, IdentifierExpr) and expr.object_expr.name == "__self":
             return
-        raise TypeCheckError(f"Field '{class_info.name}.{expr.field_name}' is final", expr.span)
+        owner_display_name = field_member.owner_class_name.split("::", 1)[-1]
+        raise TypeCheckError(f"Field '{owner_display_name}.{expr.field_name}' is final", expr.span)
 
 
 def _ensure_assignable_target(ctx: TypeCheckContext, expr: Expression, *, allow_final_field_assignment: bool) -> None:

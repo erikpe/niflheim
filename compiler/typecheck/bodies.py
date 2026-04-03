@@ -55,7 +55,7 @@ def _check_class_field_initializers(ctx: TypeCheckContext) -> None:
                 continue
             _check_constant_field_initializer(field_decl.initializer)
             init_type = infer_expression_type(ctx, field_decl.initializer)
-            field_type = class_info.fields[field_decl.name]
+            field_type = class_info.declared_fields[field_decl.name]
             require_assignable(ctx, field_type, init_type, field_decl.initializer.span)
 
 
@@ -350,7 +350,7 @@ def check_bodies(ctx: TypeCheckContext) -> None:
     for class_decl in ctx.module_ast.classes:
         class_info = ctx.classes[class_decl.name]
         for method_decl in class_decl.methods:
-            method_sig = class_info.methods[method_decl.name]
+            method_sig = class_info.declared_methods[method_decl.name]
             statements_check_function_like(
                 ctx,
                 method_decl.params,

@@ -418,3 +418,25 @@ fn main() -> unit {
 }
 """
     parse_and_typecheck(source)
+
+
+def test_typecheck_allows_inherited_instance_method_call() -> None:
+    source = """
+class Base {
+    value: i64 = 7;
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}
+
+class Derived extends Base {
+    extra: i64 = 1;
+}
+
+fn main() -> i64 {
+    var d: Derived = Derived();
+    return d.read();
+}
+"""
+    parse_and_typecheck(source)

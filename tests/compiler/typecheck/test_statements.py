@@ -240,6 +240,27 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
+def test_typecheck_rejects_assignment_to_inherited_final_field() -> None:
+    source = """
+class Base {
+    final value: i64;
+}
+
+class Derived extends Base {
+    fn bump() -> unit {
+        __self.value = 2;
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Field 'Base.value' is final"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_allows_single_assignment_to_final_field_in_constructor() -> None:
     source = """
 class Counter {

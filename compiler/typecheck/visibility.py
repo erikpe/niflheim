@@ -26,4 +26,5 @@ def require_member_visible(
     if ctx.current_private_owner_type == owner_canonical:
         return
 
-    raise TypeCheckError(f"Member '{class_info.name}.{member_name}' is private", span)
+    owner_display_name = owner_type_name.split("::", 1)[-1]
+    raise TypeCheckError(f"Member '{owner_display_name}.{member_name}' is private", span)
