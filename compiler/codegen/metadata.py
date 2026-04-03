@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from compiler.codegen.class_hierarchy import ClassHierarchyIndex
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
@@ -41,6 +42,7 @@ class ClassMetadataRecord:
     qualified_type_name: str
     display_name: str
     aliases: tuple[str, ...]
+    superclass_symbol: str | None
     pointer_offsets_symbol: str | None
     pointer_offsets: tuple[int, ...]
     interface_impls_symbol: str | None
@@ -65,7 +67,11 @@ class TypeMetadata:
         return tuple(record.canonical_type_name for record in self.extra_runtime_types)
 
 
-def build_type_metadata(program: LoweredLinkedSemanticProgram, declaration_tables: DeclarationTables) -> TypeMetadata:
+def build_type_metadata(
+    program: LoweredLinkedSemanticProgram,
+    declaration_tables: DeclarationTables,
+    class_hierarchy: ClassHierarchyIndex,
+) -> TypeMetadata:
     interface_decls = [interface for module in program.ordered_modules for interface in module.interfaces]
     interfaces_by_id = {interface.interface_id: interface for interface in interface_decls}
 
@@ -89,11 +95,11 @@ def build_type_metadata(program: LoweredLinkedSemanticProgram, declaration_table
         class_alias_names.update(aliases)
 
         display_name = qualified_type_name if qualified_type_name != cls.class_id.name else cls.class_id.name
-        pointer_offsets = tuple(
-            24 + (8 * field_index)
-            for field_index, field in enumerate(cls.fields)
-            if codegen_types.is_reference_type_ref(field.type_ref)
-        )
+        superclass_symbol = None
+        if cls.superclass_id is not None:
+            superclass_symbol = codegen_symbols.mangle_type_symbol(qualified_class_type_name(cls.superclass_id))
+
+        pointer_offsets = class_hierarchy.pointer_offsets(cls.class_id)
         pointer_offsets_symbol = None
         if pointer_offsets:
             pointer_offsets_symbol = codegen_symbols.mangle_type_pointer_offsets_symbol(qualified_type_name)
@@ -105,16 +111,15 @@ def build_type_metadata(program: LoweredLinkedSemanticProgram, declaration_table
             for interface_id in cls.implemented_interfaces:
                 interface = interfaces_by_id[interface_id]
                 interface_display_name = qualified_interface_type_name(interface_id)
-                method_labels = tuple(
-                    declaration_tables.method_label(
-                        MethodId(
-                            module_path=cls.class_id.module_path,
-                            class_name=cls.class_id.name,
-                            name=interface_method.method_id.name,
+                method_labels: list[str] = []
+                for interface_method in interface.methods:
+                    implementing_method_id = class_hierarchy.resolve_method_id(cls.class_id, interface_method.method_id.name)
+                    method_label = declaration_tables.method_label(implementing_method_id)
+                    if method_label is None:
+                        raise ValueError(
+                            f"Missing method label for interface implementation '{implementing_method_id.class_name}.{implementing_method_id.name}'"
                         )
-                    )
-                    for interface_method in interface.methods
-                )
+                    method_labels.append(method_label)
                 interface_impls.append(
                     InterfaceImplMetadataRecord(
                         interface_id=interface_id,
@@ -124,7 +129,7 @@ def build_type_metadata(program: LoweredLinkedSemanticProgram, declaration_table
                         method_table_symbol=codegen_symbols.mangle_interface_method_table_symbol(
                             qualified_type_name, interface_display_name
                         ),
-                        method_labels=method_labels,
+                        method_labels=tuple(method_labels),
                     )
                 )
 
@@ -134,6 +139,7 @@ def build_type_metadata(program: LoweredLinkedSemanticProgram, declaration_table
                 qualified_type_name=qualified_type_name,
                 display_name=display_name,
                 aliases=tuple(aliases),
+                superclass_symbol=superclass_symbol,
                 pointer_offsets_symbol=pointer_offsets_symbol,
                 pointer_offsets=pointer_offsets,
                 interface_impls_symbol=interface_impls_symbol,

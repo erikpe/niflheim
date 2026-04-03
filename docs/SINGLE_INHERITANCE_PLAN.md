@@ -619,12 +619,12 @@ Purpose:
 
 Checklist:
 
-- [ ] compute effective field offsets from base-prefix layout
-- [ ] emit `super_type` in runtime type metadata
-- [ ] update class checked-cast runtime helpers to walk the superclass chain
-- [ ] update class type tests to walk the superclass chain
-- [ ] emit transitive interface metadata on subclass runtime types
-- [ ] keep inherited method emission direct-to-declaring-label only
+- [x] compute effective field offsets from base-prefix layout
+- [x] emit `super_type` in runtime type metadata
+- [x] update class checked-cast runtime helpers to walk the superclass chain
+- [x] update class type tests to walk the superclass chain
+- [x] emit transitive interface metadata on subclass runtime types
+- [x] keep inherited method emission direct-to-declaring-label only
 
 Tests:
 

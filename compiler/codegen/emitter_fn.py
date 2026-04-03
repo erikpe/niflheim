@@ -271,8 +271,10 @@ def _emit_compatibility_constructor(
 
     param_fields = set(ctor_layout.param_field_names)
     field_decl_by_name = {field.name: field for field in cls.fields}
-    for field_index, field_name in enumerate(ctor_layout.field_names):
-        field_offset = 24 + (8 * field_index)
+    for field_name in ctor_layout.field_names:
+        field_offset = declaration_tables.class_field_offset(cls.class_id, field_name)
+        if field_offset is None:
+            raise ValueError(f"constructor codegen missing field '{cls.class_id.name}.{field_name}'")
         field_decl = field_decl_by_name[field_name]
         if field_name in param_fields:
             value_offset = layout.slot_offsets[field_name]
@@ -370,10 +372,12 @@ def _emit_explicit_constructor(
     codegen.emit_named_root_slot_updates(layout, local_ids={receiver_local_id})
     emit_ctx.mark_named_roots_synced({receiver_local_id})
 
-    for field_index, field_decl in enumerate(cls.fields):
+    for field_decl in cls.fields:
         if field_decl.initializer is None:
             continue
-        field_offset = 24 + (8 * field_index)
+        field_offset = declaration_tables.class_field_offset(cls.class_id, field_decl.name)
+        if field_offset is None:
+            raise ValueError(f"constructor codegen missing field '{cls.class_id.name}.{field_decl.name}'")
         emit_expr(codegen, field_decl.initializer, emit_ctx)
         codegen.asm.instr("mov rcx, rax")
         codegen.asm.instr(f"mov rax, {offset_operand(receiver_offset)}")

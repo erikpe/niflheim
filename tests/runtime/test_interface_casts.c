@@ -63,6 +63,7 @@ static const RtType HASH_ONLY_TYPE = {
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
+    .super_type = NULL,
     .interfaces = HASH_ONLY_INTERFACES,
     .interface_count = 1u,
     .reserved1 = 0u,
@@ -79,6 +80,24 @@ static const RtType KEY_TYPE = {
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
+    .super_type = NULL,
+    .interfaces = KEY_INTERFACES,
+    .interface_count = 2u,
+    .reserved1 = 0u,
+};
+
+static const RtType DERIVED_KEY_TYPE = {
+    .type_id = 0x44455256u,
+    .flags = RT_TYPE_FLAG_LEAF,
+    .abi_version = 1u,
+    .align_bytes = 8u,
+    .fixed_size_bytes = 24u,
+    .debug_name = "DerivedKey",
+    .trace_fn = NULL,
+    .pointer_offsets = NULL,
+    .pointer_offsets_count = 0u,
+    .reserved0 = 0u,
+    .super_type = &KEY_TYPE,
     .interfaces = KEY_INTERFACES,
     .interface_count = 2u,
     .reserved1 = 0u,
@@ -122,6 +141,31 @@ static void test_checked_cast_interface_accepts_single_interface_impl(void) {
     }
 }
 
+static void test_checked_cast_accepts_derived_instance_for_base_type(void) {
+    void* obj = alloc_leaf(&DERIVED_KEY_TYPE);
+    if (rt_checked_cast(obj, &KEY_TYPE) != obj) {
+        fail("derived object should cast to its base runtime type");
+    }
+    if (rt_checked_cast_interface(obj, &HASHABLE_INTERFACE) != obj) {
+        fail("derived object should cast to inherited interface metadata");
+    }
+}
+
+static void test_is_instance_of_type_walks_superclass_chain(void) {
+    void* derived = alloc_leaf(&DERIVED_KEY_TYPE);
+    void* base = alloc_leaf(&KEY_TYPE);
+
+    if (rt_is_instance_of_type(derived, &KEY_TYPE) != 1u) {
+        fail("derived object should be an instance of its base type");
+    }
+    if (rt_is_instance_of_type(derived, &DERIVED_KEY_TYPE) != 1u) {
+        fail("derived object should be an instance of its own type");
+    }
+    if (rt_is_instance_of_type(base, &DERIVED_KEY_TYPE) != 0u) {
+        fail("base object should not be an instance of derived type");
+    }
+}
+
 int main(void) {
     rt_init();
 
@@ -129,6 +173,8 @@ int main(void) {
     test_checked_cast_interface_accepts_implementing_object();
     test_checked_cast_interface_checks_interface_value_at_runtime();
     test_checked_cast_interface_accepts_single_interface_impl();
+    test_checked_cast_accepts_derived_instance_for_base_type();
+    test_is_instance_of_type_walks_superclass_chain();
 
     rt_shutdown();
     puts("test_interface_casts: ok");

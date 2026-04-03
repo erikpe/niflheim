@@ -274,16 +274,27 @@ static uint64_t rt_obj_implements_interface(void* obj, const RtInterfaceType* ex
     return rt_find_interface_impl(header->type, expected_interface) != NULL ? 1u : 0u;
 }
 
-static uint64_t rt_obj_has_exact_type(void* obj, const RtType* expected_type) {
+static uint64_t rt_type_is_instance_of(const RtType* concrete_type, const RtType* expected_type) {
+    if (expected_type == NULL) {
+        rt_panic("rt_type_is_instance_of called with NULL expected_type");
+    }
+
+    for (const RtType* current_type = concrete_type; current_type != NULL; current_type = current_type->super_type) {
+        if (current_type == expected_type) {
+            return 1u;
+        }
+    }
+
+    return 0u;
+}
+
+static uint64_t rt_obj_has_type(void* obj, const RtType* expected_type) {
     if (obj == NULL) {
         return 0u;
     }
-    if (expected_type == NULL) {
-        rt_panic("rt_obj_has_exact_type called with NULL expected_type");
-    }
 
     RtObjHeader* header = (RtObjHeader*)obj;
-    return header->type == expected_type ? 1u : 0u;
+    return rt_type_is_instance_of(header->type, expected_type);
 }
 
 void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface) {
@@ -306,7 +317,7 @@ void* rt_checked_cast(void* obj, const RtType* expected_type) {
     if (obj == NULL) {
         return NULL;
     }
-    if (rt_obj_has_exact_type(obj, expected_type) != 0u) {
+    if (rt_obj_has_type(obj, expected_type) != 0u) {
         return obj;
     }
 
@@ -323,7 +334,7 @@ uint64_t rt_is_instance_of_interface(void* obj, const RtInterfaceType* expected_
 }
 
 uint64_t rt_is_instance_of_type(void* obj, const RtType* expected_type) {
-    return rt_obj_has_exact_type(obj, expected_type);
+    return rt_obj_has_type(obj, expected_type);
 }
 
 uint64_t rt_obj_same_type(void* lhs, void* rhs) {

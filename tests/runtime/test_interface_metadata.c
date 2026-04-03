@@ -50,6 +50,24 @@ static const RtType KEY_TYPE = {
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
+    .super_type = NULL,
+    .interfaces = KEY_INTERFACES,
+    .interface_count = 2u,
+    .reserved1 = 0u,
+};
+
+static const RtType DERIVED_KEY_TYPE = {
+    .type_id = 0x44455256u,
+    .flags = RT_TYPE_FLAG_LEAF,
+    .abi_version = 1u,
+    .align_bytes = 8u,
+    .fixed_size_bytes = 24u,
+    .debug_name = "DerivedKey",
+    .trace_fn = NULL,
+    .pointer_offsets = NULL,
+    .pointer_offsets_count = 0u,
+    .reserved0 = 0u,
+    .super_type = &KEY_TYPE,
     .interfaces = KEY_INTERFACES,
     .interface_count = 2u,
     .reserved1 = 0u,
@@ -66,6 +84,7 @@ static const RtType PLAIN_TYPE = {
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
+    .super_type = NULL,
     .interfaces = NULL,
     .interface_count = 0u,
     .reserved1 = 0u,
@@ -91,6 +110,14 @@ static void test_find_interface_impl_finds_matching_descriptor(void) {
     }
     if (hashable->method_count != 1u) {
         fail("returned interface metadata should preserve method count");
+    }
+
+    const RtInterfaceImpl* inherited = rt_find_interface_impl(&DERIVED_KEY_TYPE, &HASHABLE_INTERFACE);
+    if (inherited == NULL) {
+        fail("derived type should expose inherited Hashable metadata record");
+    }
+    if (inherited->method_table != KEY_HASHABLE_METHODS) {
+        fail("derived type should preserve inherited method table pointer");
     }
 }
 

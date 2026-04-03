@@ -52,6 +52,7 @@ static const RtType KEY_TYPE = {
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
+    .super_type = NULL,
     .interfaces = KEY_INTERFACES,
     .interface_count = 2u,
     .reserved1 = 0u,

@@ -239,3 +239,52 @@ def test_program_generator_builds_type_metadata_before_emission(tmp_path: Path) 
     assert metadata.extra_runtime_type_names == ()
     assert hashable_metadata.descriptor_symbol == "__nif_interface_main__Hashable"
     assert hashable_metadata.method_count == 1
+
+def test_program_generator_uses_effective_layout_and_inherited_interface_methods(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Base implements Hashable {
+            head: Obj;
+
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        class Derived extends Base {
+            count: i64;
+            tail: Obj;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    generator = ProgramGenerator(program)
+
+    tables = generator.build_declaration_tables()
+    metadata = generator.build_type_metadata()
+
+    base_id = ClassId(module_path=("main",), name="Base")
+    derived_id = ClassId(module_path=("main",), name="Derived")
+    derived_ctor_id = ConstructorId(module_path=("main",), class_name="Derived")
+    derived_metadata = next(record for record in metadata.classes if record.class_id == derived_id)
+
+    assert tables.class_field_offset(base_id, "head") == 24
+    assert tables.class_field_offset(derived_id, "count") == 32
+    assert tables.class_field_offset(derived_id, "tail") == 40
+    assert tables.constructor_layout(derived_ctor_id).payload_bytes == 24
+    assert derived_metadata.superclass_symbol == "__nif_type_main__Base"
+    assert derived_metadata.pointer_offsets == (24, 40)
+    assert derived_metadata.interface_impls[0].method_table_symbol == "__nif_interface_methods_main__Derived__main__Hashable"
+    assert derived_metadata.interface_impls[0].method_labels == ("__nif_method_Base_hash_code",)

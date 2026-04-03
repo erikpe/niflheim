@@ -390,6 +390,38 @@ def test_unreachable_prune_drops_dead_interfaces_but_keeps_referenced_ones(tmp_p
     ]
 
 
+def test_unreachable_prune_keeps_superclasses_and_inherited_interface_methods(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Base implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        class Derived extends Base {
+            extra: u64;
+        }
+
+        fn main() -> u64 {
+            return ((Hashable)Derived(1u)).hash_code();
+        }
+        """,
+    )
+
+    pruned = unreachable_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    module = pruned.modules[("main",)]
+
+    assert [cls.class_id.name for cls in module.classes] == ["Base", "Derived"]
+    assert [method.method_id.name for method in module.classes[0].methods] == ["hash_code"]
+    assert module.classes[1].implemented_interfaces == [InterfaceId(module_path=("main",), name="Hashable")]
+
+
 def test_unreachable_prune_drops_dead_extern_functions(tmp_path: Path) -> None:
     _write(
         tmp_path / "util.nif",

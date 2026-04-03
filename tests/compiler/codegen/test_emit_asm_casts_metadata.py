@@ -224,7 +224,41 @@ fn main() -> i64 {
     assert "__nif_type_Holder:" in asm
     assert "    .quad __nif_type_name_main__Holder" in asm
     assert "    .quad __nif_type_name_main__Holder__ptr_offsets" in asm
-    assert "    .quad 0\n    .long 0\n    .long 0" in asm
+    assert "    .quad 0\n    .quad 0\n    .long 0\n    .long 0" in asm
+
+def test_emit_asm_emits_inheritance_metadata_with_base_prefix_offsets(tmp_path) -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Base implements Hashable {
+    head: Obj;
+
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+class Derived extends Base {
+    count: i64;
+    tail: Obj;
+}
+
+fn main() -> i64 {
+    var value: Derived = Derived(1, null);
+    if value == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "__nif_type_name_main__Derived__ptr_offsets:" in asm
+    assert "__nif_type_name_main__Derived__ptr_offsets:\n    .long 24\n    .long 40" in asm
+    assert "__nif_interface_methods_main__Derived__main__Hashable:\n    .quad __nif_method_Base_hash_code" in asm
+    assert "    .quad __nif_type_main__Base" in asm
 
 
 def test_emit_asm_obj_to_interface_cast_calls_rt_checked_cast_interface(tmp_path) -> None:

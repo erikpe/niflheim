@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import compiler.codegen.symbols as codegen_symbols
 
+from compiler.codegen.class_hierarchy import ClassHierarchyIndex
 from compiler.codegen.metadata import TypeMetadata, build_type_metadata, qualified_interface_type_name
 from compiler.codegen.generator import CodeGenerator, CodegenOptions
 from compiler.codegen.emitter_module import generate_module
@@ -69,11 +70,19 @@ class ProgramGenerator(CodeGenerator):
         super().__init__(options=options)
         self.program = program
         self.declaration_tables: DeclarationTables | None = None
+        self.class_hierarchy: ClassHierarchyIndex | None = None
         self.type_metadata: TypeMetadata | None = None
+
+    def build_class_hierarchy(self) -> ClassHierarchyIndex:
+        if self.class_hierarchy is None:
+            self.class_hierarchy = ClassHierarchyIndex(self.program)
+        return self.class_hierarchy
 
     def build_declaration_tables(self) -> DeclarationTables:
         if self.declaration_tables is not None:
             return self.declaration_tables
+
+        class_hierarchy = self.build_class_hierarchy()
 
         method_labels_by_id: dict[MethodId, str] = {}
         constructor_layouts_by_id: dict[ConstructorId, ConstructorLayout] = {}
@@ -99,7 +108,7 @@ class ProgramGenerator(CodeGenerator):
                     class_name=class_name,
                     label=constructor_label,
                     type_symbol=codegen_symbols.mangle_type_symbol(class_name),
-                    payload_bytes=len(cls.fields) * 8,
+                    payload_bytes=class_hierarchy.payload_bytes(cls.class_id),
                     field_names=[field.name for field in cls.fields],
                     param_names=[param.name for param in constructor.params],
                     param_field_names=[field.name for field in cls.fields if field.initializer is None]
@@ -107,9 +116,14 @@ class ProgramGenerator(CodeGenerator):
                     else [],
                 )
 
-            for field_index, field in enumerate(cls.fields):
-                field_key = (cls.class_id, field.name)
-                class_field_offsets_by_id[field_key] = 24 + (8 * field_index)
+            for field_slot in class_hierarchy.effective_field_slots(cls.class_id):
+                field_key = (field_slot.owner_class_id, field_slot.field.name)
+                existing_offset = class_field_offsets_by_id.get(field_key)
+                if existing_offset is not None and existing_offset != field_slot.offset:
+                    raise ValueError(
+                        f"Conflicting field offsets for '{field_slot.owner_class_id.name}.{field_slot.field.name}'"
+                    )
+                class_field_offsets_by_id[field_key] = field_slot.offset
 
             for method in cls.methods:
                 method_labels_by_id[method.method_id] = codegen_symbols.mangle_method_symbol(
@@ -129,8 +143,9 @@ class ProgramGenerator(CodeGenerator):
         if self.type_metadata is not None:
             return self.type_metadata
 
+        class_hierarchy = self.build_class_hierarchy()
         declaration_tables = self.build_declaration_tables()
-        self.type_metadata = build_type_metadata(self.program, declaration_tables)
+        self.type_metadata = build_type_metadata(self.program, declaration_tables, class_hierarchy)
         return self.type_metadata
 
     def generate(self) -> str:

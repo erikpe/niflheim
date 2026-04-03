@@ -62,6 +62,7 @@ struct RtType {
     const uint32_t* pointer_offsets;
     uint32_t pointer_offsets_count;
     uint32_t reserved0;
+    const RtType* super_type;
     const RtInterfaceImpl* interfaces;
     uint32_t interface_count;
     uint32_t reserved1;

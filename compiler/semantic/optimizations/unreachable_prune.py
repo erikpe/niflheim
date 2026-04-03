@@ -114,6 +114,17 @@ class _SemanticReachabilityWalker:
         self.method_queue.append(method_id)
         self._enqueue_class(ClassId(module_path=method_id.module_path, name=method_id.class_name))
 
+    def _resolve_method_id(self, class_id: ClassId, method_name: str) -> MethodId | None:
+        current_class = self.classes_by_id.get(class_id)
+        while current_class is not None:
+            for method in current_class.methods:
+                if method.method_id.name == method_name:
+                    return method.method_id
+            if current_class.superclass_id is None:
+                return None
+            current_class = self.classes_by_id.get(current_class.superclass_id)
+        return None
+
     def _visit_function(self, function: SemanticFunction) -> None:
         for param in function.params:
             self._enqueue_type_ref(function.function_id.module_path, param.type_ref)
@@ -129,6 +140,9 @@ class _SemanticReachabilityWalker:
         self._walk_block(method.method_id.module_path, method.body, method)
 
     def _visit_class(self, cls: SemanticClass) -> None:
+        if cls.superclass_id is not None:
+            self._enqueue_class(cls.superclass_id)
+
         for field in cls.fields:
             self._enqueue_type_ref(cls.class_id.module_path, field.type_ref)
             if field.initializer is not None:
@@ -139,13 +153,7 @@ class _SemanticReachabilityWalker:
             if interface is None:
                 continue
             for interface_method in interface.methods:
-                self._enqueue_method(
-                    MethodId(
-                        module_path=cls.class_id.module_path,
-                        class_name=cls.class_id.name,
-                        name=interface_method.method_id.name,
-                    )
-                )
+                self._enqueue_method(self._resolve_method_id(cls.class_id, interface_method.method_id.name))
 
     def _visit_interface(self, interface: SemanticInterface) -> None:
         for method in interface.methods:

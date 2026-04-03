@@ -104,6 +104,7 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             pointer_offsets_sym = cls.pointer_offsets_symbol
             pointer_offsets_count = len(cls.pointer_offsets)
             type_flags = 1
+        super_type_sym = cls.superclass_symbol or "0"
         interfaces_sym = cls.interface_impls_symbol or "0"
         interface_count = len(cls.interface_impls)
         _emit_rt_type_record(
@@ -112,6 +113,7 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             name_sym=name_sym,
             pointer_offsets_sym=pointer_offsets_sym,
             pointer_offsets_count=pointer_offsets_count,
+            super_type_sym=super_type_sym,
             interfaces_sym=interfaces_sym,
             interface_count=interface_count,
         )
@@ -128,6 +130,7 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             name_sym=name_sym,
             pointer_offsets_sym="0",
             pointer_offsets_count=0,
+            super_type_sym="0",
             interfaces_sym="0",
             interface_count=0,
         )
@@ -146,6 +149,7 @@ def _emit_rt_type_record(
     name_sym: str,
     pointer_offsets_sym: str,
     pointer_offsets_count: int,
+    super_type_sym: str,
     interfaces_sym: str,
     interface_count: int,
 ) -> None:
@@ -159,6 +163,7 @@ def _emit_rt_type_record(
     codegen.asm.instr(f".quad {pointer_offsets_sym}")
     codegen.asm.instr(f".long {pointer_offsets_count}")
     codegen.asm.instr(".long 0")
+    codegen.asm.instr(f".quad {super_type_sym}")
     codegen.asm.instr(f".quad {interfaces_sym}")
     codegen.asm.instr(f".long {interface_count}")
     codegen.asm.instr(".long 0")

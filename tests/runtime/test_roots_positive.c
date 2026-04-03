@@ -22,6 +22,7 @@ static const RtType LEAF_TYPE = {
     .pointer_offsets = NULL,
     .pointer_offsets_count = 0,
     .reserved0 = 0,
+    .super_type = NULL,
     .interfaces = NULL,
     .interface_count = 0,
     .reserved1 = 0,
