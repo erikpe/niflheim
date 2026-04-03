@@ -6,7 +6,7 @@ Accepted (locked direction for sugaring protocols).
 
 ## Context
 
-Niflheim already has sugar forms (`[]`, `[:]`, index assignment) and structural lowering behavior for container-like types. We also want a future `for elem in collection { ... }` sugar without introducing hard-coded container names.
+Niflheim already has sugar forms (`[]`, `[:]`, index assignment) and structural lowering behavior for container-like types. `for elem in collection { ... }` is also implemented, and it should remain free of hard-coded container names.
 
 Some types (for example maps) intentionally use `index_get(key)` where the argument is a key, not a positional index. Reusing the same method contract for both indexing sugar and iteration sugar would create ambiguity and accidental eligibility.
 
@@ -38,7 +38,7 @@ Notes:
 
 ### 2) For-In Iteration Sugar Protocol
 
-Planned surface syntax:
+Surface syntax:
 
 - `for elem in collection { ... }`
 
@@ -68,6 +68,14 @@ Notes:
 - This protocol is intentionally distinct from indexing sugar.
 - A type with non-iteration lookup methods (for example map key lookup) is not automatically iterable by `for ... in` unless it also defines `iter_len`/`iter_get(i64)`.
 
+Current implementation status:
+
+- `for ... in` is implemented today for arrays and for concrete class-typed values that satisfy the structural `iter_len`/`iter_get(i64)` protocol.
+- The collection expression is evaluated once, and `iter_len()` is snapshotted once before the loop body begins.
+- Arrays are handled as a built-in fast path rather than by requiring user-visible `iter_len`/`iter_get` methods.
+- Inherited `iter_len`/`iter_get` methods on class types participate in `for ... in` eligibility.
+- Interface-typed `for ... in` is not yet implemented. Even if an interface declares `iter_len() -> u64` and `iter_get(i64) -> T`, the current compiler still rejects iterating a value whose static type is that interface.
+
 ## Consequences
 
 ### Positive
@@ -81,13 +89,15 @@ Notes:
 
 - Introduces additional protocol surface (`iter_len`/`iter_get`) for iterable types.
 - Requires clear diagnostics when one protocol exists but the other does not.
+- Leaves a temporary gap between the structural design and the current implementation because interface-typed iteration is not supported yet.
 
 ## Migration Guidance
 
 1. Keep indexing/slicing lowering on `index_get/index_set/slice_get/slice_set`.
-2. Implement `for ... in` lowering only against `iter_len/iter_get(i64)`.
-3. Ensure parser/typechecker/codegen diagnostics mention the specific missing protocol methods.
-4. Add tests for both positive and negative eligibility (especially map-like key-based `get`).
+2. Keep `for ... in` lowering aligned with evaluate-once collection semantics and snapshotted `iter_len()` semantics.
+3. Keep structural class-based eligibility on `iter_len/iter_get(i64)`, while treating array iteration as the built-in fast path.
+4. Ensure parser/typechecker/codegen diagnostics mention the specific missing protocol methods.
+5. Add tests for both positive and negative eligibility, especially map-like key-based `get` and the current interface-typed limitation.
 
 ## Non-Goals
 
