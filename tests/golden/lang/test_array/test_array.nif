@@ -7,6 +7,20 @@ class Person {
 }
 
 
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+
+class Key implements Hashable {
+    value: u64;
+
+    fn hash_code() -> u64 {
+        return __self.value + 100u;
+    }
+}
+
+
 fn test_primitive_smoke() -> unit {
     var bytes: u8[] = u8[](3u);
     assert(bytes.len() == 3u);
@@ -30,6 +44,48 @@ fn test_reference_default_null() -> unit {
 
     people[1] = Person(7);
     assert(people[1] != null);
+}
+
+
+fn test_bool_and_double_arrays() -> unit {
+    var flags: bool[] = bool[](3u);
+    assert(flags.len() == 3u);
+    assert(flags[0] == false);
+    assert(flags[1] == false);
+    assert(flags[2] == false);
+
+    flags[1] = true;
+    assert(flags[0] == false);
+    assert(flags[1] == true);
+
+    var values: double[] = double[](2u);
+    assert(values[0] == 0.0);
+    assert(values[1] == 0.0);
+
+    values[0] = 1.25;
+    values[1] = 2.5;
+    assert(values[0] == 1.25);
+    assert(values[1] == 2.5);
+}
+
+
+fn test_interface_element_arrays_support_storage_and_slice() -> unit {
+    var values: Hashable[] = Hashable[](2u);
+    values[0] = Key(5u);
+    values[1] = Key(8u);
+
+    assert(values[0].hash_code() == 105u);
+    assert(values[1].hash_code() == 108u);
+
+    var cut: Hashable[] = values[0:1];
+    assert(cut.len() == 1u);
+    assert(cut[0].hash_code() == 105u);
+
+    var replacement: Hashable[] = Hashable[](1u);
+    replacement[0] = Key(9u);
+    values[0:1] = replacement;
+    assert(values[0].hash_code() == 109u);
+    assert(values[1].hash_code() == 108u);
 }
 
 
@@ -349,29 +405,38 @@ fn test_nested_inner_slice_oob_panics() -> unit {
 }
 
 
+fn test_len_on_null_panics() -> unit {
+    var values: i64[] = null;
+    values.len();
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_stdin().strip().to_u64();
 
     if select == 1u { test_primitive_smoke(); }
     if select == 2u { test_reference_default_null(); }
-    if select == 3u { test_slice_copy_behavior(); }
-    if select == 4u { test_get_oob_panics(); }
-    if select == 5u { test_set_oob_panics(); }
-    if select == 6u { test_slice_oob_panics(); }
-    if select == 7u { test_negative_index_panics(); }
-    if select == 8u { test_set_slice_write_behavior(); }
-    if select == 9u { test_set_slice_invalid_length_panics(); }
-    if select == 10u { test_obj_to_u64_array_cast_ok(); }
-    if select == 11u { test_obj_to_u64_array_cast_bad_kind_panics(); }
-    if select == 12u { test_primitive_array_to_reference_array_cast_panics(); }
-    if select == 13u { test_reference_array_to_primitive_array_cast_panics(); }
-    if select == 14u { test_reference_array_roundtrip_cast_ok(); }
-    if select == 15u { test_nested_primitive_index_get_set_levels(); }
-    if select == 16u { test_nested_primitive_slice_get_set_levels(); }
-    if select == 17u { test_nested_reference_index_slice_levels(); }
-    if select == 18u { test_deeply_nested_u8_index_slice_levels(); }
-    if select == 19u { test_nested_set_slice_invalid_length_panics(); }
-    if select == 20u { test_nested_inner_slice_oob_panics(); }
+    if select == 3u { test_bool_and_double_arrays(); }
+    if select == 4u { test_slice_copy_behavior(); }
+    if select == 5u { test_get_oob_panics(); }
+    if select == 6u { test_set_oob_panics(); }
+    if select == 7u { test_slice_oob_panics(); }
+    if select == 8u { test_negative_index_panics(); }
+    if select == 9u { test_set_slice_write_behavior(); }
+    if select == 10u { test_set_slice_invalid_length_panics(); }
+    if select == 11u { test_obj_to_u64_array_cast_ok(); }
+    if select == 12u { test_obj_to_u64_array_cast_bad_kind_panics(); }
+    if select == 13u { test_primitive_array_to_reference_array_cast_panics(); }
+    if select == 14u { test_reference_array_to_primitive_array_cast_panics(); }
+    if select == 15u { test_reference_array_roundtrip_cast_ok(); }
+    if select == 16u { test_nested_primitive_index_get_set_levels(); }
+    if select == 17u { test_nested_primitive_slice_get_set_levels(); }
+    if select == 18u { test_nested_reference_index_slice_levels(); }
+    if select == 19u { test_deeply_nested_u8_index_slice_levels(); }
+    if select == 20u { test_nested_set_slice_invalid_length_panics(); }
+    if select == 21u { test_nested_inner_slice_oob_panics(); }
+    if select == 22u { test_interface_element_arrays_support_storage_and_slice(); }
+    if select == 23u { test_len_on_null_panics(); }
 
     return 0;
 }

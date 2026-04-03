@@ -1,0 +1,5 @@
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    nums[0] = 1;
+    return;
+}

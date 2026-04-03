@@ -1,0 +1,5 @@
+fn main() -> unit {
+    var nums: u8[] = u8[](3u);
+    var size: u64 = nums.len(1);
+    return;
+}

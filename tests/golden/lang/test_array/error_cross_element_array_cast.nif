@@ -1,0 +1,9 @@
+class Person {
+    age: i64;
+}
+
+fn main() -> unit {
+    var people: Person[] = Person[](1u);
+    var objs: Obj[] = (Obj[])people;
+    return;
+}

@@ -1,0 +1,5 @@
+fn main() -> unit {
+    var nums: u8[] = u8[](2u);
+    var part: u8[] = nums.slice_get(0, true);
+    return;
+}
