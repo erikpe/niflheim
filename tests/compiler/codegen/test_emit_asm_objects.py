@@ -207,6 +207,41 @@ fn main() -> i64 {
     assert "    call rt_alloc_obj" in asm
 
 
+def test_emit_asm_subclass_constructor_chains_through_super_init_label(tmp_path) -> None:
+    source = """
+class Base {
+    value: i64;
+
+    constructor(value: i64) {
+        __self.value = value;
+        return;
+    }
+}
+
+class Derived extends Base {
+    extra: i64;
+
+    constructor(value: i64, extra: i64) {
+        super(value);
+        __self.extra = extra;
+        return;
+    }
+}
+
+fn main() -> i64 {
+    var derived: Derived = Derived(1, 2);
+    return derived.extra;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "__nif_ctor_init_Base:" in asm
+    assert "__nif_ctor_init_Derived:" in asm
+    assert "    call __nif_ctor_Derived" in asm
+    assert "    call __nif_ctor_init_Derived" in asm
+    assert "    call __nif_ctor_init_Base" in asm
+
+
 def test_emit_asm_class_field_read_lowers_to_object_payload_load(tmp_path) -> None:
     source = """
 class Counter {

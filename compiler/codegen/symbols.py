@@ -69,6 +69,14 @@ def mangle_constructor_symbol(type_name: str, ordinal: int = 0) -> str:
     return f"{label}__{ordinal}"
 
 
+def mangle_constructor_init_symbol(type_name: str, ordinal: int = 0) -> str:
+    safe_type = type_name.replace(".", "_").replace(":", "_")
+    label = f"__nif_ctor_init_{safe_type}"
+    if ordinal == 0:
+        return label
+    return f"{label}__{ordinal}"
+
+
 def mangle_debug_function_symbol(target_label: str) -> str:
     return f"__nif_dbg_fn_{_mangle_type_fragment(target_label)}"
 

@@ -110,6 +110,7 @@ class LoweredSemanticConstructor:
     is_private: bool
     span: SourceSpan
     local_info_by_id: dict[LocalId, SemanticLocalInfo] = field(default_factory=dict)
+    super_constructor_id: ConstructorId | None = None
 
 
 @dataclass(frozen=True)

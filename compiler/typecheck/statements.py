@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_UNIT
 from compiler.frontend.ast_nodes import *
+from compiler.typecheck.call_helpers import select_constructor_overload
 from compiler.typecheck.context import TypeCheckContext, declare_variable, lookup_variable, pop_scope, push_scope
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.common.span import SourceSpan
@@ -22,6 +23,7 @@ def _ensure_field_access_assignable(
     expr: FieldAccessExpr,
     *,
     allow_final_field_assignment: bool,
+    constructor_owner_class_name: str | None,
 ) -> None:
     object_type = infer_expression_type(ctx, expr.object_expr)
     class_info = lookup_class_by_type_name(ctx, object_type.name)
@@ -35,21 +37,42 @@ def _ensure_field_access_assignable(
     field_member = class_info.field_members[expr.field_name]
     require_member_visible(ctx, class_info, field_member.owner_class_name, expr.field_name, "field", expr.span)
 
+    is_self_assignment = isinstance(expr.object_expr, IdentifierExpr) and expr.object_expr.name == "__self"
+    if is_self_assignment and constructor_owner_class_name is not None:
+        owner_type_name = canonicalize_reference_type_name(ctx, constructor_owner_class_name)
+        if field_member.owner_class_name != owner_type_name:
+            owner_display_name = field_member.owner_class_name.split("::", 1)[-1]
+            raise TypeCheckError(
+                f"Inherited field '{owner_display_name}.{expr.field_name}' must be initialized via super(...)",
+                expr.span,
+            )
+
     if field_member.is_final:
-        if allow_final_field_assignment and isinstance(expr.object_expr, IdentifierExpr) and expr.object_expr.name == "__self":
+        if allow_final_field_assignment and is_self_assignment:
             return
         owner_display_name = field_member.owner_class_name.split("::", 1)[-1]
         raise TypeCheckError(f"Field '{owner_display_name}.{expr.field_name}' is final", expr.span)
 
 
-def _ensure_assignable_target(ctx: TypeCheckContext, expr: Expression, *, allow_final_field_assignment: bool) -> None:
+def _ensure_assignable_target(
+    ctx: TypeCheckContext,
+    expr: Expression,
+    *,
+    allow_final_field_assignment: bool,
+    constructor_owner_class_name: str | None,
+) -> None:
     if isinstance(expr, IdentifierExpr):
         if lookup_variable(ctx, expr.name) is None:
             raise TypeCheckError("Invalid assignment target", expr.span)
         return
 
     if isinstance(expr, FieldAccessExpr):
-        _ensure_field_access_assignable(ctx, expr, allow_final_field_assignment=allow_final_field_assignment)
+        _ensure_field_access_assignable(
+            ctx,
+            expr,
+            allow_final_field_assignment=allow_final_field_assignment,
+            constructor_owner_class_name=constructor_owner_class_name,
+        )
         return
 
     if isinstance(expr, IndexExpr):
@@ -92,6 +115,9 @@ def _check_statement(
     *,
     allow_value_return: bool,
     allow_final_field_assignment: bool,
+    constructor_superclass_name: str | None,
+    allow_super_statement: bool,
+    constructor_owner_class_name: str | None,
 ) -> None:
     if isinstance(stmt, BlockStmt):
         _check_block(
@@ -100,6 +126,9 @@ def _check_statement(
             return_type,
             allow_value_return=allow_value_return,
             allow_final_field_assignment=allow_final_field_assignment,
+            constructor_superclass_name=constructor_superclass_name,
+            allow_super_first_statement=False,
+            constructor_owner_class_name=constructor_owner_class_name,
         )
         return
 
@@ -120,6 +149,9 @@ def _check_statement(
             return_type,
             allow_value_return=allow_value_return,
             allow_final_field_assignment=allow_final_field_assignment,
+            constructor_superclass_name=constructor_superclass_name,
+            allow_super_first_statement=False,
+            constructor_owner_class_name=constructor_owner_class_name,
         )
         if isinstance(stmt.else_branch, BlockStmt):
             _check_block(
@@ -128,6 +160,9 @@ def _check_statement(
                 return_type,
                 allow_value_return=allow_value_return,
                 allow_final_field_assignment=allow_final_field_assignment,
+                constructor_superclass_name=constructor_superclass_name,
+                allow_super_first_statement=False,
+                constructor_owner_class_name=constructor_owner_class_name,
             )
         elif isinstance(stmt.else_branch, IfStmt):
             _check_statement(
@@ -136,6 +171,9 @@ def _check_statement(
                 return_type,
                 allow_value_return=allow_value_return,
                 allow_final_field_assignment=allow_final_field_assignment,
+                constructor_superclass_name=constructor_superclass_name,
+                allow_super_statement=False,
+                constructor_owner_class_name=constructor_owner_class_name,
             )
         return
 
@@ -149,8 +187,30 @@ def _check_statement(
             return_type,
             allow_value_return=allow_value_return,
             allow_final_field_assignment=allow_final_field_assignment,
+            constructor_superclass_name=constructor_superclass_name,
+            allow_super_first_statement=False,
+            constructor_owner_class_name=constructor_owner_class_name,
         )
         ctx.loop_depth -= 1
+        return
+
+    if isinstance(stmt, SuperStmt):
+        if constructor_superclass_name is None or not allow_super_statement:
+            raise TypeCheckError(
+                "super(...) is only allowed as the first statement of a subclass constructor",
+                stmt.span,
+            )
+        superclass_info = lookup_class_by_type_name(ctx, constructor_superclass_name)
+        if superclass_info is None:
+            raise ValueError(f"Unknown superclass '{constructor_superclass_name}' during statement checking")
+        arg_types = [infer_expression_type(ctx, argument) for argument in stmt.arguments]
+        select_constructor_overload(
+            ctx,
+            superclass_info,
+            arg_types,
+            stmt.span,
+            TypeInfo(name=constructor_superclass_name, kind="reference"),
+        )
         return
 
     if isinstance(stmt, ForInStmt):
@@ -169,6 +229,9 @@ def _check_statement(
                 return_type,
                 allow_value_return=allow_value_return,
                 allow_final_field_assignment=allow_final_field_assignment,
+                constructor_superclass_name=constructor_superclass_name,
+                allow_super_first_statement=False,
+                constructor_owner_class_name=constructor_owner_class_name,
             )
         finally:
             pop_scope(ctx)
@@ -197,7 +260,12 @@ def _check_statement(
         return
 
     if isinstance(stmt, AssignStmt):
-        _ensure_assignable_target(ctx, stmt.target, allow_final_field_assignment=allow_final_field_assignment)
+        _ensure_assignable_target(
+            ctx,
+            stmt.target,
+            allow_final_field_assignment=allow_final_field_assignment,
+            constructor_owner_class_name=constructor_owner_class_name,
+        )
         if isinstance(stmt.target, IndexExpr):
             object_type = infer_expression_type(ctx, stmt.target.object_expr)
             value_type = infer_expression_type(ctx, stmt.value)
@@ -220,17 +288,25 @@ def _check_block(
     *,
     allow_value_return: bool,
     allow_final_field_assignment: bool,
+    constructor_superclass_name: str | None,
+    allow_super_first_statement: bool,
+    constructor_owner_class_name: str | None,
 ) -> None:
     push_scope(ctx)
-    for stmt in block.statements:
-        _check_statement(
-            ctx,
-            stmt,
-            return_type,
-            allow_value_return=allow_value_return,
-            allow_final_field_assignment=allow_final_field_assignment,
-        )
-    pop_scope(ctx)
+    try:
+        for index, stmt in enumerate(block.statements):
+            _check_statement(
+                ctx,
+                stmt,
+                return_type,
+                allow_value_return=allow_value_return,
+                allow_final_field_assignment=allow_final_field_assignment,
+                constructor_superclass_name=constructor_superclass_name,
+                allow_super_statement=allow_super_first_statement and index == 0,
+                constructor_owner_class_name=constructor_owner_class_name,
+            )
+    finally:
+        pop_scope(ctx)
 
 
 def check_function_like(
@@ -240,6 +316,7 @@ def check_function_like(
     return_type: TypeInfo,
     receiver_type: TypeInfo | None = None,
     owner_class_name: str | None = None,
+    constructor_superclass_name: str | None = None,
     allow_value_return: bool = True,
     allow_final_field_assignment: bool = False,
 ) -> None:
@@ -255,12 +332,20 @@ def check_function_like(
             param_type = resolve_type_ref(ctx, param.type_ref)
             declare_variable(ctx, param.name, param_type, param.span)
 
+        if constructor_superclass_name is not None and (
+            not body.statements or not isinstance(body.statements[0], SuperStmt)
+        ):
+            raise TypeCheckError("Subclass constructor must begin with super(...)", body.span)
+
         _check_block(
             ctx,
             body,
             return_type,
             allow_value_return=allow_value_return,
             allow_final_field_assignment=allow_final_field_assignment,
+            constructor_superclass_name=constructor_superclass_name,
+            allow_super_first_statement=constructor_superclass_name is not None,
+            constructor_owner_class_name=owner_class_name if not allow_value_return else None,
         )
 
         if return_type.name != TYPE_NAME_UNIT and not _block_guarantees_return(body):

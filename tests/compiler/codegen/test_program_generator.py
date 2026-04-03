@@ -67,6 +67,7 @@ def test_program_generator_builds_declaration_tables_from_program(tmp_path: Path
     assert tables.class_field_offset(box_id, "value") == 24
     assert tables.class_field_offset(box_id, "next") == 32
     assert tables.constructor_layout(ctor_id).label == "__nif_ctor_Box"
+    assert tables.constructor_layout(ctor_id).init_label == "__nif_ctor_init_Box"
     assert tables.constructor_layout(ctor_id).param_field_names == ["value", "next"]
 
 
@@ -134,11 +135,45 @@ def test_program_generator_builds_overloaded_constructor_labels(tmp_path: Path) 
     second_ctor_id = ConstructorId(module_path=("main",), class_name="Box", ordinal=1)
 
     assert tables.constructor_layout(first_ctor_id).label == "__nif_ctor_Box"
+    assert tables.constructor_layout(first_ctor_id).init_label == "__nif_ctor_init_Box"
     assert tables.constructor_layout(first_ctor_id).param_names == ["value"]
     assert tables.constructor_layout(first_ctor_id).param_field_names == []
     assert tables.constructor_layout(second_ctor_id).label == "__nif_ctor_Box__1"
+    assert tables.constructor_layout(second_ctor_id).init_label == "__nif_ctor_init_Box__1"
     assert tables.constructor_layout(second_ctor_id).param_names == ["value", "other"]
     assert tables.constructor_layout(second_ctor_id).param_field_names == []
+
+
+def test_program_generator_builds_constructor_init_metadata_for_inherited_compatibility_chain(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            value: i64;
+        }
+
+        class Derived extends Base {
+            extra: i64;
+        }
+
+        fn main() -> i64 {
+            var derived: Derived = Derived(1, 2);
+            return derived.extra;
+        }
+        """,
+    )
+
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    tables = ProgramGenerator(program).build_declaration_tables()
+
+    derived_ctor_id = ConstructorId(module_path=("main",), class_name="Derived")
+    derived_layout = tables.constructor_layout(derived_ctor_id)
+
+    assert derived_layout.init_label == "__nif_ctor_init_Derived"
+    assert derived_layout.param_names == ["value", "extra"]
+    assert derived_layout.super_param_count == 1
 
 
 def test_program_generator_builds_interface_descriptor_and_slot_tables(tmp_path: Path) -> None:

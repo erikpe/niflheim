@@ -151,6 +151,58 @@ def test_lower_program_lowers_explicit_and_compatibility_constructors(tmp_path: 
     assert compat_cls.constructors[0].body is None
 
 
+def test_lower_program_lowers_super_constructor_init_calls_and_chained_compatibility_metadata(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            value: i64;
+
+            constructor(value: i64) {
+                __self.value = value;
+                return;
+            }
+        }
+
+        class Derived extends Base {
+            extra: i64;
+
+            constructor(value: i64, extra: i64) {
+                super(value);
+                __self.extra = extra;
+                return;
+            }
+        }
+
+        class CompatLeaf extends Derived {
+            leaf: i64;
+        }
+
+        fn main() -> i64 {
+            var leaf: CompatLeaf = CompatLeaf(1, 2, 3);
+            return leaf.leaf;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    semantic = lower_program(program)
+    module = semantic.modules[("main",)]
+    derived_cls = next(cls for cls in module.classes if cls.class_id.name == "Derived")
+    compat_leaf_cls = next(cls for cls in module.classes if cls.class_id.name == "CompatLeaf")
+
+    first_stmt = derived_cls.constructors[0].body.statements[0]
+    assert isinstance(first_stmt, SemanticExprStmt)
+    super_target = _assert_call_target(first_stmt.expr, ConstructorInitCallTarget)
+    assert super_target.constructor_id == ConstructorId(module_path=("main",), class_name="Base", ordinal=0)
+
+    compat_ctor = compat_leaf_cls.constructors[0]
+    assert compat_ctor.body is None
+    assert compat_ctor.super_constructor_id == ConstructorId(module_path=("main",), class_name="Derived", ordinal=0)
+    compat_local_infos = sorted(compat_ctor.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
+    assert [local_info.binding_kind for local_info in compat_local_infos] == ["receiver", "param", "param", "param"]
+
+
 def test_lower_program_preserves_statement_and_field_structure(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",

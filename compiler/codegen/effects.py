@@ -56,7 +56,7 @@ def _call_target_may_execute_gc(target: SemanticCallTarget) -> bool:
         return True
     if isinstance(target, (StaticMethodCallTarget, InstanceMethodCallTarget, InterfaceMethodCallTarget)):
         return True
-    if isinstance(target, ConstructorCallTarget):
+    if isinstance(target, (ConstructorCallTarget, ConstructorInitCallTarget)):
         return True
     if isinstance(target, CallableValueCallTarget):
         return True

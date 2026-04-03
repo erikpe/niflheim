@@ -4,7 +4,7 @@ import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.asm import offset_operand
-from compiler.codegen.emitter_expr import EmitContext, emit_expr
+from compiler.codegen.emitter_expr import EmitContext, _emit_named_call, emit_expr
 from compiler.codegen.emitter_stmt import emit_statement
 from compiler.codegen.layout import build_constructor_layout, build_layout
 from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
@@ -52,7 +52,7 @@ def _constructor_param_spills(params: list[SemanticParam], layout) -> list[tuple
     return [(layout.slot_offsets[param.name], param.type_ref, param.span) for param in params]
 
 
-def _explicit_constructor_param_spills(
+def _constructor_param_local_spills(
     constructor: SemanticConstructor | LoweredSemanticConstructor,
     layout,
 ) -> list[tuple[int, SemanticTypeRef, object]]:
@@ -68,6 +68,32 @@ def _explicit_constructor_param_spills(
     ]
 
 
+def _constructor_init_param_spills(
+    constructor: SemanticConstructor | LoweredSemanticConstructor,
+    layout,
+) -> list[tuple[int, SemanticTypeRef, object]]:
+    local_infos = sorted(
+        (
+            local_info
+            for local_info in constructor.local_info_by_id.values()
+            if local_info.binding_kind in {"receiver", "param"}
+        ),
+        key=lambda local_info: local_info.local_id.ordinal,
+    )
+    receiver_local_id = _constructor_receiver_local_id(constructor)
+    receiver_type_ref = constructor.local_info_by_id[receiver_local_id].type_ref
+    param_spills: list[tuple[int, SemanticTypeRef, object]] = [
+        (layout.local_slot_offsets[receiver_local_id], receiver_type_ref, constructor.span)
+    ]
+    for param, local_info in zip(
+        constructor.params,
+        [local_info for local_info in local_infos if local_info.binding_kind == "param"],
+        strict=True,
+    ):
+        param_spills.append((layout.local_slot_offsets[local_info.local_id], param.type_ref, param.span))
+    return param_spills
+
+
 def _constructor_receiver_local_id(constructor: SemanticConstructor | LoweredSemanticConstructor) -> LocalId:
     receiver_locals = [
         local_info.local_id for local_info in constructor.local_info_by_id.values() if local_info.binding_kind == "receiver"
@@ -75,6 +101,26 @@ def _constructor_receiver_local_id(constructor: SemanticConstructor | LoweredSem
     if len(receiver_locals) != 1:
         raise ValueError("constructor emission requires exactly one receiver local")
     return receiver_locals[0]
+
+
+def _constructor_param_refs(
+    constructor: SemanticConstructor | LoweredSemanticConstructor,
+) -> list[SemanticExpr]:
+    param_locals = sorted(
+        (local_info for local_info in constructor.local_info_by_id.values() if local_info.binding_kind == "param"),
+        key=lambda local_info: local_info.local_id.ordinal,
+    )
+    return [local_ref_expr_for_owner(constructor, local_info.local_id, span=constructor.span) for local_info in param_locals]
+
+
+def _constructor_param_local_ids(
+    constructor: SemanticConstructor | LoweredSemanticConstructor,
+) -> list[LocalId]:
+    return [
+        local_info.local_id
+        for local_info in sorted(constructor.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
+        if local_info.binding_kind == "param"
+    ]
 
 
 def _tracked_named_root_local_ids(layout) -> frozenset[LocalId]:
@@ -197,102 +243,11 @@ def emit_constructor(
     if ctor_layout is None:
         raise ValueError(f"Missing constructor layout for {constructor.constructor_id}")
 
-    if constructor.body is None:
-        _emit_compatibility_constructor(codegen, declaration_tables, cls, constructor, ctor_layout)
-        return
-
-    _emit_explicit_constructor(codegen, declaration_tables, cls, constructor, ctor_layout)
+    _emit_constructor_wrapper(codegen, declaration_tables, cls, constructor, ctor_layout)
+    _emit_constructor_init_helper(codegen, declaration_tables, cls, constructor, ctor_layout)
 
 
-def _emit_compatibility_constructor(
-    codegen,
-    declaration_tables,
-    cls: LoweredSemanticClass,
-    constructor: LoweredSemanticConstructor,
-    ctor_layout,
-) -> None:
-    ctor_params = constructor.params
-
-    target_label = ctor_layout.label
-    epilogue = f".L{target_label}_epilogue"
-    layout = build_constructor_layout(cls, ctor_layout, constructor_object_slot_name=CONSTRUCTOR_OBJECT_SLOT_NAME)
-    label_counter = [0]
-    fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
-        codegen, target_label=target_label, function_name=target_label, file_path=constructor.span.start.path
-    )
-
-    codegen.emit_frame_prologue(target_label, layout, global_symbol=False)
-    codegen.emit_location_comment(
-        file_path=constructor.span.start.path,
-        line=constructor.span.start.line,
-        column=constructor.span.start.column,
-    )
-    codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_constructor_param_spills(ctor_params, layout))
-
-    if layout.root_slot_count > 0:
-        first_root_offset = (
-            layout.root_slots[0].root_offset
-            if layout.root_slots
-            else layout.temp_root_slot_offsets[0]
-        )
-        if first_root_offset is None:
-            raise ValueError("root slot metadata missing offset for first constructor root")
-        codegen.emit_root_frame_setup(layout, root_count=layout.root_slot_count, first_root_offset=first_root_offset)
-
-    codegen.emit_trace_push(
-        fn_debug_name_label,
-        fn_debug_file_label,
-        constructor.span.start.line,
-        constructor.span.start.column,
-    )
-    codegen.emit_runtime_call_hook(fn_name=target_label, phase="before", label_counter=label_counter)
-    codegen.emit_named_root_slot_updates(layout)
-    codegen.asm.instr("call rt_thread_state")
-    codegen.asm.instr("mov rdi, rax")
-    codegen.asm.instr(f"lea rsi, [rip + {ctor_layout.type_symbol}]")
-    codegen.asm.instr(f"mov rdx, {ctor_layout.payload_bytes}")
-    codegen.asm.instr("call rt_alloc_obj")
-    codegen.emit_runtime_call_hook(fn_name=target_label, phase="after", label_counter=label_counter)
-    codegen.asm.instr(f"mov {offset_operand(layout.slot_offsets[CONSTRUCTOR_OBJECT_SLOT_NAME])}, rax")
-
-    emit_ctx = EmitContext(
-        layout=layout,
-        fn_name=target_label,
-        current_module_path=cls.class_id.module_path,
-        owner=None,
-        label_counter=label_counter,
-        string_literal_labels=codegen.string_literal_labels,
-        temp_root_depth=[0],
-        call_scratch_depth=[0],
-        declaration_tables=declaration_tables,
-        named_root_liveness=None,
-    )
-
-    param_fields = set(ctor_layout.param_field_names)
-    field_decl_by_name = {field.name: field for field in cls.fields}
-    for field_name in ctor_layout.field_names:
-        field_offset = declaration_tables.class_field_offset(cls.class_id, field_name)
-        if field_offset is None:
-            raise ValueError(f"constructor codegen missing field '{cls.class_id.name}.{field_name}'")
-        field_decl = field_decl_by_name[field_name]
-        if field_name in param_fields:
-            value_offset = layout.slot_offsets[field_name]
-            codegen.asm.instr(f"mov rcx, {offset_operand(value_offset)}")
-        else:
-            if field_decl.initializer is None:
-                raise ValueError("constructor default initializer missing")
-            emit_expr(codegen, field_decl.initializer, emit_ctx)
-            codegen.asm.instr("mov rcx, rax")
-        codegen.asm.instr(f"mov rax, {offset_operand(layout.slot_offsets[CONSTRUCTOR_OBJECT_SLOT_NAME])}")
-        codegen.asm.instr(f"mov qword ptr [rax + {field_offset}], rcx")
-
-    codegen.asm.instr(f"jmp {epilogue}")
-    codegen.asm.label(epilogue)
-    codegen.emit_ref_epilogue(layout)
-
-
-def _emit_explicit_constructor(
+def _emit_constructor_wrapper(
     codegen,
     declaration_tables,
     cls: LoweredSemanticClass,
@@ -314,7 +269,7 @@ def _emit_explicit_constructor(
     receiver_local_id = _constructor_receiver_local_id(constructor)
     receiver_offset = layout.local_slot_offsets.get(receiver_local_id)
     if receiver_offset is None:
-        raise ValueError("constructor emission requires a materialized receiver slot")
+        raise ValueError("constructor wrapper requires a materialized receiver slot")
 
     codegen.emit_frame_prologue(target_label, layout, global_symbol=False)
     codegen.emit_location_comment(
@@ -323,7 +278,102 @@ def _emit_explicit_constructor(
         column=constructor.span.start.column,
     )
     codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_explicit_constructor_param_spills(constructor, layout))
+    codegen.emit_param_spills(_constructor_param_local_spills(constructor, layout))
+
+    if layout.root_slot_count > 0:
+        first_root_offset = (
+            layout.root_slots[0].root_offset
+            if layout.root_slots
+            else layout.temp_root_slot_offsets[0]
+        )
+        if first_root_offset is None:
+            raise ValueError("root slot metadata missing offset for first constructor root")
+        codegen.emit_root_frame_setup(layout, root_count=layout.root_slot_count, first_root_offset=first_root_offset)
+
+    codegen.emit_trace_push(
+        fn_debug_name_label,
+        fn_debug_file_label,
+        constructor.span.start.line,
+        constructor.span.start.column,
+    )
+
+    emit_ctx = EmitContext(
+        layout=layout,
+        fn_name=target_label,
+        current_module_path=cls.class_id.module_path,
+        owner=constructor,
+        label_counter=label_counter,
+        string_literal_labels=codegen.string_literal_labels,
+        temp_root_depth=[0],
+        call_scratch_depth=[0],
+        declaration_tables=declaration_tables,
+        named_root_liveness=None,
+        tracked_named_root_local_ids=_tracked_named_root_local_ids(layout),
+        dirty_named_root_local_ids=_initial_dirty_named_root_local_ids(constructor, layout),
+        known_cleared_named_root_local_ids=set(_tracked_named_root_local_ids(layout)),
+    )
+    initial_sync_local_ids = frozenset(emit_ctx.dirty_named_root_local_ids or ())
+
+    codegen.emit_runtime_call_hook(fn_name=target_label, phase="before", label_counter=label_counter)
+    if initial_sync_local_ids:
+        codegen.emit_named_root_slot_updates(layout, local_ids=initial_sync_local_ids)
+        emit_ctx.mark_named_roots_synced(initial_sync_local_ids)
+    codegen.asm.instr("call rt_thread_state")
+    codegen.asm.instr("mov rdi, rax")
+    codegen.asm.instr(f"lea rsi, [rip + {ctor_layout.type_symbol}]")
+    codegen.asm.instr(f"mov rdx, {ctor_layout.payload_bytes}")
+    codegen.asm.instr("call rt_alloc_obj")
+    codegen.emit_runtime_call_hook(fn_name=target_label, phase="after", label_counter=label_counter)
+    codegen.asm.instr(f"mov {offset_operand(receiver_offset)}, rax")
+    emit_ctx.mark_named_root_dirty(receiver_local_id)
+    codegen.emit_named_root_slot_updates(layout, local_ids={receiver_local_id})
+    emit_ctx.mark_named_roots_synced({receiver_local_id})
+
+    _emit_named_call(
+        codegen,
+        ctor_layout.init_label,
+        [local_ref_expr_for_owner(constructor, receiver_local_id, span=constructor.span), *_constructor_param_refs(constructor)],
+        semantic_type_ref_for_class_id(cls.class_id, display_name=cls.class_id.name),
+        emit_ctx,
+    )
+
+    codegen.asm.instr(f"jmp {epilogue}")
+    codegen.asm.label(epilogue)
+    codegen.emit_ref_epilogue(layout)
+
+
+def _emit_constructor_init_helper(
+    codegen,
+    declaration_tables,
+    cls: LoweredSemanticClass,
+    constructor: LoweredSemanticConstructor,
+    ctor_layout,
+) -> None:
+    target_label = ctor_layout.init_label
+    epilogue = f".L{target_label}_epilogue"
+    layout = build_constructor_layout(
+        cls,
+        ctor_layout,
+        constructor_object_slot_name=CONSTRUCTOR_OBJECT_SLOT_NAME,
+        constructor=constructor,
+    )
+    label_counter = [0]
+    fn_debug_name_label, fn_debug_file_label = _emit_debug_symbol_literals(
+        codegen, target_label=target_label, function_name=target_label, file_path=constructor.span.start.path
+    )
+    receiver_local_id = _constructor_receiver_local_id(constructor)
+    receiver_offset = layout.local_slot_offsets.get(receiver_local_id)
+    if receiver_offset is None:
+        raise ValueError("constructor init helper requires a materialized receiver slot")
+
+    codegen.emit_frame_prologue(target_label, layout, global_symbol=False)
+    codegen.emit_location_comment(
+        file_path=constructor.span.start.path,
+        line=constructor.span.start.line,
+        column=constructor.span.start.column,
+    )
+    codegen.emit_zero_slots(layout)
+    codegen.emit_param_spills(_constructor_init_param_spills(constructor, layout))
 
     if layout.root_slot_count > 0:
         first_root_offset = (
@@ -355,23 +405,124 @@ def _emit_explicit_constructor(
         dirty_named_root_local_ids=_initial_dirty_named_root_local_ids(constructor, layout),
         known_cleared_named_root_local_ids=set(_tracked_named_root_local_ids(layout)),
     )
-    initial_sync_local_ids = frozenset(emit_ctx.dirty_named_root_local_ids or ())
 
-    codegen.emit_runtime_call_hook(fn_name=target_label, phase="before", label_counter=label_counter)
-    if initial_sync_local_ids:
-        codegen.emit_named_root_slot_updates(layout, local_ids=initial_sync_local_ids)
-        emit_ctx.mark_named_roots_synced(initial_sync_local_ids)
-    codegen.asm.instr("call rt_thread_state")
-    codegen.asm.instr("mov rdi, rax")
-    codegen.asm.instr(f"lea rsi, [rip + {ctor_layout.type_symbol}]")
-    codegen.asm.instr(f"mov rdx, {ctor_layout.payload_bytes}")
-    codegen.asm.instr("call rt_alloc_obj")
-    codegen.emit_runtime_call_hook(fn_name=target_label, phase="after", label_counter=label_counter)
-    codegen.asm.instr(f"mov {offset_operand(receiver_offset)}, rax")
-    emit_ctx.mark_named_root_dirty(receiver_local_id)
-    codegen.emit_named_root_slot_updates(layout, local_ids={receiver_local_id})
-    emit_ctx.mark_named_roots_synced({receiver_local_id})
+    return_type_ref = semantic_type_ref_for_class_id(cls.class_id, display_name=cls.class_id.name)
+    if constructor.body is None:
+        _emit_compatibility_constructor_init_body(
+            codegen,
+            declaration_tables,
+            cls,
+            constructor,
+            ctor_layout,
+            receiver_local_id,
+            receiver_offset,
+            emit_ctx,
+        )
+    else:
+        _emit_explicit_constructor_init_body(
+            codegen,
+            declaration_tables,
+            cls,
+            constructor,
+            receiver_offset,
+            emit_ctx,
+            epilogue,
+            return_type_ref,
+        )
 
+    codegen.asm.instr(f"jmp {epilogue}")
+    codegen.asm.label(epilogue)
+    codegen.asm.instr(f"mov rax, {offset_operand(receiver_offset)}")
+    codegen.emit_ref_epilogue(layout)
+
+
+def _emit_compatibility_constructor_init_body(
+    codegen,
+    declaration_tables,
+    cls: LoweredSemanticClass,
+    constructor: LoweredSemanticConstructor,
+    ctor_layout,
+    receiver_local_id: LocalId,
+    receiver_offset: int,
+    emit_ctx: EmitContext,
+) -> None:
+    if constructor.super_constructor_id is not None:
+        super_constructor_layout = declaration_tables.constructor_layout(constructor.super_constructor_id)
+        if super_constructor_layout is None:
+            raise ValueError(f"Missing superclass constructor layout for {constructor.super_constructor_id}")
+        _emit_named_call(
+            codegen,
+            super_constructor_layout.init_label,
+            [
+                local_ref_expr_for_owner(constructor, receiver_local_id, span=constructor.span),
+                *(_constructor_param_refs(constructor)[: ctor_layout.super_param_count]),
+            ],
+            semantic_type_ref_for_class_id(
+                ClassId(
+                    module_path=constructor.super_constructor_id.module_path,
+                    name=constructor.super_constructor_id.class_name,
+                ),
+                display_name=constructor.super_constructor_id.class_name,
+            ),
+            emit_ctx,
+        )
+
+    param_local_ids = _constructor_param_local_ids(constructor)
+    param_local_id_by_name = {
+        param.name: local_id for param, local_id in zip(constructor.params, param_local_ids, strict=True)
+    }
+    param_fields = set(ctor_layout.param_field_names)
+    field_decl_by_name = {field.name: field for field in cls.fields}
+    for field_name in ctor_layout.field_names:
+        field_offset = declaration_tables.class_field_offset(cls.class_id, field_name)
+        if field_offset is None:
+            raise ValueError(f"constructor codegen missing field '{cls.class_id.name}.{field_name}'")
+        field_decl = field_decl_by_name[field_name]
+        if field_name in param_fields:
+            emit_expr(
+                codegen,
+                local_ref_expr_for_owner(constructor, param_local_id_by_name[field_name], span=constructor.span),
+                emit_ctx,
+            )
+            codegen.asm.instr("mov rcx, rax")
+        else:
+            if field_decl.initializer is None:
+                raise ValueError("constructor default initializer missing")
+            emit_expr(codegen, field_decl.initializer, emit_ctx)
+            codegen.asm.instr("mov rcx, rax")
+        codegen.asm.instr(f"mov rax, {offset_operand(receiver_offset)}")
+        codegen.asm.instr(f"mov qword ptr [rax + {field_offset}], rcx")
+
+
+def _emit_explicit_constructor_init_body(
+    codegen,
+    declaration_tables,
+    cls: LoweredSemanticClass,
+    constructor: LoweredSemanticConstructor,
+    receiver_offset: int,
+    emit_ctx: EmitContext,
+    epilogue: str,
+    return_type_ref: SemanticTypeRef,
+) -> None:
+    statements = list(constructor.body.statements)
+    if cls.superclass_id is not None:
+        emit_statement(codegen, statements[0], epilogue, return_type_ref, emit_ctx, loop_labels=[])
+        _emit_declared_field_initializers(codegen, declaration_tables, cls, receiver_offset, emit_ctx)
+        statements = statements[1:]
+    else:
+        _emit_declared_field_initializers(codegen, declaration_tables, cls, receiver_offset, emit_ctx)
+
+    for stmt in statements:
+        emit_statement(codegen, stmt, epilogue, return_type_ref, emit_ctx, loop_labels=[])
+
+
+def _emit_declared_field_initializers(
+    codegen,
+    declaration_tables,
+    cls: LoweredSemanticClass,
+    receiver_offset: int,
+    emit_ctx: EmitContext,
+) -> None:
     for field_decl in cls.fields:
         if field_decl.initializer is None:
             continue
@@ -382,15 +533,6 @@ def _emit_explicit_constructor(
         codegen.asm.instr("mov rcx, rax")
         codegen.asm.instr(f"mov rax, {offset_operand(receiver_offset)}")
         codegen.asm.instr(f"mov qword ptr [rax + {field_offset}], rcx")
-
-    return_type_ref = semantic_type_ref_for_class_id(cls.class_id, display_name=cls.class_id.name)
-    for stmt in constructor.body.statements:
-        emit_statement(codegen, stmt, epilogue, return_type_ref, emit_ctx, loop_labels=[])
-
-    codegen.asm.instr(f"jmp {epilogue}")
-    codegen.asm.label(epilogue)
-    codegen.asm.instr(f"mov rax, {offset_operand(receiver_offset)}")
-    codegen.emit_ref_epilogue(layout)
 
 
 def _receiver_param(cls: LoweredSemanticClass, method: LoweredSemanticMethod) -> list[SemanticParam]:

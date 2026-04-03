@@ -4,6 +4,7 @@ from compiler.semantic.ir import (
     BoundMemberAccess,
     CallableValueCallTarget,
     ConstructorCallTarget,
+    ConstructorInitCallTarget,
     FunctionCallTarget,
     InstanceMethodCallTarget,
     InterfaceMethodCallTarget,
@@ -69,6 +70,8 @@ def semantic_call_target_display_name(target: SemanticCallTarget, *, current_mod
     if isinstance(target, InterfaceMethodCallTarget):
         return f"{semantic_bound_member_receiver_display_name(target.access, current_module_path=current_module_path)}.{target.method_id.name}"
     if isinstance(target, ConstructorCallTarget):
+        return semantic_constructor_display_name(target.constructor_id, current_module_path=current_module_path)
+    if isinstance(target, ConstructorInitCallTarget):
         return semantic_constructor_display_name(target.constructor_id, current_module_path=current_module_path)
     if isinstance(target, CallableValueCallTarget):
         callee_type = expression_type_ref(target.callee)

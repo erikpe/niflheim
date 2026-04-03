@@ -49,6 +49,9 @@ class StatementParser:
         if self.stream.match(TokenKind.WHILE):
             return self._parse_while_stmt(while_token=self.stream.previous())
 
+        if self.stream.match(TokenKind.SUPER):
+            return self._parse_super_stmt(super_token=self.stream.previous())
+
         if self.stream.match(TokenKind.FOR):
             return self._parse_for_in_stmt(for_token=self.stream.previous())
 
@@ -113,6 +116,18 @@ class StatementParser:
         return WhileStmt(
             condition=condition, body=body, span=SourceSpan(start=while_token.span.start, end=body.span.end)
         )
+
+    def _parse_super_stmt(self, *, super_token: Token) -> SuperStmt:
+        self.stream.expect(TokenKind.LPAREN, "Expected '(' after 'super'")
+        arguments: list[Expression] = []
+        if not self.stream.check(TokenKind.RPAREN):
+            while True:
+                arguments.append(self._parse_expression())
+                if not self.stream.match(TokenKind.COMMA):
+                    break
+        self.stream.expect(TokenKind.RPAREN, "Expected ')' after super arguments")
+        semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after super statement")
+        return SuperStmt(arguments=arguments, span=SourceSpan(start=super_token.span.start, end=semicolon.span.end))
 
     def _parse_for_in_stmt(self, *, for_token: Token) -> ForInStmt:
         element_token = self.stream.expect(TokenKind.IDENT, "Expected loop variable name after 'for'")

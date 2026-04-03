@@ -170,6 +170,34 @@ def _require_constructor_param_local_info(
         raise ValueError("semantic layout requires exactly one constructor receiver local")
 
 
+def _constructor_init_call_arguments(
+    constructor: SemanticConstructor | LoweredSemanticConstructor,
+    param_count: int,
+) -> list[SemanticExpr]:
+    if param_count < 0:
+        raise ValueError("constructor call argument sizing requires a non-negative parameter count")
+    if param_count == 0 and not constructor.local_info_by_id:
+        return []
+
+    receiver_local_ids = [
+        local_info.local_id for local_info in constructor.local_info_by_id.values() if local_info.binding_kind == "receiver"
+    ]
+    if len(receiver_local_ids) != 1:
+        raise ValueError("constructor layout requires exactly one receiver local for super init sizing")
+    param_local_ids = [
+        local_info.local_id
+        for local_info in sorted(constructor.local_info_by_id.values(), key=lambda local_info: local_info.local_id.ordinal)
+        if local_info.binding_kind == "param"
+    ]
+    return [
+        local_ref_expr_for_owner(constructor, receiver_local_ids[0], span=constructor.span),
+        *[
+            local_ref_expr_for_owner(constructor, local_id, span=constructor.span)
+            for local_id in param_local_ids[:param_count]
+        ],
+    ]
+
+
 def _constructor_slot_specs(
     cls: SemanticClass | LoweredSemanticClass, ctor_layout, *, constructor_object_slot_name: str
 ) -> list[_SlotSpec]:
@@ -518,6 +546,10 @@ def _max_call_scratch_slots_for_named_call_arguments(call_arguments: list[Semant
     return max((_max_call_scratch_slots_in_expr(arg) for arg in call_arguments), default=0)
 
 
+def _max_call_temp_root_slots_for_named_call_arguments(call_arguments: list[SemanticExpr]) -> int:
+    return _max_rooted_sequence(call_arguments, rooted_arg_indices=_reference_arg_indices(call_arguments))
+
+
 def _max_call_scratch_slots_in_expr(expr: SemanticExpr) -> int:
     if isinstance(expr, CallExprS):
         call_arguments = _register_only_direct_call_arguments(expr)
@@ -642,26 +674,27 @@ def build_constructor_layout(
     constructor_object_slot_name: str,
     constructor: SemanticConstructor | LoweredSemanticConstructor | None = None,
 ) -> FunctionLayout:
-    if constructor is not None and constructor.body is not None:
-        if not constructor.local_info_by_id:
-            raise ValueError("semantic layout requires owner-local metadata for explicit constructors")
+    if constructor is not None and constructor.local_info_by_id:
         _require_constructor_param_local_info(constructor)
         slot_specs = _local_slot_specs(constructor)
         initializer_exprs = [field.initializer for field in cls.fields if field.initializer is not None]
-        max_call_temp_root_slots = max(
-            [
-                *(_max_call_temp_root_slots_in_expr(expr) for expr in initializer_exprs),
-                *(_max_call_temp_root_slots_in_stmt(stmt, owner=constructor) for stmt in constructor.body.statements),
-            ],
-            default=0,
-        )
-        max_call_scratch_slots = max(
-            [
-                *(_max_call_scratch_slots_in_expr(expr) for expr in initializer_exprs),
-                *(_max_call_scratch_slots_in_stmt(stmt) for stmt in constructor.body.statements),
-            ],
-            default=0,
-        )
+        wrapper_call_arguments = _constructor_init_call_arguments(constructor, len(constructor.params))
+        super_call_arguments = _constructor_init_call_arguments(constructor, ctor_layout.super_param_count)
+        temp_root_slot_candidates = [_max_call_temp_root_slots_in_expr(expr) for expr in initializer_exprs]
+        scratch_slot_candidates = [_max_call_scratch_slots_in_expr(expr) for expr in initializer_exprs]
+        if wrapper_call_arguments:
+            temp_root_slot_candidates.append(_max_call_temp_root_slots_for_named_call_arguments(wrapper_call_arguments))
+            scratch_slot_candidates.append(_max_call_scratch_slots_for_named_call_arguments(wrapper_call_arguments))
+        if super_call_arguments:
+            temp_root_slot_candidates.append(_max_call_temp_root_slots_for_named_call_arguments(super_call_arguments))
+            scratch_slot_candidates.append(_max_call_scratch_slots_for_named_call_arguments(super_call_arguments))
+        if constructor.body is not None:
+            temp_root_slot_candidates.extend(
+                _max_call_temp_root_slots_in_stmt(stmt, owner=constructor) for stmt in constructor.body.statements
+            )
+            scratch_slot_candidates.extend(_max_call_scratch_slots_in_stmt(stmt) for stmt in constructor.body.statements)
+        max_call_temp_root_slots = max(temp_root_slot_candidates, default=0)
+        max_call_scratch_slots = max(scratch_slot_candidates, default=0)
         needs_temp_runtime_roots = max_call_temp_root_slots > 0
         return _build_function_layout(
             slot_specs,

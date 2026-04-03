@@ -589,12 +589,12 @@ Purpose:
 
 Checklist:
 
-- [ ] introduce constructor-only `super(...)` chaining syntax/validation
-- [ ] require explicit subclass constructors to begin with `super(...)`
-- [ ] define chained compatibility constructors for classes with no declared constructors
-- [ ] ensure base fields are initialized only by the base constructor path
-- [ ] extend constructor field-initialization analysis across inherited required fields
-- [ ] forbid direct assignment to inherited final fields outside allowed constructor ownership rules
+- [x] introduce constructor-only `super(...)` chaining syntax/validation
+- [x] require explicit subclass constructors to begin with `super(...)`
+- [x] define chained compatibility constructors for classes with no declared constructors
+- [x] ensure base fields are initialized only by the base constructor path
+- [x] extend constructor field-initialization analysis across inherited required fields
+- [x] forbid direct assignment to inherited final fields outside allowed constructor ownership rules
 
 Tests:
 

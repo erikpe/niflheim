@@ -7,17 +7,18 @@ from dataclasses import dataclass
 from compiler.frontend.ast_nodes import *
 from compiler.resolver import ModulePath, ProgramInfo
 from compiler.semantic.ir import *
+from compiler.semantic.lowering.expressions import lower_expr
+from compiler.semantic.lowering.ids import class_id_from_type_name, constructor_id_from_type_name, interface_id_for_type_name
+from compiler.semantic.lowering.locals import LocalIdTracker, LoweringBindingBridge
 from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
 from compiler.semantic.symbols import *
 from compiler.semantic.types import SemanticTypeRef
 from compiler.typecheck.bodies import check_bodies
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.declarations import collect_module_declarations, seed_module_declarations, validate_interface_conformance
-from compiler.typecheck.model import ClassInfo, FunctionSig, TypeInfo
+from compiler.typecheck.model import ClassInfo, ConstructorInfo, FunctionSig, TypeInfo
+from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.typecheck.type_resolution import resolve_type_ref
-
-from compiler.semantic.lowering.expressions import lower_expr
-from compiler.semantic.lowering.ids import class_id_from_type_name, interface_id_for_type_name
 from compiler.semantic.lowering.statements import lower_function_like_body
 
 
@@ -189,13 +190,25 @@ def lower_constructors(
 ) -> list[SemanticConstructor]:
     if not class_decl.constructors:
         compatibility_constructor = class_info.constructors[0]
+        constructor_id = ConstructorId(
+            module_path=module_path,
+            class_name=class_decl.name,
+            ordinal=compatibility_constructor.ordinal,
+        )
+        super_constructor_id = None
+        if class_info.superclass_name is not None:
+            superclass_info = lookup_class_by_type_name(lower_ctx.typecheck_ctx, class_info.superclass_name)
+            if superclass_info is None:
+                raise ValueError(f"Unknown superclass '{class_info.superclass_name}' during constructor lowering")
+            base_constructor_id = constructor_id_from_type_name(module_path, class_info.superclass_name)
+            super_constructor_id = ConstructorId(
+                module_path=base_constructor_id.module_path,
+                class_name=base_constructor_id.class_name,
+                ordinal=superclass_info.constructors[0].ordinal,
+            )
         return [
             SemanticConstructor(
-                constructor_id=ConstructorId(
-                    module_path=module_path,
-                    class_name=class_decl.name,
-                    ordinal=compatibility_constructor.ordinal,
-                ),
+                constructor_id=constructor_id,
                 params=[
                     SemanticParam(
                         name=param_name,
@@ -211,6 +224,14 @@ def lower_constructors(
                 body=None,
                 is_private=compatibility_constructor.is_private,
                 span=class_decl.span,
+                local_info_by_id=_lower_compatibility_constructor_locals(
+                    lower_ctx.typecheck_ctx,
+                    constructor_id=constructor_id,
+                    class_name=class_decl.name,
+                    compatibility_constructor=compatibility_constructor,
+                    span=class_decl.span,
+                ),
+                super_constructor_id=super_constructor_id,
             )
         ]
 
@@ -234,9 +255,31 @@ def lower_constructors(
                 is_private=constructor_info.is_private,
                 span=constructor_decl.span,
                 local_info_by_id=lowered_body.local_info_by_id,
+                super_constructor_id=None,
             )
         )
     return semantic_constructors
+
+
+def _lower_compatibility_constructor_locals(
+    typecheck_ctx: TypeCheckContext,
+    *,
+    constructor_id: ConstructorId,
+    class_name: str,
+    compatibility_constructor: ConstructorInfo,
+    span,
+) -> dict[LocalId, SemanticLocalInfo]:
+    local_id_tracker = LocalIdTracker(owner_id=constructor_id, typecheck_ctx=typecheck_ctx)
+    lowering_bridge = LoweringBindingBridge(typecheck_ctx=typecheck_ctx, local_id_tracker=local_id_tracker)
+    with lowering_bridge.private_owner(class_name), lowering_bridge.scope():
+        lowering_bridge.declare_receiver(TypeInfo(name=class_name, kind="reference"), span)
+        for param_name, param_type in zip(
+            compatibility_constructor.param_names,
+            compatibility_constructor.params,
+            strict=True,
+        ):
+            lowering_bridge.declare_local(name=param_name, var_type=param_type, span=span, binding_kind="param")
+        return lowering_bridge.snapshot_local_info_by_id()
 
 
 def lower_field(lower_ctx: ModuleLoweringContext, field_decl) -> SemanticField:

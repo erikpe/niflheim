@@ -143,7 +143,8 @@ def test_codegen_build_explicit_constructor_layout_tracks_receiver_params_and_lo
     assert [slot.key for slot in layout.slots] == ["__self", "next", "tmp"]
     assert [slot.key for slot in layout.root_slots] == ["__self", "next", "tmp"]
     assert CONSTRUCTOR_OBJECT_SLOT_NAME not in layout.slot_names
-    assert layout.root_slot_count == 3
+    assert layout.root_slot_count >= 3
+    assert layout.temp_root_slot_start_index == 3
 
 
 def test_codegen_build_layout_assigns_distinct_slots_to_shadowed_locals(tmp_path) -> None:

@@ -80,19 +80,59 @@ def _constructor_signature_key(constructor_info: ConstructorInfo) -> tuple:
     return tuple(_type_signature_key(param_type) for param_type in constructor_info.params)
 
 
-def _compatibility_constructor_info(class_decl, fields: dict[str, TypeInfo], private_fields: set[str]) -> ConstructorInfo:
-    param_names = [field_decl.name for field_decl in class_decl.fields if field_decl.initializer is None]
+def _compatibility_constructor_info(
+    class_decl,
+    fields: dict[str, TypeInfo],
+    private_fields: set[str],
+    *,
+    base_constructor: ConstructorInfo | None,
+) -> ConstructorInfo:
+    local_param_names = [field_decl.name for field_decl in class_decl.fields if field_decl.initializer is None]
+    param_names = [*(base_constructor.param_names if base_constructor is not None else []), *local_param_names]
     return ConstructorInfo(
         ordinal=0,
-        params=[fields[param_name] for param_name in param_names],
+        params=[
+            *(base_constructor.params if base_constructor is not None else []),
+            *[fields[param_name] for param_name in local_param_names],
+        ],
         param_names=param_names,
-        is_private=len(private_fields) > 0,
+        is_private=(base_constructor.is_private if base_constructor is not None else False) or len(private_fields) > 0,
     )
 
 
-def _collect_constructors(ctx: TypeCheckContext, class_decl, fields: dict[str, TypeInfo], private_fields: set[str]) -> list[ConstructorInfo]:
+def _collect_constructors(
+    ctx: TypeCheckContext,
+    class_decl,
+    fields: dict[str, TypeInfo],
+    private_fields: set[str],
+    *,
+    base_info: ClassInfo | None,
+) -> list[ConstructorInfo]:
     if not class_decl.constructors:
-        return [_compatibility_constructor_info(class_decl, fields, private_fields)]
+        base_constructor: ConstructorInfo | None = None
+        if base_info is not None:
+            if len(base_info.constructors) != 1:
+                raise TypeCheckError(
+                    f"Class '{class_decl.name}' must declare a constructor because superclass '{base_info.name}' has overloaded constructors",
+                    class_decl.span,
+                )
+            base_constructor = base_info.constructors[0]
+            local_param_names = {field_decl.name for field_decl in class_decl.fields if field_decl.initializer is None}
+            duplicate_param_names = set(base_constructor.param_names) & local_param_names
+            if duplicate_param_names:
+                duplicate_name = sorted(duplicate_param_names)[0]
+                raise TypeCheckError(
+                    f"Constructor parameter '{duplicate_name}' conflicts with inherited constructor parameter",
+                    class_decl.span,
+                )
+        return [
+            _compatibility_constructor_info(
+                class_decl,
+                fields,
+                private_fields,
+                base_constructor=base_constructor,
+            )
+        ]
 
     constructors: list[ConstructorInfo] = []
     seen_signatures: set[tuple] = set()
@@ -431,6 +471,7 @@ def _build_class_info(ctx: TypeCheckContext, module_path, class_decl: ClassDecl)
         class_decl,
         declared_fields,
         {field_decl.name for field_decl in class_decl.fields if field_decl.is_private},
+        base_info=base_info,
     )
     declared_interfaces = {
         _canonical_interface_name(module_path, _resolve_interface_reference_name(module_ctx, interface_ref))

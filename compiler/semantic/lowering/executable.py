@@ -176,6 +176,7 @@ def _lower_constructor(constructor: SemanticConstructor) -> LoweredSemanticConst
             is_private=constructor.is_private,
             span=constructor.span,
             local_info_by_id=dict(constructor.local_info_by_id),
+            super_constructor_id=constructor.super_constructor_id,
         )
 
     local_info_by_id = dict(constructor.local_info_by_id)
@@ -188,6 +189,7 @@ def _lower_constructor(constructor: SemanticConstructor) -> LoweredSemanticConst
         is_private=constructor.is_private,
         span=constructor.span,
         local_info_by_id=local_info_by_id,
+        super_constructor_id=constructor.super_constructor_id,
     )
 
 

@@ -38,6 +38,7 @@ Backend/codegen, runtime GC implementation details, and full CLI workflow are st
 Recent backend/runtime updates:
 - Full `double` lowering is implemented in codegen, including literals, arithmetic/comparisons, casts, and mixed integer/floating call signatures.
 - SysV floating-point ABI paths are implemented for parameters/returns (`xmm0`-`xmm7`) in function calls, method calls, and constructors.
+- Single inheritance without overriding is implemented end-to-end, including inherited field/method access, transitive interface implementation, subtype-aware class casts/type tests, and constructor chaining via `super(...)`.
 - `std.box` primitive wrapper classes (`Box*`) are available for `Obj`-container use cases.
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
 - `std.io` supports both stdin batch reads (`read_stdin`) and whole-file reads (`read_file(path)`) using minimal runtime open/read/close primitives.

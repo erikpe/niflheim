@@ -137,6 +137,7 @@ class SemanticConstructor:
     is_private: bool
     span: SourceSpan
     local_info_by_id: dict[LocalId, SemanticLocalInfo] = field(default_factory=dict)
+    super_constructor_id: ConstructorId | None = None
 
 
 SemanticFunctionLike = SemanticFunction | SemanticMethod | SemanticConstructor
@@ -448,6 +449,12 @@ class ConstructorCallTarget:
 
 
 @dataclass(frozen=True)
+class ConstructorInitCallTarget:
+    constructor_id: ConstructorId
+    access: BoundMemberAccess
+
+
+@dataclass(frozen=True)
 class CallableValueCallTarget:
     callee: "SemanticExpr"
 
@@ -458,6 +465,7 @@ SemanticCallTarget = (
     | InstanceMethodCallTarget
     | InterfaceMethodCallTarget
     | ConstructorCallTarget
+    | ConstructorInitCallTarget
     | CallableValueCallTarget
 )
 
@@ -478,11 +486,13 @@ def call_target_dispatch_mode(target: SemanticCallTarget) -> CallDispatchMode:
         return "interface_method"
     if isinstance(target, ConstructorCallTarget):
         return "constructor"
+    if isinstance(target, ConstructorInitCallTarget):
+        return "constructor"
     return "callable_value"
 
 
 def call_target_receiver_access(target: SemanticCallTarget) -> BoundMemberAccess | None:
-    if isinstance(target, (InstanceMethodCallTarget, InterfaceMethodCallTarget)):
+    if isinstance(target, (InstanceMethodCallTarget, InterfaceMethodCallTarget, ConstructorInitCallTarget)):
         return target.access
     return None
 

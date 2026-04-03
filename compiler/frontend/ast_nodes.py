@@ -286,6 +286,12 @@ class ContinueStmt:
 
 
 @dataclass(frozen=True)
+class SuperStmt:
+    arguments: list[Expression]
+    span: SourceSpan
+
+
+@dataclass(frozen=True)
 class ForInStmt:
     element_name: str
     collection_expr: Expression
@@ -316,6 +322,7 @@ Statement = (
     | VarDeclStmt
     | IfStmt
     | WhileStmt
+    | SuperStmt
     | ForInStmt
     | ReturnStmt
     | BreakStmt

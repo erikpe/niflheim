@@ -35,6 +35,7 @@ class TokenKind(str, Enum):
     IN = "IN"
     IS = "IS"
     STATIC = "STATIC"
+    SUPER = "SUPER"
     BREAK = "BREAK"
     CONTINUE = "CONTINUE"
     RETURN = "RETURN"
@@ -116,6 +117,7 @@ KEYWORDS: dict[str, TokenKind] = {
     "in": TokenKind.IN,
     "is": TokenKind.IS,
     "static": TokenKind.STATIC,
+    "super": TokenKind.SUPER,
     "break": TokenKind.BREAK,
     "continue": TokenKind.CONTINUE,
     "return": TokenKind.RETURN,

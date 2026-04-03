@@ -166,6 +166,30 @@ fn main() -> unit {
     assert [constructor.is_private for constructor in counter_info.constructors] == [False, True]
 
 
+def test_typecheck_collects_chained_compatibility_constructor_for_subclass() -> None:
+    source = """
+class Base {
+    base: i64;
+}
+
+class Derived extends Base {
+    extra: i64;
+    cached: bool = false;
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    ctx = _collect_declarations(source)
+
+    derived_info = ctx.classes["Derived"]
+
+    assert len(derived_info.constructors) == 1
+    assert derived_info.constructors[0].param_names == ["base", "extra"]
+    assert [param.name for param in derived_info.constructors[0].params] == ["i64", "i64"]
+
+
 def test_typecheck_collects_superclass_name_for_local_base() -> None:
     source = """
 class Base {

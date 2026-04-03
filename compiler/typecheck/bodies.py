@@ -20,12 +20,14 @@ from compiler.frontend.ast_nodes import (
     NullExpr,
     ReturnStmt,
     Statement,
+    SuperStmt,
     UnaryExpr,
     VarDeclStmt,
     WhileStmt,
 )
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
+from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.typecheck.model import TypeCheckError, TypeInfo
 from compiler.typecheck.relations import require_assignable
 from compiler.typecheck.statements import check_function_like as statements_check_function_like
@@ -70,6 +72,14 @@ class _ConstructorFlowResult:
     normal: _ConstructorInitState | None
     break_states: tuple[_ConstructorInitState, ...] = ()
     continue_states: tuple[_ConstructorInitState, ...] = ()
+
+
+@dataclass(frozen=True)
+class _ConstructorFieldPlan:
+    all_fields: frozenset[str]
+    required_fields: frozenset[str]
+    initial_fields: frozenset[str]
+    super_initialized_fields: frozenset[str]
 
 
 def _merge_constructor_states(states: list[_ConstructorInitState]) -> _ConstructorInitState | None:
@@ -140,6 +150,7 @@ def _analyze_constructor_block(
     class_name: str,
     required_fields: set[str],
     final_fields: set[str],
+    super_initialized_fields: set[str],
 ) -> _ConstructorFlowResult:
     current_state: _ConstructorInitState | None = state
     break_states: list[_ConstructorInitState] = []
@@ -154,6 +165,7 @@ def _analyze_constructor_block(
             class_name=class_name,
             required_fields=required_fields,
             final_fields=final_fields,
+            super_initialized_fields=super_initialized_fields,
         )
         current_state = stmt_result.normal
         break_states.extend(stmt_result.break_states)
@@ -173,6 +185,7 @@ def _analyze_constructor_statement(
     class_name: str,
     required_fields: set[str],
     final_fields: set[str],
+    super_initialized_fields: set[str],
 ) -> _ConstructorFlowResult:
     if isinstance(stmt, BlockStmt):
         return _analyze_constructor_block(
@@ -181,10 +194,21 @@ def _analyze_constructor_statement(
             class_name=class_name,
             required_fields=required_fields,
             final_fields=final_fields,
+            super_initialized_fields=super_initialized_fields,
         )
 
     if isinstance(stmt, VarDeclStmt | ExprStmt):
         return _ConstructorFlowResult(normal=state)
+
+    if isinstance(stmt, SuperStmt):
+        assigned_fields = state.definitely_assigned | super_initialized_fields
+        maybe_assigned = state.maybe_assigned | super_initialized_fields
+        return _ConstructorFlowResult(
+            normal=_ConstructorInitState(
+                definitely_assigned=assigned_fields,
+                maybe_assigned=maybe_assigned,
+            )
+        )
 
     if isinstance(stmt, ReturnStmt):
         _validate_constructor_required_fields(
@@ -216,6 +240,7 @@ def _analyze_constructor_statement(
             class_name=class_name,
             required_fields=required_fields,
             final_fields=final_fields,
+            super_initialized_fields=super_initialized_fields,
         )
         if isinstance(stmt.else_branch, BlockStmt):
             else_result = _analyze_constructor_block(
@@ -224,6 +249,7 @@ def _analyze_constructor_statement(
                 class_name=class_name,
                 required_fields=required_fields,
                 final_fields=final_fields,
+                super_initialized_fields=super_initialized_fields,
             )
         elif isinstance(stmt.else_branch, IfStmt):
             else_result = _analyze_constructor_statement(
@@ -232,6 +258,7 @@ def _analyze_constructor_statement(
                 class_name=class_name,
                 required_fields=required_fields,
                 final_fields=final_fields,
+                super_initialized_fields=super_initialized_fields,
             )
         else:
             else_result = _ConstructorFlowResult(normal=state)
@@ -259,6 +286,7 @@ def _analyze_constructor_statement(
             class_name=class_name,
             required_fields=required_fields,
             final_fields=final_fields,
+            super_initialized_fields=super_initialized_fields,
         )
 
         repeated_iteration_states = [loop_state for loop_state in (body_result.normal, *body_result.continue_states) if loop_state is not None]
@@ -286,21 +314,73 @@ def _analyze_constructor_statement(
     return _ConstructorFlowResult(normal=state)
 
 
+def _split_canonical_class_name(type_name: str, current_module_path) -> tuple[tuple[str, ...], str]:
+    if "::" in type_name:
+        owner_dotted, class_name = type_name.split("::", 1)
+        return tuple(owner_dotted.split(".")), class_name
+    if current_module_path is None:
+        return (), type_name
+    return current_module_path, type_name
+
+
+def _lookup_class_decl(ctx: TypeCheckContext, type_name: str):
+    module_path, class_name = _split_canonical_class_name(type_name, ctx.module_path)
+    module_ast = ctx.module_ast if module_path == ctx.module_path or ctx.modules is None else ctx.modules[module_path].ast
+    for class_decl in module_ast.classes:
+        if class_decl.name == class_name:
+            return class_decl
+    raise ValueError(f"Missing class declaration for '{type_name}'")
+
+
+def _build_constructor_field_plan(
+    ctx: TypeCheckContext,
+    class_info,
+    cache: dict[str, _ConstructorFieldPlan],
+) -> _ConstructorFieldPlan:
+    cached = cache.get(class_info.type_name)
+    if cached is not None:
+        return cached
+
+    class_decl = _lookup_class_decl(ctx, class_info.type_name)
+    declared_defaults = {field_decl.name for field_decl in class_decl.fields if field_decl.initializer is not None}
+    declared_required = {field_decl.name for field_decl in class_decl.fields if field_decl.initializer is None}
+    declared_fields = set(class_info.declared_field_order)
+
+    if class_info.superclass_name is None:
+        plan = _ConstructorFieldPlan(
+            all_fields=frozenset(declared_fields),
+            required_fields=frozenset(declared_required),
+            initial_fields=frozenset(declared_defaults),
+            super_initialized_fields=frozenset(),
+        )
+        cache[class_info.type_name] = plan
+        return plan
+
+    superclass_info = lookup_class_by_type_name(ctx, class_info.superclass_name)
+    if superclass_info is None:
+        raise ValueError(f"Unknown superclass '{class_info.superclass_name}' during constructor analysis")
+    superclass_plan = _build_constructor_field_plan(ctx, superclass_info, cache)
+    plan = _ConstructorFieldPlan(
+        all_fields=superclass_plan.all_fields | declared_fields,
+        required_fields=superclass_plan.required_fields | declared_required,
+        initial_fields=frozenset(),
+        super_initialized_fields=superclass_plan.all_fields | declared_defaults,
+    )
+    cache[class_info.type_name] = plan
+    return plan
+
+
 def _check_constructor_field_initialization(ctx: TypeCheckContext) -> None:
+    field_plans: dict[str, _ConstructorFieldPlan] = {}
     for class_decl in ctx.module_ast.classes:
         if not class_decl.constructors:
             continue
 
         class_info = ctx.classes[class_decl.name]
-        initialized_by_default = {
-            field_decl.name for field_decl in class_decl.fields if field_decl.initializer is not None
-        }
-        required_fields = {
-            field_decl.name for field_decl in class_decl.fields if field_decl.initializer is None
-        }
+        field_plan = _build_constructor_field_plan(ctx, class_info, field_plans)
         initial_state = _ConstructorInitState(
-            definitely_assigned=frozenset(initialized_by_default),
-            maybe_assigned=frozenset(initialized_by_default),
+            definitely_assigned=field_plan.initial_fields,
+            maybe_assigned=field_plan.initial_fields,
         )
 
         for constructor_decl in class_decl.constructors:
@@ -308,13 +388,14 @@ def _check_constructor_field_initialization(ctx: TypeCheckContext) -> None:
                 constructor_decl.body,
                 initial_state,
                 class_name=class_decl.name,
-                required_fields=required_fields,
+                required_fields=set(field_plan.required_fields),
                 final_fields=class_info.final_fields,
+                super_initialized_fields=set(field_plan.super_initialized_fields),
             )
             if constructor_result.normal is not None:
                 _validate_constructor_required_fields(
                     class_name=class_decl.name,
-                    required_fields=required_fields,
+                    required_fields=set(field_plan.required_fields),
                     state=constructor_result.normal,
                     span=constructor_decl.span,
                 )
@@ -341,6 +422,7 @@ def check_bodies(ctx: TypeCheckContext) -> None:
                 TypeInfo(name=TYPE_NAME_UNIT, kind="primitive"),
                 receiver_type=TypeInfo(name=class_info.name, kind="reference"),
                 owner_class_name=class_info.name,
+                constructor_superclass_name=class_info.superclass_name,
                 allow_value_return=False,
                 allow_final_field_assignment=True,
             )

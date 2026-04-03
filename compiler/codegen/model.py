@@ -42,11 +42,13 @@ class FunctionLayout:
 class ConstructorLayout:
     class_name: str
     label: str
+    init_label: str
     type_symbol: str
     payload_bytes: int
     field_names: list[str]
     param_names: list[str]
     param_field_names: list[str]
+    super_param_count: int
 
 
 PARAM_REGISTERS = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]

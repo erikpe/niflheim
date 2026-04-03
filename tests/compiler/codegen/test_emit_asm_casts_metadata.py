@@ -246,7 +246,7 @@ class Derived extends Base {
 }
 
 fn main() -> i64 {
-    var value: Derived = Derived(1, null);
+    var value: Derived = Derived(null, 1, null);
     if value == null {
         return 1;
     }

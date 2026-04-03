@@ -5,12 +5,15 @@ from dataclasses import dataclass
 from compiler.common.collection_protocols import CollectionOpKind
 from compiler.frontend.ast_nodes import *
 from compiler.semantic.ir import *
+from compiler.semantic.lowering.ids import constructor_id_from_type_name
 from compiler.semantic.lowering.expressions import lower_expr
 from compiler.semantic.lowering.locals import LocalIdTracker, LoweringBindingBridge
 from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
+from compiler.typecheck.call_helpers import select_constructor_overload
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import TypeInfo
+from compiler.typecheck.module_lookup import lookup_class_by_type_name
 from compiler.typecheck.structural import resolve_for_in_element_type
 from compiler.typecheck.type_resolution import resolve_type_ref
 
@@ -115,6 +118,9 @@ def lower_stmt(typecheck_ctx: TypeCheckContext, stmt: Statement, *, symbol_index
         )
         return SemanticReturn(value=value, span=stmt.span)
 
+    if isinstance(stmt, SuperStmt):
+        return _lower_super_stmt(typecheck_ctx, stmt, symbol_index=symbol_index, lowering_bridge=lowering_bridge)
+
     if isinstance(stmt, AssignStmt):
         return SemanticAssign(
             target=lower_lvalue(
@@ -194,5 +200,60 @@ def _lower_for_in_stmt(
         ),
         element_type_ref=semantic_type_ref_from_checked_type(typecheck_ctx, element_type),
         body=body,
+        span=stmt.span,
+    )
+
+
+def _lower_super_stmt(
+    typecheck_ctx: TypeCheckContext,
+    stmt: SuperStmt,
+    *,
+    symbol_index,
+    lowering_bridge: LoweringBindingBridge,
+) -> SemanticExprStmt:
+    receiver_local_infos = [
+        local_info
+        for local_info in lowering_bridge.local_id_tracker.local_info_by_id.values()
+        if local_info.binding_kind == "receiver"
+    ]
+    if len(receiver_local_infos) != 1:
+        raise ValueError("super(...) lowering requires exactly one receiver local")
+    receiver_local_info = receiver_local_infos[0]
+    receiver_local_id = receiver_local_info.local_id
+    receiver_expr = LocalRefExpr(local_id=receiver_local_id, type_ref=receiver_local_info.type_ref, span=stmt.span)
+
+    receiver_class_info = lookup_class_by_type_name(typecheck_ctx, receiver_local_info.type_ref.canonical_name)
+    if receiver_class_info is None or receiver_class_info.superclass_name is None:
+        raise ValueError("super(...) lowering requires a checked subclass constructor")
+
+    arg_types = [infer_expression_type(typecheck_ctx, argument) for argument in stmt.arguments]
+    constructor_info = select_constructor_overload(
+        typecheck_ctx,
+        lookup_class_by_type_name(typecheck_ctx, receiver_class_info.superclass_name),
+        arg_types,
+        stmt.span,
+        TypeInfo(name=receiver_class_info.superclass_name, kind="reference"),
+    )
+    base_constructor_id = constructor_id_from_type_name(typecheck_ctx.module_path, receiver_class_info.superclass_name)
+    lowered_arguments = [
+        lower_expr(typecheck_ctx, symbol_index, argument, lowering_bridge.local_id_tracker) for argument in stmt.arguments
+    ]
+    return SemanticExprStmt(
+        expr=CallExprS(
+            target=ConstructorInitCallTarget(
+                constructor_id=ConstructorId(
+                    module_path=base_constructor_id.module_path,
+                    class_name=base_constructor_id.class_name,
+                    ordinal=constructor_info.ordinal,
+                ),
+                access=BoundMemberAccess(receiver=receiver_expr, receiver_type_ref=receiver_local_info.type_ref),
+            ),
+            args=lowered_arguments,
+            type_ref=semantic_type_ref_from_checked_type(
+                typecheck_ctx,
+                TypeInfo(name=receiver_class_info.superclass_name, kind="reference"),
+            ),
+            span=stmt.span,
+        ),
         span=stmt.span,
     )

@@ -33,6 +33,10 @@ class DeclarationTables:
         layout = self.constructor_layout(constructor_id)
         return layout.label if layout is not None else None
 
+    def constructor_init_label(self, constructor_id: ConstructorId) -> str | None:
+        layout = self.constructor_layout(constructor_id)
+        return layout.init_label if layout is not None else None
+
     def class_field_offset(self, class_id: ClassId, field_name: str) -> int | None:
         return self._class_field_offsets_by_id.get((class_id, field_name))
 
@@ -99,14 +103,22 @@ class ProgramGenerator(CodeGenerator):
                 for slot_index, method in enumerate(interface.methods):
                     interface_method_slots_by_id[method.method_id] = slot_index
 
+        constructor_param_counts = {
+            constructor.constructor_id: len(constructor.params)
+            for cls in self.program.classes
+            for constructor in cls.constructors
+        }
+
         for cls in self.program.classes:
             class_name = cls.class_id.name
             for constructor in cls.constructors:
                 constructor_id = constructor.constructor_id
                 constructor_label = codegen_symbols.mangle_constructor_symbol(class_name, constructor_id.ordinal)
+                constructor_init_label = codegen_symbols.mangle_constructor_init_symbol(class_name, constructor_id.ordinal)
                 constructor_layouts_by_id[constructor_id] = ConstructorLayout(
                     class_name=class_name,
                     label=constructor_label,
+                    init_label=constructor_init_label,
                     type_symbol=codegen_symbols.mangle_type_symbol(class_name),
                     payload_bytes=class_hierarchy.payload_bytes(cls.class_id),
                     field_names=[field.name for field in cls.fields],
@@ -114,6 +126,11 @@ class ProgramGenerator(CodeGenerator):
                     param_field_names=[field.name for field in cls.fields if field.initializer is None]
                     if constructor.body is None
                     else [],
+                    super_param_count=(
+                        0
+                        if constructor.super_constructor_id is None
+                        else constructor_param_counts[constructor.super_constructor_id]
+                    ),
                 )
 
             for field_slot in class_hierarchy.effective_field_slots(cls.class_id):

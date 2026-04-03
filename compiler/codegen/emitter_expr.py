@@ -508,6 +508,16 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
             codegen, _constructor_label(target.constructor_id, ctx), expr.args, expr.type_ref, ctx, named_root_local_ids=named_root_local_ids
         )
         return
+    if isinstance(target, ConstructorInitCallTarget):
+        _emit_named_call(
+            codegen,
+            _constructor_init_label(target.constructor_id, ctx),
+            [target.access.receiver, *expr.args],
+            expr.type_ref,
+            ctx,
+            named_root_local_ids=named_root_local_ids,
+        )
+        return
     _emit_callable_value_call(codegen, expr, target.callee, ctx, named_root_local_ids=named_root_local_ids)
 
 
@@ -1018,4 +1028,11 @@ def _constructor_label(constructor_id: ConstructorId, ctx: EmitContext) -> str:
     label = ctx.declaration_tables.constructor_label(constructor_id)
     if label is None:
         raise ValueError(f"Missing constructor label for {constructor_id}")
+    return label
+
+
+def _constructor_init_label(constructor_id: ConstructorId, ctx: EmitContext) -> str:
+    label = ctx.declaration_tables.constructor_init_label(constructor_id)
+    if label is None:
+        raise ValueError(f"Missing constructor init label for {constructor_id}")
     return label

@@ -261,6 +261,79 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
+def test_typecheck_allows_subclass_constructor_super_chaining() -> None:
+    source = """
+class Base {
+    value: i64;
+}
+
+class Derived extends Base {
+    extra: i64;
+
+    constructor(value: i64, extra: i64) {
+        super(value);
+        __self.extra = extra;
+        return;
+    }
+}
+
+fn main() -> unit {
+    var derived: Derived = Derived(1, 2);
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_subclass_constructor_missing_first_super_call() -> None:
+    source = """
+class Base {
+    value: i64;
+}
+
+class Derived extends Base {
+    extra: i64;
+
+    constructor(value: i64, extra: i64) {
+        __self.extra = extra;
+        super(value);
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Subclass constructor must begin with super\(\.\.\.\)"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_direct_inherited_field_initialization_in_subclass_constructor() -> None:
+    source = """
+class Base {
+    value: i64;
+}
+
+class Derived extends Base {
+    extra: i64;
+
+    constructor(value: i64, extra: i64) {
+        super(value);
+        __self.value = value;
+        __self.extra = extra;
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="Inherited field 'Base.value' must be initialized via super\(\.\.\.\)"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_allows_single_assignment_to_final_field_in_constructor() -> None:
     source = """
 class Counter {
