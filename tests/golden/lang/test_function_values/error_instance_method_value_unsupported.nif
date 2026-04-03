@@ -1,0 +1,11 @@
+class Math {
+    fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+}
+
+fn main() -> unit {
+    var m: Math = Math();
+    var f: fn(i64, i64) -> i64 = m.add;
+    return;
+}

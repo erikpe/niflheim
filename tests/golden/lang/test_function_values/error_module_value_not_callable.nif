@@ -1,0 +1,6 @@
+import tests.golden.lang.test_function_values.bridge;
+
+fn main() -> unit {
+    bridge.inner();
+    return;
+}

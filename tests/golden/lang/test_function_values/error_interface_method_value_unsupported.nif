@@ -1,0 +1,15 @@
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+fn main() -> unit {
+    var h: Hashable = Key();
+    var f: fn() -> u64 = h.hash_code;
+    return;
+}

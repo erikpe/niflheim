@@ -1,0 +1,41 @@
+tests:
+  - mode: "run"
+    name: "test_function_values"
+    src_file: "test_function_values.nif"
+    runs:
+      - {name: "mixed_indirect_calls", input: {stdin: "1\n"}, expect: {exit_code: 0}}
+      - {name: "returned_function_value_dispatch", input: {stdin: "2\n"}, expect: {exit_code: 0}}
+      - {name: "zero_arg_bool_callback", input: {stdin: "3\n"}, expect: {exit_code: 0}}
+      - {name: "unit_callback_side_effects", input: {stdin: "4\n"}, expect: {exit_code: 0}}
+      - {name: "function_value_in_class_field", input: {stdin: "5\n"}, expect: {exit_code: 0}}
+      - {name: "imported_function_and_static_method_values", input: {stdin: "7\n"}, expect: {exit_code: 0}}
+      - {name: "imported_helper_returns_function_value", input: {stdin: "8\n"}, expect: {exit_code: 0}}
+      - name: "panic_propagates_through_indirect_call"
+        input:
+          stdin: "6\n"
+        expect:
+          panic: "rt_array_get_i64: index out of bounds"
+  - mode: "compile-fail"
+    name: "instance_method_value_unsupported"
+    src_file: "error_instance_method_value_unsupported.nif"
+    compile_error_match: "Instance methods are not first-class values in MVP"
+  - mode: "compile-fail"
+    name: "interface_method_value_unsupported"
+    src_file: "error_interface_method_value_unsupported.nif"
+    compile_error_match: "Interface method references are not supported in v1"
+  - mode: "compile-fail"
+    name: "function_value_assignment_type_mismatch"
+    src_file: "error_function_value_assignment_type_mismatch.nif"
+    compile_error_match: "Cannot assign 'fn(i64, i64) -> i64' to 'fn(i64) -> i64'"
+  - mode: "compile-fail"
+    name: "indirect_call_argument_type_mismatch"
+    src_file: "error_indirect_call_argument_type_mismatch.nif"
+    compile_error_match: "Cannot assign 'bool' to 'i64'"
+  - mode: "compile-fail"
+    name: "function_literal_not_supported"
+    src_file: "error_function_literal_not_supported.nif"
+    compile_error_match: "Function literals/closures are not supported in MVP"
+  - mode: "compile-fail"
+    name: "module_value_not_callable"
+    src_file: "error_module_value_not_callable.nif"
+    compile_error_match: "Module values are not callable"

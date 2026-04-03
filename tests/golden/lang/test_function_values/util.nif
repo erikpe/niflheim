@@ -1,0 +1,16 @@
+export fn add_ten(v: i64) -> i64 {
+    return v + 10;
+}
+
+export class Math {
+    static fn times_three(v: i64) -> i64 {
+        return v * 3;
+    }
+}
+
+export fn choose_imported_op(use_method: bool) -> fn(i64) -> i64 {
+    if use_method {
+        return Math.times_three;
+    }
+    return add_ten;
+}

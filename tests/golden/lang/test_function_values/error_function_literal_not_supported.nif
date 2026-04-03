@@ -1,0 +1,6 @@
+fn main() -> unit {
+    var f: fn(i64) -> i64 = fn(x: i64) -> i64 {
+        return x;
+    };
+    return;
+}
