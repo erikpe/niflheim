@@ -1,0 +1,15 @@
+export interface ImportedHashable {
+    fn hash_code() -> u64;
+}
+
+export class ImportedBase implements ImportedHashable {
+    value: u64;
+
+    fn read() -> u64 {
+        return __self.value;
+    }
+
+    fn hash_code() -> u64 {
+        return __self.value + 100u;
+    }
+}

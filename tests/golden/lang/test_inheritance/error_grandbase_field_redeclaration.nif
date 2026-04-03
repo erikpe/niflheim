@@ -1,0 +1,15 @@
+class Root {
+    value: u64;
+}
+
+class Base extends Root {
+    extra: u64;
+}
+
+class Derived extends Base {
+    value: u64;
+}
+
+fn main() -> unit {
+    return;
+}

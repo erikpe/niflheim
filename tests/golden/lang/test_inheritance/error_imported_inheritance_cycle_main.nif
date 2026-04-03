@@ -1,0 +1,9 @@
+import tests.golden.lang.test_inheritance.error_imported_inheritance_cycle_util;
+
+export class Derived extends error_imported_inheritance_cycle_util.Base {
+    extra: u64;
+}
+
+fn main() -> unit {
+    return;
+}

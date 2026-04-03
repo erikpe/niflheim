@@ -9,6 +9,8 @@ tests:
       - {name: "subtype_aware_type_tests_and_obj_casts", input: {stdin: "4\n"}, expect: {exit_code: 0}}
       - {name: "explicit_constructor_chaining", input: {stdin: "5\n"}, expect: {exit_code: 0}}
       - {name: "compatibility_constructor_chaining", input: {stdin: "6\n"}, expect: {exit_code: 0}}
+      - {name: "multilevel_inherited_methods_and_interfaces", input: {stdin: "7\n"}, expect: {exit_code: 0}}
+      - {name: "imported_superclass_subtyping_and_inherited_members", input: {stdin: "8\n"}, expect: {exit_code: 0}}
   - mode: "compile-fail"
     name: "unknown_superclass"
     src_file: "error_unknown_superclass.nif"
@@ -61,3 +63,11 @@ tests:
     name: "constructor_parameter_conflicts_with_inherited_parameter"
     src_file: "error_constructor_parameter_conflict.nif"
     compile_error_match: "Constructor parameter 'seed' conflicts with inherited constructor parameter"
+  - mode: "compile-fail"
+    name: "grandbase_field_redeclaration"
+    src_file: "error_grandbase_field_redeclaration.nif"
+    compile_error_match: "Duplicate field 'value'"
+  - mode: "compile-fail"
+    name: "imported_inheritance_cycle"
+    src_file: "error_imported_inheritance_cycle_main.nif"
+    compile_error_match: "Inheritance cycle detected"

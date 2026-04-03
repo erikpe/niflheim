@@ -1,5 +1,6 @@
 import std.io;
 import std.object;
+import tests.golden.lang.test_inheritance.util;
 
 interface Metric {
     fn score() -> u64;
@@ -33,6 +34,20 @@ class Derived extends Base {
 
 class CompatLeaf extends Derived {
     marker: u64;
+}
+
+class ImportedDerived extends util.ImportedBase {
+    extra: u64;
+
+    constructor(value: u64, extra: u64) {
+        super(value);
+        __self.extra = extra;
+        return;
+    }
+
+    fn total() -> u64 {
+        return __self.read() + __self.extra;
+    }
 }
 
 fn take_base(value: Base) -> u64 {
@@ -158,6 +173,76 @@ fn test_compatibility_constructor_chaining() -> i64 {
     return 0;
 }
 
+fn test_multilevel_inherited_methods_and_interfaces() -> i64 {
+    var leaf: CompatLeaf = CompatLeaf(2u, 5u, 11u);
+    var metric: Metric = leaf;
+    var as_obj: Obj = leaf;
+    var as_base: Base = (Base)as_obj;
+    var as_derived: Derived = (Derived)as_obj;
+
+    if leaf.doubled() != 4u {
+        return 25;
+    }
+    if leaf.total() != 7u {
+        return 26;
+    }
+    if metric.score() != 3u {
+        return 27;
+    }
+    if as_base.value != 2u {
+        return 28;
+    }
+    if as_derived.extra != 5u {
+        return 29;
+    }
+    if !(leaf is Derived) {
+        return 30;
+    }
+    if !(leaf is Metric) {
+        return 31;
+    }
+    if !same_type((Obj)leaf, (Obj)as_base) {
+        return 32;
+    }
+
+    return 0;
+}
+
+fn test_imported_superclass_subtyping_and_inherited_members() -> i64 {
+    var derived: ImportedDerived = ImportedDerived(6u, 4u);
+    var base: util.ImportedBase = derived;
+    var hashable: util.ImportedHashable = derived;
+    var as_obj: Obj = derived;
+    var casted: util.ImportedBase = (util.ImportedBase)as_obj;
+
+    if derived.read() != 6u {
+        return 33;
+    }
+    if derived.total() != 10u {
+        return 34;
+    }
+    if base.read() != 6u {
+        return 35;
+    }
+    if hashable.hash_code() != 106u {
+        return 36;
+    }
+    if casted.read() != 6u {
+        return 37;
+    }
+    if !(derived is util.ImportedBase) {
+        return 38;
+    }
+    if !(as_obj is util.ImportedHashable) {
+        return 39;
+    }
+    if !same_type((Obj)derived, (Obj)base) {
+        return 40;
+    }
+
+    return 0;
+}
+
 fn main() -> i64 {
     var select: u64 = read_stdin().strip().to_u64();
 
@@ -167,6 +252,8 @@ fn main() -> i64 {
     if select == 4u { return test_subtype_aware_type_tests_and_obj_casts(); }
     if select == 5u { return test_explicit_constructor_chaining(); }
     if select == 6u { return test_compatibility_constructor_chaining(); }
+    if select == 7u { return test_multilevel_inherited_methods_and_interfaces(); }
+    if select == 8u { return test_imported_superclass_subtyping_and_inherited_members(); }
 
-    return 25;
+    return 41;
 }
