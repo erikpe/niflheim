@@ -13,9 +13,9 @@ The design is also intentionally shaped as preparation for later virtual class d
 
 ## Status
 
-Planned.
+Implemented through slice 6.
 
-The current compiler/runtime still assumes flat classes.
+The current compiler/runtime supports single inheritance without overriding, including constructor chaining, subtype-aware class checks, and inherited interface metadata.
 
 ## Why This Plan Exists
 
@@ -648,10 +648,10 @@ Purpose:
 
 Checklist:
 
-- [ ] add a positive golden source for single inheritance behavior
-- [ ] include inherited field reads, inherited method calls, subclass-to-base assignment, inherited interface dispatch, and subtype-aware casts/type tests
-- [ ] add constructor-chaining golden cases once `super(...)` is implemented
-- [ ] update language/docs references after behavior is stable
+- [x] add a positive golden source for single inheritance behavior
+- [x] include inherited field reads, inherited method calls, subclass-to-base assignment, inherited interface dispatch, and subtype-aware casts/type tests
+- [x] add constructor-chaining golden cases once `super(...)` is implemented
+- [x] update language/docs references after behavior is stable
 
 Tests:
 

@@ -1,0 +1,172 @@
+import std.io;
+import std.object;
+
+interface Metric {
+    fn score() -> u64;
+}
+
+class Base implements Metric {
+    value: u64;
+
+    fn score() -> u64 {
+        return __self.value + 1u;
+    }
+
+    fn doubled() -> u64 {
+        return __self.value * 2u;
+    }
+}
+
+class Derived extends Base {
+    extra: u64;
+
+    constructor(value: u64, extra: u64) {
+        super(value);
+        __self.extra = extra;
+        return;
+    }
+
+    fn total() -> u64 {
+        return __self.value + __self.extra;
+    }
+}
+
+class CompatLeaf extends Derived {
+    marker: u64;
+}
+
+fn take_base(value: Base) -> u64 {
+    return value.doubled();
+}
+
+fn test_inherited_fields_and_methods() -> i64 {
+    var derived: Derived = Derived(7u, 4u);
+
+    if derived.value != 7u {
+        return 1;
+    }
+    if derived.score() != 8u {
+        return 2;
+    }
+    if derived.doubled() != 14u {
+        return 3;
+    }
+    if derived.total() != 11u {
+        return 4;
+    }
+
+    return 0;
+}
+
+fn test_subclass_to_base_assignment_and_same_type() -> i64 {
+    var derived: Derived = Derived(5u, 1u);
+    var base: Base = derived;
+
+    if take_base(derived) != 10u {
+        return 5;
+    }
+    if base.score() != 6u {
+        return 6;
+    }
+    if !same_type((Obj)derived, (Obj)base) {
+        return 7;
+    }
+    if same_type((Obj)Base(5u), (Obj)derived) {
+        return 8;
+    }
+
+    return 0;
+}
+
+fn test_inherited_interface_dispatch_and_cast_chain() -> i64 {
+    var metric: Metric = Derived(9u, 3u);
+    var as_base: Base = (Base)metric;
+    var as_derived: Derived = (Derived)metric;
+
+    if metric.score() != 10u {
+        return 9;
+    }
+    if as_base.doubled() != 18u {
+        return 10;
+    }
+    if as_derived.extra != 3u {
+        return 11;
+    }
+
+    return 0;
+}
+
+fn test_subtype_aware_type_tests_and_obj_casts() -> i64 {
+    var value: Obj = (Obj)Derived(4u, 2u);
+    var as_base: Base = (Base)value;
+    var as_derived: Derived = (Derived)value;
+
+    if !(value is Base) {
+        return 12;
+    }
+    if !(value is Derived) {
+        return 13;
+    }
+    if !(value is Metric) {
+        return 14;
+    }
+    if as_base.score() != 5u {
+        return 15;
+    }
+    if as_derived.total() != 6u {
+        return 16;
+    }
+
+    return 0;
+}
+
+fn test_explicit_constructor_chaining() -> i64 {
+    var derived: Derived = Derived(12u, 7u);
+
+    if derived.value != 12u {
+        return 17;
+    }
+    if derived.extra != 7u {
+        return 18;
+    }
+    if derived.score() != 13u {
+        return 19;
+    }
+
+    return 0;
+}
+
+fn test_compatibility_constructor_chaining() -> i64 {
+    var leaf: CompatLeaf = CompatLeaf(3u, 8u, 13u);
+
+    if leaf.value != 3u {
+        return 20;
+    }
+    if leaf.extra != 8u {
+        return 21;
+    }
+    if leaf.marker != 13u {
+        return 22;
+    }
+    if leaf.score() != 4u {
+        return 23;
+    }
+    if !(leaf is Base) {
+        return 24;
+    }
+
+    return 0;
+}
+
+fn main() -> i64 {
+    var select: u64 = read_stdin().strip().to_u64();
+
+    if select == 1u { return test_inherited_fields_and_methods(); }
+    if select == 2u { return test_subclass_to_base_assignment_and_same_type(); }
+    if select == 3u { return test_inherited_interface_dispatch_and_cast_chain(); }
+    if select == 4u { return test_subtype_aware_type_tests_and_obj_casts(); }
+    if select == 5u { return test_explicit_constructor_chaining(); }
+    if select == 6u { return test_compatibility_constructor_chaining(); }
+
+    return 25;
+}

@@ -10,8 +10,6 @@ Primary goals:
 - Be practical enough for coding competition style problems as an initial motivator.
 
 Out of scope for v0.1:
-- Inheritance
-- Interfaces
 - Generics
 - Concurrency
 - Exceptions / recoverable errors
@@ -63,6 +61,8 @@ Built-in reference types for v0.1:
 - `Map` (hash map `Obj -> Obj`, identity hash/equality)
 - User-defined class instance types
 
+User-defined reference types also include interface types. Class types participate in nominal single inheritance, and classes may implement zero or more interfaces.
+
 Defaults:
 - All reference-typed variables default to `null` unless initialized.
 
@@ -75,8 +75,12 @@ Defaults:
 
 - Primitive-to-primitive casts are always explicit.
 - Any reference type can upcast to `Obj`.
-- Downcast from `Obj` to a concrete reference type is explicit and runtime-checked.
-- Failed downcast panics and aborts.
+- Subclass-to-base upcasts and class-to-implemented-interface upcasts are allowed.
+- Checked casts between reference types are explicit and runtime-checked.
+- Runtime class checks are subtype-aware for single inheritance, and interface checks use the effective implemented interface set, including inherited interfaces.
+- `is` uses the same runtime relation as checked reference casts.
+- `same_type` remains exact-type only.
+- Failed checked casts panic and abort.
 
 Primitive cast matrix:
 
@@ -121,12 +125,14 @@ Primitive cast semantics:
 ### 4.1 Classes
 
 - Classes support fields and methods.
+- Classes may declare one optional superclass with `extends`.
 - Fields and methods can be declared `private` for class-only access.
 - Fields can be declared `final`; final fields are write-once at construction and cannot be reassigned.
 - Methods are instance methods by default.
 - Static methods are declared explicitly with `static fn` and are called on the class name (`Counter.add(...)`).
-- No inheritance in v0.1.
-- No interfaces in v0.1 (may be added later).
+- Method overriding is out of scope for v0.1.
+- `super(...)` is constructor-only in v0.1; `super.method(...)` and `super.field` are out of scope.
+- Classes may implement zero or more interfaces, and subclasses inherit their base class's interfaces transitively.
 
 Visibility details:
 
@@ -135,11 +141,12 @@ Visibility details:
 - Access from free functions, other classes, and importing modules is rejected by type checking.
 - Leading underscore naming (for example `_value`) is convention-only and has no visibility semantics.
 
-Constructor visibility details (implicit constructor in v0.1):
+Constructor details (explicit + compatibility constructors in v0.1):
 
-- Every class has an implicit constructor that takes all declared fields in declaration order.
-- If at least one field is `private`, the implicit constructor is `private` to that class.
-- Otherwise, the implicit constructor is public.
+- Classes may declare zero or more explicit constructors, including `private` constructors.
+- A class with no declared constructors gets a synthesized compatibility constructor.
+- Compatibility constructor parameters cover required construction parameters in declaration order; for subclasses this includes inherited required construction parameters before subclass-required fields.
+- Explicit subclass constructors must begin with `super(...)`; synthesized compatibility constructors chain automatically.
 - Final-field note: final reference fields pin the reference value (the referenced object may still be mutated).
 
 ### 4.2 Allocation and Identity
