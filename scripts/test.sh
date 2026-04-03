@@ -7,7 +7,7 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 cd "$repo_root"
 
 echo "[1/6] Running Python tests (pytest)..."
-pytest
+pytest -n auto --dist loadfile
 
 echo "[2/6] Running golden tests..."
 ./scripts/golden.sh
