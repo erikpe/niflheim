@@ -1,0 +1,8 @@
+class Hidden {
+    private value: i64;
+}
+
+fn main() -> unit {
+    var h: Hidden = Hidden(1);
+    return;
+}

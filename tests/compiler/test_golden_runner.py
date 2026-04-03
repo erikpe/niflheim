@@ -109,3 +109,16 @@ def test_discover_tests_supports_compile_fail_mode_without_runs(tmp_path: Path, 
     assert tests[0].mode == "compile-fail"
     assert tests[0].runs == []
     assert tests[0].compile_error_match == "boom"
+
+
+def test_build_output_path_flattens_names_to_avoid_prefix_collisions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    golden_root = tmp_path / "golden"
+    build_root = tmp_path / "build"
+    top_level = golden_root / "lang" / "test_inheritance.nif"
+    nested = golden_root / "lang" / "test_inheritance" / "test_inheritance.nif"
+
+    monkeypatch.setattr(runner, "GOLDEN_ROOT", golden_root)
+    monkeypatch.setattr(runner, "BUILD_ROOT", build_root)
+
+    assert runner._build_output_path(top_level) == build_root / runner.BUILD_CASES_DIRNAME / "lang__test_inheritance"
+    assert runner._build_output_path(nested) == build_root / runner.BUILD_CASES_DIRNAME / "lang__test_inheritance__test_inheritance"

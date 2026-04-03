@@ -1,0 +1,24 @@
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+class Sink {
+    constructor(value: Obj) {
+        return;
+    }
+
+    private constructor(value: Hashable) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink(Key());
+    return;
+}

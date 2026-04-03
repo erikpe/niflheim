@@ -1,0 +1,11 @@
+class Alpha extends Beta {
+    left: i64;
+}
+
+class Beta extends Alpha {
+    right: i64;
+}
+
+fn main() -> unit {
+    return;
+}

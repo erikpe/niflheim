@@ -16,6 +16,12 @@ fn mul(a: i64, b: i64) -> i64 {
     return a * b;
 }
 
+class Math {
+    static fn twice(v: i64) -> i64 {
+        return v * 2;
+    }
+}
+
 class UnaryHolder {
     f: fn(i64) -> i64;
 
@@ -29,6 +35,24 @@ class BinaryHolder {
 
     fn run(a: i64, b: i64) -> i64 {
         return __self.op(a, b);
+    }
+}
+
+class BaseHolder {
+    f: fn(i64) -> i64;
+}
+
+class DerivedHolder extends BaseHolder {
+    bias: i64;
+
+    constructor(f: fn(i64) -> i64, bias: i64) {
+        super(f);
+        __self.bias = bias;
+        return;
+    }
+
+    fn run(v: i64) -> i64 {
+        return __self.f(v) + __self.bias;
     }
 }
 
@@ -80,6 +104,43 @@ fn test_binary_callable_field_direct_call() -> i64 {
     return 0;
 }
 
+fn test_callable_field_static_method_symbol() -> i64 {
+    var h: UnaryHolder = UnaryHolder(Math.twice);
+    if h.run(21) != 42 {
+        return 9;
+    }
+    if h.f(12) != 24 {
+        return 10;
+    }
+    return 0;
+}
+
+fn test_callable_field_extracted_to_local_value() -> i64 {
+    var h: UnaryHolder = UnaryHolder(inc);
+    var f: fn(i64) -> i64 = h.f;
+    if f(41) != 42 {
+        return 11;
+    }
+    h.f = dec;
+    var g: fn(i64) -> i64 = h.f;
+    if g(41) != 40 {
+        return 12;
+    }
+    return 0;
+}
+
+fn test_inherited_callable_field_invocation() -> i64 {
+    var h: DerivedHolder = DerivedHolder(Math.twice, 2);
+    if h.run(20) != 42 {
+        return 13;
+    }
+    h.f = inc;
+    if h.run(39) != 42 {
+        return 14;
+    }
+    return 0;
+}
+
 fn main() -> i64 {
     var select: u64 = read_stdin().strip().to_u64();
 
@@ -87,6 +148,9 @@ fn main() -> i64 {
     if select == 2u { return test_direct_callable_field_in_expression(); }
     if select == 3u { return test_binary_callable_field_call(); }
     if select == 4u { return test_binary_callable_field_direct_call(); }
+    if select == 5u { return test_callable_field_static_method_symbol(); }
+    if select == 6u { return test_callable_field_extracted_to_local_value(); }
+    if select == 7u { return test_inherited_callable_field_invocation(); }
 
-    return 9;
+    return 15;
 }

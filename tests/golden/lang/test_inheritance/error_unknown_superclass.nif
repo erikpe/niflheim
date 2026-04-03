@@ -1,0 +1,7 @@
+class Derived extends Missing {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}

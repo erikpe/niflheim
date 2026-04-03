@@ -1,0 +1,15 @@
+class Base {
+    private fn hidden() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    fn bad() -> i64 {
+        return __self.hidden();
+    }
+}
+
+fn main() -> i64 {
+    return 0;
+}

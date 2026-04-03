@@ -1,0 +1,8 @@
+import tests.golden.lang.test_interface_imports.imported_classes;
+
+class Local implements Widget {
+}
+
+fn main() -> unit {
+    return;
+}

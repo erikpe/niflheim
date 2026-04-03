@@ -1,0 +1,8 @@
+import tests.golden.lang.test_interface_imports.contracts;
+
+class Local implements contracts.Missing {
+}
+
+fn main() -> unit {
+    return;
+}

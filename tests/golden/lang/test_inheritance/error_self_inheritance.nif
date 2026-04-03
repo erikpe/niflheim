@@ -1,0 +1,7 @@
+class Loop extends Loop {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}

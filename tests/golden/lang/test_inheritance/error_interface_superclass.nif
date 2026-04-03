@@ -1,0 +1,11 @@
+interface Metric {
+    fn score() -> u64;
+}
+
+class Derived extends Metric {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}

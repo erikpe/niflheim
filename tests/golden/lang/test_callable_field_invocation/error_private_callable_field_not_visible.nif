@@ -1,0 +1,17 @@
+fn inc(v: i64) -> i64 {
+    return v + 1;
+}
+
+class HiddenHolder {
+    private f: fn(i64) -> i64;
+
+    constructor(f: fn(i64) -> i64) {
+        __self.f = f;
+        return;
+    }
+}
+
+fn main() -> i64 {
+    var h: HiddenHolder = HiddenHolder(inc);
+    return h.f(41);
+}

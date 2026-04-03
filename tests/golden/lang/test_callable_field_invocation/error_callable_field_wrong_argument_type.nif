@@ -1,0 +1,12 @@
+fn inc(v: i64) -> i64 {
+    return v + 1;
+}
+
+class Holder {
+    f: fn(i64) -> i64;
+}
+
+fn main() -> i64 {
+    var h: Holder = Holder(inc);
+    return h.f(true);
+}

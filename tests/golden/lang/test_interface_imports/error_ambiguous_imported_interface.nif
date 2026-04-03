@@ -1,0 +1,7 @@
+import tests.golden.lang.test_interface_imports.ambiguous_left;
+import tests.golden.lang.test_interface_imports.ambiguous_right;
+
+fn main() -> unit {
+    var value: Shared = null;
+    return;
+}

@@ -1,0 +1,72 @@
+tests:
+  - mode: "run"
+    name: "test_constructor"
+    src_file: "test_constructor.nif"
+    runs:
+      - {name: "explicit_zero_arg_constructor_sets_final_and_defaults", input: {stdin: "1\n"}, expect: {exit_code: 0}}
+      - {name: "constructor_locals_and_early_return_keep_default_fields", input: {stdin: "2\n"}, expect: {exit_code: 0}}
+      - {name: "overloaded_constructor_by_arity", input: {stdin: "3\n"}, expect: {exit_code: 0}}
+      - {name: "overloaded_constructor_by_exact_type", input: {stdin: "4\n"}, expect: {exit_code: 0}}
+      - {name: "explicit_constructor_defaults_and_override_paths", input: {stdin: "5\n"}, expect: {exit_code: 0}}
+      - {name: "private_constructor_via_factory", input: {stdin: "6\n"}, expect: {exit_code: 0}}
+      - {name: "synthesized_private_compatibility_constructor_via_factory", input: {stdin: "7\n"}, expect: {exit_code: 0}}
+      - {name: "inherited_compatibility_constructor_order_and_defaults", input: {stdin: "8\n"}, expect: {exit_code: 0}}
+      - {name: "explicit_super_selects_overloaded_base_constructor", input: {stdin: "9\n"}, expect: {exit_code: 0}}
+      - {name: "constructor_overload_prefers_more_specific_match", input: {stdin: "10\n"}, expect: {exit_code: 0}}
+      - {name: "explicit_cast_disambiguates_constructor_overload", input: {stdin: "11\n"}, expect: {exit_code: 0}}
+  - mode: "compile-fail"
+    name: "constructor_returns_value"
+    src_file: "error_constructor_returns_value.nif"
+    compile_error_match: "Constructors cannot return a value"
+  - mode: "compile-fail"
+    name: "missing_required_field_initialization"
+    src_file: "error_missing_required_field_initialization.nif"
+    compile_error_match: "Constructor for class 'Counter' does not initialize field 'value'"
+  - mode: "compile-fail"
+    name: "double_assignment_to_final_field"
+    src_file: "error_double_assignment_to_final_field.nif"
+    compile_error_match: "Final field 'Counter.value' may be assigned multiple times in constructor"
+  - mode: "compile-fail"
+    name: "duplicate_constructor_signature"
+    src_file: "error_duplicate_constructor_signature.nif"
+    compile_error_match: "Duplicate constructor signature"
+  - mode: "compile-fail"
+    name: "compatibility_constructor_extra_defaulted_argument"
+    src_file: "error_compatibility_constructor_extra_defaulted_argument.nif"
+    compile_error_match: "Expected 1 arguments, got 2"
+  - mode: "compile-fail"
+    name: "no_matching_constructor_overload"
+    src_file: "error_no_matching_constructor_overload.nif"
+    compile_error_match: "No constructor overload for class 'Sink' matches argument types (u64)"
+  - mode: "compile-fail"
+    name: "ambiguous_constructor_call"
+    src_file: "error_ambiguous_constructor_call.nif"
+    compile_error_match: "Ambiguous constructor call for class 'Sink'"
+  - mode: "compile-fail"
+    name: "private_compatibility_constructor_call"
+    src_file: "error_private_compatibility_constructor_call.nif"
+    compile_error_match: "Constructor for class 'Hidden' is private"
+  - mode: "compile-fail"
+    name: "private_overload_selected"
+    src_file: "error_private_overload_selected.nif"
+    compile_error_match: "Constructor for class 'Sink' is private"
+  - mode: "compile-fail"
+    name: "subclass_constructor_missing_super"
+    src_file: "error_subclass_constructor_missing_super.nif"
+    compile_error_match: "Subclass constructor must begin with super(...)"
+  - mode: "compile-fail"
+    name: "super_outside_subclass_constructor"
+    src_file: "error_super_outside_subclass_constructor.nif"
+    compile_error_match: "super(...) is only allowed as the first statement of a subclass constructor"
+  - mode: "compile-fail"
+    name: "inherited_field_initialized_directly"
+    src_file: "error_inherited_field_initialized_directly.nif"
+    compile_error_match: "Inherited field 'Base.value' must be initialized via super(...)"
+  - mode: "compile-fail"
+    name: "overloaded_superclass_requires_constructor"
+    src_file: "error_overloaded_superclass_requires_constructor.nif"
+    compile_error_match: "Class 'Derived' must declare a constructor because superclass 'Base' has overloaded constructors"
+  - mode: "compile-fail"
+    name: "constructor_parameter_conflicts_with_inherited_parameter"
+    src_file: "error_constructor_parameter_conflicts_with_inherited_parameter.nif"
+    compile_error_match: "Constructor parameter 'seed' conflicts with inherited constructor parameter"

@@ -1,0 +1,17 @@
+class Counter {
+    value: i64;
+
+    fn inc(v: i64) -> i64 {
+        return v + __self.value;
+    }
+}
+
+class Holder {
+    f: fn(i64) -> i64;
+}
+
+fn main() -> unit {
+    var counter: Counter = Counter(1);
+    var h: Holder = Holder(counter.inc);
+    return;
+}

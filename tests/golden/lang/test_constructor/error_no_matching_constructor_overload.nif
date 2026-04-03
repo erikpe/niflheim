@@ -1,0 +1,14 @@
+class Sink {
+    constructor(value: i64) {
+        return;
+    }
+
+    constructor(value: bool) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink((u64)1);
+    return;
+}

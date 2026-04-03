@@ -1,0 +1,9 @@
+class Counter {
+    constructor() {
+        return 1;
+    }
+}
+
+fn main() -> unit {
+    return;
+}

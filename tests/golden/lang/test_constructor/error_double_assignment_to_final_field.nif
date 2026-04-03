@@ -1,0 +1,13 @@
+class Counter {
+    final value: i64;
+
+    constructor(value: i64) {
+        __self.value = value;
+        __self.value = value;
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}

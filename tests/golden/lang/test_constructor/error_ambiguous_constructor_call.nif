@@ -1,0 +1,32 @@
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+interface Equalable {
+    fn equals(other: Obj) -> bool;
+}
+
+class Key implements Hashable, Equalable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+
+    fn equals(other: Obj) -> bool {
+        return false;
+    }
+}
+
+class Sink {
+    constructor(value: Hashable) {
+        return;
+    }
+
+    constructor(value: Equalable) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: Sink = Sink(Key());
+    return;
+}

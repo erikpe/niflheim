@@ -1,0 +1,12 @@
+class Base {
+    value: i64;
+
+    constructor(value: i64) {
+        super(value);
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}

@@ -287,7 +287,8 @@ def _discover_tests(filter_glob: str | None) -> list[GoldenTest]:
 
 def _build_output_path(source_path: Path) -> Path:
     rel = source_path.relative_to(GOLDEN_ROOT)
-    return BUILD_ROOT / BUILD_CASES_DIRNAME / rel.parent / rel.stem
+    flat_name = rel.with_suffix("").as_posix().replace("/", "__")
+    return BUILD_ROOT / BUILD_CASES_DIRNAME / flat_name
 
 
 def _compile_run_test(test: GoldenTest) -> tuple[bool, str | None, Path]:

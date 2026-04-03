@@ -1,0 +1,3 @@
+export interface Shared {
+    fn right() -> u64;
+}

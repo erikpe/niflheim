@@ -1,0 +1,25 @@
+class Base {
+    value: i64;
+
+    constructor(value: i64) {
+        __self.value = value;
+        return;
+    }
+
+    constructor(flag: bool) {
+        if flag {
+            __self.value = 1;
+        } else {
+            __self.value = 0;
+        }
+        return;
+    }
+}
+
+class Derived extends Base {
+    extra: i64;
+}
+
+fn main() -> unit {
+    return;
+}

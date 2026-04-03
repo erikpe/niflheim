@@ -1,0 +1,11 @@
+class Base {
+    value: i64;
+}
+
+class Derived extends Base {
+    value: i64;
+}
+
+fn main() -> unit {
+    return;
+}

@@ -1,0 +1,13 @@
+class Counter {
+    constructor(value: i64) {
+        return;
+    }
+
+    constructor(other: i64) {
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}

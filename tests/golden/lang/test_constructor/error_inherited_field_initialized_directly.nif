@@ -1,0 +1,18 @@
+class Base {
+    value: i64;
+}
+
+class Derived extends Base {
+    extra: i64;
+
+    constructor(value: i64, extra: i64) {
+        super(value);
+        __self.value = value;
+        __self.extra = extra;
+        return;
+    }
+}
+
+fn main() -> unit {
+    return;
+}

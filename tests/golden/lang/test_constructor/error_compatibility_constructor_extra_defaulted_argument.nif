@@ -1,0 +1,9 @@
+class Counter {
+    value: i64;
+    cached: bool = false;
+}
+
+fn main() -> unit {
+    var c: Counter = Counter(7, true);
+    return;
+}

@@ -1,0 +1,19 @@
+interface Hasher {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hasher {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+class MethodHolder {
+    f: fn() -> u64;
+}
+
+fn main() -> unit {
+    var value: Hasher = Key();
+    var h: MethodHolder = MethodHolder(value.hash_code);
+    return;
+}
