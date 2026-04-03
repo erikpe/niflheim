@@ -104,8 +104,8 @@ For quick local workflows, use scripts under `scripts/`:
 
 Golden tests live under `tests/golden/`.
 
-- Every `tests/golden/**/test_*.nif` file is treated as a golden test source.
-- Each source must have a sibling spec file named `<stem>_spec.yaml`.
+- Every `tests/golden/**/test_*_spec.yaml` file defines a golden test.
+- Each spec must have a sibling source file named `<stem-without-_spec>.nif`.
 	- Example source: `tests/golden/arithmetic/test_addition.nif`
 	- Example spec: `tests/golden/arithmetic/test_addition_spec.yaml`
 - Each source is compiled once via `scripts/build.sh` and output goes to `build/golden/...`.

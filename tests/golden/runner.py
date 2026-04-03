@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import fnmatch
 import os
 import subprocess
 import sys
@@ -144,18 +145,18 @@ def _parse_expect(raw: object, *, spec_path: Path, run_name: str) -> RunExpect:
     if panic_raw is not None:
         _require_type(panic_raw, str, f"{spec_path}: run '{run_name}' expect.panic")
 
-    return RunExpect(
-        exit_code=exit_code_raw,
-        stdout=stdout,
-        stderr=stderr,
-        panic=panic_raw,
-    )
+    return RunExpect(exit_code=exit_code_raw, stdout=stdout, stderr=stderr, panic=panic_raw)
 
 
-def _load_spec_for_source(source_path: Path) -> GoldenTest:
-    spec_path = source_path.with_name(f"{source_path.stem}_spec.yaml")
-    if not spec_path.exists():
-        raise ValueError(f"missing spec for {source_path}: expected {spec_path.name}")
+def _source_path_for_spec(spec_path: Path) -> Path:
+    source_stem = spec_path.stem.removesuffix("_spec")
+    return spec_path.with_name(f"{source_stem}.nif")
+
+
+def _load_test_for_spec(spec_path: Path) -> GoldenTest:
+    source_path = _source_path_for_spec(spec_path)
+    if not source_path.exists():
+        raise ValueError(f"missing source for {spec_path}: expected {source_path.name}")
 
     raw_data = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
     if raw_data is None:
@@ -190,17 +191,26 @@ def _load_spec_for_source(source_path: Path) -> GoldenTest:
     return GoldenTest(source_path=source_path, spec_path=spec_path, runs=runs)
 
 
+def _matches_filter(spec_path: Path, source_path: Path, pattern: str) -> bool:
+    spec_rel = spec_path.relative_to(GOLDEN_ROOT).as_posix()
+    source_rel = source_path.relative_to(GOLDEN_ROOT).as_posix()
+    return fnmatch.fnmatch(spec_rel, pattern) or fnmatch.fnmatch(source_rel, pattern)
+
+
 def _discover_tests(filter_glob: str | None) -> list[GoldenTest]:
     if not GOLDEN_ROOT.exists():
         return []
 
-    if filter_glob:
-        pattern = filter_glob
-    else:
-        pattern = "**/test_*.nif"
+    spec_files = sorted(path for path in GOLDEN_ROOT.glob("**/test_*_spec.yaml") if path.is_file())
 
-    source_files = sorted(path for path in GOLDEN_ROOT.glob(pattern) if path.is_file())
-    return [_load_spec_for_source(path) for path in source_files]
+    tests: list[GoldenTest] = []
+    for spec_path in spec_files:
+        source_path = _source_path_for_spec(spec_path)
+        if filter_glob and not _matches_filter(spec_path, source_path, filter_glob):
+            continue
+        tests.append(_load_test_for_spec(spec_path))
+
+    return tests
 
 
 def _build_output_path(source_path: Path) -> Path:
@@ -217,13 +227,7 @@ def _compile_test(test: GoldenTest) -> tuple[bool, str | None, Path]:
         str(test.source_path.relative_to(REPO_ROOT)),
         str(output_path.relative_to(REPO_ROOT)),
     ]
-    proc = subprocess.run(
-        cmd,
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         message = (proc.stderr or proc.stdout).strip()
         if not message:
@@ -274,14 +278,7 @@ def _append_text_diff(errors: list[str], *, label: str, expected: str, actual: s
 
 def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
     cmd = [str(binary_path), *run.run_input.args]
-    proc = subprocess.run(
-        cmd,
-        cwd=REPO_ROOT,
-        input=run.run_input.stdin,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, input=run.run_input.stdin, capture_output=True, text=True, check=False)
 
     errors: list[str] = []
     expect = run.expect
@@ -312,20 +309,10 @@ def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
 def _run_test(test: GoldenTest) -> TestResult:
     compile_ok, compile_error, output_path = _compile_test(test)
     if not compile_ok:
-        return TestResult(
-            source_path=test.source_path,
-            compile_ok=False,
-            compile_error=compile_error,
-            run_results=[],
-        )
+        return TestResult(source_path=test.source_path, compile_ok=False, compile_error=compile_error, run_results=[])
 
     run_results = [_execute_run(output_path, run) for run in test.runs]
-    return TestResult(
-        source_path=test.source_path,
-        compile_ok=True,
-        compile_error=None,
-        run_results=run_results,
-    )
+    return TestResult(source_path=test.source_path, compile_ok=True, compile_error=None, run_results=run_results)
 
 
 def _print_result_per_file(result: TestResult) -> None:
@@ -374,9 +361,7 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="Number of concurrent workers")
     parser.add_argument("--filter", type=str, default=None, help="Glob under tests/golden (e.g. 'arithmetic/**')")
     parser.add_argument(
-        "--print-per-run",
-        action="store_true",
-        help="Print one PASS/FAIL line per run case instead of per test file",
+        "--print-per-run", action="store_true", help="Print one PASS/FAIL line per run case instead of per test file"
     )
     args = parser.parse_args()
 
