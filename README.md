@@ -106,7 +106,9 @@ Golden tests live under `tests/golden/`.
 
 - Every `tests/golden/**/test_*_spec.yaml` file defines a golden test.
 - Each spec declares one or more test entries under `tests:`.
-- Each test entry must set `mode: run` and explicitly reference `src_file` relative to the spec file.
+- Each test entry must set `mode` and explicitly reference `src_file` relative to the spec file.
+	- `mode: run` compiles and runs the produced binary against the listed `runs`.
+	- `mode: compile` only performs compilation and can assert a compiler error with `compile_error_match`.
 	- Example source: `tests/golden/arithmetic/test_addition.nif`
 	- Example spec: `tests/golden/arithmetic/test_addition_spec.yaml`
 - Each referenced source is compiled once via `scripts/build.sh` and output goes to `build/golden/...`.
@@ -138,11 +140,16 @@ tests:
 					stderr: ""
 					# stderr_file: "./expected_stderr.txt"
 					panic: "optional panic substring"
+	- mode: "compile-fail"
+		name: "test_bad_cast"
+		src_file: "error_cast_to_interface.nif"
+		compile_error_match: "Invalid cast from 'Car' to 'Fruit'"
 ```
 
 Notes:
 
-- `tests[*].mode` must currently be `run`.
+- `tests[*].mode` must currently be either `run` or `compile-fail`.
+- `compile-fail` tests must not define `runs`.
 - `input.stdin` and `input.stdin_file` are mutually exclusive.
 - `expect.stderr` and `expect.stderr_file` are mutually exclusive.
 - Unspecified input fields are not provided.

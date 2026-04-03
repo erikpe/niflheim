@@ -15,6 +15,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GOLDEN_ROOT = REPO_ROOT / "tests" / "golden"
 BUILD_ROOT = REPO_ROOT / "build" / "golden"
+BUILD_CASES_DIRNAME = "__cases__"
 
 
 @dataclass(frozen=True)
@@ -41,9 +42,11 @@ class RunCase:
 @dataclass(frozen=True)
 class GoldenTest:
     name: str
+    mode: str
     source_path: Path
     spec_path: Path
     runs: list[RunCase]
+    compile_error_match: str | None
 
 
 @dataclass(frozen=True)
@@ -187,6 +190,13 @@ def _parse_runs(raw: object, *, spec_path: Path, test_name: str) -> list[RunCase
     return runs
 
 
+def _parse_compile_error_match(raw: object, *, spec_path: Path, test_name: str) -> str | None:
+    if raw is None:
+        return None
+    _require_type(raw, str, f"{spec_path}: test '{test_name}' compile_error_match")
+    return raw
+
+
 def _load_tests_for_spec(spec_path: Path) -> list[GoldenTest]:
     raw_data = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
     if raw_data is None:
@@ -209,7 +219,7 @@ def _load_tests_for_spec(spec_path: Path) -> list[GoldenTest]:
 
         mode_raw = test_obj.get("mode")
         _require_type(mode_raw, str, f"{spec_path}: tests[{index}].mode")
-        if mode_raw != "run":
+        if mode_raw not in {"run", "compile-fail"}:
             raise ValueError(f"{spec_path}: test mode '{mode_raw}' is not supported")
 
         name_raw = test_obj.get("name")
@@ -224,12 +234,25 @@ def _load_tests_for_spec(spec_path: Path) -> list[GoldenTest]:
         if not source_path.exists():
             raise ValueError(f"missing source for {spec_path}: expected {src_file_raw}")
 
+        compile_error_match = _parse_compile_error_match(
+            test_obj.get("compile_error_match"), spec_path=spec_path, test_name=name_raw
+        )
+
+        if mode_raw == "run":
+            runs = _parse_runs(test_obj.get("runs"), spec_path=spec_path, test_name=name_raw)
+        else:
+            if test_obj.get("runs") is not None:
+                raise ValueError(f"{spec_path}: compile-fail test '{name_raw}' must not define runs")
+            runs = []
+
         tests.append(
             GoldenTest(
                 name=name_raw,
+                mode=mode_raw,
                 source_path=source_path,
                 spec_path=spec_path,
-                runs=_parse_runs(test_obj.get("runs"), spec_path=spec_path, test_name=name_raw),
+                runs=runs,
+                compile_error_match=compile_error_match,
             )
         )
 
@@ -263,11 +286,11 @@ def _discover_tests(filter_glob: str | None) -> list[GoldenTest]:
 
 
 def _build_output_path(source_path: Path) -> Path:
-    rel = source_path.relative_to(GOLDEN_ROOT).with_suffix("")
-    return BUILD_ROOT / rel
+    rel = source_path.relative_to(GOLDEN_ROOT)
+    return BUILD_ROOT / BUILD_CASES_DIRNAME / rel.parent / rel.stem
 
 
-def _compile_test(test: GoldenTest) -> tuple[bool, str | None, Path]:
+def _compile_run_test(test: GoldenTest) -> tuple[bool, str | None, Path]:
     output_path = _build_output_path(test.source_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -283,6 +306,43 @@ def _compile_test(test: GoldenTest) -> tuple[bool, str | None, Path]:
             message = f"build failed with exit code {proc.returncode}"
         return False, message, output_path
     return True, None, output_path
+
+
+def _compile_fail_test(test: GoldenTest) -> tuple[bool, str | None]:
+    asm_path = _build_output_path(test.source_path).with_suffix(".s")
+    asm_path.parent.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        "python3",
+        "-m",
+        "compiler.main",
+        str(test.source_path),
+        "-o",
+        str(asm_path),
+        "--project-root",
+        str(REPO_ROOT),
+    ]
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    output_text = "\n".join(part for part in [proc.stderr.strip(), proc.stdout.strip()] if part).strip()
+
+    if test.compile_error_match is None:
+        if proc.returncode == 0:
+            return True, None
+        message = output_text or f"compile failed with exit code {proc.returncode}"
+        return False, message
+
+    if proc.returncode == 0:
+        return False, f"expected compile error containing '{test.compile_error_match}', but compilation succeeded"
+
+    if test.compile_error_match not in output_text:
+        if not output_text:
+            output_text = "<empty>"
+        return False, (
+            f"compile error mismatch: expected substring '{test.compile_error_match}'\n"
+            f"captured compiler output:\n{output_text}"
+        )
+
+    return True, None
 
 
 def _append_stderr_details(errors: list[str], stderr_text: str) -> None:
@@ -356,7 +416,11 @@ def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
 
 
 def _run_test(test: GoldenTest) -> TestResult:
-    compile_ok, compile_error, output_path = _compile_test(test)
+    if test.mode == "compile-fail":
+        compile_ok, compile_error = _compile_fail_test(test)
+        return TestResult(source_path=test.source_path, compile_ok=compile_ok, compile_error=compile_error, run_results=[])
+
+    compile_ok, compile_error, output_path = _compile_run_test(test)
     if not compile_ok:
         return TestResult(source_path=test.source_path, compile_ok=False, compile_error=compile_error, run_results=[])
 

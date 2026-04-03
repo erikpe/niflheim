@@ -1,0 +1,9 @@
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+fn main() -> unit {
+    var values: i64[] = i64[](1u);
+    var hashable: Hashable = (Hashable)values;
+    return;
+}

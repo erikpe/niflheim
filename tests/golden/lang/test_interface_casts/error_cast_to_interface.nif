@@ -1,0 +1,16 @@
+interface Fruit
+{
+    fn a() -> u64;
+}
+
+class Car
+{
+    fn b() -> u64 {
+        return 2u;
+    }
+}
+
+fn main() -> i64 {
+    var fruit: Fruit = (Fruit)Car();
+    return 0;
+}

@@ -87,3 +87,25 @@ def test_discover_tests_supports_multiple_sources_in_one_spec(tmp_path: Path, mo
         ("alpha", "test_alpha.nif"),
         ("beta", "test_beta.nif"),
     ]
+
+
+def test_discover_tests_supports_compile_fail_mode_without_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    golden_root = tmp_path / "golden"
+    _write(golden_root / "suite" / "test_bad_cast.nif", "fn main() -> i64 { return 0; }\n")
+    _write(
+        golden_root / "suite" / "test_compile_spec.yaml",
+        "tests:\n"
+        "  - mode: compile-fail\n"
+        "    name: bad_cast\n"
+        "    src_file: test_bad_cast.nif\n"
+        "    compile_error_match: boom\n",
+    )
+
+    monkeypatch.setattr(runner, "GOLDEN_ROOT", golden_root)
+
+    tests = runner._discover_tests(None)
+
+    assert len(tests) == 1
+    assert tests[0].mode == "compile-fail"
+    assert tests[0].runs == []
+    assert tests[0].compile_error_match == "boom"
