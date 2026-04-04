@@ -17,13 +17,8 @@ class Key implements Hashable, Equalable {
 }
 
 class Sink {
-    constructor(value: Hashable) {
-        return;
-    }
-
-    constructor(value: Equalable) {
-        return;
-    }
+    constructor(value: Hashable) { }
+    constructor(value: Equalable) { }
 }
 
 fn main() -> unit {

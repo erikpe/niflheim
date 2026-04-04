@@ -15,7 +15,6 @@ class Config {
 
     constructor() {
         __self.code = 42;
-        return;
     }
 }
 
@@ -30,7 +29,6 @@ class Early {
             return;
         }
         __self.marker = 0;
-        return;
     }
 }
 
@@ -41,13 +39,11 @@ class Span {
     constructor(start: i64) {
         __self.start = start;
         __self.end = start + 1;
-        return;
     }
 
     constructor(start: i64, end: i64) {
         __self.start = start;
         __self.end = end;
-        return;
     }
 }
 
@@ -59,13 +55,11 @@ class Tagged {
     constructor(value: i64) {
         __self.kind = 1;
         __self.payload_i = value;
-        return;
     }
 
     constructor(value: bool) {
         __self.kind = 2;
         __self.payload_b = value;
-        return;
     }
 }
 
@@ -75,13 +69,11 @@ class Envelope {
 
     constructor(data: i64) {
         __self.data = data;
-        return;
     }
 
     constructor(data: i64, label: u64) {
         __self.data = data;
         __self.label = label;
-        return;
     }
 }
 
@@ -90,7 +82,6 @@ class Secret {
 
     private constructor(value: i64) {
         __self.value = value;
-        return;
     }
 
     static fn make_double(value: i64) -> Secret {
@@ -135,7 +126,6 @@ class OverBase {
     constructor(value: i64) {
         __self.tag = 1;
         __self.value = value;
-        return;
     }
 
     constructor(flag: bool) {
@@ -145,7 +135,6 @@ class OverBase {
         } else {
             __self.value = 0;
         }
-        return;
     }
 }
 
@@ -155,7 +144,6 @@ class OverDerived extends OverBase {
     constructor(flag: bool, extra: i64) {
         super(flag);
         __self.extra = extra;
-        return;
     }
 }
 
@@ -164,7 +152,6 @@ class Key implements Hashable, Equalable {
 
     constructor(value: u64) {
         __self.value = value;
-        return;
     }
 
     fn hash_code() -> u64 {
@@ -181,12 +168,10 @@ class SpecificSink {
 
     constructor(value: Obj) {
         __self.branch = 1;
-        return;
     }
 
     constructor(value: Hashable) {
         __self.branch = 2;
-        return;
     }
 }
 
@@ -195,12 +180,10 @@ class CastSink {
 
     constructor(value: Hashable) {
         __self.branch = 3;
-        return;
     }
 
     constructor(value: Equalable) {
         __self.branch = 4;
-        return;
     }
 }
 

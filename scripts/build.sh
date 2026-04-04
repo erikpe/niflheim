@@ -47,13 +47,13 @@ if [[ -n "${NIFC_BUILD_ARGS:-}" ]]; then
   read -r -a extra_nifc_args <<< "$NIFC_BUILD_ARGS"
 fi
 
-gcc_args=(-O2 -std=c11)
+cc_args=(-O2 -std=c11)
 if [[ "${NIF_PROFILE_BUILD:-0}" != "0" ]]; then
-  gcc_args+=(-g -fno-omit-frame-pointer)
+  cc_args+=(-g -fno-omit-frame-pointer)
 fi
-if [[ -n "${NIF_GCC_ARGS:-}" ]]; then
-  read -r -a extra_gcc_args <<< "$NIF_GCC_ARGS"
-  gcc_args+=("${extra_gcc_args[@]}")
+if [[ -n "${NIF_CC_ARGS:-}" ]]; then
+  read -r -a extra_cc_args <<< "$NIF_CC_ARGS"
+  cc_args+=("${extra_cc_args[@]}")
 fi
 
 ld_args=()
@@ -64,8 +64,8 @@ fi
 
 python3 -m compiler.main "$input" -o "$asm_out" --project-root "$repo_root" "${extra_nifc_args[@]}" "${cli_nifc_args[@]}"
 
-gcc \
-  "${gcc_args[@]}" \
+cc \
+  "${cc_args[@]}" \
   -I "$repo_root/runtime/include" \
   "$repo_root/runtime/src/runtime.c" \
   "$repo_root/runtime/src/gc.c" \
