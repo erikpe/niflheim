@@ -76,6 +76,7 @@ class MethodDecl:
     body: "BlockStmt"
     is_static: bool
     is_private: bool
+    is_override: bool
     span: SourceSpan
 
 

@@ -59,6 +59,12 @@ def test_lex_final_keyword() -> None:
     assert TokenKind.FINAL in kinds
 
 
+def test_lex_override_keyword() -> None:
+    source = "class C { override fn f() -> unit { return; } }"
+    kinds = [token.kind for token in lex(source)]
+    assert TokenKind.OVERRIDE in kinds
+
+
 def test_lex_remaining_keywords_and_punctuation_tokens() -> None:
     source = "import util; if true && false || !null { while a < b { break; } } else { continue; } [x, y].field == z != w <= q >= r"
     kinds = [token.kind for token in lex(source)]

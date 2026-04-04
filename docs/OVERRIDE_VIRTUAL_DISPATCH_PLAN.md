@@ -408,10 +408,10 @@ What to test:
 
 Checklist:
 
-- [ ] add `override` keyword/token
-- [ ] add AST support for override methods
-- [ ] parse `override fn ...` in class bodies
-- [ ] add parser/frontend coverage
+- [x] add `override` keyword/token
+- [x] add AST support for override methods
+- [x] parse `override fn ...` in class bodies
+- [x] add parser/frontend coverage
 
 ## Slice 2: Typecheck Override Legality And Effective Method Metadata
 

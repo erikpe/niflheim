@@ -41,6 +41,7 @@
               }
             ]
           },
+          "is_override": false,
           "is_private": true,
           "is_static": true,
           "name": "from_i64",
@@ -102,6 +103,7 @@
               }
             ]
           },
+          "is_override": false,
           "is_private": false,
           "is_static": false,
           "name": "inc",
@@ -129,6 +131,7 @@
               }
             ]
           },
+          "is_override": false,
           "is_private": false,
           "is_static": false,
           "name": "read",
@@ -160,6 +163,7 @@
               }
             ]
           },
+          "is_override": false,
           "is_private": false,
           "is_static": true,
           "name": "sum",

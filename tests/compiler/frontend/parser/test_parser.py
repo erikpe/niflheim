@@ -233,6 +233,26 @@ class Counter {
     method = cls.methods[0]
     assert method.name == "add"
     assert method.is_static is True
+    assert method.is_override is False
+
+
+def test_parse_override_instance_method_in_class_body() -> None:
+    source = """
+class Derived extends Base {
+    override fn read() -> i64 {
+        return 42;
+    }
+}
+"""
+    module = parse(lex(source, source_path="examples/override_method_parse.nif"))
+
+    cls = module.classes[0]
+    assert len(cls.methods) == 1
+    method = cls.methods[0]
+    assert method.name == "read"
+    assert method.is_static is False
+    assert method.is_private is False
+    assert method.is_override is True
 
 
 def test_parse_constructor_declarations_in_class_body() -> None:
@@ -270,6 +290,7 @@ class Counter {
     assert cls.constructors[1].is_private is True
     assert len(cls.methods) == 1
     assert cls.methods[0].name == "read"
+    assert cls.methods[0].is_override is False
 
 
 def test_parse_mixed_field_constructor_and_method_members() -> None:
@@ -459,9 +480,11 @@ class Counter {
     assert cls.methods[0].name == "get_value"
     assert cls.methods[0].is_private is True
     assert cls.methods[0].is_static is False
+    assert cls.methods[0].is_override is False
     assert cls.methods[1].name == "from_i64"
     assert cls.methods[1].is_private is True
     assert cls.methods[1].is_static is True
+    assert cls.methods[1].is_override is False
 
 
 def test_parse_final_field_modifiers_in_class_body() -> None:
@@ -493,6 +516,52 @@ class Counter {
 """
     with pytest.raises(ParserError, match="'final' modifier is only allowed on fields"):
         parse(lex(source, source_path="examples/final_method_parse.nif"))
+
+
+def test_parse_rejects_override_modifier_on_static_method() -> None:
+    source = """
+class Counter {
+    override static fn value() -> i64 {
+        return 1;
+    }
+}
+"""
+    with pytest.raises(ParserError, match="'override' modifier is not allowed on static methods"):
+        parse(lex(source, source_path="examples/override_static_method_parse.nif"))
+
+
+def test_parse_rejects_override_modifier_on_constructor() -> None:
+    source = """
+class Counter {
+    override constructor() {
+        return;
+    }
+}
+"""
+    with pytest.raises(ParserError, match="'override' modifier is not allowed on constructors"):
+        parse(lex(source, source_path="examples/override_constructor_parse.nif"))
+
+
+def test_parse_rejects_override_modifier_on_field() -> None:
+    source = """
+class Counter {
+    override value: i64;
+}
+"""
+    with pytest.raises(ParserError, match="'override' modifier is only allowed on methods"):
+        parse(lex(source, source_path="examples/override_field_parse.nif"))
+
+
+def test_parse_rejects_duplicate_override_modifier() -> None:
+    source = """
+class Counter {
+    override override fn value() -> i64 {
+        return 1;
+    }
+}
+"""
+    with pytest.raises(ParserError, match="Duplicate 'override' modifier"):
+        parse(lex(source, source_path="examples/dup_override_parse.nif"))
 
 
 def test_parse_rejects_duplicate_private_modifier() -> None:

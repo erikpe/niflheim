@@ -26,6 +26,7 @@ class TokenKind(str, Enum):
     IMPLEMENTS = "IMPLEMENTS"
     PRIVATE = "PRIVATE"
     FINAL = "FINAL"
+    OVERRIDE = "OVERRIDE"
     FN = "FN"
     VAR = "VAR"
     IF = "IF"
@@ -108,6 +109,7 @@ KEYWORDS: dict[str, TokenKind] = {
     "implements": TokenKind.IMPLEMENTS,
     "private": TokenKind.PRIVATE,
     "final": TokenKind.FINAL,
+    "override": TokenKind.OVERRIDE,
     "fn": TokenKind.FN,
     "var": TokenKind.VAR,
     "if": TokenKind.IF,

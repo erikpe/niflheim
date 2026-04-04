@@ -18,6 +18,7 @@ ParseBlockStmt = Callable[[], BlockStmt]
 class ClassMemberModifiers:
     is_private: bool
     is_final: bool
+    is_override: bool
     start_token: Token | None
 
 
@@ -196,6 +197,7 @@ class DeclarationParser:
     def _parse_class_member_modifiers(self) -> ClassMemberModifiers:
         private_token: Token | None = None
         final_token: Token | None = None
+        override_token: Token | None = None
 
         while True:
             if self.stream.match(TokenKind.PRIVATE):
@@ -208,23 +210,38 @@ class DeclarationParser:
                     raise ParserError("Duplicate 'final' modifier", self.stream.previous().span)
                 final_token = self.stream.previous()
                 continue
+            if self.stream.match(TokenKind.OVERRIDE):
+                if override_token is not None:
+                    raise ParserError("Duplicate 'override' modifier", self.stream.previous().span)
+                override_token = self.stream.previous()
+                continue
             break
+
+        start_token = private_token
+        if start_token is None:
+            start_token = final_token
+        if start_token is None:
+            start_token = override_token
 
         return ClassMemberModifiers(
             is_private=private_token is not None,
             is_final=final_token is not None,
-            start_token=private_token if private_token is not None else final_token,
+            is_override=override_token is not None,
+            start_token=start_token,
         )
 
     def _parse_static_method_decl(self, modifiers: ClassMemberModifiers) -> MethodDecl:
         if modifiers.is_final:
             raise ParserError("'final' modifier is only allowed on fields", modifiers.start_token.span)
+        if modifiers.is_override:
+            raise ParserError("'override' modifier is not allowed on static methods", modifiers.start_token.span)
         static_token = self.stream.previous()
         fn_token = self.stream.expect(TokenKind.FN, "Expected 'fn' after 'static' in class body")
         return self._parse_method_decl(
             fn_token=fn_token,
             is_static=True,
             is_private=modifiers.is_private,
+            is_override=False,
             start_token=modifiers.start_token if modifiers.start_token is not None else static_token,
         )
 
@@ -235,12 +252,15 @@ class DeclarationParser:
             fn_token=self.stream.previous(),
             is_static=False,
             is_private=modifiers.is_private,
+            is_override=modifiers.is_override,
             start_token=modifiers.start_token,
         )
 
     def _parse_constructor_decl(self, modifiers: ClassMemberModifiers) -> ConstructorDecl:
         if modifiers.is_final:
             raise ParserError("'final' modifier is not allowed on constructors", modifiers.start_token.span)
+        if modifiers.is_override:
+            raise ParserError("'override' modifier is not allowed on constructors", modifiers.start_token.span)
         constructor_token = self.stream.previous()
         params = self._parse_param_list("Expected '(' after 'constructor'")
         if self.stream.check(TokenKind.ARROW):
@@ -287,6 +307,8 @@ class DeclarationParser:
         )
 
     def _parse_field_decl(self, modifiers: ClassMemberModifiers) -> FieldDecl:
+        if modifiers.is_override:
+            raise ParserError("'override' modifier is only allowed on methods", modifiers.start_token.span)
         name = self.stream.expect(TokenKind.IDENT, "Expected field name")
         self.stream.expect(TokenKind.COLON, "Expected ':' after field name")
         type_ref = self._parse_type_ref()
@@ -305,7 +327,13 @@ class DeclarationParser:
         )
 
     def _parse_method_decl(
-        self, *, fn_token: Token, is_static: bool, is_private: bool, start_token: Token | None = None
+        self,
+        *,
+        fn_token: Token,
+        is_static: bool,
+        is_private: bool,
+        is_override: bool,
+        start_token: Token | None = None,
     ) -> MethodDecl:
         name, params, return_type = self._parse_callable_signature()
         body = self._parse_block_stmt()
@@ -316,6 +344,7 @@ class DeclarationParser:
             body=body,
             is_static=is_static,
             is_private=is_private,
+            is_override=is_override,
             span=SourceSpan(
                 start=(start_token.span.start if start_token is not None else fn_token.span.start), end=body.span.end
             ),
