@@ -39,24 +39,24 @@ fn test_primitive_smoke() -> unit {
 fn test_reference_default_null() -> unit {
     var people: Person[] = Person[](2u);
     assert_eq_u64(people.len(), 2u);
-    assert(people[0] == null);
-    assert(people[1] == null);
+    assert_true(people[0] == null);
+    assert_true(people[1] == null);
 
     people[1] = Person(7);
-    assert(people[1] != null);
+    assert_true(people[1] != null);
 }
 
 
 fn test_bool_and_double_arrays() -> unit {
     var flags: bool[] = bool[](3u);
     assert_eq_u64(flags.len(), 3u);
-    assert_eq_bool(flags[0], false);
-    assert_eq_bool(flags[1], false);
-    assert_eq_bool(flags[2], false);
+    assert_false(flags[0]);
+    assert_false(flags[1]);
+    assert_false(flags[2]);
 
     flags[1] = true;
-    assert_eq_bool(flags[0], false);
-    assert_eq_bool(flags[1], true);
+    assert_false(flags[0]);
+    assert_true(flags[1]);
 
     var values: double[] = double[](2u);
     assert_eq_double(values[0], 0.0);
@@ -203,8 +203,8 @@ fn test_reference_array_roundtrip_cast_ok() -> unit {
     var roundtrip: Person[] = (Person[])boxed;
 
     assert_eq_u64(roundtrip.len(), 2u);
-    assert(roundtrip[0] != null);
-    assert(roundtrip[1] != null);
+    assert_true(roundtrip[0] != null);
+    assert_true(roundtrip[1] != null);
     assert_eq_i64(roundtrip[0].age, 41);
     assert_eq_i64(roundtrip[1].age, 99);
 }
@@ -295,8 +295,8 @@ fn test_nested_primitive_slice_get_set_levels() -> unit {
 
 fn test_nested_reference_index_slice_levels() -> unit {
     var teams: Person[][] = Person[][](2u);
-    assert(teams[0] == null);
-    assert(teams[1] == null);
+    assert_true(teams[0] == null);
+    assert_true(teams[1] == null);
 
     teams[0] = Person[](2u);
     teams[1] = Person[](1u);

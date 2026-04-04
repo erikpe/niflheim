@@ -207,7 +207,7 @@ class CastSink {
 fn test_explicit_zero_arg_constructor_sets_final_and_defaults() -> unit {
     var cfg: Config = Config();
     assert_eq_i64(cfg.code, 42);
-    assert_eq_bool(cfg.enabled, true);
+    assert_true(cfg.enabled);
 }
 
 fn test_constructor_locals_and_early_return_keep_default_fields() -> unit {
@@ -231,7 +231,7 @@ fn test_overloaded_constructor_by_exact_type() -> unit {
     assert_eq_i64(tagged_i.kind, 1);
     assert_eq_i64(tagged_i.payload_i, 7);
     assert_eq_i64(tagged_b.kind, 2);
-    assert_eq_bool(tagged_b.payload_b, true);
+    assert_true(tagged_b.payload_b);
 }
 
 fn test_explicit_constructor_defaults_and_override_paths() -> unit {
@@ -258,7 +258,7 @@ fn test_inherited_compatibility_constructor_order_and_defaults() -> unit {
     assert_eq_i64(leaf.first, 4);
     assert_eq_i64(leaf.second, 7);
     assert_eq_u64(leaf.base_default, 10u);
-    assert_eq_bool(leaf.middle_default, true);
+    assert_true(leaf.middle_default);
     assert_eq_i64(leaf.third, 99);
 }
 

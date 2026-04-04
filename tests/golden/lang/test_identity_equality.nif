@@ -30,10 +30,10 @@ fn test_reference_obj_identity() -> unit {
     var alias: Obj = key;
     var other: Obj = Key(7u);
 
-    assert_eq_bool(key == alias, true);
-    assert_eq_bool(alias == key, true);
-    assert_eq_bool(key != alias, false);
-    assert_eq_bool(key == other, false);
+    assert_true(key == alias);
+    assert_true(alias == key);
+    assert_false(key != alias);
+    assert_false(key == other);
 }
 
 fn test_reference_interface_identity() -> unit {
@@ -41,9 +41,9 @@ fn test_reference_interface_identity() -> unit {
     var hashable: Hashable = key;
     var other_hashable: Hashable = Key(8u);
 
-    assert_eq_bool(key == hashable, true);
-    assert_eq_bool(hashable == key, true);
-    assert_eq_bool(hashable == other_hashable, false);
+    assert_true(key == hashable);
+    assert_true(hashable == key);
+    assert_false(hashable == other_hashable);
 }
 
 fn test_interface_interface_identity() -> unit {
@@ -52,18 +52,18 @@ fn test_interface_interface_identity() -> unit {
     var equalable: Equalable = key;
     var other_equalable: Equalable = Key(9u);
 
-    assert_eq_bool(hashable == equalable, true);
-    assert_eq_bool(hashable != equalable, false);
-    assert_eq_bool(hashable == other_equalable, false);
+    assert_true(hashable == equalable);
+    assert_false(hashable != equalable);
+    assert_false(hashable == other_equalable);
 }
 
 fn test_obj_interface_null_identity() -> unit {
     var hashable: Hashable = (Hashable)null;
     var obj: Obj = null;
 
-    assert_eq_bool(hashable == obj, true);
-    assert_eq_bool(obj == hashable, true);
-    assert_eq_bool(hashable != null, false);
+    assert_true(hashable == obj);
+    assert_true(obj == hashable);
+    assert_false(hashable != null);
 }
 
 fn main() -> i64 {

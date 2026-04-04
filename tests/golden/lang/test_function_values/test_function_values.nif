@@ -115,8 +115,8 @@ fn test_returned_function_value_dispatch() -> unit {
 fn test_zero_arg_bool_callback() -> unit {
     var p1: fn() -> bool = choose_pred(0);
     var p2: fn() -> bool = choose_pred(1);
-    assert_eq_bool(call_bool_0(p1), true);
-    assert_eq_bool(call_bool_0(p2), false);
+    assert_true(call_bool_0(p1));
+    assert_false(call_bool_0(p2));
 }
 
 fn test_unit_callback_side_effects() -> unit {

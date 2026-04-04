@@ -7,14 +7,14 @@ fn test_bool_to_bool(input: Str[]) -> unit {
     var bool_false: bool = false;
     var bool_true: bool = true;
 
-    assert_eq_bool((bool)false, false);
-    assert_eq_bool((bool)true, true);
+    assert_false((bool)false);
+    assert_true((bool)true);
 
-    assert_eq_bool((bool)bool_false, false);
-    assert_eq_bool((bool)bool_true, true);
+    assert_false((bool)bool_false);
+    assert_true((bool)bool_true);
 
-    assert_eq_bool((bool)input[0].to_bool(), false);
-    assert_eq_bool((bool)input[1].to_bool(), true);
+    assert_false((bool)input[0].to_bool());
+    assert_true((bool)input[1].to_bool());
 }
 
 
@@ -84,20 +84,20 @@ fn test_i64_to_bool(input: Str[]) -> unit {
     var i64_neg1: i64 = -1;
     var i64_min: i64 = -9223372036854775808;
 
-    assert_eq_bool((bool)0, false);
-    assert_eq_bool((bool)1, true);
-    assert_eq_bool((bool)(-1), true);
-    assert_eq_bool((bool)(-9223372036854775808), true);
+    assert_false((bool)0);
+    assert_true((bool)1);
+    assert_true((bool)(-1));
+    assert_true((bool)(-9223372036854775808));
 
-    assert_eq_bool((bool)i64_zero, false);
-    assert_eq_bool((bool)i64_one, true);
-    assert_eq_bool((bool)i64_neg1, true);
-    assert_eq_bool((bool)i64_min, true);
+    assert_false((bool)i64_zero);
+    assert_true((bool)i64_one);
+    assert_true((bool)i64_neg1);
+    assert_true((bool)i64_min);
 
-    assert_eq_bool((bool)input[0].to_i64(), false);
-    assert_eq_bool((bool)input[1].to_i64(), true);
-    assert_eq_bool((bool)input[2].to_i64(), true);
-    assert_eq_bool((bool)input[3].to_i64(), true);
+    assert_false((bool)input[0].to_i64());
+    assert_true((bool)input[1].to_i64());
+    assert_true((bool)input[2].to_i64());
+    assert_true((bool)input[3].to_i64());
 }
 
 
@@ -204,20 +204,20 @@ fn test_i64_to_double(input: Str[]) -> unit {
     assert_eq_double((double)0, 0.0);
     assert_eq_double((double)42, 42.0);
     assert_eq_double((double)(-42), -42.0);
-    assert((double)9223372036854775807 > 9000000000000000000.0);
-    assert((double)(-9223372036854775808) < -9000000000000000000.0);
+    assert_true((double)9223372036854775807 > 9000000000000000000.0);
+    assert_true((double)(-9223372036854775808) < -9000000000000000000.0);
 
     assert_eq_double((double)i64_zero, 0.0);
     assert_eq_double((double)i64_pos, 42.0);
     assert_eq_double((double)i64_neg, -42.0);
-    assert((double)i64_max > 9000000000000000000.0);
-    assert((double)i64_min < -9000000000000000000.0);
+    assert_true((double)i64_max > 9000000000000000000.0);
+    assert_true((double)i64_min < -9000000000000000000.0);
 
     assert_eq_double((double)input[0].to_i64(), 0.0);
     assert_eq_double((double)input[1].to_i64(), 42.0);
     assert_eq_double((double)input[2].to_i64(), -42.0);
-    assert((double)input[3].to_i64() > 9000000000000000000.0);
-    assert((double)input[4].to_i64() < -9000000000000000000.0);
+    assert_true((double)input[3].to_i64() > 9000000000000000000.0);
+    assert_true((double)input[4].to_i64() < -9000000000000000000.0);
 }
 
 
@@ -226,17 +226,17 @@ fn test_u64_to_bool(input: Str[]) -> unit {
     var u64_one: u64 = 1u;
     var u64_max: u64 = 18446744073709551615u;
 
-    assert_eq_bool((bool)0u, false);
-    assert_eq_bool((bool)1u, true);
-    assert_eq_bool((bool)18446744073709551615u, true);
+    assert_false((bool)0u);
+    assert_true((bool)1u);
+    assert_true((bool)18446744073709551615u);
 
-    assert_eq_bool((bool)u64_zero, false);
-    assert_eq_bool((bool)u64_one, true);
-    assert_eq_bool((bool)u64_max, true);
+    assert_false((bool)u64_zero);
+    assert_true((bool)u64_one);
+    assert_true((bool)u64_max);
 
-    assert_eq_bool((bool)input[0].to_u64(), false);
-    assert_eq_bool((bool)input[1].to_u64(), true);
-    assert_eq_bool((bool)input[2].to_u64(), true);
+    assert_false((bool)input[0].to_u64());
+    assert_true((bool)input[1].to_u64());
+    assert_true((bool)input[2].to_u64());
 }
 
 
@@ -326,20 +326,20 @@ fn test_u64_to_double(input: Str[]) -> unit {
     assert_eq_double((double)0u, 0.0);
     assert_eq_double((double)1u, 1.0);
     assert_eq_double((double)42u, 42.0);
-    assert((double)18446744073709551615u > 18000000000000000000.0);
-    assert((double)18446744073709551615u > (double)9223372036854775807);
+    assert_true((double)18446744073709551615u > 18000000000000000000.0);
+    assert_true((double)18446744073709551615u > (double)9223372036854775807);
 
     assert_eq_double((double)u64_zero, 0.0);
     assert_eq_double((double)u64_one, 1.0);
     assert_eq_double((double)u64_42, 42.0);
-    assert((double)u64_max > 18000000000000000000.0);
-    assert((double)u64_max > (double)9223372036854775807);
+    assert_true((double)u64_max > 18000000000000000000.0);
+    assert_true((double)u64_max > (double)9223372036854775807);
 
     assert_eq_double((double)input[0].to_u64(), 0.0);
     assert_eq_double((double)input[1].to_u64(), 1.0);
     assert_eq_double((double)input[2].to_u64(), 42.0);
-    assert((double)input[3].to_u64() > 18000000000000000000.0);
-    assert((double)input[3].to_u64() > (double)9223372036854775807);
+    assert_true((double)input[3].to_u64() > 18000000000000000000.0);
+    assert_true((double)input[3].to_u64() > (double)9223372036854775807);
 }
 
 
@@ -348,17 +348,17 @@ fn test_u8_to_bool(input: Str[]) -> unit {
     var u8_one: u8 = 1u8;
     var u8_max: u8 = 255u8;
 
-    assert_eq_bool((bool)0u8, false);
-    assert_eq_bool((bool)1u8, true);
-    assert_eq_bool((bool)255u8, true);
+    assert_false((bool)0u8);
+    assert_true((bool)1u8);
+    assert_true((bool)255u8);
 
-    assert_eq_bool((bool)u8_zero, false);
-    assert_eq_bool((bool)u8_one, true);
-    assert_eq_bool((bool)u8_max, true);
+    assert_false((bool)u8_zero);
+    assert_true((bool)u8_one);
+    assert_true((bool)u8_max);
 
-    assert_eq_bool((bool)(u8)input[0].to_u64(), false);
-    assert_eq_bool((bool)(u8)input[1].to_u64(), true);
-    assert_eq_bool((bool)(u8)input[2].to_u64(), true);
+    assert_false((bool)(u8)input[0].to_u64());
+    assert_true((bool)(u8)input[1].to_u64());
+    assert_true((bool)(u8)input[2].to_u64());
 }
 
 
@@ -445,23 +445,23 @@ fn test_double_to_bool(input: Str[]) -> unit {
     var double_neg_half: double = -0.5;
     var double_42: double = 42.0;
 
-    assert_eq_bool((bool)0.0, false);
-    assert_eq_bool((bool)-0.0, false);
-    assert_eq_bool((bool)0.5, true);
-    assert_eq_bool((bool)-0.5, true);
-    assert_eq_bool((bool)42.0, true);
+    assert_false((bool)0.0);
+    assert_false((bool)-0.0);
+    assert_true((bool)0.5);
+    assert_true((bool)-0.5);
+    assert_true((bool)42.0);
 
-    assert_eq_bool((bool)double_zero, false);
-    assert_eq_bool((bool)double_neg_zero, false);
-    assert_eq_bool((bool)double_half, true);
-    assert_eq_bool((bool)double_neg_half, true);
-    assert_eq_bool((bool)double_42, true);
+    assert_false((bool)double_zero);
+    assert_false((bool)double_neg_zero);
+    assert_true((bool)double_half);
+    assert_true((bool)double_neg_half);
+    assert_true((bool)double_42);
 
-    assert_eq_bool((bool)input[0].to_double(), false);
-    assert_eq_bool((bool)input[1].to_double(), false);
-    assert_eq_bool((bool)input[2].to_double(), true);
-    assert_eq_bool((bool)input[3].to_double(), true);
-    assert_eq_bool((bool)input[4].to_double(), true);
+    assert_false((bool)input[0].to_double());
+    assert_false((bool)input[1].to_double());
+    assert_true((bool)input[2].to_double());
+    assert_true((bool)input[3].to_double());
+    assert_true((bool)input[4].to_double());
 }
 
 

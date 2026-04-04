@@ -118,7 +118,7 @@ Rules:
 - Keep error-case source names explicit, for example `error_unknown_superclass.nif`.
 - Match stable diagnostic substrings, not entire multiline compiler output.
 - Reuse helper modules in the same directory when the feature is multi-module.
-- For runtime tests, prefer type-specific asserts from `std.test`, such as `assert_eq_i64`, `assert_eq_u64`, `assert_eq_bool`, `assert_eq_u8`, and `assert_eq_double`, when the value type is known.
+- For runtime tests, prefer type-specific asserts from `std.test`, such as `assert_eq_i64`, `assert_eq_u64`, `assert_true`, `assert_false`, `assert_eq_u8`, and `assert_eq_double`, when the value type is known.
 - Do not indicate test failure by returning ad hoc raw exit codes from `main`; use asserts as the primary validation mechanism.
 - Use stdout comparison only when the behavior is naturally output-oriented or when comparing emitted text is materially more convenient than expressing the check with asserts.
 - For runtime tests, use one source file with multiple selector-driven cases only when it keeps setup shared and readable.

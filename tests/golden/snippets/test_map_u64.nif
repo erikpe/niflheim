@@ -141,18 +141,18 @@ class MapU64 {
 
 fn test_put_get_contains() -> unit {
     var m: MapU64 = MapU64.new();
-    assert(m.len() == 0u);
+    assert_true(m.len() == 0u);
 
     m.put(10u, BoxI64(111));
     m.put(20u, BoxI64(222));
 
-    assert(m.len() == 2u);
-    assert(m.contains(10u));
-    assert(m.contains(20u));
-    assert(!m.contains(30u));
+    assert_true(m.len() == 2u);
+    assert_true(m.contains(10u));
+    assert_true(m.contains(20u));
+    assert_true(!m.contains(30u));
 
-    assert(((BoxI64)m.index_get(10u)).val == 111);
-    assert(((BoxI64)m.index_get(20u)).val == 222);
+    assert_true(((BoxI64)m.index_get(10u)).val == 111);
+    assert_true(((BoxI64)m.index_get(20u)).val == 222);
 }
 
 
@@ -161,9 +161,9 @@ fn test_overwrite_same_key() -> unit {
     m.put(7u, BoxI64(1));
     m.put(7u, BoxI64(9));
 
-    assert(m.len() == 1u);
-    assert(m.contains(7u));
-    assert(((BoxI64)m.index_get(7u)).val == 9);
+    assert_true(m.len() == 1u);
+    assert_true(m.contains(7u));
+    assert_true(((BoxI64)m.index_get(7u)).val == 9);
 }
 
 
@@ -177,13 +177,13 @@ fn test_growth_and_probe_chains() -> unit {
         i = i + 1u;
     }
 
-    assert(m.len() == 80u);
+    assert_true(m.len() == 80u);
 
     i = 0u;
     while i < 80u {
         var verify_key: u64 = i * 17u + 3u;
-        assert(m.contains(verify_key));
-        assert(((BoxU64)m.index_get(verify_key)).val == i);
+        assert_true(m.contains(verify_key));
+        assert_true(((BoxU64)m.index_get(verify_key)).val == i);
         i = i + 1u;
     }
 }
@@ -195,9 +195,9 @@ fn test_index_sugar_write_and_read() -> unit {
     m[1u] = BoxI64(42);
     m[2u] = BoxI64(99);
 
-    assert(((BoxI64)m[1u]).val == 42);
-    assert(((BoxI64)m[2u]).val == 99);
-    assert(m.len() == 2u);
+    assert_true(((BoxI64)m[1u]).val == 42);
+    assert_true(((BoxI64)m[2u]).val == 99);
+    assert_true(m.len() == 2u);
 }
 
 
@@ -217,13 +217,13 @@ fn test_large_insert_then_overwrite_all() -> unit {
         i = i + 1u;
     }
 
-    assert(m.len() == 512u);
+    assert_true(m.len() == 512u);
 
     i = 0u;
     while i < 512u {
         var verify_key: u64 = i * 131u + 17u;
-        assert(m.contains(verify_key));
-        assert(((BoxU64)m.index_get(verify_key)).val == i);
+        assert_true(m.contains(verify_key));
+        assert_true(((BoxU64)m.index_get(verify_key)).val == i);
         i = i + 1u;
     }
 
@@ -234,12 +234,12 @@ fn test_large_insert_then_overwrite_all() -> unit {
         i = i + 1u;
     }
 
-    assert(m.len() == 512u);
+    assert_true(m.len() == 512u);
 
     i = 0u;
     while i < 512u {
         var check_key: u64 = i * 131u + 17u;
-        assert(((BoxU64)m.index_get(check_key)).val == i + 1000u);
+        assert_true(((BoxU64)m.index_get(check_key)).val == i + 1000u);
         i = i + 1u;
     }
 }
@@ -254,17 +254,17 @@ fn test_collision_cluster_same_bucket() -> unit {
     m.put(25u, BoxI64(40));
     m.put(33u, BoxI64(50));
 
-    assert(m.len() == 5u);
-    assert(((BoxI64)m.index_get(1u)).val == 10);
-    assert(((BoxI64)m.index_get(9u)).val == 20);
-    assert(((BoxI64)m.index_get(17u)).val == 30);
-    assert(((BoxI64)m.index_get(25u)).val == 40);
-    assert(((BoxI64)m.index_get(33u)).val == 50);
+    assert_true(m.len() == 5u);
+    assert_true(((BoxI64)m.index_get(1u)).val == 10);
+    assert_true(((BoxI64)m.index_get(9u)).val == 20);
+    assert_true(((BoxI64)m.index_get(17u)).val == 30);
+    assert_true(((BoxI64)m.index_get(25u)).val == 40);
+    assert_true(((BoxI64)m.index_get(33u)).val == 50);
 
     m.put(17u, BoxI64(300));
-    assert(m.len() == 5u);
-    assert(((BoxI64)m.index_get(17u)).val == 300);
-    assert(!m.contains(41u));
+    assert_true(m.len() == 5u);
+    assert_true(((BoxI64)m.index_get(17u)).val == 300);
+    assert_true(!m.contains(41u));
 }
 
 

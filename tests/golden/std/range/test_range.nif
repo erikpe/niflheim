@@ -11,8 +11,8 @@ fn test_range_basic_half_open() -> unit {
         count = count + 1;
     }
 
-    assert(count == 6);
-    assert(sum == 117);
+    assert_true(count == 6);
+    assert_true(sum == 117);
 }
 
 fn test_range_negative_to_positive() -> unit {
@@ -22,7 +22,7 @@ fn test_range_negative_to_positive() -> unit {
         sum = sum + i;
     }
 
-    assert(sum == 0);
+    assert_true(sum == 0);
 }
 
 fn test_range_empty_when_equal_bounds() -> unit {
@@ -32,7 +32,7 @@ fn test_range_empty_when_equal_bounds() -> unit {
         touched = true;
     }
 
-    assert(touched == false);
+    assert_true(touched == false);
 }
 
 fn test_range_empty_when_descending() -> unit {
@@ -42,7 +42,7 @@ fn test_range_empty_when_descending() -> unit {
         touched = true;
     }
 
-    assert(touched == false);
+    assert_true(touched == false);
 }
 
 fn test_range_nested_loops() -> unit {
@@ -54,7 +54,7 @@ fn test_range_nested_loops() -> unit {
         }
     }
 
-    assert(total == 63);
+    assert_true(total == 63);
 }
 
 fn main() -> i64 {

@@ -6,29 +6,29 @@ import std.vec;
 
 fn test_baseline_get_slice() -> unit {
     var s: Str = "abcd";
-    assert(s.len() == 4u);
-    assert(s[0] == 'a');
-    assert(s[-1] == 'd');
+    assert_true(s.len() == 4u);
+    assert_true(s[0] == 'a');
+    assert_true(s[-1] == 'd');
 
     var mid: Str = s[1:3];
-    assert(mid.len() == 2u);
-    assert(mid[0] == 'b');
-    assert(mid[1] == 'c');
+    assert_true(mid.len() == 2u);
+    assert_true(mid[0] == 'b');
+    assert_true(mid[1] == 'c');
 }
 
 
 fn test_strip() -> unit {
     var s: Str = " \tA\n ";
     var t: Str = s.strip();
-    assert(t.len() == 1u);
-    assert(t[0] == 'A');
+    assert_true(t.len() == 1u);
+    assert_true(t[0] == 'A');
 }
 
 
 fn test_numeric_parse_ok() -> unit {
-    assert(("18446744073709551615").to_u64() == 18446744073709551615u);
-    assert(("-9223372036854775808").to_i64() == -9223372036854775808);
-    assert(("9223372036854775807").to_i64() == 9223372036854775807);
+    assert_true(("18446744073709551615").to_u64() == 18446744073709551615u);
+    assert_true(("-9223372036854775808").to_i64() == -9223372036854775808);
+    assert_true(("9223372036854775807").to_i64() == 9223372036854775807);
 }
 
 
@@ -40,9 +40,9 @@ fn test_from_u8_array() -> unit {
 
     var s: Str = Str.from_u8_array(bytes);
     bytes[0] = 'Z';
-    assert(s.len() == 3u);
-    assert(s[0] == 'A');
-    assert(s[2] == 'C');
+    assert_true(s.len() == 3u);
+    assert_true(s[0] == 'A');
+    assert_true(s[2] == 'C');
 }
 
 
@@ -50,13 +50,13 @@ fn test_to_u8_array() -> unit {
     var s: Str = "ABC";
     var bytes: u8[] = s.to_u8_array();
 
-    assert(bytes.len() == 3u);
-    assert(bytes[0] == 'A');
-    assert(bytes[1] == 'B');
-    assert(bytes[2] == 'C');
+    assert_true(bytes.len() == 3u);
+    assert_true(bytes[0] == 'A');
+    assert_true(bytes[1] == 'B');
+    assert_true(bytes[2] == 'C');
 
     bytes[0] = 'Z';
-    assert(s[0] == 'A');
+    assert_true(s[0] == 'A');
 }
 
 
@@ -64,26 +64,26 @@ fn test_strbuf_baseline() -> unit {
     var s: Str = "foobar";
     var buf: StrBuf = StrBuf.from_str(s);
 
-    assert(buf.len() == 6u);
-    assert(buf[0] == 'f');
-    assert(buf[-1] == 'r');
+    assert_true(buf.len() == 6u);
+    assert_true(buf[0] == 'f');
+    assert_true(buf[-1] == 'r');
 
     buf[2] = 'x';
-    assert(buf[2] == 'x');
+    assert_true(buf[2] == 'x');
 
     var mid: StrBuf = buf[1:4];
-    assert(mid.len() == 3u);
-    assert(mid[0] == 'o');
-    assert(mid[1] == 'x');
-    assert(mid[2] == 'b');
+    assert_true(mid.len() == 3u);
+    assert_true(mid[0] == 'o');
+    assert_true(mid[1] == 'x');
+    assert_true(mid[2] == 'b');
 
     var out: Str = buf.to_str();
-    assert(out[0] == 'f');
-    assert(out[1] == 'o');
-    assert(out[2] == 'x');
-    assert(out[3] == 'b');
-    assert(out[4] == 'a');
-    assert(out[5] == 'r');
+    assert_true(out[0] == 'f');
+    assert_true(out[1] == 'o');
+    assert_true(out[2] == 'x');
+    assert_true(out[3] == 'b');
+    assert_true(out[4] == 'a');
+    assert_true(out[5] == 'r');
 }
 
 
@@ -97,21 +97,21 @@ fn test_strbuf_append_char() -> unit {
     var buf: StrBuf = StrBuf.new(1u);
     buf.append_char('f').append_char('o').append_char('o').append_char('b').append_char('a').append_char('r');
 
-    assert(buf.len() == 6u);
-    assert(buf[0] == 'f');
-    assert(buf[1] == 'o');
-    assert(buf[2] == 'o');
-    assert(buf[3] == 'b');
-    assert(buf[4] == 'a');
-    assert(buf[5] == 'r');
+    assert_true(buf.len() == 6u);
+    assert_true(buf[0] == 'f');
+    assert_true(buf[1] == 'o');
+    assert_true(buf[2] == 'o');
+    assert_true(buf[3] == 'b');
+    assert_true(buf[4] == 'a');
+    assert_true(buf[5] == 'r');
 
     var out: Str = buf.to_str();
-    assert(out[0] == 'f');
-    assert(out[1] == 'o');
-    assert(out[2] == 'o');
-    assert(out[3] == 'b');
-    assert(out[4] == 'a');
-    assert(out[5] == 'r');
+    assert_true(out[0] == 'f');
+    assert_true(out[1] == 'o');
+    assert_true(out[2] == 'o');
+    assert_true(out[3] == 'b');
+    assert_true(out[4] == 'a');
+    assert_true(out[5] == 'r');
 }
 
 
@@ -119,9 +119,9 @@ fn test_strbuf_append() -> unit {
     var buf: StrBuf = StrBuf.new(1u);
     buf.append("foo").append("bar").append("");
 
-    assert(buf.len() == 6u);
+    assert_true(buf.len() == 6u);
     var out: Str = buf.to_str();
-    assert(out.compare_to("foobar") == 0);
+    assert_true(out.compare_to("foobar") == 0);
 }
 
 
@@ -130,7 +130,7 @@ fn test_strbuf_append_u64() -> unit {
     buf.append_u64(0u).append("-").append_u64(42u).append("-").append_u64(18446744073709551615u);
 
     var out: Str = buf.to_str();
-    assert(out.compare_to("0-42-18446744073709551615") == 0);
+    assert_true(out.compare_to("0-42-18446744073709551615") == 0);
 }
 
 
@@ -139,7 +139,7 @@ fn test_strbuf_append_i64() -> unit {
     buf.append_i64(0).append("-").append_i64(-42).append("-").append_i64(9223372036854775807).append("-").append_i64(-9223372036854775808);
 
     var out: Str = buf.to_str();
-    assert(out.compare_to("0--42-9223372036854775807--9223372036854775808") == 0);
+    assert_true(out.compare_to("0--42-9223372036854775807--9223372036854775808") == 0);
 }
 
 
@@ -151,8 +151,8 @@ fn test_get_oob_panics() -> unit {
 
 fn test_negative_index_get() -> unit {
     var s: Str = "abcdef";
-    assert(s[-1] == 'f');
-    assert(s[-2] == 'e');
+    assert_true(s[-1] == 'f');
+    assert_true(s[-2] == 'e');
 }
 
 
@@ -173,27 +173,27 @@ fn test_to_i64_overflow_panics() -> unit {
 
 
 fn test_merge_to_u64() -> unit {
-    assert("0".to_u64() == 0u);
-    assert("1".to_u64() == 1u);
-    assert("1000000".to_u64() == 1000000u);
-    assert("18446744073709551615".to_u64() == 18446744073709551615u);
+    assert_true("0".to_u64() == 0u);
+    assert_true("1".to_u64() == 1u);
+    assert_true("1000000".to_u64() == 1000000u);
+    assert_true("18446744073709551615".to_u64() == 18446744073709551615u);
 }
 
 
 fn test_merge_to_i64() -> unit {
-    assert("0".to_i64() == 0);
-    assert("1".to_i64() == 1);
-    assert("-1".to_i64() == -1);
-    assert("1000000".to_i64() == 1000000);
-    assert("-1000000".to_i64() == -1000000);
-    assert("9223372036854775807".to_i64() == 9223372036854775807);
-    assert("-9223372036854775808".to_i64() == -9223372036854775808);
+    assert_true("0".to_i64() == 0);
+    assert_true("1".to_i64() == 1);
+    assert_true("-1".to_i64() == -1);
+    assert_true("1000000".to_i64() == 1000000);
+    assert_true("-1000000".to_i64() == -1000000);
+    assert_true("9223372036854775807".to_i64() == 9223372036854775807);
+    assert_true("-9223372036854775808".to_i64() == -9223372036854775808);
 }
 
 
 fn test_merge_to_bool() -> unit {
-    assert("true".to_bool());
-    assert(!"false".to_bool());
+    assert_true("true".to_bool());
+    assert_true(!"false".to_bool());
 }
 
 
@@ -208,12 +208,12 @@ fn test_merge_to_bool_empty_string() -> unit {
 
 
 fn test_merge_to_double() -> unit {
-    assert("0".to_double() == 0.0);
-    assert("1.5".to_double() == 1.5);
-    assert("-2.25".to_double() == -2.25);
-    assert("123456.125".to_double() == 123456.125);
-    assert(".5".to_double() == 0.5);
-    assert("42.".to_double() == 42.0);
+    assert_true("0".to_double() == 0.0);
+    assert_true("1.5".to_double() == 1.5);
+    assert_true("-2.25".to_double() == -2.25);
+    assert_true("123456.125".to_double() == 123456.125);
+    assert_true(".5".to_double() == 0.5);
+    assert_true("42.".to_double() == 42.0);
 }
 
 
@@ -285,21 +285,21 @@ fn test_merge_to_i64_empty_string() -> unit {
 fn test_merge_e2e_str_from_char() -> unit {
     var s: Str = Str.from_char('Z');
     var c: u8 = s[0];
-    assert((i64)c == 90);
+    assert_true((i64)c == 90);
 }
 
 
 fn test_merge_e2e_str_hex_escape() -> unit {
     var s: Str = "\x41\x42";
     var b: u8 = s[0];
-    assert((i64)b == 65);
+    assert_true((i64)b == 65);
 }
 
 
 fn test_merge_e2e_str_literal_indexing() -> unit {
     var s: Str = "AB\n";
     var b: u8 = s[1];
-    assert((i64)b == 66);
+    assert_true((i64)b == 66);
 }
 
 
@@ -307,7 +307,7 @@ fn test_merge_e2e_str_oob_index_panics() -> unit {
     var v: Str = "Hello world!";
     var c1: u8 = v[-15];
     var c2: u8 = v[15];
-    assert((i64)c1 + (i64)c2 == 0);
+    assert_true((i64)c1 + (i64)c2 == 0);
 }
 
 
@@ -315,7 +315,7 @@ fn test_merge_e2e_str_oob_slice_panics() -> unit {
     var v: Str = "Hello world!";
     var s1: Str = v[-15:5];
     var s2: Str = v[15:20];
-    assert((i64)s1[0] + (i64)s2[0] == 0);
+    assert_true((i64)s1[0] + (i64)s2[0] == 0);
 }
 
 
@@ -328,7 +328,7 @@ fn test_merge_e2e_str_negative_index_and_slice() -> unit {
     var c3: u8 = s1[-1];
     var c4: u8 = s2[2];
     var sum: i64 = (i64)c1 + (i64)c2 + (i64)c3 + (i64)c4;
-    assert(sum == 360);
+    assert_true(sum == 360);
 }
 
 
@@ -343,89 +343,89 @@ fn test_merge_e2e_str_slice_syntax() -> unit {
     var c3: u8 = s3[0];
     var c4: u8 = s4[11];
     var sum: i64 = (i64)c1 + (i64)c2 + (i64)c3 + (i64)c4;
-    assert(sum == 371);
+    assert_true(sum == 371);
 }
 
 
 fn test_merge_e2e_str_strip_whitespace() -> unit {
     var v: Str = " \tHello world!\n";
     var s: Str = v.strip();
-    assert(s[0] == (u8)72);
-    assert(s[-1] == (u8)33);
+    assert_true(s[0] == (u8)72);
+    assert_true(s[-1] == (u8)33);
 
     var w: Str = " \n\t\r";
     var empty: Str = w.strip();
-    assert(empty.len() == 0u);
+    assert_true(empty.len() == 0u);
 }
 
 
 fn test_from_u64_edges() -> unit {
     var zero: Str = Str.from_u64(0u);
-    assert(zero.compare_to("0") == 0);
+    assert_true(zero.compare_to("0") == 0);
 
     var one: Str = Str.from_u64(1u);
-    assert(one.compare_to("1") == 0);
+    assert_true(one.compare_to("1") == 0);
 
     var max: Str = Str.from_u64(18446744073709551615u);
-    assert(max.compare_to("18446744073709551615") == 0);
+    assert_true(max.compare_to("18446744073709551615") == 0);
 }
 
 
 fn test_from_u64_roundtrip() -> unit {
-    assert(Str.from_u64(0u).to_u64() == 0u);
-    assert(Str.from_u64(7u).to_u64() == 7u);
-    assert(Str.from_u64(42u).to_u64() == 42u);
-    assert(Str.from_u64(1000000000000000000u).to_u64() == 1000000000000000000u);
-    assert(Str.from_u64(18446744073709551615u).to_u64() == 18446744073709551615u);
+    assert_true(Str.from_u64(0u).to_u64() == 0u);
+    assert_true(Str.from_u64(7u).to_u64() == 7u);
+    assert_true(Str.from_u64(42u).to_u64() == 42u);
+    assert_true(Str.from_u64(1000000000000000000u).to_u64() == 1000000000000000000u);
+    assert_true(Str.from_u64(18446744073709551615u).to_u64() == 18446744073709551615u);
 }
 
 
 fn test_compare_to() -> unit {
-    assert("abc".compare_to("abc") == 0);
-    assert("abc".compare_to("abd") < 0);
-    assert("abd".compare_to("abc") > 0);
+    assert_true("abc".compare_to("abc") == 0);
+    assert_true("abc".compare_to("abd") < 0);
+    assert_true("abd".compare_to("abc") > 0);
 
-    assert("ab".compare_to("abc") == -99);
-    assert("abc".compare_to("ab") == 99);
-    assert("A".compare_to("a") == -32);
+    assert_true("ab".compare_to("abc") == -99);
+    assert_true("abc".compare_to("ab") == 99);
+    assert_true("A".compare_to("a") == -32);
 }
 
 
 fn test_from_i64_edges() -> unit {
-    assert(Str.from_i64(0).compare_to("0") == 0);
-    assert(Str.from_i64(1).compare_to("1") == 0);
-    assert(Str.from_i64(-1).compare_to("-1") == 0);
-    assert(Str.from_i64(9223372036854775807).compare_to("9223372036854775807") == 0);
-    assert(Str.from_i64(-9223372036854775808).compare_to("-9223372036854775808") == 0);
-    assert(Str.from_i64(-9223372036854775807).compare_to("-9223372036854775807") == 0);
+    assert_true(Str.from_i64(0).compare_to("0") == 0);
+    assert_true(Str.from_i64(1).compare_to("1") == 0);
+    assert_true(Str.from_i64(-1).compare_to("-1") == 0);
+    assert_true(Str.from_i64(9223372036854775807).compare_to("9223372036854775807") == 0);
+    assert_true(Str.from_i64(-9223372036854775808).compare_to("-9223372036854775808") == 0);
+    assert_true(Str.from_i64(-9223372036854775807).compare_to("-9223372036854775807") == 0);
 }
 
 
 fn test_from_i64_roundtrip() -> unit {
-    assert(Str.from_i64(0).to_i64() == 0);
-    assert(Str.from_i64(7).to_i64() == 7);
-    assert(Str.from_i64(-7).to_i64() == -7);
-    assert(Str.from_i64(1234567890123456789).to_i64() == 1234567890123456789);
-    assert(Str.from_i64(-1234567890123456789).to_i64() == -1234567890123456789);
-    assert(Str.from_i64(9223372036854775807).to_i64() == 9223372036854775807);
-    assert(Str.from_i64(-9223372036854775808).to_i64() == -9223372036854775808);
+    assert_true(Str.from_i64(0).to_i64() == 0);
+    assert_true(Str.from_i64(7).to_i64() == 7);
+    assert_true(Str.from_i64(-7).to_i64() == -7);
+    assert_true(Str.from_i64(1234567890123456789).to_i64() == 1234567890123456789);
+    assert_true(Str.from_i64(-1234567890123456789).to_i64() == -1234567890123456789);
+    assert_true(Str.from_i64(9223372036854775807).to_i64() == 9223372036854775807);
+    assert_true(Str.from_i64(-9223372036854775808).to_i64() == -9223372036854775808);
 }
 
 
 fn test_from_misc_scalars() -> unit {
-    assert(Str.from_u8(0u8).compare_to("0") == 0);
-    assert(Str.from_u8(255u8).compare_to("255") == 0);
+    assert_true(Str.from_u8(0u8).compare_to("0") == 0);
+    assert_true(Str.from_u8(255u8).compare_to("255") == 0);
 
-    assert(Str.from_bool(true).compare_to("true") == 0);
-    assert(Str.from_bool(false).compare_to("false") == 0);
-    assert(Str.from_bool(true).to_bool());
-    assert(!Str.from_bool(false).to_bool());
+    assert_true(Str.from_bool(true).compare_to("true") == 0);
+    assert_true(Str.from_bool(false).compare_to("false") == 0);
+    assert_true(Str.from_bool(true).to_bool());
+    assert_true(!Str.from_bool(false).to_bool());
 
-    assert(Str.from_double(0.0).compare_to("0.000000") == 0);
-    assert(Str.from_double(1.5).compare_to("1.500000") == 0);
-    assert(Str.from_double(-2.25).compare_to("-2.250000") == 0);
-    assert(Str.from_double(123456.125).compare_to("123456.125000") == 0);
-    assert(Str.from_double(1.5).to_double() == 1.5);
+    assert_true(Str.from_double(0.0).compare_to("0.000000") == 0);
+    assert_true(Str.from_double(1.5).compare_to("1.500000") == 0);
+    assert_true(Str.from_double(-2.25).compare_to("-2.250000") == 0);
+    assert_true(Str.from_double(123456.125).compare_to("123456.125000") == 0);
+    assert_true(Str.from_double(1.5).to_double() == 1.5);
 }
 
 
@@ -440,71 +440,71 @@ fn test_strbuf_append_scalars() -> unit {
         .append_double(-2.25);
 
     var out: Str = buf.to_str();
-    assert(out.compare_to("255|true|false|-2.250000") == 0);
+    assert_true(out.compare_to("255|true|false|-2.250000") == 0);
 }
 
 
 fn test_splitlines() -> unit {
     var lines1: Vec = "a\nb\r\nc\n".splitlines();
-    assert(lines1.len() == 3u);
-    assert(((Str)lines1[0]).compare_to("a") == 0);
-    assert(((Str)lines1[1]).compare_to("b") == 0);
-    assert(((Str)lines1[2]).compare_to("c") == 0);
+    assert_true(lines1.len() == 3u);
+    assert_true(((Str)lines1[0]).compare_to("a") == 0);
+    assert_true(((Str)lines1[1]).compare_to("b") == 0);
+    assert_true(((Str)lines1[2]).compare_to("c") == 0);
 
     var lines2: Vec = "x\r\ny".splitlines();
-    assert(lines2.len() == 2u);
-    assert(((Str)lines2[0]).compare_to("x") == 0);
-    assert(((Str)lines2[1]).compare_to("y") == 0);
+    assert_true(lines2.len() == 2u);
+    assert_true(((Str)lines2[0]).compare_to("x") == 0);
+    assert_true(((Str)lines2[1]).compare_to("y") == 0);
 
     var lines3: Vec = "p\rq".splitlines();
-    assert(lines3.len() == 2u);
-    assert(((Str)lines3[0]).compare_to("p") == 0);
-    assert(((Str)lines3[1]).compare_to("q") == 0);
+    assert_true(lines3.len() == 2u);
+    assert_true(((Str)lines3[0]).compare_to("p") == 0);
+    assert_true(((Str)lines3[1]).compare_to("q") == 0);
 
     var lines4: Vec = "\r\na\r\rb\n\n".splitlines();
-    assert(lines4.len() == 5u);
-    assert(((Str)lines4[0]).compare_to("") == 0);
-    assert(((Str)lines4[1]).compare_to("a") == 0);
-    assert(((Str)lines4[2]).compare_to("") == 0);
-    assert(((Str)lines4[3]).compare_to("b") == 0);
-    assert(((Str)lines4[4]).compare_to("") == 0);
+    assert_true(lines4.len() == 5u);
+    assert_true(((Str)lines4[0]).compare_to("") == 0);
+    assert_true(((Str)lines4[1]).compare_to("a") == 0);
+    assert_true(((Str)lines4[2]).compare_to("") == 0);
+    assert_true(((Str)lines4[3]).compare_to("b") == 0);
+    assert_true(((Str)lines4[4]).compare_to("") == 0);
 }
 
 
 fn test_split_trailing_delimiter() -> unit {
     var parts0: Vec = "".split(',');
-    assert(parts0.len() == 1u);
-    assert(((Str)parts0[0]).compare_to("") == 0);
+    assert_true(parts0.len() == 1u);
+    assert_true(((Str)parts0[0]).compare_to("") == 0);
 
     var parts1: Vec = "a,b,".split(',');
-    assert(parts1.len() == 3u);
-    assert(((Str)parts1[0]).compare_to("a") == 0);
-    assert(((Str)parts1[1]).compare_to("b") == 0);
-    assert(((Str)parts1[2]).compare_to("") == 0);
+    assert_true(parts1.len() == 3u);
+    assert_true(((Str)parts1[0]).compare_to("a") == 0);
+    assert_true(((Str)parts1[1]).compare_to("b") == 0);
+    assert_true(((Str)parts1[2]).compare_to("") == 0);
 
     var parts2: Vec = ",".split(',');
-    assert(parts2.len() == 2u);
-    assert(((Str)parts2[0]).compare_to("") == 0);
-    assert(((Str)parts2[1]).compare_to("") == 0);
+    assert_true(parts2.len() == 2u);
+    assert_true(((Str)parts2[0]).compare_to("") == 0);
+    assert_true(((Str)parts2[1]).compare_to("") == 0);
 
     var parts3: Vec = "x,,".split(',');
-    assert(parts3.len() == 3u);
-    assert(((Str)parts3[0]).compare_to("x") == 0);
-    assert(((Str)parts3[1]).compare_to("") == 0);
-    assert(((Str)parts3[2]).compare_to("") == 0);
+    assert_true(parts3.len() == 3u);
+    assert_true(((Str)parts3[0]).compare_to("x") == 0);
+    assert_true(((Str)parts3[1]).compare_to("") == 0);
+    assert_true(((Str)parts3[2]).compare_to("") == 0);
 }
 
 
 fn test_concat_operator() -> unit {
     var merged: Str = "hello, " + "world";
-    assert(merged.compare_to("hello, world") == 0);
+    assert_true(merged.compare_to("hello, world") == 0);
 
     var left: Str = "x";
     var right: Str = "";
-    assert((left + right).compare_to("x") == 0);
+    assert_true((left + right).compare_to("x") == 0);
 
     var chain: Str = "a" + "b" + "c";
-    assert(chain.compare_to("abc") == 0);
+    assert_true(chain.compare_to("abc") == 0);
 }
 
 
@@ -516,7 +516,7 @@ fn test_str_for_in_iteration() -> unit {
         sum = sum + (i64)ch;
     }
 
-    assert(sum == 211);
+    assert_true(sum == 211);
 }
 
 
@@ -529,7 +529,7 @@ fn test_strbuf_for_in_iteration() -> unit {
         sum = sum + (i64)ch;
     }
 
-    assert(sum == 210);
+    assert_true(sum == 210);
 }
 
 
@@ -538,8 +538,8 @@ fn test_hash_code_equal_content() -> unit {
     var b: Str = Str.from_u8_array("hash-me".to_u8_array());
     var c: Str = "hash-you";
 
-    assert(a.hash_code() == b.hash_code());
-    assert(a.hash_code() != c.hash_code());
+    assert_true(a.hash_code() == b.hash_code());
+    assert_true(a.hash_code() != c.hash_code());
 }
 
 
@@ -549,11 +549,11 @@ fn test_equals_obj() -> unit {
     var c: Str = "diff";
     var boxed_other: Obj = (Obj)Vec.new();
 
-    assert(a.equals((Obj)a));
-    assert(a.equals((Obj)b));
-    assert(!a.equals((Obj)c));
-    assert(!a.equals(null));
-    assert(!a.equals(boxed_other));
+    assert_true(a.equals((Obj)a));
+    assert_true(a.equals((Obj)b));
+    assert_true(!a.equals((Obj)c));
+    assert_true(!a.equals(null));
+    assert_true(!a.equals(boxed_other));
 }
 
 

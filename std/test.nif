@@ -1,13 +1,6 @@
 import std.error;
 import std.str;
 
-export fn assert(condition: bool) -> unit
-{
-    if !condition {
-        panic("Assert failed!");
-    }
-}
-
 export fn assert_eq_i64(a: i64, b: i64) -> unit
 {
     if a != b {
@@ -29,10 +22,17 @@ export fn assert_eq_u8(a: u8, b: u8) -> unit
     }
 }
 
-export fn assert_eq_bool(a: bool, b: bool) -> unit
+export fn assert_true(condition: bool) -> unit
 {
-    if a != b {
-        panic("Assert failed: '" + Str.from_bool(a) + "' != '" + Str.from_bool(b) + "'");
+    if !condition {
+        panic("Assert failed: expected true");
+    }
+}
+
+export fn assert_false(condition: bool) -> unit
+{
+    if condition {
+        panic("Assert failed: expected false");
     }
 }
 

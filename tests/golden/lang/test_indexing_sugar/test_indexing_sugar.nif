@@ -163,11 +163,11 @@ fn test_custom_index_key_types() -> unit {
 
 fn test_mismatched_index_read_write_value_types() -> unit {
     var w: WeirdStore = WeirdStore(false);
-    assert_eq_bool(w[0], false);
+    assert_false(w[0]);
     w[0] = 7;
-    assert_eq_bool(w[0], true);
+    assert_true(w[0]);
     w[0] = -1;
-    assert_eq_bool(w[0], false);
+    assert_false(w[0]);
 }
 
 fn test_read_only_and_write_only_index_sugar() -> unit {
@@ -194,8 +194,8 @@ fn test_slice_get_and_set_for_user_class() -> unit {
 
 fn test_slice_read_write_independence() -> unit {
     var shape: SliceShape = SliceShape(true, 0);
-    assert_eq_bool(shape[0:1], true);
-    assert_eq_bool(shape[1:1], false);
+    assert_true(shape[0:1]);
+    assert_false(shape[1:1]);
 
     shape[1:3] = 10;
     assert_eq_i64(shape.total, 12);

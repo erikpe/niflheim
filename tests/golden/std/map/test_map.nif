@@ -35,18 +35,18 @@ class HashOnly implements Hashable {
 
 fn test_map_put_get_contains() -> unit {
     var m: Map = Map.new();
-    assert(m.len() == 0u);
+    assert_true(m.len() == 0u);
 
     m[(Obj)Key(10u)] = BoxI64(111);
     m[(Obj)Key(20u)] = BoxI64(222);
 
-    assert(m.len() == 2u);
-    assert(m.contains((Obj)Key(10u)));
-    assert(m.contains((Obj)Key(20u)));
-    assert(!m.contains((Obj)Key(30u)));
+    assert_true(m.len() == 2u);
+    assert_true(m.contains((Obj)Key(10u)));
+    assert_true(m.contains((Obj)Key(20u)));
+    assert_true(!m.contains((Obj)Key(30u)));
 
-    assert(((BoxI64)m[(Obj)Key(10u)]).val == 111);
-    assert(((BoxI64)m[(Obj)Key(20u)]).val == 222);
+    assert_true(((BoxI64)m[(Obj)Key(10u)]).val == 111);
+    assert_true(((BoxI64)m[(Obj)Key(20u)]).val == 222);
 }
 
 fn test_map_overwrite_same_logical_key() -> unit {
@@ -54,8 +54,8 @@ fn test_map_overwrite_same_logical_key() -> unit {
     m[(Obj)Key(7u)] = BoxI64(1);
     m[(Obj)Key(7u)] = BoxI64(9);
 
-    assert(m.len() == 1u);
-    assert(((BoxI64)m[(Obj)Key(7u)]).val == 9);
+    assert_true(m.len() == 1u);
+    assert_true(((BoxI64)m[(Obj)Key(7u)]).val == 9);
 }
 
 fn test_map_growth_and_probe_chains() -> unit {
@@ -67,13 +67,13 @@ fn test_map_growth_and_probe_chains() -> unit {
         m[key] = BoxU64(idx);
     }
 
-    assert(m.len() == 80u);
+    assert_true(m.len() == 80u);
 
     for verify_i in Range(0, 80) {
         var verify_idx: u64 = (u64)verify_i;
         var verify_key: Obj = (Obj)Key(verify_idx * 17u + 3u);
-        assert(m.contains(verify_key));
-        assert(((BoxU64)m[verify_key]).val == verify_idx);
+        assert_true(m.contains(verify_key));
+        assert_true(((BoxU64)m[verify_key]).val == verify_idx);
     }
 }
 
@@ -83,9 +83,9 @@ fn test_map_index_sugar_write_and_read() -> unit {
     m[(Obj)Key(1u)] = BoxI64(42);
     m[(Obj)Key(2u)] = BoxI64(99);
 
-    assert(((BoxI64)m[(Obj)Key(1u)]).val == 42);
-    assert(((BoxI64)m[(Obj)Key(2u)]).val == 99);
-    assert(m.len() == 2u);
+    assert_true(((BoxI64)m[(Obj)Key(1u)]).val == 42);
+    assert_true(((BoxI64)m[(Obj)Key(2u)]).val == 99);
+    assert_true(m.len() == 2u);
 }
 
 fn test_map_null_key_panics() -> unit {
@@ -107,12 +107,12 @@ fn test_map_str_keys_under_load() -> unit {
         m[(Obj)k] = BoxU64((u64)insert_i * 3u + 1u);
     }
 
-    assert(m.len() == (u64)count);
+    assert_true(m.len() == (u64)count);
 
     for lookup_i in Range(0, count) {
         var lookup: Str = Str.from_i64(lookup_i);
-        assert(m.contains((Obj)lookup));
-        assert(((BoxU64)m[(Obj)lookup]).val == (u64)lookup_i * 3u + 1u);
+        assert_true(m.contains((Obj)lookup));
+        assert_true(((BoxU64)m[(Obj)lookup]).val == (u64)lookup_i * 3u + 1u);
     }
 
     for rewrite_i in Range(0, count) {
@@ -120,14 +120,14 @@ fn test_map_str_keys_under_load() -> unit {
         m[(Obj)rewrite] = BoxU64((u64)rewrite_i + 1000u);
     }
 
-    assert(m.len() == (u64)count);
+    assert_true(m.len() == (u64)count);
 
     for check_i in Range(0, count) {
         var check: Str = Str.from_i64(check_i);
-        assert(((BoxU64)m[(Obj)check]).val == (u64)check_i + 1000u);
+        assert_true(((BoxU64)m[(Obj)check]).val == (u64)check_i + 1000u);
     }
 
-    assert(!m.contains((Obj)"missing"));
+    assert_true(!m.contains((Obj)"missing"));
 }
 
 fn test_map_non_hashable_key_panics() -> unit {

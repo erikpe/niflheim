@@ -33,10 +33,10 @@ fn test_u64_highbit_div_mod_and_comparisons(input: Str[]) -> unit {
     assert_eq_u64(u64_hi / u64_three, 3074457345618258602u);
     assert_eq_u64(u64_hi % u64_three, 2u);
 
-    assert_eq_bool(u64_hi < u64_one, false);
-    assert_eq_bool(u64_hi <= u64_one, false);
-    assert_eq_bool(u64_hi > u64_one, true);
-    assert_eq_bool(u64_hi >= u64_one, true);
+    assert_false(u64_hi < u64_one);
+    assert_false(u64_hi <= u64_one);
+    assert_true(u64_hi > u64_one);
+    assert_true(u64_hi >= u64_one);
 
     assert_eq_u64(u64_max_arg / u64_one_arg, 18446744073709551615u);
     assert_eq_u64(u64_max_arg / u64_billion_arg, 18446744073u);
@@ -51,10 +51,10 @@ fn test_u64_highbit_div_mod_and_comparisons(input: Str[]) -> unit {
     assert_eq_u64(u64_hi_arg / u64_three_arg, 3074457345618258602u);
     assert_eq_u64(u64_hi_arg % u64_three_arg, 2u);
 
-    assert_eq_bool(u64_hi_arg < u64_one_arg, false);
-    assert_eq_bool(u64_hi_arg <= u64_one_arg, false);
-    assert_eq_bool(u64_hi_arg > u64_one_arg, true);
-    assert_eq_bool(u64_hi_arg >= u64_one_arg, true);
+    assert_false(u64_hi_arg < u64_one_arg);
+    assert_false(u64_hi_arg <= u64_one_arg);
+    assert_true(u64_hi_arg > u64_one_arg);
+    assert_true(u64_hi_arg >= u64_one_arg);
 }
 
 // Purpose: verify u8 arithmetic narrows/masks to 8 bits after operations.
@@ -91,11 +91,11 @@ fn test_shift_add_comparison_precedence(input: Str[]) -> unit {
     var five_arg: u64 = input[3].to_u64();
     var shift_arg: u64 = input[4].to_u64();
 
-    assert_eq_bool(a + b << shift == six, true);
-    assert_eq_bool(a + b << shift == five, false);
+    assert_true(a + b << shift == six);
+    assert_false(a + b << shift == five);
 
-    assert_eq_bool(a_arg + b_arg << shift_arg == six_arg, true);
-    assert_eq_bool(a_arg + b_arg << shift_arg == five_arg, false);
+    assert_true(a_arg + b_arg << shift_arg == six_arg);
+    assert_false(a_arg + b_arg << shift_arg == five_arg);
 }
 
 fn main() -> i64 {

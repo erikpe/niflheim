@@ -65,7 +65,7 @@ fn test_null_obj_to_interface_cast_yields_null() -> unit {
     var metric: Metric = (Metric)value;
     var obj: Obj = (Obj)metric;
 
-    assert(obj == null);
+    assert_true(obj == null);
 }
 
 fn test_interface_round_trip_through_obj() -> unit {
@@ -73,7 +73,7 @@ fn test_interface_round_trip_through_obj() -> unit {
     var rebound: Metric = cast_metric((Obj)metric);
 
     assert_eq_u64(rebound.score(), 7u);
-    assert_eq_bool(same_type((Obj)metric, (Obj)rebound), true);
+    assert_true(same_type((Obj)metric, (Obj)rebound));
 }
 
 fn test_interface_storage_and_returns() -> unit {
@@ -94,8 +94,8 @@ fn test_dynamic_type_visible_through_obj() -> unit {
     var b: Metric = Counter(5u);
     var c: Metric = Gauge(1u);
 
-    assert_eq_bool(same_type((Obj)a, (Obj)b), true);
-    assert_eq_bool(same_type((Obj)a, (Obj)c), false);
+    assert_true(same_type((Obj)a, (Obj)b));
+    assert_false(same_type((Obj)a, (Obj)c));
 }
 
 fn main() -> i64 {

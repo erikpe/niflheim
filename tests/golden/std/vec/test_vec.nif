@@ -370,11 +370,11 @@ fn test_vec_filter_calls_predicate_once_per_element() -> unit {
 
     assert_eq_u64(v.len(), 5u);
     assert_eq_u64(out.len(), 3u);
-    assert(((VisitBox)v[0]).seen);
-    assert(((VisitBox)v[1]).seen);
-    assert(((VisitBox)v[2]).seen);
-    assert(((VisitBox)v[3]).seen);
-    assert(((VisitBox)v[4]).seen);
+    assert_true(((VisitBox)v[0]).seen);
+    assert_true(((VisitBox)v[1]).seen);
+    assert_true(((VisitBox)v[2]).seen);
+    assert_true(((VisitBox)v[3]).seen);
+    assert_true(((VisitBox)v[4]).seen);
     assert_eq_i64(((VisitBox)out[0]).value, 1);
     assert_eq_i64(((VisitBox)out[1]).value, 3);
     assert_eq_i64(((VisitBox)out[2]).value, 4);

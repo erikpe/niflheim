@@ -114,7 +114,7 @@ fn test_empty_collection_no_iterations() -> unit {
         touched = true;
     }
 
-    assert_eq_bool(touched, false);
+    assert_false(touched);
     assert_eq_u64(seq.len_calls, 1u);
     assert_eq_u64(seq.get_calls, 0u);
 }

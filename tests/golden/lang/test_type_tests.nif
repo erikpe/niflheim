@@ -21,34 +21,34 @@ class Box {
 fn test_obj_type_tests() -> unit {
     var obj: Obj = Key(7u);
 
-    assert_eq_bool(obj is Key, true);
-    assert_eq_bool(obj is Hashable, true);
-    assert_eq_bool(obj is Box, false);
+    assert_true(obj is Key);
+    assert_true(obj is Hashable);
+    assert_false(obj is Box);
 }
 
 fn test_interface_type_tests() -> unit {
     var hashable: Hashable = Key(9u);
 
-    assert_eq_bool(hashable is Key, true);
-    assert_eq_bool(hashable is Hashable, true);
-    assert_eq_bool(hashable is Box, false);
+    assert_true(hashable is Key);
+    assert_true(hashable is Hashable);
+    assert_false(hashable is Box);
 }
 
 fn test_null_type_tests() -> unit {
     var obj: Obj = null;
     var hashable: Hashable = (Hashable)null;
 
-    assert_eq_bool(obj is Key, false);
-    assert_eq_bool(obj is Hashable, false);
-    assert_eq_bool(hashable is Key, false);
-    assert_eq_bool(hashable is Hashable, false);
+    assert_false(obj is Key);
+    assert_false(obj is Hashable);
+    assert_false(hashable is Key);
+    assert_false(hashable is Hashable);
 }
 
 fn test_exact_type_checks() -> unit {
     var key: Key = Key(11u);
 
-    assert_eq_bool(key is Key, true);
-    assert_eq_bool(key is Hashable, true);
+    assert_true(key is Key);
+    assert_true(key is Hashable);
 }
 
 fn main() -> i64 {

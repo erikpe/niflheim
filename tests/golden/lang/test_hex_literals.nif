@@ -9,7 +9,7 @@ fn main() -> i64 {
   assert_eq_i64(signed_value, 42);
   assert_eq_u64(unsigned_value, 42u);
   assert_eq_u8(byte_value, 255u8);
-  assert_eq_bool(signed_min < 0, true);
+  assert_true(signed_min < 0);
 
   return 0;
 }

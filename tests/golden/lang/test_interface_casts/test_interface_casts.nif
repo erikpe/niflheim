@@ -47,7 +47,7 @@ fn test_interface_to_obj_round_trip() -> unit {
     var rebound: Metric = cast_metric(obj);
 
     assert_eq_u64(rebound.score(), 7u);
-    assert_eq_bool(same_type((Obj)metric, (Obj)rebound), true);
+    assert_true(same_type((Obj)metric, (Obj)rebound));
 }
 
 fn test_interface_to_interface_cast() -> unit {
@@ -68,13 +68,13 @@ fn test_obj_interface_interface_chain() -> unit {
 fn test_null_obj_to_interface_cast() -> unit {
     var value: Obj = null;
     var metric: Metric = (Metric)value;
-    assert((Obj)metric == null);
+    assert_true((Obj)metric == null);
 }
 
 fn test_null_interface_to_interface_cast() -> unit {
     var metric: Metric = (Metric)null;
     var doubler: Doubler = (Doubler)metric;
-    assert((Obj)doubler == null);
+    assert_true((Obj)doubler == null);
 }
 
 fn main() -> i64 {

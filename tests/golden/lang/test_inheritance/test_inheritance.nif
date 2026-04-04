@@ -70,8 +70,8 @@ fn test_subclass_to_base_assignment_and_same_type() -> unit {
 
     assert_eq_u64(take_base(derived), 10u);
     assert_eq_u64(base.score(), 6u);
-    assert_eq_bool(same_type((Obj)derived, (Obj)base), true);
-    assert_eq_bool(same_type((Obj)Base(5u), (Obj)derived), false);
+    assert_true(same_type((Obj)derived, (Obj)base));
+    assert_false(same_type((Obj)Base(5u), (Obj)derived));
 }
 
 fn test_inherited_interface_dispatch_and_cast_chain() -> unit {
@@ -89,9 +89,9 @@ fn test_subtype_aware_type_tests_and_obj_casts() -> unit {
     var as_base: Base = (Base)value;
     var as_derived: Derived = (Derived)value;
 
-    assert_eq_bool(value is Base, true);
-    assert_eq_bool(value is Derived, true);
-    assert_eq_bool(value is Metric, true);
+    assert_true(value is Base);
+    assert_true(value is Derived);
+    assert_true(value is Metric);
     assert_eq_u64(as_base.score(), 5u);
     assert_eq_u64(as_derived.total(), 6u);
 }
@@ -111,7 +111,7 @@ fn test_compatibility_constructor_chaining() -> unit {
     assert_eq_u64(leaf.extra, 8u);
     assert_eq_u64(leaf.marker, 13u);
     assert_eq_u64(leaf.score(), 4u);
-    assert_eq_bool(leaf is Base, true);
+    assert_true(leaf is Base);
 }
 
 fn test_multilevel_inherited_methods_and_interfaces() -> unit {
@@ -126,9 +126,9 @@ fn test_multilevel_inherited_methods_and_interfaces() -> unit {
     assert_eq_u64(metric.score(), 3u);
     assert_eq_u64(as_base.value, 2u);
     assert_eq_u64(as_derived.extra, 5u);
-    assert_eq_bool(leaf is Derived, true);
-    assert_eq_bool(leaf is Metric, true);
-    assert_eq_bool(same_type((Obj)leaf, (Obj)as_base), true);
+    assert_true(leaf is Derived);
+    assert_true(leaf is Metric);
+    assert_true(same_type((Obj)leaf, (Obj)as_base));
 }
 
 fn test_imported_superclass_subtyping_and_inherited_members() -> unit {
@@ -143,9 +143,9 @@ fn test_imported_superclass_subtyping_and_inherited_members() -> unit {
     assert_eq_u64(base.read(), 6u);
     assert_eq_u64(hashable.hash_code(), 106u);
     assert_eq_u64(casted.read(), 6u);
-    assert_eq_bool(derived is util.ImportedBase, true);
-    assert_eq_bool(as_obj is util.ImportedHashable, true);
-    assert_eq_bool(same_type((Obj)derived, (Obj)base), true);
+    assert_true(derived is util.ImportedBase);
+    assert_true(as_obj is util.ImportedHashable);
+    assert_true(same_type((Obj)derived, (Obj)base));
 }
 
 fn main() -> i64 {

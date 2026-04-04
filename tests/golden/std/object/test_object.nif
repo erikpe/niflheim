@@ -9,22 +9,22 @@ import std.box;
 fn test_same_type_str_instances() -> unit {
     var a: Obj = (Obj)"hello";
     var b: Obj = (Obj)Str.from_u8_array("world".to_u8_array());
-    assert(same_type(a, b));
+    assert_true(same_type(a, b));
 }
 
 
 fn test_different_type_str_vs_vec() -> unit {
     var s: Obj = (Obj)"hello";
     var v: Obj = (Obj)Vec.new();
-    assert(!same_type(s, v));
+    assert_true(!same_type(s, v));
 }
 
 
 fn test_null_behavior() -> unit {
     var s: Obj = (Obj)"hello";
-    assert(!same_type(null, s));
-    assert(!same_type(s, null));
-    assert(!same_type(null, null));
+    assert_true(!same_type(null, s));
+    assert_true(!same_type(s, null));
+    assert_true(!same_type(null, null));
 }
 
 
@@ -33,8 +33,8 @@ fn test_array_type_matching() -> unit {
     var a2: u8[] = u8[](1u);
     var r: Obj[] = Obj[](2u);
 
-    assert(same_type((Obj)a1, (Obj)a2));
-    assert(!same_type((Obj)a1, (Obj)r));
+    assert_true(same_type((Obj)a1, (Obj)a2));
+    assert_true(!same_type((Obj)a1, (Obj)r));
 }
 
 
@@ -43,8 +43,8 @@ fn test_box_type_matching() -> unit {
     var i2: Obj = (Obj)BoxI64(2);
     var u: Obj = (Obj)BoxU64(1u);
 
-    assert(same_type(i1, i2));
-    assert(!same_type(i1, u));
+    assert_true(same_type(i1, i2));
+    assert_true(!same_type(i1, u));
 }
 
 
