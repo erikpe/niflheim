@@ -1,7 +1,0 @@
-import std.str;
-
-fn main() -> i64 {
-    var b: StrBuf = StrBuf.new(4u);
-    b[0] = 'A';
-    return 0;
-}
