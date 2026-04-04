@@ -224,7 +224,7 @@ fn main() -> i64 {
     assert "__nif_type_Holder:" in asm
     assert "    .quad __nif_type_name_main__Holder" in asm
     assert "    .quad __nif_type_name_main__Holder__ptr_offsets" in asm
-    assert "    .quad 0\n    .quad 0\n    .long 0\n    .long 0" in asm
+    assert "    .quad 0\n    .quad 0\n    .long 0\n    .long 0\n    .quad 0\n    .long 0\n    .long 0" in asm
 
 def test_emit_asm_emits_inheritance_metadata_with_base_prefix_offsets(tmp_path) -> None:
     source = """
@@ -259,6 +259,44 @@ fn main() -> i64 {
     assert "__nif_type_name_main__Derived__ptr_offsets:\n    .long 24\n    .long 40" in asm
     assert "__nif_interface_methods_main__Derived__main__Hashable:\n    .quad __nif_method_Base_hash_code" in asm
     assert "    .quad __nif_type_main__Base" in asm
+
+
+def test_emit_asm_emits_class_vtable_tables_and_rt_type_links(tmp_path) -> None:
+    source = """
+class Base {
+    fn head() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    override fn head() -> i64 {
+        return 2;
+    }
+
+    fn tail() -> i64 {
+        return 3;
+    }
+}
+
+fn main() -> i64 {
+    var value: Derived = Derived();
+    if value == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "__nif_vtable_main__Base:\n    .quad __nif_method_Base_head" in asm
+    assert (
+        "__nif_vtable_main__Derived:\n    .quad __nif_method_Derived_head\n    .quad __nif_method_Derived_tail"
+        in asm
+    )
+    assert "__nif_type_main__Derived:" in asm
+    assert "    .quad __nif_vtable_main__Derived" in asm
+    assert "    .long 2" in asm
 
 
 def test_emit_asm_obj_to_interface_cast_calls_rt_checked_cast_interface(tmp_path) -> None:

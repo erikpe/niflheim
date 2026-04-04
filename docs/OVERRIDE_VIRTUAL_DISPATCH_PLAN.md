@@ -552,10 +552,10 @@ What to test:
 
 Checklist:
 
-- [ ] extend `RtType` for class vtable metadata
-- [ ] emit per-class vtable tables in codegen metadata
-- [ ] wire vtable pointer/count into type records
-- [ ] update metadata/codegen tests
+- [x] extend `RtType` for class vtable metadata
+- [x] emit per-class vtable tables in codegen metadata
+- [x] wire vtable pointer/count into type records
+- [x] update metadata/codegen tests
 
 ## Slice 6: Emit Virtual Class Calls In Codegen
 

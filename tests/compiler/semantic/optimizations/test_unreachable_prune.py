@@ -68,7 +68,7 @@ def test_semantic_reachability_follows_functions_methods_and_structural_edges(tm
         MethodId(module_path=("main",), class_name="Buffer", name=collection_method_name(CollectionOpKind.ITER_GET))
         in reachability.reachable_methods
     )
-    assert MethodId(module_path=("main",), class_name="Buffer", name="dead") not in reachability.reachable_methods
+    assert MethodId(module_path=("main",), class_name="Buffer", name="dead") in reachability.reachable_methods
 
 
 def test_unreachable_prune_program_drops_dead_functions_and_methods(tmp_path: Path) -> None:
@@ -111,7 +111,7 @@ def test_unreachable_prune_program_drops_dead_functions_and_methods(tmp_path: Pa
 
     assert [fn.function_id.name for fn in module.functions] == ["helper", "main"]
     assert [cls.class_id.name for cls in module.classes] == ["Box"]
-    assert [method.method_id.name for method in module.classes[0].methods] == ["make", "read"]
+    assert [method.method_id.name for method in module.classes[0].methods] == ["make", "read", "dead"]
 
 
 def test_unreachable_prune_removes_dead_duplicate_class_symbols_before_link(tmp_path: Path) -> None:
@@ -420,6 +420,52 @@ def test_unreachable_prune_keeps_superclasses_and_inherited_interface_methods(tm
     assert [cls.class_id.name for cls in module.classes] == ["Base", "Derived"]
     assert [method.method_id.name for method in module.classes[0].methods] == ["hash_code"]
     assert module.classes[1].implemented_interfaces == [InterfaceId(module_path=("main",), name="Hashable")]
+
+
+def test_unreachable_prune_keeps_virtual_methods_for_reachable_classes_without_direct_calls(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+
+            private fn hidden() -> i64 {
+                return 2;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 3;
+            }
+
+            fn tail() -> i64 {
+                return 4;
+            }
+
+            static fn make() -> Derived {
+                return Derived();
+            }
+        }
+
+        fn main() -> i64 {
+            var value: Derived = Derived();
+            if value == null {
+                return 1;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    pruned = unreachable_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    module = pruned.modules[("main",)]
+
+    assert [cls.class_id.name for cls in module.classes] == ["Base", "Derived"]
+    assert [method.method_id.name for method in module.classes[0].methods] == ["head"]
+    assert [method.method_id.name for method in module.classes[1].methods] == ["head", "tail"]
 
 
 def test_unreachable_prune_drops_dead_extern_functions(tmp_path: Path) -> None:

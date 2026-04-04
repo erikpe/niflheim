@@ -47,6 +47,8 @@ class ClassMetadataRecord:
     pointer_offsets: tuple[int, ...]
     interface_impls_symbol: str | None
     interface_impls: tuple[InterfaceImplMetadataRecord, ...]
+    class_vtable_symbol: str | None
+    class_vtable_labels: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -133,6 +135,21 @@ def build_type_metadata(
                     )
                 )
 
+        class_vtable_labels: list[str] = []
+        for virtual_slot in class_hierarchy.effective_virtual_slots(cls.class_id):
+            method_label = declaration_tables.method_label(virtual_slot.selected_method_id)
+            if method_label is None:
+                raise ValueError(
+                    f"Missing method label for virtual slot '{virtual_slot.selected_method_id.class_name}.{virtual_slot.selected_method_id.name}'"
+                )
+            class_vtable_labels.append(method_label)
+
+        class_vtable_symbol = None
+        if class_vtable_labels:
+            class_vtable_symbol = declaration_tables.class_vtable_symbol(cls.class_id)
+            if class_vtable_symbol is None:
+                raise ValueError(f"Missing class vtable symbol for '{qualified_type_name}'")
+
         class_records.append(
             ClassMetadataRecord(
                 class_id=cls.class_id,
@@ -144,6 +161,8 @@ def build_type_metadata(
                 pointer_offsets=pointer_offsets,
                 interface_impls_symbol=interface_impls_symbol,
                 interface_impls=tuple(interface_impls),
+                class_vtable_symbol=class_vtable_symbol,
+                class_vtable_labels=tuple(class_vtable_labels),
             )
         )
 

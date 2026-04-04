@@ -66,6 +66,9 @@ struct RtType {
     const RtInterfaceImpl* interfaces;
     uint32_t interface_count;
     uint32_t reserved1;
+    const void* class_vtable;
+    uint32_t class_vtable_count;
+    uint32_t reserved2;
 };
 
 struct RtRootFrame {

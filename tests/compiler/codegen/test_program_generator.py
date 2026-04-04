@@ -272,7 +272,11 @@ def test_program_generator_builds_type_metadata_before_emission(tmp_path: Path) 
     assert key_metadata.interface_impls_symbol == "__nif_interface_impls_main__Key"
     assert key_metadata.interface_impls[0].method_table_symbol == "__nif_interface_methods_main__Key__main__Hashable"
     assert key_metadata.interface_impls[0].method_labels == ("__nif_method_Key_hash_code",)
+    assert key_metadata.class_vtable_symbol == "__nif_vtable_main__Key"
+    assert key_metadata.class_vtable_labels == ("__nif_method_Key_hash_code",)
     assert person_metadata.aliases == ("Person", "main::Person")
+    assert person_metadata.class_vtable_symbol is None
+    assert person_metadata.class_vtable_labels == ()
     assert metadata.extra_runtime_type_names == ()
     assert hashable_metadata.descriptor_symbol == "__nif_interface_main__Hashable"
     assert hashable_metadata.method_count == 1
@@ -331,3 +335,5 @@ def test_program_generator_uses_effective_layout_and_inherited_interface_methods
     assert derived_metadata.pointer_offsets == (24, 40)
     assert derived_metadata.interface_impls[0].method_table_symbol == "__nif_interface_methods_main__Derived__main__Hashable"
     assert derived_metadata.interface_impls[0].method_labels == ("__nif_method_Derived_hash_code",)
+    assert derived_metadata.class_vtable_symbol == "__nif_vtable_main__Derived"
+    assert derived_metadata.class_vtable_labels == ("__nif_method_Derived_hash_code",)

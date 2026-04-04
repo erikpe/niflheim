@@ -92,6 +92,15 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             codegen.asm.instr(".long 0")
 
     for cls in type_metadata.classes:
+        if cls.class_vtable_symbol is None:
+            continue
+
+        codegen.asm.instr(".p2align 3")
+        codegen.asm.label(cls.class_vtable_symbol)
+        for method_label in cls.class_vtable_labels:
+            codegen.asm.instr(f".quad {method_label}")
+
+    for cls in type_metadata.classes:
         codegen.asm.instr(".p2align 3")
         for alias in cls.aliases:
             codegen.asm.label(codegen_symbols.mangle_type_symbol(alias))
@@ -107,6 +116,8 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
         super_type_sym = cls.superclass_symbol or "0"
         interfaces_sym = cls.interface_impls_symbol or "0"
         interface_count = len(cls.interface_impls)
+        class_vtable_sym = cls.class_vtable_symbol or "0"
+        class_vtable_count = len(cls.class_vtable_labels)
         _emit_rt_type_record(
             codegen,
             flags=type_flags,
@@ -116,6 +127,8 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             super_type_sym=super_type_sym,
             interfaces_sym=interfaces_sym,
             interface_count=interface_count,
+            class_vtable_sym=class_vtable_sym,
+            class_vtable_count=class_vtable_count,
         )
 
     for runtime_type in type_metadata.extra_runtime_types:
@@ -133,6 +146,8 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             super_type_sym="0",
             interfaces_sym="0",
             interface_count=0,
+            class_vtable_sym="0",
+            class_vtable_count=0,
         )
 
 
@@ -152,6 +167,8 @@ def _emit_rt_type_record(
     super_type_sym: str,
     interfaces_sym: str,
     interface_count: int,
+    class_vtable_sym: str,
+    class_vtable_count: int,
 ) -> None:
     codegen.asm.instr(".long 0")
     codegen.asm.instr(f".long {flags}")
@@ -166,6 +183,9 @@ def _emit_rt_type_record(
     codegen.asm.instr(f".quad {super_type_sym}")
     codegen.asm.instr(f".quad {interfaces_sym}")
     codegen.asm.instr(f".long {interface_count}")
+    codegen.asm.instr(".long 0")
+    codegen.asm.instr(f".quad {class_vtable_sym}")
+    codegen.asm.instr(f".long {class_vtable_count}")
     codegen.asm.instr(".long 0")
 
 

@@ -120,7 +120,7 @@ def test_cli_default_codegen_prunes_dead_duplicate_class_symbols_before_link(
     assert out_file.exists()
 
 
-def test_cli_default_codegen_prunes_dead_declarations_from_assembly(
+def test_cli_default_codegen_prunes_dead_declarations_but_keeps_virtual_methods_needed_for_vtables(
     tmp_path: Path, monkeypatch
 ) -> None:
     entry = tmp_path / "main.nif"
@@ -140,6 +140,14 @@ def test_cli_default_codegen_prunes_dead_declarations_from_assembly(
 
             fn dead() -> i64 {
                 return 99;
+            }
+
+            private fn dead_private() -> i64 {
+                return 100;
+            }
+
+            static fn dead_static() -> i64 {
+                return 101;
             }
         }
 
@@ -162,7 +170,9 @@ def test_cli_default_codegen_prunes_dead_declarations_from_assembly(
     asm = out_file.read_text(encoding="utf-8")
 
     assert "dead_helper:" not in asm
-    assert "__nif_method_Box_dead:" not in asm
+    assert "__nif_method_Box_dead:" in asm
+    assert "__nif_method_Box_dead_private:" not in asm
+    assert "__nif_method_Box_dead_static:" not in asm
     assert "helper:" in asm
     assert "__nif_method_Box_make:" in asm
     assert "__nif_method_Box_read:" in asm

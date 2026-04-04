@@ -143,6 +143,10 @@ class _SemanticReachabilityWalker:
         if cls.superclass_id is not None:
             self._enqueue_class(cls.superclass_id)
 
+        for method in cls.methods:
+            if not method.is_static and not method.is_private:
+                self._enqueue_method(method.method_id)
+
         for field in cls.fields:
             self._enqueue_type_ref(cls.class_id.module_path, field.type_ref)
             if field.initializer is not None:
