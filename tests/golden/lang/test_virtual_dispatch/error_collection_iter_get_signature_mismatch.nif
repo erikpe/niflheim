@@ -1,0 +1,30 @@
+class Base {
+    fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    override fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    override fn iter_get(index: u64) -> i64 {
+        return 2;
+    }
+}
+
+fn sum(value: Base) -> i64 {
+    for item in value {
+        return item;
+    }
+    return 0;
+}
+
+fn main() -> unit {
+    return;
+}

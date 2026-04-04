@@ -1,0 +1,348 @@
+import std.io;
+import std.test;
+
+interface Metric {
+    fn score() -> i64;
+}
+
+class DirectBase {
+    fn value() -> i64 {
+        return 1;
+    }
+}
+
+class DirectDerived extends DirectBase {
+    override fn value() -> i64 {
+        return 42;
+    }
+}
+
+class DirectLeaf extends DirectDerived {
+}
+
+class TemplateBase {
+    fn leaf() -> i64 {
+        return 1;
+    }
+
+    fn score() -> i64 {
+        return __self.leaf() + 1;
+    }
+
+    fn stable() -> i64 {
+        return 7;
+    }
+}
+
+class TemplateDerived extends TemplateBase {
+    override fn leaf() -> i64 {
+        return 41;
+    }
+}
+
+class TemplateLeaf extends TemplateDerived {
+}
+
+class InterfaceBase implements Metric {
+    fn score() -> i64 {
+        return 1;
+    }
+}
+
+class InterfaceDerived extends InterfaceBase {
+    override fn score() -> i64 {
+        return 42;
+    }
+}
+
+class InterfaceLeaf extends InterfaceDerived {
+}
+
+class IndexedBase {
+    fn index_get(index: i64) -> i64 {
+        return 1;
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        return;
+    }
+
+    fn via_self_get() -> i64 {
+        return __self[0];
+    }
+
+    fn via_self_set() -> i64 {
+        __self[0] = 6;
+        return __self.read();
+    }
+
+    fn read() -> i64 {
+        return 0;
+    }
+}
+
+class IndexedDerived extends IndexedBase {
+    stored: i64;
+
+    override fn index_get(index: i64) -> i64 {
+        return 42;
+    }
+
+    override fn index_set(index: i64, value: i64) -> unit {
+        __self.stored = value + 10;
+        return;
+    }
+
+    override fn read() -> i64 {
+        return __self.stored;
+    }
+}
+
+class SlicedBase {
+    fn slice_get(begin: i64, end: i64) -> SlicedBase {
+        return SlicedBase();
+    }
+
+    fn via_self_slice_value() -> i64 {
+        return __self[0:1].value();
+    }
+
+    fn value() -> i64 {
+        return 1;
+    }
+}
+
+class SlicedDerived extends SlicedBase {
+    override fn slice_get(begin: i64, end: i64) -> SlicedBase {
+        return SlicedDerived();
+    }
+
+    override fn value() -> i64 {
+        return 42;
+    }
+}
+
+class SliceWriteBase {
+    stored: i64;
+
+    fn slice_set(begin: i64, end: i64, value: SliceWriteBase) -> unit {
+        return;
+    }
+
+    fn via_self_slice_set(value: SliceWriteBase) -> i64 {
+        __self[0:1] = value;
+        return __self.read();
+    }
+
+    fn read() -> i64 {
+        return __self.stored;
+    }
+}
+
+class SliceWriteDerived extends SliceWriteBase {
+    override fn slice_set(begin: i64, end: i64, value: SliceWriteBase) -> unit {
+        __self.stored = value.read() + 10;
+        return;
+    }
+}
+
+class IterBase {
+    fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return 1;
+    }
+
+    fn via_self_sum() -> i64 {
+        var total: i64 = 0;
+        for item in __self {
+            total = total + item;
+        }
+        return total;
+    }
+}
+
+class IterDerived extends IterBase {
+    override fn iter_get(index: i64) -> i64 {
+        return 42;
+    }
+}
+
+class IterWideDerived extends IterBase {
+    override fn iter_len() -> u64 {
+        return 2u;
+    }
+
+    override fn iter_get(index: i64) -> i64 {
+        return (index * 2) + 20;
+    }
+}
+
+fn read_direct(value: DirectBase) -> i64 {
+    return value.value();
+}
+
+fn read_template(value: TemplateBase) -> i64 {
+    return value.score();
+}
+
+fn read_stable(value: TemplateBase) -> i64 {
+    return value.stable();
+}
+
+fn measure_metric(value: Metric) -> i64 {
+    return value.score();
+}
+
+fn read_indexed(value: IndexedBase) -> i64 {
+    return value[0];
+}
+
+fn write_indexed(value: IndexedBase) -> i64 {
+    value[0] = 5;
+    return value.read();
+}
+
+fn read_indexed_via_base_method(value: IndexedBase) -> i64 {
+    return value.via_self_get();
+}
+
+fn write_indexed_via_base_method(value: IndexedBase) -> i64 {
+    return value.via_self_set();
+}
+
+fn read_slice_value(value: SlicedBase) -> i64 {
+    return value[0:1].value();
+}
+
+fn read_slice_value_via_base_method(value: SlicedBase) -> i64 {
+    return value.via_self_slice_value();
+}
+
+fn write_slice_value(value: SliceWriteBase, replacement: SliceWriteBase) -> i64 {
+    value[0:1] = replacement;
+    return value.read();
+}
+
+fn write_slice_value_via_base_method(value: SliceWriteBase, replacement: SliceWriteBase) -> i64 {
+    return value.via_self_slice_set(replacement);
+}
+
+fn read_iter_value(value: IterBase) -> i64 {
+    for item in value {
+        return item;
+    }
+    return 0;
+}
+
+fn sum_iter_values(value: IterBase) -> i64 {
+    var total: i64 = 0;
+    for item in value {
+        total = total + item;
+    }
+    return total;
+}
+
+fn sum_iter_values_via_base_method(value: IterBase) -> i64 {
+    return value.via_self_sum();
+}
+
+fn test_base_typed_receiver_dispatches_to_override() -> unit {
+    assert_eq_i64(read_direct(DirectDerived()), 42);
+}
+
+fn test_base_method_via_self_hits_override() -> unit {
+    assert_eq_i64(read_template(TemplateDerived()), 42);
+}
+
+fn test_inherited_non_overridden_method_stays_base_impl() -> unit {
+    assert_eq_i64(read_stable(TemplateDerived()), 7);
+}
+
+fn test_override_updates_interface_dispatch() -> unit {
+    assert_eq_i64(measure_metric(InterfaceDerived()), 42);
+}
+
+fn test_inherited_override_stays_effective_across_deeper_class_chain() -> unit {
+    assert_eq_i64(read_direct(DirectLeaf()), 42);
+    assert_eq_i64(read_template(TemplateLeaf()), 42);
+}
+
+fn test_inherited_override_stays_effective_across_deeper_interface_chain() -> unit {
+    assert_eq_i64(measure_metric(InterfaceLeaf()), 42);
+}
+
+fn test_structural_index_get_dispatches_to_override() -> unit {
+    assert_eq_i64(read_indexed(IndexedDerived(0)), 42);
+}
+
+fn test_structural_index_get_via_self_dispatches_to_override() -> unit {
+    assert_eq_i64(read_indexed_via_base_method(IndexedDerived(0)), 42);
+}
+
+fn test_structural_index_set_dispatches_to_override() -> unit {
+    assert_eq_i64(write_indexed(IndexedDerived(0)), 15);
+}
+
+fn test_structural_index_set_via_self_dispatches_to_override() -> unit {
+    assert_eq_i64(write_indexed_via_base_method(IndexedDerived(0)), 16);
+}
+
+fn test_structural_slice_get_dispatches_to_override() -> unit {
+    assert_eq_i64(read_slice_value(SlicedDerived()), 42);
+}
+
+fn test_structural_slice_get_via_self_dispatches_to_override() -> unit {
+    assert_eq_i64(read_slice_value_via_base_method(SlicedDerived()), 42);
+}
+
+fn test_structural_slice_set_dispatches_to_override() -> unit {
+    assert_eq_i64(write_slice_value(SliceWriteDerived(0), SliceWriteDerived(32)), 42);
+}
+
+fn test_structural_slice_set_via_self_dispatches_to_override() -> unit {
+    assert_eq_i64(write_slice_value_via_base_method(SliceWriteDerived(0), SliceWriteDerived(32)), 42);
+}
+
+fn test_structural_for_in_dispatches_to_override() -> unit {
+    assert_eq_i64(read_iter_value(IterDerived()), 42);
+}
+
+fn test_structural_for_in_dispatches_iter_len_and_iter_get_overrides() -> unit {
+    assert_eq_i64(sum_iter_values(IterWideDerived()), 42);
+}
+
+fn test_structural_for_in_via_self_dispatches_to_override() -> unit {
+    assert_eq_i64(sum_iter_values_via_base_method(IterWideDerived()), 42);
+}
+
+fn main() -> i64 {
+    var select: u64 = read_program_args()[1].to_u64();
+
+    if select == 1u { test_base_typed_receiver_dispatches_to_override(); return 0; }
+    if select == 2u { test_base_method_via_self_hits_override(); return 0; }
+    if select == 3u { test_inherited_non_overridden_method_stays_base_impl(); return 0; }
+    if select == 4u { test_override_updates_interface_dispatch(); return 0; }
+    if select == 5u { test_inherited_override_stays_effective_across_deeper_class_chain(); return 0; }
+    if select == 6u { test_inherited_override_stays_effective_across_deeper_interface_chain(); return 0; }
+    if select == 7u { test_structural_index_get_dispatches_to_override(); return 0; }
+    if select == 8u { test_structural_index_get_via_self_dispatches_to_override(); return 0; }
+    if select == 9u { test_structural_index_set_dispatches_to_override(); return 0; }
+    if select == 10u { test_structural_index_set_via_self_dispatches_to_override(); return 0; }
+    if select == 11u { test_structural_slice_get_dispatches_to_override(); return 0; }
+    if select == 12u { test_structural_slice_get_via_self_dispatches_to_override(); return 0; }
+    if select == 13u { test_structural_slice_set_dispatches_to_override(); return 0; }
+    if select == 14u { test_structural_slice_set_via_self_dispatches_to_override(); return 0; }
+    if select == 15u { test_structural_for_in_dispatches_to_override(); return 0; }
+    if select == 16u { test_structural_for_in_dispatches_iter_len_and_iter_get_overrides(); return 0; }
+    if select == 17u { test_structural_for_in_via_self_dispatches_to_override(); return 0; }
+    if select == 18u {
+        var value: DirectBase = null;
+        return value.value();
+    }
+
+    fail("Invalid test selection.");
+    return 1;
+}

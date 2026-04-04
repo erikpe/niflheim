@@ -1,0 +1,20 @@
+class Base {
+    fn index_set(index: i64, value: i64) -> unit {
+        return;
+    }
+}
+
+class Derived extends Base {
+    override fn index_set(index: i64, value: i64) -> i64 {
+        return value;
+    }
+}
+
+fn write(value: Base) -> unit {
+    value[0] = 1;
+    return;
+}
+
+fn main() -> unit {
+    return;
+}

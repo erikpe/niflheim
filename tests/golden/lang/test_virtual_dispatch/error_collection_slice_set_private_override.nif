@@ -1,0 +1,20 @@
+class Base {
+    fn slice_set(begin: i64, end: i64, value: Base) -> unit {
+        return;
+    }
+}
+
+class Derived extends Base {
+    private override fn slice_set(begin: i64, end: i64, value: Base) -> unit {
+        return;
+    }
+}
+
+fn write(value: Base) -> unit {
+    value[0:1] = Base();
+    return;
+}
+
+fn main() -> unit {
+    return;
+}

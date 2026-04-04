@@ -1,0 +1,20 @@
+class Base {
+    fn slice_get(begin: i64, end: i64) -> Base {
+        return Base();
+    }
+}
+
+class Derived extends Base {
+    fn slice_get(begin: i64, end: i64) -> Base {
+        return Derived();
+    }
+}
+
+fn read(value: Base) -> unit {
+    var part: Base = value[0:1];
+    return;
+}
+
+fn main() -> unit {
+    return;
+}

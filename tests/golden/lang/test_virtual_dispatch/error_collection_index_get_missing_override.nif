@@ -1,0 +1,19 @@
+class Base {
+    fn index_get(index: i64) -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    fn index_get(index: i64) -> i64 {
+        return 2;
+    }
+}
+
+fn read(value: Base) -> i64 {
+    return value[0];
+}
+
+fn main() -> unit {
+    return;
+}

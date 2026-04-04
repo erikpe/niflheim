@@ -1,0 +1,15 @@
+class Base {
+    fn value(x: i64) -> i64 {
+        return x;
+    }
+}
+
+class Derived extends Base {
+    override fn value(x: u64) -> i64 {
+        return 2;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
