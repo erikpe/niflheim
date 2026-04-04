@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 import std.object;
 
@@ -17,78 +18,47 @@ class Box {
     value: u64;
 }
 
-fn test_obj_type_tests() -> i64 {
+fn test_obj_type_tests() -> unit {
     var obj: Obj = Key(7u);
 
-    if !(obj is Key) {
-        return 1;
-    }
-    if !(obj is Hashable) {
-        return 2;
-    }
-    if obj is Box {
-        return 3;
-    }
-
-    return 0;
+    assert_eq_bool(obj is Key, true);
+    assert_eq_bool(obj is Hashable, true);
+    assert_eq_bool(obj is Box, false);
 }
 
-fn test_interface_type_tests() -> i64 {
+fn test_interface_type_tests() -> unit {
     var hashable: Hashable = Key(9u);
 
-    if !(hashable is Key) {
-        return 4;
-    }
-    if !(hashable is Hashable) {
-        return 5;
-    }
-    if hashable is Box {
-        return 6;
-    }
-
-    return 0;
+    assert_eq_bool(hashable is Key, true);
+    assert_eq_bool(hashable is Hashable, true);
+    assert_eq_bool(hashable is Box, false);
 }
 
-fn test_null_type_tests() -> i64 {
+fn test_null_type_tests() -> unit {
     var obj: Obj = null;
     var hashable: Hashable = (Hashable)null;
 
-    if obj is Key {
-        return 7;
-    }
-    if obj is Hashable {
-        return 8;
-    }
-    if hashable is Key {
-        return 9;
-    }
-    if hashable is Hashable {
-        return 10;
-    }
-
-    return 0;
+    assert_eq_bool(obj is Key, false);
+    assert_eq_bool(obj is Hashable, false);
+    assert_eq_bool(hashable is Key, false);
+    assert_eq_bool(hashable is Hashable, false);
 }
 
-fn test_exact_type_checks() -> i64 {
+fn test_exact_type_checks() -> unit {
     var key: Key = Key(11u);
 
-    if !(key is Key) {
-        return 11;
-    }
-    if !(key is Hashable) {
-        return 12;
-    }
-
-    return 0;
+    assert_eq_bool(key is Key, true);
+    assert_eq_bool(key is Hashable, true);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { return test_obj_type_tests(); }
-    if select == 2u { return test_interface_type_tests(); }
-    if select == 3u { return test_null_type_tests(); }
-    if select == 4u { return test_exact_type_checks(); }
+    if select == 1u { test_obj_type_tests(); return 0; }
+    if select == 2u { test_interface_type_tests(); return 0; }
+    if select == 3u { test_null_type_tests(); return 0; }
+    if select == 4u { test_exact_type_checks(); return 0; }
 
-    return 13;
+    fail("Invalid test selection.");
+    return 1;
 }

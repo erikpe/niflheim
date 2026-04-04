@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 
 class Point {
@@ -24,54 +25,52 @@ class WithCastDefaults {
     b: bool = !false;
 }
 
-fn test_defaults_applied() -> i64 {
+fn test_defaults_applied() -> unit {
     var p: Point = Point(7);
-    if p.x != 7 { return 1; }
-    if p.y != 10 { return 2; }
-    if p.z != -3 { return 3; }
-    return 0;
+    assert_eq_i64(p.x, 7);
+    assert_eq_i64(p.y, 10);
+    assert_eq_i64(p.z, -3);
 }
 
-fn test_only_required_ctor_args() -> i64 {
+fn test_only_required_ctor_args() -> unit {
     var m: Mixed = Mixed(4, 9u);
-    if m.a != 4 { return 4; }
-    if m.b { return 5; }
-    if m.c != 9u { return 6; }
-    if m.d != 3u8 { return 7; }
-    return 0;
+    assert_eq_i64(m.a, 4);
+    assert_eq_bool(m.b, false);
+    assert_eq_u64(m.c, 9u);
+    assert_eq_u8(m.d, 3u8);
 }
 
-fn test_multiple_instances_keep_defaults() -> i64 {
+fn test_multiple_instances_keep_defaults() -> unit {
     var p1: Point = Point(1);
     var p2: Point = Point(2);
-    if p1.y != 10 || p2.y != 10 { return 8; }
-    if p1.z != -3 || p2.z != -3 { return 9; }
-    return 0;
+    assert_eq_i64(p1.y, 10);
+    assert_eq_i64(p2.y, 10);
+    assert_eq_i64(p1.z, -3);
+    assert_eq_i64(p2.z, -3);
 }
 
-fn test_bool_defaults() -> i64 {
+fn test_bool_defaults() -> unit {
     var f: Flags = Flags();
-    if !f.on { return 10; }
-    if f.off { return 11; }
-    return 0;
+    assert_eq_bool(f.on, true);
+    assert_eq_bool(f.off, false);
 }
 
-fn test_cast_and_expression_defaults() -> i64 {
+fn test_cast_and_expression_defaults() -> unit {
     var w: WithCastDefaults = WithCastDefaults();
-    if w.u != 3u { return 12; }
-    if w.i != -5 { return 13; }
-    if !w.b { return 14; }
-    return 0;
+    assert_eq_u64(w.u, 3u);
+    assert_eq_i64(w.i, -5);
+    assert_eq_bool(w.b, true);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { return test_defaults_applied(); }
-    if select == 2u { return test_only_required_ctor_args(); }
-    if select == 3u { return test_multiple_instances_keep_defaults(); }
-    if select == 4u { return test_bool_defaults(); }
-    if select == 5u { return test_cast_and_expression_defaults(); }
+    if select == 1u { test_defaults_applied(); return 0; }
+    if select == 2u { test_only_required_ctor_args(); return 0; }
+    if select == 3u { test_multiple_instances_keep_defaults(); return 0; }
+    if select == 4u { test_bool_defaults(); return 0; }
+    if select == 5u { test_cast_and_expression_defaults(); return 0; }
 
-    return 15;
+    fail("Invalid test selection.");
+    return 1;
 }

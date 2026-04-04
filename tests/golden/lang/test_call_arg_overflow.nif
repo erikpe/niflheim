@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 
 fn sum3(a: i64, b: i64, c: i64) -> i64 {
@@ -118,42 +119,27 @@ fn mega30(
         ((i64)d9 * 28) + ((i64)i9 * 29) + (r9.value * 30);
 }
 
-fn test_normal_case() -> i64 {
-    if sum3(10, 20, 30) != 60 {
-        return 11;
-    }
-    return 0;
+fn test_normal_case() -> unit {
+    assert_eq_i64(sum3(10, 20, 30), 60);
 }
 
-fn test_int_edge_six_registers() -> i64 {
-    if sum6(-5, 7, 9, -11, 13, 17) != 30 {
-        return 12;
-    }
-    return 0;
+fn test_int_edge_six_registers() -> unit {
+    assert_eq_i64(sum6(-5, 7, 9, -11, 13, 17), 30);
 }
 
-fn test_int_overflow_seven() -> i64 {
-    if order7(1, 2, 3, 4, 5, 6, 7) != 1234567 {
-        return 13;
-    }
-    return 0;
+fn test_int_overflow_seven() -> unit {
+    assert_eq_i64(order7(1, 2, 3, 4, 5, 6, 7), 1234567);
 }
 
-fn test_double_edge_eight_registers() -> i64 {
-    if weighted8d(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0) != 255 {
-        return 14;
-    }
-    return 0;
+fn test_double_edge_eight_registers() -> unit {
+    assert_eq_i64(weighted8d(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0), 255);
 }
 
-fn test_double_overflow_nine() -> i64 {
-    if weighted9d(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0) != 511 {
-        return 15;
-    }
-    return 0;
+fn test_double_overflow_nine() -> unit {
+    assert_eq_i64(weighted9d(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0), 511);
 }
 
-fn test_extreme_mixed_overflow() -> i64 {
+fn test_extreme_mixed_overflow() -> unit {
     var got: i64 = mixed_extreme(
         1,
         2,
@@ -173,29 +159,20 @@ fn test_extreme_mixed_overflow() -> i64 {
         1.0
     );
 
-    if got != 5117654321 {
-        return 16;
-    }
-    return 0;
+    assert_eq_i64(got, 5117654321);
 }
 
-fn test_indirect_call_with_stack_args() -> i64 {
+fn test_indirect_call_with_stack_args() -> unit {
     var f: fn(i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64 = nine_sum;
-    if f(1, 2, 3, 4, 5, 6, 7, 8, 9) != 45 {
-        return 17;
-    }
-    return 0;
+    assert_eq_i64(f(1, 2, 3, 4, 5, 6, 7, 8, 9), 45);
 }
 
-fn test_method_call_with_stack_args() -> i64 {
+fn test_method_call_with_stack_args() -> unit {
     var a: Acc = Acc();
-    if a.nine_sum(1, 2, 3, 4, 5, 6, 7, 8, 9) != 45 {
-        return 18;
-    }
-    return 0;
+    assert_eq_i64(a.nine_sum(1, 2, 3, 4, 5, 6, 7, 8, 9), 45);
 }
 
-fn test_reference_overflow_args() -> i64 {
+fn test_reference_overflow_args() -> unit {
     var r1: RefBox = RefBox(1);
     var r2: RefBox = RefBox(2);
     var r3: RefBox = RefBox(3);
@@ -204,26 +181,20 @@ fn test_reference_overflow_args() -> i64 {
     var r6: RefBox = RefBox(6);
     var r7: RefBox = RefBox(7);
 
-    if ref_order7(r1, r2, r3, r4, r5, r6, r7) != 7654321 {
-        return 20;
-    }
-    return 0;
+    assert_eq_i64(ref_order7(r1, r2, r3, r4, r5, r6, r7), 7654321);
 }
 
-fn test_reference_and_int_overflow_args() -> i64 {
+fn test_reference_and_int_overflow_args() -> unit {
     var r1: RefBox = RefBox(1);
     var r2: RefBox = RefBox(2);
     var r3: RefBox = RefBox(3);
     var r4: RefBox = RefBox(4);
     var r5: RefBox = RefBox(5);
 
-    if ref_int_mix(r1, 6, r2, 7, r3, 8, r4, 9, r5) != 594837261 {
-        return 21;
-    }
-    return 0;
+    assert_eq_i64(ref_int_mix(r1, 6, r2, 7, r3, 8, r4, 9, r5), 594837261);
 }
 
-fn test_thirty_args_mixed_order() -> i64 {
+fn test_thirty_args_mixed_order() -> unit {
     var r0: RefBox = RefBox(101);
     var r1: RefBox = RefBox(102);
     var r2: RefBox = RefBox(103);
@@ -248,26 +219,24 @@ fn test_thirty_args_mixed_order() -> i64 {
         310.0, 210, r9
     );
 
-    if got != 96500 {
-        return 22;
-    }
-    return 0;
+    assert_eq_i64(got, 96500);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { return test_normal_case(); }
-    if select == 2u { return test_int_edge_six_registers(); }
-    if select == 3u { return test_int_overflow_seven(); }
-    if select == 4u { return test_double_edge_eight_registers(); }
-    if select == 5u { return test_double_overflow_nine(); }
-    if select == 6u { return test_extreme_mixed_overflow(); }
-    if select == 7u { return test_indirect_call_with_stack_args(); }
-    if select == 8u { return test_method_call_with_stack_args(); }
-    if select == 9u { return test_reference_overflow_args(); }
-    if select == 10u { return test_reference_and_int_overflow_args(); }
-    if select == 11u { return test_thirty_args_mixed_order(); }
+    if select == 1u { test_normal_case(); return 0; }
+    if select == 2u { test_int_edge_six_registers(); return 0; }
+    if select == 3u { test_int_overflow_seven(); return 0; }
+    if select == 4u { test_double_edge_eight_registers(); return 0; }
+    if select == 5u { test_double_overflow_nine(); return 0; }
+    if select == 6u { test_extreme_mixed_overflow(); return 0; }
+    if select == 7u { test_indirect_call_with_stack_args(); return 0; }
+    if select == 8u { test_method_call_with_stack_args(); return 0; }
+    if select == 9u { test_reference_overflow_args(); return 0; }
+    if select == 10u { test_reference_and_int_overflow_args(); return 0; }
+    if select == 11u { test_thirty_args_mixed_order(); return 0; }
 
-    return 23;
+    fail("Invalid test selection.");
+    return 1;
 }

@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 import std.object;
 
@@ -24,88 +25,55 @@ class Key implements Hashable, Equalable {
     }
 }
 
-fn test_reference_obj_identity() -> i64 {
+fn test_reference_obj_identity() -> unit {
     var key: Key = Key(7u);
     var alias: Obj = key;
     var other: Obj = Key(7u);
 
-    if !(key == alias) {
-        return 1;
-    }
-    if !(alias == key) {
-        return 2;
-    }
-    if key != alias {
-        return 3;
-    }
-    if key == other {
-        return 4;
-    }
-
-    return 0;
+    assert_eq_bool(key == alias, true);
+    assert_eq_bool(alias == key, true);
+    assert_eq_bool(key != alias, false);
+    assert_eq_bool(key == other, false);
 }
 
-fn test_reference_interface_identity() -> i64 {
+fn test_reference_interface_identity() -> unit {
     var key: Key = Key(8u);
     var hashable: Hashable = key;
     var other_hashable: Hashable = Key(8u);
 
-    if !(key == hashable) {
-        return 5;
-    }
-    if !(hashable == key) {
-        return 6;
-    }
-    if hashable == other_hashable {
-        return 7;
-    }
-
-    return 0;
+    assert_eq_bool(key == hashable, true);
+    assert_eq_bool(hashable == key, true);
+    assert_eq_bool(hashable == other_hashable, false);
 }
 
-fn test_interface_interface_identity() -> i64 {
+fn test_interface_interface_identity() -> unit {
     var key: Key = Key(9u);
     var hashable: Hashable = key;
     var equalable: Equalable = key;
     var other_equalable: Equalable = Key(9u);
 
-    if !(hashable == equalable) {
-        return 8;
-    }
-    if hashable != equalable {
-        return 9;
-    }
-    if hashable == other_equalable {
-        return 10;
-    }
-
-    return 0;
+    assert_eq_bool(hashable == equalable, true);
+    assert_eq_bool(hashable != equalable, false);
+    assert_eq_bool(hashable == other_equalable, false);
 }
 
-fn test_obj_interface_null_identity() -> i64 {
+fn test_obj_interface_null_identity() -> unit {
     var hashable: Hashable = (Hashable)null;
     var obj: Obj = null;
 
-    if !(hashable == obj) {
-        return 11;
-    }
-    if !(obj == hashable) {
-        return 12;
-    }
-    if hashable != null {
-        return 13;
-    }
-
-    return 0;
+    assert_eq_bool(hashable == obj, true);
+    assert_eq_bool(obj == hashable, true);
+    assert_eq_bool(hashable != null, false);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { return test_reference_obj_identity(); }
-    if select == 2u { return test_reference_interface_identity(); }
-    if select == 3u { return test_interface_interface_identity(); }
-    if select == 4u { return test_obj_interface_null_identity(); }
+    if select == 1u { test_reference_obj_identity(); return 0; }
+    if select == 2u { test_reference_interface_identity(); return 0; }
+    if select == 3u { test_interface_interface_identity(); return 0; }
+    if select == 4u { test_obj_interface_null_identity(); return 0; }
 
-    return 14;
+    fail("Invalid test selection.");
+    return 1;
 }

@@ -740,5 +740,6 @@ fn main() -> i64 {
     if select == 42u { test_double_to_u8_panic_negative_from_var(); return 0; }
     if select == 43u { test_double_to_u8_panic_above_max_from_var(); return 0; }
 
-    return 99;
+    fail("Invalid test selection.");
+    return 1;
 }

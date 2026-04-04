@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 import std.object;
 
@@ -46,54 +47,36 @@ fn cast_metric(value: Obj) -> Metric {
     return (Metric)value;
 }
 
-fn test_basic_dispatch() -> i64 {
-    if measure(Counter(41u)) != 42u {
-        return 1;
-    }
-    return 0;
+fn test_basic_dispatch() -> unit {
+    assert_eq_u64(measure(Counter(41u)), 42u);
 }
 
-fn test_successful_obj_and_interface_casts() -> i64 {
+fn test_successful_obj_and_interface_casts() -> unit {
     var value: Obj = Counter(9u);
     var metric: Metric = (Metric)value;
-    if metric.score() != 10u {
-        return 2;
-    }
+    assert_eq_u64(metric.score(), 10u);
 
     var doubler: Doubler = (Doubler)metric;
-    if doubler.twice() != 18u {
-        return 3;
-    }
-
-    return 0;
+    assert_eq_u64(doubler.twice(), 18u);
 }
 
-fn test_null_obj_to_interface_cast_yields_null() -> i64 {
+fn test_null_obj_to_interface_cast_yields_null() -> unit {
     var value: Obj = null;
     var metric: Metric = (Metric)value;
     var obj: Obj = (Obj)metric;
 
-    if obj != null {
-        return 4;
-    }
-    return 0;
+    assert(obj == null);
 }
 
-fn test_interface_round_trip_through_obj() -> i64 {
+fn test_interface_round_trip_through_obj() -> unit {
     var metric: Metric = Counter(6u);
     var rebound: Metric = cast_metric((Obj)metric);
 
-    if rebound.score() != 7u {
-        return 5;
-    }
-    if !same_type((Obj)metric, (Obj)rebound) {
-        return 6;
-    }
-
-    return 0;
+    assert_eq_u64(rebound.score(), 7u);
+    assert_eq_bool(same_type((Obj)metric, (Obj)rebound), true);
 }
 
-fn test_interface_storage_and_returns() -> i64 {
+fn test_interface_storage_and_returns() -> unit {
     var values: Metric[] = Metric[](2u);
     values[0] = Counter(2u);
     values[1] = Gauge(5u);
@@ -101,43 +84,30 @@ fn test_interface_storage_and_returns() -> i64 {
     var holder: Holder = Holder(Counter(9u), values);
     var bounced: Metric = bounce_metric(holder.primary);
 
-    if bounced.score() != 10u {
-        return 7;
-    }
-    if holder.values[0].score() != 3u {
-        return 8;
-    }
-    if holder.values[1].score() != 15u {
-        return 9;
-    }
-
-    return 0;
+    assert_eq_u64(bounced.score(), 10u);
+    assert_eq_u64(holder.values[0].score(), 3u);
+    assert_eq_u64(holder.values[1].score(), 15u);
 }
 
-fn test_dynamic_type_visible_through_obj() -> i64 {
+fn test_dynamic_type_visible_through_obj() -> unit {
     var a: Metric = Counter(1u);
     var b: Metric = Counter(5u);
     var c: Metric = Gauge(1u);
 
-    if !same_type((Obj)a, (Obj)b) {
-        return 10;
-    }
-    if same_type((Obj)a, (Obj)c) {
-        return 11;
-    }
-
-    return 0;
+    assert_eq_bool(same_type((Obj)a, (Obj)b), true);
+    assert_eq_bool(same_type((Obj)a, (Obj)c), false);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { return test_basic_dispatch(); }
-    if select == 2u { return test_successful_obj_and_interface_casts(); }
-    if select == 3u { return test_null_obj_to_interface_cast_yields_null(); }
-    if select == 4u { return test_interface_round_trip_through_obj(); }
-    if select == 5u { return test_interface_storage_and_returns(); }
-    if select == 6u { return test_dynamic_type_visible_through_obj(); }
+    if select == 1u { test_basic_dispatch(); return 0; }
+    if select == 2u { test_successful_obj_and_interface_casts(); return 0; }
+    if select == 3u { test_null_obj_to_interface_cast_yields_null(); return 0; }
+    if select == 4u { test_interface_round_trip_through_obj(); return 0; }
+    if select == 5u { test_interface_storage_and_returns(); return 0; }
+    if select == 6u { test_dynamic_type_visible_through_obj(); return 0; }
 
-    return 12;
+    fail("Invalid test selection.");
+    return 1;
 }

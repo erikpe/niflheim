@@ -3,7 +3,7 @@ tests:
     name: "test_type_tests"
     src_file: "test_type_tests.nif"
     runs:
-      - {name: "obj_type_tests", input: {stdin: "1"}, expect: {exit_code: 0}}
-      - {name: "interface_type_tests", input: {stdin: "2"}, expect: {exit_code: 0}}
-      - {name: "null_type_tests", input: {stdin: "3"}, expect: {exit_code: 0}}
-      - {name: "exact_type_checks", input: {stdin: "4"}, expect: {exit_code: 0}}
+      - {name: "obj_type_tests", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "interface_type_tests", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - {name: "null_type_tests", input: {args: ["3"]}, expect: {exit_code: 0}}
+      - {name: "exact_type_checks", input: {args: ["4"]}, expect: {exit_code: 0}}
