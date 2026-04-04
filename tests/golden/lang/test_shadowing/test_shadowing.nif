@@ -1,5 +1,6 @@
 import std.test;
 import std.io;
+import std.str;
 import tests.golden.lang.test_shadowing.util;
 
 fn choose(flag: bool) -> i64 {
@@ -20,15 +21,17 @@ fn twice(v: i64) -> i64 {
 fn test_nested_block_shadowing() -> unit {
     var value: i64 = 10;
     var total: i64 = 1;
+    var inner_value: i64 = 0;
 
     {
         var value: i64 = 20;
         total = total + value;
-        println_i64(value);
+        inner_value = value;
     }
 
-    println_i64(value);
-    println_i64(total);
+    assert_eq_i64(inner_value, 20);
+    assert_eq_i64(value, 10);
+    assert_eq_i64(total, 21);
 }
 
 fn test_for_in_shadowing_preserves_outer_local() -> unit {
@@ -43,45 +46,50 @@ fn test_for_in_shadowing_preserves_outer_local() -> unit {
         seen = seen + value;
     }
 
-    println_i64(value);
-    println_i64(seen);
+    assert_eq_i64(value, 99);
+    assert_eq_i64(seen, 15);
 }
 
 fn test_param_shadowing_and_outer_restore(seed: i64) -> unit {
+    var original_seed: i64 = seed;
     var sum: i64 = seed;
+    var inner_seed: i64 = 0;
 
     {
         var seed: i64 = 7;
         sum = sum + seed;
-        println_i64(seed);
+        inner_seed = seed;
     }
 
-    println_i64(seed);
-    println_i64(sum);
+    assert_eq_i64(inner_seed, 7);
+    assert_eq_i64(seed, original_seed);
+    assert_eq_i64(sum, original_seed + 7);
 }
 
 fn test_top_level_body_shadow_uses_param_initializer(seed: i64) -> unit {
-    var seed: i64 = seed + 10;
-    println_i64(seed);
+    var expected: i64 = seed + 10;
+    var seed: i64 = expected;
+    assert_eq_i64(seed, expected);
 }
 
 fn test_direct_call_prefers_local_callable_shadow() -> unit {
     var choose: fn(i64) -> i64 = inc;
-    println_i64(choose(41));
+    assert_eq_i64(choose(41), 42);
 }
 
 fn test_direct_call_prefers_local_callable_over_imported_constructor() -> unit {
     var Counter: fn(i64) -> i64 = twice;
-    println_i64(Counter(21));
+    assert_eq_i64(Counter(21), 42);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_program_args()[1].to_u64();
+    var args: Str[] = read_program_args();
+    var select: u64 = args[1].to_u64();
 
     if select == 1u { test_nested_block_shadowing(); return 0; }
     if select == 2u { test_for_in_shadowing_preserves_outer_local(); return 0; }
-    if select == 3u { test_param_shadowing_and_outer_restore(5); return 0; }
-    if select == 4u { test_top_level_body_shadow_uses_param_initializer(5); return 0; }
+    if select == 3u { test_param_shadowing_and_outer_restore(args[2].to_i64()); return 0; }
+    if select == 4u { test_top_level_body_shadow_uses_param_initializer(args[2].to_i64()); return 0; }
     if select == 5u { test_direct_call_prefers_local_callable_shadow(); return 0; }
     if select == 6u { test_direct_call_prefers_local_callable_over_imported_constructor(); return 0; }
 
