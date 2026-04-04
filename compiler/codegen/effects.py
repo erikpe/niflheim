@@ -54,7 +54,7 @@ def _call_target_may_execute_gc(target: SemanticCallTarget) -> bool:
         if target.function_id.name.startswith("rt_"):
             return runtime_call_metadata(target.function_id.name).may_gc
         return True
-    if isinstance(target, (StaticMethodCallTarget, InstanceMethodCallTarget, InterfaceMethodCallTarget)):
+    if isinstance(target, (StaticMethodCallTarget, InstanceMethodCallTarget, VirtualMethodCallTarget, InterfaceMethodCallTarget)):
         return True
     if isinstance(target, (ConstructorCallTarget, ConstructorInitCallTarget)):
         return True

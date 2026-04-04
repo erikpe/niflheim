@@ -370,8 +370,10 @@ def test_lower_program_tracks_superclass_ids_and_inherited_member_owners(tmp_pat
     assert isinstance(read_decl, SemanticVarDecl)
     read_call = read_decl.initializer
     assert isinstance(read_call, CallExprS)
-    assert isinstance(read_call.target, InstanceMethodCallTarget)
-    assert read_call.target.method_id == MethodId(module_path=("main",), class_name="Base", name="read")
+    assert isinstance(read_call.target, VirtualMethodCallTarget)
+    assert read_call.target.slot_owner_class_id == ClassId(module_path=("main",), name="Base")
+    assert read_call.target.slot_method_name == "read"
+    assert read_call.target.selected_method_id == MethodId(module_path=("main",), class_name="Base", name="read")
 
     return_stmt = use_fn.body.statements[1]
     assert isinstance(return_stmt, SemanticReturn)
@@ -491,9 +493,10 @@ def test_lower_program_handles_simple_function_constructor_method_and_index_form
     assert static_target.method_id.name == "from_i64"
 
     assert isinstance(statements[4], SemanticVarDecl)
-    instance_target = _assert_call_target(statements[4].initializer, InstanceMethodCallTarget)
+    instance_target = _assert_call_target(statements[4].initializer, VirtualMethodCallTarget)
     assert statements[4].initializer.type_ref.canonical_name == "i64"
-    assert instance_target.method_id.name == "get"
+    assert instance_target.slot_method_name == "get"
+    assert instance_target.selected_method_id.name == "get"
 
     assert isinstance(statements[6], SemanticVarDecl)
     assert isinstance(statements[6].initializer, IndexReadExpr)
@@ -733,26 +736,29 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     return_stmt = semantic.modules[("main",)].functions[0].body.statements[1]
 
     assert isinstance(return_stmt, SemanticReturn)
-    read_target = _assert_call_target(return_stmt.value, InstanceMethodCallTarget)
-    assert read_target.method_id.class_name == "Leaf"
-    assert read_target.method_id.name == "read"
+    read_target = _assert_call_target(return_stmt.value, VirtualMethodCallTarget)
+    assert read_target.slot_owner_class_id == ClassId(module_path=("main",), name="Leaf")
+    assert read_target.slot_method_name == "read"
+    assert read_target.selected_method_id.class_name == "Leaf"
     assert semantic_bound_member_receiver_display_name(read_target.access, current_module_path=("main",)) == "Leaf"
     assert semantic_call_target_display_name(read_target, current_module_path=("main",)) == "Leaf.read"
     assert read_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Leaf")
     assert return_stmt.value.type_ref.canonical_name == "i64"
 
     leaf_call = read_target.access.receiver
-    leaf_target = _assert_call_target(leaf_call, InstanceMethodCallTarget)
-    assert leaf_target.method_id.class_name == "Mid"
-    assert leaf_target.method_id.name == "leaf"
+    leaf_target = _assert_call_target(leaf_call, VirtualMethodCallTarget)
+    assert leaf_target.slot_owner_class_id == ClassId(module_path=("main",), name="Mid")
+    assert leaf_target.slot_method_name == "leaf"
+    assert leaf_target.selected_method_id.class_name == "Mid"
     assert semantic_bound_member_receiver_display_name(leaf_target.access, current_module_path=("main",)) == "Mid"
     assert semantic_call_target_display_name(leaf_target, current_module_path=("main",)) == "Mid.leaf"
     assert leaf_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Mid")
 
     mid_call = leaf_target.access.receiver
-    mid_target = _assert_call_target(mid_call, InstanceMethodCallTarget)
-    assert mid_target.method_id.class_name == "Root"
-    assert mid_target.method_id.name == "mid"
+    mid_target = _assert_call_target(mid_call, VirtualMethodCallTarget)
+    assert mid_target.slot_owner_class_id == ClassId(module_path=("main",), name="Root")
+    assert mid_target.slot_method_name == "mid"
+    assert mid_target.selected_method_id.class_name == "Root"
     assert semantic_bound_member_receiver_display_name(mid_target.access, current_module_path=("main",)) == "Root"
     assert semantic_call_target_display_name(mid_target, current_module_path=("main",)) == "Root.mid"
     assert mid_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Root")
@@ -810,6 +816,63 @@ def test_lower_program_lowers_interface_receiver_calls_to_explicit_interface_nod
         semantic_local_display_name(semantic.modules[("main",)].functions[0], interface_target.access.receiver.local_id)
         == "value"
     )
+
+
+def test_lower_program_lowers_base_typed_override_calls_to_virtual_targets(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn read() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn read() -> i64 {
+                return 2;
+            }
+        }
+
+        fn use(value: Base) -> i64 {
+            return value.read();
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    return_stmt = semantic.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    virtual_target = _assert_call_target(return_stmt.value, VirtualMethodCallTarget)
+    assert virtual_target.slot_owner_class_id == ClassId(module_path=("main",), name="Base")
+    assert virtual_target.slot_method_name == "read"
+    assert virtual_target.selected_method_id == MethodId(module_path=("main",), class_name="Base", name="read")
+    assert virtual_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Base")
+
+
+def test_lower_program_keeps_private_method_calls_on_direct_instance_targets(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Box {
+            private fn read() -> i64 {
+                return 1;
+            }
+
+            fn use() -> i64 {
+                return __self.read();
+            }
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    return_stmt = semantic.modules[("main",)].classes[0].methods[1].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    direct_target = _assert_call_target(return_stmt.value, InstanceMethodCallTarget)
+    assert direct_target.method_id == MethodId(module_path=("main",), class_name="Box", name="read")
 
 
 def test_lower_program_uses_imported_interface_ids_for_interface_receiver_calls(tmp_path: Path) -> None:

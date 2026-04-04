@@ -23,6 +23,7 @@ from compiler.semantic.lowering.calls import (
     ResolvedInstanceMethodCallTarget,
     ResolvedInterfaceMethodCallTarget,
     ResolvedStaticMethodCallTarget,
+    ResolvedVirtualMethodCallTarget,
     resolve_call_target,
 )
 from .collections import resolve_collection_dispatch, try_lower_array_structural_call_expr, try_lower_slice_read_expr
@@ -189,6 +190,22 @@ def lower_call_expr(
                     receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.access.receiver, local_id_tracker),
                     receiver_type_ref=resolved_target.access.receiver_type_ref,
                 ),
+            ),
+            args=args,
+            type_ref=result_type_ref,
+            span=expr.span,
+        )
+
+    if isinstance(resolved_target, ResolvedVirtualMethodCallTarget):
+        return CallExprS(
+            target=VirtualMethodCallTarget(
+                slot_owner_class_id=resolved_target.slot_owner_class_id,
+                slot_method_name=resolved_target.slot_method_name,
+                access=BoundMemberAccess(
+                    receiver=lower_expr(typecheck_ctx, symbol_index, resolved_target.access.receiver, local_id_tracker),
+                    receiver_type_ref=resolved_target.access.receiver_type_ref,
+                ),
+                selected_method_id=resolved_target.selected_method_id,
             ),
             args=args,
             type_ref=result_type_ref,

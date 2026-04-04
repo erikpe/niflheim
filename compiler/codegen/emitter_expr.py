@@ -500,6 +500,16 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
             named_root_local_ids=named_root_local_ids,
         )
         return
+    if isinstance(target, VirtualMethodCallTarget):
+        _emit_named_call(
+            codegen,
+            _method_label(target.selected_method_id, ctx),
+            [target.access.receiver, *expr.args],
+            expr.type_ref,
+            ctx,
+            named_root_local_ids=named_root_local_ids,
+        )
+        return
     if isinstance(target, InterfaceMethodCallTarget):
         _emit_interface_method_call(codegen, expr, target, ctx)
         return

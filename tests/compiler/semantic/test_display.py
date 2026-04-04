@@ -19,6 +19,7 @@ from compiler.semantic.ir import (
     SemanticBlock,
     SemanticFunction,
     SemanticLocalInfo,
+    VirtualMethodCallTarget,
 )
 from compiler.semantic.symbols import FunctionId, InterfaceMethodId, LocalId, MethodId
 from compiler.semantic.type_compat import best_effort_semantic_type_ref_from_name
@@ -92,6 +93,20 @@ def test_semantic_display_helpers_render_bound_member_and_call_targets_from_cano
                     ClassId(module_path=("main",), name="Box"), display_name="Box"
                 ),
             ),
+        ),
+        current_module_path=("main",),
+    ) == "Box.read"
+    assert semantic_call_target_display_name(
+        VirtualMethodCallTarget(
+            slot_owner_class_id=ClassId(module_path=("main",), name="Base"),
+            slot_method_name="read",
+            access=BoundMemberAccess(
+                receiver=receiver,
+                receiver_type_ref=semantic_type_ref_for_class_id(
+                    ClassId(module_path=("main",), name="Box"), display_name="Box"
+                ),
+            ),
+            selected_method_id=MethodId(module_path=("main",), class_name="Box", name="read"),
         ),
         current_module_path=("main",),
     ) == "Box.read"

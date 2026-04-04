@@ -11,6 +11,7 @@ from compiler.semantic.ir import (
     SemanticCallTarget,
     SemanticFunctionLike,
     StaticMethodCallTarget,
+    VirtualMethodCallTarget,
     expression_type_ref,
     local_display_name_for_owner,
     local_type_ref_for_owner,
@@ -67,6 +68,8 @@ def semantic_call_target_display_name(target: SemanticCallTarget, *, current_mod
         return semantic_method_display_name(target.method_id, current_module_path=current_module_path)
     if isinstance(target, InstanceMethodCallTarget):
         return f"{semantic_bound_member_receiver_display_name(target.access, current_module_path=current_module_path)}.{target.method_id.name}"
+    if isinstance(target, VirtualMethodCallTarget):
+        return f"{semantic_bound_member_receiver_display_name(target.access, current_module_path=current_module_path)}.{target.slot_method_name}"
     if isinstance(target, InterfaceMethodCallTarget):
         return f"{semantic_bound_member_receiver_display_name(target.access, current_module_path=current_module_path)}.{target.method_id.name}"
     if isinstance(target, ConstructorCallTarget):

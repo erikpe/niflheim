@@ -34,6 +34,7 @@ from compiler.semantic.ir import (
     SemanticReturn,
     SliceReadExpr,
     StaticMethodCallTarget,
+    VirtualMethodCallTarget,
 )
 from compiler.semantic.lowering.orchestration import lower_program
 
@@ -152,7 +153,7 @@ def test_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None:
     assert "    call __nif_ctor_Box" in generator.asm.lines
 
     generator.asm.lines.clear()
-    _assert_call_target(var_inits[4], InstanceMethodCallTarget)
+    _assert_call_target(var_inits[4], VirtualMethodCallTarget)
     emit_expr(generator, var_inits[4], ctx)
     assert "    call __nif_method_Box_get" in generator.asm.lines
 

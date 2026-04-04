@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from compiler.frontend.ast_nodes import CallExpr, Expression, FieldAccessExpr, IdentifierExpr
 from compiler.semantic.symbols import (
+    ClassId,
     ConstructorId,
     FunctionId,
     InterfaceId,
@@ -24,6 +25,7 @@ from compiler.semantic.lowering.resolution import (
     ResolvedInstanceMethodMemberTarget,
     ResolvedInterfaceMethodMemberTarget,
     ResolvedStaticMethodMemberTarget,
+    ResolvedVirtualMethodMemberTarget,
     resolve_field_access_member_target,
     resolve_identifier_value_target,
     resolve_module_member_value_target,
@@ -52,6 +54,14 @@ class ResolvedInstanceMethodCallTarget:
 
 
 @dataclass(frozen=True)
+class ResolvedVirtualMethodCallTarget:
+    slot_owner_class_id: ClassId
+    slot_method_name: str
+    access: ResolvedBoundMemberAccess
+    selected_method_id: MethodId
+
+
+@dataclass(frozen=True)
 class ResolvedInterfaceMethodCallTarget:
     interface_id: InterfaceId
     method_id: InterfaceMethodId
@@ -68,6 +78,7 @@ ResolvedCallTarget = (
     | ResolvedConstructorCallTarget
     | ResolvedStaticMethodCallTarget
     | ResolvedInstanceMethodCallTarget
+    | ResolvedVirtualMethodCallTarget
     | ResolvedInterfaceMethodCallTarget
     | ResolvedCallableValueCallTarget
 )
@@ -133,6 +144,13 @@ def resolve_field_access_call_target(
     if isinstance(member_target, ResolvedInterfaceMethodMemberTarget):
         return ResolvedInterfaceMethodCallTarget(
             interface_id=member_target.interface_id, method_id=member_target.method_id, access=member_target.access
+        )
+    if isinstance(member_target, ResolvedVirtualMethodMemberTarget):
+        return ResolvedVirtualMethodCallTarget(
+            slot_owner_class_id=member_target.slot_owner_class_id,
+            slot_method_name=member_target.method_name,
+            access=member_target.access,
+            selected_method_id=member_target.selected_method_id,
         )
     if isinstance(member_target, ResolvedInstanceMethodMemberTarget):
         return ResolvedInstanceMethodCallTarget(method_id=member_target.method_id, access=member_target.access)

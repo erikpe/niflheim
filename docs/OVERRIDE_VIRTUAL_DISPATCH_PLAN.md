@@ -484,10 +484,10 @@ What to test:
 
 Checklist:
 
-- [ ] add explicit virtual class call target to semantic IR
-- [ ] lower ordinary instance calls to virtual targets
-- [ ] preserve direct-call targets for static/private paths
-- [ ] add semantic lowering coverage
+- [x] add explicit virtual class call target to semantic IR
+- [x] lower ordinary instance calls to virtual targets
+- [x] preserve direct-call targets for static/private paths
+- [x] add semantic lowering coverage
 
 ## Slice 4: Compute Stable Virtual Slots Across The Inheritance Chain
 

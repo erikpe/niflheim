@@ -437,6 +437,14 @@ class InstanceMethodCallTarget:
 
 
 @dataclass(frozen=True)
+class VirtualMethodCallTarget:
+    slot_owner_class_id: ClassId
+    slot_method_name: str
+    access: BoundMemberAccess
+    selected_method_id: MethodId
+
+
+@dataclass(frozen=True)
 class InterfaceMethodCallTarget:
     interface_id: InterfaceId
     method_id: InterfaceMethodId
@@ -463,6 +471,7 @@ SemanticCallTarget = (
     FunctionCallTarget
     | StaticMethodCallTarget
     | InstanceMethodCallTarget
+    | VirtualMethodCallTarget
     | InterfaceMethodCallTarget
     | ConstructorCallTarget
     | ConstructorInitCallTarget
@@ -471,7 +480,7 @@ SemanticCallTarget = (
 
 
 CallDispatchMode = Literal[
-    "function", "static_method", "instance_method", "interface_method", "constructor", "callable_value"
+    "function", "static_method", "instance_method", "virtual_method", "interface_method", "constructor", "callable_value"
 ]
 
 
@@ -482,6 +491,8 @@ def call_target_dispatch_mode(target: SemanticCallTarget) -> CallDispatchMode:
         return "static_method"
     if isinstance(target, InstanceMethodCallTarget):
         return "instance_method"
+    if isinstance(target, VirtualMethodCallTarget):
+        return "virtual_method"
     if isinstance(target, InterfaceMethodCallTarget):
         return "interface_method"
     if isinstance(target, ConstructorCallTarget):
@@ -492,7 +503,7 @@ def call_target_dispatch_mode(target: SemanticCallTarget) -> CallDispatchMode:
 
 
 def call_target_receiver_access(target: SemanticCallTarget) -> BoundMemberAccess | None:
-    if isinstance(target, (InstanceMethodCallTarget, InterfaceMethodCallTarget, ConstructorInitCallTarget)):
+    if isinstance(target, (InstanceMethodCallTarget, VirtualMethodCallTarget, InterfaceMethodCallTarget, ConstructorInitCallTarget)):
         return target.access
     return None
 

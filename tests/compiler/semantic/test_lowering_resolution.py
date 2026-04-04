@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.frontend.ast_nodes import CallExpr, ExprStmt, FieldAccessExpr, IdentifierExpr, VarDeclStmt
+from compiler.frontend.ast_nodes import CallExpr, ExprStmt, FieldAccessExpr, IdentifierExpr, ReturnStmt, VarDeclStmt
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering.orchestration import build_typecheck_contexts
 from compiler.semantic.lowering.calls import ResolvedConstructorCallTarget, resolve_call_target
@@ -12,6 +12,7 @@ from compiler.semantic.lowering.resolution import (
     ResolvedFunctionValueTarget,
     ResolvedInstanceMethodMemberTarget,
     ResolvedStaticMethodMemberTarget,
+    ResolvedVirtualMethodMemberTarget,
     resolve_field_access_member_target,
     resolve_identifier_value_target,
     resolve_module_member_value_target,
@@ -192,10 +193,12 @@ def test_resolution_helpers_classify_static_instance_and_field_member_targets(tm
     assert field_target.type_ref.canonical_name == "i64"
     assert field_target.access.receiver_type_ref.canonical_name == "main::Box"
 
-    assert isinstance(instance_method_target, ResolvedInstanceMethodMemberTarget)
-    assert instance_method_target.method_id.module_path == ("main",)
-    assert instance_method_target.method_id.class_name == "Box"
-    assert instance_method_target.method_id.name == "get"
+    assert isinstance(instance_method_target, ResolvedVirtualMethodMemberTarget)
+    assert instance_method_target.slot_owner_class_id == ClassId(module_path=("main",), name="Box")
+    assert instance_method_target.method_name == "get"
+    assert instance_method_target.selected_method_id.module_path == ("main",)
+    assert instance_method_target.selected_method_id.class_name == "Box"
+    assert instance_method_target.selected_method_id.name == "get"
     assert instance_method_target.access.receiver_type_ref.canonical_name == "main::Box"
 
 
@@ -293,5 +296,87 @@ def test_resolution_helpers_use_declaring_owner_for_inherited_members(tmp_path: 
     assert isinstance(field_target, ResolvedFieldMemberTarget)
     assert field_target.owner_class_id == ClassId(module_path=("main",), name="Base")
 
-    assert isinstance(instance_method_target, ResolvedInstanceMethodMemberTarget)
-    assert instance_method_target.method_id == MethodId(module_path=("main",), class_name="Base", name="read")
+    assert isinstance(instance_method_target, ResolvedVirtualMethodMemberTarget)
+    assert instance_method_target.slot_owner_class_id == ClassId(module_path=("main",), name="Base")
+    assert instance_method_target.method_name == "read"
+    assert instance_method_target.selected_method_id == MethodId(module_path=("main",), class_name="Base", name="read")
+
+
+def test_resolution_helpers_keep_selected_implementation_while_exposing_virtual_slot_origin(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn read() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn read() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main() -> i64 {
+            var d: Derived = Derived();
+            return d.read();
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    contexts = build_typecheck_contexts(program)
+    ctx = contexts[("main",)]
+    return_stmt = program.modules[("main",)].ast.functions[0].body.statements[1]
+
+    assert isinstance(return_stmt, ReturnStmt)
+    assert isinstance(return_stmt.value, CallExpr)
+    assert isinstance(return_stmt.value.callee, FieldAccessExpr)
+
+    push_scope(ctx)
+    try:
+        declare_variable(ctx, "d", TypeInfo(name="Derived", kind="reference"), return_stmt.value.callee.object_expr.span)
+        member_target = resolve_field_access_member_target(ctx, return_stmt.value.callee)
+    finally:
+        pop_scope(ctx)
+
+    assert isinstance(member_target, ResolvedVirtualMethodMemberTarget)
+    assert member_target.slot_owner_class_id == ClassId(module_path=("main",), name="Base")
+    assert member_target.selected_method_id == MethodId(module_path=("main",), class_name="Derived", name="read")
+
+
+def test_resolution_helpers_keep_private_instance_methods_direct(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Box {
+            private fn read() -> i64 {
+                return 1;
+            }
+
+            fn use() -> i64 {
+                return __self.read();
+            }
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    contexts = build_typecheck_contexts(program)
+    ctx = contexts[("main",)]
+    return_stmt = program.modules[("main",)].ast.classes[0].methods[1].body.statements[0]
+
+    assert isinstance(return_stmt, ReturnStmt)
+    assert isinstance(return_stmt.value, CallExpr)
+    assert isinstance(return_stmt.value.callee, FieldAccessExpr)
+
+    push_scope(ctx)
+    try:
+        declare_variable(ctx, "__self", TypeInfo(name="Box", kind="reference"), return_stmt.value.callee.object_expr.span)
+        member_target = resolve_field_access_member_target(ctx, return_stmt.value.callee)
+    finally:
+        pop_scope(ctx)
+
+    assert isinstance(member_target, ResolvedInstanceMethodMemberTarget)
+    assert member_target.method_id == MethodId(module_path=("main",), class_name="Box", name="read")

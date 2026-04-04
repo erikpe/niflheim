@@ -15,6 +15,7 @@ from compiler.semantic.lowering.resolution import (
     ResolvedInstanceMethodMemberTarget,
     ResolvedInterfaceMethodMemberTarget,
     ResolvedStaticMethodMemberTarget,
+    ResolvedVirtualMethodMemberTarget,
     resolve_field_access_member_target,
     resolve_identifier_value_target,
     resolve_module_member_value_target,
@@ -140,6 +141,8 @@ def resolve_field_access_ref_target(
         )
     if isinstance(member_target, ResolvedInstanceMethodMemberTarget):
         return ResolvedMethodRefTarget(method_id=member_target.method_id, receiver=expr.object_expr)
+    if isinstance(member_target, ResolvedVirtualMethodMemberTarget):
+        return ResolvedMethodRefTarget(method_id=member_target.selected_method_id, receiver=expr.object_expr)
     if isinstance(member_target, ResolvedInterfaceMethodMemberTarget):
         raise TypeError("Interface method values are not first-class semantic expressions")
 

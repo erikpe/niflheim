@@ -277,7 +277,7 @@ class _NamedRootLivenessAnalyzer:
         if isinstance(target, InterfaceMethodCallTarget):
             after_args = self._analyze_call_arguments(expr.args, live_after=live_after)
             return self._analyze_expr(target.access.receiver, live_after=after_args)
-        if isinstance(target, InstanceMethodCallTarget):
+        if isinstance(target, (InstanceMethodCallTarget, VirtualMethodCallTarget)):
             return self._analyze_call_arguments([target.access.receiver, *expr.args], live_after=live_after)
         return self._analyze_call_arguments(expr.args, live_after=live_after)
 

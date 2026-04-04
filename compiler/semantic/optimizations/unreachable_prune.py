@@ -269,6 +269,10 @@ class _SemanticReachabilityWalker:
                 self._enqueue_method(expr.target.method_id)
                 self._walk_expr(module_path, expr.target.access.receiver)
                 self._enqueue_type_ref(module_path, expr.target.access.receiver_type_ref)
+            elif isinstance(expr.target, VirtualMethodCallTarget):
+                self._enqueue_method(expr.target.selected_method_id)
+                self._walk_expr(module_path, expr.target.access.receiver)
+                self._enqueue_type_ref(module_path, expr.target.access.receiver_type_ref)
             elif isinstance(expr.target, InterfaceMethodCallTarget):
                 self._enqueue_interface(expr.target.interface_id)
                 self._walk_expr(module_path, expr.target.access.receiver)

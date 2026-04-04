@@ -11,7 +11,7 @@ from compiler.semantic.lowering.ids import (
     function_id_for_module_member,
     interface_id_for_type_name,
     interface_method_id_for_type_name,
-    resolve_instance_method_id,
+    method_id_for_type_name,
     resolve_static_method_id,
 )
 from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
@@ -76,6 +76,14 @@ class ResolvedInstanceMethodMemberTarget:
 
 
 @dataclass(frozen=True)
+class ResolvedVirtualMethodMemberTarget:
+    slot_owner_class_id: ClassId
+    method_name: str
+    access: ResolvedBoundMemberAccess
+    selected_method_id: MethodId
+
+
+@dataclass(frozen=True)
 class ResolvedInterfaceMethodMemberTarget:
     interface_id: InterfaceId
     method_id: InterfaceMethodId
@@ -87,6 +95,7 @@ ResolvedFieldAccessMemberTarget = (
     ResolvedFieldMemberTarget
     | ResolvedStaticMethodMemberTarget
     | ResolvedInstanceMethodMemberTarget
+    | ResolvedVirtualMethodMemberTarget
     | ResolvedInterfaceMethodMemberTarget
 )
 
@@ -171,11 +180,19 @@ def resolve_field_access_member_target(
         )
 
     if expr.field_name in class_info.methods:
-        method_id = resolve_instance_method_id(typecheck_ctx, receiver_type, expr.field_name)
-        if method_id is None:
-            return None
+        method_member = class_info.method_members[expr.field_name]
+        method_id = method_id_for_type_name(typecheck_ctx.module_path, method_member.owner_class_name, expr.field_name)
+        access = _resolve_bound_member_access(typecheck_ctx, expr.object_expr, receiver_type)
+        if method_member.slot_owner_class_name is not None:
+            return ResolvedVirtualMethodMemberTarget(
+                slot_owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, method_member.slot_owner_class_name),
+                method_name=expr.field_name,
+                access=access,
+                selected_method_id=method_id,
+            )
         return ResolvedInstanceMethodMemberTarget(
-            method_id=method_id, access=_resolve_bound_member_access(typecheck_ctx, expr.object_expr, receiver_type)
+            method_id=method_id,
+            access=access,
         )
 
     return None
