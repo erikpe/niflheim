@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import compiler.codegen.symbols as codegen_symbols
 
 from compiler.codegen.class_hierarchy import ClassHierarchyIndex
-from compiler.codegen.metadata import TypeMetadata, build_type_metadata, qualified_interface_type_name
+from compiler.codegen.metadata import TypeMetadata, build_type_metadata, qualified_class_type_name, qualified_interface_type_name
 from compiler.codegen.generator import CodeGenerator, CodegenOptions
 from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.model import ConstructorLayout
@@ -20,6 +20,8 @@ class DeclarationTables:
     _method_labels_by_id: dict[MethodId, str]
     _constructor_layouts_by_id: dict[ConstructorId, ConstructorLayout]
     _class_field_offsets_by_id: dict[tuple[ClassId, str], int]
+    _class_vtable_symbols_by_id: dict[ClassId, str]
+    _class_virtual_slot_indices_by_key: dict[tuple[ClassId, ClassId, str], int]
     _interface_descriptor_symbols_by_id: dict[InterfaceId, str]
     _interface_method_slots_by_id: dict[InterfaceMethodId, int]
 
@@ -39,6 +41,12 @@ class DeclarationTables:
 
     def class_field_offset(self, class_id: ClassId, field_name: str) -> int | None:
         return self._class_field_offsets_by_id.get((class_id, field_name))
+
+    def class_vtable_symbol(self, class_id: ClassId) -> str | None:
+        return self._class_vtable_symbols_by_id.get(class_id)
+
+    def class_virtual_slot_index(self, class_id: ClassId, slot_owner_class_id: ClassId, method_name: str) -> int | None:
+        return self._class_virtual_slot_indices_by_key.get((class_id, slot_owner_class_id, method_name))
 
     def interface_descriptor_symbol(self, interface_id: InterfaceId) -> str | None:
         return self._interface_descriptor_symbols_by_id.get(interface_id)
@@ -91,6 +99,8 @@ class ProgramGenerator(CodeGenerator):
         method_labels_by_id: dict[MethodId, str] = {}
         constructor_layouts_by_id: dict[ConstructorId, ConstructorLayout] = {}
         class_field_offsets_by_id: dict[tuple[ClassId, str], int] = {}
+        class_vtable_symbols_by_id: dict[ClassId, str] = {}
+        class_virtual_slot_indices_by_key: dict[tuple[ClassId, ClassId, str], int] = {}
         interface_descriptor_symbols_by_id: dict[InterfaceId, str] = {}
         interface_method_slots_by_id: dict[InterfaceMethodId, int] = {}
 
@@ -111,6 +121,8 @@ class ProgramGenerator(CodeGenerator):
 
         for cls in self.program.classes:
             class_name = cls.class_id.name
+            qualified_type_name = qualified_class_type_name(cls.class_id)
+            class_vtable_symbols_by_id[cls.class_id] = codegen_symbols.mangle_class_vtable_symbol(qualified_type_name)
             for constructor in cls.constructors:
                 constructor_id = constructor.constructor_id
                 constructor_label = codegen_symbols.mangle_constructor_symbol(class_name, constructor_id.ordinal)
@@ -142,6 +154,11 @@ class ProgramGenerator(CodeGenerator):
                     )
                 class_field_offsets_by_id[field_key] = field_slot.offset
 
+            for virtual_slot in class_hierarchy.effective_virtual_slots(cls.class_id):
+                class_virtual_slot_indices_by_key[
+                    (cls.class_id, virtual_slot.slot_owner_class_id, virtual_slot.method_name)
+                ] = virtual_slot.slot_index
+
             for method in cls.methods:
                 method_labels_by_id[method.method_id] = codegen_symbols.mangle_method_symbol(
                     class_name, method.method_id.name
@@ -151,6 +168,8 @@ class ProgramGenerator(CodeGenerator):
             _method_labels_by_id=method_labels_by_id,
             _constructor_layouts_by_id=constructor_layouts_by_id,
             _class_field_offsets_by_id=class_field_offsets_by_id,
+            _class_vtable_symbols_by_id=class_vtable_symbols_by_id,
+            _class_virtual_slot_indices_by_key=class_virtual_slot_indices_by_key,
             _interface_descriptor_symbols_by_id=interface_descriptor_symbols_by_id,
             _interface_method_slots_by_id=interface_method_slots_by_id,
         )

@@ -2,6 +2,7 @@ from compiler.codegen.abi.runtime import ARRAY_LEN_RUNTIME_CALL
 from compiler.codegen.symbols import (
     epilogue_label,
     is_runtime_call_name,
+    mangle_class_vtable_symbol,
     mangle_constructor_init_symbol,
     mangle_constructor_symbol,
     mangle_debug_file_symbol,
@@ -23,6 +24,7 @@ def test_codegen_symbol_helpers() -> None:
     assert mangle_constructor_symbol("std::BigInt", 1) == "__nif_ctor_std__BigInt__1"
     assert mangle_constructor_init_symbol("std::BigInt") == "__nif_ctor_init_std__BigInt"
     assert mangle_constructor_init_symbol("std::BigInt", 1) == "__nif_ctor_init_std__BigInt__1"
+    assert mangle_class_vtable_symbol("main::Holder") == "__nif_vtable_main__Holder"
     assert mangle_type_pointer_offsets_symbol("main::Holder") == "__nif_type_name_main__Holder__ptr_offsets"
     assert mangle_debug_function_symbol(".Lmain:entry") == "__nif_dbg_fn__Lmain_entry"
     assert mangle_debug_file_symbol(".Lmain:entry") == "__nif_dbg_file__Lmain_entry"

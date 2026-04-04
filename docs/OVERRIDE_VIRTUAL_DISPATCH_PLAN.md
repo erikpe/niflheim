@@ -521,10 +521,10 @@ What to test:
 
 Checklist:
 
-- [ ] compute stable virtual slot ordering per class hierarchy
-- [ ] compute effective implementation per slot per class
-- [ ] expose slot metadata through declaration/codegen tables
-- [ ] add codegen-model tests for slot stability and replacement
+- [x] compute stable virtual slot ordering per class hierarchy
+- [x] compute effective implementation per slot per class
+- [x] expose slot metadata through declaration/codegen tables
+- [x] add codegen-model tests for slot stability and replacement
 
 ## Slice 5: Extend Runtime Metadata For Class Vtables
 

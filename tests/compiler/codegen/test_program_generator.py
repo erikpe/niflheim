@@ -66,6 +66,8 @@ def test_program_generator_builds_declaration_tables_from_program(tmp_path: Path
     assert tables.method_label(get_id) == "__nif_method_Box_get"
     assert tables.class_field_offset(box_id, "value") == 24
     assert tables.class_field_offset(box_id, "next") == 32
+    assert tables.class_vtable_symbol(box_id) == "__nif_vtable_util__Box"
+    assert tables.class_virtual_slot_index(box_id, box_id, "get") == 0
     assert tables.constructor_layout(ctor_id).label == "__nif_ctor_Box"
     assert tables.constructor_layout(ctor_id).init_label == "__nif_ctor_init_Box"
     assert tables.constructor_layout(ctor_id).param_field_names == ["value", "next"]
@@ -294,6 +296,10 @@ def test_program_generator_uses_effective_layout_and_inherited_interface_methods
         class Derived extends Base {
             count: i64;
             tail: Obj;
+
+            override fn hash_code() -> u64 {
+                return 2u;
+            }
         }
 
         fn main() -> i64 {
@@ -318,8 +324,10 @@ def test_program_generator_uses_effective_layout_and_inherited_interface_methods
     assert tables.class_field_offset(base_id, "head") == 24
     assert tables.class_field_offset(derived_id, "count") == 32
     assert tables.class_field_offset(derived_id, "tail") == 40
+    assert tables.class_vtable_symbol(derived_id) == "__nif_vtable_main__Derived"
+    assert tables.class_virtual_slot_index(derived_id, base_id, "hash_code") == 0
     assert tables.constructor_layout(derived_ctor_id).payload_bytes == 24
     assert derived_metadata.superclass_symbol == "__nif_type_main__Base"
     assert derived_metadata.pointer_offsets == (24, 40)
     assert derived_metadata.interface_impls[0].method_table_symbol == "__nif_interface_methods_main__Derived__main__Hashable"
-    assert derived_metadata.interface_impls[0].method_labels == ("__nif_method_Base_hash_code",)
+    assert derived_metadata.interface_impls[0].method_labels == ("__nif_method_Derived_hash_code",)

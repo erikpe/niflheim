@@ -37,6 +37,10 @@ def mangle_type_pointer_offsets_symbol(type_name: str) -> str:
     return f"{mangle_type_name_symbol(type_name)}__ptr_offsets"
 
 
+def mangle_class_vtable_symbol(type_name: str) -> str:
+    return f"__nif_vtable_{_mangle_type_fragment(type_name)}"
+
+
 def mangle_interface_symbol(type_name: str) -> str:
     return f"__nif_interface_{_mangle_type_fragment(type_name)}"
 
