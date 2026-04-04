@@ -17,9 +17,13 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
     assert "    call __nif_ctor_BoxI64" in asm
-    assert "    call __nif_method_BoxI64_value" in asm
+    assert "    call __nif_method_BoxI64_value" not in main_body
+    assert "    mov rcx, qword ptr [rcx]" in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" in main_body
+    assert "    call r11" in main_body
 
 
 def test_emit_asm_user_defined_vec_class_uses_method_symbols_not_rt_vec_builtins(tmp_path) -> None:
@@ -48,10 +52,12 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
     assert "    call __nif_method_Vec_new" in asm
-    assert "    call __nif_method_Vec_push" in asm
-    assert "    call __nif_method_Vec_len" in asm
+    assert "    call __nif_method_Vec_push" not in main_body
+    assert "    call __nif_method_Vec_len" not in main_body
+    assert main_body.count("    call r11") >= 2
     assert "rt_vec_" not in asm
 
 
@@ -128,13 +134,14 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
     assert "__nif_method_Counter_add:" in asm
-    assert "    call __nif_method_Counter_add" in asm
-    assert "    mov qword ptr [rbp - 16], rax" in asm
-    assert "    mov qword ptr [rbp - 24], rax" in asm
-    assert "    mov rdi, qword ptr [rbp - 24]" in asm
-    assert "    mov rsi, qword ptr [rbp - 16]" in asm
+    assert "    call __nif_method_Counter_add" not in main_body
+    assert "    mov rdi, qword ptr [rsp]" in main_body
+    assert "    mov rsi, qword ptr [rsp + 8]" in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" in main_body
+    assert "    call r11" in main_body
 
 
 def test_emit_asm_static_method_call_lowers_to_method_symbol_without_receiver_arg0(tmp_path) -> None:

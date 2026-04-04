@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
 
 from compiler.common.type_names import *
@@ -9,6 +9,7 @@ import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.abi.array import ARRAY_API_NULL_PANIC_MESSAGE, array_data_index_address, array_length_operand
+from compiler.codegen.abi.object import class_vtable_entry_operand, class_vtable_operand, object_type_operand
 from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
 from compiler.codegen.abi.runtime import (
@@ -501,17 +502,10 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
         )
         return
     if isinstance(target, VirtualMethodCallTarget):
-        _emit_named_call(
-            codegen,
-            _method_label(target.selected_method_id, ctx),
-            [target.access.receiver, *expr.args],
-            expr.type_ref,
-            ctx,
-            named_root_local_ids=named_root_local_ids,
-        )
+        _emit_virtual_method_call(codegen, expr, target, ctx, named_root_local_ids=named_root_local_ids)
         return
     if isinstance(target, InterfaceMethodCallTarget):
-        _emit_interface_method_call(codegen, expr, target, ctx)
+        _emit_interface_method_call(codegen, expr, target, ctx, named_root_local_ids=named_root_local_ids)
         return
     if isinstance(target, ConstructorCallTarget):
         _emit_named_call(
@@ -551,7 +545,12 @@ def _emit_callable_value_call(
 
 
 def _emit_interface_method_call(
-    codegen: CodeGenerator, expr: CallExprS, target: InterfaceMethodCallTarget, ctx: EmitContext
+    codegen: CodeGenerator,
+    expr: CallExprS,
+    target: InterfaceMethodCallTarget,
+    ctx: EmitContext,
+    *,
+    named_root_local_ids: frozenset[LocalId] | None,
 ) -> None:
     descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol(target.interface_id)
     if descriptor_symbol is None:
@@ -560,24 +559,61 @@ def _emit_interface_method_call(
         )
 
     method_slot = _interface_method_slot(target.method_id, ctx)
+    _emit_indirect_method_call(
+        codegen,
+        receiver=target.access.receiver,
+        extra_args=expr.args,
+        return_type_ref=expr.type_ref,
+        ctx=ctx,
+        call_span=expr.span,
+        named_root_local_ids=named_root_local_ids,
+        resolve_method_pointer=lambda: _emit_interface_method_lookup(
+            codegen, descriptor_symbol=descriptor_symbol, method_slot=method_slot
+        ),
+    )
+
+
+def _emit_virtual_method_call(
+    codegen: CodeGenerator,
+    expr: CallExprS,
+    target: VirtualMethodCallTarget,
+    ctx: EmitContext,
+    *,
+    named_root_local_ids: frozenset[LocalId] | None,
+) -> None:
+    slot_index = _class_virtual_slot_index(target, ctx, span=expr.span)
+    _emit_indirect_method_call(
+        codegen,
+        receiver=target.access.receiver,
+        extra_args=expr.args,
+        return_type_ref=expr.type_ref,
+        ctx=ctx,
+        call_span=expr.span,
+        named_root_local_ids=named_root_local_ids,
+        resolve_method_pointer=lambda: _emit_virtual_method_lookup(codegen, ctx, slot_index=slot_index),
+    )
+
+
+def _emit_indirect_method_call(
+    codegen: CodeGenerator,
+    *,
+    receiver: SemanticExpr,
+    extra_args: list[SemanticExpr],
+    return_type_ref: SemanticTypeRef,
+    ctx: EmitContext,
+    call_span,
+    named_root_local_ids: frozenset[LocalId] | None,
+    resolve_method_pointer: Callable[[], None],
+) -> None:
     temp_root_base = ctx.temp_root_depth[0]
     receiver_temp_index = temp_root_base
-    rooted_temp_arg_count = 0
-
-    emit_expr(codegen, target.access.receiver, ctx)
-    codegen.emit_push("rax")
-    codegen.asm.instr("mov rdi, qword ptr [rsp]")
-    codegen.asm.instr(f"lea rsi, [rip + {descriptor_symbol}]")
-    codegen.asm.instr(f"mov edx, {method_slot}")
-    codegen.emit_aligned_call("rt_lookup_interface_method")
-    codegen.emit_pop("rcx")
-    codegen.emit_temp_root_slot_store(ctx.layout, receiver_temp_index, "rcx", span=expr.span)
     rooted_temp_arg_count = 1
+
+    emit_expr(codegen, receiver, ctx)
+    codegen.emit_temp_root_slot_store(ctx.layout, receiver_temp_index, "rax", span=call_span)
     ctx.temp_root_depth[0] = temp_root_base + rooted_temp_arg_count
 
-    codegen.emit_push("rax")
-
-    call_arguments = [target.access.receiver, *expr.args]
+    call_arguments = [receiver, *extra_args]
     call_argument_type_names = [_canonical_expr_type_name(arg) for arg in call_arguments]
     reference_arg_indices = {
         index
@@ -585,8 +621,8 @@ def _emit_interface_method_call(
         if codegen_types.is_reference_type_name(type_name)
     }
 
-    for arg_index in range(len(expr.args) - 1, -1, -1):
-        arg = expr.args[arg_index]
+    for arg_index in range(len(extra_args) - 1, -1, -1):
+        arg = extra_args[arg_index]
         emit_expr(codegen, arg, ctx)
         codegen.emit_push("rax")
         call_arg_index = arg_index + 1
@@ -603,6 +639,9 @@ def _emit_interface_method_call(
     codegen.asm.instr(f"mov rax, {offset_operand(ctx.layout.temp_root_slot_offsets[receiver_temp_index])}")
     codegen.emit_push("rax")
 
+    resolve_method_pointer()
+    codegen.asm.instr("mov r11, rax")
+
     arg_locations = plan_sysv_arg_locations(call_argument_type_names)
     stack_arg_indices = [
         index
@@ -610,12 +649,11 @@ def _emit_interface_method_call(
         if location_kind == "stack"
     ]
 
-    _sync_named_roots_if_needed(codegen, ctx, _named_root_sync_local_ids_for_expr(ctx, expr))
+    _sync_named_roots_if_needed(codegen, ctx, named_root_local_ids)
     stack_base_register = "rsp"
     if stack_arg_indices:
         codegen.asm.instr("mov r10, rsp")
         stack_base_register = "r10"
-    codegen.asm.instr(f"mov r11, {stack_slot_operand(stack_base_register, len(call_arguments) * 8)}")
     for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
         arg_operand = stack_slot_operand(stack_base_register, arg_index * 8)
         if location_kind == "int_reg":
@@ -628,10 +666,10 @@ def _emit_interface_method_call(
 
     codegen.emit_aligned_call("r11")
 
-    cleanup_slot_count = len(call_arguments) + len(stack_arg_indices) + 1
+    cleanup_slot_count = len(call_arguments) + len(stack_arg_indices)
     if cleanup_slot_count > 0:
         codegen.emit_stack_release(cleanup_slot_count * 8)
-    return_type_name = semantic_type_canonical_name(expr.type_ref)
+    return_type_name = semantic_type_canonical_name(return_type_ref)
     if return_type_name == TYPE_NAME_DOUBLE:
         codegen.asm.instr("movq rax, xmm0")
     elif return_type_name == TYPE_NAME_UNIT:
@@ -639,6 +677,25 @@ def _emit_interface_method_call(
 
     codegen.emit_clear_temp_root_slots(ctx.layout, temp_root_base, rooted_temp_arg_count)
     ctx.temp_root_depth[0] = temp_root_base
+
+
+def _emit_interface_method_lookup(codegen: CodeGenerator, *, descriptor_symbol: str, method_slot: int) -> None:
+    codegen.asm.instr("mov rdi, qword ptr [rsp]")
+    codegen.asm.instr(f"lea rsi, [rip + {descriptor_symbol}]")
+    codegen.asm.instr(f"mov edx, {method_slot}")
+    codegen.emit_aligned_call("rt_lookup_interface_method")
+
+
+def _emit_virtual_method_lookup(codegen: CodeGenerator, ctx: EmitContext, *, slot_index: int) -> None:
+    non_null_label = codegen_symbols.next_label(ctx.fn_name, "virtual_call_non_null", ctx.label_counter)
+    codegen.asm.instr("mov rcx, qword ptr [rsp]")
+    codegen.asm.instr("test rcx, rcx")
+    codegen.asm.instr(f"jne {non_null_label}")
+    codegen.emit_aligned_call("rt_panic_null_deref")
+    codegen.asm.label(non_null_label)
+    codegen.asm.instr(f"mov rcx, {object_type_operand('rcx')}")
+    codegen.asm.instr(f"mov rcx, {class_vtable_operand('rcx')}")
+    codegen.asm.instr(f"mov rax, {class_vtable_entry_operand('rcx', slot_index)}")
 
 
 def _emit_named_call(
@@ -1025,6 +1082,28 @@ def _dispatch_target_name(dispatch: SemanticDispatch, ctx: EmitContext) -> str:
     if isinstance(dispatch, RuntimeDispatch):
         return runtime_dispatch_call_name(dispatch)
     return _method_label(dispatch.method_id, ctx)
+
+
+def _class_virtual_slot_index(target: VirtualMethodCallTarget, ctx: EmitContext, *, span) -> int:
+    receiver_class_id = target.access.receiver_type_ref.class_id
+    if receiver_class_id is None:
+        codegen_types.raise_codegen_error(
+            "virtual call receiver must have a class type at codegen",
+            span=span,
+        )
+
+    slot_index = ctx.declaration_tables.class_virtual_slot_index(
+        receiver_class_id, target.slot_owner_class_id, target.slot_method_name
+    )
+    if slot_index is None:
+        codegen_types.raise_codegen_error(
+            (
+                "missing virtual slot metadata for "
+                f"'{receiver_class_id.name}.{target.slot_owner_class_id.name}.{target.slot_method_name}'"
+            ),
+            span=span,
+        )
+    return slot_index
 
 
 def _interface_method_slot(method_id: InterfaceMethodId, ctx: EmitContext) -> int:

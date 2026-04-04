@@ -588,10 +588,10 @@ What to test:
 
 Checklist:
 
-- [ ] add codegen path for virtual class calls
-- [ ] preserve existing rooting/call ABI guarantees across indirect calls
-- [ ] keep static/private calls direct
-- [ ] add assembly-level coverage for new dispatch shape
+- [x] add codegen path for virtual class calls
+- [x] preserve existing rooting/call ABI guarantees across indirect calls
+- [x] keep static/private calls direct
+- [x] add assembly-level coverage for new dispatch shape
 
 ## Slice 7: End-To-End Override Semantics Validation
 

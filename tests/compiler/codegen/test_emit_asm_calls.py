@@ -271,7 +271,8 @@ fn main() -> i64 {
     assert "# mirror named reference slots into shadow-stack slots" not in call_hash_body
     lookup_call_index = call_hash_body.index("    call rt_lookup_interface_method")
     assert "    call rt_root_slot_store" not in call_hash_body[:lookup_call_index]
-    assert re.search(r"push rax\n\s+mov r11, qword ptr \[rsp \+ 8\]", call_hash_body)
+    assert re.search(r"push rax\n\s+mov rdi, qword ptr \[rsp\]", call_hash_body)
+    assert "    mov r11, rax" in call_hash_body
     assert "    call r11" in call_hash_body
 
 
@@ -332,14 +333,76 @@ fn main() -> i64 {
 
     assert "    call rt_lookup_interface_method" in call_next_body
     assert "    call rt_root_slot_store" not in call_next_body
-    assert "    mov qword ptr [rbp - 64], rcx" in call_next_body
+    assert "    mov qword ptr [rbp - 64], rax" in call_next_body
     assert "    mov qword ptr [rbp - 56], rax" in call_next_body
     assert "# mirror named reference slots into shadow-stack slots" not in call_next_body
-    lookup_call_index = call_next_body.index("    call rt_lookup_interface_method")
-    first_temp_root_index = call_next_body.index("    mov qword ptr [rbp - 64], rcx")
-    assert lookup_call_index < first_temp_root_index
-    assert "    mov r11, qword ptr [rsp + 16]" in call_next_body
+    assert "    mov r11, rax" in call_next_body
     assert "    call r11" in call_next_body
+
+
+def test_emit_asm_interface_method_call_with_stack_args_keeps_lookup_out_of_arg_stack_layout(tmp_path) -> None:
+    source = """
+interface Combiner {
+    fn mix(a0: i64, a1: i64, a2: i64, a3: i64, a4: i64, a5: i64, a6: i64, a7: i64, a8: i64) -> i64;
+}
+
+class Key implements Combiner {
+    fn mix(a0: i64, a1: i64, a2: i64, a3: i64, a4: i64, a5: i64, a6: i64, a7: i64, a8: i64) -> i64 {
+        return a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8;
+    }
+}
+
+fn call_mix(value: Combiner) -> i64 {
+    return value.mix(1, 2, 3, 4, 5, 6, 7, 8, 9);
+}
+
+fn main() -> i64 {
+    return call_mix(Key());
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    call_mix_body = asm[asm.index("call_mix:") : asm.index(".Lcall_mix_epilogue:")]
+
+    assert "    call rt_lookup_interface_method" in call_mix_body
+    assert "    mov r11, rax" in call_mix_body
+    assert "    mov rdi, qword ptr [r10]" in call_mix_body
+    assert "    mov rsi, qword ptr [r10 + 8]" in call_mix_body
+    assert "    mov rax, qword ptr [r10 + 72]" in call_mix_body
+    assert "    call r11" in call_mix_body
+
+
+def test_emit_asm_virtual_method_call_uses_class_vtable_and_indirect_call(tmp_path) -> None:
+    source = """
+class Base {
+    fn head() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    override fn head() -> i64 {
+        return 2;
+    }
+}
+
+fn read(value: Base) -> i64 {
+    return value.head();
+}
+
+fn main() -> i64 {
+    return read(Derived());
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    read_body = asm[asm.index("read:") : asm.index(".Lread_epilogue:")]
+
+    assert "    call __nif_method_Base_head" not in read_body
+    assert "    call __nif_method_Derived_head" not in read_body
+    assert "    mov rcx, qword ptr [rcx]" in read_body
+    assert "    mov rcx, qword ptr [rcx + 80]" in read_body
+    assert "    mov rax, qword ptr [rcx]" in read_body
+    assert "    mov r11, rax" in read_body
+    assert "    call r11" in read_body
 
 
 def test_emit_asm_direct_non_gc_runtime_call_on_temporary_ref_omits_temp_root_scaffolding(tmp_path) -> None:

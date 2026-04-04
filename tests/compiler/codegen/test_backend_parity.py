@@ -39,14 +39,13 @@ def test_backend_emits_expected_call_shapes(tmp_path) -> None:
     """
 
     asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    for expected in [
-        "    call add",
-        "    call __nif_method_Math_inc",
-        "    call __nif_ctor_Box",
-        "    call __nif_method_Box_get",
-    ]:
+    for expected in ["    call add", "    call __nif_method_Math_inc", "    call __nif_ctor_Box"]:
         assert expected in asm
+    assert "    call __nif_method_Box_get" not in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" in main_body
+    assert "    call r11" in main_body
 
 
 def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:

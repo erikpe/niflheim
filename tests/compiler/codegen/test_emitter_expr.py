@@ -155,7 +155,12 @@ def test_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None:
     generator.asm.lines.clear()
     _assert_call_target(var_inits[4], VirtualMethodCallTarget)
     emit_expr(generator, var_inits[4], ctx)
-    assert "    call __nif_method_Box_get" in generator.asm.lines
+    assert "    call __nif_method_Box_get" not in generator.asm.lines
+    assert "    mov rcx, qword ptr [rsp]" in generator.asm.lines
+    assert "    mov rcx, qword ptr [rcx]" in generator.asm.lines
+    assert "    mov rcx, qword ptr [rcx + 80]" in generator.asm.lines
+    assert "    mov rax, qword ptr [rcx]" in generator.asm.lines
+    assert "    call r11" in generator.asm.lines
 
     generator.asm.lines.clear()
     _assert_call_target(var_inits[5], CallableValueCallTarget)
@@ -324,7 +329,7 @@ def test_emitter_expr_emits_interface_dispatch_via_lookup_helper(tmp_path: Path)
     _assert_call_target(return_stmt.value, InterfaceMethodCallTarget)
     emit_expr(generator, return_stmt.value, ctx)
     assert "    call rt_lookup_interface_method" in generator.asm.lines
-    assert "    mov r11, qword ptr [rsp + 8]" in generator.asm.lines
+    assert "    mov r11, rax" in generator.asm.lines
     assert "    call r11" in generator.asm.lines
 
 
