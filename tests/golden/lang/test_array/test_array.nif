@@ -23,22 +23,22 @@ class Key implements Hashable {
 
 fn test_primitive_smoke() -> unit {
     var bytes: u8[] = u8[](3u);
-    assert(bytes.len() == 3u);
-    assert(bytes[0] == (u8)0);
+    assert_eq_u64(bytes.len(), 3u);
+    assert_eq_u8(bytes[0], (u8)0);
     bytes[1] = (u8)17;
-    assert(bytes.index_get(1) == (u8)17);
+    assert_eq_u8(bytes.index_get(1), (u8)17);
 
     var nums: i64[] = i64[](2u);
-    assert(nums.len() == 2u);
-    assert(nums[0] == 0);
+    assert_eq_u64(nums.len(), 2u);
+    assert_eq_i64(nums[0], 0);
     nums.index_set(1, -9);
-    assert(nums[1] == -9);
+    assert_eq_i64(nums[1], -9);
 }
 
 
 fn test_reference_default_null() -> unit {
     var people: Person[] = Person[](2u);
-    assert(people.len() == 2u);
+    assert_eq_u64(people.len(), 2u);
     assert(people[0] == null);
     assert(people[1] == null);
 
@@ -49,23 +49,23 @@ fn test_reference_default_null() -> unit {
 
 fn test_bool_and_double_arrays() -> unit {
     var flags: bool[] = bool[](3u);
-    assert(flags.len() == 3u);
-    assert(flags[0] == false);
-    assert(flags[1] == false);
-    assert(flags[2] == false);
+    assert_eq_u64(flags.len(), 3u);
+    assert_eq_bool(flags[0], false);
+    assert_eq_bool(flags[1], false);
+    assert_eq_bool(flags[2], false);
 
     flags[1] = true;
-    assert(flags[0] == false);
-    assert(flags[1] == true);
+    assert_eq_bool(flags[0], false);
+    assert_eq_bool(flags[1], true);
 
     var values: double[] = double[](2u);
-    assert(values[0] == 0.0);
-    assert(values[1] == 0.0);
+    assert_eq_double(values[0], 0.0);
+    assert_eq_double(values[1], 0.0);
 
     values[0] = 1.25;
     values[1] = 2.5;
-    assert(values[0] == 1.25);
-    assert(values[1] == 2.5);
+    assert_eq_double(values[0], 1.25);
+    assert_eq_double(values[1], 2.5);
 }
 
 
@@ -74,18 +74,18 @@ fn test_interface_element_arrays_support_storage_and_slice() -> unit {
     values[0] = Key(5u);
     values[1] = Key(8u);
 
-    assert(values[0].hash_code() == 105u);
-    assert(values[1].hash_code() == 108u);
+    assert_eq_u64(values[0].hash_code(), 105u);
+    assert_eq_u64(values[1].hash_code(), 108u);
 
     var cut: Hashable[] = values[0:1];
-    assert(cut.len() == 1u);
-    assert(cut[0].hash_code() == 105u);
+    assert_eq_u64(cut.len(), 1u);
+    assert_eq_u64(cut[0].hash_code(), 105u);
 
     var replacement: Hashable[] = Hashable[](1u);
     replacement[0] = Key(9u);
     values[0:1] = replacement;
-    assert(values[0].hash_code() == 109u);
-    assert(values[1].hash_code() == 108u);
+    assert_eq_u64(values[0].hash_code(), 109u);
+    assert_eq_u64(values[1].hash_code(), 108u);
 }
 
 
@@ -97,12 +97,12 @@ fn test_slice_copy_behavior() -> unit {
     src[3] = (u8)40;
 
     var cut: u8[] = src[1:3];
-    assert(cut.len() == 2u);
-    assert(cut[0] == (u8)20);
-    assert(cut[1] == (u8)30);
+    assert_eq_u64(cut.len(), 2u);
+    assert_eq_u8(cut[0], (u8)20);
+    assert_eq_u8(cut[1], (u8)30);
 
     src[1] = (u8)99;
-    assert(cut[0] == (u8)20);
+    assert_eq_u8(cut[0], (u8)20);
 }
 
 
@@ -118,10 +118,10 @@ fn test_set_slice_write_behavior() -> unit {
     src[1] = (u8)8;
 
     target[1:3] = src;
-    assert(target[0] == (u8)10);
-    assert(target[1] == (u8)7);
-    assert(target[2] == (u8)8);
-    assert(target[3] == (u8)40);
+    assert_eq_u8(target[0], (u8)10);
+    assert_eq_u8(target[1], (u8)7);
+    assert_eq_u8(target[2], (u8)8);
+    assert_eq_u8(target[3], (u8)40);
 }
 
 
@@ -164,9 +164,9 @@ fn test_obj_to_u64_array_cast_ok() -> unit {
     var boxed: Obj = (Obj)nums;
     var roundtrip: u64[] = (u64[])boxed;
 
-    assert(roundtrip.len() == 2u);
-    assert(roundtrip[0] == 11u);
-    assert(roundtrip[1] == 22u);
+    assert_eq_u64(roundtrip.len(), 2u);
+    assert_eq_u64(roundtrip[0], 11u);
+    assert_eq_u64(roundtrip[1], 22u);
 }
 
 
@@ -202,11 +202,11 @@ fn test_reference_array_roundtrip_cast_ok() -> unit {
     var boxed: Obj = (Obj)people;
     var roundtrip: Person[] = (Person[])boxed;
 
-    assert(roundtrip.len() == 2u);
+    assert_eq_u64(roundtrip.len(), 2u);
     assert(roundtrip[0] != null);
     assert(roundtrip[1] != null);
-    assert(roundtrip[0].age == 41);
-    assert(roundtrip[1].age == 99);
+    assert_eq_i64(roundtrip[0].age, 41);
+    assert_eq_i64(roundtrip[1].age, 99);
 }
 
 
@@ -218,17 +218,17 @@ fn test_nested_primitive_index_get_set_levels() -> unit {
     grid[0][1] = 11;
     grid[1][2] = 22;
 
-    assert(grid[0].index_get(1) == 11);
-    assert(grid.index_get(1)[2] == 22);
+    assert_eq_i64(grid[0].index_get(1), 11);
+    assert_eq_i64(grid.index_get(1)[2], 22);
 
     var row: i64[] = i64[](3u);
     row[0] = 5;
     row[1] = 6;
     row[2] = 7;
     grid.index_set(1, row);
-    assert(grid[1][0] == 5);
-    assert(grid[1][1] == 6);
-    assert(grid[1][2] == 7);
+    assert_eq_i64(grid[1][0], 5);
+    assert_eq_i64(grid[1][1], 6);
+    assert_eq_i64(grid[1][2], 7);
 }
 
 
@@ -254,23 +254,23 @@ fn test_nested_primitive_slice_get_set_levels() -> unit {
     grid[2][3] = 33;
 
     var inner_cut: i64[] = grid[1][1:3];
-    assert(inner_cut.len() == 2u);
-    assert(inner_cut[0] == 21);
-    assert(inner_cut[1] == 22);
+    assert_eq_u64(inner_cut.len(), 2u);
+    assert_eq_i64(inner_cut[0], 21);
+    assert_eq_i64(inner_cut[1], 22);
 
     var outer_cut: i64[][] = grid[0:2];
-    assert(outer_cut.len() == 2u);
-    assert(outer_cut[0][3] == 13);
-    assert(outer_cut[1][2] == 22);
+    assert_eq_u64(outer_cut.len(), 2u);
+    assert_eq_i64(outer_cut[0][3], 13);
+    assert_eq_i64(outer_cut[1][2], 22);
 
     var inner_src: i64[] = i64[](2u);
     inner_src[0] = 70;
     inner_src[1] = 71;
     grid[2][1:3] = inner_src;
-    assert(grid[2][0] == 30);
-    assert(grid[2][1] == 70);
-    assert(grid[2][2] == 71);
-    assert(grid[2][3] == 33);
+    assert_eq_i64(grid[2][0], 30);
+    assert_eq_i64(grid[2][1], 70);
+    assert_eq_i64(grid[2][2], 71);
+    assert_eq_i64(grid[2][3], 33);
 
     var repl_rows: i64[][] = i64[][](2u);
     repl_rows[0] = i64[](4u);
@@ -285,11 +285,11 @@ fn test_nested_primitive_slice_get_set_levels() -> unit {
     repl_rows[1][3] = 113;
 
     grid[0:2] = repl_rows;
-    assert(grid[0][0] == 100);
-    assert(grid[0][3] == 103);
-    assert(grid[1][0] == 110);
-    assert(grid[1][2] == 112);
-    assert(grid[2][0] == 30);
+    assert_eq_i64(grid[0][0], 100);
+    assert_eq_i64(grid[0][3], 103);
+    assert_eq_i64(grid[1][0], 110);
+    assert_eq_i64(grid[1][2], 112);
+    assert_eq_i64(grid[2][0], 30);
 }
 
 
@@ -304,39 +304,39 @@ fn test_nested_reference_index_slice_levels() -> unit {
     teams[0][1] = Person(20);
     teams[1][0] = Person(30);
 
-    assert(teams[0][0].age == 10);
-    assert(teams[0][1].age == 20);
-    assert(teams.index_get(1)[0].age == 30);
+    assert_eq_i64(teams[0][0].age, 10);
+    assert_eq_i64(teams[0][1].age, 20);
+    assert_eq_i64(teams.index_get(1)[0].age, 30);
 
     var squad: Person[] = Person[](1u);
     squad[0] = Person(77);
     teams.index_set(1, squad);
-    assert(teams[1][0].age == 77);
+    assert_eq_i64(teams[1][0].age, 77);
 
     var people_cut: Person[] = teams[0][0:2];
-    assert(people_cut.len() == 2u);
-    assert(people_cut[0].age == 10);
-    assert(people_cut[1].age == 20);
+    assert_eq_u64(people_cut.len(), 2u);
+    assert_eq_i64(people_cut[0].age, 10);
+    assert_eq_i64(people_cut[1].age, 20);
 
     var team_cut: Person[][] = teams[0:1];
-    assert(team_cut.len() == 1u);
-    assert(team_cut[0][1].age == 20);
+    assert_eq_u64(team_cut.len(), 1u);
+    assert_eq_i64(team_cut[0][1].age, 20);
 
     var new_people: Person[] = Person[](2u);
     new_people[0] = Person(50);
     new_people[1] = Person(60);
     teams[0][0:2] = new_people;
-    assert(teams[0][0].age == 50);
-    assert(teams[0][1].age == 60);
+    assert_eq_i64(teams[0][0].age, 50);
+    assert_eq_i64(teams[0][1].age, 60);
 
     var new_teams: Person[][] = Person[][](1u);
     new_teams[0] = Person[](2u);
     new_teams[0][0] = Person(90);
     new_teams[0][1] = Person(91);
     teams[0:1] = new_teams;
-    assert(teams[0][0].age == 90);
-    assert(teams[0][1].age == 91);
-    assert(teams[1][0].age == 77);
+    assert_eq_i64(teams[0][0].age, 90);
+    assert_eq_i64(teams[0][1].age, 91);
+    assert_eq_i64(teams[1][0].age, 77);
 }
 
 
@@ -358,26 +358,26 @@ fn test_deeply_nested_u8_index_slice_levels() -> unit {
     cube[0][1][0][2] = (u8)7;
     cube[0][1][0][3] = (u8)8;
 
-    assert(cube[0][0][0][2] == (u8)3);
-    assert(cube.index_get(0).index_get(1).index_get(0).index_get(3) == (u8)8);
+    assert_eq_u8(cube[0][0][0][2], (u8)3);
+    assert_eq_u8(cube.index_get(0).index_get(1).index_get(0).index_get(3), (u8)8);
 
     var deep_cut: u8[] = cube[0][1][0][1:3];
-    assert(deep_cut.len() == 2u);
-    assert(deep_cut[0] == (u8)6);
-    assert(deep_cut[1] == (u8)7);
+    assert_eq_u64(deep_cut.len(), 2u);
+    assert_eq_u8(deep_cut[0], (u8)6);
+    assert_eq_u8(deep_cut[1], (u8)7);
 
     var branch_cut: u8[][][][] = cube[0:1];
-    assert(branch_cut.len() == 1u);
-    assert(branch_cut[0][0][0][1] == (u8)2);
+    assert_eq_u64(branch_cut.len(), 1u);
+    assert_eq_u8(branch_cut[0][0][0][1], (u8)2);
 
     var deep_src: u8[] = u8[](2u);
     deep_src[0] = (u8)40;
     deep_src[1] = (u8)41;
     cube[0][0][0][1:3] = deep_src;
-    assert(cube[0][0][0][0] == (u8)1);
-    assert(cube[0][0][0][1] == (u8)40);
-    assert(cube[0][0][0][2] == (u8)41);
-    assert(cube[0][0][0][3] == (u8)4);
+    assert_eq_u8(cube[0][0][0][0], (u8)1);
+    assert_eq_u8(cube[0][0][0][1], (u8)40);
+    assert_eq_u8(cube[0][0][0][2], (u8)41);
+    assert_eq_u8(cube[0][0][0][3], (u8)4);
 
     var new_branch: u8[][] = u8[][](1u);
     new_branch[0] = u8[](4u);
@@ -386,8 +386,8 @@ fn test_deeply_nested_u8_index_slice_levels() -> unit {
     new_branch[0][2] = (u8)11;
     new_branch[0][3] = (u8)12;
     cube[0].index_set(1, new_branch);
-    assert(cube[0][1][0][0] == (u8)9);
-    assert(cube[0][1][0][3] == (u8)12);
+    assert_eq_u8(cube[0][1][0][0], (u8)9);
+    assert_eq_u8(cube[0][1][0][3], (u8)12);
 }
 
 
@@ -412,31 +412,32 @@ fn test_len_on_null_panics() -> unit {
 
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { test_primitive_smoke(); }
-    if select == 2u { test_reference_default_null(); }
-    if select == 3u { test_bool_and_double_arrays(); }
-    if select == 4u { test_slice_copy_behavior(); }
-    if select == 5u { test_get_oob_panics(); }
-    if select == 6u { test_set_oob_panics(); }
-    if select == 7u { test_slice_oob_panics(); }
-    if select == 8u { test_negative_index_panics(); }
-    if select == 9u { test_set_slice_write_behavior(); }
-    if select == 10u { test_set_slice_invalid_length_panics(); }
-    if select == 11u { test_obj_to_u64_array_cast_ok(); }
-    if select == 12u { test_obj_to_u64_array_cast_bad_kind_panics(); }
-    if select == 13u { test_primitive_array_to_reference_array_cast_panics(); }
-    if select == 14u { test_reference_array_to_primitive_array_cast_panics(); }
-    if select == 15u { test_reference_array_roundtrip_cast_ok(); }
-    if select == 16u { test_nested_primitive_index_get_set_levels(); }
-    if select == 17u { test_nested_primitive_slice_get_set_levels(); }
-    if select == 18u { test_nested_reference_index_slice_levels(); }
-    if select == 19u { test_deeply_nested_u8_index_slice_levels(); }
-    if select == 20u { test_nested_set_slice_invalid_length_panics(); }
-    if select == 21u { test_nested_inner_slice_oob_panics(); }
-    if select == 22u { test_interface_element_arrays_support_storage_and_slice(); }
-    if select == 23u { test_len_on_null_panics(); }
+    if select == 1u { test_primitive_smoke(); return 0; }
+    if select == 2u { test_reference_default_null(); return 0; }
+    if select == 3u { test_bool_and_double_arrays(); return 0; }
+    if select == 4u { test_slice_copy_behavior(); return 0; }
+    if select == 5u { test_get_oob_panics(); return 0; }
+    if select == 6u { test_set_oob_panics(); return 0; }
+    if select == 7u { test_slice_oob_panics(); return 0; }
+    if select == 8u { test_negative_index_panics(); return 0; }
+    if select == 9u { test_set_slice_write_behavior(); return 0; }
+    if select == 10u { test_set_slice_invalid_length_panics(); return 0; }
+    if select == 11u { test_obj_to_u64_array_cast_ok(); return 0; }
+    if select == 12u { test_obj_to_u64_array_cast_bad_kind_panics(); return 0; }
+    if select == 13u { test_primitive_array_to_reference_array_cast_panics(); return 0; }
+    if select == 14u { test_reference_array_to_primitive_array_cast_panics(); return 0; }
+    if select == 15u { test_reference_array_roundtrip_cast_ok(); return 0; }
+    if select == 16u { test_nested_primitive_index_get_set_levels(); return 0; }
+    if select == 17u { test_nested_primitive_slice_get_set_levels(); return 0; }
+    if select == 18u { test_nested_reference_index_slice_levels(); return 0; }
+    if select == 19u { test_deeply_nested_u8_index_slice_levels(); return 0; }
+    if select == 20u { test_nested_set_slice_invalid_length_panics(); return 0; }
+    if select == 21u { test_nested_inner_slice_oob_panics(); return 0; }
+    if select == 22u { test_interface_element_arrays_support_storage_and_slice(); return 0; }
+    if select == 23u { test_len_on_null_panics(); return 0; }
 
-    return 0;
+    fail("Invalid test selection.");
+    return 1;
 }

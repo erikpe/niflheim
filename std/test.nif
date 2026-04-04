@@ -49,3 +49,8 @@ export fn assert_eq_str(a: Str, b: Str) -> unit
         panic("Assert failed: '" + a + "' != '" + b + "'");
     }
 }
+
+export fn fail(message: Str) -> unit
+{
+    panic("Test failed: " + message);
+}

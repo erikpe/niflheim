@@ -3,49 +3,49 @@ tests:
     name: "test_array"
     src_file: "test_array.nif"
     runs:
-      - {name: "primitive_smoke_u8_i64", input: {stdin: "1"}, expect: {exit_code: 0}}
-      - {name: "reference_defaults_null", input: {stdin: "2"}, expect: {exit_code: 0}}
-      - {name: "bool_and_double_arrays", input: {stdin: "3"}, expect: {exit_code: 0}}
-      - {name: "slice_copy_behavior", input: {stdin: "4"}, expect: {exit_code: 0}}
-      - {name: "get_oob_panics", input: {stdin: "5"}, expect: {panic: "rt_array_get_u8: index out of bounds"}}
-      - {name: "set_oob_panics", input: {stdin: "6"}, expect: {panic: "rt_array_set_u8: index out of bounds"}}
-      - {name: "slice_oob_panics", input: {stdin: "7"}, expect: {panic: "rt_array_slice_u8: invalid slice range"}}
-      - {name: "negative_index_panics", input: {stdin: "8"}, expect: {panic: "rt_array_get_u8: index out of bounds"}}
-      - {name: "set_slice_write_behavior", input: {stdin: "9"}, expect: {exit_code: 0}}
+      - {name: "primitive_smoke_u8_i64", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "reference_defaults_null", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - {name: "bool_and_double_arrays", input: {args: ["3"]}, expect: {exit_code: 0}}
+      - {name: "slice_copy_behavior", input: {args: ["4"]}, expect: {exit_code: 0}}
+      - {name: "get_oob_panics", input: {args: ["5"]}, expect: {panic: "rt_array_get_u8: index out of bounds"}}
+      - {name: "set_oob_panics", input: {args: ["6"]}, expect: {panic: "rt_array_set_u8: index out of bounds"}}
+      - {name: "slice_oob_panics", input: {args: ["7"]}, expect: {panic: "rt_array_slice_u8: invalid slice range"}}
+      - {name: "negative_index_panics", input: {args: ["8"]}, expect: {panic: "rt_array_get_u8: index out of bounds"}}
+      - {name: "set_slice_write_behavior", input: {args: ["9"]}, expect: {exit_code: 0}}
       - name: "set_slice_invalid_length_panics"
         input:
-          stdin: "10"
+          args: ["10"]
         expect:
           panic: "rt_array_set_slice_u8: invalid slice assignment"
-      - {name: "obj_to_u64_array_cast_ok", input: {stdin: "11"}, expect: {exit_code: 0}}
-      - {name: "obj_to_u64_array_cast_bad_kind_panics", input: {stdin: "12"}, expect: {panic: "bad cast (u8[] -> u64[])"}}
+      - {name: "obj_to_u64_array_cast_ok", input: {args: ["11"]}, expect: {exit_code: 0}}
+      - {name: "obj_to_u64_array_cast_bad_kind_panics", input: {args: ["12"]}, expect: {panic: "bad cast (u8[] -> u64[])"}}
       - name: "primitive_array_to_reference_array_cast_panics"
         input:
-          stdin: "13"
+          args: ["13"]
         expect:
           panic: "bad cast (u64[] -> Obj[])"
       - name: "reference_array_to_primitive_array_cast_panics"
         input:
-          stdin: "14"
+          args: ["14"]
         expect:
           panic: "bad cast (Obj[] -> u64[])"
-      - {name: "reference_array_roundtrip_cast_ok", input: {stdin: "15"}, expect: {exit_code: 0}}
-      - {name: "nested_primitive_index_get_set_levels", input: {stdin: "16"}, expect: {exit_code: 0}}
-      - {name: "nested_primitive_slice_get_set_levels", input: {stdin: "17"}, expect: {exit_code: 0}}
-      - {name: "nested_reference_index_slice_levels", input: {stdin: "18"}, expect: {exit_code: 0}}
-      - {name: "deeply_nested_u8_index_slice_levels", input: {stdin: "19"}, expect: {exit_code: 0}}
+      - {name: "reference_array_roundtrip_cast_ok", input: {args: ["15"]}, expect: {exit_code: 0}}
+      - {name: "nested_primitive_index_get_set_levels", input: {args: ["16"]}, expect: {exit_code: 0}}
+      - {name: "nested_primitive_slice_get_set_levels", input: {args: ["17"]}, expect: {exit_code: 0}}
+      - {name: "nested_reference_index_slice_levels", input: {args: ["18"]}, expect: {exit_code: 0}}
+      - {name: "deeply_nested_u8_index_slice_levels", input: {args: ["19"]}, expect: {exit_code: 0}}
       - name: "nested_set_slice_invalid_length_panics"
         input:
-          stdin: "20"
+          args: ["20"]
         expect:
           panic: "rt_array_set_slice_ref: invalid slice assignment"
       - name: "nested_inner_slice_oob_panics"
         input:
-          stdin: "21"
+          args: ["21"]
         expect:
           panic: "rt_array_slice_i64: invalid slice range"
-      - {name: "interface_element_arrays_support_storage_and_slice", input: {stdin: "22"}, expect: {exit_code: 0}}
-      - {name: "len_on_null_panics", input: {stdin: "23"}, expect: {panic: "Array API called with null object"}}
+      - {name: "interface_element_arrays_support_storage_and_slice", input: {args: ["22"]}, expect: {exit_code: 0}}
+      - {name: "len_on_null_panics", input: {args: ["23"]}, expect: {panic: "Array API called with null object"}}
   - mode: "compile-fail"
     name: "non_u64_array_constructor_length"
     src_file: "error_non_u64_array_constructor_length.nif"

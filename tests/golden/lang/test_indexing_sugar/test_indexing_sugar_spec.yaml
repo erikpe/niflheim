@@ -3,13 +3,13 @@ tests:
     name: "test_indexing_sugar"
     src_file: "test_indexing_sugar.nif"
     runs:
-      - {name: "custom_index_key_types", input: {stdin: "1"}, expect: {exit_code: 0}}
-      - {name: "mismatched_index_read_write_value_types", input: {stdin: "2"}, expect: {exit_code: 0}}
-      - {name: "read_only_and_write_only_index_sugar", input: {stdin: "3"}, expect: {exit_code: 0}}
-      - {name: "slice_get_and_set_for_user_class", input: {stdin: "4"}, expect: {exit_code: 0}}
-      - {name: "slice_read_write_independence", input: {stdin: "5"}, expect: {exit_code: 0}}
-      - {name: "inherited_index_and_slice_members", input: {stdin: "6"}, expect: {exit_code: 0}}
-      - {name: "imported_index_and_slice_sugar", input: {stdin: "7"}, expect: {exit_code: 0}}
+      - {name: "custom_index_key_types", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "mismatched_index_read_write_value_types", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - {name: "read_only_and_write_only_index_sugar", input: {args: ["3"]}, expect: {exit_code: 0}}
+      - {name: "slice_get_and_set_for_user_class", input: {args: ["4"]}, expect: {exit_code: 0}}
+      - {name: "slice_read_write_independence", input: {args: ["5"]}, expect: {exit_code: 0}}
+      - {name: "inherited_index_and_slice_members", input: {args: ["6"]}, expect: {exit_code: 0}}
+      - {name: "imported_index_and_slice_sugar", input: {args: ["7"]}, expect: {exit_code: 0}}
   - mode: "compile-fail"
     name: "missing_index_get"
     src_file: "error_missing_index_get.nif"

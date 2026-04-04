@@ -100,9 +100,9 @@ fn test_basic_sum_and_call_counts() -> unit {
         sum = sum + elem;
     }
 
-    assert(sum == 12);
-    assert(seq.len_calls == 1u);
-    assert(seq.get_calls == 4u);
+    assert_eq_i64(sum, 12);
+    assert_eq_u64(seq.len_calls, 1u);
+    assert_eq_u64(seq.get_calls, 4u);
 }
 
 fn test_empty_collection_no_iterations() -> unit {
@@ -114,9 +114,9 @@ fn test_empty_collection_no_iterations() -> unit {
         touched = true;
     }
 
-    assert(touched == false);
-    assert(seq.len_calls == 1u);
-    assert(seq.get_calls == 0u);
+    assert_eq_bool(touched, false);
+    assert_eq_u64(seq.len_calls, 1u);
+    assert_eq_u64(seq.get_calls, 0u);
 }
 
 fn test_break_stops_iteration() -> unit {
@@ -137,9 +137,9 @@ fn test_break_stops_iteration() -> unit {
         sum = sum + elem;
     }
 
-    assert(sum == 3);
-    assert(seq.len_calls == 1u);
-    assert(seq.get_calls == 3u);
+    assert_eq_i64(sum, 3);
+    assert_eq_u64(seq.len_calls, 1u);
+    assert_eq_u64(seq.get_calls, 3u);
 }
 
 fn test_continue_skips_body_tail() -> unit {
@@ -160,9 +160,9 @@ fn test_continue_skips_body_tail() -> unit {
         sum_positive = sum_positive + elem;
     }
 
-    assert(sum_positive == 12);
-    assert(seq.len_calls == 1u);
-    assert(seq.get_calls == 5u);
+    assert_eq_i64(sum_positive, 12);
+    assert_eq_u64(seq.len_calls, 1u);
+    assert_eq_u64(seq.get_calls, 5u);
 }
 
 fn test_nested_for_in_loops() -> unit {
@@ -176,7 +176,7 @@ fn test_nested_for_in_loops() -> unit {
         }
     }
 
-    assert(total == 63);
+    assert_eq_i64(total, 63);
 }
 
 fn test_collection_expression_evaluated_once() -> unit {
@@ -187,8 +187,8 @@ fn test_collection_expression_evaluated_once() -> unit {
         sum = sum + elem;
     }
 
-    assert(factory.ticks == 1);
-    assert(sum == 6);
+    assert_eq_i64(factory.ticks, 1);
+    assert_eq_i64(sum, 6);
 }
 
 fn test_iter_len_is_snapshot_for_loop() -> unit {
@@ -202,7 +202,7 @@ fn test_iter_len_is_snapshot_for_loop() -> unit {
         }
     }
 
-    assert(seen == 3);
+    assert_eq_i64(seen, 3);
 }
 
 fn test_iter_get_oob_panics() -> unit {
@@ -232,7 +232,7 @@ fn test_iter_get_returns_reference_type() -> unit {
         total = total + elem.value;
     }
 
-    assert(total == 15);
+    assert_eq_i64(total, 15);
 }
 
 fn test_for_in_over_primitive_array() -> unit {
@@ -247,7 +247,7 @@ fn test_for_in_over_primitive_array() -> unit {
         sum = sum + value;
     }
 
-    assert(sum == 9);
+    assert_eq_i64(sum, 9);
 }
 
 fn test_for_in_over_reference_array() -> unit {
@@ -260,7 +260,7 @@ fn test_for_in_over_reference_array() -> unit {
         sum = sum + entry.value;
     }
 
-    assert(sum == 7);
+    assert_eq_i64(sum, 7);
 }
 
 fn test_for_in_over_inherited_iter_methods() -> unit {
@@ -276,7 +276,7 @@ fn test_for_in_over_inherited_iter_methods() -> unit {
         sum = sum + elem;
     }
 
-    assert(sum == 14);
+    assert_eq_i64(sum, 14);
 }
 
 fn test_for_in_loop_variable_shadowing_preserves_outer_local() -> unit {
@@ -287,26 +287,27 @@ fn test_for_in_loop_variable_shadowing_preserves_outer_local() -> unit {
         total = total + value;
     }
 
-    assert(total == 3);
-    assert(value == 100);
+    assert_eq_i64(total, 3);
+    assert_eq_i64(value, 100);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { test_basic_sum_and_call_counts(); }
-    if select == 2u { test_empty_collection_no_iterations(); }
-    if select == 3u { test_break_stops_iteration(); }
-    if select == 4u { test_continue_skips_body_tail(); }
-    if select == 5u { test_nested_for_in_loops(); }
-    if select == 6u { test_collection_expression_evaluated_once(); }
-    if select == 7u { test_iter_len_is_snapshot_for_loop(); }
-    if select == 8u { test_iter_get_oob_panics(); }
-    if select == 9u { test_iter_get_returns_reference_type(); }
-    if select == 10u { test_for_in_over_primitive_array(); }
-    if select == 11u { test_for_in_over_reference_array(); }
-    if select == 12u { test_for_in_over_inherited_iter_methods(); }
-    if select == 13u { test_for_in_loop_variable_shadowing_preserves_outer_local(); }
+    if select == 1u { test_basic_sum_and_call_counts(); return 0; }
+    if select == 2u { test_empty_collection_no_iterations(); return 0; }
+    if select == 3u { test_break_stops_iteration(); return 0; }
+    if select == 4u { test_continue_skips_body_tail(); return 0; }
+    if select == 5u { test_nested_for_in_loops(); return 0; }
+    if select == 6u { test_collection_expression_evaluated_once(); return 0; }
+    if select == 7u { test_iter_len_is_snapshot_for_loop(); return 0; }
+    if select == 8u { test_iter_get_oob_panics(); return 0; }
+    if select == 9u { test_iter_get_returns_reference_type(); return 0; }
+    if select == 10u { test_for_in_over_primitive_array(); return 0; }
+    if select == 11u { test_for_in_over_reference_array(); return 0; }
+    if select == 12u { test_for_in_over_inherited_iter_methods(); return 0; }
+    if select == 13u { test_for_in_loop_variable_shadowing_preserves_outer_local(); return 0; }
 
-    return 0;
+    fail("Invalid test selection.");
+    return 1;
 }

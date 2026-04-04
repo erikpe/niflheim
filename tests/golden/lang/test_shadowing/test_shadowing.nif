@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 import tests.golden.lang.test_shadowing.util;
 
@@ -75,33 +76,15 @@ fn test_direct_call_prefers_local_callable_over_imported_constructor() -> unit {
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u {
-        test_nested_block_shadowing();
-        return 0;
-    }
-    if select == 2u {
-        test_for_in_shadowing_preserves_outer_local();
-        return 0;
-    }
-    if select == 3u {
-        test_param_shadowing_and_outer_restore(5);
-        return 0;
-    }
-    if select == 4u {
-        test_top_level_body_shadow_uses_param_initializer(5);
-        return 0;
-    }
-    if select == 5u {
-        test_direct_call_prefers_local_callable_shadow();
-        return 0;
-    }
-    if select == 6u {
-        test_direct_call_prefers_local_callable_over_imported_constructor();
-        return 0;
-    }
+    if select == 1u { test_nested_block_shadowing(); return 0; }
+    if select == 2u { test_for_in_shadowing_preserves_outer_local(); return 0; }
+    if select == 3u { test_param_shadowing_and_outer_restore(5); return 0; }
+    if select == 4u { test_top_level_body_shadow_uses_param_initializer(5); return 0; }
+    if select == 5u { test_direct_call_prefers_local_callable_shadow(); return 0; }
+    if select == 6u { test_direct_call_prefers_local_callable_over_imported_constructor(); return 0; }
 
-    println_i64(-1);
-    return 9;
+    fail("Invalid test selection.");
+    return 1;
 }

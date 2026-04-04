@@ -3,17 +3,17 @@ tests:
     name: "test_shadowing"
     src_file: "test_shadowing.nif"
     runs:
-      - {name: "nested_block_shadowing", input: {stdin: "1\n"}, expect: {exit_code: 0, stdout: "20\n10\n21\n"}}
+      - {name: "nested_block_shadowing", input: {args: ["1"]}, expect: {exit_code: 0, stdout: "20\n10\n21\n"}}
       - name: "for_in_shadowing_preserves_outer_local"
         input:
-          stdin: "2\n"
+          args: ["2"]
         expect:
           exit_code: 0
           stdout: "99\n15\n"
-      - {name: "param_shadowing_and_outer_restore", input: {stdin: "3\n"}, expect: {exit_code: 0, stdout: "7\n5\n12\n"}}
-      - {name: "top_level_body_shadow_uses_param_initializer", input: {stdin: "4\n"}, expect: {exit_code: 0, stdout: "15\n"}}
-      - {name: "direct_call_prefers_local_callable_shadow", input: {stdin: "5\n"}, expect: {exit_code: 0, stdout: "42\n"}}
-      - {name: "direct_call_prefers_local_callable_over_imported_constructor", input: {stdin: "6\n"}, expect: {exit_code: 0, stdout: "42\n"}}
+      - {name: "param_shadowing_and_outer_restore", input: {args: ["3"]}, expect: {exit_code: 0, stdout: "7\n5\n12\n"}}
+      - {name: "top_level_body_shadow_uses_param_initializer", input: {args: ["4"]}, expect: {exit_code: 0, stdout: "15\n"}}
+      - {name: "direct_call_prefers_local_callable_shadow", input: {args: ["5"]}, expect: {exit_code: 0, stdout: "42\n"}}
+      - {name: "direct_call_prefers_local_callable_over_imported_constructor", input: {args: ["6"]}, expect: {exit_code: 0, stdout: "42\n"}}
   - mode: "compile-fail"
     name: "duplicate_local_same_block"
     src_file: "error_duplicate_local_same_block.nif"

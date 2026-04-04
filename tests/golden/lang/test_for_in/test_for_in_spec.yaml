@@ -3,19 +3,19 @@ tests:
     name: "test_for_in"
     src_file: "test_for_in.nif"
     runs:
-      - {name: "basic_sum_and_call_counts", input: {stdin: "1"}, expect: {exit_code: 0}}
-      - {name: "empty_collection_no_iterations", input: {stdin: "2"}, expect: {exit_code: 0}}
-      - {name: "break_stops_iteration", input: {stdin: "3"}, expect: {exit_code: 0}}
-      - {name: "continue_skips_body_tail", input: {stdin: "4"}, expect: {exit_code: 0}}
-      - {name: "nested_for_in_loops", input: {stdin: "5"}, expect: {exit_code: 0}}
-      - {name: "collection_expression_evaluated_once", input: {stdin: "6"}, expect: {exit_code: 0}}
-      - {name: "iter_len_snapshot", input: {stdin: "7"}, expect: {exit_code: 0}}
-      - {name: "iter_get_oob_panics", input: {stdin: "8"}, expect: {panic: "rt_array_get_i64: index out of bounds"}}
-      - {name: "iter_get_returns_reference_type", input: {stdin: "9"}, expect: {exit_code: 0}}
-      - {name: "for_in_over_primitive_array", input: {stdin: "10"}, expect: {exit_code: 0}}
-      - {name: "for_in_over_reference_array", input: {stdin: "11"}, expect: {exit_code: 0}}
-      - {name: "for_in_over_inherited_iter_methods", input: {stdin: "12"}, expect: {exit_code: 0}}
-      - {name: "loop_variable_shadowing_preserves_outer_local", input: {stdin: "13"}, expect: {exit_code: 0}}
+      - {name: "basic_sum_and_call_counts", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "empty_collection_no_iterations", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - {name: "break_stops_iteration", input: {args: ["3"]}, expect: {exit_code: 0}}
+      - {name: "continue_skips_body_tail", input: {args: ["4"]}, expect: {exit_code: 0}}
+      - {name: "nested_for_in_loops", input: {args: ["5"]}, expect: {exit_code: 0}}
+      - {name: "collection_expression_evaluated_once", input: {args: ["6"]}, expect: {exit_code: 0}}
+      - {name: "iter_len_snapshot", input: {args: ["7"]}, expect: {exit_code: 0}}
+      - {name: "iter_get_oob_panics", input: {args: ["8"]}, expect: {panic: "rt_array_get_i64: index out of bounds"}}
+      - {name: "iter_get_returns_reference_type", input: {args: ["9"]}, expect: {exit_code: 0}}
+      - {name: "for_in_over_primitive_array", input: {args: ["10"]}, expect: {exit_code: 0}}
+      - {name: "for_in_over_reference_array", input: {args: ["11"]}, expect: {exit_code: 0}}
+      - {name: "for_in_over_inherited_iter_methods", input: {args: ["12"]}, expect: {exit_code: 0}}
+      - {name: "loop_variable_shadowing_preserves_outer_local", input: {args: ["13"]}, expect: {exit_code: 0}}
   - mode: "compile-fail"
     name: "non_iterable_primitive"
     src_file: "error_non_iterable_primitive.nif"

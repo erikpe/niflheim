@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 
 interface Hashable {
@@ -203,103 +204,99 @@ class CastSink {
     }
 }
 
-fn test_explicit_zero_arg_constructor_sets_final_and_defaults() -> i64 {
+fn test_explicit_zero_arg_constructor_sets_final_and_defaults() -> unit {
     var cfg: Config = Config();
-    if cfg.code != 42 { return 1; }
-    if !cfg.enabled { return 2; }
-    return 0;
+    assert_eq_i64(cfg.code, 42);
+    assert_eq_bool(cfg.enabled, true);
 }
 
-fn test_constructor_locals_and_early_return_keep_default_fields() -> i64 {
+fn test_constructor_locals_and_early_return_keep_default_fields() -> unit {
     var e: Early = Early(6);
-    if e.value != 7 { return 3; }
-    if e.marker != 9 { return 4; }
-    return 0;
+    assert_eq_i64(e.value, 7);
+    assert_eq_i64(e.marker, 9);
 }
 
-fn test_overloaded_constructor_by_arity() -> i64 {
+fn test_overloaded_constructor_by_arity() -> unit {
     var short: Span = Span(10);
     var full: Span = Span(10, 25);
-    if short.start != 10 || short.end != 11 { return 5; }
-    if full.start != 10 || full.end != 25 { return 6; }
-    return 0;
+    assert_eq_i64(short.start, 10);
+    assert_eq_i64(short.end, 11);
+    assert_eq_i64(full.start, 10);
+    assert_eq_i64(full.end, 25);
 }
 
-fn test_overloaded_constructor_by_exact_type() -> i64 {
+fn test_overloaded_constructor_by_exact_type() -> unit {
     var tagged_i: Tagged = Tagged(7);
     var tagged_b: Tagged = Tagged(true);
-    if tagged_i.kind != 1 || tagged_i.payload_i != 7 { return 7; }
-    if tagged_b.kind != 2 || !tagged_b.payload_b { return 8; }
-    return 0;
+    assert_eq_i64(tagged_i.kind, 1);
+    assert_eq_i64(tagged_i.payload_i, 7);
+    assert_eq_i64(tagged_b.kind, 2);
+    assert_eq_bool(tagged_b.payload_b, true);
 }
 
-fn test_explicit_constructor_defaults_and_override_paths() -> i64 {
+fn test_explicit_constructor_defaults_and_override_paths() -> unit {
     var base: Envelope = Envelope(9);
     var custom: Envelope = Envelope(9, 17u);
-    if base.data != 9 || base.label != 5u { return 9; }
-    if custom.data != 9 || custom.label != 17u { return 10; }
-    return 0;
+    assert_eq_i64(base.data, 9);
+    assert_eq_u64(base.label, 5u);
+    assert_eq_i64(custom.data, 9);
+    assert_eq_u64(custom.label, 17u);
 }
 
-fn test_private_constructor_via_factory() -> i64 {
+fn test_private_constructor_via_factory() -> unit {
     var secret: Secret = Secret.make_double(21);
-    if secret.reveal() != 42 { return 11; }
-    return 0;
+    assert_eq_i64(secret.reveal(), 42);
 }
 
-fn test_synthesized_private_compatibility_constructor_via_factory() -> i64 {
+fn test_synthesized_private_compatibility_constructor_via_factory() -> unit {
     var hidden: PrivateCompat = PrivateCompat.make_tripled(14);
-    if hidden.reveal() != 42 { return 12; }
-    return 0;
+    assert_eq_i64(hidden.reveal(), 42);
 }
 
-fn test_inherited_compatibility_constructor_order_and_defaults() -> i64 {
+fn test_inherited_compatibility_constructor_order_and_defaults() -> unit {
     var leaf: ChainLeaf = ChainLeaf(4, 7);
-    if leaf.first != 4 { return 13; }
-    if leaf.second != 7 { return 14; }
-    if leaf.base_default != 10u { return 15; }
-    if !leaf.middle_default { return 16; }
-    if leaf.third != 99 { return 17; }
-    return 0;
+    assert_eq_i64(leaf.first, 4);
+    assert_eq_i64(leaf.second, 7);
+    assert_eq_u64(leaf.base_default, 10u);
+    assert_eq_bool(leaf.middle_default, true);
+    assert_eq_i64(leaf.third, 99);
 }
 
-fn test_explicit_super_selects_overloaded_base_constructor() -> i64 {
+fn test_explicit_super_selects_overloaded_base_constructor() -> unit {
     var derived: OverDerived = OverDerived(true, 8);
-    if derived.tag != 2 { return 18; }
-    if derived.value != 1 { return 19; }
-    if derived.extra != 8 { return 20; }
-    return 0;
+    assert_eq_i64(derived.tag, 2);
+    assert_eq_i64(derived.value, 1);
+    assert_eq_i64(derived.extra, 8);
 }
 
-fn test_constructor_overload_prefers_more_specific_match() -> i64 {
+fn test_constructor_overload_prefers_more_specific_match() -> unit {
     var sink: SpecificSink = SpecificSink(Key(9u));
-    if sink.branch != 2 { return 21; }
-    return 0;
+    assert_eq_i64(sink.branch, 2);
 }
 
-fn test_explicit_cast_disambiguates_constructor_overload() -> i64 {
+fn test_explicit_cast_disambiguates_constructor_overload() -> unit {
     var key: Key = Key(9u);
     var from_hashable: CastSink = CastSink((Hashable)key);
     var from_equalable: CastSink = CastSink((Equalable)key);
-    if from_hashable.branch != 3 { return 22; }
-    if from_equalable.branch != 4 { return 23; }
-    return 0;
+    assert_eq_i64(from_hashable.branch, 3);
+    assert_eq_i64(from_equalable.branch, 4);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { return test_explicit_zero_arg_constructor_sets_final_and_defaults(); }
-    if select == 2u { return test_constructor_locals_and_early_return_keep_default_fields(); }
-    if select == 3u { return test_overloaded_constructor_by_arity(); }
-    if select == 4u { return test_overloaded_constructor_by_exact_type(); }
-    if select == 5u { return test_explicit_constructor_defaults_and_override_paths(); }
-    if select == 6u { return test_private_constructor_via_factory(); }
-    if select == 7u { return test_synthesized_private_compatibility_constructor_via_factory(); }
-    if select == 8u { return test_inherited_compatibility_constructor_order_and_defaults(); }
-    if select == 9u { return test_explicit_super_selects_overloaded_base_constructor(); }
-    if select == 10u { return test_constructor_overload_prefers_more_specific_match(); }
-    if select == 11u { return test_explicit_cast_disambiguates_constructor_overload(); }
+    if select == 1u { test_explicit_zero_arg_constructor_sets_final_and_defaults(); return 0; }
+    if select == 2u { test_constructor_locals_and_early_return_keep_default_fields(); return 0; }
+    if select == 3u { test_overloaded_constructor_by_arity(); return 0; }
+    if select == 4u { test_overloaded_constructor_by_exact_type(); return 0; }
+    if select == 5u { test_explicit_constructor_defaults_and_override_paths(); return 0; }
+    if select == 6u { test_private_constructor_via_factory(); return 0; }
+    if select == 7u { test_synthesized_private_compatibility_constructor_via_factory(); return 0; }
+    if select == 8u { test_inherited_compatibility_constructor_order_and_defaults(); return 0; }
+    if select == 9u { test_explicit_super_selects_overloaded_base_constructor(); return 0; }
+    if select == 10u { test_constructor_overload_prefers_more_specific_match(); return 0; }
+    if select == 11u { test_explicit_cast_disambiguates_constructor_overload(); return 0; }
 
-    return 24;
+    fail("Invalid test selection.");
+    return 1;
 }

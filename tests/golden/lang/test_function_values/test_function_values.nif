@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 import tests.golden.lang.test_function_values.util;
 
@@ -90,124 +91,85 @@ fn apply_twice(f: fn(Counter, i64) -> unit, c: Counter, delta: i64) -> unit {
     return;
 }
 
-fn test_mixed_indirect_calls() -> i64 {
+fn test_mixed_indirect_calls() -> unit {
     var f1: fn(i64, double, u64, double) -> double = mix;
     var r1: double = call_mixed(f1);
-    if (i64)(r1 * 4.0) != 23 {
-        return 1;
-    }
+    assert_eq_i64((i64)(r1 * 4.0), 23);
 
     var f2: fn(i64, double, u64, double) -> double = Ops.mixed;
     var r2: double = call_mixed(f2);
-    if (i64)(r2 * 4.0) != 23 {
-        return 2;
-    }
-
-    return 0;
+    assert_eq_i64((i64)(r2 * 4.0), 23);
 }
 
-fn test_returned_function_value_dispatch() -> i64 {
+fn test_returned_function_value_dispatch() -> unit {
     var op1: fn(i64, i64) -> i64 = choose_op(true);
-    if call_op(op1, 6, 7) != 42 {
-        return 3;
-    }
+    assert_eq_i64(call_op(op1, 6, 7), 42);
 
     var op2: fn(i64, i64) -> i64 = choose_op(false);
-    if call_op(op2, 6, 7) != 13 {
-        return 4;
-    }
+    assert_eq_i64(call_op(op2, 6, 7), 13);
 
     var op3: fn(i64, i64) -> i64 = sub_i64;
-    if call_op(op3, 6, 7) != -1 {
-        return 5;
-    }
-
-    return 0;
+    assert_eq_i64(call_op(op3, 6, 7), -1);
 }
 
-fn test_zero_arg_bool_callback() -> i64 {
+fn test_zero_arg_bool_callback() -> unit {
     var p1: fn() -> bool = choose_pred(0);
     var p2: fn() -> bool = choose_pred(1);
-    if !call_bool_0(p1) {
-        return 6;
-    }
-    if call_bool_0(p2) {
-        return 7;
-    }
-    return 0;
+    assert_eq_bool(call_bool_0(p1), true);
+    assert_eq_bool(call_bool_0(p2), false);
 }
 
-fn test_unit_callback_side_effects() -> i64 {
+fn test_unit_callback_side_effects() -> unit {
     var c: Counter = Counter(10);
     var updater: fn(Counter, i64) -> unit = inc_counter;
     apply_twice(updater, c, 4);
-    if c.value != 18 {
-        return 8;
-    }
-    return 0;
+    assert_eq_i64(c.value, 18);
 }
 
-fn test_function_value_in_class_field() -> i64 {
+fn test_function_value_in_class_field() -> unit {
     var h: OpHolder = OpHolder(add_i64);
-    if h.eval(9, 4) != 13 {
-        return 9;
-    }
+    assert_eq_i64(h.eval(9, 4), 13);
     h.op = mul_i64;
-    if h.eval(9, 4) != 36 {
-        return 10;
-    }
-    return 0;
+    assert_eq_i64(h.eval(9, 4), 36);
 }
 
-fn test_imported_function_and_static_method_values() -> i64 {
+fn test_imported_function_and_static_method_values() -> unit {
     var f: fn(i64) -> i64 = util.add_ten;
-    if f(32) != 42 {
-        return 11;
-    }
+    assert_eq_i64(f(32), 42);
 
     var g: fn(i64) -> i64 = util.Math.times_three;
-    if g(14) != 42 {
-        return 12;
-    }
-
-    return 0;
+    assert_eq_i64(g(14), 42);
 }
 
-fn test_imported_helper_returns_function_value() -> i64 {
+fn test_imported_helper_returns_function_value() -> unit {
     var f1: fn(i64) -> i64 = util.choose_imported_op(false);
     var f2: fn(i64) -> i64 = util.choose_imported_op(true);
 
-    if f1(32) != 42 {
-        return 13;
-    }
-    if f2(14) != 42 {
-        return 14;
-    }
-
-    return 0;
+    assert_eq_i64(f1(32), 42);
+    assert_eq_i64(f2(14), 42);
 }
 
 fn test_panic_propagates_through_indirect_call() -> unit {
     var bad: fn() -> i64 = panic_on_call;
-    if call_i64_0(bad) == -1 {
-        return;
-    }
+    call_i64_0(bad);
+    fail("Expected indirect call to panic");
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { return test_mixed_indirect_calls(); }
-    if select == 2u { return test_returned_function_value_dispatch(); }
-    if select == 3u { return test_zero_arg_bool_callback(); }
-    if select == 4u { return test_unit_callback_side_effects(); }
-    if select == 5u { return test_function_value_in_class_field(); }
+    if select == 1u { test_mixed_indirect_calls(); return 0; }
+    if select == 2u { test_returned_function_value_dispatch(); return 0; }
+    if select == 3u { test_zero_arg_bool_callback(); return 0; }
+    if select == 4u { test_unit_callback_side_effects(); return 0; }
+    if select == 5u { test_function_value_in_class_field(); return 0; }
     if select == 6u {
         test_panic_propagates_through_indirect_call();
-        return 11;
+        return 0;
     }
-    if select == 7u { return test_imported_function_and_static_method_values(); }
-    if select == 8u { return test_imported_helper_returns_function_value(); }
+    if select == 7u { test_imported_function_and_static_method_values(); return 0; }
+    if select == 8u { test_imported_helper_returns_function_value(); return 0; }
 
-    return 15;
+    fail("Invalid test selection.");
+    return 1;
 }

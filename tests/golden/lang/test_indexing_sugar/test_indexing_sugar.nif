@@ -149,56 +149,56 @@ class DerivedBuffer extends BaseBuffer {}
 
 fn test_custom_index_key_types() -> unit {
     var m: FlagMap = FlagMap(10, 20);
-    assert(m[true] == 10);
-    assert(m[false] == 20);
+    assert_eq_i64(m[true], 10);
+    assert_eq_i64(m[false], 20);
 
     m[false] = 99;
-    assert(m[false] == 99);
+    assert_eq_i64(m[false], 99);
 
     var s: SplitKey = SplitKey(5);
-    assert(s[true] == 5);
+    assert_eq_i64(s[true], 5);
     s[0] = 42;
-    assert(s[true] == 42);
+    assert_eq_i64(s[true], 42);
 }
 
 fn test_mismatched_index_read_write_value_types() -> unit {
     var w: WeirdStore = WeirdStore(false);
-    assert(w[0] == false);
+    assert_eq_bool(w[0], false);
     w[0] = 7;
-    assert(w[0] == true);
+    assert_eq_bool(w[0], true);
     w[0] = -1;
-    assert(w[0] == false);
+    assert_eq_bool(w[0], false);
 }
 
 fn test_read_only_and_write_only_index_sugar() -> unit {
     var ro: ReadOnlyIndex = ReadOnlyIndex(77);
-    assert(ro[0] == 77);
+    assert_eq_i64(ro[0], 77);
 
     var wo: WriteOnlyIndex = WriteOnlyIndex(0);
     wo[0] = 123;
-    assert(wo.reveal() == 123);
+    assert_eq_i64(wo.reveal(), 123);
 }
 
 fn test_slice_get_and_set_for_user_class() -> unit {
     var sw: SliceWindow = SliceWindow.from_three(1, 2, 3);
     var cut: SliceWindow = sw[0:2];
-    assert(cut[0] == 1);
-    assert(cut[1] == 2);
+    assert_eq_i64(cut[0], 1);
+    assert_eq_i64(cut[1], 2);
 
     var repl: SliceWindow = SliceWindow.from_three(9, 8, 7);
     sw[1:3] = repl;
-    assert(sw[0] == 1);
-    assert(sw[1] == 9);
-    assert(sw[2] == 8);
+    assert_eq_i64(sw[0], 1);
+    assert_eq_i64(sw[1], 9);
+    assert_eq_i64(sw[2], 8);
 }
 
 fn test_slice_read_write_independence() -> unit {
     var shape: SliceShape = SliceShape(true, 0);
-    assert(shape[0:1] == true);
-    assert(shape[1:1] == false);
+    assert_eq_bool(shape[0:1], true);
+    assert_eq_bool(shape[1:1], false);
 
     shape[1:3] = 10;
-    assert(shape.total == 12);
+    assert_eq_i64(shape.total, 12);
 }
 
 fn test_inherited_index_and_slice_members() -> unit {
@@ -208,52 +208,53 @@ fn test_inherited_index_and_slice_members() -> unit {
     values[2] = 5;
 
     var buf: DerivedBuffer = DerivedBuffer(values);
-    assert(buf[1] == 4);
+    assert_eq_i64(buf[1], 4);
 
     buf[1] = 11;
-    assert(buf[1] == 11);
+    assert_eq_i64(buf[1], 11);
 
     var cut: BaseBuffer = buf[1:3];
-    assert(cut[0] == 11);
-    assert(cut[1] == 5);
+    assert_eq_i64(cut[0], 11);
+    assert_eq_i64(cut[1], 5);
 
     var repl_values: i64[] = i64[](2u);
     repl_values[0] = 21;
     repl_values[1] = 22;
     buf[0:2] = BaseBuffer(repl_values);
-    assert(buf[0] == 21);
-    assert(buf[1] == 22);
-    assert(buf[2] == 5);
+    assert_eq_i64(buf[0], 21);
+    assert_eq_i64(buf[1], 22);
+    assert_eq_i64(buf[2], 5);
 }
 
 fn test_imported_index_and_slice_sugar() -> unit {
     var window: util.ImportedWindow = util.ImportedWindow.from_three(4, 5, 6);
-    assert(window[0] == 4);
+    assert_eq_i64(window[0], 4);
 
     window[2] = 12;
-    assert(window[2] == 12);
+    assert_eq_i64(window[2], 12);
 
     var cut: util.ImportedWindow = window[1:3];
-    assert(cut[0] == 5);
-    assert(cut[1] == 12);
+    assert_eq_i64(cut[0], 5);
+    assert_eq_i64(cut[1], 12);
 
     var repl: util.ImportedWindow = util.ImportedWindow.from_three(30, 31, 32);
     window[0:2] = repl;
-    assert(window[0] == 30);
-    assert(window[1] == 31);
-    assert(window[2] == 12);
+    assert_eq_i64(window[0], 30);
+    assert_eq_i64(window[1], 31);
+    assert_eq_i64(window[2], 12);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { test_custom_index_key_types(); }
-    if select == 2u { test_mismatched_index_read_write_value_types(); }
-    if select == 3u { test_read_only_and_write_only_index_sugar(); }
-    if select == 4u { test_slice_get_and_set_for_user_class(); }
-    if select == 5u { test_slice_read_write_independence(); }
-    if select == 6u { test_inherited_index_and_slice_members(); }
-    if select == 7u { test_imported_index_and_slice_sugar(); }
+    if select == 1u { test_custom_index_key_types(); return 0; }
+    if select == 2u { test_mismatched_index_read_write_value_types(); return 0; }
+    if select == 3u { test_read_only_and_write_only_index_sugar(); return 0; }
+    if select == 4u { test_slice_get_and_set_for_user_class(); return 0; }
+    if select == 5u { test_slice_read_write_independence(); return 0; }
+    if select == 6u { test_inherited_index_and_slice_members(); return 0; }
+    if select == 7u { test_imported_index_and_slice_sugar(); return 0; }
 
-    return 0;
+    fail("Invalid test selection.");
+    return 1;
 }

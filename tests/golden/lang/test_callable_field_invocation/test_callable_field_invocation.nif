@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 
 fn inc(v: i64) -> i64 {
@@ -56,101 +57,67 @@ class DerivedHolder extends BaseHolder {
     }
 }
 
-fn test_direct_callable_field_call() -> i64 {
+fn test_direct_callable_field_call() -> unit {
     var h: UnaryHolder = UnaryHolder(inc);
-    if h.run(41) != 42 {
-        return 1;
-    }
+    assert_eq_i64(h.run(41), 42);
     h.f = dec;
-    if h.run(41) != 40 {
-        return 2;
-    }
-    return 0;
+    assert_eq_i64(h.run(41), 40);
 }
 
-fn test_direct_callable_field_in_expression() -> i64 {
+fn test_direct_callable_field_in_expression() -> unit {
     var h: UnaryHolder = UnaryHolder(inc);
-    if h.f(9) != 10 {
-        return 3;
-    }
+    assert_eq_i64(h.f(9), 10);
     h.f = dec;
-    if h.f(9) != 8 {
-        return 4;
-    }
-    return 0;
+    assert_eq_i64(h.f(9), 8);
 }
 
-fn test_binary_callable_field_call() -> i64 {
+fn test_binary_callable_field_call() -> unit {
     var h: BinaryHolder = BinaryHolder(add);
-    if h.run(20, 22) != 42 {
-        return 5;
-    }
+    assert_eq_i64(h.run(20, 22), 42);
     h.op = mul;
-    if h.run(6, 7) != 42 {
-        return 6;
-    }
-    return 0;
+    assert_eq_i64(h.run(6, 7), 42);
 }
 
-fn test_binary_callable_field_direct_call() -> i64 {
+fn test_binary_callable_field_direct_call() -> unit {
     var h: BinaryHolder = BinaryHolder(add);
-    if h.op(11, 31) != 42 {
-        return 7;
-    }
+    assert_eq_i64(h.op(11, 31), 42);
     h.op = mul;
-    if h.op(6, 7) != 42 {
-        return 8;
-    }
-    return 0;
+    assert_eq_i64(h.op(6, 7), 42);
 }
 
-fn test_callable_field_static_method_symbol() -> i64 {
+fn test_callable_field_static_method_symbol() -> unit {
     var h: UnaryHolder = UnaryHolder(Math.twice);
-    if h.run(21) != 42 {
-        return 9;
-    }
-    if h.f(12) != 24 {
-        return 10;
-    }
-    return 0;
+    assert_eq_i64(h.run(21), 42);
+    assert_eq_i64(h.f(12), 24);
 }
 
-fn test_callable_field_extracted_to_local_value() -> i64 {
+fn test_callable_field_extracted_to_local_value() -> unit {
     var h: UnaryHolder = UnaryHolder(inc);
     var f: fn(i64) -> i64 = h.f;
-    if f(41) != 42 {
-        return 11;
-    }
+    assert_eq_i64(f(41), 42);
     h.f = dec;
     var g: fn(i64) -> i64 = h.f;
-    if g(41) != 40 {
-        return 12;
-    }
-    return 0;
+    assert_eq_i64(g(41), 40);
 }
 
-fn test_inherited_callable_field_invocation() -> i64 {
+fn test_inherited_callable_field_invocation() -> unit {
     var h: DerivedHolder = DerivedHolder(Math.twice, 2);
-    if h.run(20) != 42 {
-        return 13;
-    }
+    assert_eq_i64(h.run(20), 42);
     h.f = inc;
-    if h.run(39) != 42 {
-        return 14;
-    }
-    return 0;
+    assert_eq_i64(h.run(39), 42);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { return test_direct_callable_field_call(); }
-    if select == 2u { return test_direct_callable_field_in_expression(); }
-    if select == 3u { return test_binary_callable_field_call(); }
-    if select == 4u { return test_binary_callable_field_direct_call(); }
-    if select == 5u { return test_callable_field_static_method_symbol(); }
-    if select == 6u { return test_callable_field_extracted_to_local_value(); }
-    if select == 7u { return test_inherited_callable_field_invocation(); }
+    if select == 1u { test_direct_callable_field_call(); return 0; }
+    if select == 2u { test_direct_callable_field_in_expression(); return 0; }
+    if select == 3u { test_binary_callable_field_call(); return 0; }
+    if select == 4u { test_binary_callable_field_direct_call(); return 0; }
+    if select == 5u { test_callable_field_static_method_symbol(); return 0; }
+    if select == 6u { test_callable_field_extracted_to_local_value(); return 0; }
+    if select == 7u { test_inherited_callable_field_invocation(); return 0; }
 
-    return 15;
+    fail("Invalid test selection.");
+    return 1;
 }

@@ -1,3 +1,4 @@
+import std.test;
 import std.io;
 import tests.golden.lang.test_interface_imports.contracts;
 import tests.golden.lang.test_interface_imports.model;
@@ -6,56 +7,40 @@ fn bounce_hashable(value: Hashable) -> contracts.Hashable {
     return value;
 }
 
-fn test_imported_interface_dispatch_and_return() -> i64 {
+fn test_imported_interface_dispatch_and_return() -> unit {
     var value: contracts.Hashable = model.as_hashable(10u);
     var bounced: contracts.Hashable = bounce_hashable(model.Key(32u));
 
-    if value.hash_code() != 110u {
-        return 1;
-    }
-    if bounced.hash_code() != 132u {
-        return 2;
-    }
-    return 0;
+    assert_eq_u64(value.hash_code(), 110u);
+    assert_eq_u64(bounced.hash_code(), 132u);
 }
 
-fn test_imported_interface_array_and_storage() -> i64 {
+fn test_imported_interface_array_and_storage() -> unit {
     var values: Hashable[] = Hashable[](2u);
     values[0] = model.as_hashable(5u);
     values[1] = model.Key(8u);
 
-    if values[0].hash_code() != 105u {
-        return 3;
-    }
-    if values[1].hash_code() != 108u {
-        return 4;
-    }
-
-    return 0;
+    assert_eq_u64(values[0].hash_code(), 105u);
+    assert_eq_u64(values[1].hash_code(), 108u);
 }
 
-fn test_imported_interface_cross_module_cast() -> i64 {
+fn test_imported_interface_cross_module_cast() -> unit {
     var hashable: contracts.Hashable = model.Key(9u);
     var labeled: contracts.Labeled = model.as_labeled(hashable);
 
-    if labeled.label() != 9u {
-        return 5;
-    }
+    assert_eq_u64(labeled.label(), 9u);
 
     var rebound: contracts.Labeled = (contracts.Labeled)hashable;
-    if rebound.label() != 9u {
-        return 6;
-    }
-
-    return 0;
+    assert_eq_u64(rebound.label(), 9u);
 }
 
 fn main() -> i64 {
-    var select: u64 = read_stdin().strip().to_u64();
+    var select: u64 = read_program_args()[1].to_u64();
 
-    if select == 1u { return test_imported_interface_dispatch_and_return(); }
-    if select == 2u { return test_imported_interface_array_and_storage(); }
-    if select == 3u { return test_imported_interface_cross_module_cast(); }
+    if select == 1u { test_imported_interface_dispatch_and_return(); return 0; }
+    if select == 2u { test_imported_interface_array_and_storage(); return 0; }
+    if select == 3u { test_imported_interface_cross_module_cast(); return 0; }
 
-    return 7;
+    fail("Invalid test selection.");
+    return 1;
 }

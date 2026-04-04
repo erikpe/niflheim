@@ -1,13 +1,13 @@
 ---
-name: write-and-run-golden-tests
-description: 'Write, extend, debug, and run golden tests in the niflheim repository. Use when asked to add golden coverage, explain the golden test layout, author mode=run or mode=compile-fail specs, or run tests with tests/golden/runner.py or scripts/golden.sh.'
-argument-hint: 'Optional golden target or task, for example: lang/test_constructor/** or add compile-fail tests for imported interfaces'
+name: write-golden-tests
+description: 'Write, extend, debug, or explain golden tests in the niflheim repository. Use when asked to add golden coverage, create or update tests/golden specs, author mode=run or mode=compile-fail cases, choose stable compile_error_match substrings, or explain the golden test layout.'
+argument-hint: 'Optional golden writing task, for example: add compile-fail tests for imported interfaces or explain the test_constructor layout'
 user-invocable: true
 ---
 
-# Write And Run Golden Tests
+# Write Golden Tests
 
-Use this skill when the task is to add, modify, explain, or run golden tests in this repository.
+Use this skill when the task is to add, modify, or explain golden tests in this repository.
 
 ## Repository Rules
 
@@ -18,9 +18,7 @@ Use this skill when the task is to add, modify, explain, or run golden tests in 
 - Supported modes are exactly `run` and `compile-fail`.
 - `run` tests must define `runs`.
 - `compile-fail` tests must not define `runs` and should usually define `compile_error_match`.
-- Use the repo root when running the golden runner.
-- Prefer `./scripts/golden.sh` for normal execution. It is the thin wrapper around `python3 tests/golden/runner.py`.
-- Do not pass a bare file path as a positional argument to `scripts/golden.sh` or `runner.py`; use `--filter` instead.
+- When you need only compile diagnostics, prefer compile-fail golden tests over ad hoc manual compiler invocations so the behavior stays regression-tested.
 
 ## Directory Layout
 
@@ -86,8 +84,10 @@ Rules:
 - `runs` is required and must be non-empty.
 - Each run name must be unique within that test entry.
 - `input.stdin` and `input.stdin_file` are mutually exclusive.
+- For selector-driven runtime files, prefer passing the selector as the first program argument via `input.args`, not via stdin.
 - `expect.stdout` and `expect.stdout_file` are mutually exclusive.
 - `expect.stderr` and `expect.stderr_file` are mutually exclusive.
+- For runtime validation, prefer asserting inside the test program over encoding success or failure in a raw process exit code.
 - Omitted expectation fields are not checked.
 - `expect.panic` is a stderr substring check and also requires the process to fail.
 
@@ -109,7 +109,6 @@ Rules:
 
 - `compile-fail` entries must not define `runs`.
 - `compile_error_match` is a substring match against combined compiler stderr/stdout.
-- The runner invokes `python3 -m compiler.main ... --project-root <repo_root>` for compile-fail cases.
 - If `compile_error_match` is omitted, the runner only checks whether compilation fails, but most repo tests should include it.
 
 ## Writing Good Golden Tests
@@ -119,79 +118,13 @@ Rules:
 - Keep error-case source names explicit, for example `error_unknown_superclass.nif`.
 - Match stable diagnostic substrings, not entire multiline compiler output.
 - Reuse helper modules in the same directory when the feature is multi-module.
+- For runtime tests, prefer type-specific asserts from `std.test`, such as `assert_eq_i64`, `assert_eq_u64`, `assert_eq_bool`, `assert_eq_u8`, and `assert_eq_double`, when the value type is known.
+- Do not indicate test failure by returning ad hoc raw exit codes from `main`; use asserts as the primary validation mechanism.
+- Use stdout comparison only when the behavior is naturally output-oriented or when comparing emitted text is materially more convenient than expressing the check with asserts.
 - For runtime tests, use one source file with multiple selector-driven cases only when it keeps setup shared and readable.
+- For selector-driven runtime tests, prefer `var select: u64 = read_program_args()[1].to_u64();` or the equivalent `Str[]` local form, and pair that with `input.args: ["<selector>"]` in the spec.
+- Do not use stdin just to choose which test case to run; reserve stdin for tests that actually validate stdin-driven program behavior.
 - For compile-fail tests, do not over-pack many independent failures into one source; separate files make diagnostics stable and filtering easier.
-
-## Runner Behavior
-
-The runner is `tests/golden/runner.py`.
-
-What it does:
-
-- discovers `test_*_spec.yaml` files under `tests/golden`
-- parses the top-level `tests:` entries
-- for `run` entries: builds with `scripts/build.sh`, then executes each run case
-- for `compile-fail` entries: invokes `python3 -m compiler.main` directly and checks the compile error substring
-- writes build artifacts under `build/golden/__cases__`
-
-Important detail:
-
-- `--filter` is a glob under `tests/golden`, not a freeform substring search and not a positional path argument
-
-The filter matches both:
-
-- the spec path relative to `tests/golden`
-- the source path relative to `tests/golden`
-
-That means these all work when applicable:
-
-- `lang/test_constructor/**`
-- `lang/test_constructor/test_constructor_spec.yaml`
-- `lang/test_constructor/error_*.nif`
-
-## Default Commands
-
-Run the full golden suite:
-
-```bash
-cd /home/eka/git/niflheim && ./scripts/golden.sh
-```
-
-Run one feature directory:
-
-```bash
-cd /home/eka/git/niflheim && ./scripts/golden.sh --filter 'lang/test_constructor/**'
-```
-
-Run a single spec file by glob:
-
-```bash
-cd /home/eka/git/niflheim && ./scripts/golden.sh --filter 'lang/test_constructor/test_constructor_spec.yaml'
-```
-
-Run only compile-fail source files in a directory:
-
-```bash
-cd /home/eka/git/niflheim && ./scripts/golden.sh --filter 'lang/test_constructor/error_*.nif'
-```
-
-Run with explicit worker count:
-
-```bash
-cd /home/eka/git/niflheim && ./scripts/golden.sh --jobs 8
-```
-
-Print per-run results instead of one line per source file:
-
-```bash
-cd /home/eka/git/niflheim && ./scripts/golden.sh --filter 'lang/test_constructor/**' --print-per-run
-```
-
-Run the Python runner directly:
-
-```bash
-cd /home/eka/git/niflheim && python3 tests/golden/runner.py --filter 'lang/test_constructor/**'
-```
 
 ## Procedure
 
@@ -200,9 +133,10 @@ cd /home/eka/git/niflheim && python3 tests/golden/runner.py --filter 'lang/test_
 3. Use `mode: "run"` for compile-and-execute coverage and `mode: "compile-fail"` for compile-time rejection coverage.
 4. Keep `src_file` relative to the spec file.
 5. For compile-fail tests, choose a stable `compile_error_match` substring from the actual compiler diagnostic.
-6. Validate the narrowest useful scope first with `./scripts/golden.sh --filter '<glob>'`.
-7. If a filter returns `golden: no tests discovered`, fix the glob instead of passing a raw path argument.
-8. Report pass/fail concisely and include the relevant failing source path or diagnostic substring when something breaks.
+6. For selector-driven `mode: "run"` coverage, pass the selector in `input.args` and parse it from `read_program_args()[1]` in the NIF file.
+7. For `mode: "run"` coverage, choose typed asserts first, and only switch to stdout-based expectations when the test is really about produced text or that route is clearly simpler.
+8. Validate the narrowest useful scope after edits. Use the companion `run-golden-tests` skill for execution details and filter selection.
+9. Report what behavior was added, what diagnostics were matched, and any gaps or real bugs found during authoring.
 
 ## Examples In This Repo
 
@@ -216,5 +150,4 @@ cd /home/eka/git/niflheim && python3 tests/golden/runner.py --filter 'lang/test_
 ## Notes
 
 - Golden specs are YAML, and the repo already uses quoted string values consistently.
-- The runner summary prints test-file pass counts plus total runtime run count; compile-fail entries contribute test files but not runtime runs.
-- When you need only compile diagnostics, prefer compile-fail golden tests over ad hoc manual compiler invocations so the behavior stays regression-tested.
+- A single spec file may define multiple source test files; the runner emits and counts results per source test file, not per spec file.
