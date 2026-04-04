@@ -94,6 +94,7 @@ Supporting documentation:
 - [EXPLICIT_CONSTRUCTORS_PLAN.md](EXPLICIT_CONSTRUCTORS_PLAN.md) - design and staged plan for explicit constructors and constructor-only overload resolution as preparation for inheritance.
 - [FLOW_SENSITIVE_TYPE_NARROWING_PLAN.md](FLOW_SENSITIVE_TYPE_NARROWING_PLAN.md) - implementation plan for eliminating redundant runtime type checks using branch-local type facts.
 - [GRAMMAR_EBNF.md](GRAMMAR_EBNF.md) - grammar conventions and parser-facing notes.
+- [OVERRIDE_VIRTUAL_DISPATCH_PLAN.md](OVERRIDE_VIRTUAL_DISPATCH_PLAN.md) - design and staged plan for explicit `override` plus virtual class dispatch after single inheritance.
 - [SINGLE_INHERITANCE_PLAN.md](SINGLE_INHERITANCE_PLAN.md) - design and staged plan for single inheritance as a subtype/layout feature that prepares later override and virtual dispatch work.
 - [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) - canonical language and implementation checklist.
 - [SEMANTIC_IR_SPEC.md](SEMANTIC_IR_SPEC.md) - current semantic IR node set, invariants, and layering boundaries.
