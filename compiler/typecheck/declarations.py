@@ -80,6 +80,14 @@ def _constructor_signature_key(constructor_info: ConstructorInfo) -> tuple:
     return tuple(_type_signature_key(param_type) for param_type in constructor_info.params)
 
 
+def _is_virtual_method_signature(method_sig: FunctionSig) -> bool:
+    return not method_sig.is_static and not method_sig.is_private
+
+
+def _matching_override_signature(base_sig: FunctionSig, override_sig: FunctionSig) -> bool:
+    return base_sig.params == override_sig.params and base_sig.return_type == override_sig.return_type
+
+
 def _compatibility_constructor_info(
     class_decl,
     fields: dict[str, TypeInfo],
@@ -448,20 +456,69 @@ def _build_class_info(ctx: TypeCheckContext, module_path, class_decl: ClassDecl)
             final_fields.add(field_decl.name)
 
     declared_methods: dict[str, FunctionSig] = {}
+    owner_class_name = _canonical_class_name(module_path, class_decl.name)
     for method_decl in class_decl.methods:
-        if method_decl.name in declared_methods or method_decl.name in methods:
+        if method_decl.name in declared_methods:
             raise TypeCheckError(f"Duplicate method '{method_decl.name}'", method_decl.span)
         if method_decl.name in fields:
             raise TypeCheckError(f"Duplicate member '{method_decl.name}'", method_decl.span)
 
         method_sig = _function_sig_from_decl(module_ctx, method_decl)
+        inherited_method_sig = methods.get(method_decl.name)
+        inherited_method_member = method_members.get(method_decl.name)
+
+        if inherited_method_sig is None:
+            if method_decl.is_override:
+                raise TypeCheckError(
+                    f"Method '{class_decl.name}.{method_decl.name}' is marked override but no inherited method exists",
+                    method_decl.span,
+                )
+            slot_owner_class_name = owner_class_name if _is_virtual_method_signature(method_sig) else None
+        else:
+            assert inherited_method_member is not None
+
+            if not method_decl.is_override:
+                if _is_virtual_method_signature(inherited_method_sig):
+                    raise TypeCheckError(
+                        f"Method '{class_decl.name}.{method_decl.name}' must be declared with override",
+                        method_decl.span,
+                    )
+                raise TypeCheckError(f"Duplicate method '{method_decl.name}'", method_decl.span)
+
+            inherited_owner_display = inherited_method_member.owner_class_name.split("::", 1)[-1]
+            if inherited_method_sig.is_private:
+                raise TypeCheckError(
+                    f"Method '{class_decl.name}.{method_decl.name}' cannot override inherited private method "
+                    f"'{inherited_owner_display}.{method_decl.name}'",
+                    method_decl.span,
+                )
+            if inherited_method_sig.is_static:
+                raise TypeCheckError(
+                    f"Method '{class_decl.name}.{method_decl.name}' cannot override inherited static method "
+                    f"'{inherited_owner_display}.{method_decl.name}'",
+                    method_decl.span,
+                )
+            if method_sig.is_private:
+                raise TypeCheckError(
+                    f"Method '{class_decl.name}.{method_decl.name}' cannot be private because overrides must remain virtual",
+                    method_decl.span,
+                )
+            if not _matching_override_signature(inherited_method_sig, method_sig):
+                raise TypeCheckError(
+                    f"Method '{class_decl.name}.{method_decl.name}' must match inherited signature exactly",
+                    method_decl.span,
+                )
+
+            slot_owner_class_name = inherited_method_member.slot_owner_class_name
+            if slot_owner_class_name is None:
+                slot_owner_class_name = inherited_method_member.owner_class_name
+
         declared_methods[method_decl.name] = method_sig
         methods[method_decl.name] = method_sig
-
-        owner_class_name = _canonical_class_name(module_path, class_decl.name)
         method_members[method_decl.name] = MethodMemberInfo(
             owner_class_name=owner_class_name,
             signature=method_sig,
+            slot_owner_class_name=slot_owner_class_name,
         )
         if method_decl.is_private:
             private_methods.add(method_decl.name)

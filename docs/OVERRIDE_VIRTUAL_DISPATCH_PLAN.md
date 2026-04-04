@@ -452,10 +452,10 @@ What to test:
 
 Checklist:
 
-- [ ] define override legality rules in typecheck
-- [ ] replace no-redeclaration method rule with explicit override validation
-- [ ] add effective-method metadata carrying slot origin and selected implementation
-- [ ] add typecheck unit coverage for valid and invalid overrides
+- [x] define override legality rules in typecheck
+- [x] replace no-redeclaration method rule with explicit override validation
+- [x] add effective-method metadata carrying slot origin and selected implementation
+- [x] add typecheck unit coverage for valid and invalid overrides
 
 ## Slice 3: Symbol And Semantic IR Separation Between Virtual And Direct Calls
 

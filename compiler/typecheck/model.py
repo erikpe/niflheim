@@ -43,6 +43,7 @@ class FieldMemberInfo:
 class MethodMemberInfo:
     owner_class_name: str
     signature: FunctionSig
+    slot_owner_class_name: str | None
 
 
 @dataclass(frozen=True)

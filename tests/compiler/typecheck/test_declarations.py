@@ -304,6 +304,268 @@ fn main() -> unit {
     return;
 }
 """
+    with pytest.raises(TypeCheckError, match="Method 'Derived.read' must be declared with override"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_allows_valid_override_and_tracks_effective_method_metadata() -> None:
+    source = """
+class Base {
+    fn read() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    override fn read() -> i64 {
+        return 2;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    ctx = _collect_declarations(source)
+
+    derived_info = ctx.classes["Derived"]
+
+    assert derived_info.declared_methods["read"] == derived_info.methods["read"]
+    assert derived_info.method_members["read"].owner_class_name == "Derived"
+    assert derived_info.method_members["read"].slot_owner_class_name == "Base"
+
+
+def test_typecheck_keeps_virtual_slot_origin_across_multiple_override_levels() -> None:
+    source = """
+class Base {
+    fn read() -> i64 {
+        return 1;
+    }
+}
+
+class Mid extends Base {
+    override fn read() -> i64 {
+        return 2;
+    }
+}
+
+class Derived extends Mid {
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    ctx = _collect_declarations(source)
+
+    derived_info = ctx.classes["Derived"]
+
+    assert derived_info.method_members["read"].owner_class_name == "Mid"
+    assert derived_info.method_members["read"].slot_owner_class_name == "Base"
+
+
+def test_typecheck_rejects_override_with_wrong_return_type() -> None:
+    source = """
+class Base {
+    fn read() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    override fn read() -> bool {
+        return true;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="must match inherited signature exactly"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_override_with_wrong_parameter_type() -> None:
+    source = """
+class Base {
+    fn read(value: i64) -> i64 {
+        return value;
+    }
+}
+
+class Derived extends Base {
+    override fn read(value: bool) -> i64 {
+        return 1;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="must match inherited signature exactly"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_override_with_wrong_arity() -> None:
+    source = """
+class Base {
+    fn read() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    override fn read(value: i64) -> i64 {
+        return value;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="must match inherited signature exactly"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_override_without_matching_base_method() -> None:
+    source = """
+class Base {
+}
+
+class Derived extends Base {
+    override fn read() -> i64 {
+        return 1;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="is marked override but no inherited method exists"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_override_of_private_method() -> None:
+    source = """
+class Base {
+    private fn read() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    override fn read() -> i64 {
+        return 2;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="cannot override inherited private method"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_override_of_static_method() -> None:
+    source = """
+class Base {
+    static fn read() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    override fn read() -> i64 {
+        return 2;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="cannot override inherited static method"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_private_override_method() -> None:
+    source = """
+class Base {
+    fn read() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    private override fn read() -> i64 {
+        return 2;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match="overrides must remain virtual"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_preserves_inherited_interface_implementation_after_override() -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Base implements Hashable {
+    fn hash_code() -> u64 {
+        return 1u;
+    }
+}
+
+class Derived extends Base {
+    override fn hash_code() -> u64 {
+        return 2u;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
+    ctx = _collect_declarations(source)
+
+    derived_info = ctx.classes["Derived"]
+
+    assert derived_info.implemented_interfaces == {"Hashable"}
+    assert derived_info.method_members["hash_code"].owner_class_name == "Derived"
+    assert derived_info.method_members["hash_code"].slot_owner_class_name == "Base"
+
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_non_override_reuse_of_inherited_private_method() -> None:
+    source = """
+class Base {
+    private fn read() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    fn read() -> i64 {
+        return 2;
+    }
+}
+
+fn main() -> unit {
+    return;
+}
+"""
     with pytest.raises(TypeCheckError, match="Duplicate method 'read'"):
         parse_and_typecheck(source)
 

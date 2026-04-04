@@ -34,7 +34,7 @@ tests:
   - mode: "compile-fail"
     name: "inherited_method_redeclaration"
     src_file: "error_inherited_method_redeclaration.nif"
-    compile_error_match: "Duplicate method 'read'"
+    compile_error_match: "Method 'Derived.read' must be declared with override"
   - mode: "compile-fail"
     name: "inherited_private_field_access"
     src_file: "error_inherited_private_field_access.nif"
