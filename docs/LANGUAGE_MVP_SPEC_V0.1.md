@@ -129,10 +129,20 @@ Primitive cast semantics:
 - Fields and methods can be declared `private` for class-only access.
 - Fields can be declared `final`; final fields are write-once at construction and cannot be reassigned.
 - Methods are instance methods by default.
+- Ordinary instance methods are virtual by default.
 - Static methods are declared explicitly with `static fn` and are called on the class name (`Counter.add(...)`).
-- Method overriding is out of scope for v0.1.
+- Subclasses may override inherited virtual instance methods with explicit `override`.
+- Override compatibility is exact in v0.1: same name, parameter list, and return type.
+- Private instance methods, static methods, and constructors are never virtual and cannot be overridden.
 - `super(...)` is constructor-only in v0.1; `super.method(...)` and `super.field` are out of scope.
 - Classes may implement zero or more interfaces, and subclasses inherit their base class's interfaces transitively.
+
+Dispatch details:
+
+- Ordinary instance calls dispatch through the runtime class of the receiver.
+- Base methods calling other virtual methods through `__self` observe overrides.
+- Static and private method calls remain direct.
+- Interface dispatch uses the effective overridden implementation for the concrete runtime class.
 
 Visibility details:
 

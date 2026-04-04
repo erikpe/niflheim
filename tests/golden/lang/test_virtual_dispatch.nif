@@ -1,0 +1,98 @@
+import std.io;
+import std.test;
+
+interface Metric {
+    fn score() -> i64;
+}
+
+class DirectBase {
+    fn value() -> i64 {
+        return 1;
+    }
+}
+
+class DirectDerived extends DirectBase {
+    override fn value() -> i64 {
+        return 42;
+    }
+}
+
+class TemplateBase {
+    fn leaf() -> i64 {
+        return 1;
+    }
+
+    fn score() -> i64 {
+        return __self.leaf() + 1;
+    }
+
+    fn stable() -> i64 {
+        return 7;
+    }
+}
+
+class TemplateDerived extends TemplateBase {
+    override fn leaf() -> i64 {
+        return 41;
+    }
+}
+
+class InterfaceBase implements Metric {
+    fn score() -> i64 {
+        return 1;
+    }
+}
+
+class InterfaceDerived extends InterfaceBase {
+    override fn score() -> i64 {
+        return 42;
+    }
+}
+
+fn read_direct(value: DirectBase) -> i64 {
+    return value.value();
+}
+
+fn read_template(value: TemplateBase) -> i64 {
+    return value.score();
+}
+
+fn read_stable(value: TemplateBase) -> i64 {
+    return value.stable();
+}
+
+fn measure_metric(value: Metric) -> i64 {
+    return value.score();
+}
+
+fn test_base_typed_receiver_dispatches_to_override() -> unit {
+    assert_eq_i64(read_direct(DirectDerived()), 42);
+}
+
+fn test_base_method_via_self_hits_override() -> unit {
+    assert_eq_i64(read_template(TemplateDerived()), 42);
+}
+
+fn test_inherited_non_overridden_method_stays_base_impl() -> unit {
+    assert_eq_i64(read_stable(TemplateDerived()), 7);
+}
+
+fn test_override_updates_interface_dispatch() -> unit {
+    assert_eq_i64(measure_metric(InterfaceDerived()), 42);
+}
+
+fn main() -> i64 {
+    var select: u64 = read_program_args()[1].to_u64();
+
+    if select == 1u { test_base_typed_receiver_dispatches_to_override(); return 0; }
+    if select == 2u { test_base_method_via_self_hits_override(); return 0; }
+    if select == 3u { test_inherited_non_overridden_method_stays_base_impl(); return 0; }
+    if select == 4u { test_override_updates_interface_dispatch(); return 0; }
+    if select == 5u {
+        var value: DirectBase = null;
+        return value.value();
+    }
+
+    fail("Invalid test selection.");
+    return 1;
+}

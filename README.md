@@ -40,6 +40,7 @@ Recent backend/runtime updates:
 - Full `double` lowering is implemented in codegen, including literals, arithmetic/comparisons, casts, and mixed integer/floating call signatures.
 - SysV floating-point ABI paths are implemented for parameters/returns (`xmm0`-`xmm7`) in function calls, method calls, and constructors.
 - Single inheritance without overriding is implemented end-to-end, including inherited field/method access, transitive interface implementation, subtype-aware class casts/type tests, and constructor chaining via `super(...)`.
+- Explicit `override` declarations and virtual dispatch for ordinary instance methods are implemented end-to-end, including base-typed dispatch, virtual calls through `__self`, and effective interface dispatch updates.
 - `std.box` primitive wrapper classes (`Box*`) are available for `Obj`-container use cases.
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
 - `std.io` supports both stdin batch reads (`read_stdin`) and whole-file reads (`read_file(path)`) using minimal runtime open/read/close primitives.
@@ -113,6 +114,7 @@ Golden tests live under `tests/golden/`.
 	- Example source: `tests/golden/arithmetic/test_addition.nif`
 	- Example spec: `tests/golden/arithmetic/test_addition_spec.yaml`
 - Each referenced source is compiled once via `scripts/build.sh` and output goes to `build/golden/...`.
+- For one `./scripts/golden.sh` invocation, the C runtime is prebuilt once as a static archive and reused across all `mode: run` builds.
 - Each test entry can define multiple runs against the compiled binary.
 
 Run the runner:

@@ -8,11 +8,11 @@ The main goal is to move ordinary class instance calls from early-bound concrete
 
 ## Status
 
-Planned.
+Implemented through Slice 7.
 
-The current compiler/runtime supports single inheritance without overriding.
+The current compiler/runtime supports explicit `override` declarations and virtual dispatch for ordinary instance methods.
 
-Today, inherited methods resolve to their declaring class and ordinary class instance calls are lowered as direct calls.
+The remaining follow-up from this plan is optional Slice 8 support for `super.method(...)`.
 
 ## Why This Plan Exists
 
@@ -620,9 +620,9 @@ What to test:
 
 Checklist:
 
-- [ ] add integration coverage for override through base-typed receivers
-- [ ] add end-to-end language/golden coverage where appropriate
-- [ ] update language/docs references after behavior is stable
+- [x] add integration coverage for override through base-typed receivers
+- [x] add end-to-end language/golden coverage where appropriate
+- [x] update language/docs references after behavior is stable
 
 ## Slice 8: Optional Follow-Up `super.method(...)`
 
