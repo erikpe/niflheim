@@ -1,0 +1,13 @@
+class SliceSink {
+    values: i64[];
+
+    fn slice_set(begin: i64, end: i64, value: i64) -> unit {
+        return;
+    }
+}
+
+fn main() -> unit {
+    var s: SliceSink = SliceSink(i64[](2u));
+    var part: i64 = s[0:1];
+    return;
+}

@@ -1,0 +1,13 @@
+class BadWindow {
+    values: i64[];
+
+    fn slice_get(begin: u64, end: u64) -> BadWindow {
+        return __self;
+    }
+}
+
+fn main() -> unit {
+    var w: BadWindow = BadWindow(i64[](1u));
+    var part: BadWindow = w[0:1];
+    return;
+}

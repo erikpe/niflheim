@@ -163,6 +163,13 @@ def _infer_instance_method_call_type(
         field_result = _infer_instance_field_call_type(ctx, expr, object_type, class_info)
         if field_result is not None:
             return field_result
+
+        structural_result = infer_structural_special_method_call_type(
+            ctx, object_type, class_info, expr.callee.field_name, expr.arguments, expr.span
+        )
+        if structural_result is not None:
+            return structural_result
+
         raise TypeCheckError(f"Class '{class_info.name}' has no method '{expr.callee.field_name}'", expr.span)
 
     method_member = class_info.method_members[expr.callee.field_name]

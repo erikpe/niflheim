@@ -1,0 +1,10 @@
+class BadIndex {
+    static fn index_get(index: i64) -> i64 {
+        return index;
+    }
+}
+
+fn main() -> unit {
+    var value: i64 = BadIndex()[0];
+    return;
+}

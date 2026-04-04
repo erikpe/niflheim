@@ -1,0 +1,13 @@
+class HiddenGet {
+    values: i64[];
+
+    private fn index_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+}
+
+fn main() -> unit {
+    var b: HiddenGet = HiddenGet(i64[](1u));
+    var value: i64 = b[0];
+    return;
+}

@@ -1,0 +1,13 @@
+class SliceSource {
+    values: i64[];
+
+    fn slice_get(begin: i64, end: i64) -> SliceSource {
+        return __self;
+    }
+}
+
+fn main() -> unit {
+    var s: SliceSource = SliceSource(i64[](2u));
+    s[0:1] = SliceSource(i64[](1u));
+    return;
+}

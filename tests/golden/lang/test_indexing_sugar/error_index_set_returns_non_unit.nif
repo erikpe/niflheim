@@ -1,0 +1,18 @@
+class BadBag {
+    values: i64[];
+
+    fn index_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    fn index_set(index: i64, value: i64) -> i64 {
+        __self.values[index] = value;
+        return value;
+    }
+}
+
+fn main() -> unit {
+    var b: BadBag = BadBag(i64[](1u));
+    b[0] = 1;
+    return;
+}

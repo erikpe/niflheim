@@ -1,0 +1,52 @@
+tests:
+  - mode: "run"
+    name: "test_indexing_sugar"
+    src_file: "test_indexing_sugar.nif"
+    runs:
+      - {name: "custom_index_key_types", input: {stdin: "1"}, expect: {exit_code: 0}}
+      - {name: "mismatched_index_read_write_value_types", input: {stdin: "2"}, expect: {exit_code: 0}}
+      - {name: "read_only_and_write_only_index_sugar", input: {stdin: "3"}, expect: {exit_code: 0}}
+      - {name: "slice_get_and_set_for_user_class", input: {stdin: "4"}, expect: {exit_code: 0}}
+      - {name: "slice_read_write_independence", input: {stdin: "5"}, expect: {exit_code: 0}}
+      - {name: "inherited_index_and_slice_members", input: {stdin: "6"}, expect: {exit_code: 0}}
+      - {name: "imported_index_and_slice_sugar", input: {stdin: "7"}, expect: {exit_code: 0}}
+  - mode: "compile-fail"
+    name: "missing_index_get"
+    src_file: "error_missing_index_get.nif"
+    compile_error_match: "Type 'WriteOnlyIndex' is not indexable (missing method 'index_get(K)')"
+  - mode: "compile-fail"
+    name: "static_index_get"
+    src_file: "error_static_index_get.nif"
+    compile_error_match: "Type 'BadIndex' is not indexable (method 'index_get' must be instance method)"
+  - mode: "compile-fail"
+    name: "missing_index_set"
+    src_file: "error_missing_index_set.nif"
+    compile_error_match: "Type 'ReadOnlyIndex' is not index-assignable (missing method 'index_set(K, V)')"
+  - mode: "compile-fail"
+    name: "index_set_must_return_unit"
+    src_file: "error_index_set_returns_non_unit.nif"
+    compile_error_match: "Type 'BadBag' is not index-assignable (method 'index_set' must return unit)"
+  - mode: "compile-fail"
+    name: "private_index_get"
+    src_file: "error_private_index_get.nif"
+    compile_error_match: "Member 'HiddenGet.index_get' is private"
+  - mode: "compile-fail"
+    name: "missing_slice_get"
+    src_file: "error_missing_slice_get.nif"
+    compile_error_match: "Type 'SliceSink' is not sliceable (missing method 'slice_get(i64, i64)')"
+  - mode: "compile-fail"
+    name: "slice_get_parameters_must_be_i64"
+    src_file: "error_slice_get_wrong_params.nif"
+    compile_error_match: "Type 'BadWindow' is not sliceable (method 'slice_get' parameters must be i64)"
+  - mode: "compile-fail"
+    name: "missing_slice_set"
+    src_file: "error_missing_slice_set.nif"
+    compile_error_match: "Type 'SliceSource' is not slice-assignable (missing method 'slice_set(i64, i64, U)')"
+  - mode: "compile-fail"
+    name: "slice_set_must_return_unit"
+    src_file: "error_slice_set_returns_non_unit.nif"
+    compile_error_match: "Type 'BadWindow' is not slice-assignable (method 'slice_set' must return unit)"
+  - mode: "compile-fail"
+    name: "private_slice_get"
+    src_file: "error_private_slice_get.nif"
+    compile_error_match: "Member 'HiddenSlice.slice_get' is private"

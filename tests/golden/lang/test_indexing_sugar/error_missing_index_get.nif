@@ -1,0 +1,14 @@
+class WriteOnlyIndex {
+    value: i64;
+
+    fn index_set(index: i64, value: i64) -> unit {
+        __self.value = value;
+        return;
+    }
+}
+
+fn main() -> unit {
+    var w: WriteOnlyIndex = WriteOnlyIndex(0);
+    var value: i64 = w[0];
+    return;
+}

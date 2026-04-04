@@ -1,0 +1,13 @@
+class HiddenSlice {
+    values: i64[];
+
+    private fn slice_get(begin: i64, end: i64) -> HiddenSlice {
+        return __self;
+    }
+}
+
+fn main() -> unit {
+    var w: HiddenSlice = HiddenSlice(i64[](2u));
+    var part: HiddenSlice = w[0:1];
+    return;
+}
