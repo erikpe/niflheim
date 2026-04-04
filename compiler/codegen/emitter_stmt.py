@@ -200,26 +200,28 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         if codegen.collection_fast_paths_enabled and _is_direct_ref_array_index_write_target(target):
             _emit_direct_ref_array_index_write(codegen, stmt, target, ctx)
             return
-        from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call, _named_root_sync_local_ids_for_lvalue_call
+        from compiler.codegen.emitter_expr import _emit_dispatch_call, _named_root_sync_local_ids_for_lvalue_call
 
-        _emit_named_call(
+        _emit_dispatch_call(
             codegen,
-            _dispatch_target_name(target.dispatch, ctx),
+            target.dispatch,
             [target.target, target.index, stmt.value],
             TYPE_NAME_UNIT,
             ctx,
+            span=stmt.span,
             named_root_local_ids=_named_root_sync_local_ids_for_lvalue_call(ctx, target),
         )
         return
     if isinstance(target, SliceLValue):
-        from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call, _named_root_sync_local_ids_for_lvalue_call
+        from compiler.codegen.emitter_expr import _emit_dispatch_call, _named_root_sync_local_ids_for_lvalue_call
 
-        _emit_named_call(
+        _emit_dispatch_call(
             codegen,
-            _dispatch_target_name(target.dispatch, ctx),
+            target.dispatch,
             [target.target, target.begin, target.end, stmt.value],
             TYPE_NAME_UNIT,
             ctx,
+            span=stmt.span,
             named_root_local_ids=_named_root_sync_local_ids_for_lvalue_call(ctx, target),
         )
         return
@@ -269,16 +271,17 @@ def _emit_for_in(
         )
         return
 
-    from compiler.codegen.emitter_expr import _dispatch_target_name, _emit_named_call
+    from compiler.codegen.emitter_expr import _emit_dispatch_call
 
     coll_ref = local_ref_expr_for_owner(ctx.owner, stmt.collection_local_id, span=stmt.span)
     iter_len_named_roots = None if ctx.named_root_liveness is None else ctx.named_root_liveness.for_for_in_iter_len(stmt)
-    _emit_named_call(
+    _emit_dispatch_call(
         codegen,
-        _dispatch_target_name(stmt.iter_len_dispatch, ctx),
+        stmt.iter_len_dispatch,
         [coll_ref],
         TYPE_NAME_U64,
         ctx,
+        span=stmt.span,
         named_root_local_ids=iter_len_named_roots,
     )
     codegen.asm.instr(f"mov {offset_operand(length_offset)}, rax")
@@ -291,12 +294,13 @@ def _emit_for_in(
 
     index_ref = local_ref_expr_for_owner(ctx.owner, stmt.index_local_id, span=stmt.span)
     iter_get_named_roots = None if ctx.named_root_liveness is None else ctx.named_root_liveness.for_for_in_iter_get(stmt)
-    _emit_named_call(
+    _emit_dispatch_call(
         codegen,
-        _dispatch_target_name(stmt.iter_get_dispatch, ctx),
+        stmt.iter_get_dispatch,
         [coll_ref, index_ref],
         stmt.element_type_ref,
         ctx,
+        span=stmt.span,
         named_root_local_ids=iter_get_named_roots,
     )
     codegen.asm.instr(f"mov {offset_operand(element_offset)}, rax")

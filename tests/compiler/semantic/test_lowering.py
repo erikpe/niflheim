@@ -46,6 +46,21 @@ def _assert_method_dispatch_matches_op(dispatch: MethodDispatch, *, class_name: 
     assert dispatch.method_id.name == collection_method_name(op_kind)
 
 
+def _assert_virtual_method_dispatch_matches_op(
+    dispatch: VirtualMethodDispatch,
+    *,
+    receiver_class_name: str,
+    slot_owner_class_name: str,
+    selected_class_name: str,
+    op_kind: CollectionOpKind,
+) -> None:
+    assert dispatch.receiver_class_id.name == receiver_class_name
+    assert dispatch.slot_owner_class_id.name == slot_owner_class_name
+    assert dispatch.method_name == collection_method_name(op_kind)
+    assert dispatch.selected_method_id.class_name == selected_class_name
+    assert dispatch.selected_method_id.name == collection_method_name(op_kind)
+
+
 def _assert_runtime_dispatch_matches_op(
     dispatch: RuntimeDispatch, *, op_kind: CollectionOpKind, runtime_kind: ArrayRuntimeKind | None = None
 ) -> None:
@@ -1120,44 +1135,68 @@ def test_lower_program_resolves_structural_index_slice_and_for_in_methods(tmp_pa
     first_decl = statements[0]
     assert isinstance(first_decl, SemanticVarDecl)
     assert isinstance(first_decl.initializer, IndexReadExpr)
-    assert isinstance(first_decl.initializer.dispatch, MethodDispatch)
-    _assert_method_dispatch_matches_op(
-        first_decl.initializer.dispatch, class_name="Buffer", op_kind=CollectionOpKind.INDEX_GET
+    assert isinstance(first_decl.initializer.dispatch, VirtualMethodDispatch)
+    _assert_virtual_method_dispatch_matches_op(
+        first_decl.initializer.dispatch,
+        receiver_class_name="Buffer",
+        slot_owner_class_name="Buffer",
+        selected_class_name="Buffer",
+        op_kind=CollectionOpKind.INDEX_GET,
     )
 
     index_assign = statements[1]
     assert isinstance(index_assign, SemanticAssign)
     assert isinstance(index_assign.target, IndexLValue)
-    assert isinstance(index_assign.target.dispatch, MethodDispatch)
-    _assert_method_dispatch_matches_op(
-        index_assign.target.dispatch, class_name="Buffer", op_kind=CollectionOpKind.INDEX_SET
+    assert isinstance(index_assign.target.dispatch, VirtualMethodDispatch)
+    _assert_virtual_method_dispatch_matches_op(
+        index_assign.target.dispatch,
+        receiver_class_name="Buffer",
+        slot_owner_class_name="Buffer",
+        selected_class_name="Buffer",
+        op_kind=CollectionOpKind.INDEX_SET,
     )
 
     slice_decl = statements[2]
     assert isinstance(slice_decl, SemanticVarDecl)
     assert isinstance(slice_decl.initializer, SliceReadExpr)
-    assert isinstance(slice_decl.initializer.dispatch, MethodDispatch)
-    _assert_method_dispatch_matches_op(
-        slice_decl.initializer.dispatch, class_name="Buffer", op_kind=CollectionOpKind.SLICE_GET
+    assert isinstance(slice_decl.initializer.dispatch, VirtualMethodDispatch)
+    _assert_virtual_method_dispatch_matches_op(
+        slice_decl.initializer.dispatch,
+        receiver_class_name="Buffer",
+        slot_owner_class_name="Buffer",
+        selected_class_name="Buffer",
+        op_kind=CollectionOpKind.SLICE_GET,
     )
 
     slice_assign = statements[3]
     assert isinstance(slice_assign, SemanticAssign)
     assert isinstance(slice_assign.target, SliceLValue)
-    assert isinstance(slice_assign.target.dispatch, MethodDispatch)
-    _assert_method_dispatch_matches_op(
-        slice_assign.target.dispatch, class_name="Buffer", op_kind=CollectionOpKind.SLICE_SET
+    assert isinstance(slice_assign.target.dispatch, VirtualMethodDispatch)
+    _assert_virtual_method_dispatch_matches_op(
+        slice_assign.target.dispatch,
+        receiver_class_name="Buffer",
+        slot_owner_class_name="Buffer",
+        selected_class_name="Buffer",
+        op_kind=CollectionOpKind.SLICE_SET,
     )
 
     structural_for_in = statements[4]
     assert isinstance(structural_for_in, SemanticForIn)
-    assert isinstance(structural_for_in.iter_len_dispatch, MethodDispatch)
-    assert isinstance(structural_for_in.iter_get_dispatch, MethodDispatch)
-    _assert_method_dispatch_matches_op(
-        structural_for_in.iter_len_dispatch, class_name="Buffer", op_kind=CollectionOpKind.ITER_LEN
+    assert isinstance(structural_for_in.iter_len_dispatch, VirtualMethodDispatch)
+    assert isinstance(structural_for_in.iter_get_dispatch, VirtualMethodDispatch)
+    _assert_virtual_method_dispatch_matches_op(
+        structural_for_in.iter_len_dispatch,
+        receiver_class_name="Buffer",
+        slot_owner_class_name="Buffer",
+        selected_class_name="Buffer",
+        op_kind=CollectionOpKind.ITER_LEN,
     )
-    _assert_method_dispatch_matches_op(
-        structural_for_in.iter_get_dispatch, class_name="Buffer", op_kind=CollectionOpKind.ITER_GET
+    _assert_virtual_method_dispatch_matches_op(
+        structural_for_in.iter_get_dispatch,
+        receiver_class_name="Buffer",
+        slot_owner_class_name="Buffer",
+        selected_class_name="Buffer",
+        op_kind=CollectionOpKind.ITER_GET,
     )
 
     array_for_in = statements[5]
@@ -1254,9 +1293,13 @@ def test_lower_program_uses_index_set_value_type_for_structural_assignment_targe
     assert isinstance(assign_stmt, SemanticAssign)
     assert isinstance(assign_stmt.target, IndexLValue)
     assert semantic_type_display_name(assign_stmt.target.value_type_ref) == "i64"
-    assert isinstance(assign_stmt.target.dispatch, MethodDispatch)
-    _assert_method_dispatch_matches_op(
-        assign_stmt.target.dispatch, class_name="WeirdStore", op_kind=CollectionOpKind.INDEX_SET
+    assert isinstance(assign_stmt.target.dispatch, VirtualMethodDispatch)
+    _assert_virtual_method_dispatch_matches_op(
+        assign_stmt.target.dispatch,
+        receiver_class_name="WeirdStore",
+        slot_owner_class_name="WeirdStore",
+        selected_class_name="WeirdStore",
+        op_kind=CollectionOpKind.INDEX_SET,
     )
 
 
@@ -1622,14 +1665,89 @@ def test_lower_linked_semantic_program_preserves_for_in_iteration_strategy(tmp_p
     protocol_loop = fn.body.statements[1]
     assert isinstance(protocol_loop, LoweredSemanticForIn)
     assert protocol_loop.strategy is LoweredSemanticForInStrategy.COLLECTION_PROTOCOL_DISPATCH
-    assert isinstance(protocol_loop.iter_len_dispatch, MethodDispatch)
-    assert isinstance(protocol_loop.iter_get_dispatch, MethodDispatch)
+    assert isinstance(protocol_loop.iter_len_dispatch, VirtualMethodDispatch)
+    assert isinstance(protocol_loop.iter_get_dispatch, VirtualMethodDispatch)
 
     array_loop = fn.body.statements[2]
     assert isinstance(array_loop, LoweredSemanticForIn)
     assert array_loop.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT
     assert isinstance(array_loop.iter_len_dispatch, RuntimeDispatch)
     assert isinstance(array_loop.iter_get_dispatch, RuntimeDispatch)
+
+
+def test_lower_program_structural_dispatch_uses_virtual_slot_metadata_for_base_typed_receivers(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn index_get(index: i64) -> i64 {
+                return 1;
+            }
+
+            fn iter_len() -> u64 {
+                return 1u;
+            }
+
+            fn iter_get(index: i64) -> i64 {
+                return 2;
+            }
+        }
+
+        class Derived extends Base {
+            override fn index_get(index: i64) -> i64 {
+                return 42;
+            }
+
+            override fn iter_get(index: i64) -> i64 {
+                return 43;
+            }
+        }
+
+        fn read_index(value: Base) -> i64 {
+            return value[0];
+        }
+
+        fn read_iter(value: Base) -> i64 {
+            for item in value {
+                return item;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    read_index_return = semantic.modules[("main",)].functions[0].body.statements[0]
+    read_iter_stmt = semantic.modules[("main",)].functions[1].body.statements[0]
+
+    assert isinstance(read_index_return, SemanticReturn)
+    assert isinstance(read_index_return.value, IndexReadExpr)
+    assert isinstance(read_index_return.value.dispatch, VirtualMethodDispatch)
+    _assert_virtual_method_dispatch_matches_op(
+        read_index_return.value.dispatch,
+        receiver_class_name="Base",
+        slot_owner_class_name="Base",
+        selected_class_name="Base",
+        op_kind=CollectionOpKind.INDEX_GET,
+    )
+
+    assert isinstance(read_iter_stmt, SemanticForIn)
+    assert isinstance(read_iter_stmt.iter_len_dispatch, VirtualMethodDispatch)
+    assert isinstance(read_iter_stmt.iter_get_dispatch, VirtualMethodDispatch)
+    _assert_virtual_method_dispatch_matches_op(
+        read_iter_stmt.iter_len_dispatch,
+        receiver_class_name="Base",
+        slot_owner_class_name="Base",
+        selected_class_name="Base",
+        op_kind=CollectionOpKind.ITER_LEN,
+    )
+    _assert_virtual_method_dispatch_matches_op(
+        read_iter_stmt.iter_get_dispatch,
+        receiver_class_name="Base",
+        slot_owner_class_name="Base",
+        selected_class_name="Base",
+        op_kind=CollectionOpKind.ITER_GET,
+    )
 
 
 def test_lower_linked_semantic_program_uses_explicit_lowered_control_flow_nodes(tmp_path: Path) -> None:

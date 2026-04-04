@@ -87,9 +87,12 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Bag_index_set" in asm
-    assert "    call __nif_method_Bag_index_get" in asm
+    assert "    call __nif_method_Bag_index_set" not in main_body
+    assert "    call __nif_method_Bag_index_get" not in main_body
+    assert main_body.count("    mov rcx, qword ptr [rcx + 80]") >= 2
+    assert main_body.count("    call r11") >= 2
 
 
 def test_emit_asm_structural_slice_sugar_for_user_class_lowers_to_slice_method(tmp_path) -> None:
@@ -116,8 +119,11 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Window_slice_get" in asm
+    assert "    call __nif_method_Window_slice_get" not in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" in main_body
+    assert "    call r11" in main_body
 
 
 def test_emit_asm_method_call_lowers_to_method_symbol_with_receiver_arg0(tmp_path) -> None:

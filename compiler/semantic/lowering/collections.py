@@ -7,11 +7,12 @@ from compiler.common.type_names import *
 from compiler.frontend.ast_nodes import CallExpr, ExprStmt, Expression, FieldAccessExpr
 from compiler.semantic.ir import *
 from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
+from compiler.semantic.lowering.ids import class_id_from_type_name, method_id_for_type_name
 from compiler.semantic.types import semantic_type_canonical_name
-from .ids import resolve_instance_method_id
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import TypeInfo
+from compiler.typecheck.module_lookup import lookup_class_by_type_name
 
 
 LowerExpr = Callable[[Expression], SemanticExpr]
@@ -200,9 +201,30 @@ def resolve_collection_dispatch(
     if receiver_type.element_type is not None:
         return runtime_dispatch_for_array_operation(typecheck_ctx, receiver_type, operation)
 
-    method_id = resolve_instance_method_id(typecheck_ctx, receiver_type, collection_method_name(operation))
-    assert method_id is not None
-    return MethodDispatch(method_id=method_id)
+    receiver_type_ref = semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type)
+    receiver_type_name = semantic_type_canonical_name(receiver_type_ref)
+    class_info = lookup_class_by_type_name(typecheck_ctx, receiver_type_name)
+    if class_info is None:
+        raise ValueError(
+            f"Cannot resolve structural method '{collection_method_name(operation)}' on non-class type '{receiver_type_name}'"
+        )
+
+    method_name = collection_method_name(operation)
+    method_member = class_info.method_members.get(method_name)
+    if method_member is None:
+        raise ValueError(f"Missing structural method '{method_name}' on type '{receiver_type_name}'")
+    if method_member.signature.is_static:
+        raise ValueError(f"Expected instance structural method '{method_name}' on type '{receiver_type_name}'")
+
+    selected_method_id = method_id_for_type_name(typecheck_ctx.module_path, method_member.owner_class_name, method_name)
+    if method_member.slot_owner_class_name is not None:
+        return VirtualMethodDispatch(
+            receiver_class_id=class_id_from_type_name(typecheck_ctx.module_path, receiver_type_name),
+            slot_owner_class_id=class_id_from_type_name(typecheck_ctx.module_path, method_member.slot_owner_class_name),
+            method_name=method_name,
+            selected_method_id=selected_method_id,
+        )
+    return MethodDispatch(method_id=selected_method_id)
 
 
 def runtime_dispatch_for_array_operation(

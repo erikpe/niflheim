@@ -83,8 +83,11 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Str_index_get" in asm
+    assert "    call __nif_method_Str_index_get" not in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" in main_body
+    assert "    call r11" in main_body
 
 
 def test_emit_asm_dead_string_literal_helper_is_not_emitted_after_pruning(tmp_path) -> None:

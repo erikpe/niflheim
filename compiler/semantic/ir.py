@@ -239,7 +239,15 @@ class MethodDispatch:
     method_id: MethodId
 
 
-SemanticDispatch = RuntimeDispatch | MethodDispatch
+@dataclass(frozen=True)
+class VirtualMethodDispatch:
+    receiver_class_id: ClassId
+    slot_owner_class_id: ClassId
+    method_name: str
+    selected_method_id: MethodId
+
+
+SemanticDispatch = RuntimeDispatch | MethodDispatch | VirtualMethodDispatch
 
 
 @dataclass(frozen=True)
@@ -545,6 +553,8 @@ class SliceReadExpr:
 def dispatch_method_id(dispatch: SemanticDispatch) -> MethodId | None:
     if isinstance(dispatch, MethodDispatch):
         return dispatch.method_id
+    if isinstance(dispatch, VirtualMethodDispatch):
+        return dispatch.selected_method_id
     return None
 
 

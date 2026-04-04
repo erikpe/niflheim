@@ -599,7 +599,7 @@ def _emit_indirect_method_call(
     *,
     receiver: SemanticExpr,
     extra_args: list[SemanticExpr],
-    return_type_ref: SemanticTypeRef,
+    return_type_ref: SemanticTypeRef | str,
     ctx: EmitContext,
     call_span,
     named_root_local_ids: frozenset[LocalId] | None,
@@ -669,7 +669,7 @@ def _emit_indirect_method_call(
     cleanup_slot_count = len(call_arguments) + len(stack_arg_indices)
     if cleanup_slot_count > 0:
         codegen.emit_stack_release(cleanup_slot_count * 8)
-    return_type_name = semantic_type_canonical_name(return_type_ref)
+    return_type_name = return_type_ref if isinstance(return_type_ref, str) else semantic_type_canonical_name(return_type_ref)
     if return_type_name == TYPE_NAME_DOUBLE:
         codegen.asm.instr("movq rax, xmm0")
     elif return_type_name == TYPE_NAME_UNIT:
@@ -871,12 +871,13 @@ def _emit_index_read_expr(codegen: CodeGenerator, expr: IndexReadExpr, ctx: Emit
     if codegen.collection_fast_paths_enabled and _is_direct_array_index_read_dispatch(expr.dispatch):
         _emit_direct_array_index_read_expr(codegen, expr, ctx)
         return
-    _emit_named_call(
+    _emit_dispatch_call(
         codegen,
-        _dispatch_target_name(expr.dispatch, ctx),
+        expr.dispatch,
         [expr.target, expr.index],
         expr.type_ref,
         ctx,
+        span=expr.span,
         named_root_local_ids=_named_root_sync_local_ids_for_expr(ctx, expr),
     )
 
@@ -900,12 +901,13 @@ def _emit_direct_array_index_read_expr(codegen: CodeGenerator, expr: IndexReadEx
 
 
 def _emit_slice_read_expr(codegen: CodeGenerator, expr: SliceReadExpr, ctx: EmitContext) -> None:
-    _emit_named_call(
+    _emit_dispatch_call(
         codegen,
-        _dispatch_target_name(expr.dispatch, ctx),
+        expr.dispatch,
         [expr.target, expr.begin, expr.end],
         expr.type_ref,
         ctx,
+        span=expr.span,
         named_root_local_ids=_named_root_sync_local_ids_for_expr(ctx, expr),
     )
 
@@ -1078,28 +1080,86 @@ def _method_label(method_id: MethodId, ctx: EmitContext) -> str:
     return label
 
 
-def _dispatch_target_name(dispatch: SemanticDispatch, ctx: EmitContext) -> str:
+def _dispatch_target_name(dispatch: RuntimeDispatch | MethodDispatch, ctx: EmitContext) -> str:
     if isinstance(dispatch, RuntimeDispatch):
         return runtime_dispatch_call_name(dispatch)
     return _method_label(dispatch.method_id, ctx)
 
 
+def _emit_dispatch_call(
+    codegen: CodeGenerator,
+    dispatch: SemanticDispatch,
+    call_arguments: list[SemanticExpr],
+    return_type_ref: SemanticTypeRef | str,
+    ctx: EmitContext,
+    *,
+    span,
+    named_root_local_ids: frozenset[LocalId] | None = None,
+) -> None:
+    if isinstance(dispatch, (RuntimeDispatch, MethodDispatch)):
+        _emit_named_call(
+            codegen,
+            _dispatch_target_name(dispatch, ctx),
+            call_arguments,
+            return_type_ref,
+            ctx,
+            named_root_local_ids=named_root_local_ids,
+        )
+        return
+
+    if not call_arguments:
+        codegen_types.raise_codegen_error("virtual collection dispatch requires a receiver argument", span=span)
+
+    slot_index = _collection_virtual_slot_index(dispatch, ctx, span=span)
+    _emit_indirect_method_call(
+        codegen,
+        receiver=call_arguments[0],
+        extra_args=call_arguments[1:],
+        return_type_ref=return_type_ref,
+        ctx=ctx,
+        call_span=span,
+        named_root_local_ids=named_root_local_ids,
+        resolve_method_pointer=lambda: _emit_virtual_method_lookup(codegen, ctx, slot_index=slot_index),
+    )
+
+
 def _class_virtual_slot_index(target: VirtualMethodCallTarget, ctx: EmitContext, *, span) -> int:
     receiver_class_id = target.access.receiver_type_ref.class_id
     if receiver_class_id is None:
-        codegen_types.raise_codegen_error(
-            "virtual call receiver must have a class type at codegen",
-            span=span,
-        )
-
-    slot_index = ctx.declaration_tables.class_virtual_slot_index(
-        receiver_class_id, target.slot_owner_class_id, target.slot_method_name
+        codegen_types.raise_codegen_error("virtual call receiver must have a class type at codegen", span=span)
+    return _virtual_slot_index(
+        ctx,
+        receiver_class_id=receiver_class_id,
+        slot_owner_class_id=target.slot_owner_class_id,
+        slot_method_name=target.slot_method_name,
+        span=span,
     )
+
+
+def _collection_virtual_slot_index(dispatch: VirtualMethodDispatch, ctx: EmitContext, *, span) -> int:
+    return _virtual_slot_index(
+        ctx,
+        receiver_class_id=dispatch.receiver_class_id,
+        slot_owner_class_id=dispatch.slot_owner_class_id,
+        slot_method_name=dispatch.method_name,
+        span=span,
+    )
+
+
+def _virtual_slot_index(
+    ctx: EmitContext,
+    *,
+    receiver_class_id: ClassId,
+    slot_owner_class_id: ClassId,
+    slot_method_name: str,
+    span,
+) -> int:
+    slot_index = ctx.declaration_tables.class_virtual_slot_index(receiver_class_id, slot_owner_class_id, slot_method_name)
     if slot_index is None:
         codegen_types.raise_codegen_error(
             (
                 "missing virtual slot metadata for "
-                f"'{receiver_class_id.name}.{target.slot_owner_class_id.name}.{target.slot_method_name}'"
+                f"'{receiver_class_id.name}.{slot_owner_class_id.name}.{slot_method_name}'"
             ),
             span=span,
         )

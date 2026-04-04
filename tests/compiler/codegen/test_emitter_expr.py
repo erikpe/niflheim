@@ -299,7 +299,10 @@ def test_emitter_expr_emits_class_structural_index_reads(tmp_path: Path) -> None
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, IndexReadExpr)
     emit_expr(generator, return_stmt.value, ctx)
-    assert "    call __nif_method_Buffer_index_get" in generator.asm.lines
+    assert "    call __nif_method_Buffer_index_get" not in generator.asm.lines
+    assert "    mov rcx, qword ptr [rcx]" in generator.asm.lines
+    assert "    mov rcx, qword ptr [rcx + 80]" in generator.asm.lines
+    assert "    call r11" in generator.asm.lines
 
 
 def test_emitter_expr_emits_interface_dispatch_via_lookup_helper(tmp_path: Path) -> None:

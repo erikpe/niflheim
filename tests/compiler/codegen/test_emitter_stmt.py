@@ -103,8 +103,11 @@ def test_emitter_stmt_emits_for_in_and_structural_writes(tmp_path: Path) -> None
     )
 
     assert ".Lmain_for_in_start_" in asm
-    assert "call __nif_method_Buffer_iter_len" in asm
-    assert "call __nif_method_Buffer_iter_get" in asm
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
+    assert "call __nif_method_Buffer_iter_len" not in main_body
+    assert "call __nif_method_Buffer_iter_get" not in main_body
+    assert main_body.count("mov rcx, qword ptr [rcx + 80]") >= 2
+    assert main_body.count("call r11") >= 2
     assert f"call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in asm
     assert "call rt_array_get_i64" not in asm
     assert f"mov rax, qword ptr {array_data_index_address('rax', 'rcx', element_size=8)}" in asm

@@ -273,6 +273,7 @@ Design lock-in note:
 
 - `index_get(K)` remains key/index-agnostic for indexing sugar.
 - `for ... in` does not use `get`; it requires `iter_len/iter_get(i64)` specifically.
+- Structural collection sugar follows ordinary instance-method dispatch semantics, so overriding `index_get`, `index_set`, `slice_get`, `slice_set`, `iter_len`, or `iter_get` affects the sugared forms as well.
 - This prevents key-based maps (for example `index_get(u64)` for lookup) from becoming accidentally iterable via for-sugar.
 
 ---

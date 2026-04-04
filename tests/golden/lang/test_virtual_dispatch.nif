@@ -49,6 +49,73 @@ class InterfaceDerived extends InterfaceBase {
     }
 }
 
+class IndexedBase {
+    fn index_get(index: i64) -> i64 {
+        return 1;
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        return;
+    }
+
+    fn read() -> i64 {
+        return 0;
+    }
+}
+
+class IndexedDerived extends IndexedBase {
+    stored: i64;
+
+    override fn index_get(index: i64) -> i64 {
+        return 42;
+    }
+
+    override fn index_set(index: i64, value: i64) -> unit {
+        __self.stored = value + 10;
+        return;
+    }
+
+    override fn read() -> i64 {
+        return __self.stored;
+    }
+}
+
+class SlicedBase {
+    fn slice_get(begin: i64, end: i64) -> SlicedBase {
+        return SlicedBase();
+    }
+
+    fn value() -> i64 {
+        return 1;
+    }
+}
+
+class SlicedDerived extends SlicedBase {
+    override fn slice_get(begin: i64, end: i64) -> SlicedBase {
+        return SlicedDerived();
+    }
+
+    override fn value() -> i64 {
+        return 42;
+    }
+}
+
+class IterBase {
+    fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return 1;
+    }
+}
+
+class IterDerived extends IterBase {
+    override fn iter_get(index: i64) -> i64 {
+        return 42;
+    }
+}
+
 fn read_direct(value: DirectBase) -> i64 {
     return value.value();
 }
@@ -63,6 +130,26 @@ fn read_stable(value: TemplateBase) -> i64 {
 
 fn measure_metric(value: Metric) -> i64 {
     return value.score();
+}
+
+fn read_indexed(value: IndexedBase) -> i64 {
+    return value[0];
+}
+
+fn write_indexed(value: IndexedBase) -> i64 {
+    value[0] = 5;
+    return value.read();
+}
+
+fn read_slice_value(value: SlicedBase) -> i64 {
+    return value[0:1].value();
+}
+
+fn read_iter_value(value: IterBase) -> i64 {
+    for item in value {
+        return item;
+    }
+    return 0;
 }
 
 fn test_base_typed_receiver_dispatches_to_override() -> unit {
@@ -81,6 +168,22 @@ fn test_override_updates_interface_dispatch() -> unit {
     assert_eq_i64(measure_metric(InterfaceDerived()), 42);
 }
 
+fn test_structural_index_get_dispatches_to_override() -> unit {
+    assert_eq_i64(read_indexed(IndexedDerived(0)), 42);
+}
+
+fn test_structural_index_set_dispatches_to_override() -> unit {
+    assert_eq_i64(write_indexed(IndexedDerived(0)), 15);
+}
+
+fn test_structural_slice_get_dispatches_to_override() -> unit {
+    assert_eq_i64(read_slice_value(SlicedDerived()), 42);
+}
+
+fn test_structural_for_in_dispatches_to_override() -> unit {
+    assert_eq_i64(read_iter_value(IterDerived()), 42);
+}
+
 fn main() -> i64 {
     var select: u64 = read_program_args()[1].to_u64();
 
@@ -88,7 +191,11 @@ fn main() -> i64 {
     if select == 2u { test_base_method_via_self_hits_override(); return 0; }
     if select == 3u { test_inherited_non_overridden_method_stays_base_impl(); return 0; }
     if select == 4u { test_override_updates_interface_dispatch(); return 0; }
-    if select == 5u {
+    if select == 5u { test_structural_index_get_dispatches_to_override(); return 0; }
+    if select == 6u { test_structural_index_set_dispatches_to_override(); return 0; }
+    if select == 7u { test_structural_slice_get_dispatches_to_override(); return 0; }
+    if select == 8u { test_structural_for_in_dispatches_to_override(); return 0; }
+    if select == 9u {
         var value: DirectBase = null;
         return value.value();
     }
