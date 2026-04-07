@@ -1,0 +1,337 @@
+# Semantic Graph Identity Refactor Roadmap
+
+This document defines the concrete refactor plan for evolving the semantic graph from its current name-heavy, string-heavy representation into a more stable semantic model.
+
+The starting point is the current semantic IR described in [SEMANTIC_IR_SPEC.md](SEMANTIC_IR_SPEC.md). That document still describes the baseline IR shape and current behavior. This roadmap describes the ordered changes needed to move beyond that baseline without making the intermediate states confusing or unsafe.
+
+The sequence starts with introducing `LocalId` and ends with removing span-derived temporaries from codegen.
+
+## Why This Refactor Exists
+
+The current semantic graph already has strong global symbol identity through canonical IDs such as `FunctionId`, `ClassId`, and `MethodId`. That part is in good shape.
+
+The remaining weak spots are now mostly type identity and backend-boundary issues:
+
+- many nodes still represent types primarily as strings that later passes must reinterpret
+- some backend compatibility surfaces still expose display-oriented slot keys even when the underlying function-local storage is now keyed by semantic identity
+- some semantic nodes still duplicate metadata that is now also available through owner-local tables, though lowered local declarations no longer need copied display/type data
+
+None of those are blockers for the current compiler, but together they make shadowing, stronger optimization, and future semantic cleanup harder than necessary.
+
+## Goals
+
+- introduce stable local identity throughout semantic IR and downstream passes
+- separate source spelling from semantic identity
+- reduce places where later passes need to reinterpret `type_name` strings
+- make hidden semantic temporaries explicit instead of deriving them from spans
+- keep the compiler working at every step with small reviewable changes
+- keep diagnostics and source mapping intact while identities become more semantic
+
+## Non-Goals
+
+- do not introduce SSA in this refactor
+- do not replace the structured semantic IR with a CFG IR in this refactor
+- do not redesign the language surface
+- do not combine this with unrelated runtime or backend feature work
+- do not require every pass to migrate to canonical type objects on day one
+
+## Design Principles
+
+1. Identity should be explicit.
+   Local variables, loop temporaries, and compiler-introduced temporaries should have semantic IDs, not inferred names.
+
+2. Source spelling should remain available.
+   Diagnostics, debug dumps, and user-facing errors still need access to original names and spans.
+
+3. Migrations should preserve behavior before improving structure.
+   Each phase should first make identity explicit, then let later cleanups simplify code.
+
+4. Backend-invented semantics should move upstream.
+   If codegen depends on a value existing, semantic IR should describe that value.
+
+## Current Baseline
+
+Today the semantic graph has these notable properties:
+
+- global declarations use canonical typed IDs
+- local declarations, references, assignments, and `for-in` element bindings carry canonical local identity through `LocalId`
+- owner-local metadata is available through `local_info_by_id` tables keyed by `LocalId`
+- lexical shadowing is supported for nested block locals and `for-in` element bindings while same-scope duplicates remain rejected
+- semantic optimization state that tracks locals now keys by `LocalId`
+- `for-in` helper temporaries now have explicit semantic local IDs and owner-local metadata instead of being backend-only conventions
+- function frame layout now builds around explicit slot records and `LocalId`-keyed local storage, while retaining display-name compatibility layers for diagnostics and a few backend interfaces
+- many nodes still carry resolved types as strings
+- some constructor and backend compatibility paths still use display-oriented slot keys where there is no semantic local identity to attach yet
+
+This roadmap intentionally keeps the current graph usable while shifting those boundaries in a controlled order.
+
+## Dependency Order
+
+The order below is deliberate.
+
+- `LocalId` must come first because it unblocks shadowing, robust local reasoning, and explicit temp modeling.
+- local identity should be propagated through lowering, optimizations, and codegen before any broader cleanup, otherwise both representations leak into every pass.
+- explicit compiler-owned temporaries should only be introduced after local identity exists, otherwise they immediately fall back to fragile naming conventions.
+- removing span-derived temps from codegen is the last step because it depends on the earlier semantic identity work already being in place.
+
+## Ordered Checklist
+
+Use this checklist to track progress. Each item is intended to be completable as a focused reviewable change set.
+
+1. Introduce `LocalId` as the canonical identity for locals
+  - [x] add `LocalId` to semantic symbol identities
+  - [x] define ownership and uniqueness rules for `LocalId`
+  - [x] document whether IDs are unique per function-like body or globally unique within the semantic program
+  - [x] keep source names on declarations for diagnostics and debug printing
+  - Purpose:
+    establish a semantic identity layer for locals before changing any behavior
+  - Expected outcome:
+    every local can eventually be referred to without depending on source spelling
+  - Tests to add:
+    - [x] unit tests for `LocalId` equality and construction rules
+    - lowering tests proving two locals with the same source name in different scopes can receive distinct IDs once shadowing is enabled later
+
+Step 1 status:
+
+- `LocalId` now exists in the semantic symbol layer.
+- A `LocalId` is unique per function-like body, not globally by a standalone counter.
+- The concrete representation is `(owner_id, ordinal)`, where `owner_id` is a `FunctionId` or `MethodId` and `ordinal` is a non-negative integer local to that owner.
+- This step intentionally does not change semantic IR nodes yet, so declarations and references still keep source names for current behavior and diagnostics.
+
+2. Extend semantic IR nodes to carry local identity explicitly
+  - [x] update `SemanticVarDecl` to own a `LocalId`
+  - [x] update `LocalRefExpr` to refer to `LocalId`
+  - [x] update `LocalLValue` to refer to `LocalId`
+  - [x] decide whether params become `SemanticParam` plus `LocalId`, or whether a function-level local declaration model should subsume params
+  - [x] update any semantic dump or debug formatting helpers accordingly
+  - Purpose:
+    make local identity part of the semantic graph itself instead of an external convention
+  - Expected outcome:
+    local references and assignments become identity-based even while diagnostics still show user-written names
+  - Tests to add:
+    - [x] semantic lowering tests asserting declaration/reference/lvalue IDs line up
+    - [x] semantic IR tests covering params and nested blocks
+
+Step 2 status:
+
+- `SemanticVarDecl`, `LocalRefExpr`, and `LocalLValue` now carry both `local_id` and source `name`.
+- `LocalId` is the canonical binding identity; `name` remains on these nodes temporarily for readability, diagnostics, and compatibility with later roadmap steps.
+- Parameters remain represented as `SemanticParam` values without embedded `LocalId`s for now.
+- Lowering now allocates parameter bindings and `__self` bindings into the same `LocalId` space used by local declarations, so references to params and locals are identity-based even before a dedicated local-metadata table exists.
+
+3. Add a function-local symbol table or metadata view over semantic locals
+  - [x] introduce a stable mapping from `LocalId` to metadata such as display name, declared type, declaration span, and owning function or method
+  - [x] decide whether the metadata lives directly on nodes, in a per-function table, or both
+  - [x] ensure debug tooling can print readable local names without depending on identity internals
+  - Purpose:
+    separate semantic identity from user-facing metadata instead of duplicating name and type information on every use-site forever
+  - Expected outcome:
+    later passes can use IDs while diagnostics still recover original names and declaration locations cleanly
+  - Tests to add:
+    - [x] unit tests for local metadata lookup
+    - [x] diagnostic tests proving error messages still show original source names after the identity migration
+
+Step 3 status:
+
+- Semantic local metadata now lives in a per-function or per-method `local_info_by_id` table keyed by `LocalId`.
+- Each metadata entry records the local display name, declared type, declaration span, binding kind, and owning function-like symbol.
+- Local names still remain on `SemanticVarDecl`, `LocalRefExpr`, and `LocalLValue` for compatibility, but readable-name recovery no longer depends on those use-site fields alone.
+- Method codegen wrappers now preserve method-local metadata when a `SemanticMethod` is re-expressed as a temporary `SemanticFunction` for emission.
+
+4. Finish the lowering migration around canonical local identity
+  - [x] allocate `LocalId` values during body lowering
+  - [x] thread local identity through nested block scopes
+  - [x] preserve current no-shadowing behavior initially unless shadowing is introduced in the same change set intentionally
+  - [x] remove the remaining name-keyed lookup path inside lowering so local resolution no longer depends on source spelling after typecheck lookup succeeds
+  - Purpose:
+    keep lowering as the sole place that constructs lexical local identity, then remove the remaining transitional dependence on names inside the lowering implementation itself
+  - Expected outcome:
+    downstream passes receive a semantically bound graph and lowering no longer has to reconstruct final local identity from source spelling once a local binding is known
+  - Tests to add:
+    - [x] lowering tests for nested scopes
+    - [x] lowering tests for `if`, `while`, and `for-in`
+    - [x] tests showing that renamed source locals do not affect identity behavior except in diagnostics
+
+Step 4 status:
+
+- Lowering already allocates `LocalId` values in `lower_function_like_body` and threads them through nested lexical scopes.
+- Local declarations, local references, local assignment targets, params, `__self`, and `for-in` element bindings are already emitted with canonical `LocalId` values.
+- The current no-shadowing behavior remains intentionally unchanged at the typecheck boundary.
+- Lowering now resolves local bindings through the typecheck scope's binding objects and only carries source names forward as metadata for diagnostics and debug readability.
+
+5. Migrate semantic optimization passes from local-name environments to `LocalId`
+  - [x] update constant folding environments to key by `LocalId`
+  - [x] update any existing flow simplification or propagation scaffolding to key by `LocalId`
+  - [x] audit reachability and any semantic walkers for remaining local-name assumptions
+  - Purpose:
+    make optimization semantics match the semantic graph instead of source spelling
+  - Expected outcome:
+    local reasoning becomes robust against shadowing and less fragile under transforms
+  - Tests to add:
+    - [x] constant-folding tests with nested scopes and repeated source names
+    - [x] regression tests showing propagated values do not leak across distinct locals that share a source name
+
+Step 5 status:
+
+- Constant folding now keys local propagation by `LocalId` instead of source name.
+- There are no other current semantic optimization environments besides constant folding that maintain local-binding propagation state; this step establishes `LocalId` as the required key shape for future passes.
+- Reachability and the existing semantic walkers were audited and do not use local source names as semantic binding identity.
+
+6. Enable lexical shadowing as a semantic feature after identity migration
+  - [x] remove the function-wide unique-local-name restriction in typechecking and lowering
+  - [x] define the exact shadowing rules for params, loop variables, and nested blocks
+  - [x] validate interactions with closures or method references if those semantics exist by then
+  - Purpose:
+    cash in the main language-design benefit of explicit local identity
+  - Expected outcome:
+    block-scoped bindings behave naturally without destabilizing optimizations or codegen
+  - Tests to add:
+    - [x] positive typecheck tests for nested shadowing
+    - [x] negative tests for still-illegal same-scope duplicates
+    - [x] integration tests covering shadowing inside lowered control flow
+
+Step 6 status:
+
+- Nested block locals and `for-in` element bindings may now shadow outer locals and params.
+- Same-scope duplicate bindings remain rejected.
+- Shadowed bindings receive distinct `LocalId` values and distinct function-local stack slots, so backend storage no longer aliases them accidentally.
+- There are no closure semantics in the current language, so this step only needed validation against existing callable and method-reference behavior.
+
+7. Introduce canonical semantic type references alongside or beneath `type_name` strings
+  - [x] define a semantic type representation appropriate for the current compiler stage
+  - [x] start with declaration and use-site nodes that most frequently force string reinterpretation
+  - [x] decide whether `type_name` remains as cached display data or is derived from the canonical type representation
+  - [x] keep migration incremental so codegen does not need to switch in one large change
+  - Purpose:
+    reduce repeated parsing and interpretation of type strings in later passes
+  - Expected outcome:
+    semantic passes can ask direct questions about type identity and shape without string conventions doing semantic work
+  - Tests to add:
+    - [x] unit tests for canonical type equality and rendering
+    - [x] reachability tests proving type traversal still finds class and interface dependencies correctly
+    - [x] lowering tests for qualified and unqualified type references
+
+Step 7 status:
+
+- Semantic IR now has a canonical `SemanticTypeRef` layer that captures type shape and canonical nominal identity while keeping existing `type_name` strings as cached display data and compatibility fields.
+- Lowering populates canonical type refs for declaration nodes and the semantic use-site nodes that most often forced downstream string reinterpretation, including casts, type tests, field receivers, interface receivers, local declarations, and `for-in` element types.
+- Semantic reachability now consumes canonical type refs on migrated nodes instead of reparsing type strings wherever that information is available.
+- Codegen still primarily consumes `type_name` strings, which keeps this step incremental and leaves the broader backend migration for later roadmap steps.
+
+8. Reduce duplication between semantic nodes and semantic metadata
+  - [x] audit which repeated fields should remain on every node for convenience and which should move into metadata tables
+  - [x] consider whether receiver owner data, declared local type data, and resolved type data are duplicated more than needed
+  - [x] update walkers and pretty-printers to use the chosen metadata boundary consistently
+  - Purpose:
+    avoid turning the semantic graph into a large typed AST where every node repeats context that can be recovered cheaply and canonically
+  - Expected outcome:
+    the graph stays explicit where needed but less redundant and easier to evolve
+  - Tests to add:
+    - [x] semantic dump or metadata-boundary tests
+    - [x] regression tests for any codegen or optimization pass that previously relied on duplicated fields
+
+Step 8 status:
+
+- Lowered `SemanticVarDecl` nodes no longer need to duplicate local display names or declared local types, because that metadata is authoritative in the owning function or method's `local_info_by_id` table.
+- Owner-aware helpers now define the supported boundary for recovering a local declaration's display name or declared type from its `LocalId`.
+- Semantic reachability and related tests were updated to use that owner-local metadata boundary instead of reading copied declaration metadata directly.
+- Use-site local names and types on `LocalRefExpr` and `LocalLValue` remain in place intentionally for now, because they still provide readability and support a few narrow downstream compatibility paths.
+
+9. Make compiler-introduced temporaries explicit semantic locals
+  - [x] model hidden loop temporaries such as `for-in` collection, length, and index values as explicit semantic locals or explicit temp declarations
+  - [x] give those temporaries `LocalId`s and clear ownership
+  - [x] decide whether they should appear as ordinary `SemanticVarDecl`s or a dedicated internal-temp form
+  - Purpose:
+    stop relying on backend conventions for semantically real storage
+  - Expected outcome:
+    semantic IR fully describes the locals needed for execution of a construct like `for-in`
+  - Tests to add:
+    - [x] semantic lowering tests asserting helper temps exist for `for-in`
+    - [x] codegen tests proving temp layout remains correct after explicit-temp lowering
+
+Step 9 status:
+
+- `SemanticForIn` now carries explicit `LocalId`s for compiler-owned collection, length, and index helper locals alongside the user-visible element binding.
+- Lowering allocates those helper locals into the owning function or method's `local_info_by_id` table with dedicated `binding_kind` values, so their ownership and types are explicit without pretending they came from user declarations.
+- The primary codegen path now consumes those helper `LocalId`s directly for frame layout and loop emission instead of synthesizing backend-only `for-in` temp identities during emission.
+- No dedicated temp statement form was needed yet; explicit helper-local IDs on `SemanticForIn` were enough to make the hidden loop storage semantic while keeping the IR readable.
+
+10. Move frame-layout construction from name-based to identity-based slots
+  - [x] update layout building to use `LocalId` keys instead of source names
+  - [x] keep a display-name layer for debug output and diagnostics
+  - [x] ensure GC root tracking and temp root slots are still computed correctly
+  - Purpose:
+    make backend storage follow semantic identity instead of source spelling
+  - Expected outcome:
+    layout stays stable under shadowing and future transforms that rename or duplicate source-visible names
+  - Tests to add:
+    - [x] layout unit tests for distinct locals with the same source spelling
+    - [x] end-to-end runtime tests that exercise reference-typed locals and temp roots
+
+Step 10 status:
+
+- `FunctionLayout` now uses explicit slot records as its primary representation, and those records carry `LocalId` metadata whenever a slot corresponds to a semantic local.
+- Function-local frame construction now starts from owner-local metadata and derives display-oriented compatibility maps second, rather than treating slot-name strings as the source of truth.
+- GC root bookkeeping and zeroing logic now iterate the explicit slot records directly, which keeps root tracking aligned with semantic local identity while preserving readable debug names.
+- Constructor layout still exposes display-keyed slots because constructor parameter fields and the allocated object slot are backend storage values rather than semantic locals.
+
+11. Remove span-derived temps from codegen
+  - [x] delete the codegen convention that synthesizes `for-in` helper slot names from `SourceSpan`
+  - [x] consume explicit semantic temp identities instead
+  - [x] ensure no backend logic depends on span structure for semantic correctness
+  - Purpose:
+    finish the migration from syntax-derived semantics to semantic-owned identities
+  - Expected outcome:
+    codegen becomes a consumer of semantic intent rather than a place that reconstructs hidden semantics from source locations
+  - Tests to add:
+    - [x] regression tests covering multiple `for-in` loops on the same source line where practical
+    - [x] layout and codegen tests proving helper temp identity no longer depends on span values
+
+Step 11 status:
+
+- Codegen no longer reconstructs `for-in` helper temp identity from `SourceSpan` or any other syntax-derived convention.
+- The `for-in` emitter now materializes helper references from owner-local semantic metadata, so even codegen-internal temporary `LocalRefExpr` values are derived from semantic local identity rather than rebuilt from ad hoc names and types.
+- A focused regression now rewrites two lowered `for-in` loops to share the same span and still emits correct code, which proves helper temp identity is no longer coupled to span structure.
+
+## Recommended Change Boundaries
+
+To keep the migration reviewable, use these boundaries:
+
+- keep `LocalId` introduction separate from enabling shadowing
+- keep type-identity work separate from local-identity work
+- migrate optimizations immediately after lowering begins producing IDs, not much later
+- land explicit compiler temp modeling before removing old codegen conventions, so both representations can briefly coexist behind assertions if needed
+
+## Documentation Updates Required During The Refactor
+
+As these changes land, update the following documents so they continue to describe the current state clearly:
+
+- [SEMANTIC_IR_SPEC.md](SEMANTIC_IR_SPEC.md)
+  - keep it as the baseline current-shape spec, but clearly mark where the roadmap intentionally evolves local and type identity beyond that baseline
+- tests and debug logging docs
+  - update any examples that print local names if they now include IDs or derive names through metadata tables
+
+The old semantic lowering module-split plan has been removed because that refactor is complete and no longer needs active tracking.
+
+## Suggested Validation Strategy
+
+For each checklist item:
+
+1. add or update focused unit tests first where possible
+2. run the targeted semantic lowering, optimization, and codegen slices affected by the change
+3. run the full test suite after each major boundary:
+   - after `LocalId` lands in semantic IR
+   - after lowering fully produces IDs
+   - after optimizations migrate to IDs
+   - after codegen stops using span-derived temps
+
+## Exit Criteria
+
+This roadmap is complete when all of the following are true:
+
+- semantic locals are identified canonically, not by source names
+- shadowing is either fully supported or explicitly rejected for language reasons rather than IR limitations
+- later passes do not key semantic behavior off local source names
+- compiler-introduced temporaries are explicit in semantic IR
+- codegen no longer reconstructs semantic temps from source spans
+- existing docs describe both the current state and the migration target without contradiction
