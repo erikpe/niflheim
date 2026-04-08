@@ -10,6 +10,7 @@ tests:
       - {name: "slice_read_write_independence", input: {args: ["5"]}, expect: {exit_code: 0}}
       - {name: "inherited_index_and_slice_members", input: {args: ["6"]}, expect: {exit_code: 0}}
       - {name: "imported_index_and_slice_sugar", input: {args: ["7"]}, expect: {exit_code: 0}}
+      - {name: "interface_typed_index_and_slice_sugar", input: {args: ["8"]}, expect: {exit_code: 0}}
   - mode: "compile-fail"
     name: "missing_index_get"
     src_file: "error_missing_index_get.nif"

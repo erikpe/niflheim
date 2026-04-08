@@ -242,6 +242,126 @@ class IterWideDerived extends IterBase {
     }
 }
 
+interface IndexedReader {
+    fn index_get(index: i64) -> i64;
+}
+
+class IndexedIfaceBase implements IndexedReader {
+    fn index_get(index: i64) -> i64 {
+        return 1;
+    }
+}
+
+class IndexedIfaceDerived extends IndexedIfaceBase {
+    override fn index_get(index: i64) -> i64 {
+        return 42;
+    }
+}
+
+interface IndexedWriter {
+    fn index_set(index: i64, value: i64) -> unit;
+    fn read() -> i64;
+}
+
+class IndexedWriterBase implements IndexedWriter {
+    stored: i64;
+
+    fn index_set(index: i64, value: i64) -> unit {
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.stored;
+    }
+}
+
+class IndexedWriterDerived extends IndexedWriterBase {
+    override fn index_set(index: i64, value: i64) -> unit {
+        __self.stored = value + 10;
+        return;
+    }
+}
+
+interface SlicedReader {
+    fn slice_get(begin: i64, end: i64) -> SlicedReader;
+    fn value() -> i64;
+}
+
+class SlicedIfaceBase implements SlicedReader {
+    fn slice_get(begin: i64, end: i64) -> SlicedReader {
+        return SlicedIfaceBase();
+    }
+
+    fn value() -> i64 {
+        return 1;
+    }
+}
+
+class SlicedIfaceDerived extends SlicedIfaceBase {
+    override fn slice_get(begin: i64, end: i64) -> SlicedReader {
+        return SlicedIfaceDerived();
+    }
+
+    override fn value() -> i64 {
+        return 42;
+    }
+}
+
+interface SliceWriter {
+    fn slice_set(begin: i64, end: i64, value: SliceWriter) -> unit;
+    fn read() -> i64;
+}
+
+class SliceWriterBase implements SliceWriter {
+    stored: i64;
+
+    fn slice_set(begin: i64, end: i64, value: SliceWriter) -> unit {
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.stored;
+    }
+}
+
+class SliceWriterDerived extends SliceWriterBase {
+    override fn slice_set(begin: i64, end: i64, value: SliceWriter) -> unit {
+        __self.stored = value.read() + 10;
+        return;
+    }
+}
+
+interface IterableMetric {
+    fn iter_len() -> u64;
+    fn iter_get(index: i64) -> i64;
+}
+
+class IterIfaceBase implements IterableMetric {
+    fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return 1;
+    }
+}
+
+class IterIfaceDerived extends IterIfaceBase {
+    override fn iter_get(index: i64) -> i64 {
+        return 42;
+    }
+}
+
+class IterIfaceWideDerived extends IterIfaceBase {
+    override fn iter_len() -> u64 {
+        return 2u;
+    }
+
+    override fn iter_get(index: i64) -> i64 {
+        return (index * 2) + 20;
+    }
+}
+
 fn read_direct(value: DirectBase) -> i64 {
     return value.value();
 }
@@ -326,6 +446,32 @@ fn sum_iter_values_via_base_method(value: IterBase) -> i64 {
     return value.via_self_sum();
 }
 
+fn read_indexed_interface(value: IndexedReader) -> i64 {
+    return value[0];
+}
+
+fn write_indexed_interface(value: IndexedWriter) -> i64 {
+    value[0] = 5;
+    return value.read();
+}
+
+fn read_slice_interface(value: SlicedReader) -> i64 {
+    return value[0:1].value();
+}
+
+fn write_slice_interface(value: SliceWriter, replacement: SliceWriter) -> i64 {
+    value[0:1] = replacement;
+    return value.read();
+}
+
+fn sum_iter_interface(value: IterableMetric) -> i64 {
+    var total: i64 = 0;
+    for item in value {
+        total = total + item;
+    }
+    return total;
+}
+
 fn test_base_typed_receiver_dispatches_to_override() -> unit {
     assert_eq_i64(read_direct(DirectDerived()), 42);
 }
@@ -405,6 +551,26 @@ fn test_structural_for_in_via_self_dispatches_to_override() -> unit {
     assert_eq_i64(sum_iter_values_via_base_method(IterWideDerived()), 42);
 }
 
+fn test_interface_typed_structural_index_get_dispatches_to_override() -> unit {
+    assert_eq_i64(read_indexed_interface(IndexedIfaceDerived()), 42);
+}
+
+fn test_interface_typed_structural_index_set_dispatches_to_override() -> unit {
+    assert_eq_i64(write_indexed_interface(IndexedWriterDerived(0)), 15);
+}
+
+fn test_interface_typed_structural_slice_get_dispatches_to_override() -> unit {
+    assert_eq_i64(read_slice_interface(SlicedIfaceDerived()), 42);
+}
+
+fn test_interface_typed_structural_slice_set_dispatches_to_override() -> unit {
+    assert_eq_i64(write_slice_interface(SliceWriterDerived(0), SliceWriterDerived(32)), 42);
+}
+
+fn test_interface_typed_structural_for_in_dispatches_to_override() -> unit {
+    assert_eq_i64(sum_iter_interface(IterIfaceWideDerived()), 42);
+}
+
 fn main() -> i64 {
     var select: u64 = read_program_args()[1].to_u64();
 
@@ -430,6 +596,11 @@ fn main() -> i64 {
         var value: DirectBase = null;
         return value.value();
     }
+    if select == 20u { test_interface_typed_structural_index_get_dispatches_to_override(); return 0; }
+    if select == 21u { test_interface_typed_structural_index_set_dispatches_to_override(); return 0; }
+    if select == 22u { test_interface_typed_structural_slice_get_dispatches_to_override(); return 0; }
+    if select == 23u { test_interface_typed_structural_slice_set_dispatches_to_override(); return 0; }
+    if select == 24u { test_interface_typed_structural_for_in_dispatches_to_override(); return 0; }
 
     fail("Invalid test selection.");
     return 1;

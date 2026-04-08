@@ -16,6 +16,7 @@ tests:
       - {name: "for_in_over_reference_array", input: {args: ["11"]}, expect: {exit_code: 0}}
       - {name: "for_in_over_inherited_iter_methods", input: {args: ["12"]}, expect: {exit_code: 0}}
       - {name: "loop_variable_shadowing_preserves_outer_local", input: {args: ["13"]}, expect: {exit_code: 0}}
+      - {name: "for_in_over_interface_typed_iter_protocol", input: {args: ["14"]}, expect: {exit_code: 0}}
   - mode: "compile-fail"
     name: "non_iterable_primitive"
     src_file: "error_non_iterable_primitive.nif"

@@ -147,6 +147,47 @@ class BaseBuffer {
 
 class DerivedBuffer extends BaseBuffer {}
 
+interface IndexedSliceBuffer {
+    fn index_get(index: i64) -> i64;
+    fn index_set(index: i64, value: i64) -> unit;
+    fn slice_get(begin: i64, end: i64) -> IndexedSliceBuffer;
+    fn slice_set(begin: i64, end: i64, value: IndexedSliceBuffer) -> unit;
+}
+
+class InterfaceWindow implements IndexedSliceBuffer {
+    values: i64[];
+
+    static fn from_three(a: i64, b: i64, c: i64) -> InterfaceWindow {
+        var data: i64[] = i64[](3u);
+        data[0] = a;
+        data[1] = b;
+        data[2] = c;
+        return InterfaceWindow(data);
+    }
+
+    fn index_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        __self.values[index] = value;
+        return;
+    }
+
+    fn slice_get(begin: i64, end: i64) -> IndexedSliceBuffer {
+        return InterfaceWindow(__self.values[begin:end]);
+    }
+
+    fn slice_set(begin: i64, end: i64, value: IndexedSliceBuffer) -> unit {
+        var i: i64 = 0;
+        while begin + i < end {
+            __self.values[begin + i] = value[i];
+            i = i + 1;
+        }
+        return;
+    }
+}
+
 fn test_custom_index_key_types() -> unit {
     var m: FlagMap = FlagMap(10, 20);
     assert_eq_i64(m[true], 10);
@@ -244,6 +285,24 @@ fn test_imported_index_and_slice_sugar() -> unit {
     assert_eq_i64(window[2], 12);
 }
 
+fn test_interface_typed_index_and_slice_sugar() -> unit {
+    var window: IndexedSliceBuffer = InterfaceWindow.from_three(4, 5, 6);
+    assert_eq_i64(window[0], 4);
+
+    window[2] = 12;
+    assert_eq_i64(window[2], 12);
+
+    var cut: IndexedSliceBuffer = window[1:3];
+    assert_eq_i64(cut[0], 5);
+    assert_eq_i64(cut[1], 12);
+
+    var repl: IndexedSliceBuffer = InterfaceWindow.from_three(30, 31, 32);
+    window[0:2] = repl;
+    assert_eq_i64(window[0], 30);
+    assert_eq_i64(window[1], 31);
+    assert_eq_i64(window[2], 12);
+}
+
 fn main() -> i64 {
     var select: u64 = read_program_args()[1].to_u64();
 
@@ -254,6 +313,7 @@ fn main() -> i64 {
     if select == 5u { test_slice_read_write_independence(); return 0; }
     if select == 6u { test_inherited_index_and_slice_members(); return 0; }
     if select == 7u { test_imported_index_and_slice_sugar(); return 0; }
+    if select == 8u { test_interface_typed_index_and_slice_sugar(); return 0; }
 
     fail("Invalid test selection.");
     return 1;

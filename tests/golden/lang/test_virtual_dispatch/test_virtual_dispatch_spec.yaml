@@ -22,6 +22,11 @@ tests:
       - {name: "structural_for_in_dispatches_iter_len_and_iter_get_overrides", input: {args: ["17"]}, expect: {exit_code: 0}}
       - {name: "structural_for_in_via_self_dispatches_to_override", input: {args: ["18"]}, expect: {exit_code: 0}}
       - {name: "null_receiver_panics_deterministically", input: {args: ["19"]}, expect: {panic: "null dereference"}}
+      - {name: "interface_typed_structural_index_get_dispatches_to_override", input: {args: ["20"]}, expect: {exit_code: 0}}
+      - {name: "interface_typed_structural_index_set_dispatches_to_override", input: {args: ["21"]}, expect: {exit_code: 0}}
+      - {name: "interface_typed_structural_slice_get_dispatches_to_override", input: {args: ["22"]}, expect: {exit_code: 0}}
+      - {name: "interface_typed_structural_slice_set_dispatches_to_override", input: {args: ["23"]}, expect: {exit_code: 0}}
+      - {name: "interface_typed_structural_for_in_dispatches_to_override", input: {args: ["24"]}, expect: {exit_code: 0}}
   - mode: "compile-fail"
     name: "override_without_inherited_method"
     src_file: "error_override_without_inherited_method.nif"

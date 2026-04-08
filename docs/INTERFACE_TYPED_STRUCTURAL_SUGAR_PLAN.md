@@ -1,6 +1,6 @@
 # Interface-Typed Structural Sugar Plan
 
-Status: proposed.
+Status: implemented.
 
 This document defines a concrete implementation plan for fully supporting interface-typed structural sugar for indexing, slicing, and `for ... in`.
 
@@ -35,14 +35,14 @@ After this change:
 - concrete class receivers keep their existing direct or virtual structural dispatch
 - explicit interface method calls and structural interface sugar share the same dispatch model
 
-## Current State
+## Original Gap
 
-Current implementation points:
+Before implementation, the gap looked like this:
 
 - [docs/SUGARING_DESIGN.md](../docs/SUGARING_DESIGN.md)
   - documents that interface-typed `for ... in` is intended but not implemented
 - [docs/TODO.md](../docs/TODO.md)
-  - tracks interface-typed indexing, slice, and iteration sugar as missing work
+  - then tracked interface-typed indexing, slice, and iteration sugar as open implementation work
 - [compiler/typecheck/structural.py](../compiler/typecheck/structural.py)
   - resolves structural protocols only for arrays and classes
   - rejects interface-typed receivers before dispatch lowering can occur
@@ -56,7 +56,7 @@ Current implementation points:
 - [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
   - already emits interface method calls through slot-based interface table lookup
 
-That means the missing behavior is not a parser problem or a runtime ABI problem. It is a structural typecheck and dispatch-selection gap.
+The implemented change confirmed that the missing behavior was not a parser problem or a runtime ABI problem. It was a structural typecheck and dispatch-selection gap.
 
 ## Recommended Design
 
@@ -310,13 +310,13 @@ Test:
 
 ## Slice 6: Add End-To-End Language Coverage
 
-- [ ] add positive golden coverage for interface-typed indexing and slicing in [tests/golden/lang/test_indexing_sugar](../tests/golden/lang/test_indexing_sugar)
-- [ ] add positive golden coverage for interface-typed `for ... in` in [tests/golden/lang/test_for_in](../tests/golden/lang/test_for_in)
-- [ ] extend override-sensitive language tests in [tests/golden/lang/test_virtual_dispatch](../tests/golden/lang/test_virtual_dispatch) so interface-typed sugar proves correct override behavior
+- [x] add positive golden coverage for interface-typed indexing and slicing in [tests/golden/lang/test_indexing_sugar](../tests/golden/lang/test_indexing_sugar)
+- [x] add positive golden coverage for interface-typed `for ... in` in [tests/golden/lang/test_for_in](../tests/golden/lang/test_for_in)
+- [x] extend override-sensitive language tests in [tests/golden/lang/test_virtual_dispatch](../tests/golden/lang/test_virtual_dispatch) so interface-typed sugar proves correct override behavior
 
 Test:
 
-- [ ] run the relevant golden suites
+- [x] run the relevant golden suites
 - [ ] run focused integration coverage if any new end-to-end runtime cases are added outside golden tests
 
 ## Validation Checklist
@@ -325,9 +325,9 @@ Test:
 - [x] semantic lowering tests for structural dispatch pass
 - [x] codegen emitter tests for interface dispatch pass
 - [x] semantic optimization tests still pass after reachability updates
-- [ ] golden tests for indexing sugar pass
-- [ ] golden tests for `for ... in` pass
-- [ ] golden tests for virtual/interface dispatch pass
+- [x] golden tests for indexing sugar pass
+- [x] golden tests for `for ... in` pass
+- [x] golden tests for virtual/interface dispatch pass
 - [x] full targeted pytest selection for touched areas passes
 
 ## Non-Goals

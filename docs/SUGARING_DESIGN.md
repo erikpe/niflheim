@@ -70,11 +70,12 @@ Notes:
 
 Current implementation status:
 
-- `for ... in` is implemented today for arrays and for concrete class-typed values that satisfy the structural `iter_len`/`iter_get(i64)` protocol.
+- Indexing and slicing are implemented for arrays, for concrete class-typed values that satisfy the structural protocol, and for interface-typed values when the interface declares compatible `index_get`/`index_set`/`slice_get`/`slice_set` methods.
+- `for ... in` is implemented for arrays, for concrete class-typed values that satisfy the structural `iter_len`/`iter_get(i64)` protocol, and for interface-typed values when the interface declares compatible `iter_len`/`iter_get(i64)` methods.
 - The collection expression is evaluated once, and `iter_len()` is snapshotted once before the loop body begins.
 - Arrays are handled as a built-in fast path rather than by requiring user-visible `iter_len`/`iter_get` methods.
 - Inherited `iter_len`/`iter_get` methods on class types participate in `for ... in` eligibility.
-- Interface-typed `for ... in` is not yet implemented. Even if an interface declares `iter_len() -> u64` and `iter_get(i64) -> T`, the current compiler still rejects iterating a value whose static type is that interface.
+- Structural sugar through interface-typed receivers uses the same interface-dispatch model as ordinary interface method calls.
 
 ## Consequences
 
@@ -89,15 +90,15 @@ Current implementation status:
 
 - Introduces additional protocol surface (`iter_len`/`iter_get`) for iterable types.
 - Requires clear diagnostics when one protocol exists but the other does not.
-- Leaves a temporary gap between the structural design and the current implementation because interface-typed iteration is not supported yet.
+- Requires typecheck, lowering, codegen, and reachability to stay aligned on the same structural dispatch rules for arrays, classes, and interfaces.
 
 ## Migration Guidance
 
 1. Keep indexing/slicing lowering on `index_get/index_set/slice_get/slice_set`.
 2. Keep `for ... in` lowering aligned with evaluate-once collection semantics and snapshotted `iter_len()` semantics.
-3. Keep structural class-based eligibility on `iter_len/iter_get(i64)`, while treating array iteration as the built-in fast path.
+3. Keep structural class- and interface-based eligibility on `iter_len/iter_get(i64)`, while treating array iteration as the built-in fast path.
 4. Ensure parser/typechecker/codegen diagnostics mention the specific missing protocol methods.
-5. Add tests for both positive and negative eligibility, especially map-like key-based `get` and the current interface-typed limitation.
+5. Keep positive and negative tests for both class-typed and interface-typed structural sugar, especially map-like key-based `get` cases and override-sensitive dispatch coverage.
 
 ## Non-Goals
 
