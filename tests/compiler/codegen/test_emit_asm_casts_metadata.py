@@ -415,7 +415,7 @@ fn main() -> i64 {
         "__nif_interface_methods_main__Key__main__Hashable:\n    .quad __nif_method_Key_hash_code\n    .quad __nif_method_Key_equals"
         in asm
     )
-    assert "__nif_interface_tables_main__Key:" in asm
+    assert "__nif_interface_tables_main__Key:\n    .quad __nif_interface_methods_main__Key__main__Hashable" in asm
     assert "__nif_interface_impls_main__Key:" in asm
     assert "    .quad __nif_interface_main__Hashable" in asm
     assert "    .quad __nif_interface_methods_main__Key__main__Hashable" in asm
@@ -426,6 +426,7 @@ fn main() -> i64 {
         in asm
     )
     assert "    .quad __nif_interface_tables_main__Key" in asm
+    assert "    .long 1" in asm
     assert "    .quad __nif_interface_impls_main__Key" in asm
 
 
@@ -467,6 +468,58 @@ fn main() -> i64 {
         "__nif_interface_main__Beta:\n    .quad __nif_interface_name_main__Beta\n    .long 1\n    .long 1\n    .long 0"
         in asm
     )
+
+
+def test_emit_asm_emits_slotted_interface_tables_with_null_holes(tmp_path) -> None:
+    source = """
+interface Alpha {
+    fn alpha() -> i64;
+}
+
+interface Beta {
+    fn beta() -> i64;
+}
+
+interface Gamma {
+    fn gamma() -> i64;
+}
+
+fn keep_beta(value: Obj) -> Beta {
+    return (Beta)value;
+}
+
+class Mixed implements Alpha, Gamma {
+    fn alpha() -> i64 {
+        return 1;
+    }
+
+    fn gamma() -> i64 {
+        return 2;
+    }
+}
+
+fn main() -> i64 {
+    var value: Mixed = Mixed();
+    if value == null {
+        return 1;
+    }
+    if keep_beta(null) != null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert (
+        "__nif_interface_tables_main__Mixed:\n"
+        "    .quad __nif_interface_methods_main__Mixed__main__Alpha\n"
+        "    .quad 0\n"
+        "    .quad __nif_interface_methods_main__Mixed__main__Gamma"
+    ) in asm
+    assert "__nif_type_main__Mixed:" in asm
+    assert "    .quad __nif_interface_tables_main__Mixed" in asm
+    assert "    .long 3" in asm
 
 
 def test_emit_asm_emits_imported_interface_descriptor_for_cast_targets(tmp_path) -> None:

@@ -275,10 +275,10 @@ Test:
 
 ## Slice 3: Emit Slotted Per-Class Interface Table Arrays
 
-- [ ] emit one `interface_tables` array per class, indexed by global interface slot
-- [ ] keep existing method-table emission for implemented interfaces
-- [ ] emit null entries for non-implemented interface slots
-- [ ] wire the new array into emitted `RtType` records
+- [x] emit one `interface_tables` array per class, indexed by global interface slot
+- [x] keep existing method-table emission for implemented interfaces
+- [x] emit null entries for non-implemented interface slots
+- [x] wire the new array into emitted `RtType` records
 
 Change:
 

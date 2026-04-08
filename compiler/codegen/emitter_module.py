@@ -75,27 +75,26 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
         )
 
     for cls in type_metadata.classes:
-        if not cls.interface_impls:
-            continue
-
         for interface_impl in cls.interface_impls:
             codegen.asm.instr(".p2align 3")
             codegen.asm.label(interface_impl.method_table_symbol)
             for method_label in interface_impl.method_labels:
                 codegen.asm.instr(f".quad {method_label}")
 
-        codegen.asm.instr(".p2align 3")
-        codegen.asm.label(cls.interface_tables_symbol)
-        for _slot in range(cls.interface_table_slot_count):
-            codegen.asm.instr(".quad 0")
+        if cls.interface_tables_symbol is not None:
+            codegen.asm.instr(".p2align 3")
+            codegen.asm.label(cls.interface_tables_symbol)
+            for method_table_symbol in cls.interface_table_entries:
+                codegen.asm.instr(f".quad {method_table_symbol or '0'}")
 
-        codegen.asm.instr(".p2align 3")
-        codegen.asm.label(cls.interface_impls_symbol)
-        for interface_impl in cls.interface_impls:
-            codegen.asm.instr(f".quad {interface_impl.descriptor_symbol}")
-            codegen.asm.instr(f".quad {interface_impl.method_table_symbol}")
-            codegen.asm.instr(f".long {interface_impl.method_count}")
-            codegen.asm.instr(".long 0")
+        if cls.interface_impls_symbol is not None:
+            codegen.asm.instr(".p2align 3")
+            codegen.asm.label(cls.interface_impls_symbol)
+            for interface_impl in cls.interface_impls:
+                codegen.asm.instr(f".quad {interface_impl.descriptor_symbol}")
+                codegen.asm.instr(f".quad {interface_impl.method_table_symbol}")
+                codegen.asm.instr(f".long {interface_impl.method_count}")
+                codegen.asm.instr(".long 0")
 
     for cls in type_metadata.classes:
         if cls.class_vtable_symbol is None:

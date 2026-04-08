@@ -48,6 +48,7 @@ class ClassMetadataRecord:
     pointer_offsets: tuple[int, ...]
     interface_tables_symbol: str | None
     interface_table_slot_count: int
+    interface_table_entries: tuple[str | None, ...]
     interface_impls_symbol: str | None
     interface_impls: tuple[InterfaceImplMetadataRecord, ...]
     class_vtable_symbol: str | None
@@ -90,6 +91,7 @@ def build_type_metadata(
         )
         for interface in interface_decls
     )
+    interface_slot_count = len(interface_records)
 
     class_records: list[ClassMetadataRecord] = []
     class_alias_names: set[str] = set()
@@ -111,11 +113,12 @@ def build_type_metadata(
             pointer_offsets_symbol = codegen_symbols.mangle_type_pointer_offsets_symbol(qualified_type_name)
 
         interface_impls: list[InterfaceImplMetadataRecord] = []
+        interface_table_entries: list[str | None] = [None] * interface_slot_count
         interface_tables_symbol: str | None = None
-        interface_table_slot_count = 0
         interface_impls_symbol: str | None = None
-        if cls.implemented_interfaces:
+        if interface_slot_count > 0:
             interface_tables_symbol = codegen_symbols.mangle_class_interface_tables_symbol(qualified_type_name)
+        if cls.implemented_interfaces:
             interface_impls_symbol = codegen_symbols.mangle_class_interface_impls_symbol(qualified_type_name)
             for interface_id in cls.implemented_interfaces:
                 interface = interfaces_by_id[interface_id]
@@ -129,15 +132,17 @@ def build_type_metadata(
                             f"Missing method label for interface implementation '{implementing_method_id.class_name}.{implementing_method_id.name}'"
                         )
                     method_labels.append(method_label)
+                method_table_symbol = codegen_symbols.mangle_interface_method_table_symbol(
+                    qualified_type_name, interface_display_name
+                )
+                interface_table_entries[_require_interface_slot(declaration_tables, interface_id)] = method_table_symbol
                 interface_impls.append(
                     InterfaceImplMetadataRecord(
                         interface_id=interface_id,
                         descriptor_symbol=declaration_tables.interface_descriptor_symbol(interface_id),
                         display_name=interface_display_name,
                         method_count=len(interface.methods),
-                        method_table_symbol=codegen_symbols.mangle_interface_method_table_symbol(
-                            qualified_type_name, interface_display_name
-                        ),
+                        method_table_symbol=method_table_symbol,
                         method_labels=tuple(method_labels),
                     )
                 )
@@ -167,7 +172,8 @@ def build_type_metadata(
                 pointer_offsets_symbol=pointer_offsets_symbol,
                 pointer_offsets=pointer_offsets,
                 interface_tables_symbol=interface_tables_symbol,
-                interface_table_slot_count=interface_table_slot_count,
+                interface_table_slot_count=interface_slot_count,
+                interface_table_entries=tuple(interface_table_entries),
                 interface_impls_symbol=interface_impls_symbol,
                 interface_impls=tuple(interface_impls),
                 class_vtable_symbol=class_vtable_symbol,
