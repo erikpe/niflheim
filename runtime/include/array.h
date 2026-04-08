@@ -14,8 +14,6 @@ void* rt_array_new_bool(uint64_t len);
 void* rt_array_new_double(uint64_t len);
 void* rt_array_new_ref(uint64_t len);
 
-void* rt_checked_cast_array_kind(void* obj, uint64_t expected_kind);
-
 void* rt_array_from_bytes_u8(const uint8_t* bytes, uint64_t len);
 
 uint64_t rt_array_len(const void* array_obj);

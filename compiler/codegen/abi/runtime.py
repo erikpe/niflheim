@@ -104,9 +104,6 @@ _RUNTIME_CALL_METADATA_BY_NAME: dict[str, RuntimeCallMetadata] = {
     DOUBLE_TO_U8_RUNTIME_CALL: _runtime_call_metadata(DOUBLE_TO_U8_RUNTIME_CALL, may_gc=False),
     "rt_alloc_obj": _runtime_call_metadata("rt_alloc_obj", may_gc=True),
     "rt_checked_cast": _runtime_call_metadata("rt_checked_cast", ref_arg_indices=(0,), may_gc=False),
-    "rt_checked_cast_array_kind": _runtime_call_metadata(
-        "rt_checked_cast_array_kind", ref_arg_indices=(0,), may_gc=False
-    ),
     "rt_is_instance_of_type": _runtime_call_metadata("rt_is_instance_of_type", ref_arg_indices=(0,), may_gc=False),
     "rt_panic_null_term_array": _runtime_call_metadata(
         "rt_panic_null_term_array", ref_arg_indices=(0,), may_gc=False, needs_safepoint_hooks=False

@@ -72,7 +72,7 @@ fn main() -> i64 {
     assert "rt_checked_cast" not in asm
 
 
-def test_emit_asm_obj_to_array_cast_calls_rt_checked_cast_array_kind(tmp_path) -> None:
+def test_emit_asm_obj_to_array_cast_inlines_array_kind_check(tmp_path) -> None:
     source = """
 fn f(o: Obj) -> u64[] {
     return (u64[])o;
@@ -87,8 +87,12 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_checked_cast_array_kind" in asm
-    assert "    mov rsi, 2" in asm
+    assert "    call rt_checked_cast_array_kind" not in asm
+    assert "    lea rdx, [rip + rt_type_array_primitive_desc]" in asm
+    assert "    lea rdx, [rip + rt_type_array_reference_desc]" in asm
+    assert "    cmp qword ptr [rax + 32], 2" in asm
+    assert "    lea rsi, [rip + __nif_runtime_panic_msg_" in asm
+    assert "    call rt_panic_bad_cast" in asm
 
 
 def test_emit_asm_primitive_cast_does_not_call_rt_checked_cast(tmp_path) -> None:

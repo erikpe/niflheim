@@ -8,7 +8,16 @@ from compiler.common.type_names import *
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.abi.array import ARRAY_API_NULL_PANIC_MESSAGE, array_data_index_address, array_length_operand
+from compiler.codegen.abi.array import (
+    ARRAY_API_NULL_PANIC_MESSAGE,
+    RT_ARRAY_PRIMITIVE_TYPE_SYMBOL,
+    RT_ARRAY_REFERENCE_TYPE_SYMBOL,
+    array_data_index_address,
+    array_element_kind_operand,
+    array_length_operand,
+    array_runtime_kind_display_name_for_tag,
+    array_runtime_kind_tag,
+)
 from compiler.codegen.abi.object import (
     class_vtable_entry_operand,
     class_vtable_operand,
@@ -260,7 +269,6 @@ def _emit_class_reference_type_runtime_check(
     class_runtime_call: str,
     ctx: EmitContext,
 ) -> None:
-    emit_expr(codegen, operand, ctx)
     if _runtime_call_emits_safepoint_hooks(class_runtime_call):
         codegen.emit_push("rax")
         _emit_runtime_call_hooks_before(codegen, operand.span.start.line, operand.span.start.column, ctx)
@@ -292,7 +300,6 @@ def _emit_inline_interface_cast(codegen: CodeGenerator, operand: SemanticExpr, t
             span=operand.span,
         )
 
-    emit_expr(codegen, operand, ctx)
     cast_done_label = codegen_symbols.next_label(ctx.fn_name, "interface_cast_done", ctx.label_counter)
     cast_fail_label = codegen_symbols.next_label(ctx.fn_name, "interface_cast_fail", ctx.label_counter)
     interface_slot = _interface_slot(interface_id, ctx)
@@ -329,7 +336,6 @@ def _emit_inline_interface_type_test(
             span=operand.span,
         )
 
-    emit_expr(codegen, operand, ctx)
     type_test_false_label = codegen_symbols.next_label(ctx.fn_name, "interface_type_test_false", ctx.label_counter)
     type_test_done_label = codegen_symbols.next_label(ctx.fn_name, "interface_type_test_done", ctx.label_counter)
     interface_slot = _interface_slot(interface_id, ctx)
@@ -350,6 +356,73 @@ def _emit_inline_interface_type_test(
     codegen.asm.label(type_test_done_label)
 
 
+def _emit_array_kind_name_pointer(
+    codegen: CodeGenerator,
+    *,
+    kind_register: str,
+    target_register: str,
+    ctx: EmitContext,
+) -> None:
+    default_label = codegen.runtime_panic_message_label("<unknown-array-kind>")
+    done_label = codegen_symbols.next_label(ctx.fn_name, "array_kind_name_done", ctx.label_counter)
+    kind_labels = {
+        kind_tag: codegen.runtime_panic_message_label(array_runtime_kind_display_name_for_tag(kind_tag))
+        for kind_tag in (1, 2, 3, 4, 5, 6)
+    }
+    jump_labels = {
+        kind_tag: codegen_symbols.next_label(ctx.fn_name, f"array_kind_name_case_{kind_tag}", ctx.label_counter)
+        for kind_tag in (1, 2, 3, 4, 5, 6)
+    }
+
+    for kind_tag in (1, 2, 3, 4, 5, 6):
+        codegen.asm.instr(f"cmp {kind_register}, {kind_tag}")
+        codegen.asm.instr(f"je {jump_labels[kind_tag]}")
+    codegen.asm.instr(f"lea {target_register}, [rip + {default_label}]")
+    codegen.asm.instr(f"jmp {done_label}")
+    for kind_tag in (1, 2, 3, 4, 5, 6):
+        codegen.asm.label(jump_labels[kind_tag])
+        codegen.asm.instr(f"lea {target_register}, [rip + {kind_labels[kind_tag]}]")
+        codegen.asm.instr(f"jmp {done_label}")
+    codegen.asm.label(done_label)
+
+
+def _emit_inline_array_kind_cast(
+    codegen: CodeGenerator,
+    operand: SemanticExpr,
+    target_type_ref,
+    ctx: EmitContext,
+) -> None:
+    element_type = semantic_type_array_element(target_type_ref)
+    runtime_kind = codegen_types.array_element_runtime_kind_for_type_ref(element_type)
+    expected_kind = array_runtime_kind_tag(runtime_kind)
+    cast_done_label = codegen_symbols.next_label(ctx.fn_name, "array_cast_done", ctx.label_counter)
+    array_type_ok_label = codegen_symbols.next_label(ctx.fn_name, "array_cast_type_ok", ctx.label_counter)
+    array_kind_ok_label = codegen_symbols.next_label(ctx.fn_name, "array_cast_kind_ok", ctx.label_counter)
+    expected_kind_label = codegen.runtime_panic_message_label(array_runtime_kind_display_name_for_tag(expected_kind))
+
+    codegen.asm.instr("test rax, rax")
+    codegen.asm.instr(f"je {cast_done_label}")
+    codegen.asm.instr(f"mov rcx, {object_type_operand('rax')}")
+    codegen.asm.instr(f"lea rdx, [rip + {RT_ARRAY_PRIMITIVE_TYPE_SYMBOL}]")
+    codegen.asm.instr("cmp rcx, rdx")
+    codegen.asm.instr(f"je {array_type_ok_label}")
+    codegen.asm.instr(f"lea rdx, [rip + {RT_ARRAY_REFERENCE_TYPE_SYMBOL}]")
+    codegen.asm.instr("cmp rcx, rdx")
+    codegen.asm.instr(f"je {array_type_ok_label}")
+    codegen.asm.instr(f"mov rdi, {type_debug_name_operand('rcx')}")
+    codegen.asm.instr(f"lea rsi, [rip + {expected_kind_label}]")
+    codegen.emit_aligned_call("rt_panic_bad_cast")
+    codegen.asm.label(array_type_ok_label)
+    codegen.asm.instr(f"cmp {array_element_kind_operand('rax')}, {expected_kind}")
+    codegen.asm.instr(f"je {array_kind_ok_label}")
+    codegen.asm.instr(f"mov rcx, {array_element_kind_operand('rax')}")
+    _emit_array_kind_name_pointer(codegen, kind_register="rcx", target_register="rdi", ctx=ctx)
+    codegen.asm.instr(f"lea rsi, [rip + {expected_kind_label}]")
+    codegen.emit_aligned_call("rt_panic_bad_cast")
+    codegen.asm.label(array_kind_ok_label)
+    codegen.asm.label(cast_done_label)
+
+
 def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -> None:
     emit_expr(codegen, expr.operand, ctx)
     source_type = semantic_type_canonical_name(expression_type_ref(expr.operand))
@@ -360,24 +433,7 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
         if target_type == TYPE_NAME_OBJ and source_type != TYPE_NAME_NULL and codegen_types.is_reference_type_name(source_type):
             return
         if semantic_type_is_array(expr.target_type_ref) and source_type == TYPE_NAME_OBJ:
-            element_type = semantic_type_array_element(expr.target_type_ref)
-            array_kind_by_element_type = {
-                TYPE_NAME_I64: 1,
-                TYPE_NAME_U64: 2,
-                TYPE_NAME_U8: 3,
-                TYPE_NAME_BOOL: 4,
-                TYPE_NAME_DOUBLE: 5,
-            }
-            expected_kind = array_kind_by_element_type.get(semantic_type_canonical_name(element_type), 6)
-            if _runtime_call_emits_safepoint_hooks("rt_checked_cast_array_kind"):
-                codegen.emit_push("rax")
-                _emit_runtime_call_hooks_before(codegen, expr.span.start.line, expr.span.start.column, ctx)
-                codegen.emit_pop("rax")
-            codegen.asm.instr("mov rdi, rax")
-            codegen.asm.instr(f"mov rsi, {expected_kind}")
-            codegen.emit_aligned_call("rt_checked_cast_array_kind")
-            if _runtime_call_emits_safepoint_hooks("rt_checked_cast_array_kind"):
-                _emit_runtime_call_hooks_after(codegen, ctx)
+            _emit_inline_array_kind_cast(codegen, expr.operand, expr.target_type_ref, ctx)
             return
         if codegen_types.is_reference_type_ref(expr.target_type_ref):
             if expr.target_type_ref.interface_id is not None:
@@ -463,6 +519,7 @@ def _emit_type_test_expr(codegen: CodeGenerator, expr: TypeTestExprS, ctx: EmitC
             f"type test codegen requires reference target type, got '{semantic_type_display_name(expr.target_type_ref)}'",
             span=expr.span,
         )
+    emit_expr(codegen, expr.operand, ctx)
     if expr.test_kind == TypeTestSemanticsKind.INTERFACE_COMPATIBILITY:
         _emit_inline_interface_type_test(codegen, expr.operand, expr.target_type_ref, ctx)
         return

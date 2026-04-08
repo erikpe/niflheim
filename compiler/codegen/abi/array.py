@@ -23,6 +23,9 @@ RT_ARRAY_KIND_BOOL = 4
 RT_ARRAY_KIND_DOUBLE = 5
 RT_ARRAY_KIND_REF = 6
 
+RT_ARRAY_PRIMITIVE_TYPE_SYMBOL = "rt_type_array_primitive_desc"
+RT_ARRAY_REFERENCE_TYPE_SYMBOL = "rt_type_array_reference_desc"
+
 ARRAY_RUNTIME_KIND_TAGS: dict[ArrayRuntimeKind, int] = {
     ArrayRuntimeKind.I64: RT_ARRAY_KIND_I64,
     ArrayRuntimeKind.U64: RT_ARRAY_KIND_U64,
@@ -30,6 +33,15 @@ ARRAY_RUNTIME_KIND_TAGS: dict[ArrayRuntimeKind, int] = {
     ArrayRuntimeKind.BOOL: RT_ARRAY_KIND_BOOL,
     ArrayRuntimeKind.DOUBLE: RT_ARRAY_KIND_DOUBLE,
     ArrayRuntimeKind.REF: RT_ARRAY_KIND_REF,
+}
+
+ARRAY_RUNTIME_KIND_DISPLAY_NAMES: dict[int, str] = {
+    RT_ARRAY_KIND_I64: "i64[]",
+    RT_ARRAY_KIND_U64: "u64[]",
+    RT_ARRAY_KIND_U8: "u8[]",
+    RT_ARRAY_KIND_BOOL: "bool[]",
+    RT_ARRAY_KIND_DOUBLE: "double[]",
+    RT_ARRAY_KIND_REF: "Obj[]",
 }
 
 DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES: dict[ArrayRuntimeKind, int] = {
@@ -71,8 +83,26 @@ def array_data_index_address(array_register: str, index_register: str, *, elemen
     return f"[{array_register} + {index_register} * {element_size} + {RT_ARRAY_DATA_OFFSET}]"
 
 
-def array_runtime_kind_tag(runtime_kind: ArrayRuntimeKind) -> int:
-    return ARRAY_RUNTIME_KIND_TAGS[runtime_kind]
+def array_runtime_kind_tag(runtime_kind: ArrayRuntimeKind | str) -> int:
+    if isinstance(runtime_kind, ArrayRuntimeKind):
+        return ARRAY_RUNTIME_KIND_TAGS[runtime_kind]
+
+    runtime_kind_by_name = {
+        "i64": ArrayRuntimeKind.I64,
+        "u64": ArrayRuntimeKind.U64,
+        "u8": ArrayRuntimeKind.U8,
+        "bool": ArrayRuntimeKind.BOOL,
+        "double": ArrayRuntimeKind.DOUBLE,
+        "ref": ArrayRuntimeKind.REF,
+    }
+    resolved_runtime_kind = runtime_kind_by_name.get(runtime_kind)
+    if resolved_runtime_kind is None:
+        raise ValueError(f"unsupported array runtime kind: {runtime_kind}")
+    return ARRAY_RUNTIME_KIND_TAGS[resolved_runtime_kind]
+
+
+def array_runtime_kind_display_name_for_tag(kind_tag: int) -> str:
+    return ARRAY_RUNTIME_KIND_DISPLAY_NAMES.get(kind_tag, "<unknown-array-kind>")
 
 
 def is_direct_primitive_array_runtime_kind(runtime_kind: ArrayRuntimeKind | None) -> bool:

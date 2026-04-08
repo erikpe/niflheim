@@ -134,7 +134,7 @@ Current relevant state in the repository:
 - class virtual calls are emitted inline through `RtType.class_vtable`
 - direct array fast paths already bypass some runtime helpers for `len`, index reads, index writes, and direct array `for in`
 - interface casts and interface type tests are emitted inline from slot-table metadata
-- array-kind checked casts still call a runtime helper
+- array-kind checked casts are emitted inline from direct array ABI checks
 - class checked casts and class type tests still call runtime helpers
 - transitional legacy interface metadata has already been removed from emitted `RtType` records
 
@@ -252,9 +252,9 @@ Test:
 
 ## Slice 3: Inline Array-Kind Casts
 
-- [ ] inline `Obj -> T[]` runtime kind checks in codegen
-- [ ] preserve current null and bad-cast behavior
-- [ ] remove `rt_checked_cast_array_kind(...)` if no longer used
+- [x] inline `Obj -> T[]` runtime kind checks in codegen
+- [x] preserve current null and bad-cast behavior
+- [x] remove `rt_checked_cast_array_kind(...)` if no longer used
 
 Change:
 
