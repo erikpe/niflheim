@@ -3,7 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.resolver import resolve_program
-from compiler.semantic.ir import CallExprS, FunctionCallTarget, InstanceMethodCallTarget, IntConstant, LiteralExprS, SemanticIf, SemanticReturn
+from compiler.semantic.ir import (
+    CallExprS,
+    FunctionCallTarget,
+    IndexReadExpr,
+    InstanceMethodCallTarget,
+    IntConstant,
+    LiteralExprS,
+    MethodDispatch,
+    SemanticForIn,
+    SemanticIf,
+    SemanticReturn,
+    SemanticVarDecl,
+)
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.copy_propagation import copy_propagation
 from compiler.semantic.optimizations.constant_fold import constant_fold
@@ -198,3 +210,60 @@ def test_optimize_semantic_program_devirtualizes_interface_calls_after_construct
     assert return_stmt.value.target.method_id.name == "hash_code"
     assert return_stmt.value.target.access.receiver_type_ref.class_id is not None
     assert return_stmt.value.target.access.receiver_type_ref.class_id.name == "Key"
+
+
+def test_optimize_semantic_program_specializes_structural_interface_dispatch_after_constructor_seeded_exact_fact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Buffer {
+            fn index_get(index: i64) -> i64;
+            fn iter_len() -> u64;
+            fn iter_get(index: i64) -> i64;
+        }
+
+        class Store implements Buffer {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+
+            fn iter_len() -> u64 {
+                return 1u;
+            }
+
+            fn iter_get(index: i64) -> i64 {
+                return 7;
+            }
+        }
+
+        fn main() -> i64 {
+            var buffer: Buffer = Store();
+            var first: i64 = buffer[0];
+            for value in buffer {
+                return value + first;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    first_decl = statements[1]
+    assert isinstance(first_decl, SemanticVarDecl)
+    assert isinstance(first_decl.initializer, IndexReadExpr)
+    assert isinstance(first_decl.initializer.dispatch, MethodDispatch)
+    assert first_decl.initializer.dispatch.method_id.class_name == "Store"
+    assert first_decl.initializer.dispatch.method_id.name == "index_get"
+
+    loop_stmt = statements[2]
+    assert isinstance(loop_stmt, SemanticForIn)
+    assert isinstance(loop_stmt.iter_len_dispatch, MethodDispatch)
+    assert loop_stmt.iter_len_dispatch.method_id.class_name == "Store"
+    assert loop_stmt.iter_len_dispatch.method_id.name == "iter_len"
+    assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
+    assert loop_stmt.iter_get_dispatch.method_id.class_name == "Store"
+    assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"

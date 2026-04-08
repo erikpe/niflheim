@@ -282,15 +282,15 @@ Test:
 
 ## Slice 2: Specialize Structural Interface Dispatch
 
-- [ ] extend [compiler/semantic/optimizations/interface_call_devirtualization.py](../compiler/semantic/optimizations/interface_call_devirtualization.py) so it rewrites `InterfaceDispatch` on `IndexReadExpr`, `SliceReadExpr`, `IndexLValue`, `SliceLValue`, and `SemanticForIn`
-- [ ] reuse [compiler/semantic/optimizations/helpers/interface_dispatch.py](../compiler/semantic/optimizations/helpers/interface_dispatch.py) to map exact class plus interface method to concrete `MethodId`
-- [ ] rewrite proven monomorphic structural interface dispatch to `MethodDispatch`
+- [x] extend [compiler/semantic/optimizations/interface_call_devirtualization.py](../compiler/semantic/optimizations/interface_call_devirtualization.py) so it rewrites `InterfaceDispatch` on `IndexReadExpr`, `SliceReadExpr`, `IndexLValue`, `SliceLValue`, and `SemanticForIn`
+- [x] reuse [compiler/semantic/optimizations/helpers/interface_dispatch.py](../compiler/semantic/optimizations/helpers/interface_dispatch.py) to map exact class plus interface method to concrete `MethodId`
+- [x] rewrite proven monomorphic structural interface dispatch to `MethodDispatch`
 
 Test:
 
-- [ ] add optimization tests proving interface-typed structural sugar rewrites from `InterfaceDispatch` to `MethodDispatch` inside exact-type regions
-- [ ] add codegen tests proving specialized structural interface reads, writes, and `for ... in` calls no longer emit interface-table lookup sequences
-- [ ] run focused semantic optimization and codegen tests for structural sugar
+- [x] add optimization tests proving interface-typed structural sugar rewrites from `InterfaceDispatch` to `MethodDispatch` inside exact-type regions
+- [x] add codegen tests proving specialized structural interface reads, writes, and `for ... in` calls no longer emit interface-table lookup sequences
+- [x] run focused semantic optimization and codegen tests for structural sugar
 
 ## Slice 3: Specialize Virtual Class Dispatch
 

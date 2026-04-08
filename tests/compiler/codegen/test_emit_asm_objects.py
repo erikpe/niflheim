@@ -126,6 +126,68 @@ fn main() -> i64 {
     assert "    call r11" in main_body
 
 
+def test_emit_asm_structural_interface_dispatch_specializes_to_direct_calls_after_exact_constructor_fact(tmp_path) -> None:
+    source = """
+interface Buffer {
+    fn index_get(index: i64) -> i64;
+    fn index_set(index: i64, value: i64) -> unit;
+    fn slice_get(begin: i64, end: i64) -> Buffer;
+    fn slice_set(begin: i64, end: i64, value: Buffer) -> unit;
+    fn iter_len() -> u64;
+    fn iter_get(index: i64) -> i64;
+}
+
+class Store implements Buffer {
+    fn index_get(index: i64) -> i64 {
+        return index;
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        return;
+    }
+
+    fn slice_get(begin: i64, end: i64) -> Buffer {
+        return __self;
+    }
+
+    fn slice_set(begin: i64, end: i64, value: Buffer) -> unit {
+        return;
+    }
+
+    fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return 7;
+    }
+}
+
+fn main() -> i64 {
+    var buffer: Buffer = Store();
+    var first: i64 = buffer[0];
+    buffer[0] = first;
+    var part: Buffer = buffer[0:1];
+    buffer[0:1] = part;
+    for value in buffer {
+        return value;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
+
+    assert "    call __nif_method_Store_index_get" in main_body
+    assert "    call __nif_method_Store_index_set" in main_body
+    assert "    call __nif_method_Store_slice_get" in main_body
+    assert "    call __nif_method_Store_slice_set" in main_body
+    assert "    call __nif_method_Store_iter_len" in main_body
+    assert "    call __nif_method_Store_iter_get" in main_body
+    assert "    mov rax, qword ptr [rcx + 64]" not in main_body
+    assert "    call r11" not in main_body
+
+
 def test_emit_asm_method_call_lowers_to_method_symbol_with_receiver_arg0(tmp_path) -> None:
     source = """
 class Counter {

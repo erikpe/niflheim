@@ -19,6 +19,7 @@ from .helpers.type_compatibility import TypeCompatibilityIndex, build_type_compa
 @dataclass
 class _DevirtualizationStats:
     devirtualized_interface_calls: int = 0
+    specialized_interface_dispatches: int = 0
     skipped_non_local_receivers: int = 0
     skipped_without_exact_receiver_type: int = 0
 
@@ -36,8 +37,9 @@ def interface_call_devirtualization(program: SemanticProgram) -> SemanticProgram
     )
     logger.debugv(
         1,
-        "Optimization pass interface_call_devirtualization devirtualized %d interface calls, skipped %d non-local receivers, skipped %d calls without exact receiver type",
+        "Optimization pass interface_call_devirtualization devirtualized %d interface calls, specialized %d structural interface dispatches, skipped %d non-local receivers, skipped %d cases without exact receiver type",
         stats.devirtualized_interface_calls,
+        stats.specialized_interface_dispatches,
         stats.skipped_non_local_receivers,
         stats.skipped_without_exact_receiver_type,
     )
@@ -185,10 +187,25 @@ def _rewrite_stmt(
         )
 
     if isinstance(stmt, SemanticForIn):
+        rewritten_collection = _rewrite_expr(stmt.collection, state, compatibility_index, dispatch_index, stats)
         return (
             replace(
                 stmt,
-                collection=_rewrite_expr(stmt.collection, state, compatibility_index, dispatch_index, stats),
+                collection=rewritten_collection,
+                iter_len_dispatch=_maybe_specialize_structural_dispatch(
+                    stmt.iter_len_dispatch,
+                    rewritten_collection,
+                    state,
+                    dispatch_index,
+                    stats,
+                ),
+                iter_get_dispatch=_maybe_specialize_structural_dispatch(
+                    stmt.iter_get_dispatch,
+                    rewritten_collection,
+                    state,
+                    dispatch_index,
+                    stats,
+                ),
                 body=_rewrite_nested_block(stmt.body, NarrowState.empty(), compatibility_index, dispatch_index, stats)[0],
             ),
             NarrowMerge.reset(state).apply(state),
@@ -218,17 +235,33 @@ def _rewrite_lvalue(
             ),
         )
     if isinstance(target, IndexLValue):
+        rewritten_target = _rewrite_expr(target.target, state, compatibility_index, dispatch_index, stats)
         return replace(
             target,
-            target=_rewrite_expr(target.target, state, compatibility_index, dispatch_index, stats),
+            target=rewritten_target,
             index=_rewrite_expr(target.index, state, compatibility_index, dispatch_index, stats),
+            dispatch=_maybe_specialize_structural_dispatch(
+                target.dispatch,
+                rewritten_target,
+                state,
+                dispatch_index,
+                stats,
+            ),
         )
     if isinstance(target, SliceLValue):
+        rewritten_target = _rewrite_expr(target.target, state, compatibility_index, dispatch_index, stats)
         return replace(
             target,
-            target=_rewrite_expr(target.target, state, compatibility_index, dispatch_index, stats),
+            target=rewritten_target,
             begin=_rewrite_expr(target.begin, state, compatibility_index, dispatch_index, stats),
             end=_rewrite_expr(target.end, state, compatibility_index, dispatch_index, stats),
+            dispatch=_maybe_specialize_structural_dispatch(
+                target.dispatch,
+                rewritten_target,
+                state,
+                dispatch_index,
+                stats,
+            ),
         )
     raise TypeError(f"Unsupported semantic lvalue for interface devirtualization: {type(target).__name__}")
 
@@ -309,18 +342,34 @@ def _rewrite_expr(
         return replace(expr, target=_rewrite_expr(expr.target, state, compatibility_index, dispatch_index, stats))
 
     if isinstance(expr, IndexReadExpr):
+        rewritten_target = _rewrite_expr(expr.target, state, compatibility_index, dispatch_index, stats)
         return replace(
             expr,
-            target=_rewrite_expr(expr.target, state, compatibility_index, dispatch_index, stats),
+            target=rewritten_target,
             index=_rewrite_expr(expr.index, state, compatibility_index, dispatch_index, stats),
+            dispatch=_maybe_specialize_structural_dispatch(
+                expr.dispatch,
+                rewritten_target,
+                state,
+                dispatch_index,
+                stats,
+            ),
         )
 
     if isinstance(expr, SliceReadExpr):
+        rewritten_target = _rewrite_expr(expr.target, state, compatibility_index, dispatch_index, stats)
         return replace(
             expr,
-            target=_rewrite_expr(expr.target, state, compatibility_index, dispatch_index, stats),
+            target=rewritten_target,
             begin=_rewrite_expr(expr.begin, state, compatibility_index, dispatch_index, stats),
             end=_rewrite_expr(expr.end, state, compatibility_index, dispatch_index, stats),
+            dispatch=_maybe_specialize_structural_dispatch(
+                expr.dispatch,
+                rewritten_target,
+                state,
+                dispatch_index,
+                stats,
+            ),
         )
 
     if isinstance(expr, ArrayCtorExprS):
@@ -335,15 +384,8 @@ def _maybe_devirtualize_call_target(
     dispatch_index,
     stats: _DevirtualizationStats,
 ) -> SemanticCallTarget:
-    receiver = target.access.receiver
-    if not isinstance(receiver, LocalRefExpr):
-        stats.skipped_non_local_receivers += 1
-        return target
-
-    receiver_facts = state.facts_for_local(receiver.local_id)
-    exact_type = None if receiver_facts is None else receiver_facts.exact_type
+    exact_type = _exact_local_receiver_type(target.access.receiver, state, stats)
     if exact_type is None or exact_type.class_id is None:
-        stats.skipped_without_exact_receiver_type += 1
         return target
 
     method_id = resolve_implementing_method(dispatch_index, exact_type.class_id, target.method_id)
@@ -356,6 +398,47 @@ def _maybe_devirtualize_call_target(
         method_id=method_id,
         access=replace(target.access, receiver_type_ref=exact_type),
     )
+
+
+def _maybe_specialize_structural_dispatch(
+    dispatch: SemanticDispatch,
+    receiver: SemanticExpr,
+    state: NarrowState,
+    dispatch_index,
+    stats: _DevirtualizationStats,
+) -> SemanticDispatch:
+    if not isinstance(dispatch, InterfaceDispatch):
+        return dispatch
+
+    exact_type = _exact_local_receiver_type(receiver, state, stats)
+    if exact_type is None or exact_type.class_id is None:
+        return dispatch
+
+    method_id = resolve_implementing_method(dispatch_index, exact_type.class_id, dispatch.method_id)
+    if method_id is None:
+        stats.skipped_without_exact_receiver_type += 1
+        return dispatch
+
+    stats.specialized_interface_dispatches += 1
+    return MethodDispatch(method_id=method_id)
+
+
+def _exact_local_receiver_type(
+    receiver: SemanticExpr,
+    state: NarrowState,
+    stats: _DevirtualizationStats,
+) -> SemanticTypeRef | None:
+    if not isinstance(receiver, LocalRefExpr):
+        stats.skipped_non_local_receivers += 1
+        return None
+
+    receiver_facts = state.facts_for_local(receiver.local_id)
+    exact_type = None if receiver_facts is None else receiver_facts.exact_type
+    if exact_type is None or exact_type.class_id is None:
+        stats.skipped_without_exact_receiver_type += 1
+        return None
+
+    return exact_type
 
 
 def _block_always_exits(block: SemanticBlock) -> bool:

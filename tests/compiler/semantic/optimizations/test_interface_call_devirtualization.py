@@ -3,7 +3,20 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.resolver import resolve_program
-from compiler.semantic.ir import InterfaceMethodCallTarget, InstanceMethodCallTarget, SemanticIf, SemanticReturn
+from compiler.semantic.ir import (
+    IndexLValue,
+    IndexReadExpr,
+    InstanceMethodCallTarget,
+    InterfaceMethodCallTarget,
+    MethodDispatch,
+    SemanticAssign,
+    SemanticForIn,
+    SemanticIf,
+    SemanticReturn,
+    SemanticVarDecl,
+    SliceLValue,
+    SliceReadExpr,
+)
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.interface_call_devirtualization import interface_call_devirtualization
 
@@ -112,6 +125,102 @@ def test_interface_call_devirtualization_rewrites_after_constructor_seeded_exact
     assert return_stmt.value.target.method_id.name == "hash_code"
     assert return_stmt.value.target.access.receiver_type_ref.class_id is not None
     assert return_stmt.value.target.access.receiver_type_ref.class_id.name == "Key"
+
+
+def test_interface_call_devirtualization_rewrites_structural_interface_dispatch_after_constructor_seeded_exact_fact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Buffer {
+            fn index_get(index: i64) -> i64;
+            fn index_set(index: i64, value: i64) -> unit;
+            fn slice_get(begin: i64, end: i64) -> Buffer;
+            fn slice_set(begin: i64, end: i64, value: Buffer) -> unit;
+            fn iter_len() -> u64;
+            fn iter_get(index: i64) -> i64;
+        }
+
+        class Store implements Buffer {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+
+            fn index_set(index: i64, value: i64) -> unit {
+                return;
+            }
+
+            fn slice_get(begin: i64, end: i64) -> Buffer {
+                return __self;
+            }
+
+            fn slice_set(begin: i64, end: i64, value: Buffer) -> unit {
+                return;
+            }
+
+            fn iter_len() -> u64 {
+                return 1u;
+            }
+
+            fn iter_get(index: i64) -> i64 {
+                return 7;
+            }
+        }
+
+        fn main() -> i64 {
+            var buffer: Buffer = Store();
+            var first: i64 = buffer[0];
+            buffer[0] = first;
+            var part: Buffer = buffer[0:1];
+            buffer[0:1] = part;
+            for value in buffer {
+                return value;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    first_decl = statements[1]
+    assert isinstance(first_decl, SemanticVarDecl)
+    assert isinstance(first_decl.initializer, IndexReadExpr)
+    assert isinstance(first_decl.initializer.dispatch, MethodDispatch)
+    assert first_decl.initializer.dispatch.method_id.class_name == "Store"
+    assert first_decl.initializer.dispatch.method_id.name == "index_get"
+
+    index_assign = statements[2]
+    assert isinstance(index_assign, SemanticAssign)
+    assert isinstance(index_assign.target, IndexLValue)
+    assert isinstance(index_assign.target.dispatch, MethodDispatch)
+    assert index_assign.target.dispatch.method_id.class_name == "Store"
+    assert index_assign.target.dispatch.method_id.name == "index_set"
+
+    slice_decl = statements[3]
+    assert isinstance(slice_decl, SemanticVarDecl)
+    assert isinstance(slice_decl.initializer, SliceReadExpr)
+    assert isinstance(slice_decl.initializer.dispatch, MethodDispatch)
+    assert slice_decl.initializer.dispatch.method_id.class_name == "Store"
+    assert slice_decl.initializer.dispatch.method_id.name == "slice_get"
+
+    slice_assign = statements[4]
+    assert isinstance(slice_assign, SemanticAssign)
+    assert isinstance(slice_assign.target, SliceLValue)
+    assert isinstance(slice_assign.target.dispatch, MethodDispatch)
+    assert slice_assign.target.dispatch.method_id.class_name == "Store"
+    assert slice_assign.target.dispatch.method_id.name == "slice_set"
+
+    loop_stmt = statements[5]
+    assert isinstance(loop_stmt, SemanticForIn)
+    assert isinstance(loop_stmt.iter_len_dispatch, MethodDispatch)
+    assert loop_stmt.iter_len_dispatch.method_id.class_name == "Store"
+    assert loop_stmt.iter_len_dispatch.method_id.name == "iter_len"
+    assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
+    assert loop_stmt.iter_get_dispatch.method_id.class_name == "Store"
+    assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"
 
 
 def test_interface_call_devirtualization_keeps_interface_dispatch_after_merge_that_loses_exactness(tmp_path: Path) -> None:
