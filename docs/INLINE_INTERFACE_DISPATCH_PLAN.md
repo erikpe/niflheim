@@ -329,9 +329,9 @@ Test:
 
 ## Slice 6: Revalidate Override And Interface Alignment End To End
 
-- [ ] confirm interface dispatch still resolves overridden implementations selected by the class hierarchy
-- [ ] confirm inherited implementations still populate the right interface method tables
-- [ ] confirm interface dispatch works with stack arguments and mixed call shapes
+- [x] confirm interface dispatch still resolves overridden implementations selected by the class hierarchy
+- [x] confirm inherited implementations still populate the right interface method tables
+- [x] confirm interface dispatch works with stack arguments and mixed call shapes
 
 Change:
 
