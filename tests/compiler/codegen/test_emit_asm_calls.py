@@ -439,6 +439,32 @@ fn main() -> i64 {
     assert "    call r11" not in main_body
 
 
+def test_emit_asm_non_local_exact_virtual_receiver_expression_specializes_to_direct_call(tmp_path) -> None:
+    source = """
+class Base {
+    fn head() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+    override fn head() -> i64 {
+        return 2;
+    }
+}
+
+fn main() -> i64 {
+    return Derived().head();
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
+
+    assert "    call __nif_method_Derived_head" in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
+    assert "    call r11" not in main_body
+
+
 def test_emit_asm_direct_non_gc_runtime_call_on_temporary_ref_omits_temp_root_scaffolding(tmp_path) -> None:
     source = """
 extern fn rt_array_len(values: Obj[]) -> u64;

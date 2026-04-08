@@ -4,6 +4,7 @@ from pathlib import Path
 
 from compiler.resolver import resolve_program
 from compiler.semantic.ir import (
+    InterfaceDispatch,
     IndexLValue,
     IndexReadExpr,
     InstanceMethodCallTarget,
@@ -17,6 +18,7 @@ from compiler.semantic.ir import (
     SliceLValue,
     SliceReadExpr,
     VirtualMethodCallTarget,
+    VirtualMethodDispatch,
 )
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.interface_call_devirtualization import interface_call_devirtualization
@@ -128,6 +130,37 @@ def test_interface_call_devirtualization_rewrites_after_constructor_seeded_exact
     assert return_stmt.value.target.access.receiver_type_ref.class_id.name == "Key"
 
 
+def test_interface_call_devirtualization_rewrites_interface_call_for_exact_cast_receiver_expression(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main() -> u64 {
+            return ((Hashable)Key()).hash_code();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Key"
+    assert return_stmt.value.target.method_id.name == "hash_code"
+
+
 def test_interface_call_devirtualization_rewrites_structural_interface_dispatch_after_constructor_seeded_exact_fact(
     tmp_path: Path,
 ) -> None:
@@ -224,6 +257,62 @@ def test_interface_call_devirtualization_rewrites_structural_interface_dispatch_
     assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"
 
 
+def test_interface_call_devirtualization_rewrites_structural_interface_dispatch_for_exact_cast_receiver_expression(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Buffer {
+            fn index_get(index: i64) -> i64;
+            fn iter_len() -> u64;
+            fn iter_get(index: i64) -> i64;
+        }
+
+        class Store implements Buffer {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+
+            fn iter_len() -> u64 {
+                return 1u;
+            }
+
+            fn iter_get(index: i64) -> i64 {
+                return 7;
+            }
+        }
+
+        fn main() -> i64 {
+            var first: i64 = ((Buffer)Store())[0];
+            for value in (Buffer)Store() {
+                return value + first;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    first_decl = statements[0]
+    assert isinstance(first_decl, SemanticVarDecl)
+    assert isinstance(first_decl.initializer, IndexReadExpr)
+    assert isinstance(first_decl.initializer.dispatch, MethodDispatch)
+    assert first_decl.initializer.dispatch.method_id.class_name == "Store"
+    assert first_decl.initializer.dispatch.method_id.name == "index_get"
+
+    loop_stmt = statements[1]
+    assert isinstance(loop_stmt, SemanticForIn)
+    assert isinstance(loop_stmt.iter_len_dispatch, MethodDispatch)
+    assert loop_stmt.iter_len_dispatch.method_id.class_name == "Store"
+    assert loop_stmt.iter_len_dispatch.method_id.name == "iter_len"
+    assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
+    assert loop_stmt.iter_get_dispatch.method_id.class_name == "Store"
+    assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"
+
+
 def test_interface_call_devirtualization_rewrites_virtual_method_calls_after_constructor_seeded_exact_fact(
     tmp_path: Path,
 ) -> None:
@@ -263,6 +352,39 @@ def test_interface_call_devirtualization_rewrites_virtual_method_calls_after_con
     assert return_stmt.value.target.method_id.name == "head"
     assert return_stmt.value.target.access.receiver_type_ref.class_id is not None
     assert return_stmt.value.target.access.receiver_type_ref.class_id.name == "Derived"
+
+
+def test_interface_call_devirtualization_rewrites_virtual_method_call_for_exact_constructor_receiver_expression(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main() -> i64 {
+            return Derived().head();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Derived"
+    assert return_stmt.value.target.method_id.name == "head"
 
 
 def test_interface_call_devirtualization_rewrites_structural_virtual_dispatch_after_constructor_seeded_exact_fact(
@@ -376,6 +498,156 @@ def test_interface_call_devirtualization_rewrites_structural_virtual_dispatch_af
     assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
     assert loop_stmt.iter_get_dispatch.method_id.class_name == "Buffer"
     assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"
+
+
+def test_interface_call_devirtualization_keeps_interface_dispatch_for_unknown_function_receiver_expression(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn choose(flag: bool) -> Hashable {
+            if flag {
+                return Key();
+            }
+            return Key();
+        }
+
+        fn main(flag: bool) -> u64 {
+            return choose(flag).hash_code();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[1].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InterfaceMethodCallTarget)
+
+
+def test_interface_call_devirtualization_keeps_virtual_dispatch_for_unknown_function_receiver_expression(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn choose(flag: bool) -> Base {
+            if flag {
+                return Derived();
+            }
+            return Base();
+        }
+
+        fn main(flag: bool) -> i64 {
+            return choose(flag).head();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[1].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, VirtualMethodCallTarget)
+
+
+def test_interface_call_devirtualization_keeps_structural_virtual_dispatch_for_unknown_function_receiver_expression(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class BufferBase {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+        }
+
+        class Buffer extends BufferBase {
+            override fn index_get(index: i64) -> i64 {
+                return index + 1;
+            }
+        }
+
+        fn choose(flag: bool) -> BufferBase {
+            if flag {
+                return Buffer();
+            }
+            return BufferBase();
+        }
+
+        fn main(flag: bool) -> i64 {
+            return choose(flag)[0];
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[1].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, IndexReadExpr)
+    assert isinstance(return_stmt.value.dispatch, VirtualMethodDispatch)
+
+
+def test_interface_call_devirtualization_keeps_structural_interface_dispatch_for_unknown_function_receiver_expression(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Buffer {
+            fn index_get(index: i64) -> i64;
+        }
+
+        class Store implements Buffer {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+        }
+
+        fn choose(flag: bool) -> Buffer {
+            if flag {
+                return Store();
+            }
+            return Store();
+        }
+
+        fn main(flag: bool) -> i64 {
+            return choose(flag)[0];
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[1].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, IndexReadExpr)
+    assert isinstance(return_stmt.value.dispatch, InterfaceDispatch)
 
 
 def test_interface_call_devirtualization_keeps_interface_dispatch_after_merge_that_loses_exactness(tmp_path: Path) -> None:

@@ -307,14 +307,15 @@ Test:
 
 ## Slice 4: Broaden Receivers Beyond Existing Local-Only Cases
 
-- [ ] decide whether to extend [compiler/semantic/optimizations/interface_call_devirtualization.py](../compiler/semantic/optimizations/interface_call_devirtualization.py) directly or to add a small receiver-normalization pass that hoists stable receivers into temporaries
-- [ ] support at least one additional safe receiver form beyond `LocalRefExpr`, preferably field reads or other effect-stable expressions first
-- [ ] preserve source semantics and evaluation order; do not speculate on effectful receiver expressions
+- [x] decide whether to extend [compiler/semantic/optimizations/interface_call_devirtualization.py](../compiler/semantic/optimizations/interface_call_devirtualization.py) directly or to add a small receiver-normalization pass that hoists stable receivers into temporaries
+- [x] support at least one additional safe receiver form beyond `LocalRefExpr`, preferably field reads or other effect-stable expressions first
+- [x] preserve source semantics and evaluation order; do not speculate on effectful receiver expressions
 
 Test:
 
-- [ ] add optimization tests covering field-read receivers or other newly supported receiver shapes
-- [ ] add regression tests proving effectful or unstable receiver expressions are not incorrectly specialized
+- [x] add optimization tests covering field-read receivers or other newly supported receiver shapes
+- [x] add regression tests proving effectful or unstable receiver expressions are not incorrectly specialized
+- [x] run focused semantic optimization and codegen tests for broader receiver shapes
 
 ## Slice 5: Preserve Proven Facts Across Loops Conservatively
 

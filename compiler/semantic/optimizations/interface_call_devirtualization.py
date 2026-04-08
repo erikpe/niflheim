@@ -10,10 +10,11 @@ from .helpers.narrowing_state import (
     NarrowMerge,
     NarrowState,
     branch_states_for_condition,
+    exact_runtime_target_from_value,
     update_local_facts_from_value,
 )
 from .helpers.program_structure import rewrite_program_structure
-from .helpers.type_compatibility import TypeCompatibilityIndex, build_type_compatibility_index
+from .helpers.type_compatibility import TypeCompatibilityIndex, build_type_compatibility_index, is_exact_runtime_target
 
 
 @dataclass
@@ -472,17 +473,35 @@ def _exact_local_receiver_type(
     state: NarrowState,
     stats: _DevirtualizationStats,
 ) -> SemanticTypeRef | None:
-    if not isinstance(receiver, LocalRefExpr):
-        stats.skipped_non_local_receivers += 1
-        return None
-
-    receiver_facts = state.facts_for_local(receiver.local_id)
-    exact_type = None if receiver_facts is None else receiver_facts.exact_type
-    if exact_type is None or exact_type.class_id is None:
-        stats.skipped_without_exact_receiver_type += 1
+    exact_type, supported_shape = _resolve_exact_receiver_type(receiver, state)
+    if exact_type is None:
+        if supported_shape:
+            stats.skipped_without_exact_receiver_type += 1
+        else:
+            stats.skipped_non_local_receivers += 1
         return None
 
     return exact_type
+
+
+def _resolve_exact_receiver_type(
+    receiver: SemanticExpr,
+    state: NarrowState,
+) -> tuple[SemanticTypeRef | None, bool]:
+    if isinstance(receiver, LocalRefExpr):
+        receiver_facts = state.facts_for_local(receiver.local_id)
+        return (None if receiver_facts is None else receiver_facts.exact_type), True
+
+    exact_expr_type = exact_runtime_target_from_value(receiver)
+    if exact_expr_type is not None:
+        return exact_expr_type, True
+
+    if isinstance(receiver, CastExprS) and receiver.cast_kind is CastSemanticsKind.REFERENCE_COMPATIBILITY:
+        if is_exact_runtime_target(receiver.target_type_ref):
+            return receiver.target_type_ref, True
+        return _resolve_exact_receiver_type(receiver.operand, state)
+
+    return None, False
 
 
 def _exact_virtual_receiver_type(

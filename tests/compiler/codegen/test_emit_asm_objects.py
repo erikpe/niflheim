@@ -266,6 +266,30 @@ fn main() -> i64 {
     assert "    call r11" not in main_body
 
 
+def test_emit_asm_non_local_exact_structural_interface_receiver_expression_specializes_to_direct_call(tmp_path) -> None:
+    source = """
+interface Buffer {
+    fn index_get(index: i64) -> i64;
+}
+
+class Store implements Buffer {
+    fn index_get(index: i64) -> i64 {
+        return index;
+    }
+}
+
+fn main() -> i64 {
+    return ((Buffer)Store())[0];
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
+
+    assert "    call __nif_method_Store_index_get" in main_body
+    assert "    mov rax, qword ptr [rcx + 64]" not in main_body
+    assert "    call r11" not in main_body
+
+
 def test_emit_asm_method_call_lowers_to_method_symbol_with_receiver_arg0(tmp_path) -> None:
     source = """
 class Counter {

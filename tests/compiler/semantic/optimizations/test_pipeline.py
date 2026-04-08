@@ -367,3 +367,108 @@ def test_optimize_semantic_program_specializes_structural_virtual_dispatch_after
     assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
     assert loop_stmt.iter_get_dispatch.method_id.class_name == "Buffer"
     assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"
+
+
+def test_optimize_semantic_program_devirtualizes_non_local_exact_virtual_receiver_expression(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main() -> i64 {
+            return Derived().head();
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Derived"
+    assert return_stmt.value.target.method_id.name == "head"
+
+
+def test_optimize_semantic_program_specializes_non_local_exact_structural_interface_receiver_expression(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Buffer {
+            fn index_get(index: i64) -> i64;
+        }
+
+        class Store implements Buffer {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+        }
+
+        fn main() -> i64 {
+            return ((Buffer)Store())[0];
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, IndexReadExpr)
+    assert isinstance(return_stmt.value.dispatch, MethodDispatch)
+    assert return_stmt.value.dispatch.method_id.class_name == "Store"
+    assert return_stmt.value.dispatch.method_id.name == "index_get"
+
+
+def test_optimize_semantic_program_keeps_unknown_function_receiver_virtual_dispatch_dynamic(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn choose(flag: bool) -> Base {
+            if flag {
+                return Derived();
+            }
+            return Base();
+        }
+
+        fn main(flag: bool) -> i64 {
+            return choose(flag).head();
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[1].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert return_stmt.value.target.__class__.__name__ == "VirtualMethodCallTarget"
