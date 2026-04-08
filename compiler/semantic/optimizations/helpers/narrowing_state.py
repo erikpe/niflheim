@@ -8,8 +8,22 @@ from compiler.semantic.ir import (
     CallExprS,
     CastExprS,
     ConstructorCallTarget,
+    IndexLValue,
     LocalRefExpr,
+    LocalLValue,
+    SemanticAssign,
+    SemanticBlock,
+    SemanticBreak,
+    SemanticContinue,
     SemanticExpr,
+    SemanticExprStmt,
+    SemanticForIn,
+    SemanticIf,
+    SemanticReturn,
+    SemanticStmt,
+    SemanticVarDecl,
+    SemanticWhile,
+    SliceLValue,
     TypeTestExprS,
     UnaryExprS,
 )
@@ -273,3 +287,55 @@ def branch_states_for_condition(
         return right_then_state, else_state, left_seeded_count + right_seeded_count
 
     return state.fork(), state.fork(), 0
+
+
+def preserved_loop_state(state: NarrowState, body: SemanticBlock) -> NarrowState:
+    preserved_state = state.fork()
+    for local_id in _assigned_local_ids_in_block(body):
+        preserved_state.invalidate_local(local_id)
+    return preserved_state
+
+
+def _assigned_local_ids_in_block(block: SemanticBlock) -> set[LocalId]:
+    assigned_local_ids: set[LocalId] = set()
+    for stmt in block.statements:
+        assigned_local_ids.update(_assigned_local_ids_in_stmt(stmt))
+    return assigned_local_ids
+
+
+def _assigned_local_ids_in_stmt(stmt: SemanticStmt) -> set[LocalId]:
+    if isinstance(stmt, SemanticBlock):
+        return _assigned_local_ids_in_block(stmt)
+
+    if isinstance(stmt, SemanticAssign):
+        if isinstance(stmt.target, LocalLValue):
+            return {stmt.target.local_id}
+        if isinstance(stmt.target, (IndexLValue, SliceLValue)):
+            return set()
+        return set()
+
+    if isinstance(stmt, SemanticIf):
+        assigned_local_ids = _assigned_local_ids_in_block(stmt.then_block)
+        if stmt.else_block is not None:
+            assigned_local_ids.update(_assigned_local_ids_in_block(stmt.else_block))
+        return assigned_local_ids
+
+    if isinstance(stmt, SemanticWhile):
+        return _assigned_local_ids_in_block(stmt.body)
+
+    if isinstance(stmt, SemanticForIn):
+        return _assigned_local_ids_in_block(stmt.body)
+
+    if isinstance(
+        stmt,
+        (
+            SemanticVarDecl,
+            SemanticExprStmt,
+            SemanticReturn,
+            SemanticBreak,
+            SemanticContinue,
+        ),
+    ):
+        return set()
+
+    raise TypeError(f"Unsupported semantic statement for loop fact preservation: {type(stmt).__name__}")

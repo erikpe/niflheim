@@ -319,14 +319,16 @@ Test:
 
 ## Slice 5: Preserve Proven Facts Across Loops Conservatively
 
-- [ ] update [compiler/semantic/optimizations/flow_sensitive_type_narrowing.py](../compiler/semantic/optimizations/flow_sensitive_type_narrowing.py) so loop handling preserves exact facts for locals that are not invalidated by the loop body
-- [ ] update [compiler/semantic/optimizations/interface_call_devirtualization.py](../compiler/semantic/optimizations/interface_call_devirtualization.py) so it consumes those loop-preserved facts rather than resetting to empty state for loop bodies
-- [ ] keep the first implementation conservative; a fixed-point widening is acceptable later, but not required for the first slice
+- [x] update [compiler/semantic/optimizations/flow_sensitive_type_narrowing.py](../compiler/semantic/optimizations/flow_sensitive_type_narrowing.py) so loop handling preserves exact facts for locals that are not invalidated by the loop body
+- [x] update [compiler/semantic/optimizations/interface_call_devirtualization.py](../compiler/semantic/optimizations/interface_call_devirtualization.py) so it consumes those loop-preserved facts rather than resetting to empty state for loop bodies
+- [x] keep the first implementation conservative; a fixed-point widening is acceptable later, but not required for the first slice
 
 Test:
 
-- [ ] add optimization tests proving monomorphic interface and virtual dispatch inside loops becomes direct when loop bodies do not invalidate the receiver fact
-- [ ] add regression tests proving reassignment inside the loop still blocks specialization
+- [x] add optimization tests proving monomorphic interface and virtual dispatch inside loops becomes direct when loop bodies do not invalidate the receiver fact
+- [x] add regression tests proving reassignment inside the loop still blocks specialization
+- [x] run focused semantic optimization and pipeline tests for loop specialization
+- [x] run the full pytest suite after loop-specialization changes
 
 ## Slice 6: Recover Or Preserve Array Fast Paths When Proof Allows It
 

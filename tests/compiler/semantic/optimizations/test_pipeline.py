@@ -6,6 +6,7 @@ from compiler.resolver import resolve_program
 from compiler.semantic.ir import (
     CallExprS,
     FunctionCallTarget,
+    InterfaceMethodCallTarget,
     IndexReadExpr,
     InstanceMethodCallTarget,
     IntConstant,
@@ -15,6 +16,8 @@ from compiler.semantic.ir import (
     SemanticIf,
     SemanticReturn,
     SemanticVarDecl,
+    SemanticWhile,
+    VirtualMethodCallTarget,
 )
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.copy_propagation import copy_propagation
@@ -472,3 +475,160 @@ def test_optimize_semantic_program_keeps_unknown_function_receiver_virtual_dispa
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, CallExprS)
     assert return_stmt.value.target.__class__.__name__ == "VirtualMethodCallTarget"
+
+
+def test_optimize_semantic_program_devirtualizes_interface_calls_inside_while_loop_when_receiver_stays_exact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(value: Obj, keep_looping: bool) -> u64 {
+            var key: Key = (Key)value;
+            var hashable: Hashable = key;
+            while keep_looping {
+                return hashable.hash_code();
+            }
+            return 0u;
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    loop_stmt = next(
+        stmt for stmt in optimized.modules[("main",)].functions[0].body.statements if isinstance(stmt, SemanticWhile)
+    )
+
+    assert isinstance(loop_stmt, SemanticWhile)
+    assert isinstance(loop_stmt.body.statements[0], SemanticReturn)
+    assert isinstance(loop_stmt.body.statements[0].value, CallExprS)
+    assert isinstance(loop_stmt.body.statements[0].value.target, InstanceMethodCallTarget)
+    assert loop_stmt.body.statements[0].value.target.method_id.class_name == "Key"
+    assert loop_stmt.body.statements[0].value.target.method_id.name == "hash_code"
+
+
+def test_optimize_semantic_program_devirtualizes_virtual_calls_inside_for_in_loop_when_receiver_stays_exact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main(items: i64[]) -> i64 {
+            var current: Derived = Derived();
+            for item in items {
+                return current.head();
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    loop_stmt = next(
+        stmt for stmt in optimized.modules[("main",)].functions[0].body.statements if isinstance(stmt, SemanticForIn)
+    )
+
+    assert isinstance(loop_stmt, SemanticForIn)
+    assert isinstance(loop_stmt.body.statements[0], SemanticReturn)
+    assert isinstance(loop_stmt.body.statements[0].value, CallExprS)
+    assert isinstance(loop_stmt.body.statements[0].value.target, InstanceMethodCallTarget)
+    assert loop_stmt.body.statements[0].value.target.method_id.class_name == "Derived"
+    assert loop_stmt.body.statements[0].value.target.method_id.name == "head"
+
+
+def test_optimize_semantic_program_keeps_loop_reassignment_interface_dispatch_dynamic(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(value: Obj, fallback: Hashable, keep_looping: bool) -> u64 {
+            var key: Key = (Key)value;
+            var hashable: Hashable = key;
+            while keep_looping {
+                hashable = fallback;
+                return hashable.hash_code();
+            }
+            return 0u;
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    loop_stmt = next(
+        stmt for stmt in optimized.modules[("main",)].functions[0].body.statements if isinstance(stmt, SemanticWhile)
+    )
+
+    assert isinstance(loop_stmt, SemanticWhile)
+    assert isinstance(loop_stmt.body.statements[-1], SemanticReturn)
+    assert isinstance(loop_stmt.body.statements[-1].value, CallExprS)
+    assert isinstance(loop_stmt.body.statements[-1].value.target, InterfaceMethodCallTarget)
+    assert not isinstance(loop_stmt.body.statements[-1].value.target, InstanceMethodCallTarget)
+
+
+def test_optimize_semantic_program_keeps_loop_reassignment_virtual_dispatch_dynamic(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main(replacement: Derived, keep_looping: bool) -> i64 {
+            var current: Derived = Derived();
+            while keep_looping {
+                current = replacement;
+                return current.head();
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    loop_stmt = next(
+        stmt for stmt in optimized.modules[("main",)].functions[0].body.statements if isinstance(stmt, SemanticWhile)
+    )
+
+    assert isinstance(loop_stmt, SemanticWhile)
+    assert isinstance(loop_stmt.body.statements[-1], SemanticReturn)
+    assert isinstance(loop_stmt.body.statements[-1].value, CallExprS)
+    assert isinstance(loop_stmt.body.statements[-1].value.target, VirtualMethodCallTarget)

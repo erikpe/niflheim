@@ -15,6 +15,7 @@ from compiler.semantic.ir import (
     SemanticIf,
     SemanticReturn,
     SemanticVarDecl,
+    SemanticWhile,
     SliceLValue,
     SliceReadExpr,
     VirtualMethodCallTarget,
@@ -387,6 +388,118 @@ def test_interface_call_devirtualization_rewrites_virtual_method_call_for_exact_
     assert return_stmt.value.target.method_id.name == "head"
 
 
+def test_interface_call_devirtualization_rewrites_interface_call_inside_while_loop_when_receiver_stays_exact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(value: Obj, keep_looping: bool) -> u64 {
+            var key: Key = (Key)value;
+            var hashable: Hashable = key;
+            while keep_looping {
+                return hashable.hash_code();
+            }
+            return 0u;
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    loop_stmt = optimized.modules[("main",)].functions[0].body.statements[2]
+
+    assert isinstance(loop_stmt, SemanticWhile)
+    assert isinstance(loop_stmt.body.statements[0], SemanticReturn)
+    assert isinstance(loop_stmt.body.statements[0].value.target, InstanceMethodCallTarget)
+    assert loop_stmt.body.statements[0].value.target.method_id.class_name == "Key"
+    assert loop_stmt.body.statements[0].value.target.method_id.name == "hash_code"
+
+
+def test_interface_call_devirtualization_rewrites_interface_call_inside_for_in_loop_when_receiver_stays_exact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(value: Obj, items: i64[]) -> u64 {
+            var key: Key = (Key)value;
+            var hashable: Hashable = key;
+            for item in items {
+                return hashable.hash_code();
+            }
+            return 0u;
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    loop_stmt = optimized.modules[("main",)].functions[0].body.statements[2]
+
+    assert isinstance(loop_stmt, SemanticForIn)
+    assert isinstance(loop_stmt.body.statements[0], SemanticReturn)
+    assert isinstance(loop_stmt.body.statements[0].value.target, InstanceMethodCallTarget)
+    assert loop_stmt.body.statements[0].value.target.method_id.class_name == "Key"
+    assert loop_stmt.body.statements[0].value.target.method_id.name == "hash_code"
+
+
+def test_interface_call_devirtualization_rewrites_virtual_call_inside_while_loop_when_receiver_stays_exact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main(keep_looping: bool) -> i64 {
+            var current: Derived = Derived();
+            while keep_looping {
+                return current.head();
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    loop_stmt = optimized.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(loop_stmt, SemanticWhile)
+    assert isinstance(loop_stmt.body.statements[0], SemanticReturn)
+    assert isinstance(loop_stmt.body.statements[0].value.target, InstanceMethodCallTarget)
+    assert loop_stmt.body.statements[0].value.target.method_id.class_name == "Derived"
+    assert loop_stmt.body.statements[0].value.target.method_id.name == "head"
+
+
 def test_interface_call_devirtualization_rewrites_structural_virtual_dispatch_after_constructor_seeded_exact_fact(
     tmp_path: Path,
 ) -> None:
@@ -710,6 +823,79 @@ def test_interface_call_devirtualization_invalidates_exact_receiver_after_reassi
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value.target, InterfaceMethodCallTarget)
+
+
+def test_interface_call_devirtualization_keeps_interface_dispatch_dynamic_after_loop_reassignment(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(value: Obj, fallback: Hashable, keep_looping: bool) -> u64 {
+            var key: Key = (Key)value;
+            var hashable: Hashable = key;
+            while keep_looping {
+                hashable = fallback;
+                return hashable.hash_code();
+            }
+            return 0u;
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    loop_stmt = optimized.modules[("main",)].functions[0].body.statements[2]
+
+    assert isinstance(loop_stmt, SemanticWhile)
+    assert isinstance(loop_stmt.body.statements[1], SemanticReturn)
+    assert isinstance(loop_stmt.body.statements[1].value.target, InterfaceMethodCallTarget)
+
+
+def test_interface_call_devirtualization_keeps_virtual_dispatch_dynamic_after_loop_reassignment(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main(replacement: Derived, keep_looping: bool) -> i64 {
+            var current: Derived = Derived();
+            while keep_looping {
+                current = replacement;
+                return current.head();
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    loop_stmt = optimized.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(loop_stmt, SemanticWhile)
+    assert isinstance(loop_stmt.body.statements[1], SemanticReturn)
+    assert isinstance(loop_stmt.body.statements[1].value.target, VirtualMethodCallTarget)
 
 
 def test_interface_call_devirtualization_requires_exact_receiver_type_not_interface_compatibility(tmp_path: Path) -> None:

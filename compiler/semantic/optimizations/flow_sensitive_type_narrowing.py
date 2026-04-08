@@ -11,6 +11,7 @@ from .helpers.narrowing_state import (
     NarrowMerge as _NarrowMerge,
     NarrowState as _NarrowState,
     branch_states_for_condition,
+    preserved_loop_state,
     update_local_facts_from_value,
 )
 from .helpers.type_compatibility import (
@@ -157,23 +158,32 @@ def _rewrite_stmt(
         )
 
     if isinstance(stmt, SemanticWhile):
+        loop_state = preserved_loop_state(state, stmt.body)
+        rewritten_condition, body_state, _, seeded_count = _rewrite_condition_expr(
+            stmt.condition,
+            loop_state,
+            compatibility_index,
+            stats,
+        )
+        stats.seeded_branch_facts += seeded_count
         return (
             replace(
                 stmt,
-                condition=_rewrite_expr(stmt.condition, _NarrowState.empty(), compatibility_index, stats),
-                body=_rewrite_nested_block(stmt.body, _NarrowState.empty(), compatibility_index, stats)[0],
+                condition=rewritten_condition,
+                body=_rewrite_nested_block(stmt.body, body_state, compatibility_index, stats)[0],
             ),
-            _NarrowMerge.reset(state).apply(state),
+            loop_state,
         )
 
     if isinstance(stmt, SemanticForIn):
+        loop_state = preserved_loop_state(state, stmt.body)
         return (
             replace(
                 stmt,
                 collection=_rewrite_expr(stmt.collection, state, compatibility_index, stats),
-                body=_rewrite_nested_block(stmt.body, _NarrowState.empty(), compatibility_index, stats)[0],
+                body=_rewrite_nested_block(stmt.body, loop_state, compatibility_index, stats)[0],
             ),
-            _NarrowMerge.reset(state).apply(state),
+            loop_state,
         )
 
     if isinstance(stmt, (SemanticBreak, SemanticContinue)):

@@ -11,9 +11,11 @@ from compiler.semantic.ir import (
     LiteralExprS,
     LocalRefExpr,
     SemanticAssign,
+    SemanticForIn,
     SemanticIf,
     SemanticReturn,
     SemanticVarDecl,
+    SemanticWhile,
 )
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.flow_sensitive_type_narrowing import flow_sensitive_type_narrowing
@@ -359,7 +361,9 @@ def test_flow_sensitive_type_narrowing_invalidates_facts_after_reassignment(tmp_
     assert isinstance(statements[3].value, CastExprS)
 
 
-def test_flow_sensitive_type_narrowing_resets_facts_after_while_loop(tmp_path: Path) -> None:
+def test_flow_sensitive_type_narrowing_preserves_facts_across_while_loop_when_body_keeps_receiver_exact(
+    tmp_path: Path,
+) -> None:
     _write(
         tmp_path / "main.nif",
         """
@@ -370,7 +374,65 @@ def test_flow_sensitive_type_narrowing_resets_facts_after_while_loop(tmp_path: P
         fn main(value: Obj, keep_looping: bool) -> Key {
             var key: Key = (Key)value;
             while keep_looping {
-                return key;
+                return (Key)value;
+            }
+            return (Key)value;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[1], SemanticWhile)
+    assert isinstance(statements[1].body.statements[0], SemanticReturn)
+    assert isinstance(statements[1].body.statements[0].value, LocalRefExpr)
+    assert isinstance(statements[2], SemanticReturn)
+    assert isinstance(statements[2].value, LocalRefExpr)
+
+
+def test_flow_sensitive_type_narrowing_preserves_facts_across_for_in_loop_when_body_keeps_receiver_exact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Key {
+            value: i64;
+        }
+
+        fn main(value: Obj, items: i64[]) -> Key {
+            var key: Key = (Key)value;
+            for item in items {
+                return (Key)value;
+            }
+            return (Key)value;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[1], SemanticForIn)
+    assert isinstance(statements[1].body.statements[0], SemanticReturn)
+    assert isinstance(statements[1].body.statements[0].value, LocalRefExpr)
+    assert isinstance(statements[2], SemanticReturn)
+    assert isinstance(statements[2].value, LocalRefExpr)
+
+
+def test_flow_sensitive_type_narrowing_invalidates_facts_after_reassignment_inside_while_loop(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Key {
+            value: i64;
+        }
+
+        fn main(value: Obj, replacement: Obj, keep_looping: bool) -> Key {
+            var key: Key = (Key)value;
+            while keep_looping {
+                value = replacement;
             }
             return (Key)value;
         }

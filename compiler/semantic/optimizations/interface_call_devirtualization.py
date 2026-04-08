@@ -11,6 +11,7 @@ from .helpers.narrowing_state import (
     NarrowState,
     branch_states_for_condition,
     exact_runtime_target_from_value,
+    preserved_loop_state,
     update_local_facts_from_value,
 )
 from .helpers.program_structure import rewrite_program_structure
@@ -182,17 +183,21 @@ def _rewrite_stmt(
         return replace(stmt, condition=rewritten_condition, then_block=then_block, else_block=else_block), next_state
 
     if isinstance(stmt, SemanticWhile):
+        loop_state = preserved_loop_state(state, stmt.body)
+        rewritten_condition = _rewrite_expr(stmt.condition, loop_state, compatibility_index, dispatch_index, stats)
+        body_state, _, _ = branch_states_for_condition(loop_state, rewritten_condition, compatibility_index)
         return (
             replace(
                 stmt,
-                condition=_rewrite_expr(stmt.condition, NarrowState.empty(), compatibility_index, dispatch_index, stats),
-                body=_rewrite_nested_block(stmt.body, NarrowState.empty(), compatibility_index, dispatch_index, stats)[0],
+                condition=rewritten_condition,
+                body=_rewrite_nested_block(stmt.body, body_state, compatibility_index, dispatch_index, stats)[0],
             ),
-            NarrowMerge.reset(state).apply(state),
+            loop_state,
         )
 
     if isinstance(stmt, SemanticForIn):
         rewritten_collection = _rewrite_expr(stmt.collection, state, compatibility_index, dispatch_index, stats)
+        loop_state = preserved_loop_state(state, stmt.body)
         return (
             replace(
                 stmt,
@@ -211,9 +216,9 @@ def _rewrite_stmt(
                     dispatch_index,
                     stats,
                 ),
-                body=_rewrite_nested_block(stmt.body, NarrowState.empty(), compatibility_index, dispatch_index, stats)[0],
+                body=_rewrite_nested_block(stmt.body, loop_state, compatibility_index, dispatch_index, stats)[0],
             ),
-            NarrowMerge.reset(state).apply(state),
+            loop_state,
         )
 
     if isinstance(stmt, (SemanticBreak, SemanticContinue)):
