@@ -334,7 +334,7 @@ That is sufficient for `Obj -> ConcreteClass`, but not for `Obj -> Interface`.
 
 Each concrete runtime type must know which interfaces it implements and how to dispatch those interface methods.
 
-Suggested runtime types:
+Runtime metadata shape:
 
 ```c
 typedef struct RtInterfaceType RtInterfaceType;
@@ -342,26 +342,34 @@ typedef struct RtInterfaceImpl RtInterfaceImpl;
 
 struct RtInterfaceType {
     const char* debug_name;
+    uint32_t slot_index;
     uint32_t method_count;
-    uint32_t reserved;
+    uint32_t reserved0;
 };
 
 struct RtInterfaceImpl {
     const RtInterfaceType* interface_type;
     const void* method_table;
     uint32_t method_count;
-    uint32_t reserved;
+    uint32_t reserved0;
 };
 ```
 
-Extend `RtType` conceptually with:
+`RtType` carries direct slotted interface-table metadata:
 
 ```c
-const RtInterfaceImpl* interfaces;
-uint32_t interface_count;
+const void* const* interface_tables;
+uint32_t interface_slot_count;
 ```
 
 Because interface values are represented as raw object pointers, no separate runtime wrapper or adjusted receiver representation is introduced in v1.
+
+Each `interface_tables[slot_index]` entry is either:
+
+- `NULL` when the class does not implement that interface slot
+- a pointer to the class's per-interface method table when it does
+
+The per-interface method tables remain stable-slot arrays ordered by the interface declaration.
 
 ### Dispatch Table Shape
 
@@ -417,27 +425,17 @@ This is a natural extension of the existing type-metadata emission work.
 For `InterfaceMethodCallExpr`, codegen should conceptually:
 
 1. evaluate receiver
-2. obtain concrete object type metadata
-3. find the interface implementation record for the requested interface
-4. load the method-table entry for the requested slot
+2. null-check the receiver
+3. obtain concrete object type metadata
+4. load `type->interface_tables[interface_descriptor->slot_index]`
+5. reject a null table pointer with the same bad-cast behavior as checked interface casts
+6. load the method-table entry for the requested slot
 5. pass receiver as the first argument
 6. emit an indirect call through the loaded function pointer
 
-To keep assembly simpler, interface lookup can be centralized in the runtime with a helper such as:
+This mirrors class virtual dispatch structurally: the first indexed load selects the interface-specific method table, and the second indexed load selects the method within that interface.
 
-```c
-void* rt_lookup_interface_method(void* obj, const RtInterfaceType* iface, uint32_t slot);
-```
-
-Then codegen only needs to prepare the arguments and indirect-call the returned function pointer.
-
-For v1, the lookup strategy should be locked as:
-
-- linear scan over the concrete runtime type's implemented-interface table
-- match by interface descriptor pointer
-- dispatch by stable slot index within the matched interface method table
-
-`rt_lookup_interface_method(...)` should assume the object already implements the interface, with cast-validation handled separately by checked-cast logic. It may still panic on corrupted metadata.
+No public runtime dispatch helper is required on the hot path; codegen emits the loads inline.
 
 ## Standard Library Use Case: `Map`
 

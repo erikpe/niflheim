@@ -66,7 +66,7 @@ static void* alloc_leaf(const RtType* type) {
     return rt_alloc_obj(rt_thread_state(), type, 0u);
 }
 
-static void* lookup_interface_method_for_test(void* obj, const RtInterfaceType* interface_type, uint32_t slot) {
+static void* load_interface_method_from_slot_table_for_test(void* obj, const RtInterfaceType* interface_type, uint32_t slot) {
     if (obj == NULL) {
         rt_panic_null_deref();
     }
@@ -94,16 +94,16 @@ static void* lookup_interface_method_for_test(void* obj, const RtInterfaceType* 
     return (void*)method;
 }
 
-static void test_lookup_interface_method_returns_slot_ordered_entries(void) {
+static void test_slot_table_dispatch_returns_slot_ordered_entries(void) {
     void* obj = alloc_leaf(&KEY_TYPE);
 
-    if (lookup_interface_method_for_test(obj, &HASHABLE_INTERFACE, 0u) != (void*)0x1111) {
+    if (load_interface_method_from_slot_table_for_test(obj, &HASHABLE_INTERFACE, 0u) != (void*)0x1111) {
         fail("expected Hashable slot 0 method pointer");
     }
-    if (lookup_interface_method_for_test(obj, &HASHABLE_INTERFACE, 1u) != (void*)0x2222) {
+    if (load_interface_method_from_slot_table_for_test(obj, &HASHABLE_INTERFACE, 1u) != (void*)0x2222) {
         fail("expected Hashable slot 1 method pointer");
     }
-    if (lookup_interface_method_for_test(obj, &EQUALABLE_INTERFACE, 0u) != (void*)0x3333) {
+    if (load_interface_method_from_slot_table_for_test(obj, &EQUALABLE_INTERFACE, 0u) != (void*)0x3333) {
         fail("expected Equalable slot 0 method pointer");
     }
 }
@@ -111,7 +111,7 @@ static void test_lookup_interface_method_returns_slot_ordered_entries(void) {
 
 int main(void) {
     rt_init();
-    test_lookup_interface_method_returns_slot_ordered_entries();
+    test_slot_table_dispatch_returns_slot_ordered_entries();
     rt_shutdown();
     puts("test_interface_dispatch: ok");
     return 0;

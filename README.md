@@ -41,7 +41,8 @@ Recent backend/runtime updates:
 - Full `double` lowering is implemented in codegen, including literals, arithmetic/comparisons, casts, and mixed integer/floating call signatures.
 - SysV floating-point ABI paths are implemented for parameters/returns (`xmm0`-`xmm7`) in function calls, method calls, and constructors.
 - Single inheritance without overriding is implemented end-to-end, including inherited field/method access, transitive interface implementation, subtype-aware class casts/type tests, and constructor chaining via `super(...)`.
-- Explicit `override` declarations and virtual dispatch for ordinary instance methods are implemented end-to-end, including base-typed dispatch, virtual calls through `__self`, and effective interface dispatch updates.
+- Explicit `override` declarations and virtual dispatch for ordinary instance methods are implemented end-to-end, including base-typed dispatch, virtual calls through `__self`, and override-aware interface dispatch updates.
+- Interface dispatch now uses inline slot-table loads from `RtType` rather than a runtime lookup helper, and runtime interface casts/type tests use the same slot metadata.
 - `std.box` primitive wrapper classes (`Box*`) are available for `Obj`-container use cases.
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
 - `std.io` supports both stdin batch reads (`read_stdin`) and whole-file reads (`read_file(path)`) using minimal runtime open/read/close primitives.
@@ -76,6 +77,7 @@ Runtime sources are split by responsibility:
 - `make -C runtime test-positive` runs root API happy-path checks (`test_roots_positive`).
 - `make -C runtime test-negative` runs root/global-root misuse checks that must fail (`test_roots_negative`).
 - `make -C runtime test-all` runs all runtime harnesses.
+- `make -C runtime test-interface-metadata test-interface-casts test-interface-casts-negative test-interface-dispatch test-interface-dispatch-negative` runs the dedicated interface metadata, cast, and dispatch harnesses.
 
 ## Build and Run Helpers
 

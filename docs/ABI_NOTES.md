@@ -238,6 +238,7 @@ typedef struct RtInterfaceImpl RtInterfaceImpl;
 
 struct RtInterfaceType {
     const char* debug_name;
+    uint32_t slot_index;
     uint32_t method_count;
     uint32_t reserved0;
 };
@@ -251,15 +252,14 @@ struct RtInterfaceImpl {
 
 void* rt_checked_cast(void* obj, const RtType* expected_type);
 void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface);
-void* rt_lookup_interface_method(void* obj, const RtInterfaceType* interface_type, uint32_t slot);
-const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const RtInterfaceType* interface_type);
+uint64_t rt_is_instance_of_interface(void* obj, const RtInterfaceType* expected_interface);
 ```
 
 Behavior:
 - If `obj == NULL`, return NULL (nullable cast semantics).
 - If object runtime type matches `expected_type`, return object.
-- If `rt_checked_cast_interface(...)` sees an object whose concrete runtime type advertises the requested interface via `RtType.interfaces`, return the original object pointer.
-- If `rt_lookup_interface_method(...)` sees a non-null object implementing the requested interface and the slot is in bounds, return the function pointer stored in that interface method table slot.
+- If `rt_checked_cast_interface(...)` sees an object whose concrete runtime type has a non-null table in `RtType.interface_tables[expected_interface->slot_index]`, return the original object pointer.
+- If `rt_is_instance_of_interface(...)` checks the same slot-table path, it returns `1` for implemented interfaces and `0` otherwise.
 - Otherwise panic with bad-cast error.
 
 Type identity in v0.1:
@@ -268,9 +268,9 @@ Type identity in v0.1:
 - Interface casts are checked separately through `rt_checked_cast_interface(...)` using interface metadata rather than concrete type equality.
 
 Interface metadata support now present in the runtime ABI:
-- `RtType` carries `interfaces` and `interface_count` fields for future interface cast/dispatch support.
-- `rt_find_interface_impl(...)` performs a linear scan over a concrete type's implemented-interface table.
-- `rt_lookup_interface_method(...)` centralizes interface dispatch lookup as `(object, interface descriptor, slot) -> function pointer`.
+- `RtType` carries `interface_tables` and `interface_slot_count` as the canonical interface-dispatch metadata.
+- `RtInterfaceType` carries a stable whole-program `slot_index` used by both codegen and runtime cast/type-test helpers.
+- Interface method calls are emitted inline by loading the interface table pointer from `RtType.interface_tables[slot_index]` and then loading the method entry from that per-interface table.
 - Interface-typed values still use the same raw object-pointer representation as other references; no fat-pointer ABI is introduced.
 
 ---

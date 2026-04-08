@@ -71,7 +71,7 @@ static void* alloc_leaf(const RtType* type) {
     return rt_alloc_obj(rt_thread_state(), type, 0u);
 }
 
-static void* lookup_interface_method_for_test(void* obj, const RtInterfaceType* interface_type, uint32_t slot) {
+static void* load_interface_method_from_slot_table_for_test(void* obj, const RtInterfaceType* interface_type, uint32_t slot) {
     if (obj == NULL) {
         rt_panic_null_deref();
     }
@@ -101,19 +101,19 @@ static void* lookup_interface_method_for_test(void* obj, const RtInterfaceType* 
 
 static int run_case(const char* name) {
     if (strcmp(name, "null_receiver") == 0) {
-        (void)lookup_interface_method_for_test(NULL, &HASHABLE_INTERFACE, 0u);
+        (void)load_interface_method_from_slot_table_for_test(NULL, &HASHABLE_INTERFACE, 0u);
         return 0;
     }
 
     if (strcmp(name, "missing_interface") == 0) {
         void* obj = alloc_leaf(&PLAIN_TYPE);
-        (void)lookup_interface_method_for_test(obj, &HASHABLE_INTERFACE, 0u);
+        (void)load_interface_method_from_slot_table_for_test(obj, &HASHABLE_INTERFACE, 0u);
         return 0;
     }
 
     if (strcmp(name, "slot_out_of_bounds") == 0) {
         void* obj = alloc_leaf(&KEY_TYPE);
-        (void)lookup_interface_method_for_test(obj, &HASHABLE_INTERFACE, 2u);
+        (void)load_interface_method_from_slot_table_for_test(obj, &HASHABLE_INTERFACE, 2u);
         return 0;
     }
 

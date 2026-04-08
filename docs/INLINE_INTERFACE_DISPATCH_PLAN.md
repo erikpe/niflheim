@@ -345,9 +345,9 @@ Test:
 
 ## Slice 7: Cleanup And Documentation
 
-- [ ] remove dead helper-oriented comments, tests, and symbol names
-- [ ] update documentation to describe slot-based interface dispatch rather than runtime search-based lookup
-- [ ] update test docs if runtime harness purpose changes
+- [x] remove dead helper-oriented comments, tests, and symbol names
+- [x] update documentation to describe slot-based interface dispatch rather than runtime search-based lookup
+- [x] update test docs if runtime harness purpose changes
 
 Change:
 
