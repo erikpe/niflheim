@@ -253,8 +253,12 @@ def resolve_index_assignment_value_type(typecheck_ctx: TypeCheckContext, expr: I
     if object_type.element_type is not None:
         return object_type.element_type
 
-    method_sig = ensure_structural_set_method_available_for_index_assignment(typecheck_ctx, object_type, expr.span)
-    return qualify_member_type_for_owner(typecheck_ctx, method_sig.params[1], object_type.name)
+    method_binding = ensure_structural_set_method_available_for_index_assignment(typecheck_ctx, object_type, expr.span)
+    return qualify_member_type_for_owner(
+        typecheck_ctx,
+        method_binding.signature.params[1],
+        method_binding.qualification_owner_type_name,
+    )
 
 
 def _require_local_id(local_id_tracker: LocalIdTracker | None, binding: LocalBinding) -> LocalId:

@@ -145,6 +145,41 @@ fn main() -> unit {
         parse_and_typecheck(source)
 
 
+def test_typecheck_allows_for_in_with_interface_iter_protocol() -> None:
+    source = """
+interface Seq {
+    fn iter_len() -> u64;
+    fn iter_get(index: i64) -> i64;
+}
+
+fn sum(seq: Seq) -> i64 {
+    var total: i64 = 0;
+    for elem in seq {
+        total = total + elem;
+    }
+    return total;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_for_in_with_interface_missing_iter_get() -> None:
+    source = """
+interface Seq {
+    fn iter_len() -> u64;
+}
+
+fn sum(seq: Seq) -> i64 {
+    for elem in seq {
+        return elem;
+    }
+    return 0;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"not iterable \(missing method 'iter_get\(i64\)'\)"):
+        parse_and_typecheck(source)
+
+
 def test_typecheck_allows_structural_index_sugar_for_user_class() -> None:
     source = """
 class Bag {
@@ -253,6 +288,37 @@ fn main() -> unit {
 }
 """
     parse_and_typecheck(source)
+
+
+def test_typecheck_allows_interface_structural_index_sugar() -> None:
+    source = """
+interface FlagMap {
+    fn index_get(key: bool) -> i64;
+    fn index_set(key: bool, value: i64) -> unit;
+}
+
+fn use_map(value: FlagMap) -> unit {
+    var first: i64 = value[true];
+    value[false] = first + 1;
+    return;
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_interface_index_assignment_without_index_set() -> None:
+    source = """
+interface ReadOnlyMap {
+    fn index_get(index: i64) -> i64;
+}
+
+fn update(value: ReadOnlyMap) -> unit {
+    value[0] = 1;
+    return;
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"index-assignable \(missing method 'index_set\(K, V\)'\)"):
+        parse_and_typecheck(source)
 
 
 def test_typecheck_allows_structural_slice_sugar_for_user_class() -> None:
@@ -372,6 +438,35 @@ fn main() -> unit {
 }
 """
     with pytest.raises(TypeCheckError, match="slice_set' first two parameters must be i64"):
+        parse_and_typecheck(source)
+
+
+def test_typecheck_allows_interface_structural_slice_sugar() -> None:
+    source = """
+interface Window {
+    fn slice_get(begin: i64, end: i64) -> Window;
+    fn slice_set(begin: i64, end: i64, value: Window) -> unit;
+}
+
+fn rewrite(window: Window, replacement: Window) -> Window {
+    window[0:1] = replacement;
+    return window[0:1];
+}
+"""
+    parse_and_typecheck(source)
+
+
+def test_typecheck_rejects_interface_structural_slice_sugar_for_wrong_signature() -> None:
+    source = """
+interface BadWindow {
+    fn slice_get(begin: u64, end: i64) -> BadWindow;
+}
+
+fn read(window: BadWindow) -> BadWindow {
+    return window[0:1];
+}
+"""
+    with pytest.raises(TypeCheckError, match=r"sliceable \(method 'slice_get' parameters must be i64\)"):
         parse_and_typecheck(source)
 
 

@@ -165,7 +165,7 @@ def _infer_instance_method_call_type(
             return field_result
 
         structural_result = infer_structural_special_method_call_type(
-            ctx, object_type, class_info, expr.callee.field_name, expr.arguments, expr.span
+            ctx, object_type, expr.callee.field_name, expr.arguments, expr.span
         )
         if structural_result is not None:
             return structural_result
@@ -176,7 +176,7 @@ def _infer_instance_method_call_type(
     require_member_visible(ctx, class_info, method_member.owner_class_name, expr.callee.field_name, "method", expr.span)
 
     structural_result = infer_structural_special_method_call_type(
-        ctx, object_type, class_info, expr.callee.field_name, expr.arguments, expr.span
+        ctx, object_type, expr.callee.field_name, expr.arguments, expr.span
     )
     if structural_result is not None:
         return structural_result
@@ -199,6 +199,12 @@ def _infer_instance_method_call_type(
 def _infer_interface_method_call_type(
     ctx: TypeCheckContext, expr: CallExpr, object_type: TypeInfo, interface_info
 ) -> TypeInfo:
+    structural_result = infer_structural_special_method_call_type(
+        ctx, object_type, expr.callee.field_name, expr.arguments, expr.span
+    )
+    if structural_result is not None:
+        return structural_result
+
     method_sig = interface_info.methods.get(expr.callee.field_name)
     if method_sig is None:
         raise TypeCheckError(f"Interface '{interface_info.name}' has no method '{expr.callee.field_name}'", expr.span)

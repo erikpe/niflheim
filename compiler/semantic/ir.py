@@ -247,7 +247,13 @@ class VirtualMethodDispatch:
     selected_method_id: MethodId
 
 
-SemanticDispatch = RuntimeDispatch | MethodDispatch | VirtualMethodDispatch
+@dataclass(frozen=True)
+class InterfaceDispatch:
+    interface_id: InterfaceId
+    method_id: InterfaceMethodId
+
+
+SemanticDispatch = RuntimeDispatch | MethodDispatch | VirtualMethodDispatch | InterfaceDispatch
 
 
 @dataclass(frozen=True)
@@ -555,6 +561,12 @@ def dispatch_method_id(dispatch: SemanticDispatch) -> MethodId | None:
         return dispatch.method_id
     if isinstance(dispatch, VirtualMethodDispatch):
         return dispatch.selected_method_id
+    return None
+
+
+def dispatch_interface_id(dispatch: SemanticDispatch) -> InterfaceId | None:
+    if isinstance(dispatch, InterfaceDispatch):
+        return dispatch.interface_id
     return None
 
 
