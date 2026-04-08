@@ -1,0 +1,113 @@
+import std.box;
+import std.error;
+import samples.vm_benchmark.model;
+
+export class Frame {
+    function_id: u64;
+    pc: u64;
+    registers: i64[];
+}
+
+export class Vm implements model.VmApi {
+    program: model.Program;
+    frame: Frame;
+    memory: i64[];
+    halted: bool;
+    return_value: i64;
+    trace_sum: i64;
+    executed_instructions: u64;
+    executed_builtins: u64;
+
+    fn current_function() -> model.FunctionInfo {
+        return __self.program.functions[(i64)__self.frame.function_id];
+    }
+
+    fn current_instruction() -> model.Instruction {
+        var function_info: model.FunctionInfo = __self.current_function();
+        if __self.frame.pc >= function_info.instructions.len() {
+            panic("Vm.current_instruction: pc out of bounds");
+        }
+        return function_info.instructions[(i64)__self.frame.pc];
+    }
+
+    fn run() -> model.BenchmarkResult {
+        while !__self.halted {
+            var instruction: model.Instruction = __self.current_instruction();
+            __self.executed_instructions = __self.executed_instructions + 1u;
+            instruction.execute(__self);
+        }
+
+        return model.BenchmarkResult(
+            __self.program.name,
+            __self.return_value,
+            __self.memory[0],
+            __self.trace_sum,
+            __self.executed_instructions,
+            __self.executed_builtins
+        );
+    }
+
+    fn read_reg(index: i64) -> i64 {
+        return __self.frame.registers[index];
+    }
+
+    fn write_reg(index: i64, value: i64) -> unit {
+        __self.frame.registers[index] = value;
+        return;
+    }
+
+    fn read_const_i64(index: u64) -> i64 {
+        if index >= __self.program.constants.len() {
+            panic("Vm.read_const_i64: const id out of bounds");
+        }
+        return ((BoxI64)__self.program.constants[(i64)index]).val;
+    }
+
+    fn load_mem(index: i64) -> i64 {
+        if index < 0 || (u64)index >= __self.memory.len() {
+            panic("Vm.load_mem: memory index out of bounds");
+        }
+        return __self.memory[index];
+    }
+
+    fn store_mem(index: i64, value: i64) -> unit {
+        if index < 0 || (u64)index >= __self.memory.len() {
+            panic("Vm.store_mem: memory index out of bounds");
+        }
+        __self.memory[index] = value;
+        return;
+    }
+
+    fn call_builtin(index: u64, argc: u64) -> unit {
+        if index >= __self.program.builtins.len() {
+            panic("Vm.call_builtin: builtin id out of bounds");
+        }
+        __self.executed_builtins = __self.executed_builtins + 1u;
+        __self.program.builtins[(i64)index].invoke(__self, argc);
+        return;
+    }
+
+    fn note_trace(value: i64) -> unit {
+        __self.trace_sum = __self.trace_sum + value;
+        return;
+    }
+
+    fn advance() -> unit {
+        __self.frame.pc = __self.frame.pc + 1u;
+        return;
+    }
+
+    fn halt_with(value: i64) -> unit {
+        __self.return_value = value;
+        __self.halted = true;
+        return;
+    }
+}
+
+export fn run_case(bench_case: model.BenchmarkCase) -> model.BenchmarkResult {
+    var program: model.Program = bench_case.program;
+    var entry_function: model.FunctionInfo = program.functions[(i64)program.entry_function_id];
+    var frame: Frame = Frame(program.entry_function_id, 0u, i64[](entry_function.register_count));
+    var vm: Vm = Vm(program, frame, i64[](program.memory_size), false, 0, 0, 0u, 0u);
+    return vm.run();
+}

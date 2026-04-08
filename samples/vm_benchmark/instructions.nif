@@ -1,0 +1,110 @@
+import std.error;
+import std.str;
+import samples.vm_benchmark.model;
+import samples.vm_benchmark.opcodes;
+
+export class BaseInstruction implements model.Instruction {
+    opcode_id: u64;
+
+    fn opcode() -> u64 {
+        return __self.opcode_id;
+    }
+
+    fn debug_name() -> Str {
+        return opcodes.opcode_name(__self.opcode_id);
+    }
+
+    fn execute(vm: model.VmApi) -> unit {
+        panic("BaseInstruction.execute: abstract");
+        return;
+    }
+}
+
+export class LoadConstOp extends BaseInstruction {
+    dst: i64;
+    const_id: u64;
+
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.write_reg(__self.dst, vm.read_const_i64(__self.const_id));
+        vm.advance();
+        return;
+    }
+}
+
+export class RegisterCopyOp extends BaseInstruction {
+    dst: i64;
+    src: i64;
+
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.write_reg(__self.dst, vm.read_reg(__self.src));
+        vm.advance();
+        return;
+    }
+}
+
+export class BinaryOp extends BaseInstruction {
+    dst: i64;
+    left: i64;
+    right: i64;
+
+    fn apply(left_value: i64, right_value: i64) -> i64 {
+        panic("BinaryOp.apply: abstract");
+        return 0;
+    }
+
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.write_reg(
+            __self.dst,
+            __self.apply(vm.read_reg(__self.left), vm.read_reg(__self.right))
+        );
+        vm.advance();
+        return;
+    }
+}
+
+export class AddOp extends BinaryOp {
+    override fn apply(left_value: i64, right_value: i64) -> i64 {
+        return left_value + right_value;
+    }
+}
+
+export class MemoryOp extends BaseInstruction {
+    slot: i64;
+    reg_index: i64;
+}
+
+export class LoadMemOp extends MemoryOp {
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.write_reg(__self.reg_index, vm.load_mem(__self.slot));
+        vm.advance();
+        return;
+    }
+}
+
+export class StoreMemOp extends MemoryOp {
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.store_mem(__self.slot, vm.read_reg(__self.reg_index));
+        vm.advance();
+        return;
+    }
+}
+
+export class CallBuiltinOp extends BaseInstruction {
+    builtin_id: u64;
+    argc: u64;
+
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.call_builtin(__self.builtin_id, __self.argc);
+        vm.advance();
+        return;
+    }
+}
+
+export class HaltOp extends BaseInstruction {
+    src: i64;
+
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.halt_with(vm.read_reg(__self.src));
+        return;
+    }
+}

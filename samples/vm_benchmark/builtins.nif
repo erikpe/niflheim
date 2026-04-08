@@ -1,0 +1,28 @@
+import std.str;
+import samples.vm_benchmark.model;
+
+export class BaseBuiltin implements model.Builtin {
+    label: Str;
+
+    fn name() -> Str {
+        return __self.label;
+    }
+
+    fn invoke(vm: model.VmApi, argc: u64) -> unit {
+        return;
+    }
+}
+
+export class TraceAccumulatorBuiltin extends BaseBuiltin {
+    override fn invoke(vm: model.VmApi, argc: u64) -> unit {
+        var total: i64 = 0;
+        var index: i64 = 0;
+        while (u64)index < argc {
+            total = total + vm.read_reg(index);
+            index = index + 1;
+        }
+
+        vm.note_trace(total);
+        return;
+    }
+}

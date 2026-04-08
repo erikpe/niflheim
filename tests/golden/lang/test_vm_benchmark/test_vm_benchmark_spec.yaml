@@ -1,0 +1,10 @@
+tests:
+  - mode: "run"
+    name: "test_vm_benchmark"
+    src_file: "test_vm_benchmark.nif"
+    runs:
+      -
+        name: "slice1_minimal_output"
+        expect:
+          exit_code: 0
+          stdout: "slice1_minimal: return=14 memory0=14 trace=14 steps=11 builtins=1 checksum=13360164\n"

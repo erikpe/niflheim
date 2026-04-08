@@ -1,0 +1,60 @@
+import std.error;
+import std.str;
+
+export fn load_const_opcode() -> u64 {
+    return 1u;
+}
+
+export fn add_opcode() -> u64 {
+    return 2u;
+}
+
+export fn move_opcode() -> u64 {
+    return 3u;
+}
+
+export fn load_mem_opcode() -> u64 {
+    return 4u;
+}
+
+export fn store_mem_opcode() -> u64 {
+    return 5u;
+}
+
+export fn call_builtin_opcode() -> u64 {
+    return 6u;
+}
+
+export fn halt_opcode() -> u64 {
+    return 7u;
+}
+
+export fn opcode_name(opcode: u64) -> Str {
+    if opcode == load_const_opcode() {
+        return "load_const";
+    }
+    if opcode == add_opcode() {
+        return "add";
+    }
+    if opcode == move_opcode() {
+        return "move";
+    }
+    if opcode == load_mem_opcode() {
+        return "load_mem";
+    }
+    if opcode == store_mem_opcode() {
+        return "store_mem";
+    }
+    if opcode == call_builtin_opcode() {
+        return "call_builtin";
+    }
+    if opcode == halt_opcode() {
+        return "halt";
+    }
+    panic("vm_benchmark.opcode_name: unknown opcode");
+    return "unknown";
+}
+
+export fn mix_checksum(seed: i64, value: i64) -> i64 {
+    return (seed * 31) + value;
+}

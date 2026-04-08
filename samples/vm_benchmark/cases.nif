@@ -1,0 +1,51 @@
+import std.box;
+import samples.vm_benchmark.builtins;
+import samples.vm_benchmark.instructions;
+import samples.vm_benchmark.model;
+import samples.vm_benchmark.opcodes;
+
+fn build_minimal_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](11u);
+    code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    code[2] = instructions.AddOp(opcodes.add_opcode(), 2, 0, 1);
+    code[3] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 2);
+    code[4] = instructions.LoadMemOp(opcodes.load_mem_opcode(), 0, 3);
+    code[5] = instructions.LoadConstOp(opcodes.load_const_opcode(), 4, 2u);
+    code[6] = instructions.AddOp(opcodes.add_opcode(), 5, 3, 4);
+    code[7] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 5);
+    code[8] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 1u);
+    code[9] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 5);
+    code[10] = instructions.HaltOp(opcodes.halt_opcode(), 5);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 6u, code);
+
+    var constants: Obj[] = Obj[](3u);
+    constants[0] = BoxI64(7);
+    constants[1] = BoxI64(5);
+    constants[2] = BoxI64(2);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](1u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+
+    return model.Program("slice1_minimal", 0u, functions, constants, builtin_table, 2u);
+}
+
+fn build_minimal_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "slice1_minimal",
+        build_minimal_program(),
+        14,
+        14,
+        14,
+        11u,
+        1u
+    );
+}
+
+export fn build_slice1_cases() -> model.BenchmarkCase[] {
+    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](1u);
+    benchmark_cases[0] = build_minimal_case();
+    return benchmark_cases;
+}

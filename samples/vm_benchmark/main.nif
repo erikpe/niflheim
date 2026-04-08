@@ -1,0 +1,25 @@
+import std.io;
+import std.test;
+import samples.vm_benchmark.cases;
+import samples.vm_benchmark.model;
+import samples.vm_benchmark.runtime;
+
+export fn run_and_report() -> i64 {
+    var benchmark_cases: model.BenchmarkCase[] = cases.build_slice1_cases();
+    var index: i64 = 0;
+
+    while (u64)index < benchmark_cases.len() {
+        var bench_case: model.BenchmarkCase = benchmark_cases[index];
+        var result: model.BenchmarkResult = runtime.run_case(bench_case);
+        test.assert_true(result.matches_expected(bench_case));
+        test.assert_eq_str(result.render(), bench_case.expected_output_line());
+        io.println(result.render());
+        index = index + 1;
+    }
+
+    return 0;
+}
+
+fn main() -> i64 {
+    return run_and_report();
+}
