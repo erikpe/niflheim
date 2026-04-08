@@ -344,26 +344,34 @@ Test:
 
 ## Slice 7: Optional Closed-World Monomorphic Dispatch Follow-Up
 
-- [ ] add a separate whole-program analysis that identifies interface or virtual dispatch sites whose reachable implementations collapse to one method body even without local exact facts
-- [ ] keep this analysis separate from the exact-type-based slices above
-- [ ] only rewrite when every reachable implementation agrees on the same target method body
+- [x] add a separate whole-program analysis that identifies interface or virtual dispatch sites whose reachable implementations collapse to one method body even without local exact facts
+- [x] keep this analysis separate from the exact-type-based slices above
+- [x] only rewrite when every reachable implementation agrees on the same target method body
 
 Test:
 
-- [ ] add dedicated optimization tests covering monomorphic-by-hierarchy sites without local exact facts
-- [ ] add regression tests proving polymorphic sites remain dynamic
+- [x] add dedicated optimization tests covering monomorphic-by-hierarchy sites without local exact facts
+- [x] add regression tests proving polymorphic sites remain dynamic
+
+Typical cases this catches in the current implementation:
+
+- interface-typed receivers whose interface method has exactly one concrete implementation in the whole program
+- interface-typed receivers whose implementing classes differ, but all resolve that interface method to the same inherited method body
+- base-class-typed receivers whose reachable subclass tree contains only one effective implementation for the selected virtual slot
+- structural sugar on interface or virtual receivers, such as `value[0]` or `for item in value`, when the underlying protocol method is monomorphic by hierarchy even though no local exact-type fact exists
+- non-local receivers such as function-returned interface or base-class values when local narrowing cannot prove an exact type, but whole-program hierarchy analysis still collapses the dispatch to one `MethodId`
 
 ## Validation Checklist
 
-- [ ] flow-sensitive narrowing still preserves existing cast and type-test optimizations
-- [ ] interface-call devirtualization still handles its current local-receiver cases
-- [ ] specialized structural interface dispatch sites emit direct calls
-- [ ] specialized virtual dispatch sites emit direct calls
-- [ ] array fast paths remain array-only and behaviorally unchanged
-- [ ] overloaded constructor selection behavior remains unchanged
-- [ ] semantic optimization pipeline ordering still produces the expected specialized forms
-- [ ] focused codegen tests for call and structural dispatch still pass
-- [ ] focused golden coverage for virtual dispatch and structural sugar still passes if touched
+- [x] flow-sensitive narrowing still preserves existing cast and type-test optimizations
+- [x] interface-call devirtualization still handles its current local-receiver cases
+- [x] specialized structural interface dispatch sites emit direct calls
+- [x] specialized virtual dispatch sites emit direct calls
+- [x] array fast paths remain array-only and behaviorally unchanged
+- [x] overloaded constructor selection behavior remains unchanged
+- [x] semantic optimization pipeline ordering still produces the expected specialized forms
+- [x] focused codegen tests for call and structural dispatch still pass
+- [x] focused golden coverage for virtual dispatch and structural sugar still passes if touched
 
 ## Non-Goals
 

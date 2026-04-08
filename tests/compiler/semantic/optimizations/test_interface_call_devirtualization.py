@@ -213,6 +213,106 @@ def test_interface_call_devirtualization_rewrites_interface_call_for_exact_cast_
     assert return_stmt.value.target.method_id.name == "hash_code"
 
 
+def test_interface_call_devirtualization_rewrites_interface_call_via_closed_world_monomorphism(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(value: Hashable) -> u64 {
+            return value.hash_code();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Key"
+    assert return_stmt.value.target.method_id.name == "hash_code"
+
+
+def test_interface_call_devirtualization_rewrites_interface_call_via_closed_world_shared_inherited_body(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class BaseKey implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        class Key extends BaseKey {
+        }
+
+        class Token extends BaseKey {
+        }
+
+        fn main(value: Hashable) -> u64 {
+            return value.hash_code();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "BaseKey"
+    assert return_stmt.value.target.method_id.name == "hash_code"
+
+
+def test_interface_call_devirtualization_rewrites_structural_interface_dispatch_via_closed_world_monomorphism(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Buffer {
+            fn index_get(index: i64) -> i64;
+        }
+
+        class Store implements Buffer {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+        }
+
+        fn main(value: Buffer) -> i64 {
+            return value[0];
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, IndexReadExpr)
+    assert isinstance(return_stmt.value.dispatch, MethodDispatch)
+    assert return_stmt.value.dispatch.method_id.class_name == "Store"
+    assert return_stmt.value.dispatch.method_id.name == "index_get"
+
+
 def test_interface_call_devirtualization_rewrites_structural_interface_dispatch_after_constructor_seeded_exact_fact(
     tmp_path: Path,
 ) -> None:
@@ -490,6 +590,109 @@ def test_interface_call_devirtualization_rewrites_virtual_method_call_for_exact_
     assert return_stmt.value.target.method_id.name == "head"
 
 
+def test_interface_call_devirtualization_rewrites_virtual_call_via_closed_world_monomorphism(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+        }
+
+        fn main(value: Base) -> i64 {
+            return value.head();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Base"
+    assert return_stmt.value.target.method_id.name == "head"
+
+
+def test_interface_call_devirtualization_rewrites_virtual_call_via_closed_world_receiver_subtree_monomorphism(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Mid extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        class Leaf extends Mid {
+        }
+
+        class Other extends Base {
+            override fn head() -> i64 {
+                return 3;
+            }
+        }
+
+        fn main(value: Mid) -> i64 {
+            return value.head();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Mid"
+    assert return_stmt.value.target.method_id.name == "head"
+
+
+def test_interface_call_devirtualization_rewrites_structural_virtual_dispatch_via_closed_world_monomorphism(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class BufferBase {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+        }
+
+        class Buffer extends BufferBase {
+        }
+
+        fn main(value: BufferBase) -> i64 {
+            return value[0];
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, IndexReadExpr)
+    assert isinstance(return_stmt.value.dispatch, MethodDispatch)
+    assert return_stmt.value.dispatch.method_id.class_name == "BufferBase"
+    assert return_stmt.value.dispatch.method_id.name == "index_get"
+
+
 def test_interface_call_devirtualization_rewrites_interface_call_inside_while_loop_when_receiver_stays_exact(
     tmp_path: Path,
 ) -> None:
@@ -731,11 +934,17 @@ def test_interface_call_devirtualization_keeps_interface_dispatch_for_unknown_fu
             }
         }
 
+        class Token implements Hashable {
+            fn hash_code() -> u64 {
+                return 2u;
+            }
+        }
+
         fn choose(flag: bool) -> Hashable {
             if flag {
                 return Key();
             }
-            return Key();
+            return Token();
         }
 
         fn main(flag: bool) -> u64 {
@@ -844,11 +1053,17 @@ def test_interface_call_devirtualization_keeps_structural_interface_dispatch_for
             }
         }
 
+        class Queue implements Buffer {
+            fn index_get(index: i64) -> i64 {
+                return index + 1;
+            }
+        }
+
         fn choose(flag: bool) -> Buffer {
             if flag {
                 return Store();
             }
-            return Store();
+            return Queue();
         }
 
         fn main(flag: bool) -> i64 {
@@ -879,6 +1094,12 @@ def test_interface_call_devirtualization_keeps_interface_dispatch_after_merge_th
             }
         }
 
+        class Token implements Hashable {
+            fn hash_code() -> u64 {
+                return 2u;
+            }
+        }
+
         fn main(flag: bool, source: Obj, fallback: Hashable) -> u64 {
             var hashable: Hashable = fallback;
             if flag {
@@ -892,6 +1113,41 @@ def test_interface_call_devirtualization_keeps_interface_dispatch_after_merge_th
 
     optimized = _run_interface_call_devirtualization(tmp_path)
     return_stmt = optimized.modules[("main",)].functions[0].body.statements[2]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InterfaceMethodCallTarget)
+
+
+def test_interface_call_devirtualization_keeps_interface_call_dynamic_when_closed_world_is_polymorphic(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        class Token implements Hashable {
+            fn hash_code() -> u64 {
+                return 2u;
+            }
+        }
+
+        fn main(value: Hashable) -> u64 {
+            return value.hash_code();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
 
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value.target, InterfaceMethodCallTarget)
@@ -911,6 +1167,12 @@ def test_interface_call_devirtualization_invalidates_exact_receiver_after_reassi
             }
         }
 
+        class Token implements Hashable {
+            fn hash_code() -> u64 {
+                return 2u;
+            }
+        }
+
         fn main(first: Obj, second: Hashable) -> u64 {
             var key: Key = (Key)first;
             var hashable: Hashable = key;
@@ -927,6 +1189,37 @@ def test_interface_call_devirtualization_invalidates_exact_receiver_after_reassi
     assert isinstance(return_stmt.value.target, InterfaceMethodCallTarget)
 
 
+def test_interface_call_devirtualization_keeps_virtual_call_dynamic_when_closed_world_is_polymorphic(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main(value: Base) -> i64 {
+            return value.head();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, VirtualMethodCallTarget)
+
+
 def test_interface_call_devirtualization_keeps_interface_dispatch_dynamic_after_loop_reassignment(
     tmp_path: Path,
 ) -> None:
@@ -940,6 +1233,12 @@ def test_interface_call_devirtualization_keeps_interface_dispatch_dynamic_after_
         class Key implements Hashable {
             fn hash_code() -> u64 {
                 return 1u;
+            }
+        }
+
+        class Token implements Hashable {
+            fn hash_code() -> u64 {
+                return 2u;
             }
         }
 
@@ -981,8 +1280,14 @@ def test_interface_call_devirtualization_keeps_virtual_dispatch_dynamic_after_lo
             }
         }
 
-        fn main(replacement: Derived, keep_looping: bool) -> i64 {
-            var current: Derived = Derived();
+        class Other extends Base {
+            override fn head() -> i64 {
+                return 3;
+            }
+        }
+
+        fn main(replacement: Base, keep_looping: bool) -> i64 {
+            var current: Base = Derived();
             while keep_looping {
                 current = replacement;
                 return current.head();
@@ -1011,6 +1316,12 @@ def test_interface_call_devirtualization_requires_exact_receiver_type_not_interf
         class Key implements Hashable {
             fn hash_code() -> u64 {
                 return 1u;
+            }
+        }
+
+        class Token implements Hashable {
+            fn hash_code() -> u64 {
+                return 2u;
             }
         }
 

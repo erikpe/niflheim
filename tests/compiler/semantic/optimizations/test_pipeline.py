@@ -242,6 +242,76 @@ def test_optimize_semantic_program_devirtualizes_interface_calls_after_construct
     assert return_stmt.value.target.access.receiver_type_ref.class_id.name == "Key"
 
 
+def test_optimize_semantic_program_devirtualizes_interface_calls_via_closed_world_monomorphism(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main(value: Hashable) -> u64 {
+            return value.hash_code();
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Key"
+    assert return_stmt.value.target.method_id.name == "hash_code"
+
+
+def test_optimize_semantic_program_devirtualizes_interface_calls_via_closed_world_shared_inherited_body(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class BaseKey implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        class Key extends BaseKey {
+        }
+
+        class Token extends BaseKey {
+        }
+
+        fn main(value: Hashable) -> u64 {
+            return value.hash_code();
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "BaseKey"
+    assert return_stmt.value.target.method_id.name == "hash_code"
+
+
 def test_optimize_semantic_program_specializes_structural_interface_dispatch_after_constructor_seeded_exact_fact(
     tmp_path: Path,
 ) -> None:
@@ -331,6 +401,80 @@ def test_optimize_semantic_program_devirtualizes_virtual_calls_after_constructor
     assert isinstance(return_stmt.value, CallExprS)
     assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
     assert return_stmt.value.target.method_id.class_name == "Derived"
+    assert return_stmt.value.target.method_id.name == "head"
+
+
+def test_optimize_semantic_program_devirtualizes_virtual_calls_via_closed_world_monomorphism(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+        }
+
+        fn main(value: Base) -> i64 {
+            return value.head();
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Base"
+    assert return_stmt.value.target.method_id.name == "head"
+
+
+def test_optimize_semantic_program_devirtualizes_virtual_calls_via_closed_world_receiver_subtree_monomorphism(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Mid extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        class Leaf extends Mid {
+        }
+
+        class Other extends Base {
+            override fn head() -> i64 {
+                return 3;
+            }
+        }
+
+        fn main(value: Mid) -> i64 {
+            return value.head();
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Mid"
     assert return_stmt.value.target.method_id.name == "head"
 
 
@@ -504,6 +648,42 @@ def test_optimize_semantic_program_keeps_unknown_function_receiver_virtual_dispa
     assert return_stmt.value.target.__class__.__name__ == "VirtualMethodCallTarget"
 
 
+def test_optimize_semantic_program_keeps_closed_world_polymorphic_interface_calls_dynamic(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        class Token implements Hashable {
+            fn hash_code() -> u64 {
+                return 2u;
+            }
+        }
+
+        fn main(value: Hashable) -> u64 {
+            return value.hash_code();
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[0]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert isinstance(return_stmt.value.target, InterfaceMethodCallTarget)
+
+
 def test_optimize_semantic_program_devirtualizes_interface_calls_inside_while_loop_when_receiver_stays_exact(
     tmp_path: Path,
 ) -> None:
@@ -599,6 +779,12 @@ def test_optimize_semantic_program_keeps_loop_reassignment_interface_dispatch_dy
             }
         }
 
+        class Token implements Hashable {
+            fn hash_code() -> u64 {
+                return 2u;
+            }
+        }
+
         fn main(value: Obj, fallback: Hashable, keep_looping: bool) -> u64 {
             var key: Key = (Key)value;
             var hashable: Hashable = key;
@@ -639,8 +825,14 @@ def test_optimize_semantic_program_keeps_loop_reassignment_virtual_dispatch_dyna
             }
         }
 
-        fn main(replacement: Derived, keep_looping: bool) -> i64 {
-            var current: Derived = Derived();
+        class Other extends Base {
+            override fn head() -> i64 {
+                return 3;
+            }
+        }
+
+        fn main(replacement: Base, keep_looping: bool) -> i64 {
+            var current: Base = Derived();
             while keep_looping {
                 current = replacement;
                 return current.head();

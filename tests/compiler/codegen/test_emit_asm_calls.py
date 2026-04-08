@@ -254,6 +254,12 @@ class Key implements Hashable {
     }
 }
 
+class Token implements Hashable {
+    fn hash_code() -> u64 {
+        return 9u;
+    }
+}
+
 fn call_hash(value: Hashable) -> u64 {
     return value.hash_code();
 }
@@ -291,6 +297,12 @@ class Key implements Combiner {
     }
 }
 
+class Token implements Combiner {
+    fn mix(a: i64, b: i64, c: i64) -> i64 {
+        return a * b * c;
+    }
+}
+
 fn call_mix(value: Combiner) -> i64 {
     return value.mix(1, 2, 3);
 }
@@ -317,6 +329,12 @@ interface Boxed {
 class Key implements Boxed {
     fn next(seed: Obj) -> Obj {
         return seed;
+    }
+}
+
+class Token implements Boxed {
+    fn next(seed: Obj) -> Obj {
+        return null;
     }
 }
 
@@ -357,6 +375,12 @@ class Key implements Combiner {
     }
 }
 
+class Token implements Combiner {
+    fn mix(a0: i64, a1: i64, a2: i64, a3: i64, a4: i64, a5: i64, a6: i64, a7: i64, a8: i64) -> i64 {
+        return a0 * a1 * a2 * a3 * a4 * a5 * a6 * a7 * a8;
+    }
+}
+
 fn call_mix(value: Combiner) -> i64 {
     return value.mix(1, 2, 3, 4, 5, 6, 7, 8, 9);
 }
@@ -376,6 +400,34 @@ fn main() -> i64 {
     assert "    mov rsi, qword ptr [r10 + 8]" in call_mix_body
     assert "    mov rax, qword ptr [r10 + 72]" in call_mix_body
     assert "    call r11" in call_mix_body
+
+
+def test_emit_asm_interface_method_call_specializes_to_direct_call_via_closed_world_monomorphism(tmp_path) -> None:
+    source = """
+interface Hashable {
+    fn hash_code() -> u64;
+}
+
+class Key implements Hashable {
+    fn hash_code() -> u64 {
+        return 7u;
+    }
+}
+
+fn call_hash(value: Hashable) -> u64 {
+    return value.hash_code();
+}
+
+fn main() -> i64 {
+    return (i64)call_hash(Key());
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    call_hash_body = asm[asm.index("call_hash:") : asm.index(".Lcall_hash_epilogue:")]
+
+    assert "    call __nif_method_Key_hash_code" in call_hash_body
+    assert "    mov rax, qword ptr [rcx + 64]" not in call_hash_body
+    assert "    call r11" not in call_hash_body
 
 
 def test_emit_asm_virtual_method_call_uses_class_vtable_and_indirect_call(tmp_path) -> None:
@@ -437,6 +489,33 @@ fn main() -> i64 {
     assert "    call __nif_method_Derived_head" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
+
+
+def test_emit_asm_virtual_method_call_specializes_to_direct_call_via_closed_world_monomorphism(tmp_path) -> None:
+    source = """
+class Base {
+    fn head() -> i64 {
+        return 1;
+    }
+}
+
+class Derived extends Base {
+}
+
+fn read(value: Base) -> i64 {
+    return value.head();
+}
+
+fn main() -> i64 {
+    return read(Derived());
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    read_body = asm[asm.index("read:") : asm.index(".Lread_epilogue:")]
+
+    assert "    call __nif_method_Base_head" in read_body
+    assert "    mov rcx, qword ptr [rcx + 80]" not in read_body
+    assert "    call r11" not in read_body
 
 
 def test_emit_asm_non_local_exact_virtual_receiver_expression_specializes_to_direct_call(tmp_path) -> None:

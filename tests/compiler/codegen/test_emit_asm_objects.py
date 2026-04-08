@@ -1,3 +1,5 @@
+import re
+
 from tests.compiler.codegen.helpers import emit_source_asm
 
 
@@ -54,9 +56,10 @@ fn main() -> i64 {
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
     assert "    call __nif_method_Vec_new" in asm
-    assert "    call __nif_method_Vec_push" not in main_body
-    assert "    call __nif_method_Vec_len" not in main_body
-    assert main_body.count("    call r11") >= 2
+    assert "    call __nif_method_Vec_push" in main_body
+    assert "    call __nif_method_Vec_len" in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
+    assert "    call r11" not in main_body
     assert "rt_vec_" not in asm
 
 
@@ -88,10 +91,10 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Bag_index_set" not in main_body
-    assert "    call __nif_method_Bag_index_get" not in main_body
-    assert main_body.count("    mov rcx, qword ptr [rcx + 80]") >= 2
-    assert main_body.count("    call r11") >= 2
+    assert "    call __nif_method_Bag_index_set" in main_body
+    assert "    call __nif_method_Bag_index_get" in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
+    assert "    call r11" not in main_body
 
 
 def test_emit_asm_structural_slice_sugar_for_user_class_lowers_to_slice_method(tmp_path) -> None:
@@ -120,9 +123,9 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Window_slice_get" not in main_body
-    assert "    mov rcx, qword ptr [rcx + 80]" in main_body
-    assert "    call r11" in main_body
+    assert "    call __nif_method_Window_slice_get" in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
+    assert "    call r11" not in main_body
 
 
 def test_emit_asm_structural_interface_dispatch_specializes_to_direct_calls_after_exact_constructor_fact(tmp_path) -> None:
@@ -266,6 +269,139 @@ fn main() -> i64 {
     assert "    call r11" not in main_body
 
 
+def test_emit_asm_structural_interface_dispatch_specializes_to_direct_calls_via_closed_world_monomorphism(tmp_path) -> None:
+    source = """
+interface Buffer {
+    fn index_get(index: i64) -> i64;
+    fn index_set(index: i64, value: i64) -> unit;
+    fn slice_get(begin: i64, end: i64) -> Buffer;
+    fn slice_set(begin: i64, end: i64, value: Buffer) -> unit;
+    fn iter_len() -> u64;
+    fn iter_get(index: i64) -> i64;
+}
+
+class BaseBuffer implements Buffer {
+    fn index_get(index: i64) -> i64 {
+        return index;
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        return;
+    }
+
+    fn slice_get(begin: i64, end: i64) -> Buffer {
+        return __self;
+    }
+
+    fn slice_set(begin: i64, end: i64, value: Buffer) -> unit {
+        return;
+    }
+
+    fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return index;
+    }
+}
+
+class Store extends BaseBuffer {
+}
+
+class Queue extends BaseBuffer {
+}
+
+fn read(buffer: Buffer) -> i64 {
+    var first: i64 = buffer[0];
+    buffer[0] = first;
+    var part: Buffer = buffer[0:1];
+    buffer[0:1] = part;
+    for value in buffer {
+        return value;
+    }
+    return 0;
+}
+
+fn main() -> i64 {
+    return read(Store());
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    read_body = asm[asm.index("read:") : asm.index(".Lread_epilogue:")]
+
+    assert "    call __nif_method_BaseBuffer_index_get" in read_body
+    assert "    call __nif_method_BaseBuffer_index_set" in read_body
+    assert "    call __nif_method_BaseBuffer_slice_get" in read_body
+    assert "    call __nif_method_BaseBuffer_slice_set" in read_body
+    assert "    call __nif_method_BaseBuffer_iter_len" in read_body
+    assert "    call __nif_method_BaseBuffer_iter_get" in read_body
+    assert "    mov rax, qword ptr [rcx + 64]" not in read_body
+    assert "    call r11" not in read_body
+
+
+def test_emit_asm_structural_virtual_dispatch_specializes_to_direct_calls_via_closed_world_monomorphism(tmp_path) -> None:
+    source = """
+class BufferBase {
+    fn index_get(index: i64) -> i64 {
+        return index;
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        return;
+    }
+
+    fn slice_get(begin: i64, end: i64) -> BufferBase {
+        return __self;
+    }
+
+    fn slice_set(begin: i64, end: i64, value: BufferBase) -> unit {
+        return;
+    }
+
+    fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return index;
+    }
+}
+
+class Store extends BufferBase {
+}
+
+class Queue extends BufferBase {
+}
+
+fn read(buffer: BufferBase) -> i64 {
+    var first: i64 = buffer[0];
+    buffer[0] = first;
+    var part: BufferBase = buffer[0:1];
+    buffer[0:1] = part;
+    for value in buffer {
+        return value;
+    }
+    return 0;
+}
+
+fn main() -> i64 {
+    return read(Store());
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    read_body = asm[asm.index("read:") : asm.index(".Lread_epilogue:")]
+
+    assert "    call __nif_method_BufferBase_index_get" in read_body
+    assert "    call __nif_method_BufferBase_index_set" in read_body
+    assert "    call __nif_method_BufferBase_slice_get" in read_body
+    assert "    call __nif_method_BufferBase_slice_set" in read_body
+    assert "    call __nif_method_BufferBase_iter_len" in read_body
+    assert "    call __nif_method_BufferBase_iter_get" in read_body
+    assert "    mov rcx, qword ptr [rcx + 80]" not in read_body
+    assert "    call r11" not in read_body
+
+
 def test_emit_asm_non_local_exact_structural_interface_receiver_expression_specializes_to_direct_call(tmp_path) -> None:
     source = """
 interface Buffer {
@@ -307,11 +443,12 @@ fn main() -> i64 {
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
     assert "__nif_method_Counter_add:" in asm
-    assert "    call __nif_method_Counter_add" not in main_body
-    assert "    mov rdi, qword ptr [rsp]" in main_body
-    assert "    mov rsi, qword ptr [rsp + 8]" in main_body
-    assert "    mov rcx, qword ptr [rcx + 80]" in main_body
-    assert "    call r11" in main_body
+    assert "    call __nif_method_Counter_add" in main_body
+    assert re.search(r"mov rdi, qword ptr \[rbp - \d+\]", main_body)
+    assert re.search(r"mov rsi, qword ptr \[rbp - \d+\]", main_body)
+    assert "    call rt_panic_null_deref" in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
+    assert "    call r11" not in main_body
 
 
 def test_emit_asm_static_method_call_lowers_to_method_symbol_without_receiver_arg0(tmp_path) -> None:

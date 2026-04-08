@@ -640,6 +640,7 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
             [target.access.receiver, *expr.args],
             expr.type_ref,
             ctx,
+            null_check_first_arg=True,
             named_root_local_ids=named_root_local_ids,
         )
         return
@@ -917,6 +918,7 @@ def _emit_named_call(
     return_type_ref: SemanticTypeRef | str,
     ctx: EmitContext,
     *,
+    null_check_first_arg: bool = False,
     named_root_local_ids: frozenset[LocalId] | None = None,
 ) -> None:
     runtime_metadata = _runtime_call_metadata_for_target(target_name)
@@ -931,6 +933,7 @@ def _emit_named_call(
         return_type_ref=return_type_ref,
         ctx=ctx,
         target_name=target_name,
+        null_check_first_arg=null_check_first_arg,
         temp_root_spans=[arg.span for arg in call_arguments],
         runtime_hook_span=runtime_hook_span,
         named_root_local_ids=named_root_local_ids,
@@ -945,6 +948,7 @@ def _emit_call_sequence(
     *,
     target_name: str | None = None,
     callee_expr: SemanticExpr | None = None,
+    null_check_first_arg: bool = False,
     temp_root_spans: list[object | None],
     runtime_hook_span: object | None = None,
     named_root_local_ids: frozenset[LocalId] | None = None,
@@ -1006,6 +1010,11 @@ def _emit_call_sequence(
         if should_sync_named_roots:
             _sync_named_roots_if_needed(codegen, ctx, named_root_local_ids)
 
+        if null_check_first_arg and call_arguments:
+            first_arg_scratch_slot_index = call_scratch_base + len(call_arguments) - 1
+            codegen.asm.instr(f"mov rcx, {offset_operand(layout.call_scratch_slot_offsets[first_arg_scratch_slot_index])}")
+            _emit_null_deref_check_register(codegen, ctx=ctx, register="rcx")
+
         for arg_index, (location_kind, location_register, _stack_index) in enumerate(arg_locations):
             scratch_slot_index = call_scratch_base + (len(call_arguments) - 1 - arg_index)
             arg_operand = offset_operand(layout.call_scratch_slot_offsets[scratch_slot_index])
@@ -1045,6 +1054,9 @@ def _emit_call_sequence(
         emit_expr(codegen, callee_expr, ctx)
         codegen.asm.instr("mov r11, rax")
         call_target = "r11"
+    if null_check_first_arg and call_arguments:
+        codegen.asm.instr(f"mov rcx, {stack_slot_operand('rsp', 0)}")
+        _emit_null_deref_check_register(codegen, ctx=ctx, register="rcx")
     if should_sync_named_roots:
         _sync_named_roots_if_needed(codegen, ctx, named_root_local_ids)
     stack_base_register = "rsp"
@@ -1308,13 +1320,25 @@ def _emit_dispatch_call(
     span,
     named_root_local_ids: frozenset[LocalId] | None = None,
 ) -> None:
-    if isinstance(dispatch, (RuntimeDispatch, MethodDispatch)):
+    if isinstance(dispatch, RuntimeDispatch):
         _emit_named_call(
             codegen,
             _dispatch_target_name(dispatch, ctx),
             call_arguments,
             return_type_ref,
             ctx,
+            named_root_local_ids=named_root_local_ids,
+        )
+        return
+
+    if isinstance(dispatch, MethodDispatch):
+        _emit_named_call(
+            codegen,
+            _dispatch_target_name(dispatch, ctx),
+            call_arguments,
+            return_type_ref,
+            ctx,
+            null_check_first_arg=True,
             named_root_local_ids=named_root_local_ids,
         )
         return
@@ -1392,6 +1416,15 @@ def _virtual_slot_index(
             span=span,
         )
     return slot_index
+
+
+def _emit_null_deref_check_register(codegen: CodeGenerator, *, ctx: EmitContext, register: str) -> None:
+    non_null_label = codegen_symbols.next_label(ctx.fn_name, "direct_call_non_null", ctx.label_counter)
+
+    codegen.asm.instr(f"test {register}, {register}")
+    codegen.asm.instr(f"jne {non_null_label}")
+    codegen.emit_aligned_call("rt_panic_null_deref")
+    codegen.asm.label(non_null_label)
 
 
 def _interface_method_slot(method_id: InterfaceMethodId, ctx: EmitContext) -> int:
