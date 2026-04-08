@@ -20,30 +20,42 @@ export class BaseInstruction implements model.Instruction {
     }
 }
 
-export class LoadConstOp extends BaseInstruction {
+// These template-method execute bodies are intentionally shared by many concrete
+// instruction subclasses so the benchmark exercises inherited virtual dispatch
+// paths instead of only leaf-defined execute implementations.
+
+export class RegisterWriteInstruction extends BaseInstruction {
     dst: i64;
+
+    fn compute_value(vm: model.VmApi) -> i64 {
+        panic("RegisterWriteInstruction.compute_value: abstract");
+        return 0;
+    }
+
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.write_reg(__self.dst, __self.compute_value(vm));
+        vm.advance();
+        return;
+    }
+}
+
+export class LoadConstOp extends RegisterWriteInstruction {
     const_id: u64;
 
-    override fn execute(vm: model.VmApi) -> unit {
-        vm.write_reg(__self.dst, vm.read_const_i64(__self.const_id));
-        vm.advance();
-        return;
+    override fn compute_value(vm: model.VmApi) -> i64 {
+        return vm.read_const_i64(__self.const_id);
     }
 }
 
-export class RegisterCopyOp extends BaseInstruction {
-    dst: i64;
+export class RegisterCopyOp extends RegisterWriteInstruction {
     src: i64;
 
-    override fn execute(vm: model.VmApi) -> unit {
-        vm.write_reg(__self.dst, vm.read_reg(__self.src));
-        vm.advance();
-        return;
+    override fn compute_value(vm: model.VmApi) -> i64 {
+        return vm.read_reg(__self.src);
     }
 }
 
-export class BinaryOp extends BaseInstruction {
-    dst: i64;
+export class BinaryOp extends RegisterWriteInstruction {
     left: i64;
     right: i64;
 
@@ -52,13 +64,8 @@ export class BinaryOp extends BaseInstruction {
         return 0;
     }
 
-    override fn execute(vm: model.VmApi) -> unit {
-        vm.write_reg(
-            __self.dst,
-            __self.apply(vm.read_reg(__self.left), vm.read_reg(__self.right))
-        );
-        vm.advance();
-        return;
+    override fn compute_value(vm: model.VmApi) -> i64 {
+        return __self.apply(vm.read_reg(__self.left), vm.read_reg(__self.right));
     }
 }
 
@@ -93,6 +100,9 @@ export class ModOp extends BinaryOp {
 }
 
 export class CompareOp extends BinaryOp {
+    // Arithmetic-heavy cases mix Add/Sub/Mul/Div/Mod/Cmp* instances through the
+    // same BinaryOp.execute body, while simpler regions still produce more
+    // monomorphic leaf distributions through the same runtime loop.
     fn compare(left_value: i64, right_value: i64) -> bool {
         panic("CompareOp.compare: abstract");
         return false;
@@ -130,68 +140,170 @@ export class JumpOp extends BaseInstruction {
 export class ConditionalJumpOp extends BaseInstruction {
     cond_reg: i64;
     target: u64;
+
+    fn should_jump(vm: model.VmApi) -> bool {
+        panic("ConditionalJumpOp.should_jump: abstract");
+        return false;
+    }
+
+    override fn execute(vm: model.VmApi) -> unit {
+        if __self.should_jump(vm) {
+            vm.jump(__self.target);
+            return;
+        }
+        vm.advance();
+        return;
+    }
 }
 
 export class JumpIfTrueOp extends ConditionalJumpOp {
-    override fn execute(vm: model.VmApi) -> unit {
-        vm.jump_if_true(__self.cond_reg, __self.target);
-        return;
+    override fn should_jump(vm: model.VmApi) -> bool {
+        return vm.read_reg(__self.cond_reg) != 0;
     }
 }
 
 export class JumpIfFalseOp extends ConditionalJumpOp {
-    override fn execute(vm: model.VmApi) -> unit {
-        vm.jump_if_false(__self.cond_reg, __self.target);
-        return;
+    override fn should_jump(vm: model.VmApi) -> bool {
+        return vm.read_reg(__self.cond_reg) == 0;
     }
 }
 
 export class MemoryOp extends BaseInstruction {
+}
+
+export class MemoryReadOp extends MemoryOp {
+    dst: i64;
+
+    fn read_value(vm: model.VmApi) -> i64 {
+        panic("MemoryReadOp.read_value: abstract");
+        return 0;
+    }
+
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.write_reg(__self.dst, __self.read_value(vm));
+        vm.advance();
+        return;
+    }
+}
+
+export class MemoryWriteOp extends MemoryOp {
+    src: i64;
+
+    fn write_value(vm: model.VmApi, value: i64) -> unit {
+        panic("MemoryWriteOp.write_value: abstract");
+        return;
+    }
+
+    override fn execute(vm: model.VmApi) -> unit {
+        __self.write_value(vm, vm.read_reg(__self.src));
+        vm.advance();
+        return;
+    }
+}
+
+export class DirectMemoryOp extends MemoryOp {
     slot: i64;
-    reg_index: i64;
 }
 
-export class LoadMemOp extends MemoryOp {
+export class DirectMemoryReadOp extends DirectMemoryOp {
+    dst: i64;
+
+    fn read_value(vm: model.VmApi) -> i64 {
+        panic("DirectMemoryReadOp.read_value: abstract");
+        return 0;
+    }
+
     override fn execute(vm: model.VmApi) -> unit {
-        vm.write_reg(__self.reg_index, vm.load_mem(__self.slot));
+        vm.write_reg(__self.dst, __self.read_value(vm));
         vm.advance();
         return;
     }
 }
 
-export class StoreMemOp extends MemoryOp {
+export class DirectMemoryWriteOp extends DirectMemoryOp {
+    src: i64;
+
+    fn write_value(vm: model.VmApi, value: i64) -> unit {
+        panic("DirectMemoryWriteOp.write_value: abstract");
+        return;
+    }
+
     override fn execute(vm: model.VmApi) -> unit {
-        vm.store_mem(__self.slot, vm.read_reg(__self.reg_index));
+        __self.write_value(vm, vm.read_reg(__self.src));
         vm.advance();
         return;
     }
 }
 
-export class IndexedMemoryOp extends BaseInstruction {
-    data_reg: i64;
+export class LoadMemOp extends DirectMemoryReadOp {
+
+    override fn read_value(vm: model.VmApi) -> i64 {
+        return vm.load_mem(__self.slot);
+    }
+}
+
+export class StoreMemOp extends DirectMemoryWriteOp {
+
+    override fn write_value(vm: model.VmApi, value: i64) -> unit {
+        vm.store_mem(__self.slot, value);
+        return;
+    }
+}
+
+export class IndexedMemoryOp extends MemoryOp {
     base_reg: i64;
     index_reg: i64;
 }
 
-export class LoadMemIndexedOp extends IndexedMemoryOp {
+export class IndexedMemoryReadOp extends MemoryOp {
+    dst: i64;
+    base_reg: i64;
+    index_reg: i64;
+
+    fn read_value(vm: model.VmApi) -> i64 {
+        panic("IndexedMemoryReadOp.read_value: abstract");
+        return 0;
+    }
+
     override fn execute(vm: model.VmApi) -> unit {
-        vm.write_reg(
-            __self.data_reg,
-            vm.load_mem_indexed(vm.read_reg(__self.base_reg), vm.read_reg(__self.index_reg))
-        );
+        vm.write_reg(__self.dst, __self.read_value(vm));
         vm.advance();
         return;
     }
 }
 
-export class StoreMemIndexedOp extends IndexedMemoryOp {
+export class IndexedMemoryWriteOp extends MemoryOp {
+    src: i64;
+    base_reg: i64;
+    index_reg: i64;
+
+    fn write_value(vm: model.VmApi, value: i64) -> unit {
+        panic("IndexedMemoryWriteOp.write_value: abstract");
+        return;
+    }
+
     override fn execute(vm: model.VmApi) -> unit {
+        __self.write_value(vm, vm.read_reg(__self.src));
+        vm.advance();
+        return;
+    }
+}
+
+export class LoadMemIndexedOp extends IndexedMemoryReadOp {
+
+    override fn read_value(vm: model.VmApi) -> i64 {
+        return vm.load_mem_indexed(vm.read_reg(__self.base_reg), vm.read_reg(__self.index_reg));
+    }
+}
+
+export class StoreMemIndexedOp extends IndexedMemoryWriteOp {
+
+    override fn write_value(vm: model.VmApi, value: i64) -> unit {
         vm.store_mem_indexed(
             vm.read_reg(__self.base_reg),
             vm.read_reg(__self.index_reg),
-            vm.read_reg(__self.data_reg)
+            value
         );
-        vm.advance();
         return;
     }
 }
@@ -214,42 +326,74 @@ export class SliceCopyOp extends BaseInstruction {
     }
 }
 
-export class CallBuiltinOp extends BaseInstruction {
-    builtin_id: u64;
-    argc: u64;
+export class InvokableInstruction extends BaseInstruction {
+    fn invoke(vm: model.VmApi) -> unit {
+        panic("InvokableInstruction.invoke: abstract");
+        return;
+    }
+
+    fn advances_after_invoke() -> bool {
+        return true;
+    }
 
     override fn execute(vm: model.VmApi) -> unit {
-        vm.call_builtin(__self.builtin_id, __self.argc);
-        vm.advance();
+        __self.invoke(vm);
+        if __self.advances_after_invoke() {
+            vm.advance();
+        }
         return;
     }
 }
 
-export class CallOp extends BaseInstruction {
+export class CallBuiltinOp extends InvokableInstruction {
+    builtin_id: u64;
+    argc: u64;
+
+    override fn invoke(vm: model.VmApi) -> unit {
+        vm.call_builtin(__self.builtin_id, __self.argc);
+        return;
+    }
+}
+
+export class CallOp extends InvokableInstruction {
     function_id: u64;
     argc: u64;
     dst_reg: i64;
 
-    override fn execute(vm: model.VmApi) -> unit {
+    override fn invoke(vm: model.VmApi) -> unit {
         vm.call_function(__self.function_id, __self.argc, __self.dst_reg);
+        return;
+    }
+
+    override fn advances_after_invoke() -> bool {
+        return false;
+    }
+}
+
+export class ReturningInstruction extends BaseInstruction {
+    src: i64;
+
+    fn finish_with(vm: model.VmApi, value: i64) -> unit {
+        panic("ReturningInstruction.finish_with: abstract");
+        return;
+    }
+
+    override fn execute(vm: model.VmApi) -> unit {
+        __self.finish_with(vm, vm.read_reg(__self.src));
         return;
     }
 }
 
-export class RetOp extends BaseInstruction {
-    src: i64;
-
-    override fn execute(vm: model.VmApi) -> unit {
+export class RetOp extends ReturningInstruction {
+    override fn finish_with(vm: model.VmApi, value: i64) -> unit {
         vm.ret_from(__self.src);
         return;
     }
 }
 
-export class HaltOp extends BaseInstruction {
-    src: i64;
-
-    override fn execute(vm: model.VmApi) -> unit {
-        vm.halt_with(vm.read_reg(__self.src));
+export class HaltOp extends ReturningInstruction {
+    override fn finish_with(vm: model.VmApi, value: i64) -> unit {
+        vm.halt_with(value);
         return;
     }
 }

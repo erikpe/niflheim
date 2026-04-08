@@ -1,6 +1,6 @@
 # VM Benchmark Plan
 
-Status: slice 5 implemented.
+Status: slice 6 implemented.
 
 This document defines a concrete plan for implementing a larger regression benchmark program based on a small bytecode virtual machine.
 
@@ -664,14 +664,14 @@ Test:
 
 ## Slice 6: Add Inheritance-Heavy Instruction Families
 
-- refactor concrete instructions under base instruction families
-- deliberately keep some shared inherited execution bodies unchanged
-- add comments identifying intended monomorphic and polymorphic host dispatch sites
+- [x] refactor concrete instructions under base instruction families
+- [x] deliberately keep some shared inherited execution bodies unchanged
+- [x] add comments identifying intended monomorphic and polymorphic host dispatch sites
 
 Test:
 
-- keep golden output unchanged
-- add comments or small internal checks so the benchmark remains understandable to future maintainers
+- [x] keep golden output unchanged
+- [x] add comments or small internal checks so the benchmark remains understandable to future maintainers
 
 ## Slice 7: Add Exact-Double Coverage
 
