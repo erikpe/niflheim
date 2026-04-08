@@ -1,6 +1,6 @@
 # VM Benchmark Plan
 
-Status: slice 4 implemented.
+Status: slice 5 implemented.
 
 This document defines a concrete plan for implementing a larger regression benchmark program based on a small bytecode virtual machine.
 
@@ -652,15 +652,15 @@ Test:
 
 ## Slice 5: Add Builtin Dispatch And `Obj` Constant Pools
 
-- store constants in `Obj[]`
-- recover them through checked casts
-- implement builtin dispatch through the `Builtin` interface
-- add builtin-driven benchmark cases
+- [x] store constants in `Obj[]`
+- [x] recover them through checked casts
+- [x] implement builtin dispatch through the `Builtin` interface
+- [x] add builtin-driven benchmark cases
 
 Test:
 
-- verify builtin output checksums and return values
-- ensure interface-dispatch paths are exercised in the host VM
+- [x] verify builtin output checksums and return values
+- [x] ensure interface-dispatch paths are exercised in the host VM
 
 ## Slice 6: Add Inheritance-Heavy Instruction Families
 

@@ -95,11 +95,15 @@ export class Vm implements model.VmApi {
         return;
     }
 
-    fn read_const_i64(index: u64) -> i64 {
+    fn read_const_obj(index: u64) -> Obj {
         if index >= __self.program.constants.len() {
-            panic("Vm.read_const_i64: const id out of bounds");
+            panic("Vm.read_const_obj: const id out of bounds");
         }
-        return ((BoxI64)__self.program.constants[(i64)index]).val;
+        return __self.program.constants[(i64)index];
+    }
+
+    fn read_const_i64(index: u64) -> i64 {
+        return ((BoxI64)__self.read_const_obj(index)).val;
     }
 
     fn load_mem(index: i64) -> i64 {

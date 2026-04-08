@@ -367,13 +367,142 @@ fn build_slice_copy_case() -> model.BenchmarkCase {
     );
 }
 
+fn build_builtin_dispatch_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](18u);
+    code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    code[2] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 2u);
+    code[3] = instructions.LoadConstOp(opcodes.load_const_opcode(), 3, 3u);
+    code[4] = instructions.LoadConstOp(opcodes.load_const_opcode(), 4, 4u);
+    code[5] = instructions.LoadConstOp(opcodes.load_const_opcode(), 5, 5u);
+    code[6] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 1u, 6u);
+    code[7] = instructions.RegisterCopyOp(opcodes.move_opcode(), 6, 0);
+    code[8] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 6u);
+    code[9] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 7u);
+    code[10] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 8u);
+    code[11] = instructions.LoadConstOp(opcodes.load_const_opcode(), 3, 9u);
+    code[12] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 2u, 4u);
+    code[13] = instructions.AddOp(opcodes.add_opcode(), 7, 6, 0);
+    code[14] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 7);
+    code[15] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 7);
+    code[16] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 1u);
+    code[17] = instructions.HaltOp(opcodes.halt_opcode(), 7);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 0u, 8u, code);
+
+    var constants: Obj[] = Obj[](16u);
+    constants[0] = BoxI64(10);
+    constants[1] = BoxI64(11);
+    constants[2] = BoxI64(12);
+    constants[3] = BoxI64(13);
+    constants[4] = BoxI64(14);
+    constants[5] = BoxI64(15);
+    constants[6] = BoxI64(1);
+    constants[7] = BoxI64(6);
+    constants[8] = BoxI64(1);
+    constants[9] = BoxI64(11);
+    constants[10] = BoxI64(9);
+    constants[11] = builtins.WeightedPayload(4, 3);
+    constants[12] = "vm";
+    constants[13] = BoxBool(true);
+    constants[14] = BoxU64(7u);
+    constants[15] = builtins.TogglePayload(6, false);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](3u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+    builtin_table[1] = builtins.ConstPoolMixBuiltin("const_pool_mix");
+    builtin_table[2] = builtins.RangeFoldBuiltin("range_fold");
+
+    return model.Program("builtin_dispatch", 0u, functions, constants, builtin_table, 4u);
+}
+
+fn build_builtin_dispatch_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "builtin_dispatch",
+        build_builtin_dispatch_program(),
+        267558162,
+        267558162,
+        7970825204142,
+        535116324,
+        18u,
+        0u,
+        0u,
+        3u
+    );
+}
+
+fn build_obj_cast_builtin_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](16u);
+    code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    code[2] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 2u);
+    code[3] = instructions.LoadConstOp(opcodes.load_const_opcode(), 3, 3u);
+    code[4] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 1u, 4u);
+    code[5] = instructions.RegisterCopyOp(opcodes.move_opcode(), 4, 0);
+    code[6] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 4u);
+    code[7] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 5u);
+    code[8] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 6u);
+    code[9] = instructions.LoadConstOp(opcodes.load_const_opcode(), 3, 7u);
+    code[10] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 2u, 4u);
+    code[11] = instructions.AddOp(opcodes.add_opcode(), 5, 4, 0);
+    code[12] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 5);
+    code[13] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 5);
+    code[14] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 1u);
+    code[15] = instructions.HaltOp(opcodes.halt_opcode(), 5);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 0u, 6u, code);
+
+    var constants: Obj[] = Obj[](15u);
+    constants[0] = BoxI64(10);
+    constants[1] = BoxI64(11);
+    constants[2] = BoxI64(12);
+    constants[3] = BoxI64(13);
+    constants[4] = BoxI64(2);
+    constants[5] = BoxI64(9);
+    constants[6] = BoxI64(2);
+    constants[7] = BoxI64(14);
+    constants[8] = BoxI64(0);
+    constants[9] = BoxI64(0);
+    constants[10] = BoxU64(12u);
+    constants[11] = "cast";
+    constants[12] = builtins.TogglePayload(5, true);
+    constants[13] = BoxBool(false);
+    constants[14] = builtins.WeightedPayload(2, 4);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](3u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+    builtin_table[1] = builtins.ConstPoolMixBuiltin("const_pool_mix");
+    builtin_table[2] = builtins.RangeFoldBuiltin("range_fold");
+
+    return model.Program("obj_cast_builtin", 0u, functions, constants, builtin_table, 4u);
+}
+
+fn build_obj_cast_builtin_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "obj_cast_builtin",
+        build_obj_cast_builtin_program(),
+        400507,
+        400507,
+        11931504037,
+        801014,
+        16u,
+        0u,
+        0u,
+        3u
+    );
+}
+
 export fn build_cases() -> model.BenchmarkCase[] {
-    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](6u);
+    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](8u);
     benchmark_cases[0] = build_minimal_case();
     benchmark_cases[1] = build_arithmetic_case();
     benchmark_cases[2] = build_branch_maze_case();
     benchmark_cases[3] = build_recursive_case();
     benchmark_cases[4] = build_dense_array_case();
     benchmark_cases[5] = build_slice_copy_case();
+    benchmark_cases[6] = build_builtin_dispatch_case();
+    benchmark_cases[7] = build_obj_cast_builtin_case();
     return benchmark_cases;
 }

@@ -1,5 +1,52 @@
+import std.box;
+import std.error;
 import std.str;
 import samples.vm_benchmark.model;
+import samples.vm_benchmark.opcodes;
+
+export interface WeightSource {
+    fn weight() -> i64;
+}
+
+export class WeightedPayload implements WeightSource {
+    value: i64;
+    bonus: i64;
+
+    fn weight() -> i64 {
+        return __self.value + (__self.bonus * 2);
+    }
+}
+
+export class TogglePayload implements WeightSource {
+    value: i64;
+    enabled: bool;
+
+    fn weight() -> i64 {
+        if __self.enabled {
+            return (__self.value * 3) + 1;
+        }
+        return __self.value - 4;
+    }
+}
+
+fn _obj_weight(value: Obj) -> i64 {
+    if value is BoxI64 {
+        return ((BoxI64)value).val;
+    }
+    if value is BoxU64 {
+        return (i64)((BoxU64)value).val;
+    }
+    if value is BoxBool {
+        if ((BoxBool)value).val {
+            return 5;
+        }
+        return -5;
+    }
+    if value is Str {
+        return (i64)((Str)value).len() * 11;
+    }
+    return ((WeightSource)value).weight();
+}
 
 export class BaseBuiltin implements model.Builtin {
     label: Str;
@@ -22,6 +69,53 @@ export class TraceAccumulatorBuiltin extends BaseBuiltin {
             index = index + 1;
         }
 
+        vm.note_trace(total);
+        return;
+    }
+}
+
+export class ConstPoolMixBuiltin extends BaseBuiltin {
+    override fn invoke(vm: model.VmApi, argc: u64) -> unit {
+        var total: i64 = 0;
+        var index: i64 = 0;
+        while (u64)index < argc {
+            var const_id: u64 = (u64)vm.read_reg(index);
+            total = opcodes.mix_checksum(total, _obj_weight(vm.read_const_obj(const_id)));
+            index = index + 1;
+        }
+
+        vm.write_reg(0, total);
+        vm.note_trace(total);
+        return;
+    }
+}
+
+export class RangeFoldBuiltin extends BaseBuiltin {
+    override fn invoke(vm: model.VmApi, argc: u64) -> unit {
+        if argc != 4u {
+            panic("RangeFoldBuiltin.invoke: expected 4 args");
+        }
+
+        var start: i64 = vm.read_reg(0);
+        var stop: i64 = vm.read_reg(1);
+        var stride: i64 = vm.read_reg(2);
+        var payload_const_id: u64 = (u64)vm.read_reg(3);
+        var weight: i64 = _obj_weight(vm.read_const_obj(payload_const_id));
+
+        var total: i64 = 0;
+        var cursor: i64 = start;
+        while cursor < stop {
+            total = total + (cursor * weight);
+            if cursor % 2 == 0 {
+                total = total + weight;
+            }
+            else {
+                total = total - stride;
+            }
+            cursor = cursor + stride;
+        }
+
+        vm.write_reg(0, total);
         vm.note_trace(total);
         return;
     }

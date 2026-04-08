@@ -4,6 +4,7 @@ import samples.vm_benchmark.opcodes;
 export interface VmApi {
     fn read_reg(index: i64) -> i64;
     fn write_reg(index: i64, value: i64) -> unit;
+    fn read_const_obj(index: u64) -> Obj;
     fn read_const_i64(index: u64) -> i64;
     fn load_mem(index: i64) -> i64;
     fn store_mem(index: i64, value: i64) -> unit;
