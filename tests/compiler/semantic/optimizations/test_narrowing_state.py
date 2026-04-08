@@ -1,7 +1,18 @@
 from __future__ import annotations
 
 from compiler.common.span import SourcePos, SourceSpan
-from compiler.semantic.ir import BinaryExprS, CastExprS, LocalRefExpr, TypeTestExprS, UnaryExprS
+from compiler.semantic.ir import (
+    ArrayCtorExprS,
+    BinaryExprS,
+    CallExprS,
+    CastExprS,
+    ConstructorCallTarget,
+    IntConstant,
+    LiteralExprS,
+    LocalRefExpr,
+    TypeTestExprS,
+    UnaryExprS,
+)
 from compiler.semantic.operations import (
     BinaryOpFlavor,
     BinaryOpKind,
@@ -22,8 +33,9 @@ from compiler.semantic.optimizations.helpers.narrowing_state import (
     update_local_facts_from_value,
 )
 from compiler.semantic.optimizations.helpers.type_compatibility import TypeCompatibilityIndex
-from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, LocalId
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, LocalId
 from compiler.semantic.types import (
+    semantic_array_type_ref,
     semantic_primitive_type_ref,
     semantic_type_ref_for_class_id,
     semantic_type_ref_for_interface_id,
@@ -117,6 +129,96 @@ def test_update_local_facts_from_value_reports_change_when_copying_existing_fact
 
     state = NarrowState.empty()
     state.prove_local_target(compatibility_index, source_local_id, key_type_ref)
+
+    changed = update_local_facts_from_value(
+        state,
+        target_local_id,
+        LocalRefExpr(local_id=source_local_id, type_ref=_obj_type_ref(), span=_span()),
+        compatibility_index,
+    )
+
+    assert changed is True
+    assert state.facts_for_local(target_local_id) == state.facts_for_local(source_local_id)
+
+
+def test_update_local_facts_from_value_seeds_exact_class_facts_from_constructor_call() -> None:
+    compatibility_index = _compatibility_index()
+    local_id = _local_id(0)
+    key_class_id = ClassId(module_path=("main",), name="Key")
+    key_type_ref = semantic_type_ref_for_class_id(key_class_id)
+    hashable_type_ref = semantic_type_ref_for_interface_id(InterfaceId(module_path=("main",), name="Hashable"))
+
+    changed = update_local_facts_from_value(
+        state := NarrowState.empty(),
+        local_id,
+        CallExprS(
+            target=ConstructorCallTarget(
+                constructor_id=ConstructorId(module_path=key_class_id.module_path, class_name=key_class_id.name)
+            ),
+            args=[],
+            type_ref=key_type_ref,
+            span=_span(),
+        ),
+        compatibility_index,
+    )
+
+    facts = state.facts_for_local(local_id)
+
+    assert changed is True
+    assert facts is not None
+    assert facts.exact_type == key_type_ref
+    assert facts.proves(key_type_ref)
+    assert facts.proves(hashable_type_ref)
+
+
+def test_update_local_facts_from_value_seeds_exact_array_facts_from_array_constructor() -> None:
+    compatibility_index = _compatibility_index()
+    local_id = _local_id(0)
+    element_type_ref = semantic_primitive_type_ref("i64")
+    array_type_ref = semantic_array_type_ref(element_type_ref)
+
+    changed = update_local_facts_from_value(
+        state := NarrowState.empty(),
+        local_id,
+        ArrayCtorExprS(
+            element_type_ref=element_type_ref,
+            length_expr=LiteralExprS(
+                constant=IntConstant(1),
+                type_ref=semantic_primitive_type_ref("u64"),
+                span=_span(),
+            ),
+            type_ref=array_type_ref,
+            span=_span(),
+        ),
+        compatibility_index,
+    )
+
+    facts = state.facts_for_local(local_id)
+
+    assert changed is True
+    assert facts is not None
+    assert facts.exact_type == array_type_ref
+    assert facts.proves(array_type_ref)
+
+
+def test_update_local_facts_from_value_preserves_constructor_seeded_facts_across_local_copy() -> None:
+    compatibility_index = _compatibility_index()
+    source_local_id = _local_id(0)
+    target_local_id = _local_id(1)
+    key_type_ref = semantic_type_ref_for_class_id(ClassId(module_path=("main",), name="Key"))
+
+    state = NarrowState.empty()
+    update_local_facts_from_value(
+        state,
+        source_local_id,
+        CallExprS(
+            target=ConstructorCallTarget(constructor_id=ConstructorId(module_path=("main",), class_name="Key")),
+            args=[],
+            type_ref=key_type_ref,
+            span=_span(),
+        ),
+        compatibility_index,
+    )
 
     changed = update_local_facts_from_value(
         state,

@@ -166,3 +166,35 @@ def test_optimize_semantic_program_devirtualizes_interface_calls_after_narrowing
     assert if_stmt.then_block.statements[1].value.target.method_id.name == "hash_code"
     assert if_stmt.then_block.statements[1].value.target.access.receiver_type_ref.class_id is not None
     assert if_stmt.then_block.statements[1].value.target.access.receiver_type_ref.class_id.name == "Key"
+
+
+def test_optimize_semantic_program_devirtualizes_interface_calls_after_constructor_seeded_exact_fact(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main() -> u64 {
+            var hashable: Hashable = Key();
+            return hashable.hash_code();
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.name == "hash_code"
+    assert return_stmt.value.target.access.receiver_type_ref.class_id is not None
+    assert return_stmt.value.target.access.receiver_type_ref.class_id.name == "Key"

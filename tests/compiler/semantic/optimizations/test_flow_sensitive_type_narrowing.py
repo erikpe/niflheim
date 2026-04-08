@@ -107,6 +107,48 @@ def test_flow_sensitive_type_narrowing_removes_repeated_cast_after_successful_ca
     assert isinstance(return_stmt.value, LocalRefExpr)
 
 
+def test_flow_sensitive_type_narrowing_removes_constructor_cast_after_constructor_seeded_exact_fact(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Key {
+            fn id() -> i64 {
+                return 1;
+            }
+        }
+
+        fn main() -> Key {
+            var value: Obj = Key();
+            return (Key)value;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LocalRefExpr)
+
+
+def test_flow_sensitive_type_narrowing_removes_array_cast_after_array_constructor_seeded_exact_fact(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64[] {
+            var value: Obj = i64[](1u);
+            return (i64[])value;
+        }
+        """,
+    )
+
+    optimized = _run_flow_sensitive_type_narrowing(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, LocalRefExpr)
+
+
 def test_flow_sensitive_type_narrowing_folds_later_type_test_after_successful_cast(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",

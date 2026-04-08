@@ -83,6 +83,37 @@ def test_interface_call_devirtualization_rewrites_after_successful_checked_cast(
     assert return_stmt.value.target.access.receiver_type_ref.class_id.name == "Key"
 
 
+def test_interface_call_devirtualization_rewrites_after_constructor_seeded_exact_fact(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        class Key implements Hashable {
+            fn hash_code() -> u64 {
+                return 1u;
+            }
+        }
+
+        fn main() -> u64 {
+            var hashable: Hashable = Key();
+            return hashable.hash_code();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.name == "hash_code"
+    assert return_stmt.value.target.access.receiver_type_ref.class_id is not None
+    assert return_stmt.value.target.access.receiver_type_ref.class_id.name == "Key"
+
+
 def test_interface_call_devirtualization_keeps_interface_dispatch_after_merge_that_loses_exactness(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",

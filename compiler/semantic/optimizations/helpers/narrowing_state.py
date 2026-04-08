@@ -2,10 +2,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from compiler.semantic.ir import BinaryExprS, CastExprS, LocalRefExpr, SemanticExpr, TypeTestExprS, UnaryExprS
+from compiler.semantic.ir import (
+    ArrayCtorExprS,
+    BinaryExprS,
+    CallExprS,
+    CastExprS,
+    ConstructorCallTarget,
+    LocalRefExpr,
+    SemanticExpr,
+    TypeTestExprS,
+    UnaryExprS,
+)
 from compiler.semantic.operations import BinaryOpKind, CastSemanticsKind, UnaryOpKind
-from compiler.semantic.symbols import LocalId
-from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
+from compiler.semantic.symbols import ClassId, LocalId
+from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name, semantic_type_ref_for_class_id
 
 from .type_compatibility import (
     TypeCompatibilityIndex,
@@ -149,6 +159,21 @@ def successful_local_checked_cast(expr: SemanticExpr) -> tuple[LocalId, Semantic
     return expr.operand.local_id, expr.target_type_ref
 
 
+def exact_runtime_target_from_value(value: SemanticExpr) -> SemanticTypeRef | None:
+    if isinstance(value, CallExprS) and isinstance(value.target, ConstructorCallTarget):
+        return semantic_type_ref_for_class_id(
+            ClassId(
+                module_path=value.target.constructor_id.module_path,
+                name=value.target.constructor_id.class_name,
+            )
+        )
+
+    if isinstance(value, ArrayCtorExprS):
+        return value.type_ref
+
+    return None
+
+
 def update_local_facts_from_value(
     state: NarrowState,
     target_local_id: LocalId,
@@ -164,6 +189,15 @@ def update_local_facts_from_value(
         next_target_facts = state.facts_for_local(value.local_id)
         state.set_facts(target_local_id, next_target_facts)
         return next_target_facts is not None and current_target_facts != next_target_facts
+
+    exact_target_type_ref = exact_runtime_target_from_value(value)
+    if exact_target_type_ref is not None:
+        next_target_facts = (current_target_facts or TypeFacts()).with_proven_target(
+            compatibility_index, exact_target_type_ref
+        )
+        target_changed = current_target_facts != next_target_facts
+        state.set_facts(target_local_id, next_target_facts)
+        return target_changed
 
     successful_cast = successful_local_checked_cast(value)
     if successful_cast is None:
