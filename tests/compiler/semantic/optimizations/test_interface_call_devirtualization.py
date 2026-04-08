@@ -16,6 +16,7 @@ from compiler.semantic.ir import (
     SemanticVarDecl,
     SliceLValue,
     SliceReadExpr,
+    VirtualMethodCallTarget,
 )
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.interface_call_devirtualization import interface_call_devirtualization
@@ -220,6 +221,160 @@ def test_interface_call_devirtualization_rewrites_structural_interface_dispatch_
     assert loop_stmt.iter_len_dispatch.method_id.name == "iter_len"
     assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
     assert loop_stmt.iter_get_dispatch.method_id.class_name == "Store"
+    assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"
+
+
+def test_interface_call_devirtualization_rewrites_virtual_method_calls_after_constructor_seeded_exact_fact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main() -> i64 {
+            var value: Derived = Derived();
+            return value.head();
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    value_decl = statements[0]
+    assert isinstance(value_decl, SemanticVarDecl)
+    assert isinstance(value_decl.initializer.target, VirtualMethodCallTarget) is False
+
+    return_stmt = statements[1]
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Derived"
+    assert return_stmt.value.target.method_id.name == "head"
+    assert return_stmt.value.target.access.receiver_type_ref.class_id is not None
+    assert return_stmt.value.target.access.receiver_type_ref.class_id.name == "Derived"
+
+
+def test_interface_call_devirtualization_rewrites_structural_virtual_dispatch_after_constructor_seeded_exact_fact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class BufferBase {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+
+            fn index_set(index: i64, value: i64) -> unit {
+                return;
+            }
+
+            fn slice_get(begin: i64, end: i64) -> BufferBase {
+                return __self;
+            }
+
+            fn slice_set(begin: i64, end: i64, value: BufferBase) -> unit {
+                return;
+            }
+
+            fn iter_len() -> u64 {
+                return 1u;
+            }
+
+            fn iter_get(index: i64) -> i64 {
+                return index;
+            }
+        }
+
+        class Buffer extends BufferBase {
+            override fn index_get(index: i64) -> i64 {
+                return index + 1;
+            }
+
+            override fn index_set(index: i64, value: i64) -> unit {
+                return;
+            }
+
+            override fn slice_get(begin: i64, end: i64) -> BufferBase {
+                return __self;
+            }
+
+            override fn slice_set(begin: i64, end: i64, value: BufferBase) -> unit {
+                return;
+            }
+
+            override fn iter_len() -> u64 {
+                return 1u;
+            }
+
+            override fn iter_get(index: i64) -> i64 {
+                return 7;
+            }
+        }
+
+        fn main() -> i64 {
+            var buffer: Buffer = Buffer();
+            var first: i64 = buffer[0];
+            buffer[0] = first;
+            var part: BufferBase = buffer[0:1];
+            buffer[0:1] = part;
+            for value in buffer {
+                return value;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = _run_interface_call_devirtualization(tmp_path)
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    first_decl = statements[1]
+    assert isinstance(first_decl, SemanticVarDecl)
+    assert isinstance(first_decl.initializer, IndexReadExpr)
+    assert isinstance(first_decl.initializer.dispatch, MethodDispatch)
+    assert first_decl.initializer.dispatch.method_id.class_name == "Buffer"
+    assert first_decl.initializer.dispatch.method_id.name == "index_get"
+
+    index_assign = statements[2]
+    assert isinstance(index_assign, SemanticAssign)
+    assert isinstance(index_assign.target, IndexLValue)
+    assert isinstance(index_assign.target.dispatch, MethodDispatch)
+    assert index_assign.target.dispatch.method_id.class_name == "Buffer"
+    assert index_assign.target.dispatch.method_id.name == "index_set"
+
+    slice_decl = statements[3]
+    assert isinstance(slice_decl, SemanticVarDecl)
+    assert isinstance(slice_decl.initializer, SliceReadExpr)
+    assert isinstance(slice_decl.initializer.dispatch, MethodDispatch)
+    assert slice_decl.initializer.dispatch.method_id.class_name == "Buffer"
+    assert slice_decl.initializer.dispatch.method_id.name == "slice_get"
+
+    slice_assign = statements[4]
+    assert isinstance(slice_assign, SemanticAssign)
+    assert isinstance(slice_assign.target, SliceLValue)
+    assert isinstance(slice_assign.target.dispatch, MethodDispatch)
+    assert slice_assign.target.dispatch.method_id.class_name == "Buffer"
+    assert slice_assign.target.dispatch.method_id.name == "slice_set"
+
+    loop_stmt = statements[5]
+    assert isinstance(loop_stmt, SemanticForIn)
+    assert isinstance(loop_stmt.iter_len_dispatch, MethodDispatch)
+    assert loop_stmt.iter_len_dispatch.method_id.class_name == "Buffer"
+    assert loop_stmt.iter_len_dispatch.method_id.name == "iter_len"
+    assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
+    assert loop_stmt.iter_get_dispatch.method_id.class_name == "Buffer"
     assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"
 
 

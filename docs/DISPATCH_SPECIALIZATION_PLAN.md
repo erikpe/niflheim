@@ -294,15 +294,16 @@ Test:
 
 ## Slice 3: Specialize Virtual Class Dispatch
 
-- [ ] extend [compiler/semantic/optimizations/interface_call_devirtualization.py](../compiler/semantic/optimizations/interface_call_devirtualization.py) so it also rewrites `VirtualMethodCallTarget` to `InstanceMethodCallTarget` when exact receiver type is proven
-- [ ] extend the same pass so it rewrites structural `VirtualMethodDispatch` to `MethodDispatch` when exact receiver type is proven
-- [ ] reuse the existing `selected_method_id` already carried on virtual semantic nodes rather than recomputing method selection
+- [x] extend [compiler/semantic/optimizations/interface_call_devirtualization.py](../compiler/semantic/optimizations/interface_call_devirtualization.py) so it also rewrites `VirtualMethodCallTarget` to `InstanceMethodCallTarget` when exact receiver type is proven
+- [x] extend the same pass so it rewrites structural `VirtualMethodDispatch` to `MethodDispatch` when exact receiver type is proven
+- [x] reuse the existing `selected_method_id` already carried on virtual semantic nodes rather than recomputing method selection
 
 Test:
 
-- [ ] add optimization tests proving virtual method calls collapse to direct instance calls inside exact-type regions
-- [ ] add optimization tests proving structural virtual dispatch collapses to `MethodDispatch` inside exact-type regions
-- [ ] add codegen tests proving specialized class-virtual sites no longer emit vtable lookups
+- [x] add optimization tests proving virtual method calls collapse to direct instance calls inside exact-type regions
+- [x] add optimization tests proving structural virtual dispatch collapses to `MethodDispatch` inside exact-type regions
+- [x] add codegen tests proving specialized class-virtual sites no longer emit vtable lookups
+- [x] run focused semantic optimization and codegen tests for virtual dispatch
 
 ## Slice 4: Broaden Receivers Beyond Existing Local-Only Cases
 

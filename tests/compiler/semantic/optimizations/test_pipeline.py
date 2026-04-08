@@ -267,3 +267,103 @@ def test_optimize_semantic_program_specializes_structural_interface_dispatch_aft
     assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
     assert loop_stmt.iter_get_dispatch.method_id.class_name == "Store"
     assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"
+
+
+def test_optimize_semantic_program_devirtualizes_virtual_calls_after_constructor_seeded_exact_fact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class Base {
+            fn head() -> i64 {
+                return 1;
+            }
+        }
+
+        class Derived extends Base {
+            override fn head() -> i64 {
+                return 2;
+            }
+        }
+
+        fn main() -> i64 {
+            var value: Derived = Derived();
+            return value.head();
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    return_stmt = optimized.modules[("main",)].functions[0].body.statements[1]
+
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, CallExprS)
+    assert isinstance(return_stmt.value.target, InstanceMethodCallTarget)
+    assert return_stmt.value.target.method_id.class_name == "Derived"
+    assert return_stmt.value.target.method_id.name == "head"
+
+
+def test_optimize_semantic_program_specializes_structural_virtual_dispatch_after_constructor_seeded_exact_fact(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        class BufferBase {
+            fn index_get(index: i64) -> i64 {
+                return index;
+            }
+
+            fn iter_len() -> u64 {
+                return 1u;
+            }
+
+            fn iter_get(index: i64) -> i64 {
+                return index;
+            }
+        }
+
+        class Buffer extends BufferBase {
+            override fn index_get(index: i64) -> i64 {
+                return index + 1;
+            }
+
+            override fn iter_len() -> u64 {
+                return 1u;
+            }
+
+            override fn iter_get(index: i64) -> i64 {
+                return 7;
+            }
+        }
+
+        fn main() -> i64 {
+            var buffer: Buffer = Buffer();
+            var first: i64 = buffer[0];
+            for value in buffer {
+                return value + first;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    first_decl = statements[1]
+    assert isinstance(first_decl, SemanticVarDecl)
+    assert isinstance(first_decl.initializer, IndexReadExpr)
+    assert isinstance(first_decl.initializer.dispatch, MethodDispatch)
+    assert first_decl.initializer.dispatch.method_id.class_name == "Buffer"
+    assert first_decl.initializer.dispatch.method_id.name == "index_get"
+
+    loop_stmt = statements[2]
+    assert isinstance(loop_stmt, SemanticForIn)
+    assert isinstance(loop_stmt.iter_len_dispatch, MethodDispatch)
+    assert loop_stmt.iter_len_dispatch.method_id.class_name == "Buffer"
+    assert loop_stmt.iter_len_dispatch.method_id.name == "iter_len"
+    assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
+    assert loop_stmt.iter_get_dispatch.method_id.class_name == "Buffer"
+    assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"

@@ -20,10 +20,9 @@ fn main() -> i64 {
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
     assert "    call __nif_ctor_BoxI64" in asm
-    assert "    call __nif_method_BoxI64_value" not in main_body
-    assert "    mov rcx, qword ptr [rcx]" in main_body
-    assert "    mov rcx, qword ptr [rcx + 80]" in main_body
-    assert "    call r11" in main_body
+    assert "    call __nif_method_BoxI64_value" in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
+    assert "    call r11" not in main_body
 
 
 def test_emit_asm_user_defined_vec_class_uses_method_symbols_not_rt_vec_builtins(tmp_path) -> None:
@@ -185,6 +184,85 @@ fn main() -> i64 {
     assert "    call __nif_method_Store_iter_len" in main_body
     assert "    call __nif_method_Store_iter_get" in main_body
     assert "    mov rax, qword ptr [rcx + 64]" not in main_body
+    assert "    call r11" not in main_body
+
+
+def test_emit_asm_structural_virtual_dispatch_specializes_to_direct_calls_after_exact_constructor_fact(tmp_path) -> None:
+    source = """
+class BufferBase {
+    fn index_get(index: i64) -> i64 {
+        return index;
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        return;
+    }
+
+    fn slice_get(begin: i64, end: i64) -> BufferBase {
+        return __self;
+    }
+
+    fn slice_set(begin: i64, end: i64, value: BufferBase) -> unit {
+        return;
+    }
+
+    fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return index;
+    }
+}
+
+class Buffer extends BufferBase {
+    override fn index_get(index: i64) -> i64 {
+        return index + 1;
+    }
+
+    override fn index_set(index: i64, value: i64) -> unit {
+        return;
+    }
+
+    override fn slice_get(begin: i64, end: i64) -> BufferBase {
+        return __self;
+    }
+
+    override fn slice_set(begin: i64, end: i64, value: BufferBase) -> unit {
+        return;
+    }
+
+    override fn iter_len() -> u64 {
+        return 1u;
+    }
+
+    override fn iter_get(index: i64) -> i64 {
+        return 7;
+    }
+}
+
+fn main() -> i64 {
+    var buffer: Buffer = Buffer();
+    var first: i64 = buffer[0];
+    buffer[0] = first;
+    var part: BufferBase = buffer[0:1];
+    buffer[0:1] = part;
+    for value in buffer {
+        return value;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
+
+    assert "    call __nif_method_Buffer_index_get" in main_body
+    assert "    call __nif_method_Buffer_index_set" in main_body
+    assert "    call __nif_method_Buffer_slice_get" in main_body
+    assert "    call __nif_method_Buffer_slice_set" in main_body
+    assert "    call __nif_method_Buffer_iter_len" in main_body
+    assert "    call __nif_method_Buffer_iter_get" in main_body
+    assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
 
 

@@ -19,7 +19,9 @@ from .helpers.type_compatibility import TypeCompatibilityIndex, build_type_compa
 @dataclass
 class _DevirtualizationStats:
     devirtualized_interface_calls: int = 0
+    devirtualized_virtual_calls: int = 0
     specialized_interface_dispatches: int = 0
+    specialized_virtual_dispatches: int = 0
     skipped_non_local_receivers: int = 0
     skipped_without_exact_receiver_type: int = 0
 
@@ -37,9 +39,11 @@ def interface_call_devirtualization(program: SemanticProgram) -> SemanticProgram
     )
     logger.debugv(
         1,
-        "Optimization pass interface_call_devirtualization devirtualized %d interface calls, specialized %d structural interface dispatches, skipped %d non-local receivers, skipped %d cases without exact receiver type",
+        "Optimization pass interface_call_devirtualization devirtualized %d interface calls, devirtualized %d virtual calls, specialized %d structural interface dispatches, specialized %d structural virtual dispatches, skipped %d non-local receivers, skipped %d cases without exact receiver type",
         stats.devirtualized_interface_calls,
+        stats.devirtualized_virtual_calls,
         stats.specialized_interface_dispatches,
+        stats.specialized_virtual_dispatches,
         stats.skipped_non_local_receivers,
         stats.skipped_without_exact_receiver_type,
     )
@@ -336,6 +340,12 @@ def _rewrite_expr(
                 dispatch_index,
                 stats,
             )
+        elif isinstance(rewritten_target, VirtualMethodCallTarget):
+            rewritten_target = _maybe_devirtualize_virtual_call_target(
+                rewritten_target,
+                state,
+                stats,
+            )
         return replace(expr, target=rewritten_target, args=rewritten_args)
 
     if isinstance(expr, ArrayLenExpr):
@@ -408,7 +418,20 @@ def _maybe_specialize_structural_dispatch(
     stats: _DevirtualizationStats,
 ) -> SemanticDispatch:
     if not isinstance(dispatch, InterfaceDispatch):
-        return dispatch
+        if not isinstance(dispatch, VirtualMethodDispatch):
+            return dispatch
+
+        exact_type = _exact_virtual_receiver_type(
+            receiver,
+            state,
+            expected_receiver_class_id=dispatch.receiver_class_id,
+            stats=stats,
+        )
+        if exact_type is None:
+            return dispatch
+
+        stats.specialized_virtual_dispatches += 1
+        return MethodDispatch(method_id=dispatch.selected_method_id)
 
     exact_type = _exact_local_receiver_type(receiver, state, stats)
     if exact_type is None or exact_type.class_id is None:
@@ -421,6 +444,27 @@ def _maybe_specialize_structural_dispatch(
 
     stats.specialized_interface_dispatches += 1
     return MethodDispatch(method_id=method_id)
+
+
+def _maybe_devirtualize_virtual_call_target(
+    target: VirtualMethodCallTarget,
+    state: NarrowState,
+    stats: _DevirtualizationStats,
+) -> SemanticCallTarget:
+    exact_type = _exact_virtual_receiver_type(
+        target.access.receiver,
+        state,
+        expected_receiver_class_id=target.access.receiver_type_ref.class_id,
+        stats=stats,
+    )
+    if exact_type is None:
+        return target
+
+    stats.devirtualized_virtual_calls += 1
+    return InstanceMethodCallTarget(
+        method_id=target.selected_method_id,
+        access=replace(target.access, receiver_type_ref=exact_type),
+    )
 
 
 def _exact_local_receiver_type(
@@ -438,6 +482,24 @@ def _exact_local_receiver_type(
         stats.skipped_without_exact_receiver_type += 1
         return None
 
+    return exact_type
+
+
+def _exact_virtual_receiver_type(
+    receiver: SemanticExpr,
+    state: NarrowState,
+    expected_receiver_class_id: ClassId | None,
+    stats: _DevirtualizationStats,
+) -> SemanticTypeRef | None:
+    exact_type = _exact_local_receiver_type(receiver, state, stats)
+    if exact_type is None or exact_type.class_id is None:
+        return None
+    if expected_receiver_class_id is None:
+        stats.skipped_without_exact_receiver_type += 1
+        return None
+    if exact_type.class_id != expected_receiver_class_id:
+        stats.skipped_without_exact_receiver_type += 1
+        return None
     return exact_type
 
 
