@@ -700,20 +700,55 @@ def _emit_interface_method_call(
             f"missing interface descriptor symbol for {target.interface_id}", span=expr.span
         )
 
-    interface_slot = _interface_slot(target.interface_id, ctx)
-    method_slot = _interface_method_slot(target.method_id, ctx)
-    _emit_indirect_method_call(
+    _emit_interface_indirect_call(
         codegen,
         receiver=target.access.receiver,
         extra_args=expr.args,
         return_type_ref=expr.type_ref,
+        interface_id=target.interface_id,
+        method_id=target.method_id,
         ctx=ctx,
         call_span=expr.span,
+        named_root_local_ids=named_root_local_ids,
+        descriptor_symbol=descriptor_symbol,
+    )
+
+
+def _emit_interface_indirect_call(
+    codegen: CodeGenerator,
+    *,
+    receiver: SemanticExpr,
+    extra_args: list[SemanticExpr],
+    return_type_ref: SemanticTypeRef | str,
+    interface_id: InterfaceId,
+    method_id: InterfaceMethodId,
+    ctx: EmitContext,
+    call_span,
+    named_root_local_ids: frozenset[LocalId] | None,
+    descriptor_symbol: str | None = None,
+) -> None:
+    effective_descriptor_symbol = descriptor_symbol
+    if effective_descriptor_symbol is None:
+        effective_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol(interface_id)
+    if effective_descriptor_symbol is None:
+        codegen_types.raise_codegen_error(
+            f"missing interface descriptor symbol for {interface_id}", span=call_span
+        )
+
+    interface_slot = _interface_slot(interface_id, ctx)
+    method_slot = _interface_method_slot(method_id, ctx)
+    _emit_indirect_method_call(
+        codegen,
+        receiver=receiver,
+        extra_args=extra_args,
+        return_type_ref=return_type_ref,
+        ctx=ctx,
+        call_span=call_span,
         named_root_local_ids=named_root_local_ids,
         resolve_method_pointer=lambda: _emit_interface_method_lookup(
             codegen,
             ctx,
-            descriptor_symbol=descriptor_symbol,
+            descriptor_symbol=effective_descriptor_symbol,
             interface_slot=interface_slot,
             method_slot=method_slot,
         ),
@@ -1280,6 +1315,22 @@ def _emit_dispatch_call(
             call_arguments,
             return_type_ref,
             ctx,
+            named_root_local_ids=named_root_local_ids,
+        )
+        return
+
+    if isinstance(dispatch, InterfaceDispatch):
+        if not call_arguments:
+            codegen_types.raise_codegen_error("interface collection dispatch requires a receiver argument", span=span)
+        _emit_interface_indirect_call(
+            codegen,
+            receiver=call_arguments[0],
+            extra_args=call_arguments[1:],
+            return_type_ref=return_type_ref,
+            interface_id=dispatch.interface_id,
+            method_id=dispatch.method_id,
+            ctx=ctx,
+            call_span=span,
             named_root_local_ids=named_root_local_ids,
         )
         return

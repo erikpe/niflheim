@@ -338,6 +338,44 @@ def test_emitter_expr_emits_interface_dispatch_via_inline_slot_lookup(tmp_path: 
     assert "    call r11" in generator.asm.lines
 
 
+def test_emitter_expr_emits_interface_structural_reads_via_inline_slot_lookup(tmp_path: Path) -> None:
+    fn, generator, ctx = _build_emit_fixture(
+        tmp_path,
+        {
+            "main.nif": """
+            interface Buffer {
+                fn index_get(index: i64) -> i64;
+                fn slice_get(begin: i64, end: i64) -> Buffer;
+            }
+
+            fn main(buffer: Buffer) -> Buffer {
+                var first: i64 = buffer[0];
+                return buffer[0:1];
+            }
+            """
+        },
+    )
+
+    first_decl = fn.body.statements[0]
+    assert hasattr(first_decl, "initializer")
+    assert isinstance(first_decl.initializer, IndexReadExpr)
+    emit_expr(generator, first_decl.initializer, ctx)
+    assert "    call __nif_method_Buffer_index_get" not in generator.asm.lines
+    assert "    mov rax, qword ptr [rcx + 64]" in generator.asm.lines
+    assert "    mov rax, qword ptr [rax]" in generator.asm.lines
+    assert "    call r11" in generator.asm.lines
+
+    generator.asm.lines.clear()
+    return_stmt = fn.body.statements[-1]
+    assert isinstance(return_stmt, SemanticReturn)
+    assert isinstance(return_stmt.value, SliceReadExpr)
+    emit_expr(generator, return_stmt.value, ctx)
+    assert "    call __nif_method_Buffer_slice_get" not in generator.asm.lines
+    assert "    mov rax, qword ptr [rcx + 64]" in generator.asm.lines
+    assert "    mov rax, qword ptr [rax]" in generator.asm.lines
+    assert "    call r11" in generator.asm.lines
+
+
 def test_emitter_expr_uses_canonical_type_refs_when_compatibility_strings_are_stale(tmp_path: Path) -> None:
     fn, generator, ctx = _build_emit_fixture(
         tmp_path,

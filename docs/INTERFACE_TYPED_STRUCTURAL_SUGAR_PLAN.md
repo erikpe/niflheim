@@ -288,14 +288,14 @@ Test:
 
 ## Slice 4: Emit Interface Dispatch For Structural Sugar
 
-- [ ] extend `_emit_dispatch_call(...)` in [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
-- [ ] route structural interface dispatch through the existing interface slot and method slot lookup helpers in [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
-- [ ] validate index reads, slice reads, writes, and loop protocol calls through the generic dispatch path
+- [x] extend `_emit_dispatch_call(...)` in [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [x] route structural interface dispatch through the existing interface slot and method slot lookup helpers in [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [x] validate index reads, slice reads, writes, and loop protocol calls through the generic dispatch path
 
 Test:
 
-- [ ] add codegen unit coverage in [tests/compiler/codegen/test_emitter_expr.py](../tests/compiler/codegen/test_emitter_expr.py)
-- [ ] add codegen statement coverage in [tests/compiler/codegen/test_emitter_stmt.py](../tests/compiler/codegen/test_emitter_stmt.py)
+- [x] add codegen unit coverage in [tests/compiler/codegen/test_emitter_expr.py](../tests/compiler/codegen/test_emitter_expr.py)
+- [x] add codegen statement coverage in [tests/compiler/codegen/test_emitter_stmt.py](../tests/compiler/codegen/test_emitter_stmt.py)
 
 ## Slice 5: Update Dispatch Analyses And Reachability
 
@@ -323,7 +323,7 @@ Test:
 
 - [x] typecheck unit tests for structural protocols pass
 - [x] semantic lowering tests for structural dispatch pass
-- [ ] codegen emitter tests for interface dispatch pass
+- [x] codegen emitter tests for interface dispatch pass
 - [ ] semantic optimization tests still pass after reachability updates
 - [ ] golden tests for indexing sugar pass
 - [ ] golden tests for `for ... in` pass

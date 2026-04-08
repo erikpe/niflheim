@@ -158,3 +158,38 @@ def test_emitter_stmt_for_in_helper_identity_does_not_depend_on_span_values(tmp_
 
     assert "call rt_array_len" not in asm
     assert "call rt_array_get_i64" not in asm
+
+
+def test_emitter_stmt_emits_interface_structural_writes_and_for_in(tmp_path: Path) -> None:
+    asm = _emit(
+        tmp_path,
+        {
+            "main.nif": """
+            interface Buffer {
+                fn index_set(index: i64, value: i64) -> unit;
+                fn slice_set(begin: i64, end: i64, value: Buffer) -> unit;
+                fn iter_len() -> u64;
+                fn iter_get(index: i64) -> i64;
+            }
+
+            fn main(buffer: Buffer) -> i64 {
+                var total: i64 = 0;
+                buffer[0] = 1;
+                buffer[0:1] = buffer;
+                for value in buffer {
+                    total = total + value;
+                }
+                return total;
+            }
+            """,
+        },
+    )
+
+    assert ".Lmain_for_in_start_" in asm
+    main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
+    assert "call __nif_method_Buffer_index_set" not in main_body
+    assert "call __nif_method_Buffer_slice_set" not in main_body
+    assert "call __nif_method_Buffer_iter_len" not in main_body
+    assert "call __nif_method_Buffer_iter_get" not in main_body
+    assert main_body.count("mov rax, qword ptr [rcx + 64]") >= 4
+    assert main_body.count("call r11") >= 4
