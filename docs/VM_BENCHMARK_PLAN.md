@@ -1,6 +1,6 @@
 # VM Benchmark Plan
 
-Status: slice 6 implemented.
+Status: slice 7 implemented.
 
 This document defines a concrete plan for implementing a larger regression benchmark program based on a small bytecode virtual machine.
 
@@ -675,12 +675,12 @@ Test:
 
 ## Slice 7: Add Exact-Double Coverage
 
-- add one exact-double guest case using only binary-exact literals
-- fold its result into the same exact-output reporting scheme
+- [x] add one exact-double guest case using only binary-exact literals
+- [x] fold its result into the same exact-output reporting scheme
 
 Test:
 
-- verify exact final integer-cast or checksum results in the golden output
+- [x] verify exact final integer-cast or checksum results in the golden output
 
 ## Slice 8: Finalize Aggregate Verification
 

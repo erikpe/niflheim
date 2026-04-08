@@ -42,10 +42,17 @@ fn _obj_weight(value: Obj) -> i64 {
         }
         return -5;
     }
+    if value is BoxDouble {
+        return (i64)(((BoxDouble)value).val * 16.0);
+    }
     if value is Str {
         return (i64)((Str)value).len() * 11;
     }
     return ((WeightSource)value).weight();
+}
+
+fn _require_double(vm: model.VmApi, const_id: u64) -> double {
+    return ((BoxDouble)vm.read_const_obj(const_id)).val;
 }
 
 export class BaseBuiltin implements model.Builtin {
@@ -114,6 +121,37 @@ export class RangeFoldBuiltin extends BaseBuiltin {
             }
             cursor = cursor + stride;
         }
+
+        vm.write_reg(0, total);
+        vm.note_trace(total);
+        return;
+    }
+}
+
+export class ExactDoubleBuiltin extends BaseBuiltin {
+    override fn invoke(vm: model.VmApi, argc: u64) -> unit {
+        if argc != 5u {
+            panic("ExactDoubleBuiltin.invoke: expected 5 args");
+        }
+
+        var half: double = _require_double(vm, (u64)vm.read_reg(0));
+        var one_and_quarter: double = _require_double(vm, (u64)vm.read_reg(1));
+        var two: double = _require_double(vm, (u64)vm.read_reg(2));
+        var eight: double = _require_double(vm, (u64)vm.read_reg(3));
+        var scale: i64 = ((BoxI64)vm.read_const_obj((u64)vm.read_reg(4))).val;
+
+        var result: double = ((half + one_and_quarter) * two) + (eight / eight);
+        var expected: double = (eight / two) + half;
+        var threshold: double = eight / two;
+
+        var total: i64 = (i64)(result * (double)scale);
+        if result == expected {
+            total = total + 7;
+        }
+        if result > threshold {
+            total = total + 5;
+        }
+        total = total + (i64)Str.from_double(result).len();
 
         vm.write_reg(0, total);
         vm.note_trace(total);

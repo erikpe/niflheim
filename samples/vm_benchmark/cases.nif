@@ -494,8 +494,57 @@ fn build_obj_cast_builtin_case() -> model.BenchmarkCase {
     );
 }
 
+fn build_exact_double_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](8u);
+    code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    code[2] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 2u);
+    code[3] = instructions.LoadConstOp(opcodes.load_const_opcode(), 3, 3u);
+    code[4] = instructions.LoadConstOp(opcodes.load_const_opcode(), 4, 4u);
+    code[5] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 3u, 5u);
+    code[6] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 0);
+    code[7] = instructions.HaltOp(opcodes.halt_opcode(), 0);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 0u, 5u, code);
+
+    var program_constants: Obj[] = Obj[](9u);
+    program_constants[0] = BoxI64(5);
+    program_constants[1] = BoxI64(6);
+    program_constants[2] = BoxI64(7);
+    program_constants[3] = BoxI64(8);
+    program_constants[4] = BoxI64(4);
+    program_constants[5] = BoxDouble(0.5);
+    program_constants[6] = BoxDouble(1.25);
+    program_constants[7] = BoxDouble(2.0);
+    program_constants[8] = BoxDouble(8.0);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](4u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+    builtin_table[1] = builtins.ConstPoolMixBuiltin("const_pool_mix");
+    builtin_table[2] = builtins.RangeFoldBuiltin("range_fold");
+    builtin_table[3] = builtins.ExactDoubleBuiltin("exact_double");
+
+    return model.Program("exact_double", 0u, functions, program_constants, builtin_table, 1u);
+}
+
+fn build_exact_double_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "exact_double",
+        build_exact_double_program(),
+        38,
+        38,
+        38,
+        38,
+        8u,
+        0u,
+        0u,
+        1u
+    );
+}
+
 export fn build_cases() -> model.BenchmarkCase[] {
-    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](8u);
+    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](9u);
     benchmark_cases[0] = build_minimal_case();
     benchmark_cases[1] = build_arithmetic_case();
     benchmark_cases[2] = build_branch_maze_case();
@@ -504,5 +553,6 @@ export fn build_cases() -> model.BenchmarkCase[] {
     benchmark_cases[5] = build_slice_copy_case();
     benchmark_cases[6] = build_builtin_dispatch_case();
     benchmark_cases[7] = build_obj_cast_builtin_case();
+    benchmark_cases[8] = build_exact_double_case();
     return benchmark_cases;
 }
