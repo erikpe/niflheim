@@ -40,6 +40,7 @@ struct RtObjHeader {
 
 struct RtInterfaceType {
     const char* debug_name;
+    uint32_t slot_index;
     uint32_t method_count;
     uint32_t reserved0;
 };
@@ -63,12 +64,15 @@ struct RtType {
     uint32_t pointer_offsets_count;
     uint32_t reserved0;
     const RtType* super_type;
-    const RtInterfaceImpl* interfaces;
-    uint32_t interface_count;
+    const void* const* interface_tables;
+    uint32_t interface_slot_count;
     uint32_t reserved1;
     const void* class_vtable;
     uint32_t class_vtable_count;
     uint32_t reserved2;
+    const RtInterfaceImpl* legacy_interfaces;
+    uint32_t legacy_interface_count;
+    uint32_t reserved3;
 };
 
 struct RtRootFrame {

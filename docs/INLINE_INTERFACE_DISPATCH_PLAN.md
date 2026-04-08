@@ -242,9 +242,9 @@ Rationale:
 
 ## Slice 1: Lock The New ABI And Metadata Shape
 
-- [ ] decide the final `RtInterfaceType` and `RtType` field layout for slot-based interface tables
-- [ ] decide whether `RtInterfaceImpl` is removed immediately or retained temporarily during migration
-- [ ] define naming and symbol strategy for per-class interface table arrays
+- [x] decide the final `RtInterfaceType` and `RtType` field layout for slot-based interface tables
+- [x] decide whether `RtInterfaceImpl` is removed immediately or retained temporarily during migration
+- [x] define naming and symbol strategy for per-class interface table arrays
 
 Change:
 

@@ -59,6 +59,10 @@ def mangle_class_interface_impls_symbol(class_type_name: str) -> str:
     return f"__nif_interface_impls_{_mangle_type_fragment(class_type_name)}"
 
 
+def mangle_class_interface_tables_symbol(class_type_name: str) -> str:
+    return f"__nif_interface_tables_{_mangle_type_fragment(class_type_name)}"
+
+
 def mangle_method_symbol(type_name: str, method_name: str) -> str:
     safe_type = type_name.replace(".", "_").replace(":", "_")
     safe_method = method_name.replace(".", "_").replace(":", "_")

@@ -23,6 +23,7 @@ class InterfaceMetadataRecord:
     interface_id: InterfaceId
     display_name: str
     descriptor_symbol: str
+    slot_index: int
     method_count: int
 
 
@@ -45,6 +46,8 @@ class ClassMetadataRecord:
     superclass_symbol: str | None
     pointer_offsets_symbol: str | None
     pointer_offsets: tuple[int, ...]
+    interface_tables_symbol: str | None
+    interface_table_slot_count: int
     interface_impls_symbol: str | None
     interface_impls: tuple[InterfaceImplMetadataRecord, ...]
     class_vtable_symbol: str | None
@@ -82,6 +85,7 @@ def build_type_metadata(
             interface_id=interface.interface_id,
             display_name=qualified_interface_type_name(interface.interface_id),
             descriptor_symbol=declaration_tables.interface_descriptor_symbol(interface.interface_id),
+            slot_index=0,
             method_count=len(interface.methods),
         )
         for interface in interface_decls
@@ -107,8 +111,11 @@ def build_type_metadata(
             pointer_offsets_symbol = codegen_symbols.mangle_type_pointer_offsets_symbol(qualified_type_name)
 
         interface_impls: list[InterfaceImplMetadataRecord] = []
+        interface_tables_symbol: str | None = None
+        interface_table_slot_count = 0
         interface_impls_symbol: str | None = None
         if cls.implemented_interfaces:
+            interface_tables_symbol = codegen_symbols.mangle_class_interface_tables_symbol(qualified_type_name)
             interface_impls_symbol = codegen_symbols.mangle_class_interface_impls_symbol(qualified_type_name)
             for interface_id in cls.implemented_interfaces:
                 interface = interfaces_by_id[interface_id]
@@ -159,6 +166,8 @@ def build_type_metadata(
                 superclass_symbol=superclass_symbol,
                 pointer_offsets_symbol=pointer_offsets_symbol,
                 pointer_offsets=pointer_offsets,
+                interface_tables_symbol=interface_tables_symbol,
+                interface_table_slot_count=interface_table_slot_count,
                 interface_impls_symbol=interface_impls_symbol,
                 interface_impls=tuple(interface_impls),
                 class_vtable_symbol=class_vtable_symbol,

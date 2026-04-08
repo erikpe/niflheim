@@ -415,11 +415,17 @@ fn main() -> i64 {
         "__nif_interface_methods_main__Key__main__Hashable:\n    .quad __nif_method_Key_hash_code\n    .quad __nif_method_Key_equals"
         in asm
     )
+    assert "__nif_interface_tables_main__Key:" in asm
     assert "__nif_interface_impls_main__Key:" in asm
     assert "    .quad __nif_interface_main__Hashable" in asm
     assert "    .quad __nif_interface_methods_main__Key__main__Hashable" in asm
     assert "    .long 2" in asm
     assert "__nif_type_Key:" in asm
+    assert (
+        "__nif_interface_main__Hashable:\n    .quad __nif_interface_name_main__Hashable\n    .long 0\n    .long 2\n    .long 0"
+        in asm
+    )
+    assert "    .quad __nif_interface_tables_main__Key" in asm
     assert "    .quad __nif_interface_impls_main__Key" in asm
 
 

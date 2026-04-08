@@ -6,6 +6,7 @@
 
 static const RtInterfaceType HASHABLE_INTERFACE = {
     .debug_name = "Hashable",
+    .slot_index = 0u,
     .method_count = 2u,
     .reserved0 = 0u,
 };
@@ -36,9 +37,15 @@ static const RtType KEY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = NULL,
-    .interfaces = KEY_INTERFACES,
-    .interface_count = 1u,
+    .interface_tables = NULL,
+    .interface_slot_count = 0u,
     .reserved1 = 0u,
+    .class_vtable = NULL,
+    .class_vtable_count = 0u,
+    .reserved2 = 0u,
+    .legacy_interfaces = KEY_INTERFACES,
+    .legacy_interface_count = 1u,
+    .reserved3 = 0u,
 };
 
 static const RtType PLAIN_TYPE = {
@@ -53,9 +60,15 @@ static const RtType PLAIN_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = NULL,
-    .interfaces = NULL,
-    .interface_count = 0u,
+    .interface_tables = NULL,
+    .interface_slot_count = 0u,
     .reserved1 = 0u,
+    .class_vtable = NULL,
+    .class_vtable_count = 0u,
+    .reserved2 = 0u,
+    .legacy_interfaces = NULL,
+    .legacy_interface_count = 0u,
+    .reserved3 = 0u,
 };
 
 

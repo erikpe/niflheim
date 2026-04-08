@@ -38,9 +38,15 @@ static const RtType NODE_TYPE = {
     .pointer_offsets_count = 1,
     .reserved0 = 0,
     .super_type = NULL,
-    .interfaces = NULL,
-    .interface_count = 0,
+    .interface_tables = NULL,
+    .interface_slot_count = 0,
     .reserved1 = 0,
+    .class_vtable = NULL,
+    .class_vtable_count = 0,
+    .reserved2 = 0,
+    .legacy_interfaces = NULL,
+    .legacy_interface_count = 0,
+    .reserved3 = 0,
 };
 
 
@@ -56,9 +62,15 @@ static const RtType LEAF_TYPE = {
     .pointer_offsets_count = 0,
     .reserved0 = 0,
     .super_type = NULL,
-    .interfaces = NULL,
-    .interface_count = 0,
+    .interface_tables = NULL,
+    .interface_slot_count = 0,
     .reserved1 = 0,
+    .class_vtable = NULL,
+    .class_vtable_count = 0,
+    .reserved2 = 0,
+    .legacy_interfaces = NULL,
+    .legacy_interface_count = 0,
+    .reserved3 = 0,
 };
 
 

@@ -6,12 +6,14 @@
 
 static const RtInterfaceType HASHABLE_INTERFACE = {
     .debug_name = "Hashable",
+    .slot_index = 0u,
     .method_count = 1u,
     .reserved0 = 0u,
 };
 
 static const RtInterfaceType EQUALABLE_INTERFACE = {
     .debug_name = "Equalable",
+    .slot_index = 1u,
     .method_count = 1u,
     .reserved0 = 0u,
 };
@@ -51,9 +53,15 @@ static const RtType KEY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = NULL,
-    .interfaces = KEY_INTERFACES,
-    .interface_count = 2u,
+    .interface_tables = NULL,
+    .interface_slot_count = 0u,
     .reserved1 = 0u,
+    .class_vtable = NULL,
+    .class_vtable_count = 0u,
+    .reserved2 = 0u,
+    .legacy_interfaces = KEY_INTERFACES,
+    .legacy_interface_count = 2u,
+    .reserved3 = 0u,
 };
 
 static const RtType DERIVED_KEY_TYPE = {
@@ -68,9 +76,15 @@ static const RtType DERIVED_KEY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = &KEY_TYPE,
-    .interfaces = KEY_INTERFACES,
-    .interface_count = 2u,
+    .interface_tables = NULL,
+    .interface_slot_count = 0u,
     .reserved1 = 0u,
+    .class_vtable = NULL,
+    .class_vtable_count = 0u,
+    .reserved2 = 0u,
+    .legacy_interfaces = KEY_INTERFACES,
+    .legacy_interface_count = 2u,
+    .reserved3 = 0u,
 };
 
 static const RtType PLAIN_TYPE = {
@@ -85,15 +99,43 @@ static const RtType PLAIN_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = NULL,
-    .interfaces = NULL,
-    .interface_count = 0u,
+    .interface_tables = NULL,
+    .interface_slot_count = 0u,
     .reserved1 = 0u,
+    .class_vtable = NULL,
+    .class_vtable_count = 0u,
+    .reserved2 = 0u,
+    .legacy_interfaces = NULL,
+    .legacy_interface_count = 0u,
+    .reserved3 = 0u,
 };
 
 
 static void fail(const char* message) {
     fprintf(stderr, "test_interface_metadata: %s\n", message);
     exit(1);
+}
+
+
+static void test_rt_type_exposes_slice1_slotted_interface_fields(void) {
+    if (HASHABLE_INTERFACE.slot_index != 0u) {
+        fail("Hashable should expose slot_index in interface descriptor");
+    }
+    if (EQUALABLE_INTERFACE.slot_index != 1u) {
+        fail("Equalable should expose slot_index in interface descriptor");
+    }
+    if (KEY_TYPE.interface_tables != NULL) {
+        fail("slice 1 should leave direct interface table storage unset");
+    }
+    if (KEY_TYPE.interface_slot_count != 0u) {
+        fail("slice 1 should leave interface slot table count at zero before slot assignment");
+    }
+    if (KEY_TYPE.legacy_interfaces != KEY_INTERFACES) {
+        fail("slice 1 should preserve legacy compact interface metadata");
+    }
+    if (KEY_TYPE.legacy_interface_count != 2u) {
+        fail("slice 1 should preserve legacy interface metadata count");
+    }
 }
 
 
@@ -132,13 +174,20 @@ static void test_find_interface_impl_returns_null_for_missing_or_empty_metadata(
     if (rt_find_interface_impl(&PLAIN_TYPE, &HASHABLE_INTERFACE) != NULL) {
         fail("type without interface metadata should not match");
     }
-    if (rt_find_interface_impl(&KEY_TYPE, &((RtInterfaceType){.debug_name = "Missing", .method_count = 1u, .reserved0 = 0u})) != NULL) {
+    if (
+        rt_find_interface_impl(
+            &KEY_TYPE,
+            &((RtInterfaceType){.debug_name = "Missing", .slot_index = 99u, .method_count = 1u, .reserved0 = 0u})
+        )
+        != NULL
+    ) {
         fail("different interface descriptor pointer should not match");
     }
 }
 
 
 int main(void) {
+    test_rt_type_exposes_slice1_slotted_interface_fields();
     test_find_interface_impl_finds_matching_descriptor();
     test_find_interface_impl_returns_null_for_missing_or_empty_metadata();
 

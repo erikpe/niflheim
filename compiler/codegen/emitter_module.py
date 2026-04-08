@@ -70,6 +70,7 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
         _emit_rt_interface_record(
             codegen,
             name_sym=codegen_symbols.mangle_interface_name_symbol(interface.display_name),
+            slot_index=interface.slot_index,
             method_count=interface.method_count,
         )
 
@@ -82,6 +83,11 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             codegen.asm.label(interface_impl.method_table_symbol)
             for method_label in interface_impl.method_labels:
                 codegen.asm.instr(f".quad {method_label}")
+
+        codegen.asm.instr(".p2align 3")
+        codegen.asm.label(cls.interface_tables_symbol)
+        for _slot in range(cls.interface_table_slot_count):
+            codegen.asm.instr(".quad 0")
 
         codegen.asm.instr(".p2align 3")
         codegen.asm.label(cls.interface_impls_symbol)
@@ -114,8 +120,10 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             pointer_offsets_count = len(cls.pointer_offsets)
             type_flags = 1
         super_type_sym = cls.superclass_symbol or "0"
-        interfaces_sym = cls.interface_impls_symbol or "0"
-        interface_count = len(cls.interface_impls)
+        interface_tables_sym = cls.interface_tables_symbol or "0"
+        interface_slot_count = cls.interface_table_slot_count
+        legacy_interfaces_sym = cls.interface_impls_symbol or "0"
+        legacy_interface_count = len(cls.interface_impls)
         class_vtable_sym = cls.class_vtable_symbol or "0"
         class_vtable_count = len(cls.class_vtable_labels)
         _emit_rt_type_record(
@@ -125,10 +133,12 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             pointer_offsets_sym=pointer_offsets_sym,
             pointer_offsets_count=pointer_offsets_count,
             super_type_sym=super_type_sym,
-            interfaces_sym=interfaces_sym,
-            interface_count=interface_count,
+            interface_tables_sym=interface_tables_sym,
+            interface_slot_count=interface_slot_count,
             class_vtable_sym=class_vtable_sym,
             class_vtable_count=class_vtable_count,
+            legacy_interfaces_sym=legacy_interfaces_sym,
+            legacy_interface_count=legacy_interface_count,
         )
 
     for runtime_type in type_metadata.extra_runtime_types:
@@ -144,15 +154,18 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             pointer_offsets_sym="0",
             pointer_offsets_count=0,
             super_type_sym="0",
-            interfaces_sym="0",
-            interface_count=0,
+            interface_tables_sym="0",
+            interface_slot_count=0,
             class_vtable_sym="0",
             class_vtable_count=0,
+            legacy_interfaces_sym="0",
+            legacy_interface_count=0,
         )
 
 
-def _emit_rt_interface_record(codegen, *, name_sym: str, method_count: int) -> None:
+def _emit_rt_interface_record(codegen, *, name_sym: str, slot_index: int, method_count: int) -> None:
     codegen.asm.instr(f".quad {name_sym}")
+    codegen.asm.instr(f".long {slot_index}")
     codegen.asm.instr(f".long {method_count}")
     codegen.asm.instr(".long 0")
 
@@ -165,10 +178,12 @@ def _emit_rt_type_record(
     pointer_offsets_sym: str,
     pointer_offsets_count: int,
     super_type_sym: str,
-    interfaces_sym: str,
-    interface_count: int,
+    interface_tables_sym: str,
+    interface_slot_count: int,
     class_vtable_sym: str,
     class_vtable_count: int,
+    legacy_interfaces_sym: str,
+    legacy_interface_count: int,
 ) -> None:
     codegen.asm.instr(".long 0")
     codegen.asm.instr(f".long {flags}")
@@ -181,11 +196,14 @@ def _emit_rt_type_record(
     codegen.asm.instr(f".long {pointer_offsets_count}")
     codegen.asm.instr(".long 0")
     codegen.asm.instr(f".quad {super_type_sym}")
-    codegen.asm.instr(f".quad {interfaces_sym}")
-    codegen.asm.instr(f".long {interface_count}")
+    codegen.asm.instr(f".quad {interface_tables_sym}")
+    codegen.asm.instr(f".long {interface_slot_count}")
     codegen.asm.instr(".long 0")
     codegen.asm.instr(f".quad {class_vtable_sym}")
     codegen.asm.instr(f".long {class_vtable_count}")
+    codegen.asm.instr(".long 0")
+    codegen.asm.instr(f".quad {legacy_interfaces_sym}")
+    codegen.asm.instr(f".long {legacy_interface_count}")
     codegen.asm.instr(".long 0")
 
 

@@ -219,12 +219,12 @@ const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const
         return NULL;
     }
 
-    const RtInterfaceImpl* interfaces = concrete_type->interfaces;
-    if (interfaces == NULL || concrete_type->interface_count == 0u) {
+    const RtInterfaceImpl* interfaces = concrete_type->legacy_interfaces;
+    if (interfaces == NULL || concrete_type->legacy_interface_count == 0u) {
         return NULL;
     }
 
-    for (uint32_t index = 0; index < concrete_type->interface_count; index++) {
+    for (uint32_t index = 0; index < concrete_type->legacy_interface_count; index++) {
         const RtInterfaceImpl* impl = &interfaces[index];
         if (impl->interface_type == interface_type) {
             return impl;
