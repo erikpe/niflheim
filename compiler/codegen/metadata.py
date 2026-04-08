@@ -85,7 +85,7 @@ def build_type_metadata(
             interface_id=interface.interface_id,
             display_name=qualified_interface_type_name(interface.interface_id),
             descriptor_symbol=declaration_tables.interface_descriptor_symbol(interface.interface_id),
-            slot_index=0,
+            slot_index=_require_interface_slot(declaration_tables, interface.interface_id),
             method_count=len(interface.methods),
         )
         for interface in interface_decls
@@ -194,6 +194,13 @@ def build_type_metadata(
     return TypeMetadata(
         classes=tuple(class_records), interfaces=interface_records, extra_runtime_types=extra_runtime_types
     )
+
+
+def _require_interface_slot(declaration_tables: DeclarationTables, interface_id: InterfaceId) -> int:
+    slot_index = declaration_tables.interface_slot(interface_id)
+    if slot_index is None:
+        raise ValueError(f"Missing interface slot for '{qualified_interface_type_name(interface_id)}'")
+    return slot_index
 
 
 def _collect_reference_cast_type_names(

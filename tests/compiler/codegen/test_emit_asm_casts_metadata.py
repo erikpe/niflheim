@@ -429,6 +429,46 @@ fn main() -> i64 {
     assert "    .quad __nif_interface_impls_main__Key" in asm
 
 
+def test_emit_asm_records_stable_interface_descriptor_slot_indices(tmp_path) -> None:
+    source = """
+interface Alpha {
+    fn a() -> i64;
+}
+
+interface Beta {
+    fn b() -> i64;
+}
+
+fn keep_alpha(value: Obj) -> Alpha {
+    return (Alpha)value;
+}
+
+fn keep_beta(value: Obj) -> Beta {
+    return (Beta)value;
+}
+
+fn main() -> i64 {
+    if keep_alpha(null) != null {
+        return 1;
+    }
+    if keep_beta(null) != null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert (
+        "__nif_interface_main__Alpha:\n    .quad __nif_interface_name_main__Alpha\n    .long 0\n    .long 1\n    .long 0"
+        in asm
+    )
+    assert (
+        "__nif_interface_main__Beta:\n    .quad __nif_interface_name_main__Beta\n    .long 1\n    .long 1\n    .long 0"
+        in asm
+    )
+
+
 def test_emit_asm_emits_imported_interface_descriptor_for_cast_targets(tmp_path) -> None:
     util_source = """
 export interface Hashable {

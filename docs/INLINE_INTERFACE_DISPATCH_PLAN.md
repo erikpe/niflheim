@@ -259,9 +259,9 @@ Test:
 
 ## Slice 2: Assign Stable Whole-Program Interface Slots
 
-- [ ] assign a stable integer slot to every interface in declaration-table construction
-- [ ] expose the slot through declaration tables and metadata builders
-- [ ] record the slot in interface descriptor metadata
+- [x] assign a stable integer slot to every interface in declaration-table construction
+- [x] expose the slot through declaration tables and metadata builders
+- [x] record the slot in interface descriptor metadata
 
 Change:
 

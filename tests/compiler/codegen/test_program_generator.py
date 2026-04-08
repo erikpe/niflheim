@@ -219,8 +219,45 @@ def test_program_generator_builds_interface_descriptor_and_slot_tables(tmp_path:
     equals_id = InterfaceMethodId(module_path=("util",), interface_name="Hashable", name="equals")
 
     assert tables.interface_descriptor_symbol(interface_id) == "__nif_interface_util__Hashable"
+    assert tables.interface_slot(interface_id) == 0
     assert tables.interface_method_slot(hash_code_id) == 0
     assert tables.interface_method_slot(equals_id) == 1
+
+
+def test_program_generator_assigns_stable_whole_program_interface_slots(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Alpha {
+            fn a() -> i64;
+        }
+
+        interface Beta {
+            fn b() -> i64;
+        }
+
+        interface Gamma {
+            fn c() -> i64;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    tables = ProgramGenerator(program).build_declaration_tables()
+
+    alpha_id = InterfaceId(module_path=("main",), name="Alpha")
+    beta_id = InterfaceId(module_path=("main",), name="Beta")
+    gamma_id = InterfaceId(module_path=("main",), name="Gamma")
+
+    assert tables.interface_slot(alpha_id) == 0
+    assert tables.interface_slot(beta_id) == 1
+    assert tables.interface_slot(gamma_id) == 2
 
 
 def test_program_generator_builds_type_metadata_before_emission(tmp_path: Path) -> None:
@@ -283,6 +320,34 @@ def test_program_generator_builds_type_metadata_before_emission(tmp_path: Path) 
     assert hashable_metadata.descriptor_symbol == "__nif_interface_main__Hashable"
     assert hashable_metadata.slot_index == 0
     assert hashable_metadata.method_count == 1
+
+
+def test_program_generator_records_interface_slots_in_type_metadata(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Alpha {
+            fn a() -> i64;
+        }
+
+        interface Beta {
+            fn b() -> i64;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    metadata = ProgramGenerator(program).build_type_metadata()
+
+    interface_slots = {record.interface_id.name: record.slot_index for record in metadata.interfaces}
+
+    assert interface_slots == {"Alpha": 0, "Beta": 1}
 
 def test_program_generator_uses_effective_layout_and_inherited_interface_methods(tmp_path: Path) -> None:
     _write(

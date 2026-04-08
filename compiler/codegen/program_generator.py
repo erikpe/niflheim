@@ -23,6 +23,7 @@ class DeclarationTables:
     _class_vtable_symbols_by_id: dict[ClassId, str]
     _class_virtual_slot_indices_by_key: dict[tuple[ClassId, ClassId, str], int]
     _interface_descriptor_symbols_by_id: dict[InterfaceId, str]
+    _interface_slots_by_id: dict[InterfaceId, int]
     _interface_method_slots_by_id: dict[InterfaceMethodId, int]
 
     def method_label(self, method_id: MethodId) -> str | None:
@@ -50,6 +51,9 @@ class DeclarationTables:
 
     def interface_descriptor_symbol(self, interface_id: InterfaceId) -> str | None:
         return self._interface_descriptor_symbols_by_id.get(interface_id)
+
+    def interface_slot(self, interface_id: InterfaceId) -> int | None:
+        return self._interface_slots_by_id.get(interface_id)
 
     def interface_method_slot(self, method_id: InterfaceMethodId) -> int | None:
         return self._interface_method_slots_by_id.get(method_id)
@@ -102,14 +106,18 @@ class ProgramGenerator(CodeGenerator):
         class_vtable_symbols_by_id: dict[ClassId, str] = {}
         class_virtual_slot_indices_by_key: dict[tuple[ClassId, ClassId, str], int] = {}
         interface_descriptor_symbols_by_id: dict[InterfaceId, str] = {}
+        interface_slots_by_id: dict[InterfaceId, int] = {}
         interface_method_slots_by_id: dict[InterfaceMethodId, int] = {}
 
+        next_interface_slot = 0
         for module in self.program.ordered_modules:
             for interface in module.interfaces:
                 qualified_name = qualified_interface_type_name(interface.interface_id)
                 interface_descriptor_symbols_by_id[interface.interface_id] = codegen_symbols.mangle_interface_symbol(
                     qualified_name
                 )
+                interface_slots_by_id[interface.interface_id] = next_interface_slot
+                next_interface_slot += 1
                 for slot_index, method in enumerate(interface.methods):
                     interface_method_slots_by_id[method.method_id] = slot_index
 
@@ -171,6 +179,7 @@ class ProgramGenerator(CodeGenerator):
             _class_vtable_symbols_by_id=class_vtable_symbols_by_id,
             _class_virtual_slot_indices_by_key=class_virtual_slot_indices_by_key,
             _interface_descriptor_symbols_by_id=interface_descriptor_symbols_by_id,
+            _interface_slots_by_id=interface_slots_by_id,
             _interface_method_slots_by_id=interface_method_slots_by_id,
         )
         return self.declaration_tables
