@@ -55,10 +55,6 @@ def mangle_interface_method_table_symbol(class_type_name: str, interface_type_na
     return f"__nif_interface_methods_{safe_class}__{safe_interface}"
 
 
-def mangle_class_interface_impls_symbol(class_type_name: str) -> str:
-    return f"__nif_interface_impls_{_mangle_type_fragment(class_type_name)}"
-
-
 def mangle_class_interface_tables_symbol(class_type_name: str) -> str:
     return f"__nif_interface_tables_{_mangle_type_fragment(class_type_name)}"
 

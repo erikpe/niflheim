@@ -64,9 +64,6 @@ RtType rt_type_array_primitive_desc = {
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = NULL,
-    .legacy_interface_count = 0u,
-    .reserved3 = 0u,
 };
 
 RtType rt_type_array_reference_desc = {
@@ -87,9 +84,6 @@ RtType rt_type_array_reference_desc = {
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = NULL,
-    .legacy_interface_count = 0u,
-    .reserved3 = 0u,
 };
 
 

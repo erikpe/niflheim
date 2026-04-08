@@ -338,18 +338,10 @@ Runtime metadata shape:
 
 ```c
 typedef struct RtInterfaceType RtInterfaceType;
-typedef struct RtInterfaceImpl RtInterfaceImpl;
 
 struct RtInterfaceType {
     const char* debug_name;
     uint32_t slot_index;
-    uint32_t method_count;
-    uint32_t reserved0;
-};
-
-struct RtInterfaceImpl {
-    const RtInterfaceType* interface_type;
-    const void* method_table;
     uint32_t method_count;
     uint32_t reserved0;
 };

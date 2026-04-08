@@ -75,10 +75,10 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
         )
 
     for cls in type_metadata.classes:
-        for interface_impl in cls.interface_impls:
+        for interface_method_table in cls.interface_method_tables:
             codegen.asm.instr(".p2align 3")
-            codegen.asm.label(interface_impl.method_table_symbol)
-            for method_label in interface_impl.method_labels:
+            codegen.asm.label(interface_method_table.method_table_symbol)
+            for method_label in interface_method_table.method_labels:
                 codegen.asm.instr(f".quad {method_label}")
 
         if cls.interface_tables_symbol is not None:
@@ -86,15 +86,6 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             codegen.asm.label(cls.interface_tables_symbol)
             for method_table_symbol in cls.interface_table_entries:
                 codegen.asm.instr(f".quad {method_table_symbol or '0'}")
-
-        if cls.interface_impls_symbol is not None:
-            codegen.asm.instr(".p2align 3")
-            codegen.asm.label(cls.interface_impls_symbol)
-            for interface_impl in cls.interface_impls:
-                codegen.asm.instr(f".quad {interface_impl.descriptor_symbol}")
-                codegen.asm.instr(f".quad {interface_impl.method_table_symbol}")
-                codegen.asm.instr(f".long {interface_impl.method_count}")
-                codegen.asm.instr(".long 0")
 
     for cls in type_metadata.classes:
         if cls.class_vtable_symbol is None:
@@ -121,8 +112,6 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
         super_type_sym = cls.superclass_symbol or "0"
         interface_tables_sym = cls.interface_tables_symbol or "0"
         interface_slot_count = cls.interface_table_slot_count
-        legacy_interfaces_sym = cls.interface_impls_symbol or "0"
-        legacy_interface_count = len(cls.interface_impls)
         class_vtable_sym = cls.class_vtable_symbol or "0"
         class_vtable_count = len(cls.class_vtable_labels)
         _emit_rt_type_record(
@@ -136,8 +125,6 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             interface_slot_count=interface_slot_count,
             class_vtable_sym=class_vtable_sym,
             class_vtable_count=class_vtable_count,
-            legacy_interfaces_sym=legacy_interfaces_sym,
-            legacy_interface_count=legacy_interface_count,
         )
 
     for runtime_type in type_metadata.extra_runtime_types:
@@ -157,8 +144,6 @@ def emit_type_metadata_section(codegen, type_metadata: TypeMetadata) -> None:
             interface_slot_count=0,
             class_vtable_sym="0",
             class_vtable_count=0,
-            legacy_interfaces_sym="0",
-            legacy_interface_count=0,
         )
 
 
@@ -181,8 +166,6 @@ def _emit_rt_type_record(
     interface_slot_count: int,
     class_vtable_sym: str,
     class_vtable_count: int,
-    legacy_interfaces_sym: str,
-    legacy_interface_count: int,
 ) -> None:
     codegen.asm.instr(".long 0")
     codegen.asm.instr(f".long {flags}")
@@ -200,9 +183,6 @@ def _emit_rt_type_record(
     codegen.asm.instr(".long 0")
     codegen.asm.instr(f".quad {class_vtable_sym}")
     codegen.asm.instr(f".long {class_vtable_count}")
-    codegen.asm.instr(".long 0")
-    codegen.asm.instr(f".quad {legacy_interfaces_sym}")
-    codegen.asm.instr(f".long {legacy_interface_count}")
     codegen.asm.instr(".long 0")
 
 

@@ -31,9 +31,6 @@ static const RtType LEAF_TYPE = {
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = NULL,
-    .legacy_interface_count = 0u,
-    .reserved3 = 0u,
 };
 
 

@@ -26,21 +26,6 @@ static const void* KEY_EQUALABLE_METHODS[1] = {
     (const void*)0x2222,
 };
 
-static const RtInterfaceImpl KEY_INTERFACES[2] = {
-    {
-        .interface_type = &HASHABLE_INTERFACE,
-        .method_table = KEY_HASHABLE_METHODS,
-        .method_count = 1u,
-        .reserved0 = 0u,
-    },
-    {
-        .interface_type = &EQUALABLE_INTERFACE,
-        .method_table = KEY_EQUALABLE_METHODS,
-        .method_count = 1u,
-        .reserved0 = 0u,
-    },
-};
-
 static const void* KEY_INTERFACE_TABLES[2] = {
     KEY_HASHABLE_METHODS,
     KEY_EQUALABLE_METHODS,
@@ -64,9 +49,6 @@ static const RtType KEY_TYPE = {
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = KEY_INTERFACES,
-    .legacy_interface_count = 2u,
-    .reserved3 = 0u,
 };
 
 static const RtType DERIVED_KEY_TYPE = {
@@ -87,9 +69,6 @@ static const RtType DERIVED_KEY_TYPE = {
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = KEY_INTERFACES,
-    .legacy_interface_count = 2u,
-    .reserved3 = 0u,
 };
 
 static const RtType PLAIN_TYPE = {
@@ -110,9 +89,6 @@ static const RtType PLAIN_TYPE = {
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = NULL,
-    .legacy_interface_count = 0u,
-    .reserved3 = 0u,
 };
 
 
@@ -150,12 +126,6 @@ static void test_rt_type_exposes_slotted_interface_tables(void) {
     }
     if (KEY_TYPE.interface_slot_count != 2u) {
         fail("Key should expose the full interface slot count");
-    }
-    if (KEY_TYPE.legacy_interfaces != KEY_INTERFACES) {
-        fail("legacy compact interface metadata should remain available during the transition");
-    }
-    if (KEY_TYPE.legacy_interface_count != 2u) {
-        fail("legacy interface metadata count should remain available during the transition");
     }
 }
 

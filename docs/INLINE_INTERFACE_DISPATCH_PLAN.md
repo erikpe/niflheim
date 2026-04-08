@@ -1,5 +1,9 @@
 # Inline Interface Dispatch Plan
 
+Status: implemented.
+
+This document records the migration from helper-based interface lookup to the current slot-based interface dispatch model. Historical references below to `RtInterfaceImpl`, `RtType.interfaces`, and helper-driven lookup describe the pre-migration design, not the current runtime ABI.
+
 This document defines a concrete plan for replacing helper-based interface method lookup with inline codegen that loads interface method tables directly from `RtType`.
 
 ## Purpose

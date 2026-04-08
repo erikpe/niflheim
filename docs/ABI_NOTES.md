@@ -234,7 +234,6 @@ Suggested helper:
 
 ```c
 typedef struct RtInterfaceType RtInterfaceType;
-typedef struct RtInterfaceImpl RtInterfaceImpl;
 
 struct RtInterfaceType {
     const char* debug_name;
@@ -243,11 +242,14 @@ struct RtInterfaceType {
     uint32_t reserved0;
 };
 
-struct RtInterfaceImpl {
-    const RtInterfaceType* interface_type;
-    const void* method_table;
-    uint32_t method_count;
-    uint32_t reserved0;
+struct RtType {
+    // ...
+    const void* const* interface_tables;
+    uint32_t interface_slot_count;
+    uint32_t reserved1;
+    const void* class_vtable;
+    uint32_t class_vtable_count;
+    uint32_t reserved2;
 };
 
 void* rt_checked_cast(void* obj, const RtType* expected_type);

@@ -14,7 +14,6 @@ extern "C" {
 
 typedef struct RtType RtType;
 typedef struct RtInterfaceType RtInterfaceType;
-typedef struct RtInterfaceImpl RtInterfaceImpl;
 typedef struct RtObjHeader RtObjHeader;
 typedef struct RtRootFrame RtRootFrame;
 typedef struct RtThreadState RtThreadState;
@@ -45,13 +44,6 @@ struct RtInterfaceType {
     uint32_t reserved0;
 };
 
-struct RtInterfaceImpl {
-    const RtInterfaceType* interface_type;
-    const void* method_table;
-    uint32_t method_count;
-    uint32_t reserved0;
-};
-
 struct RtType {
     uint32_t type_id;
     uint32_t flags;
@@ -70,9 +62,6 @@ struct RtType {
     const void* class_vtable;
     uint32_t class_vtable_count;
     uint32_t reserved2;
-    const RtInterfaceImpl* legacy_interfaces;
-    uint32_t legacy_interface_count;
-    uint32_t reserved3;
 };
 
 struct RtRootFrame {

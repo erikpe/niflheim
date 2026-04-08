@@ -44,9 +44,6 @@ static const RtType NODE_TYPE = {
     .class_vtable = NULL,
     .class_vtable_count = 0,
     .reserved2 = 0,
-    .legacy_interfaces = NULL,
-    .legacy_interface_count = 0,
-    .reserved3 = 0,
 };
 
 
@@ -68,9 +65,6 @@ static const RtType LEAF_TYPE = {
     .class_vtable = NULL,
     .class_vtable_count = 0,
     .reserved2 = 0,
-    .legacy_interfaces = NULL,
-    .legacy_interface_count = 0,
-    .reserved3 = 0,
 };
 
 
