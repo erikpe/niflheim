@@ -7,12 +7,17 @@ from compiler.common.type_names import *
 from compiler.frontend.ast_nodes import CallExpr, ExprStmt, Expression, FieldAccessExpr
 from compiler.semantic.ir import *
 from compiler.semantic.lowering.type_refs import semantic_type_ref_from_checked_type
-from compiler.semantic.lowering.ids import class_id_from_type_name, method_id_for_type_name
+from compiler.semantic.lowering.ids import (
+    class_id_from_type_name,
+    interface_id_for_type_name,
+    interface_method_id_for_type_name,
+    method_id_for_type_name,
+)
 from compiler.semantic.types import semantic_type_canonical_name
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.expressions import infer_expression_type
 from compiler.typecheck.model import TypeInfo
-from compiler.typecheck.module_lookup import lookup_class_by_type_name
+from compiler.typecheck.module_lookup import lookup_class_by_type_name, lookup_interface_by_type_name
 
 
 LowerExpr = Callable[[Expression], SemanticExpr]
@@ -203,10 +208,21 @@ def resolve_collection_dispatch(
 
     receiver_type_ref = semantic_type_ref_from_checked_type(typecheck_ctx, receiver_type)
     receiver_type_name = semantic_type_canonical_name(receiver_type_ref)
+
+    interface_info = lookup_interface_by_type_name(typecheck_ctx, receiver_type_name)
+    if interface_info is not None:
+        method_name = collection_method_name(operation)
+        if method_name not in interface_info.methods:
+            raise ValueError(f"Missing structural method '{method_name}' on interface '{receiver_type_name}'")
+        return InterfaceDispatch(
+            interface_id=interface_id_for_type_name(typecheck_ctx.module_path, receiver_type_name),
+            method_id=interface_method_id_for_type_name(typecheck_ctx.module_path, receiver_type_name, method_name),
+        )
+
     class_info = lookup_class_by_type_name(typecheck_ctx, receiver_type_name)
     if class_info is None:
         raise ValueError(
-            f"Cannot resolve structural method '{collection_method_name(operation)}' on non-class type '{receiver_type_name}'"
+            f"Cannot resolve structural method '{collection_method_name(operation)}' on non-collection type '{receiver_type_name}'"
         )
 
     method_name = collection_method_name(operation)

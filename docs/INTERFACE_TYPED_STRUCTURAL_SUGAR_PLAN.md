@@ -278,13 +278,13 @@ Test:
 
 ## Slice 3: Lower Interface-Typed Structural Sugar To Interface Dispatch
 
-- [ ] update `resolve_collection_dispatch(...)` in [compiler/semantic/lowering/collections.py](../compiler/semantic/lowering/collections.py) to return `InterfaceDispatch` for interface receivers
-- [ ] ensure [compiler/semantic/lowering/statements.py](../compiler/semantic/lowering/statements.py) `for ... in` lowering works unchanged once dispatch resolution is updated
-- [ ] validate that index, slice, and assignment lowering paths continue using structural nodes with the new dispatch kind
+- [x] update `resolve_collection_dispatch(...)` in [compiler/semantic/lowering/collections.py](../compiler/semantic/lowering/collections.py) to return `InterfaceDispatch` for interface receivers
+- [x] ensure [compiler/semantic/lowering/statements.py](../compiler/semantic/lowering/statements.py) `for ... in` lowering works unchanged once dispatch resolution is updated
+- [x] validate that index, slice, and assignment lowering paths continue using structural nodes with the new dispatch kind
 
 Test:
 
-- [ ] add lowering assertions for interface-typed `[]`, `[:]`, `[]=`, `[:]=`, and `for ... in` in [tests/compiler/semantic/test_lowering.py](../tests/compiler/semantic/test_lowering.py)
+- [x] add lowering assertions for interface-typed `[]`, `[:]`, `[]=`, `[:]=`, and `for ... in` in [tests/compiler/semantic/test_lowering.py](../tests/compiler/semantic/test_lowering.py)
 
 ## Slice 4: Emit Interface Dispatch For Structural Sugar
 

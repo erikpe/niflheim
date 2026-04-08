@@ -68,6 +68,20 @@ def _assert_runtime_dispatch_matches_op(
     assert dispatch.runtime_kind is runtime_kind
 
 
+def _assert_interface_dispatch_matches_op(
+    dispatch: InterfaceDispatch,
+    *,
+    interface_name: str,
+    op_kind: CollectionOpKind,
+    module_path: tuple[str, ...] = ("main",),
+) -> None:
+    assert dispatch.interface_id.module_path == module_path
+    assert dispatch.interface_id.name == interface_name
+    assert dispatch.method_id.module_path == module_path
+    assert dispatch.method_id.interface_name == interface_name
+    assert dispatch.method_id.name == collection_method_name(op_kind)
+
+
 def _assert_call_target(expr: SemanticExpr, expected_target_type: type[object]):
     assert isinstance(expr, CallExprS)
     assert isinstance(expr.target, expected_target_type)
@@ -1209,6 +1223,67 @@ def test_lower_program_resolves_structural_index_slice_and_for_in_methods(tmp_pa
     )
 
 
+def test_lower_program_lowers_interface_typed_structural_sugar_to_interface_dispatch(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface Buffer {
+            fn index_get(index: i64) -> i64;
+            fn index_set(index: i64, value: i64) -> unit;
+            fn slice_get(begin: i64, end: i64) -> Buffer;
+            fn slice_set(begin: i64, end: i64, value: Buffer) -> unit;
+            fn iter_len() -> u64;
+            fn iter_get(index: i64) -> i64;
+        }
+
+        fn main(buffer: Buffer, replacement: Buffer) -> i64 {
+            var first: i64 = buffer[0];
+            buffer[0] = first;
+            var part: Buffer = buffer[0:1];
+            buffer[0:1] = replacement;
+            for value in buffer {
+                return value;
+            }
+            return first;
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    statements = semantic.modules[("main",)].functions[0].body.statements
+
+    first_decl = statements[0]
+    assert isinstance(first_decl, SemanticVarDecl)
+    assert isinstance(first_decl.initializer, IndexReadExpr)
+    assert isinstance(first_decl.initializer.dispatch, InterfaceDispatch)
+    _assert_interface_dispatch_matches_op(first_decl.initializer.dispatch, interface_name="Buffer", op_kind=CollectionOpKind.INDEX_GET)
+
+    index_assign = statements[1]
+    assert isinstance(index_assign, SemanticAssign)
+    assert isinstance(index_assign.target, IndexLValue)
+    assert isinstance(index_assign.target.dispatch, InterfaceDispatch)
+    _assert_interface_dispatch_matches_op(index_assign.target.dispatch, interface_name="Buffer", op_kind=CollectionOpKind.INDEX_SET)
+
+    slice_decl = statements[2]
+    assert isinstance(slice_decl, SemanticVarDecl)
+    assert isinstance(slice_decl.initializer, SliceReadExpr)
+    assert isinstance(slice_decl.initializer.dispatch, InterfaceDispatch)
+    _assert_interface_dispatch_matches_op(slice_decl.initializer.dispatch, interface_name="Buffer", op_kind=CollectionOpKind.SLICE_GET)
+
+    slice_assign = statements[3]
+    assert isinstance(slice_assign, SemanticAssign)
+    assert isinstance(slice_assign.target, SliceLValue)
+    assert isinstance(slice_assign.target.dispatch, InterfaceDispatch)
+    _assert_interface_dispatch_matches_op(slice_assign.target.dispatch, interface_name="Buffer", op_kind=CollectionOpKind.SLICE_SET)
+
+    structural_for_in = statements[4]
+    assert isinstance(structural_for_in, SemanticForIn)
+    assert isinstance(structural_for_in.iter_len_dispatch, InterfaceDispatch)
+    assert isinstance(structural_for_in.iter_get_dispatch, InterfaceDispatch)
+    _assert_interface_dispatch_matches_op(structural_for_in.iter_len_dispatch, interface_name="Buffer", op_kind=CollectionOpKind.ITER_LEN)
+    _assert_interface_dispatch_matches_op(structural_for_in.iter_get_dispatch, interface_name="Buffer", op_kind=CollectionOpKind.ITER_GET)
+
+
 def test_lower_program_lowers_explicit_array_structural_calls_and_assignments(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
@@ -1747,6 +1822,66 @@ def test_lower_program_structural_dispatch_uses_virtual_slot_metadata_for_base_t
         slot_owner_class_name="Base",
         selected_class_name="Base",
         op_kind=CollectionOpKind.ITER_GET,
+    )
+
+
+def test_lower_program_lowers_imported_interface_typed_structural_sugar_to_interface_dispatch(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "contracts.nif",
+        """
+        export interface Buffer {
+            fn index_get(index: i64) -> i64;
+            fn iter_len() -> u64;
+            fn iter_get(index: i64) -> i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import contracts;
+
+        fn read_index(buffer: contracts.Buffer) -> i64 {
+            return buffer[0];
+        }
+
+        fn read_iter(buffer: contracts.Buffer) -> i64 {
+            for value in buffer {
+                return value;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    read_index_return = semantic.modules[("main",)].functions[0].body.statements[0]
+    read_iter_stmt = semantic.modules[("main",)].functions[1].body.statements[0]
+
+    assert isinstance(read_index_return, SemanticReturn)
+    assert isinstance(read_index_return.value, IndexReadExpr)
+    assert isinstance(read_index_return.value.dispatch, InterfaceDispatch)
+    _assert_interface_dispatch_matches_op(
+        read_index_return.value.dispatch,
+        interface_name="Buffer",
+        op_kind=CollectionOpKind.INDEX_GET,
+        module_path=("contracts",),
+    )
+
+    assert isinstance(read_iter_stmt, SemanticForIn)
+    assert isinstance(read_iter_stmt.iter_len_dispatch, InterfaceDispatch)
+    assert isinstance(read_iter_stmt.iter_get_dispatch, InterfaceDispatch)
+    _assert_interface_dispatch_matches_op(
+        read_iter_stmt.iter_len_dispatch,
+        interface_name="Buffer",
+        op_kind=CollectionOpKind.ITER_LEN,
+        module_path=("contracts",),
+    )
+    _assert_interface_dispatch_matches_op(
+        read_iter_stmt.iter_get_dispatch,
+        interface_name="Buffer",
+        op_kind=CollectionOpKind.ITER_GET,
+        module_path=("contracts",),
     )
 
 
