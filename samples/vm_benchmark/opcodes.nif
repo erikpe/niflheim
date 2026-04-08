@@ -57,6 +57,18 @@ export fn store_mem_opcode() -> u64 {
     return 5u;
 }
 
+export fn load_mem_indexed_opcode() -> u64 {
+    return 19u;
+}
+
+export fn store_mem_indexed_opcode() -> u64 {
+    return 20u;
+}
+
+export fn slice_copy_opcode() -> u64 {
+    return 21u;
+}
+
 export fn call_builtin_opcode() -> u64 {
     return 6u;
 }
@@ -115,6 +127,15 @@ export fn opcode_name(opcode: u64) -> Str {
     }
     if opcode == store_mem_opcode() {
         return "store_mem";
+    }
+    if opcode == load_mem_indexed_opcode() {
+        return "load_mem_indexed";
+    }
+    if opcode == store_mem_indexed_opcode() {
+        return "store_mem_indexed";
+    }
+    if opcode == slice_copy_opcode() {
+        return "slice_copy";
     }
     if opcode == call_builtin_opcode() {
         return "call_builtin";

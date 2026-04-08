@@ -7,6 +7,9 @@ export interface VmApi {
     fn read_const_i64(index: u64) -> i64;
     fn load_mem(index: i64) -> i64;
     fn store_mem(index: i64, value: i64) -> unit;
+    fn load_mem_indexed(base: i64, index: i64) -> i64;
+    fn store_mem_indexed(base: i64, index: i64, value: i64) -> unit;
+    fn slice_copy(dst_base: i64, src_base: i64, begin: i64, end: i64) -> unit;
     fn call_builtin(index: u64, argc: u64) -> unit;
     fn note_trace(value: i64) -> unit;
     fn advance() -> unit;
@@ -50,6 +53,7 @@ export class BenchmarkCase {
     program: Program;
     expected_return_value: i64;
     expected_memory0: i64;
+    expected_memory_checksum: i64;
     expected_trace_sum: i64;
     expected_instruction_count: u64;
     expected_call_count: u64;
@@ -60,6 +64,7 @@ export class BenchmarkCase {
         var checksum: i64 = 0;
         checksum = opcodes.mix_checksum(checksum, __self.expected_return_value);
         checksum = opcodes.mix_checksum(checksum, __self.expected_memory0);
+        checksum = opcodes.mix_checksum(checksum, __self.expected_memory_checksum);
         checksum = opcodes.mix_checksum(checksum, __self.expected_trace_sum);
         checksum = opcodes.mix_checksum(checksum, (i64)__self.expected_instruction_count);
         checksum = opcodes.mix_checksum(checksum, (i64)__self.expected_call_count);
@@ -73,6 +78,7 @@ export class BenchmarkCase {
             __self.name +
             ": return=" + Str.from_i64(__self.expected_return_value) +
             " memory0=" + Str.from_i64(__self.expected_memory0) +
+            " mem=" + Str.from_i64(__self.expected_memory_checksum) +
             " trace=" + Str.from_i64(__self.expected_trace_sum) +
             " steps=" + Str.from_u64(__self.expected_instruction_count) +
             " calls=" + Str.from_u64(__self.expected_call_count) +
@@ -86,6 +92,7 @@ export class BenchmarkResult {
     name: Str;
     return_value: i64;
     memory0: i64;
+    memory_checksum: i64;
     trace_sum: i64;
     instruction_count: u64;
     call_count: u64;
@@ -96,6 +103,7 @@ export class BenchmarkResult {
         var checksum: i64 = 0;
         checksum = opcodes.mix_checksum(checksum, __self.return_value);
         checksum = opcodes.mix_checksum(checksum, __self.memory0);
+        checksum = opcodes.mix_checksum(checksum, __self.memory_checksum);
         checksum = opcodes.mix_checksum(checksum, __self.trace_sum);
         checksum = opcodes.mix_checksum(checksum, (i64)__self.instruction_count);
         checksum = opcodes.mix_checksum(checksum, (i64)__self.call_count);
@@ -108,6 +116,7 @@ export class BenchmarkResult {
         return
             __self.return_value == bench_case.expected_return_value &&
             __self.memory0 == bench_case.expected_memory0 &&
+            __self.memory_checksum == bench_case.expected_memory_checksum &&
             __self.trace_sum == bench_case.expected_trace_sum &&
             __self.instruction_count == bench_case.expected_instruction_count &&
             __self.call_count == bench_case.expected_call_count &&
@@ -121,6 +130,7 @@ export class BenchmarkResult {
             __self.name +
             ": return=" + Str.from_i64(__self.return_value) +
             " memory0=" + Str.from_i64(__self.memory0) +
+            " mem=" + Str.from_i64(__self.memory_checksum) +
             " trace=" + Str.from_i64(__self.trace_sum) +
             " steps=" + Str.from_u64(__self.instruction_count) +
             " calls=" + Str.from_u64(__self.call_count) +

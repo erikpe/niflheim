@@ -1,6 +1,7 @@
 import std.box;
 import std.error;
 import samples.vm_benchmark.model;
+import samples.vm_benchmark.opcodes;
 
 export class Frame {
     function_id: u64;
@@ -23,6 +24,30 @@ export class Vm implements model.VmApi {
     executed_calls: u64;
     taken_branches: u64;
     executed_builtins: u64;
+
+    fn memory_checksum() -> i64 {
+        var checksum: i64 = 0;
+        for value in __self.memory {
+            checksum = opcodes.mix_checksum(checksum, value);
+        }
+        return checksum;
+    }
+
+    fn resolve_mem_index(base: i64, index: i64) -> i64 {
+        var address: i64 = base + index;
+        if address < 0 || (u64)address >= __self.memory.len() {
+            panic("Vm.resolve_mem_index: memory index out of bounds");
+        }
+        return address;
+    }
+
+    fn resolve_slice_index(base: i64, offset: i64) -> i64 {
+        var address: i64 = base + offset;
+        if address < 0 || (u64)address > __self.memory.len() {
+            panic("Vm.resolve_slice_index: memory slice index out of bounds");
+        }
+        return address;
+    }
 
     fn note_branch_taken() -> unit {
         __self.taken_branches = __self.taken_branches + 1u;
@@ -52,6 +77,7 @@ export class Vm implements model.VmApi {
             __self.program.name,
             __self.return_value,
             __self.memory[0],
+            __self.memory_checksum(),
             __self.trace_sum,
             __self.executed_instructions,
             __self.executed_calls,
@@ -88,6 +114,29 @@ export class Vm implements model.VmApi {
             panic("Vm.store_mem: memory index out of bounds");
         }
         __self.memory[index] = value;
+        return;
+    }
+
+    fn load_mem_indexed(base: i64, index: i64) -> i64 {
+        return __self.memory[__self.resolve_mem_index(base, index)];
+    }
+
+    fn store_mem_indexed(base: i64, index: i64, value: i64) -> unit {
+        __self.memory[__self.resolve_mem_index(base, index)] = value;
+        return;
+    }
+
+    fn slice_copy(dst_base: i64, src_base: i64, begin: i64, end: i64) -> unit {
+        var src_begin: i64 = __self.resolve_slice_index(src_base, begin);
+        var src_end: i64 = __self.resolve_slice_index(src_base, end);
+        if src_end < src_begin {
+            panic("Vm.slice_copy: invalid slice range");
+        }
+
+        var dst_begin: i64 = __self.resolve_slice_index(dst_base, 0);
+        var dst_end: i64 = __self.resolve_slice_index(dst_base, src_end - src_begin);
+        var copied: i64[] = __self.memory[src_begin:src_end];
+        __self.memory[dst_begin:dst_end] = copied;
         return;
     }
 

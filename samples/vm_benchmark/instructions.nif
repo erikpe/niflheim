@@ -167,6 +167,53 @@ export class StoreMemOp extends MemoryOp {
     }
 }
 
+export class IndexedMemoryOp extends BaseInstruction {
+    data_reg: i64;
+    base_reg: i64;
+    index_reg: i64;
+}
+
+export class LoadMemIndexedOp extends IndexedMemoryOp {
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.write_reg(
+            __self.data_reg,
+            vm.load_mem_indexed(vm.read_reg(__self.base_reg), vm.read_reg(__self.index_reg))
+        );
+        vm.advance();
+        return;
+    }
+}
+
+export class StoreMemIndexedOp extends IndexedMemoryOp {
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.store_mem_indexed(
+            vm.read_reg(__self.base_reg),
+            vm.read_reg(__self.index_reg),
+            vm.read_reg(__self.data_reg)
+        );
+        vm.advance();
+        return;
+    }
+}
+
+export class SliceCopyOp extends BaseInstruction {
+    dst_base_reg: i64;
+    src_base_reg: i64;
+    begin_reg: i64;
+    end_reg: i64;
+
+    override fn execute(vm: model.VmApi) -> unit {
+        vm.slice_copy(
+            vm.read_reg(__self.dst_base_reg),
+            vm.read_reg(__self.src_base_reg),
+            vm.read_reg(__self.begin_reg),
+            vm.read_reg(__self.end_reg)
+        );
+        vm.advance();
+        return;
+    }
+}
+
 export class CallBuiltinOp extends BaseInstruction {
     builtin_id: u64;
     argc: u64;

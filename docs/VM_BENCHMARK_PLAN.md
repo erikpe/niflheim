@@ -1,6 +1,6 @@
 # VM Benchmark Plan
 
-Status: slice 3 implemented.
+Status: slice 4 implemented.
 
 This document defines a concrete plan for implementing a larger regression benchmark program based on a small bytecode virtual machine.
 
@@ -640,15 +640,15 @@ Test:
 
 ## Slice 4: Add Array-Heavy Memory Workloads
 
-- implement linear memory over `i64[]`
-- implement memory read/write instructions
-- add sieve or dense array benchmark
-- add slice/copy benchmark
+- [x] implement linear memory over `i64[]`
+- [x] implement memory read/write instructions
+- [x] add sieve or dense array benchmark
+- [x] add slice/copy benchmark
 
 Test:
 
-- verify memory checksum lines exactly
-- ensure small indexing mistakes visibly change expected output
+- [x] verify memory checksum lines exactly
+- [x] ensure small indexing mistakes visibly change expected output
 
 ## Slice 5: Add Builtin Dispatch And `Obj` Constant Pools
 

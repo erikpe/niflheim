@@ -38,6 +38,7 @@ fn build_minimal_case() -> model.BenchmarkCase {
         build_minimal_program(),
         14,
         14,
+        434,
         14,
         11u,
         0u,
@@ -100,6 +101,7 @@ fn build_arithmetic_case() -> model.BenchmarkCase {
         build_arithmetic_program(),
         102,
         102,
+        3162,
         211,
         88u,
         0u,
@@ -162,6 +164,7 @@ fn build_branch_maze_case() -> model.BenchmarkCase {
         build_branch_maze_program(),
         61,
         61,
+        1891,
         69,
         117u,
         0u,
@@ -214,6 +217,7 @@ fn build_recursive_case() -> model.BenchmarkCase {
         build_recursive_program(),
         13,
         13,
+        403,
         13,
         331u,
         41u,
@@ -222,11 +226,154 @@ fn build_recursive_case() -> model.BenchmarkCase {
     );
 }
 
+fn build_dense_array_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](30u);
+    code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    code[2] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 2u);
+    code[3] = instructions.LoadConstOp(opcodes.load_const_opcode(), 3, 3u);
+    code[4] = instructions.LoadConstOp(opcodes.load_const_opcode(), 4, 4u);
+    code[5] = instructions.LoadConstOp(opcodes.load_const_opcode(), 5, 5u);
+    code[6] = instructions.LoadConstOp(opcodes.load_const_opcode(), 6, 6u);
+    code[7] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 7, 0, 1);
+    code[8] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 7, 15u);
+    code[9] = instructions.MulOp(opcodes.mul_opcode(), 8, 0, 0);
+    code[10] = instructions.AddOp(opcodes.add_opcode(), 8, 8, 0);
+    code[11] = instructions.AddOp(opcodes.add_opcode(), 8, 8, 2);
+    code[12] = instructions.StoreMemIndexedOp(opcodes.store_mem_indexed_opcode(), 8, 6, 0);
+    code[13] = instructions.AddOp(opcodes.add_opcode(), 0, 0, 2);
+    code[14] = instructions.JumpOp(opcodes.jump_opcode(), 7u);
+    code[15] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[16] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 7, 0, 1);
+    code[17] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 7, 26u);
+    code[18] = instructions.LoadMemIndexedOp(opcodes.load_mem_indexed_opcode(), 8, 6, 0);
+    code[19] = instructions.AddOp(opcodes.add_opcode(), 3, 3, 8);
+    code[20] = instructions.ModOp(opcodes.mod_opcode(), 10, 0, 4);
+    code[21] = instructions.CmpEqOp(opcodes.cmp_eq_opcode(), 7, 10, 5);
+    code[22] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 7, 24u);
+    code[23] = instructions.AddOp(opcodes.add_opcode(), 3, 3, 2);
+    code[24] = instructions.AddOp(opcodes.add_opcode(), 0, 0, 2);
+    code[25] = instructions.JumpOp(opcodes.jump_opcode(), 16u);
+    code[26] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 8, 3);
+    code[27] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 3);
+    code[28] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 1u);
+    code[29] = instructions.HaltOp(opcodes.halt_opcode(), 3);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 0u, 11u, code);
+
+    var constants: Obj[] = Obj[](7u);
+    constants[0] = BoxI64(0);
+    constants[1] = BoxI64(8);
+    constants[2] = BoxI64(1);
+    constants[3] = BoxI64(0);
+    constants[4] = BoxI64(2);
+    constants[5] = BoxI64(0);
+    constants[6] = BoxI64(0);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](1u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+
+    return model.Program("dense_array", 0u, functions, constants, builtin_table, 12u);
+}
+
+fn build_dense_array_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "dense_array",
+        build_dense_array_program(),
+        180,
+        1,
+        28064133262525676,
+        180,
+        156u,
+        0u,
+        22u,
+        1u
+    );
+}
+
+fn build_slice_copy_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](34u);
+    code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    code[2] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 2u);
+    code[3] = instructions.LoadConstOp(opcodes.load_const_opcode(), 3, 3u);
+    code[4] = instructions.LoadConstOp(opcodes.load_const_opcode(), 4, 4u);
+    code[5] = instructions.LoadConstOp(opcodes.load_const_opcode(), 5, 5u);
+    code[6] = instructions.LoadConstOp(opcodes.load_const_opcode(), 6, 6u);
+    code[7] = instructions.LoadConstOp(opcodes.load_const_opcode(), 7, 7u);
+    code[8] = instructions.LoadConstOp(opcodes.load_const_opcode(), 8, 8u);
+    code[9] = instructions.LoadConstOp(opcodes.load_const_opcode(), 9, 9u);
+    code[10] = instructions.LoadConstOp(opcodes.load_const_opcode(), 10, 10u);
+    code[11] = instructions.LoadConstOp(opcodes.load_const_opcode(), 11, 11u);
+    code[12] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 12, 0, 1);
+    code[13] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 12, 19u);
+    code[14] = instructions.MulOp(opcodes.mul_opcode(), 13, 0, 4);
+    code[15] = instructions.AddOp(opcodes.add_opcode(), 13, 13, 5);
+    code[16] = instructions.StoreMemIndexedOp(opcodes.store_mem_indexed_opcode(), 13, 6, 0);
+    code[17] = instructions.AddOp(opcodes.add_opcode(), 0, 0, 2);
+    code[18] = instructions.JumpOp(opcodes.jump_opcode(), 12u);
+    code[19] = instructions.SliceCopyOp(opcodes.slice_copy_opcode(), 7, 6, 10, 11);
+    code[20] = instructions.StoreMemIndexedOp(opcodes.store_mem_indexed_opcode(), 9, 6, 4);
+    code[21] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[22] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 12, 0, 8);
+    code[23] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 12, 28u);
+    code[24] = instructions.LoadMemIndexedOp(opcodes.load_mem_indexed_opcode(), 13, 7, 0);
+    code[25] = instructions.AddOp(opcodes.add_opcode(), 3, 3, 13);
+    code[26] = instructions.AddOp(opcodes.add_opcode(), 0, 0, 2);
+    code[27] = instructions.JumpOp(opcodes.jump_opcode(), 22u);
+    code[28] = instructions.LoadMemIndexedOp(opcodes.load_mem_indexed_opcode(), 13, 6, 4);
+    code[29] = instructions.AddOp(opcodes.add_opcode(), 3, 3, 13);
+    code[30] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 14, 3);
+    code[31] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 3);
+    code[32] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 1u);
+    code[33] = instructions.HaltOp(opcodes.halt_opcode(), 3);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 0u, 14u, code);
+
+    var constants: Obj[] = Obj[](12u);
+    constants[0] = BoxI64(0);
+    constants[1] = BoxI64(6);
+    constants[2] = BoxI64(1);
+    constants[3] = BoxI64(0);
+    constants[4] = BoxI64(2);
+    constants[5] = BoxI64(10);
+    constants[6] = BoxI64(0);
+    constants[7] = BoxI64(6);
+    constants[8] = BoxI64(4);
+    constants[9] = BoxI64(99);
+    constants[10] = BoxI64(1);
+    constants[11] = BoxI64(5);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](1u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+
+    return model.Program("slice_copy", 0u, functions, constants, builtin_table, 16u);
+}
+
+fn build_slice_copy_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "slice_copy",
+        build_slice_copy_program(),
+        159,
+        10,
+        -5438759747882907306,
+        159,
+        91u,
+        0u,
+        12u,
+        1u
+    );
+}
+
 export fn build_cases() -> model.BenchmarkCase[] {
-    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](4u);
+    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](6u);
     benchmark_cases[0] = build_minimal_case();
     benchmark_cases[1] = build_arithmetic_case();
     benchmark_cases[2] = build_branch_maze_case();
     benchmark_cases[3] = build_recursive_case();
+    benchmark_cases[4] = build_dense_array_case();
+    benchmark_cases[5] = build_slice_copy_case();
     return benchmark_cases;
 }
