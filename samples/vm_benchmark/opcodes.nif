@@ -9,8 +9,44 @@ export fn add_opcode() -> u64 {
     return 2u;
 }
 
+export fn sub_opcode() -> u64 {
+    return 8u;
+}
+
+export fn mul_opcode() -> u64 {
+    return 9u;
+}
+
+export fn div_opcode() -> u64 {
+    return 10u;
+}
+
+export fn mod_opcode() -> u64 {
+    return 11u;
+}
+
 export fn move_opcode() -> u64 {
     return 3u;
+}
+
+export fn cmp_eq_opcode() -> u64 {
+    return 12u;
+}
+
+export fn cmp_lt_opcode() -> u64 {
+    return 13u;
+}
+
+export fn jump_opcode() -> u64 {
+    return 14u;
+}
+
+export fn jump_if_true_opcode() -> u64 {
+    return 15u;
+}
+
+export fn jump_if_false_opcode() -> u64 {
+    return 16u;
 }
 
 export fn load_mem_opcode() -> u64 {
@@ -25,6 +61,14 @@ export fn call_builtin_opcode() -> u64 {
     return 6u;
 }
 
+export fn call_opcode() -> u64 {
+    return 17u;
+}
+
+export fn ret_opcode() -> u64 {
+    return 18u;
+}
+
 export fn halt_opcode() -> u64 {
     return 7u;
 }
@@ -36,8 +80,35 @@ export fn opcode_name(opcode: u64) -> Str {
     if opcode == add_opcode() {
         return "add";
     }
+    if opcode == sub_opcode() {
+        return "sub";
+    }
+    if opcode == mul_opcode() {
+        return "mul";
+    }
+    if opcode == div_opcode() {
+        return "div";
+    }
+    if opcode == mod_opcode() {
+        return "mod";
+    }
     if opcode == move_opcode() {
         return "move";
+    }
+    if opcode == cmp_eq_opcode() {
+        return "cmp_eq";
+    }
+    if opcode == cmp_lt_opcode() {
+        return "cmp_lt";
+    }
+    if opcode == jump_opcode() {
+        return "jump";
+    }
+    if opcode == jump_if_true_opcode() {
+        return "jump_if_true";
+    }
+    if opcode == jump_if_false_opcode() {
+        return "jump_if_false";
     }
     if opcode == load_mem_opcode() {
         return "load_mem";
@@ -47,6 +118,12 @@ export fn opcode_name(opcode: u64) -> Str {
     }
     if opcode == call_builtin_opcode() {
         return "call_builtin";
+    }
+    if opcode == call_opcode() {
+        return "call";
+    }
+    if opcode == ret_opcode() {
+        return "ret";
     }
     if opcode == halt_opcode() {
         return "halt";

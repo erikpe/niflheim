@@ -1,6 +1,6 @@
 # VM Benchmark Plan
 
-Status: slice 1 implemented.
+Status: slice 3 implemented.
 
 This document defines a concrete plan for implementing a larger regression benchmark program based on a small bytecode virtual machine.
 
@@ -363,6 +363,7 @@ Each benchmark case should report:
 - case name
 - return value
 - executed instruction count
+- guest call count
 - branch-taken count
 - register checksum
 - memory checksum
@@ -616,26 +617,26 @@ Test:
 
 ## Slice 2: Add Core Arithmetic And Branch Execution
 
-- implement register-based arithmetic instructions
-- implement comparisons and conditional jumps
-- add the arithmetic mixer and branch maze cases
-- report exact return values, steps, and branch counts
+- [x] implement register-based arithmetic instructions
+- [x] implement comparisons and conditional jumps
+- [x] add the arithmetic mixer and branch maze cases
+- [x] report exact return values, steps, and branch counts
 
 Test:
 
-- extend the golden expected output
-- verify branch-sensitive cases change predictably under local debugging
+- [x] extend the golden expected output
+- [x] verify branch-sensitive cases change predictably under local debugging
 
 ## Slice 3: Add Calls And Nested Frames
 
-- implement guest function metadata and `call`/`ret`
-- add the recursive calls case
-- ensure frame-local registers and return-value handling are exact
+- [x] implement guest function metadata and `call`/`ret`
+- [x] add the recursive calls case
+- [x] ensure frame-local registers and return-value handling are exact
 
 Test:
 
-- add recursive benchmark outputs to the golden file
-- verify exact instruction counts and return values
+- [x] add recursive benchmark outputs to the golden file
+- [x] verify exact instruction counts and return values
 
 ## Slice 4: Add Array-Heavy Memory Workloads
 

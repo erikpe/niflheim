@@ -19,7 +19,7 @@ fn build_minimal_program() -> model.Program {
     code[10] = instructions.HaltOp(opcodes.halt_opcode(), 5);
 
     var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
-    functions[0] = model.FunctionInfo("main", 6u, code);
+    functions[0] = model.FunctionInfo("main", 0u, 6u, code);
 
     var constants: Obj[] = Obj[](3u);
     constants[0] = BoxI64(7);
@@ -40,12 +40,193 @@ fn build_minimal_case() -> model.BenchmarkCase {
         14,
         14,
         11u,
+        0u,
+        0u,
         1u
     );
 }
 
-export fn build_slice1_cases() -> model.BenchmarkCase[] {
-    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](1u);
+fn build_arithmetic_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](26u);
+    code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    code[2] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 2u);
+    code[3] = instructions.LoadConstOp(opcodes.load_const_opcode(), 6, 3u);
+    code[4] = instructions.LoadConstOp(opcodes.load_const_opcode(), 7, 4u);
+    code[5] = instructions.LoadConstOp(opcodes.load_const_opcode(), 8, 5u);
+    code[6] = instructions.LoadConstOp(opcodes.load_const_opcode(), 9, 6u);
+    code[7] = instructions.LoadConstOp(opcodes.load_const_opcode(), 10, 7u);
+    code[8] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 3, 0, 1);
+    code[9] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 3, 21u);
+    code[10] = instructions.AddOp(opcodes.add_opcode(), 2, 2, 0);
+    code[11] = instructions.MulOp(opcodes.mul_opcode(), 4, 2, 7);
+    code[12] = instructions.SubOp(opcodes.sub_opcode(), 2, 4, 0);
+    code[13] = instructions.DivOp(opcodes.div_opcode(), 4, 2, 8);
+    code[14] = instructions.ModOp(opcodes.mod_opcode(), 5, 2, 9);
+    code[15] = instructions.AddOp(opcodes.add_opcode(), 2, 4, 5);
+    code[16] = instructions.CmpEqOp(opcodes.cmp_eq_opcode(), 3, 5, 10);
+    code[17] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 3, 19u);
+    code[18] = instructions.AddOp(opcodes.add_opcode(), 2, 2, 0);
+    code[19] = instructions.AddOp(opcodes.add_opcode(), 0, 0, 6);
+    code[20] = instructions.JumpOp(opcodes.jump_opcode(), 8u);
+    code[21] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 2);
+    code[22] = instructions.LoadMemOp(opcodes.load_mem_opcode(), 0, 4);
+    code[23] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 4);
+    code[24] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 3u);
+    code[25] = instructions.HaltOp(opcodes.halt_opcode(), 2);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 0u, 11u, code);
+
+    var constants: Obj[] = Obj[](8u);
+    constants[0] = BoxI64(1);
+    constants[1] = BoxI64(7);
+    constants[2] = BoxI64(0);
+    constants[3] = BoxI64(1);
+    constants[4] = BoxI64(3);
+    constants[5] = BoxI64(2);
+    constants[6] = BoxI64(5);
+    constants[7] = BoxI64(0);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](1u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+
+    return model.Program("arithmetic_mixer", 0u, functions, constants, builtin_table, 2u);
+}
+
+fn build_arithmetic_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "arithmetic_mixer",
+        build_arithmetic_program(),
+        102,
+        102,
+        211,
+        88u,
+        0u,
+        12u,
+        1u
+    );
+}
+
+fn build_branch_maze_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](27u);
+    code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    code[2] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 0u);
+    code[3] = instructions.LoadConstOp(opcodes.load_const_opcode(), 6, 2u);
+    code[4] = instructions.LoadConstOp(opcodes.load_const_opcode(), 7, 3u);
+    code[5] = instructions.LoadConstOp(opcodes.load_const_opcode(), 8, 4u);
+    code[6] = instructions.LoadConstOp(opcodes.load_const_opcode(), 9, 5u);
+    code[7] = instructions.LoadConstOp(opcodes.load_const_opcode(), 10, 6u);
+    code[8] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 3, 0, 1);
+    code[9] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 3, 23u);
+    code[10] = instructions.ModOp(opcodes.mod_opcode(), 5, 0, 8);
+    code[11] = instructions.CmpEqOp(opcodes.cmp_eq_opcode(), 3, 5, 6);
+    code[12] = instructions.JumpIfTrueOp(opcodes.jump_if_true_opcode(), 3, 15u);
+    code[13] = instructions.RegisterCopyOp(opcodes.move_opcode(), 4, 10);
+    code[14] = instructions.JumpOp(opcodes.jump_opcode(), 16u);
+    code[15] = instructions.MulOp(opcodes.mul_opcode(), 4, 0, 9);
+    code[16] = instructions.AddOp(opcodes.add_opcode(), 2, 2, 4);
+    code[17] = instructions.ModOp(opcodes.mod_opcode(), 5, 0, 9);
+    code[18] = instructions.CmpEqOp(opcodes.cmp_eq_opcode(), 3, 5, 7);
+    code[19] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 3, 21u);
+    code[20] = instructions.SubOp(opcodes.sub_opcode(), 2, 2, 7);
+    code[21] = instructions.AddOp(opcodes.add_opcode(), 0, 0, 7);
+    code[22] = instructions.JumpOp(opcodes.jump_opcode(), 8u);
+    code[23] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 2);
+    code[24] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 2);
+    code[25] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 2u);
+    code[26] = instructions.HaltOp(opcodes.halt_opcode(), 2);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 0u, 11u, code);
+
+    var constants: Obj[] = Obj[](7u);
+    constants[0] = BoxI64(0);
+    constants[1] = BoxI64(8);
+    constants[2] = BoxI64(0);
+    constants[3] = BoxI64(1);
+    constants[4] = BoxI64(2);
+    constants[5] = BoxI64(3);
+    constants[6] = BoxI64(7);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](1u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+
+    return model.Program("branch_maze", 0u, functions, constants, builtin_table, 2u);
+}
+
+fn build_branch_maze_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "branch_maze",
+        build_branch_maze_program(),
+        61,
+        61,
+        69,
+        117u,
+        0u,
+        22u,
+        1u
+    );
+}
+
+fn build_recursive_program() -> model.Program {
+    var main_code: model.Instruction[] = model.Instruction[](6u);
+    main_code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    main_code[1] = instructions.CallOp(opcodes.call_opcode(), 1u, 1u, 1);
+    main_code[2] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 1);
+    main_code[3] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 1);
+    main_code[4] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 1u);
+    main_code[5] = instructions.HaltOp(opcodes.halt_opcode(), 1);
+
+    var fib_full: model.Instruction[] = model.Instruction[](12u);
+    fib_full[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    fib_full[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 2u);
+    fib_full[2] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 3, 0, 2);
+    fib_full[3] = instructions.JumpIfTrueOp(opcodes.jump_if_true_opcode(), 3, 11u);
+    fib_full[4] = instructions.RegisterCopyOp(opcodes.move_opcode(), 4, 0);
+    fib_full[5] = instructions.SubOp(opcodes.sub_opcode(), 0, 0, 1);
+    fib_full[6] = instructions.CallOp(opcodes.call_opcode(), 1u, 1u, 5);
+    fib_full[7] = instructions.SubOp(opcodes.sub_opcode(), 0, 4, 2);
+    fib_full[8] = instructions.CallOp(opcodes.call_opcode(), 1u, 1u, 6);
+    fib_full[9] = instructions.AddOp(opcodes.add_opcode(), 7, 5, 6);
+    fib_full[10] = instructions.RetOp(opcodes.ret_opcode(), 7);
+    fib_full[11] = instructions.RetOp(opcodes.ret_opcode(), 0);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](2u);
+    functions[0] = model.FunctionInfo("main", 0u, 2u, main_code);
+    functions[1] = model.FunctionInfo("fib", 1u, 8u, fib_full);
+
+    var constants: Obj[] = Obj[](3u);
+    constants[0] = BoxI64(7);
+    constants[1] = BoxI64(1);
+    constants[2] = BoxI64(2);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](1u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+
+    return model.Program("recursive_calls", 0u, functions, constants, builtin_table, 2u);
+}
+
+fn build_recursive_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "recursive_calls",
+        build_recursive_program(),
+        13,
+        13,
+        13,
+        331u,
+        41u,
+        21u,
+        1u
+    );
+}
+
+export fn build_cases() -> model.BenchmarkCase[] {
+    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](4u);
     benchmark_cases[0] = build_minimal_case();
+    benchmark_cases[1] = build_arithmetic_case();
+    benchmark_cases[2] = build_branch_maze_case();
+    benchmark_cases[3] = build_recursive_case();
     return benchmark_cases;
 }

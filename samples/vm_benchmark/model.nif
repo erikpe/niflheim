@@ -10,6 +10,11 @@ export interface VmApi {
     fn call_builtin(index: u64, argc: u64) -> unit;
     fn note_trace(value: i64) -> unit;
     fn advance() -> unit;
+    fn jump(target: u64) -> unit;
+    fn jump_if_true(reg_index: i64, target: u64) -> unit;
+    fn jump_if_false(reg_index: i64, target: u64) -> unit;
+    fn call_function(function_id: u64, argc: u64, dst_reg: i64) -> unit;
+    fn ret_from(src_reg: i64) -> unit;
     fn halt_with(value: i64) -> unit;
 }
 
@@ -26,6 +31,7 @@ export interface Builtin {
 
 export class FunctionInfo {
     name: Str;
+    arg_count: u64;
     register_count: u64;
     instructions: Instruction[];
 }
@@ -46,6 +52,8 @@ export class BenchmarkCase {
     expected_memory0: i64;
     expected_trace_sum: i64;
     expected_instruction_count: u64;
+    expected_call_count: u64;
+    expected_branch_count: u64;
     expected_builtin_calls: u64;
 
     fn expected_checksum() -> i64 {
@@ -54,6 +62,8 @@ export class BenchmarkCase {
         checksum = opcodes.mix_checksum(checksum, __self.expected_memory0);
         checksum = opcodes.mix_checksum(checksum, __self.expected_trace_sum);
         checksum = opcodes.mix_checksum(checksum, (i64)__self.expected_instruction_count);
+        checksum = opcodes.mix_checksum(checksum, (i64)__self.expected_call_count);
+        checksum = opcodes.mix_checksum(checksum, (i64)__self.expected_branch_count);
         checksum = opcodes.mix_checksum(checksum, (i64)__self.expected_builtin_calls);
         return checksum;
     }
@@ -65,6 +75,8 @@ export class BenchmarkCase {
             " memory0=" + Str.from_i64(__self.expected_memory0) +
             " trace=" + Str.from_i64(__self.expected_trace_sum) +
             " steps=" + Str.from_u64(__self.expected_instruction_count) +
+            " calls=" + Str.from_u64(__self.expected_call_count) +
+            " branches=" + Str.from_u64(__self.expected_branch_count) +
             " builtins=" + Str.from_u64(__self.expected_builtin_calls) +
             " checksum=" + Str.from_i64(__self.expected_checksum());
     }
@@ -76,6 +88,8 @@ export class BenchmarkResult {
     memory0: i64;
     trace_sum: i64;
     instruction_count: u64;
+    call_count: u64;
+    branch_count: u64;
     builtin_calls: u64;
 
     fn checksum() -> i64 {
@@ -84,6 +98,8 @@ export class BenchmarkResult {
         checksum = opcodes.mix_checksum(checksum, __self.memory0);
         checksum = opcodes.mix_checksum(checksum, __self.trace_sum);
         checksum = opcodes.mix_checksum(checksum, (i64)__self.instruction_count);
+        checksum = opcodes.mix_checksum(checksum, (i64)__self.call_count);
+        checksum = opcodes.mix_checksum(checksum, (i64)__self.branch_count);
         checksum = opcodes.mix_checksum(checksum, (i64)__self.builtin_calls);
         return checksum;
     }
@@ -94,6 +110,8 @@ export class BenchmarkResult {
             __self.memory0 == bench_case.expected_memory0 &&
             __self.trace_sum == bench_case.expected_trace_sum &&
             __self.instruction_count == bench_case.expected_instruction_count &&
+            __self.call_count == bench_case.expected_call_count &&
+                __self.branch_count == bench_case.expected_branch_count &&
             __self.builtin_calls == bench_case.expected_builtin_calls &&
             __self.checksum() == bench_case.expected_checksum();
     }
@@ -105,6 +123,8 @@ export class BenchmarkResult {
             " memory0=" + Str.from_i64(__self.memory0) +
             " trace=" + Str.from_i64(__self.trace_sum) +
             " steps=" + Str.from_u64(__self.instruction_count) +
+            " calls=" + Str.from_u64(__self.call_count) +
+            " branches=" + Str.from_u64(__self.branch_count) +
             " builtins=" + Str.from_u64(__self.builtin_calls) +
             " checksum=" + Str.from_i64(__self.checksum());
     }

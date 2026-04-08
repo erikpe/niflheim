@@ -6,17 +6,28 @@ export class Frame {
     function_id: u64;
     pc: u64;
     registers: i64[];
+    return_pc: u64;
+    return_dst_reg: i64;
 }
 
 export class Vm implements model.VmApi {
     program: model.Program;
     frame: Frame;
+    frame_stack: Frame[];
+    frame_depth: u64;
     memory: i64[];
     halted: bool;
     return_value: i64;
     trace_sum: i64;
     executed_instructions: u64;
+    executed_calls: u64;
+    taken_branches: u64;
     executed_builtins: u64;
+
+    fn note_branch_taken() -> unit {
+        __self.taken_branches = __self.taken_branches + 1u;
+        return;
+    }
 
     fn current_function() -> model.FunctionInfo {
         return __self.program.functions[(i64)__self.frame.function_id];
@@ -43,6 +54,8 @@ export class Vm implements model.VmApi {
             __self.memory[0],
             __self.trace_sum,
             __self.executed_instructions,
+            __self.executed_calls,
+            __self.taken_branches,
             __self.executed_builtins
         );
     }
@@ -97,6 +110,75 @@ export class Vm implements model.VmApi {
         return;
     }
 
+    fn jump(target: u64) -> unit {
+        __self.note_branch_taken();
+        __self.frame.pc = target;
+        return;
+    }
+
+    fn jump_if_true(reg_index: i64, target: u64) -> unit {
+        if __self.read_reg(reg_index) != 0 {
+            __self.note_branch_taken();
+            __self.frame.pc = target;
+            return;
+        }
+        __self.advance();
+        return;
+    }
+
+    fn jump_if_false(reg_index: i64, target: u64) -> unit {
+        if __self.read_reg(reg_index) == 0 {
+            __self.note_branch_taken();
+            __self.frame.pc = target;
+            return;
+        }
+        __self.advance();
+        return;
+    }
+
+    fn call_function(function_id: u64, argc: u64, dst_reg: i64) -> unit {
+        if function_id >= __self.program.functions.len() {
+            panic("Vm.call_function: function id out of bounds");
+        }
+        if __self.frame_depth >= __self.frame_stack.len() {
+            panic("Vm.call_function: frame stack overflow");
+        }
+
+        var callee_info: model.FunctionInfo = __self.program.functions[(i64)function_id];
+        if argc != callee_info.arg_count {
+            panic("Vm.call_function: argc mismatch");
+        }
+
+        var caller: Frame = __self.frame;
+        var callee_registers: i64[] = i64[](callee_info.register_count);
+        var i: i64 = 0;
+        while (u64)i < argc {
+            callee_registers[i] = caller.registers[i];
+            i = i + 1;
+        }
+
+        __self.frame_stack[(i64)__self.frame_depth] = caller;
+        __self.frame_depth = __self.frame_depth + 1u;
+        __self.executed_calls = __self.executed_calls + 1u;
+        __self.frame = Frame(function_id, 0u, callee_registers, caller.pc + 1u, dst_reg);
+        return;
+    }
+
+    fn ret_from(src_reg: i64) -> unit {
+        var value: i64 = __self.frame.registers[src_reg];
+        if __self.frame_depth == 0u {
+            __self.halt_with(value);
+            return;
+        }
+
+        var finished: Frame = __self.frame;
+        __self.frame_depth = __self.frame_depth - 1u;
+        __self.frame = __self.frame_stack[(i64)__self.frame_depth];
+        __self.frame.registers[finished.return_dst_reg] = value;
+        __self.frame.pc = finished.return_pc;
+        return;
+    }
+
     fn halt_with(value: i64) -> unit {
         __self.return_value = value;
         __self.halted = true;
@@ -107,7 +189,8 @@ export class Vm implements model.VmApi {
 export fn run_case(bench_case: model.BenchmarkCase) -> model.BenchmarkResult {
     var program: model.Program = bench_case.program;
     var entry_function: model.FunctionInfo = program.functions[(i64)program.entry_function_id];
-    var frame: Frame = Frame(program.entry_function_id, 0u, i64[](entry_function.register_count));
-    var vm: Vm = Vm(program, frame, i64[](program.memory_size), false, 0, 0, 0u, 0u);
+    var frame: Frame = Frame(program.entry_function_id, 0u, i64[](entry_function.register_count), 0u, 0);
+    var frame_stack: Frame[] = Frame[](128u);
+    var vm: Vm = Vm(program, frame, frame_stack, 0u, i64[](program.memory_size), false, 0, 0, 0u, 0u, 0u, 0u);
     return vm.run();
 }

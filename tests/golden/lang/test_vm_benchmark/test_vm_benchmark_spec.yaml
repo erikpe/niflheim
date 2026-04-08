@@ -7,4 +7,4 @@ tests:
         name: "slice1_minimal_output"
         expect:
           exit_code: 0
-          stdout: "slice1_minimal: return=14 memory0=14 trace=14 steps=11 builtins=1 checksum=13360164\n"
+          stdout: "slice1_minimal: return=14 memory0=14 trace=14 steps=11 calls=0 branches=0 builtins=1 checksum=12839116644\narithmetic_mixer: return=102 memory0=102 trace=211 steps=88 calls=0 branches=12 builtins=1 checksum=93643033776\nbranch_maze: return=61 memory0=61 trace=69 steps=117 calls=0 branches=22 builtins=1 checksum=55951311931\nrecursive_calls: return=13 memory0=13 trace=13 steps=331 calls=41 branches=21 builtins=1 checksum=11931633463\n"

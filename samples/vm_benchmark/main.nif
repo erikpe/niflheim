@@ -5,7 +5,7 @@ import samples.vm_benchmark.model;
 import samples.vm_benchmark.runtime;
 
 export fn run_and_report() -> i64 {
-    var benchmark_cases: model.BenchmarkCase[] = cases.build_slice1_cases();
+    var benchmark_cases: model.BenchmarkCase[] = cases.build_cases();
     var index: i64 = 0;
 
     while (u64)index < benchmark_cases.len() {
