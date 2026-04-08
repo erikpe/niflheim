@@ -135,7 +135,7 @@ Current relevant state in the repository:
 - direct array fast paths already bypass some runtime helpers for `len`, index reads, index writes, and direct array `for in`
 - interface casts and interface type tests are emitted inline from slot-table metadata
 - array-kind checked casts are emitted inline from direct array ABI checks
-- class checked casts and class type tests still call runtime helpers
+- class checked casts and class type tests still call shared runtime helpers, and Slice 4 keeps that design pending profiling-backed subtype metadata work
 - transitional legacy interface metadata has already been removed from emitted `RtType` records
 
 ## What Should Change, And Where
@@ -271,24 +271,35 @@ Test:
 
 ## Slice 4: Decide The Class Cast/Type-Test Strategy
 
-- [ ] measure or inspect whether class cast/type-test helpers are worth attacking next
-- [ ] if not worth it, explicitly keep them as runtime helpers and stop this plan here
-- [ ] if worth it, choose between inline `super_type` walking and a better subtype metadata design
-- [ ] implement the chosen design with focused tests only after the metadata decision is explicit
+- [x] inspect the current class cast/type-test helper path and confirm it is already a shared `super_type` walk reused by both operations
+- [x] explicitly keep `rt_checked_cast(...)` and `rt_is_instance_of_type(...)` as runtime helpers for now
+- [x] record that naive inline `super_type` walking is rejected until profiling justifies a real subtype-metadata redesign
+- [x] add focused regression coverage for deeper inheritance chains while the helper-based lowering remains in place
+
+Decision:
+
+- keep the current class helper path as-is for now
+- do not inline the existing `super_type` walk into codegen
+- do not add new subtype metadata yet
+
+Rationale:
+
+- the current runtime path is already small: one shared `super_type` chain walk plus one shared bad-cast diagnostic path
+- inlining the same loop into every class cast and class type test would increase emitted code size without improving asymptotic cost
+- unlike interface and array checks, there is no constant-time metadata lookup waiting to be exposed by a simple ABI tweak
+- a real improvement would require a more deliberate subtype-metadata design, which this plan explicitly defers until profiling evidence exists
 
 Change:
 
 - [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
-- [compiler/codegen/metadata.py](../compiler/codegen/metadata.py) if subtype metadata changes
-- [compiler/codegen/emitter_module.py](../compiler/codegen/emitter_module.py) if subtype metadata changes
-- [runtime/src/runtime.c](../runtime/src/runtime.c)
-- [runtime/include/runtime.h](../runtime/include/runtime.h)
+- [docs/RUNTIME_SURFACE_REDUCTION_PLAN.md](../docs/RUNTIME_SURFACE_REDUCTION_PLAN.md)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_deep_inheritance_class_casts_and_type_tests.py](../tests/compiler/integration/test_cli_runtime_smoke/test_deep_inheritance_class_casts_and_type_tests.py)
 
 Test:
 
-- assert class checked casts and class type tests preserve current inheritance semantics
-- assert deeper inheritance chains remain correct
-- compare generated code only after the metadata strategy is settled
+- assert class checked casts still emit `call rt_checked_cast`
+- assert class type tests still emit `call rt_is_instance_of_type`
+- assert deeper inheritance chains still behave correctly for both casts and type tests
 
 ## Suggested Validation Strategy
 

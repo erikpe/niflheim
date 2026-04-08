@@ -262,6 +262,9 @@ def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: Emit
     codegen.asm.instr(f"mov rax, qword ptr [rax + {field_offset}]")
 
 
+# Class casts and class type tests intentionally stay on the shared runtime helper path.
+# Inlining the current super_type walk would duplicate loop and bad-cast logic at each call site
+# without changing the asymptotic cost, so we only revisit this if profiling justifies new subtype metadata.
 def _emit_class_reference_type_runtime_check(
     codegen: CodeGenerator,
     operand: SemanticExpr,
