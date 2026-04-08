@@ -114,9 +114,6 @@ _RUNTIME_CALL_METADATA_BY_NAME: dict[str, RuntimeCallMetadata] = {
     "rt_is_instance_of_interface": _runtime_call_metadata(
         "rt_is_instance_of_interface", ref_arg_indices=(0,), may_gc=False
     ),
-    "rt_lookup_interface_method": _runtime_call_metadata(
-        "rt_lookup_interface_method", ref_arg_indices=(0,), may_gc=False
-    ),
     "rt_panic_null_term_array": _runtime_call_metadata(
         "rt_panic_null_term_array", ref_arg_indices=(0,), may_gc=False, needs_safepoint_hooks=False
     ),

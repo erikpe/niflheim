@@ -310,9 +310,9 @@ Test:
 
 ## Slice 5: Move Runtime Cast/Test Helpers To The Same Slot Model
 
-- [ ] rewrite interface cast/type-test helpers to use descriptor slot indices
-- [ ] remove the linear search helper if it becomes unused
-- [ ] remove the public runtime lookup helper if codegen no longer uses it
+- [x] rewrite interface cast/type-test helpers to use descriptor slot indices
+- [x] remove the linear search helper if it becomes unused
+- [x] remove the public runtime lookup helper if codegen no longer uses it
 
 Change:
 

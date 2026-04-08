@@ -113,8 +113,6 @@ void rt_trace_set_location(uint32_t line, uint32_t column);
 
 void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
 void rt_panic_null_deref(void);
-const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const RtInterfaceType* interface_type);
-void* rt_lookup_interface_method(void* obj, const RtInterfaceType* interface_type, uint32_t slot);
 void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
 double rt_cast_u64_to_double(uint64_t value);

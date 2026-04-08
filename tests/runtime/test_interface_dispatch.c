@@ -28,19 +28,9 @@ static const void* KEY_EQUALABLE_METHODS[1] = {
     (const void*)0x3333,
 };
 
-static const RtInterfaceImpl KEY_INTERFACES[2] = {
-    {
-        .interface_type = &HASHABLE_INTERFACE,
-        .method_table = KEY_HASHABLE_METHODS,
-        .method_count = 2u,
-        .reserved0 = 0u,
-    },
-    {
-        .interface_type = &EQUALABLE_INTERFACE,
-        .method_table = KEY_EQUALABLE_METHODS,
-        .method_count = 1u,
-        .reserved0 = 0u,
-    },
+static const void* KEY_INTERFACE_TABLES[2] = {
+    KEY_HASHABLE_METHODS,
+    KEY_EQUALABLE_METHODS,
 };
 
 static const RtType KEY_TYPE = {
@@ -55,14 +45,14 @@ static const RtType KEY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = NULL,
-    .interface_tables = NULL,
-    .interface_slot_count = 0u,
+    .interface_tables = KEY_INTERFACE_TABLES,
+    .interface_slot_count = 2u,
     .reserved1 = 0u,
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = KEY_INTERFACES,
-    .legacy_interface_count = 2u,
+    .legacy_interfaces = NULL,
+    .legacy_interface_count = 0u,
     .reserved3 = 0u,
 };
 
@@ -76,16 +66,44 @@ static void* alloc_leaf(const RtType* type) {
     return rt_alloc_obj(rt_thread_state(), type, 0u);
 }
 
+static void* lookup_interface_method_for_test(void* obj, const RtInterfaceType* interface_type, uint32_t slot) {
+    if (obj == NULL) {
+        rt_panic_null_deref();
+    }
+    if (interface_type == NULL) {
+        rt_panic("interface dispatch test helper called with NULL interface_type");
+    }
+
+    const RtObjHeader* header = (const RtObjHeader*)obj;
+    if (header->type->interface_tables == NULL || interface_type->slot_index >= header->type->interface_slot_count) {
+        rt_panic_bad_cast(header->type->debug_name, interface_type->debug_name);
+    }
+
+    const void* method_table = header->type->interface_tables[interface_type->slot_index];
+    if (method_table == NULL) {
+        rt_panic_bad_cast(header->type->debug_name, interface_type->debug_name);
+    }
+    if (slot >= interface_type->method_count) {
+        rt_panic("interface dispatch: invalid interface method slot");
+    }
+
+    const void* method = ((const void* const*)method_table)[slot];
+    if (method == NULL) {
+        rt_panic("interface dispatch: null interface method entry");
+    }
+    return (void*)method;
+}
+
 static void test_lookup_interface_method_returns_slot_ordered_entries(void) {
     void* obj = alloc_leaf(&KEY_TYPE);
 
-    if (rt_lookup_interface_method(obj, &HASHABLE_INTERFACE, 0u) != (void*)0x1111) {
+    if (lookup_interface_method_for_test(obj, &HASHABLE_INTERFACE, 0u) != (void*)0x1111) {
         fail("expected Hashable slot 0 method pointer");
     }
-    if (rt_lookup_interface_method(obj, &HASHABLE_INTERFACE, 1u) != (void*)0x2222) {
+    if (lookup_interface_method_for_test(obj, &HASHABLE_INTERFACE, 1u) != (void*)0x2222) {
         fail("expected Hashable slot 1 method pointer");
     }
-    if (rt_lookup_interface_method(obj, &EQUALABLE_INTERFACE, 0u) != (void*)0x3333) {
+    if (lookup_interface_method_for_test(obj, &EQUALABLE_INTERFACE, 0u) != (void*)0x3333) {
         fail("expected Equalable slot 0 method pointer");
     }
 }

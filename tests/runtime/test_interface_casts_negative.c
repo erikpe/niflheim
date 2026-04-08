@@ -22,13 +22,9 @@ static const void* HASH_ONLY_METHODS[1] = {
     (const void*)0x1111,
 };
 
-static const RtInterfaceImpl HASH_ONLY_INTERFACES[1] = {
-    {
-        .interface_type = &HASHABLE_INTERFACE,
-        .method_table = HASH_ONLY_METHODS,
-        .method_count = 1u,
-        .reserved0 = 0u,
-    },
+static const void* HASH_ONLY_INTERFACE_TABLES[2] = {
+    HASH_ONLY_METHODS,
+    NULL,
 };
 
 static const RtType HASH_ONLY_TYPE = {
@@ -43,14 +39,14 @@ static const RtType HASH_ONLY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = NULL,
-    .interface_tables = NULL,
-    .interface_slot_count = 0u,
+    .interface_tables = HASH_ONLY_INTERFACE_TABLES,
+    .interface_slot_count = 2u,
     .reserved1 = 0u,
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = HASH_ONLY_INTERFACES,
-    .legacy_interface_count = 1u,
+    .legacy_interfaces = NULL,
+    .legacy_interface_count = 0u,
     .reserved3 = 0u,
 };
 

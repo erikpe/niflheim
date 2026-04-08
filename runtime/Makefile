@@ -106,7 +106,7 @@ test-interface-dispatch-negative: $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(NEGATIVE_
 	@$(NEGATIVE_DRIVER) test_interface_dispatch_negative ./$(INTERFACE_DISPATCH_NEGATIVE_BIN) \
 		"null_receiver::panic: null dereference" \
 		"missing_interface::panic: bad cast (Plain -> Hashable)" \
-		"slot_out_of_bounds::panic: rt_lookup_interface_method: invalid interface method slot"
+		"slot_out_of_bounds::panic: interface dispatch: invalid interface method slot"
 
 test-tracked-set-tombstones: $(TRACKED_SET_TOMBSTONES_BIN)
 	./$(TRACKED_SET_TOMBSTONES_BIN)

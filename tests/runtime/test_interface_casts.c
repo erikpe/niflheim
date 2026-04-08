@@ -30,28 +30,14 @@ static const void* KEY_EQUALABLE_METHODS[1] = {
     (const void*)0x3333,
 };
 
-static const RtInterfaceImpl HASH_ONLY_INTERFACES[1] = {
-    {
-        .interface_type = &HASHABLE_INTERFACE,
-        .method_table = HASH_ONLY_METHODS,
-        .method_count = 1u,
-        .reserved0 = 0u,
-    },
+static const void* HASH_ONLY_INTERFACE_TABLES[2] = {
+    HASH_ONLY_METHODS,
+    NULL,
 };
 
-static const RtInterfaceImpl KEY_INTERFACES[2] = {
-    {
-        .interface_type = &HASHABLE_INTERFACE,
-        .method_table = KEY_HASHABLE_METHODS,
-        .method_count = 1u,
-        .reserved0 = 0u,
-    },
-    {
-        .interface_type = &EQUALABLE_INTERFACE,
-        .method_table = KEY_EQUALABLE_METHODS,
-        .method_count = 1u,
-        .reserved0 = 0u,
-    },
+static const void* KEY_INTERFACE_TABLES[2] = {
+    KEY_HASHABLE_METHODS,
+    KEY_EQUALABLE_METHODS,
 };
 
 static const RtType HASH_ONLY_TYPE = {
@@ -66,14 +52,14 @@ static const RtType HASH_ONLY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = NULL,
-    .interface_tables = NULL,
-    .interface_slot_count = 0u,
+    .interface_tables = HASH_ONLY_INTERFACE_TABLES,
+    .interface_slot_count = 2u,
     .reserved1 = 0u,
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = HASH_ONLY_INTERFACES,
-    .legacy_interface_count = 1u,
+    .legacy_interfaces = NULL,
+    .legacy_interface_count = 0u,
     .reserved3 = 0u,
 };
 
@@ -89,14 +75,14 @@ static const RtType KEY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = NULL,
-    .interface_tables = NULL,
-    .interface_slot_count = 0u,
+    .interface_tables = KEY_INTERFACE_TABLES,
+    .interface_slot_count = 2u,
     .reserved1 = 0u,
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = KEY_INTERFACES,
-    .legacy_interface_count = 2u,
+    .legacy_interfaces = NULL,
+    .legacy_interface_count = 0u,
     .reserved3 = 0u,
 };
 
@@ -112,14 +98,14 @@ static const RtType DERIVED_KEY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = &KEY_TYPE,
-    .interface_tables = NULL,
-    .interface_slot_count = 0u,
+    .interface_tables = KEY_INTERFACE_TABLES,
+    .interface_slot_count = 2u,
     .reserved1 = 0u,
     .class_vtable = NULL,
     .class_vtable_count = 0u,
     .reserved2 = 0u,
-    .legacy_interfaces = KEY_INTERFACES,
-    .legacy_interface_count = 2u,
+    .legacy_interfaces = NULL,
+    .legacy_interface_count = 0u,
     .reserved3 = 0u,
 };
 
@@ -171,6 +157,28 @@ static void test_checked_cast_accepts_derived_instance_for_base_type(void) {
     }
 }
 
+static void test_is_instance_of_interface_uses_slot_tables(void) {
+    void* hash_only = alloc_leaf(&HASH_ONLY_TYPE);
+    void* key = alloc_leaf(&KEY_TYPE);
+    void* derived = alloc_leaf(&DERIVED_KEY_TYPE);
+
+    if (rt_is_instance_of_interface(NULL, &HASHABLE_INTERFACE) != 0u) {
+        fail("null should not be an instance of any interface");
+    }
+    if (rt_is_instance_of_interface(hash_only, &HASHABLE_INTERFACE) != 1u) {
+        fail("HashOnly should report its implemented interface via slot tables");
+    }
+    if (rt_is_instance_of_interface(hash_only, &EQUALABLE_INTERFACE) != 0u) {
+        fail("HashOnly should not report an unimplemented interface");
+    }
+    if (rt_is_instance_of_interface(key, &EQUALABLE_INTERFACE) != 1u) {
+        fail("Key should report Equalable via slot tables");
+    }
+    if (rt_is_instance_of_interface(derived, &HASHABLE_INTERFACE) != 1u) {
+        fail("DerivedKey should report inherited interfaces via populated slot tables");
+    }
+}
+
 static void test_is_instance_of_type_walks_superclass_chain(void) {
     void* derived = alloc_leaf(&DERIVED_KEY_TYPE);
     void* base = alloc_leaf(&KEY_TYPE);
@@ -194,6 +202,7 @@ int main(void) {
     test_checked_cast_interface_checks_interface_value_at_runtime();
     test_checked_cast_interface_accepts_single_interface_impl();
     test_checked_cast_accepts_derived_instance_for_base_type();
+    test_is_instance_of_interface_uses_slot_tables();
     test_is_instance_of_type_walks_superclass_chain();
 
     rt_shutdown();

@@ -214,52 +214,29 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
 }
 
 
-const RtInterfaceImpl* rt_find_interface_impl(const RtType* concrete_type, const RtInterfaceType* interface_type) {
-    if (concrete_type == NULL || interface_type == NULL) {
-        return NULL;
-    }
-
-    const RtInterfaceImpl* interfaces = concrete_type->legacy_interfaces;
-    if (interfaces == NULL || concrete_type->legacy_interface_count == 0u) {
-        return NULL;
-    }
-
-    for (uint32_t index = 0; index < concrete_type->legacy_interface_count; index++) {
-        const RtInterfaceImpl* impl = &interfaces[index];
-        if (impl->interface_type == interface_type) {
-            return impl;
-        }
-    }
-
-    return NULL;
-}
-
-void* rt_lookup_interface_method(void* obj, const RtInterfaceType* interface_type, uint32_t slot) {
-    if (obj == NULL) {
-        rt_panic_null_deref();
-    }
+static const void* const* rt_lookup_interface_table(
+    const RtType* concrete_type,
+    const RtInterfaceType* interface_type
+) {
     if (interface_type == NULL) {
-        rt_panic("rt_lookup_interface_method called with NULL interface_type");
+        rt_panic("rt_lookup_interface_table called with NULL interface_type");
+    }
+    if (concrete_type == NULL) {
+        return NULL;
+    }
+    if (concrete_type->interface_tables == NULL) {
+        return NULL;
+    }
+    if (interface_type->slot_index >= concrete_type->interface_slot_count) {
+        return NULL;
     }
 
-    RtObjHeader* header = (RtObjHeader*)obj;
-    const RtInterfaceImpl* impl = rt_find_interface_impl(header->type, interface_type);
-    if (impl == NULL) {
-        rt_panic_bad_cast(
-            rt_type_name_or_unknown(header->type),
-            rt_interface_name_or_unknown(interface_type)
-        );
-    }
-    if (impl->method_table == NULL || slot >= impl->method_count || slot >= interface_type->method_count) {
-        rt_panic("rt_lookup_interface_method: invalid interface method slot");
+    const void* method_table = concrete_type->interface_tables[interface_type->slot_index];
+    if (method_table == NULL) {
+        return NULL;
     }
 
-    const void* const* method_table = (const void* const*)impl->method_table;
-    const void* method = method_table[slot];
-    if (method == NULL) {
-        rt_panic("rt_lookup_interface_method: null interface method entry");
-    }
-    return (void*)method;
+    return (const void* const*)method_table;
 }
 
 static uint64_t rt_obj_implements_interface(void* obj, const RtInterfaceType* expected_interface) {
@@ -271,7 +248,7 @@ static uint64_t rt_obj_implements_interface(void* obj, const RtInterfaceType* ex
     }
 
     RtObjHeader* header = (RtObjHeader*)obj;
-    return rt_find_interface_impl(header->type, expected_interface) != NULL ? 1u : 0u;
+    return rt_lookup_interface_table(header->type, expected_interface) != NULL ? 1u : 0u;
 }
 
 static uint64_t rt_type_is_instance_of(const RtType* concrete_type, const RtType* expected_type) {

@@ -41,6 +41,11 @@ static const RtInterfaceImpl KEY_INTERFACES[2] = {
     },
 };
 
+static const void* KEY_INTERFACE_TABLES[2] = {
+    KEY_HASHABLE_METHODS,
+    KEY_EQUALABLE_METHODS,
+};
+
 static const RtType KEY_TYPE = {
     .type_id = 0x4B455931u,
     .flags = RT_TYPE_FLAG_LEAF,
@@ -53,8 +58,8 @@ static const RtType KEY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = NULL,
-    .interface_tables = NULL,
-    .interface_slot_count = 0u,
+    .interface_tables = KEY_INTERFACE_TABLES,
+    .interface_slot_count = 2u,
     .reserved1 = 0u,
     .class_vtable = NULL,
     .class_vtable_count = 0u,
@@ -76,8 +81,8 @@ static const RtType DERIVED_KEY_TYPE = {
     .pointer_offsets_count = 0u,
     .reserved0 = 0u,
     .super_type = &KEY_TYPE,
-    .interface_tables = NULL,
-    .interface_slot_count = 0u,
+    .interface_tables = KEY_INTERFACE_TABLES,
+    .interface_slot_count = 2u,
     .reserved1 = 0u,
     .class_vtable = NULL,
     .class_vtable_count = 0u,
@@ -117,79 +122,93 @@ static void fail(const char* message) {
 }
 
 
-static void test_rt_type_exposes_slice1_slotted_interface_fields(void) {
+static const void* const* lookup_interface_table(const RtType* concrete_type, const RtInterfaceType* interface_type) {
+    if (concrete_type == NULL || interface_type == NULL) {
+        return NULL;
+    }
+    if (concrete_type->interface_tables == NULL) {
+        return NULL;
+    }
+    if (interface_type->slot_index >= concrete_type->interface_slot_count) {
+        return NULL;
+    }
+
+    const void* method_table = concrete_type->interface_tables[interface_type->slot_index];
+    return (const void* const*)method_table;
+}
+
+
+static void test_rt_type_exposes_slotted_interface_tables(void) {
     if (HASHABLE_INTERFACE.slot_index != 0u) {
         fail("Hashable should expose slot_index in interface descriptor");
     }
     if (EQUALABLE_INTERFACE.slot_index != 1u) {
         fail("Equalable should expose slot_index in interface descriptor");
     }
-    if (KEY_TYPE.interface_tables != NULL) {
-        fail("slice 1 should leave direct interface table storage unset");
+    if (KEY_TYPE.interface_tables != KEY_INTERFACE_TABLES) {
+        fail("Key should expose direct interface table storage");
     }
-    if (KEY_TYPE.interface_slot_count != 0u) {
-        fail("slice 1 should leave interface slot table count at zero before slot assignment");
+    if (KEY_TYPE.interface_slot_count != 2u) {
+        fail("Key should expose the full interface slot count");
     }
     if (KEY_TYPE.legacy_interfaces != KEY_INTERFACES) {
-        fail("slice 1 should preserve legacy compact interface metadata");
+        fail("legacy compact interface metadata should remain available during the transition");
     }
     if (KEY_TYPE.legacy_interface_count != 2u) {
-        fail("slice 1 should preserve legacy interface metadata count");
+        fail("legacy interface metadata count should remain available during the transition");
     }
 }
 
 
-static void test_find_interface_impl_finds_matching_descriptor(void) {
-    const RtInterfaceImpl* hashable = rt_find_interface_impl(&KEY_TYPE, &HASHABLE_INTERFACE);
+static void test_lookup_interface_table_returns_slot_ordered_tables(void) {
+    const void* const* hashable = lookup_interface_table(&KEY_TYPE, &HASHABLE_INTERFACE);
     if (hashable == NULL) {
-        fail("expected Hashable metadata record");
+        fail("expected Hashable slot table");
     }
-    if (hashable->interface_type != &HASHABLE_INTERFACE) {
-        fail("returned interface metadata should preserve descriptor pointer");
+    if (hashable[0] != (const void*)0x1111) {
+        fail("Hashable slot 0 should preserve the emitted method entry");
     }
-    if (hashable->method_table != KEY_HASHABLE_METHODS) {
-        fail("returned interface metadata should preserve method table pointer");
-    }
-    if (hashable->method_count != 1u) {
-        fail("returned interface metadata should preserve method count");
+    if (hashable[1] != (const void*)0x2222) {
+        fail("Hashable slot 1 should preserve the emitted method entry");
     }
 
-    const RtInterfaceImpl* inherited = rt_find_interface_impl(&DERIVED_KEY_TYPE, &HASHABLE_INTERFACE);
-    if (inherited == NULL) {
-        fail("derived type should expose inherited Hashable metadata record");
+    const void* const* equalable = lookup_interface_table(&KEY_TYPE, &EQUALABLE_INTERFACE);
+    if (equalable == NULL) {
+        fail("expected Equalable slot table");
     }
-    if (inherited->method_table != KEY_HASHABLE_METHODS) {
+    if (equalable[0] != (const void*)0x2222) {
+        fail("Equalable slot 0 should preserve the emitted method entry");
+    }
+
+    const void* const* inherited = lookup_interface_table(&DERIVED_KEY_TYPE, &HASHABLE_INTERFACE);
+    if (inherited == NULL) {
+        fail("derived type should expose inherited Hashable slot table");
+    }
+    if (inherited != hashable) {
         fail("derived type should preserve inherited method table pointer");
     }
 }
 
-
-static void test_find_interface_impl_returns_null_for_missing_or_empty_metadata(void) {
-    if (rt_find_interface_impl(&KEY_TYPE, NULL) != NULL) {
-        fail("NULL interface descriptor should not match");
+static void test_lookup_interface_table_returns_null_for_missing_or_empty_slots(void) {
+    if (lookup_interface_table(&KEY_TYPE, NULL) != NULL) {
+        fail("NULL interface descriptor should not match a slot table");
     }
-    if (rt_find_interface_impl(NULL, &HASHABLE_INTERFACE) != NULL) {
-        fail("NULL concrete type should not match");
+    if (lookup_interface_table(NULL, &HASHABLE_INTERFACE) != NULL) {
+        fail("NULL concrete type should not match a slot table");
     }
-    if (rt_find_interface_impl(&PLAIN_TYPE, &HASHABLE_INTERFACE) != NULL) {
-        fail("type without interface metadata should not match");
+    if (lookup_interface_table(&PLAIN_TYPE, &HASHABLE_INTERFACE) != NULL) {
+        fail("types without interface tables should return null");
     }
-    if (
-        rt_find_interface_impl(
-            &KEY_TYPE,
-            &((RtInterfaceType){.debug_name = "Missing", .slot_index = 99u, .method_count = 1u, .reserved0 = 0u})
-        )
-        != NULL
-    ) {
-        fail("different interface descriptor pointer should not match");
+    if (lookup_interface_table(&KEY_TYPE, &((RtInterfaceType){.debug_name = "Missing", .slot_index = 99u, .method_count = 1u, .reserved0 = 0u})) != NULL) {
+        fail("missing interface slots should return null");
     }
 }
 
 
 int main(void) {
-    test_rt_type_exposes_slice1_slotted_interface_fields();
-    test_find_interface_impl_finds_matching_descriptor();
-    test_find_interface_impl_returns_null_for_missing_or_empty_metadata();
+    test_rt_type_exposes_slotted_interface_tables();
+    test_lookup_interface_table_returns_slot_ordered_tables();
+    test_lookup_interface_table_returns_null_for_missing_or_empty_slots();
 
     puts("test_interface_metadata: ok");
     return 0;

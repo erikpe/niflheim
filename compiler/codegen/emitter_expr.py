@@ -719,7 +719,7 @@ def _emit_interface_method_lookup(
     codegen.asm.instr(f"mov rax, {interface_method_entry_operand('rax', method_slot)}")
     codegen.asm.instr("test rax, rax")
     codegen.asm.instr(f"jne {interface_match_label}_done")
-    message_label = codegen.runtime_panic_message_label("rt_lookup_interface_method: null interface method entry")
+    message_label = codegen.runtime_panic_message_label("interface dispatch: null interface method entry")
     codegen.asm.instr(f"lea rdi, [rip + {message_label}]")
     codegen.emit_aligned_call("rt_panic")
     codegen.asm.label(interface_match_label)
