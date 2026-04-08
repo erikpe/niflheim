@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from compiler.common.logging import get_logger
+from compiler.common.collection_protocols import CollectionOpKind, array_runtime_kind_for_element_type_name
 from compiler.semantic.ir import *
+from compiler.semantic.types import semantic_type_array_element, semantic_type_canonical_name, semantic_type_is_array
 
 from .helpers.interface_dispatch import build_interface_dispatch_index, resolve_implementing_method
 from .helpers.narrowing_state import (
@@ -24,6 +26,7 @@ class _DevirtualizationStats:
     devirtualized_virtual_calls: int = 0
     specialized_interface_dispatches: int = 0
     specialized_virtual_dispatches: int = 0
+    recovered_array_runtime_dispatches: int = 0
     skipped_non_local_receivers: int = 0
     skipped_without_exact_receiver_type: int = 0
 
@@ -41,11 +44,12 @@ def interface_call_devirtualization(program: SemanticProgram) -> SemanticProgram
     )
     logger.debugv(
         1,
-        "Optimization pass interface_call_devirtualization devirtualized %d interface calls, devirtualized %d virtual calls, specialized %d structural interface dispatches, specialized %d structural virtual dispatches, skipped %d non-local receivers, skipped %d cases without exact receiver type",
+        "Optimization pass interface_call_devirtualization devirtualized %d interface calls, devirtualized %d virtual calls, specialized %d structural interface dispatches, specialized %d structural virtual dispatches, recovered %d array runtime dispatches, skipped %d non-local receivers, skipped %d cases without exact receiver type",
         stats.devirtualized_interface_calls,
         stats.devirtualized_virtual_calls,
         stats.specialized_interface_dispatches,
         stats.specialized_virtual_dispatches,
+        stats.recovered_array_runtime_dispatches,
         stats.skipped_non_local_receivers,
         stats.skipped_without_exact_receiver_type,
     )
@@ -205,6 +209,7 @@ def _rewrite_stmt(
                 iter_len_dispatch=_maybe_specialize_structural_dispatch(
                     stmt.iter_len_dispatch,
                     rewritten_collection,
+                    CollectionOpKind.ITER_LEN,
                     state,
                     dispatch_index,
                     stats,
@@ -212,6 +217,7 @@ def _rewrite_stmt(
                 iter_get_dispatch=_maybe_specialize_structural_dispatch(
                     stmt.iter_get_dispatch,
                     rewritten_collection,
+                    CollectionOpKind.ITER_GET,
                     state,
                     dispatch_index,
                     stats,
@@ -253,6 +259,7 @@ def _rewrite_lvalue(
             dispatch=_maybe_specialize_structural_dispatch(
                 target.dispatch,
                 rewritten_target,
+                CollectionOpKind.INDEX_SET,
                 state,
                 dispatch_index,
                 stats,
@@ -268,6 +275,7 @@ def _rewrite_lvalue(
             dispatch=_maybe_specialize_structural_dispatch(
                 target.dispatch,
                 rewritten_target,
+                CollectionOpKind.SLICE_SET,
                 state,
                 dispatch_index,
                 stats,
@@ -366,6 +374,7 @@ def _rewrite_expr(
             dispatch=_maybe_specialize_structural_dispatch(
                 expr.dispatch,
                 rewritten_target,
+                CollectionOpKind.INDEX_GET,
                 state,
                 dispatch_index,
                 stats,
@@ -382,6 +391,7 @@ def _rewrite_expr(
             dispatch=_maybe_specialize_structural_dispatch(
                 expr.dispatch,
                 rewritten_target,
+                CollectionOpKind.SLICE_GET,
                 state,
                 dispatch_index,
                 stats,
@@ -419,10 +429,21 @@ def _maybe_devirtualize_call_target(
 def _maybe_specialize_structural_dispatch(
     dispatch: SemanticDispatch,
     receiver: SemanticExpr,
+    operation: CollectionOpKind,
     state: NarrowState,
     dispatch_index,
     stats: _DevirtualizationStats,
 ) -> SemanticDispatch:
+    recovered_array_dispatch = _maybe_recover_array_runtime_dispatch(
+        dispatch,
+        receiver,
+        operation,
+        state,
+        stats,
+    )
+    if recovered_array_dispatch is not None:
+        return recovered_array_dispatch
+
     if not isinstance(dispatch, InterfaceDispatch):
         if not isinstance(dispatch, VirtualMethodDispatch):
             return dispatch
@@ -450,6 +471,23 @@ def _maybe_specialize_structural_dispatch(
 
     stats.specialized_interface_dispatches += 1
     return MethodDispatch(method_id=method_id)
+
+
+def _maybe_recover_array_runtime_dispatch(
+    dispatch: SemanticDispatch,
+    receiver: SemanticExpr,
+    operation: CollectionOpKind,
+    state: NarrowState,
+    stats: _DevirtualizationStats,
+) -> RuntimeDispatch | None:
+    exact_array_type = _exact_array_receiver_type(receiver, state)
+    if exact_array_type is None:
+        return None
+
+    recovered_dispatch = _runtime_dispatch_for_exact_array(operation, exact_array_type)
+    if dispatch != recovered_dispatch:
+        stats.recovered_array_runtime_dispatches += 1
+    return recovered_dispatch
 
 
 def _maybe_devirtualize_virtual_call_target(
@@ -489,6 +527,18 @@ def _exact_local_receiver_type(
     return exact_type
 
 
+def _exact_array_receiver_type(receiver: SemanticExpr, state: NarrowState) -> SemanticTypeRef | None:
+    exact_type, _ = _resolve_exact_receiver_type(receiver, state)
+    if exact_type is not None and semantic_type_is_array(exact_type):
+        return exact_type
+
+    receiver_type_ref = expression_type_ref(receiver)
+    if semantic_type_is_array(receiver_type_ref):
+        return receiver_type_ref
+
+    return None
+
+
 def _resolve_exact_receiver_type(
     receiver: SemanticExpr,
     state: NarrowState,
@@ -525,6 +575,17 @@ def _exact_virtual_receiver_type(
         stats.skipped_without_exact_receiver_type += 1
         return None
     return exact_type
+
+
+def _runtime_dispatch_for_exact_array(operation: CollectionOpKind, exact_array_type: SemanticTypeRef) -> RuntimeDispatch:
+    if operation in {CollectionOpKind.LEN, CollectionOpKind.ITER_LEN}:
+        return RuntimeDispatch(operation=operation)
+
+    element_type_name = semantic_type_canonical_name(semantic_type_array_element(exact_array_type))
+    return RuntimeDispatch(
+        operation=operation,
+        runtime_kind=array_runtime_kind_for_element_type_name(element_type_name),
+    )
 
 
 def _block_always_exits(block: SemanticBlock) -> bool:

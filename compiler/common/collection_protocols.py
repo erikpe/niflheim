@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import Enum, auto
 
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
+
 COLLECTION_METHOD_LEN = "len"
 COLLECTION_METHOD_INDEX_GET = "index_get"
 COLLECTION_METHOD_INDEX_SET = "index_set"
@@ -66,3 +68,17 @@ def collection_method_name(op_kind: CollectionOpKind) -> str:
 
 def collection_op_from_method_name(method_name: str) -> CollectionOpKind | None:
     return _COLLECTION_OP_KIND_BY_METHOD_NAME.get(method_name)
+
+
+def array_runtime_kind_for_element_type_name(element_type_name: str) -> ArrayRuntimeKind:
+    if element_type_name == TYPE_NAME_I64:
+        return ArrayRuntimeKind.I64
+    if element_type_name == TYPE_NAME_U64:
+        return ArrayRuntimeKind.U64
+    if element_type_name == TYPE_NAME_U8:
+        return ArrayRuntimeKind.U8
+    if element_type_name == TYPE_NAME_BOOL:
+        return ArrayRuntimeKind.BOOL
+    if element_type_name == TYPE_NAME_DOUBLE:
+        return ArrayRuntimeKind.DOUBLE
+    return ArrayRuntimeKind.REF

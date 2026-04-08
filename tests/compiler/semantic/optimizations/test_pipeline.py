@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
+from compiler.common.collection_protocols import CollectionOpKind
 from compiler.resolver import resolve_program
 from compiler.semantic.ir import (
     CallExprS,
@@ -12,6 +14,7 @@ from compiler.semantic.ir import (
     IntConstant,
     LiteralExprS,
     MethodDispatch,
+    RuntimeDispatch,
     SemanticForIn,
     SemanticIf,
     SemanticReturn,
@@ -19,6 +22,9 @@ from compiler.semantic.ir import (
     SemanticWhile,
     VirtualMethodCallTarget,
 )
+from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowering.executable import LoweredSemanticForInStrategy, lower_linked_semantic_program
+from compiler.semantic.lowered_ir import LoweredSemanticForIn
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.copy_propagation import copy_propagation
 from compiler.semantic.optimizations.constant_fold import constant_fold
@@ -34,10 +40,31 @@ from compiler.semantic.optimizations.pipeline import (
 from compiler.semantic.optimizations.unreachable_prune import unreachable_prune
 from compiler.semantic.optimizations.redundant_cast_elimination import redundant_cast_elimination
 from compiler.semantic.optimizations.simplify_control_flow import simplify_control_flow
+from compiler.semantic.symbols import MethodId
 
 
 def _write(path: Path, text: str) -> None:
     path.write_text(text.strip() + "\n", encoding="utf-8")
+
+
+def _erased_array_method_dispatch(method_name: str) -> MethodDispatch:
+    return MethodDispatch(method_id=MethodId(module_path=("main",), class_name="ErasedArray", name=method_name))
+
+
+def _erase_array_structural_dispatches(program):
+    module = program.modules[("main",)]
+    fn = module.functions[0]
+    statements = list(fn.body.statements)
+    loop_stmt = next(stmt for stmt in statements if isinstance(stmt, SemanticForIn))
+    loop_index = statements.index(loop_stmt)
+    statements[loop_index] = replace(
+        loop_stmt,
+        iter_len_dispatch=_erased_array_method_dispatch("iter_len"),
+        iter_get_dispatch=_erased_array_method_dispatch("iter_get"),
+    )
+    rewritten_fn = replace(fn, body=replace(fn.body, statements=statements))
+    rewritten_module = replace(module, functions=[rewritten_fn])
+    return replace(program, modules={**program.modules, ("main",): rewritten_module})
 
 
 def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) -> None:
@@ -632,3 +659,44 @@ def test_optimize_semantic_program_keeps_loop_reassignment_virtual_dispatch_dyna
     assert isinstance(loop_stmt.body.statements[-1], SemanticReturn)
     assert isinstance(loop_stmt.body.statements[-1].value, CallExprS)
     assert isinstance(loop_stmt.body.statements[-1].value.target, VirtualMethodCallTarget)
+
+
+def test_optimize_semantic_program_recovers_array_direct_for_in_after_dispatch_erasure(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var values: i64[] = i64[](2u);
+            values[0] = 4;
+            values[1] = 6;
+
+            var sum: i64 = 0;
+            for value in values {
+                sum = sum + value;
+            }
+
+            return sum;
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(
+        lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)),
+        passes=(
+            SemanticOptimizationPass(name="erase_array_dispatches", transform=_erase_array_structural_dispatches),
+            *DEFAULT_SEMANTIC_OPTIMIZATION_PASSES,
+        ),
+    )
+    loop_stmt = next(stmt for stmt in optimized.modules[("main",)].functions[0].body.statements if isinstance(stmt, SemanticForIn))
+
+    assert isinstance(loop_stmt.iter_len_dispatch, RuntimeDispatch)
+    assert loop_stmt.iter_len_dispatch.operation is CollectionOpKind.ITER_LEN
+    assert isinstance(loop_stmt.iter_get_dispatch, RuntimeDispatch)
+    assert loop_stmt.iter_get_dispatch.operation is CollectionOpKind.ITER_GET
+
+    lowered = lower_linked_semantic_program(link_semantic_program(optimized))
+    lowered_loop = next(stmt for stmt in lowered.functions[0].body.statements if isinstance(stmt, LoweredSemanticForIn))
+
+    assert lowered_loop.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT
+    assert isinstance(lowered_loop.iter_len_dispatch, RuntimeDispatch)
+    assert isinstance(lowered_loop.iter_get_dispatch, RuntimeDispatch)

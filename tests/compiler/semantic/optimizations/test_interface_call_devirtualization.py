@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
+from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind
 from compiler.resolver import resolve_program
 from compiler.semantic.ir import (
     InterfaceDispatch,
@@ -10,6 +12,7 @@ from compiler.semantic.ir import (
     InstanceMethodCallTarget,
     InterfaceMethodCallTarget,
     MethodDispatch,
+    RuntimeDispatch,
     SemanticAssign,
     SemanticForIn,
     SemanticIf,
@@ -23,6 +26,7 @@ from compiler.semantic.ir import (
 )
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.interface_call_devirtualization import interface_call_devirtualization
+from compiler.semantic.symbols import MethodId
 
 
 def _write(path: Path, text: str) -> None:
@@ -31,6 +35,53 @@ def _write(path: Path, text: str) -> None:
 
 def _run_interface_call_devirtualization(tmp_path: Path):
     return interface_call_devirtualization(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+
+
+def _erased_array_method_dispatch(method_name: str) -> MethodDispatch:
+    return MethodDispatch(method_id=MethodId(module_path=("main",), class_name="ErasedArray", name=method_name))
+
+
+def _erase_array_structural_dispatches(program):
+    module = program.modules[("main",)]
+    fn = module.functions[0]
+    statements = list(fn.body.statements)
+
+    statements[1] = replace(
+        statements[1],
+        initializer=replace(statements[1].initializer, dispatch=_erased_array_method_dispatch("index_get")),
+    )
+    statements[2] = replace(
+        statements[2],
+        target=replace(statements[2].target, dispatch=_erased_array_method_dispatch("index_set")),
+    )
+    statements[3] = replace(
+        statements[3],
+        initializer=replace(statements[3].initializer, dispatch=_erased_array_method_dispatch("slice_get")),
+    )
+    statements[4] = replace(
+        statements[4],
+        target=replace(statements[4].target, dispatch=_erased_array_method_dispatch("slice_set")),
+    )
+    statements[5] = replace(
+        statements[5],
+        iter_len_dispatch=_erased_array_method_dispatch("iter_len"),
+        iter_get_dispatch=_erased_array_method_dispatch("iter_get"),
+    )
+
+    rewritten_fn = replace(fn, body=replace(fn.body, statements=statements))
+    rewritten_module = replace(module, functions=[rewritten_fn])
+    return replace(program, modules={**program.modules, ("main",): rewritten_module})
+
+
+def _assert_runtime_dispatch(
+    dispatch: RuntimeDispatch,
+    *,
+    operation: CollectionOpKind,
+    runtime_kind: ArrayRuntimeKind | None,
+) -> None:
+    assert isinstance(dispatch, RuntimeDispatch)
+    assert dispatch.operation is operation
+    assert dispatch.runtime_kind is runtime_kind
 
 
 def test_interface_call_devirtualization_rewrites_inside_positive_exact_type_branch(tmp_path: Path) -> None:
@@ -312,6 +363,57 @@ def test_interface_call_devirtualization_rewrites_structural_interface_dispatch_
     assert isinstance(loop_stmt.iter_get_dispatch, MethodDispatch)
     assert loop_stmt.iter_get_dispatch.method_id.class_name == "Store"
     assert loop_stmt.iter_get_dispatch.method_id.name == "iter_get"
+
+
+def test_interface_call_devirtualization_recovers_runtime_dispatch_for_exact_array_structural_receivers(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var values: i64[] = i64[](2u);
+            var first: i64 = values[0];
+            values[0] = first;
+            var part: i64[] = values[0:1];
+            values[0:1] = part;
+            for value in values {
+                return value;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = interface_call_devirtualization(
+        _erase_array_structural_dispatches(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    first_decl = statements[1]
+    assert isinstance(first_decl, SemanticVarDecl)
+    assert isinstance(first_decl.initializer, IndexReadExpr)
+    _assert_runtime_dispatch(first_decl.initializer.dispatch, operation=CollectionOpKind.INDEX_GET, runtime_kind=ArrayRuntimeKind.I64)
+
+    index_assign = statements[2]
+    assert isinstance(index_assign, SemanticAssign)
+    assert isinstance(index_assign.target, IndexLValue)
+    _assert_runtime_dispatch(index_assign.target.dispatch, operation=CollectionOpKind.INDEX_SET, runtime_kind=ArrayRuntimeKind.I64)
+
+    slice_decl = statements[3]
+    assert isinstance(slice_decl, SemanticVarDecl)
+    assert isinstance(slice_decl.initializer, SliceReadExpr)
+    _assert_runtime_dispatch(slice_decl.initializer.dispatch, operation=CollectionOpKind.SLICE_GET, runtime_kind=ArrayRuntimeKind.I64)
+
+    slice_assign = statements[4]
+    assert isinstance(slice_assign, SemanticAssign)
+    assert isinstance(slice_assign.target, SliceLValue)
+    _assert_runtime_dispatch(slice_assign.target.dispatch, operation=CollectionOpKind.SLICE_SET, runtime_kind=ArrayRuntimeKind.I64)
+
+    loop_stmt = statements[5]
+    assert isinstance(loop_stmt, SemanticForIn)
+    _assert_runtime_dispatch(loop_stmt.iter_len_dispatch, operation=CollectionOpKind.ITER_LEN, runtime_kind=None)
+    _assert_runtime_dispatch(loop_stmt.iter_get_dispatch, operation=CollectionOpKind.ITER_GET, runtime_kind=ArrayRuntimeKind.I64)
 
 
 def test_interface_call_devirtualization_rewrites_virtual_method_calls_after_constructor_seeded_exact_fact(

@@ -332,15 +332,15 @@ Test:
 
 ## Slice 6: Recover Or Preserve Array Fast Paths When Proof Allows It
 
-- [ ] inspect whether specialization from exact array facts can safely rewrite eligible structural nodes to array `RuntimeDispatch`
-- [ ] if safe and useful, add a narrowly scoped rewrite that preserves current array-only semantics
-- [ ] validate that [compiler/semantic/lowering/executable.py](../compiler/semantic/lowering/executable.py) then selects `ARRAY_DIRECT` automatically for eligible `for ... in` loops
+- [x] inspect whether specialization from exact array facts can safely rewrite eligible structural nodes to array `RuntimeDispatch`
+- [x] if safe and useful, add a narrowly scoped rewrite that preserves current array-only semantics
+- [x] validate that [compiler/semantic/lowering/executable.py](../compiler/semantic/lowering/executable.py) then selects `ARRAY_DIRECT` automatically for eligible `for ... in` loops
 
 Test:
 
-- [ ] add semantic optimization tests proving eligible array-backed structural nodes become array runtime dispatch
-- [ ] add codegen tests proving array-direct `for ... in` is preserved or recovered after specialization
-- [ ] run focused collection fast-path and structural-sugar test selections
+- [x] add semantic optimization tests proving eligible array-backed structural nodes become array runtime dispatch
+- [x] add codegen tests proving array-direct `for ... in` is preserved or recovered after specialization
+- [x] run focused collection fast-path and structural-sugar test selections
 
 ## Slice 7: Optional Closed-World Monomorphic Dispatch Follow-Up
 

@@ -1,3 +1,14 @@
+from dataclasses import replace
+
+from compiler.codegen.generator import emit_asm
+from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.lowering.executable import lower_linked_semantic_program
+from compiler.semantic.lowering.orchestration import lower_program
+from compiler.semantic.optimizations.pipeline import DEFAULT_SEMANTIC_OPTIMIZATION_PASSES, SemanticOptimizationPass, optimize_semantic_program
+from compiler.semantic.ir import MethodDispatch, SemanticForIn
+from compiler.semantic.symbols import MethodId
+from compiler.resolver import resolve_program
+
 from compiler.codegen.abi.array import (
     array_length_operand,
     direct_primitive_array_store_operand,
@@ -14,6 +25,40 @@ from compiler.codegen.abi.runtime import (
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
 from tests.compiler.codegen.helpers import emit_source_asm
+
+
+def _erased_array_method_dispatch(method_name: str) -> MethodDispatch:
+    return MethodDispatch(method_id=MethodId(module_path=("main",), class_name="ErasedArray", name=method_name))
+
+
+def _erase_array_for_in_dispatches(program):
+    module = program.modules[("main",)]
+    fn = module.functions[0]
+    statements = list(fn.body.statements)
+    loop_stmt = next(stmt for stmt in statements if isinstance(stmt, SemanticForIn))
+    loop_index = statements.index(loop_stmt)
+    statements[loop_index] = replace(
+        loop_stmt,
+        iter_len_dispatch=_erased_array_method_dispatch("iter_len"),
+        iter_get_dispatch=_erased_array_method_dispatch("iter_get"),
+    )
+    rewritten_fn = replace(fn, body=replace(fn.body, statements=statements))
+    rewritten_module = replace(module, functions=[rewritten_fn])
+    return replace(program, modules={**program.modules, ("main",): rewritten_module})
+
+
+def _emit_source_asm_with_erased_array_for_in_dispatches(tmp_path, source: str) -> str:
+    entry_path = tmp_path / "main.nif"
+    entry_path.write_text(source.strip() + "\n", encoding="utf-8")
+    program = resolve_program(entry_path, project_root=tmp_path)
+    optimized = optimize_semantic_program(
+        lower_program(program),
+        passes=(
+            SemanticOptimizationPass(name="erase_array_dispatches", transform=_erase_array_for_in_dispatches),
+            *DEFAULT_SEMANTIC_OPTIMIZATION_PASSES,
+        ),
+    )
+    return emit_asm(lower_linked_semantic_program(link_semantic_program(optimized)))
 
 
 def test_emit_asm_array_constructor_lowers_to_runtime_symbol_by_element_kind(tmp_path) -> None:
@@ -254,6 +299,27 @@ fn main() -> i64 {
 
     assert f"    call {ARRAY_LEN_RUNTIME_CALL}" not in asm
     assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
+
+
+def test_emit_asm_recovers_array_direct_for_in_after_dispatch_erasure(tmp_path) -> None:
+    source = """
+fn main() -> i64 {
+    var values: i64[] = i64[](2u);
+    values[0] = 4;
+    values[1] = 6;
+
+    var sum: i64 = 0;
+    for value in values {
+        sum = sum + value;
+    }
+
+    return sum;
+}
+"""
+    asm = _emit_source_asm_with_erased_array_for_in_dispatches(tmp_path, source)
+
+    assert f"    call {ARRAY_LEN_RUNTIME_CALL}" not in asm
+    assert f"    call {ARRAY_INDEX_GET_RUNTIME_CALLS[ArrayRuntimeKind.I64]}" not in asm
 
 
 def test_emit_asm_array_reference_set_avoids_named_root_helper_calls(tmp_path) -> None:

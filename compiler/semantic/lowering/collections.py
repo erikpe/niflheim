@@ -259,16 +259,6 @@ def runtime_dispatch_for_array_operation(
 
 def array_runtime_kind(element_type_ref: SemanticTypeRef) -> ArrayRuntimeKind:
     element_type_name = semantic_type_canonical_name(element_type_ref)
-    if element_type_name == TYPE_NAME_I64:
-        return ArrayRuntimeKind.I64
-    if element_type_name == TYPE_NAME_U64:
-        return ArrayRuntimeKind.U64
-    if element_type_name == TYPE_NAME_U8:
-        return ArrayRuntimeKind.U8
-    if element_type_name == TYPE_NAME_BOOL:
-        return ArrayRuntimeKind.BOOL
-    if element_type_name == TYPE_NAME_DOUBLE:
-        return ArrayRuntimeKind.DOUBLE
     if element_type_name == TYPE_NAME_UNIT:
         raise ValueError("Array runtime kind is not defined for unit elements")
-    return ArrayRuntimeKind.REF
+    return array_runtime_kind_for_element_type_name(element_type_name)
