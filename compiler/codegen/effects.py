@@ -46,7 +46,9 @@ def expr_may_execute_gc(expr: SemanticExpr) -> bool:
 def _dispatch_may_execute_gc(dispatch: SemanticDispatch) -> bool:
     if isinstance(dispatch, RuntimeDispatch):
         return runtime_call_metadata(runtime_dispatch_call_name(dispatch)).may_gc
-    return True
+    if isinstance(dispatch, (MethodDispatch, VirtualMethodDispatch, InterfaceDispatch)):
+        return True
+    raise TypeError(f"Unsupported GC-effect analysis dispatch: {type(dispatch).__name__}")
 
 
 def _call_target_may_execute_gc(target: SemanticCallTarget) -> bool:

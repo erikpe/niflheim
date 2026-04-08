@@ -6,14 +6,35 @@ from pathlib import Path
 from compiler.common.collection_protocols import CollectionOpKind, collection_method_name
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
+from compiler.semantic.ir import (
+    IndexReadExpr,
+    InterfaceDispatch,
+    IntConstant,
+    LiteralExprS,
+    LocalRefExpr,
+    SemanticBlock,
+    SemanticFunction,
+    SemanticInterface,
+    SemanticInterfaceMethod,
+    SemanticModule,
+    SemanticProgram,
+    SemanticReturn,
+)
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.unreachable_prune import analyze_semantic_reachability, unreachable_prune
-from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, MethodId
+from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId, InterfaceMethodId, LocalId, MethodId
+from compiler.semantic.type_compat import best_effort_semantic_type_ref_from_name
+from compiler.common.span import SourcePos, SourceSpan
 
 
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content.strip() + "\n", encoding="utf-8")
+
+
+def _span() -> SourceSpan:
+    pos = SourcePos(path="<test>", offset=0, line=1, column=1)
+    return SourceSpan(start=pos, end=pos)
 
 
 def test_semantic_reachability_follows_functions_methods_and_structural_edges(tmp_path: Path) -> None:
@@ -231,6 +252,79 @@ def test_semantic_reachability_walks_interface_method_call_receivers(tmp_path: P
     assert ClassId(module_path=("main",), name="Key") in reachability.reachable_classes
 
 
+def test_semantic_reachability_tracks_interface_dispatch_from_structural_dispatch_nodes() -> None:
+    span = _span()
+    function_id = FunctionId(module_path=("main",), name="main")
+    interface_id = InterfaceId(module_path=("main",), name="Buffer")
+    method_id = InterfaceMethodId(module_path=("main",), interface_name="Buffer", name="index_get")
+
+    program = SemanticProgram(
+        entry_module=("main",),
+        modules={
+            ("main",): SemanticModule(
+                module_path=("main",),
+                file_path=Path("<test>"),
+                classes=[],
+                functions=[
+                    SemanticFunction(
+                        function_id=function_id,
+                        params=[],
+                        return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
+                        body=SemanticBlock(
+                            statements=[
+                                SemanticReturn(
+                                    value=IndexReadExpr(
+                                        target=LocalRefExpr(
+                                            local_id=LocalId(owner_id=function_id, ordinal=0),
+                                            type_ref=best_effort_semantic_type_ref_from_name(("main",), "Obj"),
+                                            span=span,
+                                        ),
+                                        index=LiteralExprS(
+                                            constant=IntConstant(value=0),
+                                            type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
+                                            span=span,
+                                        ),
+                                        type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
+                                        dispatch=InterfaceDispatch(interface_id=interface_id, method_id=method_id),
+                                        span=span,
+                                    ),
+                                    span=span,
+                                )
+                            ],
+                            span=span,
+                        ),
+                        is_export=False,
+                        is_extern=False,
+                        span=span,
+                    )
+                ],
+                span=span,
+                interfaces=[
+                    SemanticInterface(
+                        interface_id=interface_id,
+                        is_export=False,
+                        methods=[
+                            SemanticInterfaceMethod(
+                                method_id=method_id,
+                                params=[
+                                    # Structural reachability should come from InterfaceDispatch, not from parameter types.
+                                ],
+                                return_type_ref=best_effort_semantic_type_ref_from_name(("main",), "i64"),
+                                span=span,
+                            )
+                        ],
+                        span=span,
+                    )
+                ],
+            )
+        },
+    )
+
+    reachability = analyze_semantic_reachability(program)
+
+    assert interface_id in reachability.reachable_interfaces
+
+
 def test_semantic_reachability_uses_canonical_type_refs_when_compatibility_strings_are_stale(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
@@ -340,6 +434,49 @@ def test_unreachable_prune_keeps_imported_interface_impl_methods_for_reachable_c
     assert [fn.function_id.name for fn in pruned.modules[("model",)].functions] == ["make"]
     assert [cls.class_id.name for cls in pruned.modules[("model",)].classes] == ["Key"]
     assert [method.method_id.name for method in pruned.modules[("model",)].classes[0].methods] == ["hash_code"]
+
+
+def test_unreachable_prune_keeps_interfaces_used_by_structural_interface_sugar(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "contracts.nif",
+        """
+        export interface Buffer {
+            fn index_get(index: i64) -> i64;
+            fn iter_len() -> u64;
+            fn iter_get(index: i64) -> i64;
+        }
+
+        export interface Unused {
+            fn hash_code() -> u64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import contracts;
+
+        fn read_index(value: contracts.Buffer) -> i64 {
+            return value[0];
+        }
+
+        fn sum(value: contracts.Buffer) -> i64 {
+            var total: i64 = 0;
+            for item in value {
+                total = total + item;
+            }
+            return total;
+        }
+
+        fn main(value: contracts.Buffer) -> i64 {
+            return read_index(value) + sum(value);
+        }
+        """,
+    )
+
+    pruned = unreachable_prune(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+
+    assert [interface.interface_id.name for interface in pruned.modules[("contracts",)].interfaces] == ["Buffer"]
 
 
 def test_unreachable_prune_drops_dead_interfaces_but_keeps_referenced_ones(tmp_path: Path) -> None:

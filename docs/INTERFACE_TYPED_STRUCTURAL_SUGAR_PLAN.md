@@ -299,14 +299,14 @@ Test:
 
 ## Slice 5: Update Dispatch Analyses And Reachability
 
-- [ ] update rooted-argument analysis in [compiler/codegen/layout.py](../compiler/codegen/layout.py)
-- [ ] update dispatch GC-effect analysis in [compiler/codegen/effects.py](../compiler/codegen/effects.py)
-- [ ] update reachability handling for structural interface dispatch in [compiler/semantic/optimizations/unreachable_prune.py](../compiler/semantic/optimizations/unreachable_prune.py)
+- [x] update rooted-argument analysis in [compiler/codegen/layout.py](../compiler/codegen/layout.py)
+- [x] update dispatch GC-effect analysis in [compiler/codegen/effects.py](../compiler/codegen/effects.py)
+- [x] update reachability handling for structural interface dispatch in [compiler/semantic/optimizations/unreachable_prune.py](../compiler/semantic/optimizations/unreachable_prune.py)
 
 Test:
 
-- [ ] add or update pruning coverage in [tests/compiler/semantic/optimizations/test_unreachable_prune.py](../tests/compiler/semantic/optimizations/test_unreachable_prune.py)
-- [ ] run focused codegen and semantic optimization tests covering interface calls and structural sugar
+- [x] add or update pruning coverage in [tests/compiler/semantic/optimizations/test_unreachable_prune.py](../tests/compiler/semantic/optimizations/test_unreachable_prune.py)
+- [x] run focused codegen and semantic optimization tests covering interface calls and structural sugar
 
 ## Slice 6: Add End-To-End Language Coverage
 
@@ -324,7 +324,7 @@ Test:
 - [x] typecheck unit tests for structural protocols pass
 - [x] semantic lowering tests for structural dispatch pass
 - [x] codegen emitter tests for interface dispatch pass
-- [ ] semantic optimization tests still pass after reachability updates
+- [x] semantic optimization tests still pass after reachability updates
 - [ ] golden tests for indexing sugar pass
 - [ ] golden tests for `for ... in` pass
 - [ ] golden tests for virtual/interface dispatch pass

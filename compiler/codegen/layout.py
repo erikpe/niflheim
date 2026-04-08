@@ -339,7 +339,9 @@ def _runtime_reference_arg_indices(target_name: str, call_arguments: list[Semant
 def _dispatch_reference_arg_indices(dispatch: SemanticDispatch, call_arguments: list[SemanticExpr]) -> frozenset[int]:
     if isinstance(dispatch, RuntimeDispatch):
         return _runtime_reference_arg_indices(runtime_dispatch_call_name(dispatch), call_arguments)
-    return _reference_arg_indices(call_arguments)
+    if isinstance(dispatch, (MethodDispatch, VirtualMethodDispatch, InterfaceDispatch)):
+        return _reference_arg_indices(call_arguments)
+    raise TypeError(f"Unsupported dispatch for rooted-argument analysis: {type(dispatch).__name__}")
 
 
 def _max_rooted_sequence(

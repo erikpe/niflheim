@@ -114,6 +114,10 @@ class _SemanticReachabilityWalker:
         self.method_queue.append(method_id)
         self._enqueue_class(ClassId(module_path=method_id.module_path, name=method_id.class_name))
 
+    def _enqueue_dispatch(self, dispatch: SemanticDispatch) -> None:
+        self._enqueue_method(dispatch_method_id(dispatch))
+        self._enqueue_interface(dispatch_interface_id(dispatch))
+
     def _resolve_method_id(self, class_id: ClassId, method_name: str) -> MethodId | None:
         current_class = self.classes_by_id.get(class_id)
         while current_class is not None:
@@ -201,8 +205,8 @@ class _SemanticReachabilityWalker:
             return
         if isinstance(stmt, SemanticForIn):
             self._walk_expr(module_path, stmt.collection)
-            self._enqueue_method(dispatch_method_id(stmt.iter_len_dispatch))
-            self._enqueue_method(dispatch_method_id(stmt.iter_get_dispatch))
+            self._enqueue_dispatch(stmt.iter_len_dispatch)
+            self._enqueue_dispatch(stmt.iter_get_dispatch)
             self._enqueue_type_ref(module_path, stmt.element_type_ref)
             self._walk_block(module_path, stmt.body, owner)
             return
@@ -220,14 +224,14 @@ class _SemanticReachabilityWalker:
             self._walk_expr(module_path, lvalue.target)
             self._walk_expr(module_path, lvalue.index)
             self._enqueue_type_ref(module_path, lvalue.value_type_ref)
-            self._enqueue_method(dispatch_method_id(lvalue.dispatch))
+            self._enqueue_dispatch(lvalue.dispatch)
             return
         if isinstance(lvalue, SliceLValue):
             self._walk_expr(module_path, lvalue.target)
             self._walk_expr(module_path, lvalue.begin)
             self._walk_expr(module_path, lvalue.end)
             self._enqueue_type_ref(module_path, lvalue.value_type_ref)
-            self._enqueue_method(dispatch_method_id(lvalue.dispatch))
+            self._enqueue_dispatch(lvalue.dispatch)
 
     def _walk_expr(self, module_path: ModulePath, expr: SemanticExpr) -> None:
         if isinstance(expr, FunctionRefExpr):
@@ -303,13 +307,13 @@ class _SemanticReachabilityWalker:
         if isinstance(expr, IndexReadExpr):
             self._walk_expr(module_path, expr.target)
             self._walk_expr(module_path, expr.index)
-            self._enqueue_method(dispatch_method_id(expr.dispatch))
+            self._enqueue_dispatch(expr.dispatch)
             return
         if isinstance(expr, SliceReadExpr):
             self._walk_expr(module_path, expr.target)
             self._walk_expr(module_path, expr.begin)
             self._walk_expr(module_path, expr.end)
-            self._enqueue_method(dispatch_method_id(expr.dispatch))
+            self._enqueue_dispatch(expr.dispatch)
             return
         if isinstance(expr, ArrayCtorExprS):
             self._walk_expr(module_path, expr.length_expr)
