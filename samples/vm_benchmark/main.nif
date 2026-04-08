@@ -1,111 +1,37 @@
+import std.error;
 import std.io;
 import std.test;
+import std.str;
 import samples.vm_benchmark.cases;
 import samples.vm_benchmark.model;
 import samples.vm_benchmark.opcodes;
 import samples.vm_benchmark.runtime;
 
-fn _mix_aggregate_result(seed: i64, index: i64, result: model.BenchmarkResult) -> i64 {
-    var checksum: i64 = seed;
-    checksum = opcodes.mix_checksum(checksum, index);
-    checksum = opcodes.mix_checksum(checksum, (i64)result.name.len());
-    checksum = opcodes.mix_checksum(checksum, result.return_value);
-    checksum = opcodes.mix_checksum(checksum, result.memory0);
-    checksum = opcodes.mix_checksum(checksum, result.memory_checksum);
-    checksum = opcodes.mix_checksum(checksum, result.trace_sum);
-    checksum = opcodes.mix_checksum(checksum, (i64)result.instruction_count);
-    checksum = opcodes.mix_checksum(checksum, (i64)result.call_count);
-    checksum = opcodes.mix_checksum(checksum, (i64)result.branch_count);
-    checksum = opcodes.mix_checksum(checksum, (i64)result.builtin_calls);
-    checksum = opcodes.mix_checksum(checksum, result.checksum());
-    return checksum;
+fn _run_case_checked(bench_case: model.BenchmarkCase) -> model.BenchmarkResult {
+    var result: model.BenchmarkResult = runtime.run_case(bench_case);
+    test.assert_true(result.matches_expected(bench_case));
+    test.assert_eq_str(result.render(), bench_case.expected_output_line());
+    return result;
 }
 
-fn _aggregate_results(results: model.BenchmarkResult[]) -> model.BenchmarkAggregate {
-    var total_return_value: i64 = 0;
-    var total_memory0: i64 = 0;
-    var total_memory_checksum: i64 = 0;
-    var total_trace_sum: i64 = 0;
-    var total_instruction_count: u64 = 0u;
-    var total_call_count: u64 = 0u;
-    var total_branch_count: u64 = 0u;
-    var total_builtin_calls: u64 = 0u;
-    var checksum_value: i64 = 0;
-    var index: i64 = 0;
-
-    while (u64)index < results.len() {
-        var result: model.BenchmarkResult = results[index];
-        total_return_value = total_return_value + result.return_value;
-        total_memory0 = total_memory0 + result.memory0;
-        total_memory_checksum = total_memory_checksum + result.memory_checksum;
-        total_trace_sum = total_trace_sum + result.trace_sum;
-        total_instruction_count = total_instruction_count + result.instruction_count;
-        total_call_count = total_call_count + result.call_count;
-        total_branch_count = total_branch_count + result.branch_count;
-        total_builtin_calls = total_builtin_calls + result.builtin_calls;
-        checksum_value = _mix_aggregate_result(checksum_value, index, result);
-        index = index + 1;
-    }
-
-    checksum_value = opcodes.mix_checksum(checksum_value, (i64)results.len());
-    checksum_value = opcodes.mix_checksum(checksum_value, total_return_value);
-    checksum_value = opcodes.mix_checksum(checksum_value, total_memory0);
-    checksum_value = opcodes.mix_checksum(checksum_value, total_memory_checksum);
-    checksum_value = opcodes.mix_checksum(checksum_value, total_trace_sum);
-    checksum_value = opcodes.mix_checksum(checksum_value, (i64)total_instruction_count);
-    checksum_value = opcodes.mix_checksum(checksum_value, (i64)total_call_count);
-    checksum_value = opcodes.mix_checksum(checksum_value, (i64)total_branch_count);
-    checksum_value = opcodes.mix_checksum(checksum_value, (i64)total_builtin_calls);
-
-    return model.BenchmarkAggregate(
-        results.len(),
-        total_return_value,
-        total_memory0,
-        total_memory_checksum,
-        total_trace_sum,
-        total_instruction_count,
-        total_call_count,
-        total_branch_count,
-        total_builtin_calls,
-        checksum_value
-    );
-}
-
-fn _aggregate_expected_cases(benchmark_cases: model.BenchmarkCase[]) -> model.BenchmarkAggregate {
-    var expected_results: model.BenchmarkResult[] = model.BenchmarkResult[](benchmark_cases.len());
-    var index: i64 = 0;
-
-    while (u64)index < benchmark_cases.len() {
-        expected_results[index] = benchmark_cases[index].expected_result();
-        index = index + 1;
-    }
-
-    return _aggregate_results(expected_results);
-}
-
-export fn run_and_report() -> i64 {
+export fn run_case_and_report(case_index: u64) -> i64 {
     var benchmark_cases: model.BenchmarkCase[] = cases.build_cases();
-    var results: model.BenchmarkResult[] = model.BenchmarkResult[](benchmark_cases.len());
-    var index: i64 = 0;
-
-    while (u64)index < benchmark_cases.len() {
-        var bench_case: model.BenchmarkCase = benchmark_cases[index];
-        var result: model.BenchmarkResult = runtime.run_case(bench_case);
-        results[index] = result;
-        test.assert_true(result.matches_expected(bench_case));
-        test.assert_eq_str(result.render(), bench_case.expected_output_line());
-        io.println(result.render());
-        index = index + 1;
+    if case_index >= benchmark_cases.len() {
+        panic("vm_benchmark.run_case_and_report: case index out of bounds");
     }
 
-    var aggregate: model.BenchmarkAggregate = _aggregate_results(results);
-    var expected_aggregate: model.BenchmarkAggregate = _aggregate_expected_cases(benchmark_cases);
-    test.assert_eq_str(aggregate.render(), expected_aggregate.render());
-    io.println(aggregate.render());
-
+    var bench_case: model.BenchmarkCase = benchmark_cases[(i64)case_index];
+    var result: model.BenchmarkResult = _run_case_checked(bench_case);
+    io.println(result.render());
     return 0;
 }
 
+export fn num_cases() -> u64 {
+    return (u64)cases.build_cases().len();
+}
+
 fn main() -> i64 {
-    return run_and_report();
+    var args: Str[] = read_program_args();
+    var select: u64 = args[1].to_u64();
+    return run_case_and_report(select - 1u);
 }

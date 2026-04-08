@@ -1,0 +1,15 @@
+import std.test;
+import std.io;
+import std.str;
+import samples.vm_benchmark.main;
+
+fn main() -> i64 {
+    var args: Str[] = read_program_args();
+    var select: u64 = args[1].to_u64();
+    if select >= 1u && select <= main.num_cases() {
+        return main.run_case_and_report(select - 1u);
+    }
+
+    fail("vm_benchmark golden: invalid selection");
+    return 1;
+}

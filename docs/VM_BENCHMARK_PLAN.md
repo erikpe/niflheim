@@ -556,7 +556,7 @@ Purpose:
 
 ### Golden Test
 
-- `tests/golden/lang/test_vm_benchmark/...`
+- `tests/golden/vm_benchmark/...`
 
 Purpose:
 
@@ -564,6 +564,8 @@ Purpose:
 - stable regression coverage in the golden suite
 
 The golden test should validate the full output line-by-line.
+
+Prefer one golden run per benchmark case, plus one aggregate-only run, so failures identify the exact broken case immediately instead of only surfacing inside a monolithic stdout blob.
 
 ### Optional Faster Smoke Variant
 
@@ -587,8 +589,8 @@ Recommended first implementation footprint:
   - `builtins.nif`
   - `runtime.nif`
   - `cases.nif`
-- `tests/golden/lang/test_vm_benchmark/test_vm_benchmark.nif`
-- `tests/golden/lang/test_vm_benchmark/test_vm_benchmark_spec.yaml`
+- `tests/golden/vm_benchmark/test_vm_benchmark.nif`
+- `tests/golden/vm_benchmark/test_vm_benchmark_spec.yaml`
 
 Optional later additions:
 

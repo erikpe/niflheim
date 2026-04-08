@@ -1,0 +1,14 @@
+tests:
+  - mode: "run"
+    name: "test_vm_benchmark"
+    src_file: "test_vm_benchmark.nif"
+    runs:
+      - {name: "slice1_minimal_output", input: {args: ["1"]}, expect: {exit_code: 0, stdout: "slice1_minimal: return=14 memory0=14 mem=434 trace=14 steps=11 calls=0 branches=0 builtins=1 checksum=410039957618\n"}}
+      - {name: "arithmetic_mixer_output", input: {args: ["2"]}, expect: {exit_code: 0, stdout: "arithmetic_mixer: return=102 memory0=102 mem=3162 trace=211 steps=88 calls=0 branches=12 builtins=1 checksum=2987534875158\n"}}
+      - {name: "branch_maze_output", input: {args: ["3"]}, expect: {exit_code: 0, stdout: "branch_maze: return=61 memory0=61 mem=1891 trace=69 steps=117 calls=0 branches=22 builtins=1 checksum=1786612119032\n"}}
+      - {name: "recursive_calls_output", input: {args: ["4"]}, expect: {exit_code: 0, stdout: "recursive_calls: return=13 memory0=13 mem=403 trace=13 steps=331 calls=41 branches=21 builtins=1 checksum=380760985796\n"}}
+      - {name: "dense_array_output", input: {args: ["5"]}, expect: {exit_code: 0, stdout: "dense_array: return=180 memory0=1 mem=28064133262525676 trace=180 steps=156 calls=0 branches=22 builtins=1 checksum=4370731504027871716\n"}}
+      - {name: "slice_copy_output", input: {args: ["6"]}, expect: {exit_code: 0, stdout: "slice_copy: return=159 memory0=10 mem=-5438759747882907306 trace=159 steps=91 calls=0 branches=12 builtins=1 checksum=-7363314566945406002\n"}}
+      - {name: "builtin_dispatch_output", input: {args: ["7"]}, expect: {exit_code: 0, stdout: "builtin_dispatch: return=267558162 memory0=267558162 mem=7970825204142 trace=535116324 steps=18 calls=0 branches=0 builtins=3 checksum=-4010537086062816217\n"}}
+      - {name: "obj_cast_builtin_output", input: {args: ["8"]}, expect: {exit_code: 0, stdout: "obj_cast_builtin: return=400507 memory0=400507 mem=11931504037 trace=801014 steps=16 calls=0 branches=0 builtins=3 checksum=352964016462630084\n"}}
+      - {name: "exact_double_output", input: {args: ["9"]}, expect: {exit_code: 0, stdout: "exact_double: return=38 memory0=38 mem=38 trace=38 steps=8 calls=0 branches=0 builtins=1 checksum=1080327715961\n"}}

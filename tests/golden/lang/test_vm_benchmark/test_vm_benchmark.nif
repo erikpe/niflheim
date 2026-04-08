@@ -1,5 +1,0 @@
-import samples.vm_benchmark.main;
-
-fn main() -> i64 {
-    return main.run_and_report();
-}
