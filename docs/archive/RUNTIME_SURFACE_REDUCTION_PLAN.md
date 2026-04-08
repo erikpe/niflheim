@@ -130,7 +130,7 @@ Reasons:
 
 Current relevant state in the repository:
 
-- interface method calls are emitted inline in [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- interface method calls are emitted inline in [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
 - class virtual calls are emitted inline through `RtType.class_vtable`
 - direct array fast paths already bypass some runtime helpers for `len`, index reads, index writes, and direct array `for in`
 - interface casts and interface type tests are emitted inline from slot-table metadata
@@ -142,65 +142,65 @@ Current relevant state in the repository:
 
 ## Runtime ABI And Metadata Cleanup
 
-- [runtime/include/runtime.h](../runtime/include/runtime.h)
+- [runtime/include/runtime.h](../../runtime/include/runtime.h)
   - remove `RtInterfaceImpl` if no remaining runtime/test code requires it
   - remove `RtType.legacy_interfaces`
   - remove `RtType.legacy_interface_count`
-- [compiler/codegen/emitter_module.py](../compiler/codegen/emitter_module.py)
+- [compiler/codegen/emitter_module.py](../../compiler/codegen/emitter_module.py)
   - stop emitting legacy interface-impl arrays
   - remove legacy interface fields from emitted `RtType` records
-- [compiler/codegen/abi/object.py](../compiler/codegen/abi/object.py)
+- [compiler/codegen/abi/object.py](../../compiler/codegen/abi/object.py)
   - update any `RtType` field offsets affected by the ABI cleanup
-- [tests/runtime/test_interface_metadata.c](../tests/runtime/test_interface_metadata.c)
+- [tests/runtime/test_interface_metadata.c](../../tests/runtime/test_interface_metadata.c)
   - stop asserting preservation of transitional legacy metadata
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
   - update emitted `RtType` layout expectations
 
 ## Interface Cast And Type-Test Inlining
 
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
   - inline `rt_checked_cast_interface(...)`
   - inline `rt_is_instance_of_interface(...)`
   - preserve current null and bad-cast behavior
-- [compiler/codegen/abi/object.py](../compiler/codegen/abi/object.py)
+- [compiler/codegen/abi/object.py](../../compiler/codegen/abi/object.py)
   - reuse or extend slot-table and interface-descriptor operand helpers
-- [runtime/src/runtime.c](../runtime/src/runtime.c)
+- [runtime/src/runtime.c](../../runtime/src/runtime.c)
   - remove retired interface cast/type-test helpers if no longer used
-- [runtime/include/runtime.h](../runtime/include/runtime.h)
+- [runtime/include/runtime.h](../../runtime/include/runtime.h)
   - remove retired helper declarations if codegen no longer uses them
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
   - update expectations from helper calls to inline checks
-- [tests/compiler/integration/test_cli_interfaces_runtime](../tests/compiler/integration/test_cli_interfaces_runtime)
+- [tests/compiler/integration/test_cli_interfaces_runtime](../../tests/compiler/integration/test_cli_interfaces_runtime)
   - ensure end-to-end cast/type-test behavior still matches current semantics
 
 ## Array-Kind Cast Inlining
 
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
   - inline the object kind check for `Obj -> T[]`
-- [compiler/codegen/abi/array.py](../compiler/codegen/abi/array.py)
+- [compiler/codegen/abi/array.py](../../compiler/codegen/abi/array.py)
   - expose any missing ABI constants needed for direct array-kind checks
-- [runtime/src/array.c](../runtime/src/array.c)
+- [runtime/src/array.c](../../runtime/src/array.c)
   - remove `rt_checked_cast_array_kind(...)` if it becomes unused
-- [runtime/include/array.h](../runtime/include/array.h)
+- [runtime/include/array.h](../../runtime/include/array.h)
   - remove the retired declaration if codegen no longer uses it
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
   - update helper-call expectations
-- [tests/compiler/integration](../tests/compiler/integration)
+- [tests/compiler/integration](../../tests/compiler/integration)
   - keep array cast runtime coverage green
 
 ## Class Cast And Type-Test Rework
 
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
   - either inline the current `super_type` walk or switch to improved subtype metadata
-- [compiler/codegen/metadata.py](../compiler/codegen/metadata.py)
+- [compiler/codegen/metadata.py](../../compiler/codegen/metadata.py)
   - add new subtype metadata if the redesign route is chosen
-- [compiler/codegen/emitter_module.py](../compiler/codegen/emitter_module.py)
+- [compiler/codegen/emitter_module.py](../../compiler/codegen/emitter_module.py)
   - emit any new class-subtyping metadata
-- [runtime/src/runtime.c](../runtime/src/runtime.c)
+- [runtime/src/runtime.c](../../runtime/src/runtime.c)
   - remove or simplify `rt_checked_cast(...)` / `rt_is_instance_of_type(...)` if codegen fully subsumes them
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
   - update call-vs-inline expectations
-- [tests/compiler/integration](../tests/compiler/integration)
+- [tests/compiler/integration](../../tests/compiler/integration)
   - preserve subtype cast and type-test behavior across inheritance chains
 
 ## Ordered Implementation Checklist
@@ -214,13 +214,13 @@ Current relevant state in the repository:
 
 Change:
 
-- [runtime/include/runtime.h](../runtime/include/runtime.h)
-- [compiler/codegen/emitter_module.py](../compiler/codegen/emitter_module.py)
-- [compiler/codegen/abi/object.py](../compiler/codegen/abi/object.py)
-- [tests/runtime/test_interface_metadata.c](../tests/runtime/test_interface_metadata.c)
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
-- [docs/ABI_NOTES.md](../docs/ABI_NOTES.md)
-- [docs/INTERFACES_V1.md](../docs/INTERFACES_V1.md)
+- [runtime/include/runtime.h](../../runtime/include/runtime.h)
+- [compiler/codegen/emitter_module.py](../../compiler/codegen/emitter_module.py)
+- [compiler/codegen/abi/object.py](../../compiler/codegen/abi/object.py)
+- [tests/runtime/test_interface_metadata.c](../../tests/runtime/test_interface_metadata.c)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [docs/ABI_NOTES.md](../ABI_NOTES.md)
+- [docs/INTERFACES_V1.md](../INTERFACES_V1.md)
 
 Test:
 
@@ -237,12 +237,12 @@ Test:
 
 Change:
 
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
-- [compiler/codegen/abi/object.py](../compiler/codegen/abi/object.py)
-- [runtime/src/runtime.c](../runtime/src/runtime.c)
-- [runtime/include/runtime.h](../runtime/include/runtime.h)
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
-- [tests/compiler/integration/test_cli_interfaces_runtime](../tests/compiler/integration/test_cli_interfaces_runtime)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/abi/object.py](../../compiler/codegen/abi/object.py)
+- [runtime/src/runtime.c](../../runtime/src/runtime.c)
+- [runtime/include/runtime.h](../../runtime/include/runtime.h)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [tests/compiler/integration/test_cli_interfaces_runtime](../../tests/compiler/integration/test_cli_interfaces_runtime)
 
 Test:
 
@@ -258,11 +258,11 @@ Test:
 
 Change:
 
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
-- [compiler/codegen/abi/array.py](../compiler/codegen/abi/array.py)
-- [runtime/src/array.c](../runtime/src/array.c)
-- [runtime/include/array.h](../runtime/include/array.h)
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/abi/array.py](../../compiler/codegen/abi/array.py)
+- [runtime/src/array.c](../../runtime/src/array.c)
+- [runtime/include/array.h](../../runtime/include/array.h)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
 
 Test:
 
@@ -291,9 +291,9 @@ Rationale:
 
 Change:
 
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
-- [docs/RUNTIME_SURFACE_REDUCTION_PLAN.md](../docs/RUNTIME_SURFACE_REDUCTION_PLAN.md)
-- [tests/compiler/integration/test_cli_runtime_smoke/test_deep_inheritance_class_casts_and_type_tests.py](../tests/compiler/integration/test_cli_runtime_smoke/test_deep_inheritance_class_casts_and_type_tests.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
+- [docs/archive/RUNTIME_SURFACE_REDUCTION_PLAN.md](RUNTIME_SURFACE_REDUCTION_PLAN.md)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_deep_inheritance_class_casts_and_type_tests.py](../../tests/compiler/integration/test_cli_runtime_smoke/test_deep_inheritance_class_casts_and_type_tests.py)
 
 Test:
 
@@ -307,13 +307,13 @@ After each completed slice, run the smallest relevant scope first, then widen.
 
 Focused checks:
 
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
-- [tests/compiler/integration/test_cli_interfaces_runtime](../tests/compiler/integration/test_cli_interfaces_runtime)
-- [tests/runtime/test_interface_metadata.c](../tests/runtime/test_interface_metadata.c)
-- [tests/runtime/test_interface_casts.c](../tests/runtime/test_interface_casts.c)
-- [tests/runtime/test_interface_casts_negative.c](../tests/runtime/test_interface_casts_negative.c)
-- [tests/runtime/test_interface_dispatch.c](../tests/runtime/test_interface_dispatch.c)
-- [tests/runtime/test_interface_dispatch_negative.c](../tests/runtime/test_interface_dispatch_negative.c)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [tests/compiler/integration/test_cli_interfaces_runtime](../../tests/compiler/integration/test_cli_interfaces_runtime)
+- [tests/runtime/test_interface_metadata.c](../../tests/runtime/test_interface_metadata.c)
+- [tests/runtime/test_interface_casts.c](../../tests/runtime/test_interface_casts.c)
+- [tests/runtime/test_interface_casts_negative.c](../../tests/runtime/test_interface_casts_negative.c)
+- [tests/runtime/test_interface_dispatch.c](../../tests/runtime/test_interface_dispatch.c)
+- [tests/runtime/test_interface_dispatch_negative.c](../../tests/runtime/test_interface_dispatch_negative.c)
 
 Wider checks:
 

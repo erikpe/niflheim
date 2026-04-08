@@ -31,19 +31,19 @@ The goal of this change is to make interface dispatch structurally similar to cl
 
 Current implementation points:
 
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
   - emits interface calls by loading the interface descriptor symbol and calling `rt_lookup_interface_method`
-- [runtime/include/runtime.h](../runtime/include/runtime.h)
+- [runtime/include/runtime.h](../../runtime/include/runtime.h)
   - `RtType` stores `interfaces` and `interface_count`
   - `RtInterfaceImpl` stores `{ interface_type, method_table, method_count }`
-- [runtime/src/runtime.c](../runtime/src/runtime.c)
+- [runtime/src/runtime.c](../../runtime/src/runtime.c)
   - `rt_find_interface_impl(...)` linearly scans `RtType.interfaces[]`
   - `rt_lookup_interface_method(...)` uses the scan result to find the method pointer
-- [compiler/codegen/metadata.py](../compiler/codegen/metadata.py)
+- [compiler/codegen/metadata.py](../../compiler/codegen/metadata.py)
   - emits per-class interface implementation records and per-interface method tables
-- [compiler/codegen/emitter_module.py](../compiler/codegen/emitter_module.py)
+- [compiler/codegen/emitter_module.py](../../compiler/codegen/emitter_module.py)
   - emits `RtInterfaceImpl[]` and `RtType.interfaces`
-- [compiler/codegen/program_generator.py](../compiler/codegen/program_generator.py)
+- [compiler/codegen/program_generator.py](../../compiler/codegen/program_generator.py)
   - currently assigns only method slots within an interface, not a whole-program slot for each interface
 
 ## Recommended Design
@@ -54,7 +54,7 @@ Each interface should receive a stable integer slot during whole-program codegen
 
 Recommended ownership:
 
-- [compiler/codegen/program_generator.py](../compiler/codegen/program_generator.py)
+- [compiler/codegen/program_generator.py](../../compiler/codegen/program_generator.py)
 
 Recommended result:
 
@@ -68,7 +68,7 @@ Rationale:
 
 ## 2. Extend `RtInterfaceType` With Its Global Slot Index
 
-Recommended runtime descriptor shape in [runtime/include/runtime.h](../runtime/include/runtime.h):
+Recommended runtime descriptor shape in [runtime/include/runtime.h](../../runtime/include/runtime.h):
 
 ```c
 struct RtInterfaceType {
@@ -87,7 +87,7 @@ Rationale:
 
 ## 3. Replace Search-Based Interface Metadata On `RtType` With Direct Slot Tables
 
-Recommended `RtType` change in [runtime/include/runtime.h](../runtime/include/runtime.h):
+Recommended `RtType` change in [runtime/include/runtime.h](../../runtime/include/runtime.h):
 
 ```c
 const void* const* interface_tables;
@@ -127,7 +127,7 @@ Rationale:
 
 ## 5. Inline Interface Dispatch In Codegen
 
-Recommended call lowering in [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py):
+Recommended call lowering in [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py):
 
 1. evaluate and root the receiver just as today
 2. null-check the receiver
@@ -147,7 +147,7 @@ Rationale:
 
 ## 6. Move Runtime Interface Checks To Slot-Based Access Too
 
-Recommended runtime follow-through in [runtime/src/runtime.c](../runtime/src/runtime.c):
+Recommended runtime follow-through in [runtime/src/runtime.c](../../runtime/src/runtime.c):
 
 - rewrite `rt_checked_cast_interface(...)` to use `expected_interface->slot_index`
 - rewrite `rt_is_instance_of_interface(...)` to use the slot directly
@@ -181,65 +181,65 @@ Rationale:
 
 ## Compiler Metadata And Tables
 
-- [compiler/codegen/program_generator.py](../compiler/codegen/program_generator.py)
+- [compiler/codegen/program_generator.py](../../compiler/codegen/program_generator.py)
   - assign a stable whole-program slot to each interface
   - expose `interface_slot(interface_id)` on `DeclarationTables`
-- [compiler/codegen/metadata.py](../compiler/codegen/metadata.py)
+- [compiler/codegen/metadata.py](../../compiler/codegen/metadata.py)
   - record interface slot indices in `InterfaceMetadataRecord`
   - change class metadata from compact `interface_impls` search records to a direct slot-array representation
   - keep per-interface method table symbol data for implemented interfaces
-- [compiler/codegen/symbols.py](../compiler/codegen/symbols.py)
+- [compiler/codegen/symbols.py](../../compiler/codegen/symbols.py)
   - add or rename symbols for per-class interface slot arrays if needed
 
 ## Assembly Emission
 
-- [compiler/codegen/emitter_module.py](../compiler/codegen/emitter_module.py)
+- [compiler/codegen/emitter_module.py](../../compiler/codegen/emitter_module.py)
   - emit interface descriptors with slot index
   - emit per-class `interface_tables` arrays sized to the global interface slot count
   - emit `NULL` table entries for non-implemented slots
   - wire the new array into `RtType`
-- [compiler/codegen/abi/object.py](../compiler/codegen/abi/object.py)
+- [compiler/codegen/abi/object.py](../../compiler/codegen/abi/object.py)
   - add ABI constants and operand helpers for `RtType.interface_tables`
   - add helper(s) for indexed interface-table loads if useful
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
   - remove helper-call-based interface method lookup from the hot path
   - inline interface table and method slot loads
   - preserve current panic behavior for null receivers and invalid interface access
 
 ## Runtime ABI And Helpers
 
-- [runtime/include/runtime.h](../runtime/include/runtime.h)
+- [runtime/include/runtime.h](../../runtime/include/runtime.h)
   - revise `RtInterfaceType`
   - revise `RtType`
   - delete or deprecate `RtInterfaceImpl`
   - remove `rt_lookup_interface_method(...)` from the public ABI once no longer needed
-- [runtime/src/runtime.c](../runtime/src/runtime.c)
+- [runtime/src/runtime.c](../../runtime/src/runtime.c)
   - update interface cast/type-test helpers to use slot-based access
   - delete linear scan helpers if fully retired
 
 ## Tests
 
-- [tests/compiler/codegen/test_emitter_expr.py](../tests/compiler/codegen/test_emitter_expr.py)
+- [tests/compiler/codegen/test_emitter_expr.py](../../tests/compiler/codegen/test_emitter_expr.py)
   - update interface dispatch assertions from `call rt_lookup_interface_method` to inline table loads
-- [tests/compiler/codegen/test_emit_asm_calls.py](../tests/compiler/codegen/test_emit_asm_calls.py)
+- [tests/compiler/codegen/test_emit_asm_calls.py](../../tests/compiler/codegen/test_emit_asm_calls.py)
   - update interface call lowering expectations
-- [tests/compiler/codegen/test_program_generator.py](../tests/compiler/codegen/test_program_generator.py)
+- [tests/compiler/codegen/test_program_generator.py](../../tests/compiler/codegen/test_program_generator.py)
   - assert stable whole-program interface slot assignment and new metadata shape
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
   - assert emitted `RtInterfaceType` and `RtType` layout changes
-- [tests/runtime/test_interface_metadata.c](../tests/runtime/test_interface_metadata.c)
+- [tests/runtime/test_interface_metadata.c](../../tests/runtime/test_interface_metadata.c)
   - update runtime metadata layout tests to the slotted representation
-- [tests/runtime/test_interface_dispatch.c](../tests/runtime/test_interface_dispatch.c)
+- [tests/runtime/test_interface_dispatch.c](../../tests/runtime/test_interface_dispatch.c)
   - replace helper-search-oriented assertions with direct slot-table expectations
-- [tests/runtime/test_interface_dispatch_negative.c](../tests/runtime/test_interface_dispatch_negative.c)
+- [tests/runtime/test_interface_dispatch_negative.c](../../tests/runtime/test_interface_dispatch_negative.c)
   - update failure-mode coverage for missing table entries or invalid slots
-- [tests/runtime/test_interface_casts.c](../tests/runtime/test_interface_casts.c)
+- [tests/runtime/test_interface_casts.c](../../tests/runtime/test_interface_casts.c)
   - ensure cast success still works with slot-based metadata
-- [tests/runtime/test_interface_casts_negative.c](../tests/runtime/test_interface_casts_negative.c)
+- [tests/runtime/test_interface_casts_negative.c](../../tests/runtime/test_interface_casts_negative.c)
   - ensure invalid casts still fail correctly
-- [tests/compiler/integration/test_cli_interfaces_runtime](../tests/compiler/integration/test_cli_interfaces_runtime)
+- [tests/compiler/integration/test_cli_interfaces_runtime](../../tests/compiler/integration/test_cli_interfaces_runtime)
   - validate end-to-end interface dispatch behavior
-- [tests/compiler/integration/test_cli_semantic_codegen_runtime/test_virtual_dispatch_interface_override_alignment.py](../tests/compiler/integration/test_cli_semantic_codegen_runtime/test_virtual_dispatch_interface_override_alignment.py)
+- [tests/compiler/integration/test_cli_semantic_codegen_runtime/test_virtual_dispatch_interface_override_alignment.py](../../tests/compiler/integration/test_cli_semantic_codegen_runtime/test_virtual_dispatch_interface_override_alignment.py)
   - ensure interface dispatch still agrees with override-selected implementations
 
 ## Ordered Implementation Checklist
@@ -252,14 +252,14 @@ Rationale:
 
 Change:
 
-- [runtime/include/runtime.h](../runtime/include/runtime.h)
-- [compiler/codegen/abi/object.py](../compiler/codegen/abi/object.py)
-- [compiler/codegen/symbols.py](../compiler/codegen/symbols.py)
+- [runtime/include/runtime.h](../../runtime/include/runtime.h)
+- [compiler/codegen/abi/object.py](../../compiler/codegen/abi/object.py)
+- [compiler/codegen/symbols.py](../../compiler/codegen/symbols.py)
 
 Test:
 
-- [tests/runtime/test_interface_metadata.c](../tests/runtime/test_interface_metadata.c)
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [tests/runtime/test_interface_metadata.c](../../tests/runtime/test_interface_metadata.c)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
 
 ## Slice 2: Assign Stable Whole-Program Interface Slots
 
@@ -269,9 +269,9 @@ Test:
 
 Change:
 
-- [compiler/codegen/program_generator.py](../compiler/codegen/program_generator.py)
-- [compiler/codegen/metadata.py](../compiler/codegen/metadata.py)
-- [tests/compiler/codegen/test_program_generator.py](../tests/compiler/codegen/test_program_generator.py)
+- [compiler/codegen/program_generator.py](../../compiler/codegen/program_generator.py)
+- [compiler/codegen/metadata.py](../../compiler/codegen/metadata.py)
+- [tests/compiler/codegen/test_program_generator.py](../../tests/compiler/codegen/test_program_generator.py)
 
 Test:
 
@@ -286,9 +286,9 @@ Test:
 
 Change:
 
-- [compiler/codegen/emitter_module.py](../compiler/codegen/emitter_module.py)
-- [compiler/codegen/metadata.py](../compiler/codegen/metadata.py)
-- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
+- [compiler/codegen/emitter_module.py](../../compiler/codegen/emitter_module.py)
+- [compiler/codegen/metadata.py](../../compiler/codegen/metadata.py)
+- [tests/compiler/codegen/test_emit_asm_casts_metadata.py](../../tests/compiler/codegen/test_emit_asm_casts_metadata.py)
 
 Test:
 
@@ -303,9 +303,9 @@ Test:
 
 Change:
 
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
-- [compiler/codegen/test_emitter_expr.py](../tests/compiler/codegen/test_emitter_expr.py)
-- [tests/compiler/codegen/test_emit_asm_calls.py](../tests/compiler/codegen/test_emit_asm_calls.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/test_emitter_expr.py](../../tests/compiler/codegen/test_emitter_expr.py)
+- [tests/compiler/codegen/test_emit_asm_calls.py](../../tests/compiler/codegen/test_emit_asm_calls.py)
 
 Test:
 
@@ -320,12 +320,12 @@ Test:
 
 Change:
 
-- [runtime/src/runtime.c](../runtime/src/runtime.c)
-- [runtime/include/runtime.h](../runtime/include/runtime.h)
-- [tests/runtime/test_interface_casts.c](../tests/runtime/test_interface_casts.c)
-- [tests/runtime/test_interface_casts_negative.c](../tests/runtime/test_interface_casts_negative.c)
-- [tests/runtime/test_interface_dispatch.c](../tests/runtime/test_interface_dispatch.c)
-- [tests/runtime/test_interface_dispatch_negative.c](../tests/runtime/test_interface_dispatch_negative.c)
+- [runtime/src/runtime.c](../../runtime/src/runtime.c)
+- [runtime/include/runtime.h](../../runtime/include/runtime.h)
+- [tests/runtime/test_interface_casts.c](../../tests/runtime/test_interface_casts.c)
+- [tests/runtime/test_interface_casts_negative.c](../../tests/runtime/test_interface_casts_negative.c)
+- [tests/runtime/test_interface_dispatch.c](../../tests/runtime/test_interface_dispatch.c)
+- [tests/runtime/test_interface_dispatch_negative.c](../../tests/runtime/test_interface_dispatch_negative.c)
 
 Test:
 
@@ -343,8 +343,8 @@ Change:
 
 Test:
 
-- [tests/compiler/integration/test_cli_interfaces_runtime](../tests/compiler/integration/test_cli_interfaces_runtime)
-- [tests/compiler/integration/test_cli_semantic_codegen_runtime/test_virtual_dispatch_interface_override_alignment.py](../tests/compiler/integration/test_cli_semantic_codegen_runtime/test_virtual_dispatch_interface_override_alignment.py)
+- [tests/compiler/integration/test_cli_interfaces_runtime](../../tests/compiler/integration/test_cli_interfaces_runtime)
+- [tests/compiler/integration/test_cli_semantic_codegen_runtime/test_virtual_dispatch_interface_override_alignment.py](../../tests/compiler/integration/test_cli_semantic_codegen_runtime/test_virtual_dispatch_interface_override_alignment.py)
 - focused interface-related golden coverage if an end-to-end fixture is added or updated
 
 ## Slice 7: Cleanup And Documentation
@@ -355,10 +355,10 @@ Test:
 
 Change:
 
-- [docs/INTERFACES_V1.md](../docs/INTERFACES_V1.md)
-- [docs/ABI_NOTES.md](../docs/ABI_NOTES.md)
-- [tests/README.md](../tests/README.md)
-- [README.md](../README.md)
+- [docs/INTERFACES_V1.md](../INTERFACES_V1.md)
+- [docs/ABI_NOTES.md](../ABI_NOTES.md)
+- [tests/README.md](../../tests/README.md)
+- [README.md](../../README.md)
 
 Test:
 

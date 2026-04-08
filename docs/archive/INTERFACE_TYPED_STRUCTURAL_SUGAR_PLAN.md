@@ -39,21 +39,21 @@ After this change:
 
 Before implementation, the gap looked like this:
 
-- [docs/SUGARING_DESIGN.md](../docs/SUGARING_DESIGN.md)
+- [docs/SUGARING_DESIGN.md](../SUGARING_DESIGN.md)
   - documents that interface-typed `for ... in` is intended but not implemented
-- [docs/TODO.md](../docs/TODO.md)
+- [docs/TODO.md](../TODO.md)
   - then tracked interface-typed indexing, slice, and iteration sugar as open implementation work
-- [compiler/typecheck/structural.py](../compiler/typecheck/structural.py)
+- [compiler/typecheck/structural.py](../../compiler/typecheck/structural.py)
   - resolves structural protocols only for arrays and classes
   - rejects interface-typed receivers before dispatch lowering can occur
-- [compiler/semantic/lowering/collections.py](../compiler/semantic/lowering/collections.py)
+- [compiler/semantic/lowering/collections.py](../../compiler/semantic/lowering/collections.py)
   - resolves collection dispatch only to `RuntimeDispatch`, `MethodDispatch`, or `VirtualMethodDispatch`
   - has no interface-dispatch variant for structural sugar
-- [compiler/typecheck/calls.py](../compiler/typecheck/calls.py)
+- [compiler/typecheck/calls.py](../../compiler/typecheck/calls.py)
   - already supports explicit interface method calls
-- [compiler/semantic/lowering/resolution.py](../compiler/semantic/lowering/resolution.py)
+- [compiler/semantic/lowering/resolution.py](../../compiler/semantic/lowering/resolution.py)
   - already resolves explicit interface method member access
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
   - already emits interface method calls through slot-based interface table lookup
 
 The implemented change confirmed that the missing behavior was not a parser problem or a runtime ABI problem. It was a structural typecheck and dispatch-selection gap.
@@ -75,7 +75,7 @@ Do not replace structural sugar with a lowering rewrite into general `CallExprS`
 
 ## 2. Add An Interface Dispatch Variant To `SemanticDispatch`
 
-Recommended new IR shape in [compiler/semantic/ir.py](../compiler/semantic/ir.py):
+Recommended new IR shape in [compiler/semantic/ir.py](../../compiler/semantic/ir.py):
 
 ```python
 @dataclass(frozen=True)
@@ -95,7 +95,7 @@ Why:
 
 ## 3. Teach Structural Typechecking To Validate Interface Protocols
 
-Structural protocol checks in [compiler/typecheck/structural.py](../compiler/typecheck/structural.py) should accept interface-typed receivers as well as class-typed receivers.
+Structural protocol checks in [compiler/typecheck/structural.py](../../compiler/typecheck/structural.py) should accept interface-typed receivers as well as class-typed receivers.
 
 Recommended rules:
 
@@ -115,7 +115,7 @@ Important constraint:
 
 ## 4. Resolve Structural Interface Sugar To Interface Dispatch
 
-Update [compiler/semantic/lowering/collections.py](../compiler/semantic/lowering/collections.py) so `resolve_collection_dispatch(...)` returns:
+Update [compiler/semantic/lowering/collections.py](../../compiler/semantic/lowering/collections.py) so `resolve_collection_dispatch(...)` returns:
 
 - `RuntimeDispatch` for arrays
 - `MethodDispatch` or `VirtualMethodDispatch` for class receivers
@@ -130,7 +130,7 @@ Important constraint:
 
 ## 5. Reuse Existing Interface Codegen For Structural Sugar
 
-Update [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py) so `_emit_dispatch_call(...)` understands `InterfaceDispatch`.
+Update [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py) so `_emit_dispatch_call(...)` understands `InterfaceDispatch`.
 
 Recommended behavior:
 
@@ -179,140 +179,140 @@ Non-negotiable preserved behavior:
 
 ## Semantic IR And Dispatch Modeling
 
-- [compiler/semantic/ir.py](../compiler/semantic/ir.py)
+- [compiler/semantic/ir.py](../../compiler/semantic/ir.py)
   - add `InterfaceDispatch`
   - extend `SemanticDispatch`
   - update `dispatch_method_id(...)` or add a parallel interface-dispatch accessor if needed by reachability code
 
 ## Structural Typechecking
 
-- [compiler/typecheck/structural.py](../compiler/typecheck/structural.py)
+- [compiler/typecheck/structural.py](../../compiler/typecheck/structural.py)
   - extend `resolve_for_in_element_type(...)` to support interface receivers
   - extend `resolve_index_expression_type(...)` to support interface receivers
   - extend index assignment protocol checks to support interface receivers
   - extend slice protocol inference helpers to support interface receivers
   - factor shared protocol-signature checking so class and interface logic do not drift
-- [compiler/typecheck/module_lookup.py](../compiler/typecheck/module_lookup.py)
+- [compiler/typecheck/module_lookup.py](../../compiler/typecheck/module_lookup.py)
   - reuse `lookup_interface_by_type_name(...)` where structural helpers currently only use class lookup
 
 ## Structural Lowering
 
-- [compiler/semantic/lowering/collections.py](../compiler/semantic/lowering/collections.py)
+- [compiler/semantic/lowering/collections.py](../../compiler/semantic/lowering/collections.py)
   - return `InterfaceDispatch` for interface receivers in `resolve_collection_dispatch(...)`
   - keep array and class behavior unchanged
-- [compiler/semantic/lowering/statements.py](../compiler/semantic/lowering/statements.py)
+- [compiler/semantic/lowering/statements.py](../../compiler/semantic/lowering/statements.py)
   - no design change expected, but validate that `for ... in` picks up the new dispatch automatically
-- [compiler/semantic/lowering/expressions.py](../compiler/semantic/lowering/expressions.py)
+- [compiler/semantic/lowering/expressions.py](../../compiler/semantic/lowering/expressions.py)
   - no design change expected beyond consuming the new dispatch variant through existing collection nodes
 
 ## Codegen
 
-- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
   - extend `_emit_dispatch_call(...)` for `InterfaceDispatch`
   - reuse interface slot and interface method slot lookup helpers already used for ordinary interface calls
-- [compiler/codegen/emitter_stmt.py](../compiler/codegen/emitter_stmt.py)
+- [compiler/codegen/emitter_stmt.py](../../compiler/codegen/emitter_stmt.py)
   - no structural redesign expected
   - validate that index and slice writes work through `_emit_dispatch_call(...)` once `InterfaceDispatch` is added
-- [compiler/codegen/layout.py](../compiler/codegen/layout.py)
+- [compiler/codegen/layout.py](../../compiler/codegen/layout.py)
   - update `_dispatch_reference_arg_indices(...)` and any call-root sizing helpers to recognize `InterfaceDispatch`
-- [compiler/codegen/effects.py](../compiler/codegen/effects.py)
+- [compiler/codegen/effects.py](../../compiler/codegen/effects.py)
   - treat `InterfaceDispatch` as potentially GC-executing, same as other method dispatch
-- [compiler/codegen/root_liveness.py](../compiler/codegen/root_liveness.py)
+- [compiler/codegen/root_liveness.py](../../compiler/codegen/root_liveness.py)
   - no major redesign expected
   - validate that liveness accounting remains correct when structural dispatch is interface-based
 
 ## Semantic Optimizations
 
-- [compiler/semantic/optimizations/unreachable_prune.py](../compiler/semantic/optimizations/unreachable_prune.py)
+- [compiler/semantic/optimizations/unreachable_prune.py](../../compiler/semantic/optimizations/unreachable_prune.py)
   - ensure interface-dispatched structural sugar keeps the relevant interface reachable
   - ensure implementing methods are retained via the existing interface reachability path
-- [compiler/semantic/optimizations/interface_call_devirtualization.py](../compiler/semantic/optimizations/interface_call_devirtualization.py)
+- [compiler/semantic/optimizations/interface_call_devirtualization.py](../../compiler/semantic/optimizations/interface_call_devirtualization.py)
   - no correctness change required for initial support
   - optional follow-up: teach the pass to devirtualize `InterfaceDispatch` in structural sugar the same way it devirtualizes `InterfaceMethodCallTarget`
 
 ## Tests
 
-- [tests/compiler/typecheck/test_structural.py](../tests/compiler/typecheck/test_structural.py)
+- [tests/compiler/typecheck/test_structural.py](../../tests/compiler/typecheck/test_structural.py)
   - add positive interface-typed index, index assignment, slice, slice assignment, and for-in cases
   - add targeted negative cases for missing methods and wrong signatures on interfaces
-- [tests/compiler/semantic/test_lowering.py](../tests/compiler/semantic/test_lowering.py)
+- [tests/compiler/semantic/test_lowering.py](../../tests/compiler/semantic/test_lowering.py)
   - add assertions that interface-typed sugar lowers to `InterfaceDispatch`
   - preserve existing expectations for arrays and class receivers
-- [tests/compiler/codegen/test_emitter_expr.py](../tests/compiler/codegen/test_emitter_expr.py)
+- [tests/compiler/codegen/test_emitter_expr.py](../../tests/compiler/codegen/test_emitter_expr.py)
   - verify interface-typed index and slice reads emit interface dispatch rather than runtime or virtual dispatch
-- [tests/compiler/codegen/test_emitter_stmt.py](../tests/compiler/codegen/test_emitter_stmt.py)
+- [tests/compiler/codegen/test_emitter_stmt.py](../../tests/compiler/codegen/test_emitter_stmt.py)
   - verify interface-typed index and slice writes and `for ... in` protocol calls emit interface dispatch correctly
-- [tests/compiler/semantic/optimizations/test_unreachable_prune.py](../tests/compiler/semantic/optimizations/test_unreachable_prune.py)
+- [tests/compiler/semantic/optimizations/test_unreachable_prune.py](../../tests/compiler/semantic/optimizations/test_unreachable_prune.py)
   - add coverage that structural interface sugar keeps interface reachability alive
-- [tests/golden/lang/test_indexing_sugar](../tests/golden/lang/test_indexing_sugar)
+- [tests/golden/lang/test_indexing_sugar](../../tests/golden/lang/test_indexing_sugar)
   - add positive interface-typed indexing and slice cases
-- [tests/golden/lang/test_for_in](../tests/golden/lang/test_for_in)
+- [tests/golden/lang/test_for_in](../../tests/golden/lang/test_for_in)
   - add positive interface-typed `for ... in` cases
-- [tests/golden/lang/test_virtual_dispatch](../tests/golden/lang/test_virtual_dispatch)
+- [tests/golden/lang/test_virtual_dispatch](../../tests/golden/lang/test_virtual_dispatch)
   - add or extend cases proving override-sensitive behavior through interface-typed sugar
 
 ## Ordered Implementation Checklist
 
 ## Slice 1: Add Interface Structural Dispatch To IR
 
-- [x] add `InterfaceDispatch` to [compiler/semantic/ir.py](../compiler/semantic/ir.py)
+- [x] add `InterfaceDispatch` to [compiler/semantic/ir.py](../../compiler/semantic/ir.py)
 - [x] extend `SemanticDispatch` to include it
 - [x] update helper functions that inspect dispatch unions
 
 Test:
 
-- [x] add focused IR helper coverage in [tests/compiler/semantic/test_ir.py](../tests/compiler/semantic/test_ir.py) for the new dispatch shape and helper behavior
+- [x] add focused IR helper coverage in [tests/compiler/semantic/test_ir.py](../../tests/compiler/semantic/test_ir.py) for the new dispatch shape and helper behavior
 
 ## Slice 2: Extend Structural Typechecking For Interface Receivers
 
-- [x] update `resolve_for_in_element_type(...)` in [compiler/typecheck/structural.py](../compiler/typecheck/structural.py)
-- [x] update `resolve_index_expression_type(...)` in [compiler/typecheck/structural.py](../compiler/typecheck/structural.py)
-- [x] update index-assignment checks in [compiler/typecheck/structural.py](../compiler/typecheck/structural.py)
-- [x] update slice protocol inference in [compiler/typecheck/structural.py](../compiler/typecheck/structural.py)
+- [x] update `resolve_for_in_element_type(...)` in [compiler/typecheck/structural.py](../../compiler/typecheck/structural.py)
+- [x] update `resolve_index_expression_type(...)` in [compiler/typecheck/structural.py](../../compiler/typecheck/structural.py)
+- [x] update index-assignment checks in [compiler/typecheck/structural.py](../../compiler/typecheck/structural.py)
+- [x] update slice protocol inference in [compiler/typecheck/structural.py](../../compiler/typecheck/structural.py)
 - [x] refactor duplicated class-only protocol validation into shared class-or-interface helpers where practical
 
 Test:
 
-- [x] add positive interface-typed protocol tests in [tests/compiler/typecheck/test_structural.py](../tests/compiler/typecheck/test_structural.py)
-- [x] add negative interface signature tests in [tests/compiler/typecheck/test_structural.py](../tests/compiler/typecheck/test_structural.py)
+- [x] add positive interface-typed protocol tests in [tests/compiler/typecheck/test_structural.py](../../tests/compiler/typecheck/test_structural.py)
+- [x] add negative interface signature tests in [tests/compiler/typecheck/test_structural.py](../../tests/compiler/typecheck/test_structural.py)
 
 ## Slice 3: Lower Interface-Typed Structural Sugar To Interface Dispatch
 
-- [x] update `resolve_collection_dispatch(...)` in [compiler/semantic/lowering/collections.py](../compiler/semantic/lowering/collections.py) to return `InterfaceDispatch` for interface receivers
-- [x] ensure [compiler/semantic/lowering/statements.py](../compiler/semantic/lowering/statements.py) `for ... in` lowering works unchanged once dispatch resolution is updated
+- [x] update `resolve_collection_dispatch(...)` in [compiler/semantic/lowering/collections.py](../../compiler/semantic/lowering/collections.py) to return `InterfaceDispatch` for interface receivers
+- [x] ensure [compiler/semantic/lowering/statements.py](../../compiler/semantic/lowering/statements.py) `for ... in` lowering works unchanged once dispatch resolution is updated
 - [x] validate that index, slice, and assignment lowering paths continue using structural nodes with the new dispatch kind
 
 Test:
 
-- [x] add lowering assertions for interface-typed `[]`, `[:]`, `[]=`, `[:]=`, and `for ... in` in [tests/compiler/semantic/test_lowering.py](../tests/compiler/semantic/test_lowering.py)
+- [x] add lowering assertions for interface-typed `[]`, `[:]`, `[]=`, `[:]=`, and `for ... in` in [tests/compiler/semantic/test_lowering.py](../../tests/compiler/semantic/test_lowering.py)
 
 ## Slice 4: Emit Interface Dispatch For Structural Sugar
 
-- [x] extend `_emit_dispatch_call(...)` in [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
-- [x] route structural interface dispatch through the existing interface slot and method slot lookup helpers in [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [x] extend `_emit_dispatch_call(...)` in [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
+- [x] route structural interface dispatch through the existing interface slot and method slot lookup helpers in [compiler/codegen/emitter_expr.py](../../compiler/codegen/emitter_expr.py)
 - [x] validate index reads, slice reads, writes, and loop protocol calls through the generic dispatch path
 
 Test:
 
-- [x] add codegen unit coverage in [tests/compiler/codegen/test_emitter_expr.py](../tests/compiler/codegen/test_emitter_expr.py)
-- [x] add codegen statement coverage in [tests/compiler/codegen/test_emitter_stmt.py](../tests/compiler/codegen/test_emitter_stmt.py)
+- [x] add codegen unit coverage in [tests/compiler/codegen/test_emitter_expr.py](../../tests/compiler/codegen/test_emitter_expr.py)
+- [x] add codegen statement coverage in [tests/compiler/codegen/test_emitter_stmt.py](../../tests/compiler/codegen/test_emitter_stmt.py)
 
 ## Slice 5: Update Dispatch Analyses And Reachability
 
-- [x] update rooted-argument analysis in [compiler/codegen/layout.py](../compiler/codegen/layout.py)
-- [x] update dispatch GC-effect analysis in [compiler/codegen/effects.py](../compiler/codegen/effects.py)
-- [x] update reachability handling for structural interface dispatch in [compiler/semantic/optimizations/unreachable_prune.py](../compiler/semantic/optimizations/unreachable_prune.py)
+- [x] update rooted-argument analysis in [compiler/codegen/layout.py](../../compiler/codegen/layout.py)
+- [x] update dispatch GC-effect analysis in [compiler/codegen/effects.py](../../compiler/codegen/effects.py)
+- [x] update reachability handling for structural interface dispatch in [compiler/semantic/optimizations/unreachable_prune.py](../../compiler/semantic/optimizations/unreachable_prune.py)
 
 Test:
 
-- [x] add or update pruning coverage in [tests/compiler/semantic/optimizations/test_unreachable_prune.py](../tests/compiler/semantic/optimizations/test_unreachable_prune.py)
+- [x] add or update pruning coverage in [tests/compiler/semantic/optimizations/test_unreachable_prune.py](../../tests/compiler/semantic/optimizations/test_unreachable_prune.py)
 - [x] run focused codegen and semantic optimization tests covering interface calls and structural sugar
 
 ## Slice 6: Add End-To-End Language Coverage
 
-- [x] add positive golden coverage for interface-typed indexing and slicing in [tests/golden/lang/test_indexing_sugar](../tests/golden/lang/test_indexing_sugar)
-- [x] add positive golden coverage for interface-typed `for ... in` in [tests/golden/lang/test_for_in](../tests/golden/lang/test_for_in)
-- [x] extend override-sensitive language tests in [tests/golden/lang/test_virtual_dispatch](../tests/golden/lang/test_virtual_dispatch) so interface-typed sugar proves correct override behavior
+- [x] add positive golden coverage for interface-typed indexing and slicing in [tests/golden/lang/test_indexing_sugar](../../tests/golden/lang/test_indexing_sugar)
+- [x] add positive golden coverage for interface-typed `for ... in` in [tests/golden/lang/test_for_in](../../tests/golden/lang/test_for_in)
+- [x] extend override-sensitive language tests in [tests/golden/lang/test_virtual_dispatch](../../tests/golden/lang/test_virtual_dispatch) so interface-typed sugar proves correct override behavior
 
 Test:
 
