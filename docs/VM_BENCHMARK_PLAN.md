@@ -1,6 +1,6 @@
 # VM Benchmark Plan
 
-Status: slice 7 implemented.
+Status: slice 8 implemented.
 
 This document defines a concrete plan for implementing a larger regression benchmark program based on a small bytecode virtual machine.
 
@@ -375,7 +375,7 @@ Suggested output shape:
 case=arith ret=4187 steps=12044 branches=2021 regs=8821 mem=281993 out=0
 case=recursion ret=10946 steps=9033 branches=1422 regs=6711 mem=112 out=0
 case=sieve ret=1229 steps=45510 branches=19876 regs=1742 mem=991287 out=0
-final=18446744073123456789
+final: cases=3 return=16362 memory0=16362 mem=282105 trace=0 steps=66587 calls=0 branches=23319 builtins=0 checksum=18446744073123456789
 ```
 
 Why this matters:
@@ -684,14 +684,14 @@ Test:
 
 ## Slice 8: Finalize Aggregate Verification
 
-- combine per-case results into one final aggregate checksum
-- ensure every case contributes to the aggregate in a deterministic way
-- make the final output stable and line-oriented
+- [x] combine per-case results into one final aggregate checksum
+- [x] ensure every case contributes to the aggregate in a deterministic way
+- [x] make the final output stable and line-oriented
 
 Test:
 
-- lock the full stdout in golden coverage
-- run the full pytest and golden suites
+- [x] lock the full stdout in golden coverage
+- [x] run the full pytest and golden suites
 
 ## Additional Deliberate Stress Points
 

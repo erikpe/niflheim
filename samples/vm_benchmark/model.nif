@@ -87,6 +87,20 @@ export class BenchmarkCase {
             " builtins=" + Str.from_u64(__self.expected_builtin_calls) +
             " checksum=" + Str.from_i64(__self.expected_checksum());
     }
+
+    fn expected_result() -> BenchmarkResult {
+        return BenchmarkResult(
+            __self.name,
+            __self.expected_return_value,
+            __self.expected_memory0,
+            __self.expected_memory_checksum,
+            __self.expected_trace_sum,
+            __self.expected_instruction_count,
+            __self.expected_call_count,
+            __self.expected_branch_count,
+            __self.expected_builtin_calls
+        );
+    }
 }
 
 export class BenchmarkResult {
@@ -138,5 +152,32 @@ export class BenchmarkResult {
             " branches=" + Str.from_u64(__self.branch_count) +
             " builtins=" + Str.from_u64(__self.builtin_calls) +
             " checksum=" + Str.from_i64(__self.checksum());
+    }
+}
+
+export class BenchmarkAggregate {
+    case_count: u64;
+    total_return_value: i64;
+    total_memory0: i64;
+    total_memory_checksum: i64;
+    total_trace_sum: i64;
+    total_instruction_count: u64;
+    total_call_count: u64;
+    total_branch_count: u64;
+    total_builtin_calls: u64;
+    checksum_value: i64;
+
+    fn render() -> Str {
+        return
+            "final: cases=" + Str.from_u64(__self.case_count) +
+            " return=" + Str.from_i64(__self.total_return_value) +
+            " memory0=" + Str.from_i64(__self.total_memory0) +
+            " mem=" + Str.from_i64(__self.total_memory_checksum) +
+            " trace=" + Str.from_i64(__self.total_trace_sum) +
+            " steps=" + Str.from_u64(__self.total_instruction_count) +
+            " calls=" + Str.from_u64(__self.total_call_count) +
+            " branches=" + Str.from_u64(__self.total_branch_count) +
+            " builtins=" + Str.from_u64(__self.total_builtin_calls) +
+            " checksum=" + Str.from_i64(__self.checksum_value);
     }
 }
