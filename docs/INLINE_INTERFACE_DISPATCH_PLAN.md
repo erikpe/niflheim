@@ -292,10 +292,10 @@ Test:
 
 ## Slice 4: Inline Interface Dispatch In Expression Codegen
 
-- [ ] replace `rt_lookup_interface_method` call emission with inline slot-table loads
-- [ ] preserve null receiver behavior
-- [ ] preserve invalid interface access failure behavior
-- [ ] keep the existing indirect call ABI/rooting path unchanged after method pointer resolution
+- [x] replace `rt_lookup_interface_method` call emission with inline slot-table loads
+- [x] preserve null receiver behavior
+- [x] preserve invalid interface access failure behavior
+- [x] keep the existing indirect call ABI/rooting path unchanged after method pointer resolution
 
 Change:
 

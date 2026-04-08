@@ -305,7 +305,7 @@ def test_emitter_expr_emits_class_structural_index_reads(tmp_path: Path) -> None
     assert "    call r11" in generator.asm.lines
 
 
-def test_emitter_expr_emits_interface_dispatch_via_lookup_helper(tmp_path: Path) -> None:
+def test_emitter_expr_emits_interface_dispatch_via_inline_slot_lookup(tmp_path: Path) -> None:
     fn, generator, ctx = _build_emit_fixture(
         tmp_path,
         {
@@ -331,7 +331,9 @@ def test_emitter_expr_emits_interface_dispatch_via_lookup_helper(tmp_path: Path)
     assert isinstance(return_stmt, SemanticReturn)
     _assert_call_target(return_stmt.value, InterfaceMethodCallTarget)
     emit_expr(generator, return_stmt.value, ctx)
-    assert "    call rt_lookup_interface_method" in generator.asm.lines
+    assert "    call rt_lookup_interface_method" not in generator.asm.lines
+    assert "    mov rax, qword ptr [rcx + 64]" in generator.asm.lines
+    assert "    mov rax, qword ptr [rax]" in generator.asm.lines
     assert "    mov r11, rax" in generator.asm.lines
     assert "    call r11" in generator.asm.lines
 

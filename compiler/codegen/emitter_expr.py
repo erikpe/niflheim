@@ -9,7 +9,16 @@ import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
 from compiler.codegen.abi.array import ARRAY_API_NULL_PANIC_MESSAGE, array_data_index_address, array_length_operand
-from compiler.codegen.abi.object import class_vtable_entry_operand, class_vtable_operand, object_type_operand
+from compiler.codegen.abi.object import (
+    class_vtable_entry_operand,
+    class_vtable_operand,
+    interface_debug_name_operand,
+    interface_method_entry_operand,
+    interface_table_entry_operand,
+    interface_tables_operand,
+    object_type_operand,
+    type_debug_name_operand,
+)
 from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import offset_operand, stack_slot_operand
 from compiler.codegen.abi.runtime import (
@@ -558,6 +567,7 @@ def _emit_interface_method_call(
             f"missing interface descriptor symbol for {target.interface_id}", span=expr.span
         )
 
+    interface_slot = _interface_slot(target.interface_id, ctx)
     method_slot = _interface_method_slot(target.method_id, ctx)
     _emit_indirect_method_call(
         codegen,
@@ -568,7 +578,11 @@ def _emit_interface_method_call(
         call_span=expr.span,
         named_root_local_ids=named_root_local_ids,
         resolve_method_pointer=lambda: _emit_interface_method_lookup(
-            codegen, descriptor_symbol=descriptor_symbol, method_slot=method_slot
+            codegen,
+            ctx,
+            descriptor_symbol=descriptor_symbol,
+            interface_slot=interface_slot,
+            method_slot=method_slot,
         ),
     )
 
@@ -679,11 +693,41 @@ def _emit_indirect_method_call(
     ctx.temp_root_depth[0] = temp_root_base
 
 
-def _emit_interface_method_lookup(codegen: CodeGenerator, *, descriptor_symbol: str, method_slot: int) -> None:
-    codegen.asm.instr("mov rdi, qword ptr [rsp]")
+def _emit_interface_method_lookup(
+    codegen: CodeGenerator,
+    ctx: EmitContext,
+    *,
+    descriptor_symbol: str,
+    interface_slot: int,
+    method_slot: int,
+) -> None:
+    non_null_label = codegen_symbols.next_label(ctx.fn_name, "interface_call_non_null", ctx.label_counter)
+    interface_match_label = codegen_symbols.next_label(ctx.fn_name, "interface_call_match", ctx.label_counter)
+
+    codegen.asm.instr("mov rcx, qword ptr [rsp]")
+    codegen.asm.instr("test rcx, rcx")
+    codegen.asm.instr(f"jne {non_null_label}")
+    codegen.emit_aligned_call("rt_panic_null_deref")
+    codegen.asm.label(non_null_label)
+    codegen.asm.instr(f"mov rcx, {object_type_operand('rcx')}")
+    codegen.asm.instr(f"mov rax, {interface_tables_operand('rcx')}")
+    codegen.asm.instr("test rax, rax")
+    codegen.asm.instr(f"je {interface_match_label}")
+    codegen.asm.instr(f"mov rax, {interface_table_entry_operand('rax', interface_slot)}")
+    codegen.asm.instr("test rax, rax")
+    codegen.asm.instr(f"je {interface_match_label}")
+    codegen.asm.instr(f"mov rax, {interface_method_entry_operand('rax', method_slot)}")
+    codegen.asm.instr("test rax, rax")
+    codegen.asm.instr(f"jne {interface_match_label}_done")
+    message_label = codegen.runtime_panic_message_label("rt_lookup_interface_method: null interface method entry")
+    codegen.asm.instr(f"lea rdi, [rip + {message_label}]")
+    codegen.emit_aligned_call("rt_panic")
+    codegen.asm.label(interface_match_label)
+    codegen.asm.instr(f"mov rdi, {type_debug_name_operand('rcx')}")
     codegen.asm.instr(f"lea rsi, [rip + {descriptor_symbol}]")
-    codegen.asm.instr(f"mov edx, {method_slot}")
-    codegen.emit_aligned_call("rt_lookup_interface_method")
+    codegen.asm.instr(f"mov rsi, {interface_debug_name_operand('rsi')}")
+    codegen.emit_aligned_call("rt_panic_bad_cast")
+    codegen.asm.label(f"{interface_match_label}_done")
 
 
 def _emit_virtual_method_lookup(codegen: CodeGenerator, ctx: EmitContext, *, slot_index: int) -> None:
@@ -1170,6 +1214,13 @@ def _interface_method_slot(method_id: InterfaceMethodId, ctx: EmitContext) -> in
     slot = ctx.declaration_tables.interface_method_slot(method_id)
     if slot is None:
         raise ValueError(f"Missing interface method slot for {method_id}")
+    return slot
+
+
+def _interface_slot(interface_id: InterfaceId, ctx: EmitContext) -> int:
+    slot = ctx.declaration_tables.interface_slot(interface_id)
+    if slot is None:
+        raise ValueError(f"Missing interface slot for {interface_id}")
     return slot
 
 

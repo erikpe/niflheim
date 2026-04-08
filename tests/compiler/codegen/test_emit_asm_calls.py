@@ -242,7 +242,7 @@ fn main() -> i64 {
     assert "    call println_i64" in asm
 
 
-def test_emit_asm_interface_method_call_uses_lookup_helper_and_indirect_call(tmp_path) -> None:
+def test_emit_asm_interface_method_call_uses_inline_slot_lookup_and_indirect_call(tmp_path) -> None:
     source = """
 interface Hashable {
     fn hash_code() -> u64;
@@ -265,13 +265,16 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     call_hash_body = asm[asm.index("call_hash:") : asm.index(".Lcall_hash_epilogue:")]
 
-    assert "    call rt_lookup_interface_method" in call_hash_body
+    assert "    call rt_lookup_interface_method" not in call_hash_body
+    assert "    mov rax, qword ptr [rcx + 64]" in call_hash_body
+    assert "    mov rax, qword ptr [rax]" in call_hash_body
+    assert "    mov rdi, qword ptr [rcx + 24]" in call_hash_body
     assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in call_hash_body
-    assert "    mov edx, 0" in call_hash_body
+    assert "    mov rsi, qword ptr [rsi]" in call_hash_body
     assert "# mirror named reference slots into shadow-stack slots" not in call_hash_body
-    lookup_call_index = call_hash_body.index("    call rt_lookup_interface_method")
-    assert "    call rt_root_slot_store" not in call_hash_body[:lookup_call_index]
-    assert re.search(r"push rax\n\s+mov rdi, qword ptr \[rsp\]", call_hash_body)
+    load_index = call_hash_body.index("    mov rcx, qword ptr [rsp]")
+    assert "    call rt_root_slot_store" not in call_hash_body[:load_index]
+    assert re.search(r"push rax\n\s+mov rcx, qword ptr \[rsp\]", call_hash_body)
     assert "    mov r11, rax" in call_hash_body
     assert "    call r11" in call_hash_body
 
@@ -298,7 +301,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    mov rdi, qword ptr [rsp]" in asm
+    assert "    mov rdi, qword ptr [r10]" in asm or "    mov rdi, qword ptr [rsp]" in asm
     assert "    mov rsi, qword ptr [rsp + 8]" in asm
     assert "    mov rdx, qword ptr [rsp + 16]" in asm
     assert "    mov rcx, qword ptr [rsp + 24]" in asm
@@ -331,7 +334,9 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     call_next_body = asm[asm.index("call_next:") : asm.index(".Lcall_next_epilogue:")]
 
-    assert "    call rt_lookup_interface_method" in call_next_body
+    assert "    call rt_lookup_interface_method" not in call_next_body
+    assert "    mov rax, qword ptr [rcx + 64]" in call_next_body
+    assert "    mov rax, qword ptr [rax]" in call_next_body
     assert "    call rt_root_slot_store" not in call_next_body
     assert "    mov qword ptr [rbp - 64], rax" in call_next_body
     assert "    mov qword ptr [rbp - 56], rax" in call_next_body
@@ -363,7 +368,9 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     call_mix_body = asm[asm.index("call_mix:") : asm.index(".Lcall_mix_epilogue:")]
 
-    assert "    call rt_lookup_interface_method" in call_mix_body
+    assert "    call rt_lookup_interface_method" not in call_mix_body
+    assert "    mov rax, qword ptr [rcx + 64]" in call_mix_body
+    assert "    mov rax, qword ptr [rax]" in call_mix_body
     assert "    mov r11, rax" in call_mix_body
     assert "    mov rdi, qword ptr [r10]" in call_mix_body
     assert "    mov rsi, qword ptr [r10 + 8]" in call_mix_body
