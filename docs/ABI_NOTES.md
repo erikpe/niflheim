@@ -253,25 +253,23 @@ struct RtType {
 };
 
 void* rt_checked_cast(void* obj, const RtType* expected_type);
-void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface);
-uint64_t rt_is_instance_of_interface(void* obj, const RtInterfaceType* expected_interface);
 ```
 
 Behavior:
-- If `obj == NULL`, return NULL (nullable cast semantics).
-- If object runtime type matches `expected_type`, return object.
-- If `rt_checked_cast_interface(...)` sees an object whose concrete runtime type has a non-null table in `RtType.interface_tables[expected_interface->slot_index]`, return the original object pointer.
-- If `rt_is_instance_of_interface(...)` checks the same slot-table path, it returns `1` for implemented interfaces and `0` otherwise.
-- Otherwise panic with bad-cast error.
+- If `obj == NULL`, nullable casts return `NULL` and interface type tests produce `0`.
+- Class checked casts still use `rt_checked_cast(...)`.
+- Interface checked casts and interface type tests are emitted inline by probing `RtType.interface_tables[expected_interface->slot_index]`.
+- A non-null interface table entry means the object implements the interface.
+- Interface checked-cast failures panic with the same bad-cast diagnostic used before helper removal.
 
 Type identity in v0.1:
 - Exact type match only.
 - No subtype checks in `rt_checked_cast` yet.
-- Interface casts are checked separately through `rt_checked_cast_interface(...)` using interface metadata rather than concrete type equality.
+- Interface compatibility is checked separately from concrete type equality using slot-indexed interface metadata.
 
 Interface metadata support now present in the runtime ABI:
 - `RtType` carries `interface_tables` and `interface_slot_count` as the canonical interface-dispatch metadata.
-- `RtInterfaceType` carries a stable whole-program `slot_index` used by both codegen and runtime cast/type-test helpers.
+- `RtInterfaceType` carries a stable whole-program `slot_index` used by codegen for interface dispatch, casts, and type tests.
 - Interface method calls are emitted inline by loading the interface table pointer from `RtType.interface_tables[slot_index]` and then loading the method entry from that per-interface table.
 - Interface-typed values still use the same raw object-pointer representation as other references; no fat-pointer ABI is introduced.
 

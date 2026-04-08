@@ -25,13 +25,6 @@ static const char* rt_type_name_or_unknown(const RtType* type) {
     return type->debug_name;
 }
 
-static const char* rt_interface_name_or_unknown(const RtInterfaceType* interface_type) {
-    if (interface_type == NULL || interface_type->debug_name == NULL) {
-        return "<unknown>";
-    }
-    return interface_type->debug_name;
-}
-
 static __attribute__((noreturn)) void rt_panic_numeric_cast(const char* from_type, const char* to_type) {
     char message[256];
     snprintf(
@@ -214,43 +207,6 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
 }
 
 
-static const void* const* rt_lookup_interface_table(
-    const RtType* concrete_type,
-    const RtInterfaceType* interface_type
-) {
-    if (interface_type == NULL) {
-        rt_panic("rt_lookup_interface_table called with NULL interface_type");
-    }
-    if (concrete_type == NULL) {
-        return NULL;
-    }
-    if (concrete_type->interface_tables == NULL) {
-        return NULL;
-    }
-    if (interface_type->slot_index >= concrete_type->interface_slot_count) {
-        return NULL;
-    }
-
-    const void* method_table = concrete_type->interface_tables[interface_type->slot_index];
-    if (method_table == NULL) {
-        return NULL;
-    }
-
-    return (const void* const*)method_table;
-}
-
-static uint64_t rt_obj_implements_interface(void* obj, const RtInterfaceType* expected_interface) {
-    if (obj == NULL) {
-        return 0u;
-    }
-    if (expected_interface == NULL) {
-        rt_panic("rt_obj_implements_interface called with NULL expected_interface");
-    }
-
-    RtObjHeader* header = (RtObjHeader*)obj;
-    return rt_lookup_interface_table(header->type, expected_interface) != NULL ? 1u : 0u;
-}
-
 static uint64_t rt_type_is_instance_of(const RtType* concrete_type, const RtType* expected_type) {
     if (expected_type == NULL) {
         rt_panic("rt_type_is_instance_of called with NULL expected_type");
@@ -274,22 +230,6 @@ static uint64_t rt_obj_has_type(void* obj, const RtType* expected_type) {
     return rt_type_is_instance_of(header->type, expected_type);
 }
 
-void* rt_checked_cast_interface(void* obj, const RtInterfaceType* expected_interface) {
-    if (obj == NULL) {
-        return NULL;
-    }
-    if (rt_obj_implements_interface(obj, expected_interface) != 0u) {
-        return obj;
-    }
-
-    RtObjHeader* header = (RtObjHeader*)obj;
-
-    rt_panic_bad_cast(
-        rt_type_name_or_unknown(header->type),
-        rt_interface_name_or_unknown(expected_interface)
-    );
-}
-
 void* rt_checked_cast(void* obj, const RtType* expected_type) {
     if (obj == NULL) {
         return NULL;
@@ -304,10 +244,6 @@ void* rt_checked_cast(void* obj, const RtType* expected_type) {
         rt_type_name_or_unknown(header->type),
         rt_type_name_or_unknown(expected_type)
     );
-}
-
-uint64_t rt_is_instance_of_interface(void* obj, const RtInterfaceType* expected_interface) {
-    return rt_obj_implements_interface(obj, expected_interface);
 }
 
 uint64_t rt_is_instance_of_type(void* obj, const RtType* expected_type) {

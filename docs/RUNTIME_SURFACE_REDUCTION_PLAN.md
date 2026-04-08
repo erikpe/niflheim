@@ -133,10 +133,10 @@ Current relevant state in the repository:
 - interface method calls are emitted inline in [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
 - class virtual calls are emitted inline through `RtType.class_vtable`
 - direct array fast paths already bypass some runtime helpers for `len`, index reads, index writes, and direct array `for in`
-- interface casts and interface type tests still call runtime helpers
+- interface casts and interface type tests are emitted inline from slot-table metadata
 - array-kind checked casts still call a runtime helper
 - class checked casts and class type tests still call runtime helpers
-- emitted `RtType` records still carry transitional legacy interface metadata fields
+- transitional legacy interface metadata has already been removed from emitted `RtType` records
 
 ## What Should Change, And Where
 
@@ -230,10 +230,10 @@ Test:
 
 ## Slice 2: Inline Interface Casts And Interface Type Tests
 
-- [ ] inline interface checked-cast lowering from slot-table metadata
-- [ ] inline interface type-test lowering from slot-table metadata
-- [ ] preserve current null-return, bool-result, and bad-cast behavior
-- [ ] remove helper declarations/implementations if no longer used
+- [x] inline interface checked-cast lowering from slot-table metadata
+- [x] inline interface type-test lowering from slot-table metadata
+- [x] preserve current null-return, bool-result, and bad-cast behavior
+- [x] remove helper declarations/implementations if no longer used
 
 Change:
 

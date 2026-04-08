@@ -385,12 +385,10 @@ Current `rt_checked_cast` only accepts exact type matches.
 
 For interface casts, runtime must succeed if the object's concrete type implements the requested interface.
 
-Two viable shapes:
+Implemented shape:
 
-1. Extend `rt_checked_cast` to understand both class and interface metadata kinds.
-2. Add a separate `rt_checked_cast_interface(obj, expected_interface)` helper.
-
-For a minimal v1, the second option is acceptable if it keeps the code clearer.
+1. Keep `rt_checked_cast(...)` for class compatibility checks.
+2. Emit interface casts and interface type tests inline in codegen by probing `RtType.interface_tables[slot_index]`.
 
 Expected behavior:
 

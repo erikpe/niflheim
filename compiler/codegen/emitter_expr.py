@@ -253,32 +253,101 @@ def _emit_field_read_expr(codegen: CodeGenerator, expr: FieldReadExpr, ctx: Emit
     codegen.asm.instr(f"mov rax, qword ptr [rax + {field_offset}]")
 
 
-def _emit_reference_type_runtime_check(
+def _emit_class_reference_type_runtime_check(
     codegen: CodeGenerator,
     operand: SemanticExpr,
     target_type_ref,
-    interface_runtime_call: str,
     class_runtime_call: str,
     ctx: EmitContext,
 ) -> None:
     emit_expr(codegen, operand, ctx)
-    interface_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol_for_type_ref(target_type_ref)
-    runtime_call = interface_runtime_call if interface_descriptor_symbol is not None else class_runtime_call
-    if _runtime_call_emits_safepoint_hooks(runtime_call):
+    if _runtime_call_emits_safepoint_hooks(class_runtime_call):
         codegen.emit_push("rax")
         _emit_runtime_call_hooks_before(codegen, operand.span.start.line, operand.span.start.column, ctx)
         codegen.emit_pop("rax")
     codegen.asm.instr("mov rdi, rax")
-    if interface_descriptor_symbol is not None:
-        codegen.asm.instr(f"lea rsi, [rip + {interface_descriptor_symbol}]")
-        codegen.emit_aligned_call(runtime_call)
-    else:
-        codegen.asm.instr(
-            f"lea rsi, [rip + {codegen_symbols.mangle_type_symbol(semantic_type_canonical_name(target_type_ref))}]"
-        )
-        codegen.emit_aligned_call(runtime_call)
-    if _runtime_call_emits_safepoint_hooks(runtime_call):
+    codegen.asm.instr(
+        f"lea rsi, [rip + {codegen_symbols.mangle_type_symbol(semantic_type_canonical_name(target_type_ref))}]"
+    )
+    codegen.emit_aligned_call(class_runtime_call)
+    if _runtime_call_emits_safepoint_hooks(class_runtime_call):
         _emit_runtime_call_hooks_after(codegen, ctx)
+
+
+def _interface_descriptor_symbol(target_type_ref, ctx: EmitContext, *, span) -> str:
+    interface_descriptor_symbol = ctx.declaration_tables.interface_descriptor_symbol_for_type_ref(target_type_ref)
+    if interface_descriptor_symbol is None:
+        codegen_types.raise_codegen_error(
+            f"missing interface descriptor metadata for '{semantic_type_display_name(target_type_ref)}'",
+            span=span,
+        )
+    return interface_descriptor_symbol
+
+
+def _emit_inline_interface_cast(codegen: CodeGenerator, operand: SemanticExpr, target_type_ref, ctx: EmitContext) -> None:
+    interface_id = target_type_ref.interface_id
+    if interface_id is None:
+        codegen_types.raise_codegen_error(
+            f"inline interface cast requires interface target, got '{semantic_type_display_name(target_type_ref)}'",
+            span=operand.span,
+        )
+
+    emit_expr(codegen, operand, ctx)
+    cast_done_label = codegen_symbols.next_label(ctx.fn_name, "interface_cast_done", ctx.label_counter)
+    cast_fail_label = codegen_symbols.next_label(ctx.fn_name, "interface_cast_fail", ctx.label_counter)
+    interface_slot = _interface_slot(interface_id, ctx)
+    interface_descriptor_symbol = _interface_descriptor_symbol(target_type_ref, ctx, span=operand.span)
+
+    codegen.asm.instr("test rax, rax")
+    codegen.asm.instr(f"je {cast_done_label}")
+    codegen.asm.instr(f"mov rcx, {object_type_operand('rax')}")
+    codegen.asm.instr(f"mov rcx, {interface_tables_operand('rcx')}")
+    codegen.asm.instr("test rcx, rcx")
+    codegen.asm.instr(f"je {cast_fail_label}")
+    codegen.asm.instr(f"mov rcx, {interface_table_entry_operand('rcx', interface_slot)}")
+    codegen.asm.instr("test rcx, rcx")
+    codegen.asm.instr(f"jne {cast_done_label}")
+    codegen.asm.label(cast_fail_label)
+    codegen.asm.instr(f"mov rcx, {object_type_operand('rax')}")
+    codegen.asm.instr(f"mov rdi, {type_debug_name_operand('rcx')}")
+    codegen.asm.instr(f"lea rsi, [rip + {interface_descriptor_symbol}]")
+    codegen.asm.instr(f"mov rsi, {interface_debug_name_operand('rsi')}")
+    codegen.emit_aligned_call("rt_panic_bad_cast")
+    codegen.asm.label(cast_done_label)
+
+
+def _emit_inline_interface_type_test(
+    codegen: CodeGenerator,
+    operand: SemanticExpr,
+    target_type_ref,
+    ctx: EmitContext,
+) -> None:
+    interface_id = target_type_ref.interface_id
+    if interface_id is None:
+        codegen_types.raise_codegen_error(
+            f"inline interface type test requires interface target, got '{semantic_type_display_name(target_type_ref)}'",
+            span=operand.span,
+        )
+
+    emit_expr(codegen, operand, ctx)
+    type_test_false_label = codegen_symbols.next_label(ctx.fn_name, "interface_type_test_false", ctx.label_counter)
+    type_test_done_label = codegen_symbols.next_label(ctx.fn_name, "interface_type_test_done", ctx.label_counter)
+    interface_slot = _interface_slot(interface_id, ctx)
+
+    codegen.asm.instr("test rax, rax")
+    codegen.asm.instr(f"je {type_test_false_label}")
+    codegen.asm.instr(f"mov rcx, {object_type_operand('rax')}")
+    codegen.asm.instr(f"mov rcx, {interface_tables_operand('rcx')}")
+    codegen.asm.instr("test rcx, rcx")
+    codegen.asm.instr(f"je {type_test_false_label}")
+    codegen.asm.instr(f"mov rcx, {interface_table_entry_operand('rcx', interface_slot)}")
+    codegen.asm.instr("test rcx, rcx")
+    codegen.asm.instr("setne al")
+    codegen.asm.instr("movzx rax, al")
+    codegen.asm.instr(f"jmp {type_test_done_label}")
+    codegen.asm.label(type_test_false_label)
+    codegen.asm.instr("mov rax, 0")
+    codegen.asm.label(type_test_done_label)
 
 
 def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -> None:
@@ -311,14 +380,16 @@ def _emit_cast_expr(codegen: CodeGenerator, expr: CastExprS, ctx: EmitContext) -
                 _emit_runtime_call_hooks_after(codegen, ctx)
             return
         if codegen_types.is_reference_type_ref(expr.target_type_ref):
-            _emit_reference_type_runtime_check(
-                codegen,
-                expr.operand,
-                expr.target_type_ref,
-                "rt_checked_cast_interface",
-                "rt_checked_cast",
-                ctx,
-            )
+            if expr.target_type_ref.interface_id is not None:
+                _emit_inline_interface_cast(codegen, expr.operand, expr.target_type_ref, ctx)
+            else:
+                _emit_class_reference_type_runtime_check(
+                    codegen,
+                    expr.operand,
+                    expr.target_type_ref,
+                    "rt_checked_cast",
+                    ctx,
+                )
             return
 
     if expr.cast_kind == CastSemanticsKind.TO_DOUBLE:
@@ -392,11 +463,13 @@ def _emit_type_test_expr(codegen: CodeGenerator, expr: TypeTestExprS, ctx: EmitC
             f"type test codegen requires reference target type, got '{semantic_type_display_name(expr.target_type_ref)}'",
             span=expr.span,
         )
-    _emit_reference_type_runtime_check(
+    if expr.test_kind == TypeTestSemanticsKind.INTERFACE_COMPATIBILITY:
+        _emit_inline_interface_type_test(codegen, expr.operand, expr.target_type_ref, ctx)
+        return
+    _emit_class_reference_type_runtime_check(
         codegen,
         expr.operand,
         expr.target_type_ref,
-        "rt_is_instance_of_interface",
         "rt_is_instance_of_type",
         ctx,
     )

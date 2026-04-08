@@ -72,17 +72,59 @@ static void* alloc_leaf(const RtType* type) {
     return rt_alloc_obj(rt_thread_state(), type, 0u);
 }
 
+static const char* interface_name_or_unknown_for_test(const RtInterfaceType* interface_type) {
+    if (interface_type == NULL || interface_type->debug_name == NULL) {
+        return "<unknown>";
+    }
+    return interface_type->debug_name;
+}
+
+static const void* const* lookup_interface_table_for_test(
+    const RtType* concrete_type,
+    const RtInterfaceType* interface_type
+) {
+    if (interface_type == NULL) {
+        rt_panic("lookup_interface_table_for_test called with NULL interface_type");
+    }
+    if (concrete_type == NULL || concrete_type->interface_tables == NULL) {
+        return NULL;
+    }
+    if (interface_type->slot_index >= concrete_type->interface_slot_count) {
+        return NULL;
+    }
+
+    const void* method_table = concrete_type->interface_tables[interface_type->slot_index];
+    if (method_table == NULL) {
+        return NULL;
+    }
+
+    return (const void* const*)method_table;
+}
+
+static void* checked_cast_interface_for_test(void* obj, const RtInterfaceType* expected_interface) {
+    if (obj == NULL) {
+        return NULL;
+    }
+
+    RtObjHeader* header = (RtObjHeader*)obj;
+    if (lookup_interface_table_for_test(header->type, expected_interface) != NULL) {
+        return obj;
+    }
+
+    rt_panic_bad_cast(header->type->debug_name, interface_name_or_unknown_for_test(expected_interface));
+}
+
 static int run_case(const char* name) {
     if (strcmp(name, "non_implementing_object") == 0) {
         void* obj = alloc_leaf(&PLAIN_TYPE);
-        (void)rt_checked_cast_interface(obj, &HASHABLE_INTERFACE);
+        (void)checked_cast_interface_for_test(obj, &HASHABLE_INTERFACE);
         return 0;
     }
 
     if (strcmp(name, "interface_to_interface_failure") == 0) {
         void* obj = alloc_leaf(&HASH_ONLY_TYPE);
-        void* hashable_value = rt_checked_cast_interface(obj, &HASHABLE_INTERFACE);
-        (void)rt_checked_cast_interface(hashable_value, &EQUALABLE_INTERFACE);
+        void* hashable_value = checked_cast_interface_for_test(obj, &HASHABLE_INTERFACE);
+        (void)checked_cast_interface_for_test(hashable_value, &EQUALABLE_INTERFACE);
         return 0;
     }
 

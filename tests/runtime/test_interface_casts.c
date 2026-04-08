@@ -110,30 +110,80 @@ static void* alloc_leaf(const RtType* type) {
     return rt_alloc_obj(rt_thread_state(), type, 0u);
 }
 
+static const char* interface_name_or_unknown_for_test(const RtInterfaceType* interface_type) {
+    if (interface_type == NULL || interface_type->debug_name == NULL) {
+        return "<unknown>";
+    }
+    return interface_type->debug_name;
+}
+
+static const void* const* lookup_interface_table_for_test(
+    const RtType* concrete_type,
+    const RtInterfaceType* interface_type
+) {
+    if (interface_type == NULL) {
+        rt_panic("lookup_interface_table_for_test called with NULL interface_type");
+    }
+    if (concrete_type == NULL || concrete_type->interface_tables == NULL) {
+        return NULL;
+    }
+    if (interface_type->slot_index >= concrete_type->interface_slot_count) {
+        return NULL;
+    }
+
+    const void* method_table = concrete_type->interface_tables[interface_type->slot_index];
+    if (method_table == NULL) {
+        return NULL;
+    }
+
+    return (const void* const*)method_table;
+}
+
+static uint64_t is_instance_of_interface_for_test(void* obj, const RtInterfaceType* expected_interface) {
+    if (obj == NULL) {
+        return 0u;
+    }
+
+    RtObjHeader* header = (RtObjHeader*)obj;
+    return lookup_interface_table_for_test(header->type, expected_interface) != NULL ? 1u : 0u;
+}
+
+static void* checked_cast_interface_for_test(void* obj, const RtInterfaceType* expected_interface) {
+    if (obj == NULL) {
+        return NULL;
+    }
+    if (is_instance_of_interface_for_test(obj, expected_interface) != 0u) {
+        return obj;
+    }
+
+    RtObjHeader* header = (RtObjHeader*)obj;
+    rt_panic_bad_cast(header->type->debug_name, interface_name_or_unknown_for_test(expected_interface));
+}
+
 static void test_checked_cast_interface_accepts_null(void) {
-    if (rt_checked_cast_interface(NULL, &HASHABLE_INTERFACE) != NULL) {
+    if (checked_cast_interface_for_test(NULL, &HASHABLE_INTERFACE) != NULL) {
         fail("null interface cast should return null");
     }
 }
 
 static void test_checked_cast_interface_accepts_implementing_object(void) {
     void* obj = alloc_leaf(&KEY_TYPE);
-    if (rt_checked_cast_interface(obj, &HASHABLE_INTERFACE) != obj) {
+    if (checked_cast_interface_for_test(obj, &HASHABLE_INTERFACE) != obj) {
         fail("implementing object should cast to supported interface");
     }
 }
 
 static void test_checked_cast_interface_checks_interface_value_at_runtime(void) {
     void* obj = alloc_leaf(&KEY_TYPE);
-    void* hashable_value = rt_checked_cast_interface(obj, &HASHABLE_INTERFACE);
-    if (rt_checked_cast_interface(hashable_value, &EQUALABLE_INTERFACE) != obj) {
+    void* hashable_value = checked_cast_interface_for_test(obj, &HASHABLE_INTERFACE);
+    if (checked_cast_interface_for_test(hashable_value, &EQUALABLE_INTERFACE) != obj) {
         fail("interface-to-interface cast should preserve the original object pointer");
     }
 }
 
 static void test_checked_cast_interface_accepts_single_interface_impl(void) {
     void* obj = alloc_leaf(&HASH_ONLY_TYPE);
-    if (rt_checked_cast_interface(obj, &HASHABLE_INTERFACE) != obj) {
+    if (checked_cast_interface_for_test(obj, &HASHABLE_INTERFACE) != obj) {
         fail("single-interface implementation should cast successfully");
     }
 }
@@ -143,7 +193,7 @@ static void test_checked_cast_accepts_derived_instance_for_base_type(void) {
     if (rt_checked_cast(obj, &KEY_TYPE) != obj) {
         fail("derived object should cast to its base runtime type");
     }
-    if (rt_checked_cast_interface(obj, &HASHABLE_INTERFACE) != obj) {
+    if (checked_cast_interface_for_test(obj, &HASHABLE_INTERFACE) != obj) {
         fail("derived object should cast to inherited interface metadata");
     }
 }
@@ -153,19 +203,19 @@ static void test_is_instance_of_interface_uses_slot_tables(void) {
     void* key = alloc_leaf(&KEY_TYPE);
     void* derived = alloc_leaf(&DERIVED_KEY_TYPE);
 
-    if (rt_is_instance_of_interface(NULL, &HASHABLE_INTERFACE) != 0u) {
+    if (is_instance_of_interface_for_test(NULL, &HASHABLE_INTERFACE) != 0u) {
         fail("null should not be an instance of any interface");
     }
-    if (rt_is_instance_of_interface(hash_only, &HASHABLE_INTERFACE) != 1u) {
+    if (is_instance_of_interface_for_test(hash_only, &HASHABLE_INTERFACE) != 1u) {
         fail("HashOnly should report its implemented interface via slot tables");
     }
-    if (rt_is_instance_of_interface(hash_only, &EQUALABLE_INTERFACE) != 0u) {
+    if (is_instance_of_interface_for_test(hash_only, &EQUALABLE_INTERFACE) != 0u) {
         fail("HashOnly should not report an unimplemented interface");
     }
-    if (rt_is_instance_of_interface(key, &EQUALABLE_INTERFACE) != 1u) {
+    if (is_instance_of_interface_for_test(key, &EQUALABLE_INTERFACE) != 1u) {
         fail("Key should report Equalable via slot tables");
     }
-    if (rt_is_instance_of_interface(derived, &HASHABLE_INTERFACE) != 1u) {
+    if (is_instance_of_interface_for_test(derived, &HASHABLE_INTERFACE) != 1u) {
         fail("DerivedKey should report inherited interfaces via populated slot tables");
     }
 }

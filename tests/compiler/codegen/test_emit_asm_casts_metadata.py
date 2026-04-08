@@ -299,7 +299,7 @@ fn main() -> i64 {
     assert "    .long 2" in asm
 
 
-def test_emit_asm_obj_to_interface_cast_calls_rt_checked_cast_interface(tmp_path) -> None:
+def test_emit_asm_obj_to_interface_cast_inlines_slot_table_check(tmp_path) -> None:
     source = """
 interface Hashable {
     fn hash_code() -> u64;
@@ -324,8 +324,12 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_checked_cast_interface" in asm
+    assert "    call rt_checked_cast_interface" not in asm
+    assert "    mov rcx, qword ptr [rax]" in asm
+    assert "    mov rcx, qword ptr [rcx + 64]" in asm
+    assert "    mov rcx, qword ptr [rcx]" in asm
     assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in asm
+    assert "    call rt_panic_bad_cast" in asm
     assert "__nif_interface_name_main__Hashable:" in asm
     assert '.asciz "main::Hashable"' in asm
     assert "__nif_interface_main__Hashable:" in asm
@@ -354,7 +358,7 @@ fn main() -> i64 {
     assert "    lea rsi, [rip + __nif_type_Person]" in asm
 
 
-def test_emit_asm_obj_type_test_calls_rt_is_instance_of_interface(tmp_path) -> None:
+def test_emit_asm_obj_type_test_inlines_slot_table_check(tmp_path) -> None:
     source = """
 interface Hashable {
     fn hash_code() -> u64;
@@ -379,8 +383,12 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call rt_is_instance_of_interface" in asm
-    assert "    lea rsi, [rip + __nif_interface_main__Hashable]" in asm
+    assert "    call rt_is_instance_of_interface" not in asm
+    assert "    mov rcx, qword ptr [rax]" in asm
+    assert "    mov rcx, qword ptr [rcx + 64]" in asm
+    assert "    mov rcx, qword ptr [rcx]" in asm
+    assert "    setne al" in asm
+    assert "    movzx rax, al" in asm
 
 
 def test_emit_asm_emits_interface_method_tables_and_impl_records(tmp_path) -> None:
@@ -548,7 +556,9 @@ fn main() -> i64 {
     (tmp_path / "util.nif").write_text(util_source.strip() + "\n", encoding="utf-8")
     asm = emit_source_asm(tmp_path, main_source, project_root=tmp_path)
 
-    assert "    call rt_checked_cast_interface" in asm
+    assert "    call rt_checked_cast_interface" not in asm
+    assert "    mov rcx, qword ptr [rax]" in asm
+    assert "    mov rcx, qword ptr [rcx + 64]" in asm
     assert "    lea rsi, [rip + __nif_interface_util__Hashable]" in asm
     assert "__nif_interface_name_util__Hashable:" in asm
     assert '.asciz "util::Hashable"' in asm
