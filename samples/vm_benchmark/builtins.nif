@@ -8,6 +8,11 @@ export interface WeightSource {
     fn weight() -> i64;
 }
 
+export interface WeightTapeLike {
+    fn index_get(index: i64) -> i64;
+    fn index_set(index: i64, value: i64) -> unit;
+}
+
 export class WeightedPayload implements WeightSource {
     value: i64;
     bonus: i64;
@@ -27,6 +32,25 @@ export class TogglePayload implements WeightSource {
         }
         return __self.value - 4;
     }
+}
+
+export class WeightTape implements WeightTapeLike {
+    values: i64[];
+
+    fn index_get(index: i64) -> i64 {
+        return __self.values[index];
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        __self.values[index] = value;
+        return;
+    }
+}
+
+fn _blend_weight_tape(tape: WeightTapeLike, first: i64, second: i64) -> i64 {
+    tape[0] = first;
+    tape[1] = second;
+    return tape[0] + tape[1];
 }
 
 fn _obj_weight(value: Obj) -> i64 {
@@ -89,6 +113,41 @@ export class ConstPoolMixBuiltin extends BaseBuiltin {
             var const_id: u64 = (u64)vm.read_reg(index);
             total = opcodes.mix_checksum(total, _obj_weight(vm.read_const_obj(const_id)));
             index = index + 1;
+        }
+
+        var payload: WeightSource = WeightedPayload((i64)argc, 2);
+        var tape_storage: i64[] = i64[](2u);
+        var tape: WeightTapeLike = WeightTape(tape_storage);
+        payload is WeightedPayload;
+        var include_seed: bool = true;
+        var first: i64 = total - 1000;
+        var second: i64 = -1000;
+
+        if include_seed {
+            first = total;
+        }
+
+        if (payload is WeightedPayload) && true {
+            second = payload.weight();
+        }
+
+        var staged_total: i64 = 0;
+        staged_total = _blend_weight_tape(tape, first, second) - (i64)argc;
+        staged_total = _blend_weight_tape(tape, first, second);
+        total = staged_total;
+
+        while (2 + 3) == 9 {
+            total = opcodes.mix_checksum(total, -404040404);
+            vm.write_reg(0, -404040404);
+            vm.note_trace(-404040404);
+            panic("ConstPoolMixBuiltin: folded false while loop executed");
+        }
+
+        while !(payload is WeightedPayload) {
+            total = opcodes.mix_checksum(total, 909090909);
+            vm.write_reg(0, 909090909);
+            vm.note_trace(909090909);
+            panic("ConstPoolMixBuiltin: narrowed false while loop executed");
         }
 
         vm.write_reg(0, total);

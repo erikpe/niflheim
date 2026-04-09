@@ -195,6 +195,30 @@ def test_copy_propagation_does_not_rewrite_while_condition_through_loop_carried_
     assert statements[2].condition.left.local_id == statements[1].local_id
 
 
+def test_copy_propagation_rewrites_invariant_while_condition_alias(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var folded_false_seed: bool = false;
+            var folded_false_alias: bool = folded_false_seed;
+            while folded_false_alias {
+                return 1;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    propagated = copy_propagation(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = propagated.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[0], SemanticVarDecl)
+    assert isinstance(statements[2], SemanticWhile)
+    assert isinstance(statements[2].condition, LocalRefExpr)
+    assert statements[2].condition.local_id == statements[0].local_id
+
+
 def test_copy_propagation_logs_exact_summary_counts(tmp_path: Path, capsys) -> None:
     _write(
         tmp_path / "main.nif",

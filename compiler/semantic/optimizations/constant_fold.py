@@ -10,6 +10,7 @@ from compiler.semantic.ir import *
 from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, UnaryOpFlavor, UnaryOpKind
 from compiler.semantic.types import semantic_primitive_type_ref, semantic_type_canonical_name
 
+from .helpers.assigned_locals import assigned_local_ids_in_block
 from .helpers.program_structure import rewrite_program_structure
 
 
@@ -111,9 +112,12 @@ def _fold_stmt(stmt: SemanticStmt, env: _ConstantEnv, stats: _FoldStats) -> tupl
             {},
         )
     if isinstance(stmt, SemanticWhile):
+        condition_env = _invariant_loop_constant_env(env, stmt.body)
         return (
             replace(
-                stmt, condition=_fold_expr(stmt.condition, {}, stats), body=_fold_block(stmt.body, {}, stats=stats)
+                stmt,
+                condition=_fold_expr(stmt.condition, condition_env, stats),
+                body=_fold_block(stmt.body, {}, stats=stats),
             ),
             {},
         )
@@ -210,6 +214,13 @@ def _update_local_constant(env: _ConstantEnv, local_id: LocalId, value: Semantic
         env[local_id] = value
         return
     env.pop(local_id, None)
+
+
+def _invariant_loop_constant_env(env: _ConstantEnv, body: SemanticBlock) -> _ConstantEnv:
+    assigned_local_ids = assigned_local_ids_in_block(body)
+    if not assigned_local_ids:
+        return env
+    return {local_id: value for local_id, value in env.items() if local_id not in assigned_local_ids}
 
 
 def _try_fold_unary_expr(expr: UnaryExprS, stats: _FoldStats) -> SemanticExpr:

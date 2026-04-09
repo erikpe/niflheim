@@ -18,6 +18,7 @@ from compiler.semantic.ir import (
     SemanticForIn,
     SemanticIf,
     SemanticReturn,
+    UnaryExprS,
     SemanticVarDecl,
     SemanticWhile,
     VirtualMethodCallTarget,
@@ -172,6 +173,73 @@ def test_optimize_semantic_program_folds_constants_before_pruning(tmp_path: Path
     assert isinstance(return_stmt.value.args[0], LiteralExprS)
     assert isinstance(return_stmt.value.args[0].constant, IntConstant)
     assert return_stmt.value.args[0].constant.value == 3
+
+
+def test_optimize_semantic_program_removes_invariant_false_while_loop(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var folded_false_seed: bool = (2 + 3) == 9;
+            var folded_false_alias: bool = folded_false_seed;
+            while folded_false_alias {
+                return 1;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    optimized = optimize_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = optimized.modules[("main",)].functions[0].body.statements
+
+    assert len(statements) == 1
+    assert isinstance(statements[0], SemanticReturn)
+    assert isinstance(statements[0].value, LiteralExprS)
+    assert isinstance(statements[0].value.constant, IntConstant)
+    assert statements[0].value.constant.value == 0
+
+
+def test_optimize_semantic_program_removes_while_only_after_late_type_test_fold(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        interface WeightSource {
+            fn weight() -> i64;
+        }
+
+        class WeightedPayload implements WeightSource {
+            value: i64;
+
+            fn weight() -> i64 {
+                return __self.value;
+            }
+        }
+
+        fn main() -> i64 {
+            var payload: WeightSource = WeightedPayload(7);
+            while !(payload is WeightedPayload) {
+                return 1;
+            }
+            return payload.weight();
+        }
+        """,
+    )
+
+    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    after_first_simplify = simplify_control_flow(constant_fold(semantic))
+    first_statements = after_first_simplify.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(first_statements[1], SemanticWhile)
+    assert isinstance(first_statements[1].condition, UnaryExprS)
+
+    optimized = optimize_semantic_program(semantic)
+    optimized_statements = optimized.modules[("main",)].functions[0].body.statements
+
+    assert len(optimized_statements) == 2
+    assert isinstance(optimized_statements[1], SemanticReturn)
+    assert isinstance(optimized_statements[1].value, CallExprS)
+    assert isinstance(optimized_statements[1].value.target, InstanceMethodCallTarget)
 
 
 def test_optimize_semantic_program_devirtualizes_interface_calls_after_narrowing(tmp_path: Path) -> None:

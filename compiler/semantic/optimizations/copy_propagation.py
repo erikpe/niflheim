@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, replace
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import *
 
+from .helpers.assigned_locals import assigned_local_ids_in_block
 from .helpers.program_structure import rewrite_program_structure
 
 
@@ -192,10 +193,11 @@ def _propagate_stmt(
         )
 
     if isinstance(stmt, SemanticWhile):
+        condition_state = _invariant_loop_copy_state(state, stmt.body)
         return (
             replace(
                 stmt,
-                condition=_propagate_expr(stmt.condition, _CopyState.empty(), owner, stats),
+                condition=_propagate_expr(stmt.condition, condition_state, owner, stats),
                 body=_propagate_block(stmt.body, _CopyState.empty(), owner, stats),
             ),
             _CopyMerge.reset(state).apply(state),
@@ -332,6 +334,19 @@ def _invalidate_local_aliases(env: _CopyEnv, local_id: LocalId) -> None:
     for alias_local_id, source_local_id in list(env.items()):
         if source_local_id == local_id:
             env.pop(alias_local_id, None)
+
+
+def _invariant_loop_copy_state(state: _CopyState, body: SemanticBlock) -> _CopyState:
+    assigned_local_ids = assigned_local_ids_in_block(body)
+    if not assigned_local_ids:
+        return state
+    return _CopyState(
+        aliases={
+            target_local_id: source_local_id
+            for target_local_id, source_local_id in state.aliases.items()
+            if target_local_id not in assigned_local_ids and source_local_id not in assigned_local_ids
+        }
+    )
 
 
 def _resolve_alias_source(local_id: LocalId, env: _CopyEnv) -> LocalId | None:

@@ -168,6 +168,29 @@ def test_constant_fold_preserves_runtime_checked_integer_operations(tmp_path: Pa
     assert isinstance(shift_return.value, BinaryExprS)
 
 
+def test_constant_fold_rewrites_invariant_while_condition_from_outer_constant(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn main() -> i64 {
+            var folded_false: bool = (2 + 3) == 9;
+            while folded_false {
+                return 1;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    folded = constant_fold(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    statements = folded.modules[("main",)].functions[0].body.statements
+
+    assert isinstance(statements[1], SemanticWhile)
+    assert isinstance(statements[1].condition, LiteralExprS)
+    assert isinstance(statements[1].condition.constant, BoolConstant)
+    assert statements[1].condition.constant.value is False
+
+
 def test_constant_fold_folds_conservative_literal_casts(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
