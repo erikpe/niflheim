@@ -543,8 +543,121 @@ fn build_exact_double_case() -> model.BenchmarkCase {
     );
 }
 
+fn build_prime_sum_100_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](27u);
+    code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    code[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    code[2] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 2u);
+    code[3] = instructions.LoadConstOp(opcodes.load_const_opcode(), 4, 3u);
+    code[4] = instructions.LoadConstOp(opcodes.load_const_opcode(), 9, 2u);
+    code[5] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 7, 0, 1);
+    code[6] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 7, 23u);
+    code[7] = instructions.LoadConstOp(opcodes.load_const_opcode(), 6, 3u);
+    code[8] = instructions.LoadConstOp(opcodes.load_const_opcode(), 3, 0u);
+    code[9] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 7, 3, 0);
+    code[10] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 7, 18u);
+    code[11] = instructions.ModOp(opcodes.mod_opcode(), 8, 0, 3);
+    code[12] = instructions.CmpEqOp(opcodes.cmp_eq_opcode(), 7, 8, 9);
+    code[13] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 7, 16u);
+    code[14] = instructions.LoadConstOp(opcodes.load_const_opcode(), 6, 2u);
+    code[15] = instructions.JumpOp(opcodes.jump_opcode(), 18u);
+    code[16] = instructions.AddOp(opcodes.add_opcode(), 3, 3, 4);
+    code[17] = instructions.JumpOp(opcodes.jump_opcode(), 9u);
+    code[18] = instructions.CmpEqOp(opcodes.cmp_eq_opcode(), 7, 6, 4);
+    code[19] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 7, 21u);
+    code[20] = instructions.AddOp(opcodes.add_opcode(), 2, 2, 0);
+    code[21] = instructions.AddOp(opcodes.add_opcode(), 0, 0, 4);
+    code[22] = instructions.JumpOp(opcodes.jump_opcode(), 5u);
+    code[23] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 2);
+    code[24] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 2);
+    code[25] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 1u);
+    code[26] = instructions.HaltOp(opcodes.halt_opcode(), 2);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 0u, 10u, code);
+
+    var constants: Obj[] = Obj[](4u);
+    constants[0] = BoxI64(2);
+    constants[1] = BoxI64(100);
+    constants[2] = BoxI64(0);
+    constants[3] = BoxI64(1);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](1u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+
+    return model.Program("prime_sum_100", 0u, functions, constants, builtin_table, 2u);
+}
+
+fn build_prime_sum_100_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "prime_sum_100",
+        build_prime_sum_100_program(),
+        1060,
+        1060,
+        32860,
+        1060,
+        8794u,
+        0u,
+        2388u,
+        1u
+    );
+}
+
+fn build_fibonacci_recursive_program() -> model.Program {
+    var main_code: model.Instruction[] = model.Instruction[](6u);
+    main_code[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u);
+    main_code[1] = instructions.CallOp(opcodes.call_opcode(), 1u, 1u, 1);
+    main_code[2] = instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 1);
+    main_code[3] = instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 1);
+    main_code[4] = instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 1u);
+    main_code[5] = instructions.HaltOp(opcodes.halt_opcode(), 1);
+
+    var fib_full: model.Instruction[] = model.Instruction[](12u);
+    fib_full[0] = instructions.LoadConstOp(opcodes.load_const_opcode(), 1, 1u);
+    fib_full[1] = instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 2u);
+    fib_full[2] = instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 3, 0, 2);
+    fib_full[3] = instructions.JumpIfTrueOp(opcodes.jump_if_true_opcode(), 3, 11u);
+    fib_full[4] = instructions.RegisterCopyOp(opcodes.move_opcode(), 4, 0);
+    fib_full[5] = instructions.SubOp(opcodes.sub_opcode(), 0, 0, 1);
+    fib_full[6] = instructions.CallOp(opcodes.call_opcode(), 1u, 1u, 5);
+    fib_full[7] = instructions.SubOp(opcodes.sub_opcode(), 0, 4, 2);
+    fib_full[8] = instructions.CallOp(opcodes.call_opcode(), 1u, 1u, 6);
+    fib_full[9] = instructions.AddOp(opcodes.add_opcode(), 7, 5, 6);
+    fib_full[10] = instructions.RetOp(opcodes.ret_opcode(), 7);
+    fib_full[11] = instructions.RetOp(opcodes.ret_opcode(), 0);
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](2u);
+    functions[0] = model.FunctionInfo("main", 0u, 2u, main_code);
+    functions[1] = model.FunctionInfo("fib", 1u, 8u, fib_full);
+
+    var constants: Obj[] = Obj[](3u);
+    constants[0] = BoxI64(15);
+    constants[1] = BoxI64(1);
+    constants[2] = BoxI64(2);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](1u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+
+    return model.Program("fibonacci_recursive", 0u, functions, constants, builtin_table, 2u);
+}
+
+fn build_fibonacci_recursive_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "fibonacci_recursive",
+        build_fibonacci_recursive_program(),
+        610,
+        610,
+        18910,
+        610,
+        15787u,
+        1973u,
+        987u,
+        1u
+    );
+}
+
 export fn build_cases() -> model.BenchmarkCase[] {
-    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](9u);
+    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](11u);
     benchmark_cases[0] = build_minimal_case();
     benchmark_cases[1] = build_arithmetic_case();
     benchmark_cases[2] = build_branch_maze_case();
@@ -554,5 +667,7 @@ export fn build_cases() -> model.BenchmarkCase[] {
     benchmark_cases[6] = build_builtin_dispatch_case();
     benchmark_cases[7] = build_obj_cast_builtin_case();
     benchmark_cases[8] = build_exact_double_case();
+    benchmark_cases[9] = build_prime_sum_100_case();
+    benchmark_cases[10] = build_fibonacci_recursive_case();
     return benchmark_cases;
 }
