@@ -62,6 +62,9 @@ class RunResult:
 
 @dataclass(frozen=True)
 class TestResult:
+    name: str
+    mode: str
+    spec_path: Path
     source_path: Path
     compile_ok: bool
     compile_error: str | None
@@ -72,6 +75,27 @@ class TestResult:
         if not self.compile_ok:
             return False
         return all(run.ok for run in self.run_results)
+
+
+@dataclass(frozen=True)
+class SpecResult:
+    spec_path: Path
+    test_results: list[TestResult]
+
+    @property
+    def ok(self) -> bool:
+        return all(test.ok for test in self.test_results)
+
+
+def _group_tests_by_spec(tests: list[GoldenTest]) -> list[tuple[Path, list[GoldenTest]]]:
+    spec_order: list[Path] = []
+    tests_by_spec: dict[Path, list[GoldenTest]] = {}
+    for test in tests:
+        if test.spec_path not in tests_by_spec:
+            spec_order.append(test.spec_path)
+            tests_by_spec[test.spec_path] = []
+        tests_by_spec[test.spec_path].append(test)
+    return [(spec_path, tests_by_spec[spec_path]) for spec_path in spec_order]
 
 
 def _require_type(value: object, expected_type: type, label: str) -> None:
@@ -473,55 +497,95 @@ def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
 def _run_test(test: GoldenTest, runtime_archive: Path | None = None) -> TestResult:
     if test.mode == "compile-fail":
         compile_ok, compile_error = _compile_fail_test(test)
-        return TestResult(source_path=test.source_path, compile_ok=compile_ok, compile_error=compile_error, run_results=[])
+        return TestResult(
+            name=test.name,
+            mode=test.mode,
+            spec_path=test.spec_path,
+            source_path=test.source_path,
+            compile_ok=compile_ok,
+            compile_error=compile_error,
+            run_results=[],
+        )
 
     compile_ok, compile_error, output_path = _compile_run_test(test, runtime_archive)
     if not compile_ok:
-        return TestResult(source_path=test.source_path, compile_ok=False, compile_error=compile_error, run_results=[])
+        return TestResult(
+            name=test.name,
+            mode=test.mode,
+            spec_path=test.spec_path,
+            source_path=test.source_path,
+            compile_ok=False,
+            compile_error=compile_error,
+            run_results=[],
+        )
 
     run_results = [_execute_run(output_path, run) for run in test.runs]
-    return TestResult(source_path=test.source_path, compile_ok=True, compile_error=None, run_results=run_results)
+    return TestResult(
+        name=test.name,
+        mode=test.mode,
+        spec_path=test.spec_path,
+        source_path=test.source_path,
+        compile_ok=True,
+        compile_error=None,
+        run_results=run_results,
+    )
 
 
-def _print_result_per_file(result: TestResult) -> None:
-    rel_path = result.source_path.relative_to(REPO_ROOT)
+def _run_spec(spec_path: Path, tests: list[GoldenTest], runtime_archive: Path | None = None) -> SpecResult:
+    del spec_path
+    return SpecResult(spec_path=tests[0].spec_path, test_results=[_run_test(test, runtime_archive) for test in tests])
+
+
+def _print_result_per_spec(result: SpecResult) -> None:
+    rel_path = result.spec_path.relative_to(REPO_ROOT)
     if result.ok:
         print(f"PASS {rel_path}")
         return
 
     print(f"FAIL {rel_path}")
-    if not result.compile_ok:
-        print(f"  compile: {result.compile_error}")
-        return
-
-    for run in result.run_results:
-        if run.ok:
+    for test_result in result.test_results:
+        if test_result.ok:
             continue
-        print(f"  run '{run.name}':")
-        for detail in run.details:
-            print(f"    - {detail}")
-
-
-def _print_result_per_run(result: TestResult) -> None:
-    rel_path = result.source_path.relative_to(REPO_ROOT)
-    if not result.compile_ok:
-        print(f"FAIL {rel_path} :: <compile>")
-        print(f"  compile: {result.compile_error}")
-        return
-
-    for run in result.run_results:
-        status = "PASS" if run.ok else "FAIL"
-        print(f"{status} {rel_path} :: {run.name}")
-        if not run.ok:
+        if not test_result.compile_ok:
+            print(f"  test '{test_result.name}' :: <compile>")
+            print(f"    {test_result.compile_error}")
+            continue
+        for run in test_result.run_results:
+            if run.ok:
+                continue
+            print(f"  test '{test_result.name}' :: {run.name}")
             for detail in run.details:
-                print(f"  - {detail}")
+                print(f"    - {detail}")
 
 
-def _print_result(result: TestResult, *, per_run: bool) -> None:
+def _print_result_per_run(result: SpecResult) -> None:
+    rel_path = result.spec_path.relative_to(REPO_ROOT)
+    for test_result in result.test_results:
+        if test_result.mode == "compile-fail":
+            status = "PASS" if test_result.ok else "FAIL"
+            print(f"{status} {rel_path} :: {test_result.name}")
+            if not test_result.ok:
+                print(f"  compile: {test_result.compile_error}")
+            continue
+
+        if not test_result.compile_ok:
+            print(f"FAIL {rel_path} :: {test_result.name} :: <compile>")
+            print(f"  compile: {test_result.compile_error}")
+            continue
+
+        for run in test_result.run_results:
+            status = "PASS" if run.ok else "FAIL"
+            print(f"{status} {rel_path} :: {test_result.name} :: {run.name}")
+            if not run.ok:
+                for detail in run.details:
+                    print(f"  - {detail}")
+
+
+def _print_result(result: SpecResult, *, per_run: bool) -> None:
     if per_run:
         _print_result_per_run(result)
         return
-    _print_result_per_file(result)
+    _print_result_per_spec(result)
 
 
 def main() -> int:
@@ -529,7 +593,9 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="Number of concurrent workers")
     parser.add_argument("--filter", type=str, default=None, help="Glob under tests/golden (e.g. 'arithmetic/**')")
     parser.add_argument(
-        "--print-per-run", action="store_true", help="Print one PASS/FAIL line per run case instead of per test file"
+        "--print-per-run",
+        action="store_true",
+        help="Print one PASS/FAIL line per run case and compile-fail test instead of per spec file",
     )
     args = parser.parse_args()
 
@@ -552,17 +618,18 @@ def main() -> int:
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    results: list[TestResult] = []
+    specs = _group_tests_by_spec(tests)
+    spec_results: list[SpecResult] = []
     with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        futures = [pool.submit(_run_test, test, runtime_archive) for test in tests]
+        futures = [pool.submit(_run_spec, spec_path, spec_tests, runtime_archive) for spec_path, spec_tests in specs]
         for future in as_completed(futures):
             result = future.result()
-            results.append(result)
+            spec_results.append(result)
             _print_result(result, per_run=args.print_per_run)
 
-    failed = [result for result in results if not result.ok]
+    failed = [result for result in spec_results if not result.ok]
     total_runs = sum(len(test.runs) for test in tests)
-    print(f"golden: {len(results) - len(failed)}/{len(results)} test files passed; {total_runs} runs total")
+    print(f"golden: {len(spec_results) - len(failed)}/{len(spec_results)} spec files passed; {total_runs} runs total")
 
     return 1 if failed else 0
 
