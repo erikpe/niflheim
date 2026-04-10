@@ -115,6 +115,11 @@ def main() -> int:
         action="store_true",
         help="Do not emit rt_trace_push/pop/set_location calls in generated assembly",
     )
+    compilation_group.add_argument(
+        "--skip-optimize",
+        action="store_true",
+        help="Skip semantic optimization and continue from lowered semantic IR",
+    )
 
     args = parser.parse_args()
     log_settings = resolve_log_settings(args.log_level, args.verbose, args.quiet)
@@ -127,7 +132,7 @@ def main() -> int:
         program = _resolve_program_graph(logger, input_path, args.project_root)
         _typecheck_program_phase(logger, program)
         lowered_program = _lower_program_phase(logger, program)
-        optimized_program = _optimize_program_phase(logger, lowered_program)
+        optimized_program = lowered_program if args.skip_optimize else _optimize_program_phase(logger, lowered_program)
         linked_program = _link_program_phase(logger, optimized_program)
         require_main_function(linked_program)
         if args.stop_after == "check":

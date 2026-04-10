@@ -99,6 +99,29 @@ def test_cli_debug_logs_respect_verbosity_threshold(tmp_path: Path, monkeypatch,
     assert "nifc: info: Wrote assembly to" in captured.err
 
 
+def test_cli_skip_optimize_suppresses_optimization_phase_logs(tmp_path: Path, monkeypatch, capsys) -> None:
+    entry = tmp_path / "main.nif"
+    out_file = tmp_path / "out.s"
+    write(
+        entry,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--skip-optimize", "--log-level", "debug", "-vv", "-o", str(out_file)])
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    assert "nifc: info: Lowering semantic program" in captured.err
+    assert "nifc: info: Optimizing semantic program" not in captured.err
+    assert "Optimization pass " not in captured.err
+    assert "nifc: info: Linking semantic program" in captured.err
+    assert "nifc: debug: Emitted" in captured.err
+
+
 def test_cli_quiet_flag_suppresses_info_logs(tmp_path: Path, monkeypatch, capsys) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"

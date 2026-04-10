@@ -16,6 +16,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 GOLDEN_ROOT = REPO_ROOT / "tests" / "golden"
 BUILD_ROOT = REPO_ROOT / "build" / "golden"
 BUILD_CASES_DIRNAME = "__cases__"
+BUILD_RUNTIME_DIRNAME = "__runtime__"
+PREBUILT_RUNTIME_ENV_VAR = "NIF_PREBUILT_RUNTIME"
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,7 @@ class GoldenTest:
     spec_path: Path
     runs: list[RunCase]
     compile_error_match: str | None
+    build_args: list[str]
 
 
 @dataclass(frozen=True)
@@ -197,6 +200,18 @@ def _parse_compile_error_match(raw: object, *, spec_path: Path, test_name: str) 
     return raw
 
 
+def _parse_build_args(raw: object, *, spec_path: Path, test_name: str) -> list[str]:
+    if raw is None:
+        return []
+    _require_type(raw, list, f"{spec_path}: test '{test_name}' build_args")
+    build_args_raw: list[object] = raw  # type: ignore[assignment]
+    build_args: list[str] = []
+    for index, item in enumerate(build_args_raw):
+        _require_type(item, str, f"{spec_path}: test '{test_name}' build_args[{index}]")
+        build_args.append(item)
+    return build_args
+
+
 def _load_tests_for_spec(spec_path: Path) -> list[GoldenTest]:
     raw_data = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
     if raw_data is None:
@@ -237,6 +252,7 @@ def _load_tests_for_spec(spec_path: Path) -> list[GoldenTest]:
         compile_error_match = _parse_compile_error_match(
             test_obj.get("compile_error_match"), spec_path=spec_path, test_name=name_raw
         )
+        build_args = _parse_build_args(test_obj.get("build_args"), spec_path=spec_path, test_name=name_raw)
 
         if mode_raw == "run":
             runs = _parse_runs(test_obj.get("runs"), spec_path=spec_path, test_name=name_raw)
@@ -253,6 +269,7 @@ def _load_tests_for_spec(spec_path: Path) -> list[GoldenTest]:
                 spec_path=spec_path,
                 runs=runs,
                 compile_error_match=compile_error_match,
+                build_args=build_args,
             )
         )
 
@@ -291,7 +308,28 @@ def _build_output_path(source_path: Path) -> Path:
     return BUILD_ROOT / BUILD_CASES_DIRNAME / flat_name
 
 
-def _compile_run_test(test: GoldenTest) -> tuple[bool, str | None, Path]:
+def _runtime_archive_path() -> Path:
+    return BUILD_ROOT / BUILD_RUNTIME_DIRNAME / f"run_{os.getpid()}" / "libruntime.a"
+
+
+def _prepare_runtime_archive() -> tuple[bool, str | None, Path]:
+    archive_path = _runtime_archive_path()
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        str(REPO_ROOT / "scripts" / "build_runtime.sh"),
+        str(archive_path.relative_to(REPO_ROOT)),
+    ]
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        message = (proc.stderr or proc.stdout).strip()
+        if not message:
+            message = f"runtime build failed with exit code {proc.returncode}"
+        return False, message, archive_path
+    return True, None, archive_path
+
+
+def _compile_run_test(test: GoldenTest, runtime_archive: Path | None = None) -> tuple[bool, str | None, Path]:
     output_path = _build_output_path(test.source_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -300,7 +338,12 @@ def _compile_run_test(test: GoldenTest) -> tuple[bool, str | None, Path]:
         str(test.source_path.relative_to(REPO_ROOT)),
         str(output_path.relative_to(REPO_ROOT)),
     ]
-    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    if test.build_args:
+        cmd.extend(["--", *test.build_args])
+    env = os.environ.copy()
+    if runtime_archive is not None:
+        env[PREBUILT_RUNTIME_ENV_VAR] = str(runtime_archive)
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, env=env, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         message = (proc.stderr or proc.stdout).strip()
         if not message:
@@ -322,6 +365,7 @@ def _compile_fail_test(test: GoldenTest) -> tuple[bool, str | None]:
         str(asm_path),
         "--project-root",
         str(REPO_ROOT),
+        *test.build_args,
     ]
     proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
     output_text = "\n".join(part for part in [proc.stderr.strip(), proc.stdout.strip()] if part).strip()
@@ -416,12 +460,12 @@ def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
     return RunResult(name=run.name, ok=len(errors) == 0, details=errors)
 
 
-def _run_test(test: GoldenTest) -> TestResult:
+def _run_test(test: GoldenTest, runtime_archive: Path | None = None) -> TestResult:
     if test.mode == "compile-fail":
         compile_ok, compile_error = _compile_fail_test(test)
         return TestResult(source_path=test.source_path, compile_ok=compile_ok, compile_error=compile_error, run_results=[])
 
-    compile_ok, compile_error, output_path = _compile_run_test(test)
+    compile_ok, compile_error, output_path = _compile_run_test(test, runtime_archive)
     if not compile_ok:
         return TestResult(source_path=test.source_path, compile_ok=False, compile_error=compile_error, run_results=[])
 
@@ -489,11 +533,18 @@ def main() -> int:
         print("golden: no tests discovered")
         return 0
 
+    runtime_archive: Path | None = None
+    if any(test.mode == "run" for test in tests):
+        runtime_ok, runtime_error, runtime_archive = _prepare_runtime_archive()
+        if not runtime_ok:
+            print(f"golden: runtime build failed: {runtime_error}")
+            return 1
+
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     results: list[TestResult] = []
     with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        futures = [pool.submit(_run_test, test) for test in tests]
+        futures = [pool.submit(_run_test, test, runtime_archive) for test in tests]
         for future in as_completed(futures):
             result = future.result()
             results.append(result)

@@ -15,3 +15,20 @@ tests:
       - {name: "prime_sum_100_output", input: {args: ["10"]}, expect: {exit_code: 0, stdout: "prime_sum_100: return=1060 memory0=1060 mem_checksum=32860 trace_sum=1060 steps=8794 calls=0 branches=2388 builtins=1 checksum=31046119749723\n"}}
       - {name: "fibonacci_recursive_output", input: {args: ["11"]}, expect: {exit_code: 0, stdout: "fibonacci_recursive: return=610 memory0=610 mem_checksum=18910 trace_sum=610 steps=15787 calls=1973 branches=987 builtins=1 checksum=17866484683508\n"}}
       - {name: "run_all_and_aggregate_output", input: {args: ["999"]}, expect: {exit_code: 0, stdout: "final: cases=11 return=267960924 memory0=267960596 mem_checksum=-5410687631863079515 trace_sum=535919728 steps=25417 calls=2014 branches=3464 builtins=15 checksum=4016699218909327506\n"}}
+  - mode: "run"
+    name: "test_vm_benchmark_no_trace"
+    src_file: "test_vm_benchmark.nif"
+    build_args: ["--omit-runtime-trace"]
+    runs:
+      - {name: "slice1_minimal_output", input: {args: ["1"]}, expect: {exit_code: 0, stdout: "slice1_minimal: return=14 memory0=14 mem_checksum=434 trace_sum=14 steps=11 calls=0 branches=0 builtins=1 checksum=410039957618\n"}}
+      - {name: "arithmetic_mixer_output", input: {args: ["2"]}, expect: {exit_code: 0, stdout: "arithmetic_mixer: return=102 memory0=102 mem_checksum=3162 trace_sum=211 steps=88 calls=0 branches=12 builtins=1 checksum=2987534875158\n"}}
+      - {name: "branch_maze_output", input: {args: ["3"]}, expect: {exit_code: 0, stdout: "branch_maze: return=61 memory0=61 mem_checksum=1891 trace_sum=69 steps=117 calls=0 branches=22 builtins=1 checksum=1786612119032\n"}}
+      - {name: "recursive_calls_output", input: {args: ["4"]}, expect: {exit_code: 0, stdout: "recursive_calls: return=13 memory0=13 mem_checksum=403 trace_sum=13 steps=331 calls=41 branches=21 builtins=1 checksum=380760985796\n"}}
+      - {name: "dense_array_output", input: {args: ["5"]}, expect: {exit_code: 0, stdout: "dense_array: return=180 memory0=1 mem_checksum=28064133262525676 trace_sum=180 steps=156 calls=0 branches=22 builtins=1 checksum=4370731504027871716\n"}}
+      - {name: "slice_copy_output", input: {args: ["6"]}, expect: {exit_code: 0, stdout: "slice_copy: return=159 memory0=10 mem_checksum=-5438759747882907306 trace_sum=159 steps=91 calls=0 branches=12 builtins=1 checksum=-7363314566945406002\n"}}
+      - {name: "builtin_dispatch_output", input: {args: ["7"]}, expect: {exit_code: 0, stdout: "builtin_dispatch: return=267558172 memory0=267558172 mem_checksum=7970825502052 trace_sum=535116344 steps=18 calls=0 branches=0 builtins=3 checksum=-4010528273132793467\n"}}
+      - {name: "obj_cast_builtin_output", input: {args: ["8"]}, expect: {exit_code: 0, stdout: "obj_cast_builtin: return=400515 memory0=400515 mem_checksum=11931742365 trace_sum=801030 steps=16 calls=0 branches=0 builtins=3 checksum=352971066806648284\n"}}
+      - {name: "exact_double_output", input: {args: ["9"]}, expect: {exit_code: 0, stdout: "exact_double: return=38 memory0=38 mem_checksum=38 trace_sum=38 steps=8 calls=0 branches=0 builtins=1 checksum=1080327715961\n"}}
+      - {name: "prime_sum_100_output", input: {args: ["10"]}, expect: {exit_code: 0, stdout: "prime_sum_100: return=1060 memory0=1060 mem_checksum=32860 trace_sum=1060 steps=8794 calls=0 branches=2388 builtins=1 checksum=31046119749723\n"}}
+      - {name: "fibonacci_recursive_output", input: {args: ["11"]}, expect: {exit_code: 0, stdout: "fibonacci_recursive: return=610 memory0=610 mem_checksum=18910 trace_sum=610 steps=15787 calls=1973 branches=987 builtins=1 checksum=17866484683508\n"}}
+      - {name: "run_all_and_aggregate_output", input: {args: ["999"]}, expect: {exit_code: 0, stdout: "final: cases=11 return=267960924 memory0=267960596 mem_checksum=-5410687631863079515 trace_sum=535919728 steps=25417 calls=2014 branches=3464 builtins=15 checksum=4016699218909327506\n"}}

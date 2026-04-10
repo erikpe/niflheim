@@ -69,6 +69,40 @@ def test_cli_can_omit_runtime_trace_calls(tmp_path: Path, monkeypatch) -> None:
     assert seen["runtime_trace_enabled"] is False
 
 
+def test_cli_can_skip_optimization_phase(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    out_file = tmp_path / "out.s"
+    write(
+        entry,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    seen: dict[str, object] = {"optimize_called": False}
+
+    def _fake_optimize_program(lowered_program):
+        seen["optimize_called"] = True
+        return lowered_program
+
+    def _fake_emit_asm(program: LoweredLinkedSemanticProgram, *, runtime_trace_enabled: bool = True) -> str:
+        seen["program"] = program
+        seen["runtime_trace_enabled"] = runtime_trace_enabled
+        return "; codegen backend selected\n"
+
+    monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
+    monkeypatch.setattr(cli, "emit_asm", _fake_emit_asm)
+
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--skip-optimize", "-o", str(out_file)])
+
+    assert rc == 0
+    assert out_file.read_text(encoding="utf-8") == "; codegen backend selected\n"
+    assert seen["optimize_called"] is False
+    assert isinstance(seen["program"], LoweredLinkedSemanticProgram)
+
+
 def test_cli_source_ast_codegen_flag_is_rejected(tmp_path: Path, monkeypatch, capsys) -> None:
     entry = tmp_path / "main.nif"
     write(
