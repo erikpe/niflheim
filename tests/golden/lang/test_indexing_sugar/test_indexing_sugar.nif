@@ -1,6 +1,6 @@
 import std.test;
 import std.io;
-import tests.golden.lang.test_indexing_sugar.util;
+import tests.golden.lang.test_indexing_sugar.util as util;
 
 class FlagMap {
     yes: i64;

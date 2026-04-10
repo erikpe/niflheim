@@ -312,6 +312,7 @@
   ],
   "imports": [
     {
+      "alias": null,
       "is_export": false,
       "module_path": [
         "std",
@@ -320,6 +321,7 @@
       "node": "ImportDecl"
     },
     {
+      "alias": null,
       "is_export": false,
       "module_path": [
         "std",

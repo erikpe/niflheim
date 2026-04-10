@@ -1,5 +1,5 @@
-import a.b;
-export import std.io;
+import a.b as b;
+export import std.io as io;
 
 class Point {
     x: i64;

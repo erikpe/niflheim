@@ -1,4 +1,4 @@
-import tests.golden.lang.test_interface_imports.imported_classes;
+import tests.golden.lang.test_interface_imports.imported_classes as imported_classes;
 
 class Local implements imported_classes.Widget {
 }

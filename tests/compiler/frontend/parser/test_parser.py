@@ -95,8 +95,8 @@ def test_token_stream_previous_and_end_behavior() -> None:
 
 def test_parse_module_level_declarations() -> None:
     source = """
-import a.b;
-export import std.io;
+import a.b as b;
+export import std.io as io;
 
 class Point {
     x: i64;
@@ -116,8 +116,10 @@ export fn main() -> unit {
     assert len(module.imports) == 2
     assert all(isinstance(item, ImportDecl) for item in module.imports)
     assert module.imports[0].module_path == ["a", "b"]
+    assert module.imports[0].alias == "b"
     assert module.imports[0].is_export is False
     assert module.imports[1].module_path == ["std", "io"]
+    assert module.imports[1].alias == "io"
     assert module.imports[1].is_export is True
 
     assert module.interfaces == []
@@ -1240,7 +1242,7 @@ def test_parse_expression_invalid_unclosed_group() -> None:
 
 def test_parse_module_ast_nodes_have_spans_recursively() -> None:
     source = """
-import a.b;
+import a.b as b;
 
 class Point {
     x: i64;
@@ -1266,6 +1268,23 @@ fn main() -> unit {
 """
     module = parse(lex(source, source_path="examples/span_check_module.nif"))
     _assert_ast_nodes_have_spans(module)
+
+
+def test_parse_import_alias_declaration() -> None:
+    source = """
+import util.math as math;
+export import std.io as io;
+
+fn main() -> unit {
+    return;
+}
+"""
+
+    module = parse(lex(source, source_path="examples/import_alias.nif"))
+
+    assert [import_decl.module_path for import_decl in module.imports] == [["util", "math"], ["std", "io"]]
+    assert [import_decl.alias for import_decl in module.imports] == ["math", "io"]
+    assert [import_decl.is_export for import_decl in module.imports] == [False, True]
 
 
 def test_parse_expression_ast_nodes_have_spans_recursively() -> None:

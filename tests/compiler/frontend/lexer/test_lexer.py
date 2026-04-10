@@ -66,9 +66,10 @@ def test_lex_override_keyword() -> None:
 
 
 def test_lex_remaining_keywords_and_punctuation_tokens() -> None:
-    source = "import util; if true && false || !null { while a < b { break; } } else { continue; } [x, y].field == z != w <= q >= r"
+    source = "import util as u; if true && false || !null { while a < b { break; } } else { continue; } [x, y].field == z != w <= q >= r"
     kinds = [token.kind for token in lex(source)]
     assert TokenKind.IMPORT in kinds
+    assert TokenKind.AS in kinds
     assert TokenKind.IF in kinds
     assert TokenKind.TRUE in kinds
     assert TokenKind.ANDAND in kinds

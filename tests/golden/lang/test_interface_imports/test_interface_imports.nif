@@ -1,7 +1,7 @@
 import std.test;
 import std.io;
-import tests.golden.lang.test_interface_imports.contracts;
-import tests.golden.lang.test_interface_imports.model;
+import tests.golden.lang.test_interface_imports.contracts as contracts;
+import tests.golden.lang.test_interface_imports.model as model;
 
 fn bounce_hashable(value: Hashable) -> contracts.Hashable {
     return value;

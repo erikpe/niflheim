@@ -1,4 +1,4 @@
-Status: design only.
+Status: phase 1 implemented; phases 2-4 design only.
 
 This document defines a concrete implementation plan for proper top-level module semantics.
 
@@ -382,31 +382,31 @@ The implementation should be done in phases. Phase 1 is explicitly the alias mig
 
 Goal: add explicit import aliases, migrate existing source code to use them, and keep the repository buildable throughout the transition.
 
-- [ ] Add import alias syntax to the frontend AST and parser.
+- [x] Add import alias syntax to the frontend AST and parser.
     Files:
     `compiler/frontend/ast_nodes.py`, `compiler/frontend/declaration_parser.py`
     Expected outcome:
     The language accepts `import foo.bar as baz;` and carries the alias through the frontend model.
 
-- [ ] Update the grammar and syntax documentation for aliased imports.
+- [x] Update the grammar and syntax documentation for aliased imports.
     Files:
     `compiler/grammar/niflheim_v0_1.ebnf`, `docs/GRAMMAR_EBNF.md`
     Expected outcome:
     The grammar docs match the new import syntax and no longer imply that plain imports are the only explicit qualification mechanism.
 
-- [ ] Add parser coverage for aliased imports.
+- [x] Add parser coverage for aliased imports.
     Files:
     `tests/compiler/frontend/parser/test_parser.py`, `tests/compiler/frontend/parser/golden/`
     Expected outcome:
     Parser tests cover plain imports, aliased imports, and exported aliased imports.
 
-- [ ] Teach the resolver and qualified lookup to understand explicit aliases.
+- [x] Teach the resolver and qualified lookup to understand explicit aliases.
     Files:
     `compiler/resolver.py`, `compiler/typecheck/module_lookup.py`, `compiler/semantic/lowering/resolution.py`
     Expected outcome:
     Both `long.path.to.modulea.MyClass` and `modulea.MyClass` after `import long.path.to.modulea as modulea;` resolve correctly.
 
-- [ ] Decide whether to use a short-lived compatibility shim.
+- [x] Decide whether to use a short-lived compatibility shim.
     Files:
     `compiler/resolver.py`, `compiler/typecheck/module_lookup.py`
     Expected outcome:
@@ -414,7 +414,7 @@ Goal: add explicit import aliases, migrate existing source code to use them, and
     the branch lands alias support and corpus migration atomically, or
     a temporary compatibility path accepts legacy implicit leaf aliases until the migration is complete.
 
-- [ ] Bulk-update existing `.nif` tests, samples, and docs snippets that rely on implicit leaf-module qualification.
+- [x] Bulk-update existing `.nif` tests, samples, and docs snippets that rely on implicit leaf-module qualification.
     Files:
     `tests/`, `samples/`, parser golden fixtures, affected docs snippets
     Expected outcome:
@@ -422,10 +422,10 @@ Goal: add explicit import aliases, migrate existing source code to use them, and
 
 Tests for phase 1:
 
-- [ ] Run `tests/compiler/frontend/parser/test_parser.py`.
-- [ ] Refresh and verify parser goldens for aliased imports.
-- [ ] Run `tests/compiler/typecheck/test_program_imports.py`.
-- [ ] Run `tests/compiler/semantic/test_lowering_resolution.py`.
+- [x] Run `tests/compiler/frontend/parser/test_parser.py`.
+- [x] Refresh and verify parser goldens for aliased imports.
+- [x] Run `tests/compiler/typecheck/test_program_imports.py`.
+- [x] Run `tests/compiler/semantic/test_lowering_resolution.py`.
 
 ### Phase 2: Strict Qualification And Semantic Acceptance
 

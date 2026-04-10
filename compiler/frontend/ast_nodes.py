@@ -54,6 +54,7 @@ class InterfaceDecl:
 @dataclass(frozen=True)
 class ImportDecl:
     module_path: list[str]
+    alias: str | None
     is_export: bool
     span: SourceSpan
 

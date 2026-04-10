@@ -1,8 +1,8 @@
 import std.box;
-import std.error;
+import std.error as error;
 import std.str;
-import samples.vm_benchmark.model;
-import samples.vm_benchmark.opcodes;
+import samples.vm_benchmark.model as model;
+import samples.vm_benchmark.opcodes as opcodes;
 
 export interface WeightSource {
     fn weight() -> i64;

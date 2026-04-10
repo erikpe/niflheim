@@ -3,7 +3,7 @@ from __future__ import annotations
 from compiler.frontend.ast_nodes import Expression, FieldAccessExpr, IdentifierExpr
 from compiler.typecheck.context import TypeCheckContext
 from compiler.common.span import SourceSpan
-from compiler.resolver import ModuleInfo, ModulePath
+from compiler.resolver import ModuleInfo, ModulePath, match_import_chain_prefix
 from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError
 
 
@@ -171,13 +171,13 @@ def _resolve_qualified_imported_symbol_name(
     if len(parts) < 2:
         return None
 
-    import_alias = parts[0]
-    import_info = current_module.imports.get(import_alias)
-    if import_info is None:
+    matched_import = match_import_chain_prefix(current_module.imports, parts)
+    if matched_import is None:
         return None
 
+    import_info, consumed = matched_import
     current_path = import_info.module_path
-    for segment in parts[1:-1]:
+    for segment in parts[consumed:-1]:
         module_info = ctx.modules[current_path]
         next_module = module_info.exported_modules.get(segment)
         if next_module is None:
@@ -232,14 +232,16 @@ def resolve_module_member(ctx: TypeCheckContext, expr: FieldAccessExpr) -> tuple
         return None
 
     current_module = ctx.modules[ctx.module_path]
-    import_info = current_module.imports.get(chain[0])
-    if import_info is None:
+    matched_import = match_import_chain_prefix(current_module.imports, chain)
+    if matched_import is None:
         return None
 
+    import_info, consumed = matched_import
     current_path = import_info.module_path
-    for index, segment in enumerate(chain[1:]):
+    remaining_segments = chain[consumed:]
+    for index, segment in enumerate(remaining_segments):
         module_info = ctx.modules[current_path]
-        is_last = index == len(chain[1:]) - 1
+        is_last = index == len(remaining_segments) - 1
 
         reexported = module_info.exported_modules.get(segment)
         if reexported is not None:

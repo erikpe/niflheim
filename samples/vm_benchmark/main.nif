@@ -1,10 +1,10 @@
-import std.error;
-import std.io;
-import std.test;
-import samples.vm_benchmark.cases;
-import samples.vm_benchmark.model;
-import samples.vm_benchmark.opcodes;
-import samples.vm_benchmark.runtime;
+import std.error as error;
+import std.io as io;
+import std.test as test;
+import samples.vm_benchmark.cases as cases;
+import samples.vm_benchmark.model as model;
+import samples.vm_benchmark.opcodes as opcodes;
+import samples.vm_benchmark.runtime as runtime;
 
 fn _mix_aggregate_result(seed: i64, index: i64, result: model.BenchmarkResult) -> i64 {
     var checksum: i64 = seed;

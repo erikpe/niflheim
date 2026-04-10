@@ -69,7 +69,9 @@ Implementation status note: unqualified and module-qualified imported class name
 ## Module and Export Model in Grammar
 
 - `import foo.bar;`
+- `import foo.bar as bar;`
 - `export import foo.bar;` (re-export)
+- `export import foo.bar as bar;` (re-export with alias)
 - `export` can prefix `class` and `fn` declarations.
 
 These import/re-export forms are frozen for MVP v0.1.

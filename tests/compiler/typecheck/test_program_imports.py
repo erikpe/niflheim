@@ -42,6 +42,96 @@ def test_typecheck_program_allows_imported_function_and_class_usage(tmp_path: Pa
     typecheck_program(program)
 
 
+def test_typecheck_program_allows_full_path_qualified_usage_for_dotted_import(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util.math;
+
+        fn main() -> unit {
+            var n: i64 = util.math.add(1, 2);
+            var c: Obj = util.math.Counter(10);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_allows_explicit_import_alias_qualification(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util.math as math;
+
+        fn main() -> unit {
+            var n: i64 = math.add(1, 2);
+            var c: Obj = math.Counter(10);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_keeps_legacy_leaf_alias_qualification_during_alias_migration(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util.math;
+
+        fn main() -> unit {
+            var n: i64 = math.add(1, 2);
+            var c: Obj = math.Counter(10);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_allows_imported_function_value(tmp_path: Path) -> None:
     write(
         tmp_path / "util.nif",

@@ -46,12 +46,8 @@
                 "field_name": "Item",
                 "node": "FieldAccessExpr",
                 "object_expr": {
-                  "field_name": "math",
-                  "node": "FieldAccessExpr",
-                  "object_expr": {
-                    "name": "util",
-                    "node": "IdentifierExpr"
-                  }
+                  "name": "math",
+                  "node": "IdentifierExpr"
                 }
               },
               "node": "CallExpr"
@@ -65,7 +61,7 @@
       "node": "FunctionDecl",
       "params": [],
       "return_type": {
-        "name": "util.math.Item",
+        "name": "math.Item",
         "node": "TypeRef"
       }
     },
@@ -99,7 +95,7 @@
                   "node": "CallExpr"
                 },
                 "type_ref": {
-                  "name": "util.math.Item",
+                  "name": "math.Item",
                   "node": "TypeRef"
                 }
               }
@@ -222,6 +218,7 @@
   ],
   "imports": [
     {
+      "alias": "math",
       "is_export": false,
       "module_path": [
         "util",
@@ -230,6 +227,7 @@
       "node": "ImportDecl"
     },
     {
+      "alias": null,
       "is_export": false,
       "module_path": [
         "std",

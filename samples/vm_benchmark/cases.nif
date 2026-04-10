@@ -1,8 +1,8 @@
 import std.box;
-import samples.vm_benchmark.builtins;
-import samples.vm_benchmark.instructions;
-import samples.vm_benchmark.model;
-import samples.vm_benchmark.opcodes;
+import samples.vm_benchmark.builtins as builtins;
+import samples.vm_benchmark.instructions as instructions;
+import samples.vm_benchmark.model as model;
+import samples.vm_benchmark.opcodes as opcodes;
 
 fn build_minimal_program() -> model.Program {
     var code: model.Instruction[] = model.Instruction[](11u);

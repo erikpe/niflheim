@@ -1,7 +1,7 @@
 import std.test;
 import std.io;
 import std.object;
-import tests.golden.lang.test_inheritance.util;
+import tests.golden.lang.test_inheritance.util as util;
 
 interface Metric {
     fn score() -> u64;

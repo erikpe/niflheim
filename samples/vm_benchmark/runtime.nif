@@ -1,7 +1,7 @@
 import std.box;
-import std.error;
-import samples.vm_benchmark.model;
-import samples.vm_benchmark.opcodes;
+import std.error as error;
+import samples.vm_benchmark.model as model;
+import samples.vm_benchmark.opcodes as opcodes;
 
 export class Frame {
     function_id: u64;

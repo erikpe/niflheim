@@ -1,1 +1,1 @@
-export import tests.golden.lang.test_function_values.pkg.inner;
+export import tests.golden.lang.test_function_values.pkg.inner as inner;

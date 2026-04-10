@@ -1,4 +1,4 @@
-import tests.golden.lang.test_function_values.bridge;
+import tests.golden.lang.test_function_values.bridge as bridge;
 
 fn main() -> unit {
     bridge.inner();

@@ -17,6 +17,7 @@ class TokenKind(str, Enum):
     CHAR_LIT = "CHAR_LIT"
 
     IMPORT = "IMPORT"
+    AS = "AS"
     EXPORT = "EXPORT"
     EXTERN = "EXTERN"
     CLASS = "CLASS"
@@ -100,6 +101,7 @@ class Token:
 
 KEYWORDS: dict[str, TokenKind] = {
     "import": TokenKind.IMPORT,
+    "as": TokenKind.AS,
     "export": TokenKind.EXPORT,
     "extern": TokenKind.EXTERN,
     "class": TokenKind.CLASS,

@@ -1,7 +1,7 @@
 import std.test;
 import std.io;
 import std.str;
-import samples.vm_benchmark.main;
+import samples.vm_benchmark.main as main;
 
 fn _run_all_select() -> u64 {
     return 999u;

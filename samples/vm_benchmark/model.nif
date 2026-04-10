@@ -1,5 +1,5 @@
 import std.str;
-import samples.vm_benchmark.opcodes;
+import samples.vm_benchmark.opcodes as opcodes;
 
 export interface VmApi {
     fn read_reg(index: i64) -> i64;

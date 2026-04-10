@@ -24,10 +24,46 @@ class SymbolInfo:
 
 @dataclass(frozen=True)
 class ImportInfo:
-    alias: str
+    alias: str | None
     module_path: ModulePath
     is_export: bool
     span: SourceSpan
+
+
+def import_visible_name(import_info: ImportInfo) -> str:
+    return import_info.alias if import_info.alias is not None else import_info.module_path[-1]
+
+
+def match_import_chain_prefix(
+    imports: dict[str, ImportInfo] | tuple[ImportInfo, ...] | list[ImportInfo],
+    chain: tuple[str, ...] | list[str],
+    *,
+    allow_implicit_leaf_alias: bool = True,
+) -> tuple[ImportInfo, int] | None:
+    import_infos = imports.values() if isinstance(imports, dict) else imports
+    best_match: tuple[ImportInfo, int] | None = None
+    best_length = -1
+    parts = tuple(chain)
+
+    for import_info in import_infos:
+        candidate_prefixes: list[tuple[str, ...]] = [import_info.module_path]
+        if import_info.alias is not None:
+            candidate_prefixes.append((import_info.alias,))
+        elif allow_implicit_leaf_alias:
+            candidate_prefixes.append((import_info.module_path[-1],))
+
+        seen_prefixes: set[tuple[str, ...]] = set()
+        for prefix in candidate_prefixes:
+            if prefix in seen_prefixes or len(parts) < len(prefix):
+                continue
+            seen_prefixes.add(prefix)
+            if parts[: len(prefix)] != prefix:
+                continue
+            if len(prefix) > best_length:
+                best_match = (import_info, len(prefix))
+                best_length = len(prefix)
+
+    return best_match
 
 
 @dataclass
@@ -197,15 +233,20 @@ def _build_import_tables(module_ast: ModuleAst) -> tuple[dict[str, ImportInfo], 
 
     for import_decl in module_ast.imports:
         module_path = tuple(import_decl.module_path)
-        alias = module_path[-1]
-        if alias in imports:
-            raise ResolveError(f"Duplicate import alias '{alias}'", span=import_decl.span)
+        info = ImportInfo(
+            alias=import_decl.alias,
+            module_path=module_path,
+            is_export=import_decl.is_export,
+            span=import_decl.span,
+        )
+        visible_name = import_visible_name(info)
+        if visible_name in imports:
+            raise ResolveError(f"Duplicate import alias '{visible_name}'", span=import_decl.span)
 
-        info = ImportInfo(alias=alias, module_path=module_path, is_export=import_decl.is_export, span=import_decl.span)
-        imports[alias] = info
+        imports[visible_name] = info
 
         if import_decl.is_export:
-            exported_modules[alias] = module_path
+            exported_modules[visible_name] = module_path
 
     return imports, exported_modules
 
@@ -302,22 +343,33 @@ def _validate_expression(expr: Expression, module_info: ModuleInfo, modules: dic
 def _resolve_module_chain(
     expr: FieldAccessExpr, module_info: ModuleInfo, modules: dict[ModulePath, ModuleInfo]
 ) -> ModuleInfo | None:
-    left = expr.object_expr
+    chain = _flatten_field_chain(expr)
+    if chain is None or len(chain) < 2:
+        return None
 
-    if isinstance(left, IdentifierExpr):
-        import_info = module_info.imports.get(left.name)
-        if import_info is None:
+    matched_import = match_import_chain_prefix(module_info.imports, chain)
+    if matched_import is None:
+        return None
+
+    import_info, consumed = matched_import
+    current_module = modules[import_info.module_path]
+    for member_name in chain[consumed:]:
+        next_module = _resolve_exported_member(current_module, member_name, expr.span, modules)
+        if next_module is None:
             return None
+        current_module = next_module
 
-        target_module = modules[import_info.module_path]
-        return _resolve_exported_member(target_module, expr.field_name, expr.span, modules)
+    return current_module
 
-    if isinstance(left, FieldAccessExpr):
-        base_module = _resolve_module_chain(left, module_info, modules)
-        if base_module is None:
+
+def _flatten_field_chain(expr: Expression) -> list[str] | None:
+    if isinstance(expr, IdentifierExpr):
+        return [expr.name]
+    if isinstance(expr, FieldAccessExpr):
+        left = _flatten_field_chain(expr.object_expr)
+        if left is None:
             return None
-        return _resolve_exported_member(base_module, expr.field_name, expr.span, modules)
-
+        return [*left, expr.field_name]
     return None
 
 

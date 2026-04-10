@@ -21,7 +21,7 @@ Additional debugging-oriented sample:
 - `samples/runtime_safepoint_gc.nif` (uses `extern fn rt_gc_collect(...)` across multiple functions to inspect safepoint/root-slot codegen)
 
 Stdlib IO sample:
-- `samples/stdlib_io_println.nif` (`import std.io; println_i64(...)` without direct runtime calls)
+- `samples/stdlib_io_println.nif` (`import std.io as io; io.println_i64(...)` without direct runtime calls)
 
 Vec + BoxI64 prime sample:
 - `samples/vec_primes_2_to_1000000.nif` (collects primes into `Vec` of `BoxI64`, then prints aggregate output)

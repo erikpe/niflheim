@@ -283,7 +283,9 @@ Design lock-in note:
 - Module system supports `import` and `export`.
 - Frozen v0.1 module import syntax forms:
   - `import a.b;`
+  - `import a.b as b;`
   - `export import a.b;` (re-export)
+  - `export import a.b as b;` (re-export with alias)
 - External function declaration forms:
   - `extern fn name(args...) -> type;`
   - `export extern fn name(args...) -> type;` (re-export)

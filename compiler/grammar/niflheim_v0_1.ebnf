@@ -13,9 +13,9 @@ module_item        = import_decl
                    | exportable_decl
                    ;
 
-import_decl        = "import" module_path ";" ;
+import_decl        = "import" module_path [ "as" IDENT ] ";" ;
 
-export_import_decl = "export" "import" module_path ";" ;
+export_import_decl = "export" "import" module_path [ "as" IDENT ] ";" ;
 
 exportable_decl    = [ "export" ] ( class_decl | fn_decl ) ;
 

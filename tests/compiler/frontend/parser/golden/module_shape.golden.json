@@ -222,6 +222,7 @@
   ],
   "imports": [
     {
+      "alias": "b",
       "is_export": false,
       "module_path": [
         "a",
@@ -230,6 +231,7 @@
       "node": "ImportDecl"
     },
     {
+      "alias": "io",
       "is_export": true,
       "module_path": [
         "std",

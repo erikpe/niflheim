@@ -1,4 +1,4 @@
-import tests.golden.lang.test_inheritance.error_imported_inheritance_cycle_main;
+import tests.golden.lang.test_inheritance.error_imported_inheritance_cycle_main as error_imported_inheritance_cycle_main;
 
 export class Base extends error_imported_inheritance_cycle_main.Derived {
     value: u64;

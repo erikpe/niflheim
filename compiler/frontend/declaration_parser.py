@@ -128,10 +128,17 @@ class DeclarationParser:
             part = expect_symbol_name(self.stream, "Expected identifier after '.' in module path")
             parts.append(part.lexeme)
 
+        alias: str | None = None
+        if self.stream.match(TokenKind.AS):
+            alias = expect_symbol_name(self.stream, "Expected alias name after 'as'").lexeme
+
         semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after import declaration")
         start_pos = export_token.span.start if export_token is not None else import_token.span.start
         return ImportDecl(
-            module_path=parts, is_export=is_export, span=SourceSpan(start=start_pos, end=semicolon.span.end)
+            module_path=parts,
+            alias=alias,
+            is_export=is_export,
+            span=SourceSpan(start=start_pos, end=semicolon.span.end),
         )
 
     def _parse_class_decl(self, *, is_export: bool, class_token: Token, export_token: Token | None = None) -> ClassDecl:
