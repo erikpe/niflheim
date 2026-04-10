@@ -1,0 +1,11 @@
+export fn mul(a: i64, b: i64) -> i64 {
+    return a * b;
+}
+
+export class Box {
+    value: i64;
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}

@@ -1,0 +1,13 @@
+import tests.golden.lang.test_module_semantics.contracts as contracts;
+
+export class Key implements contracts.Hashable {
+    seed: u64;
+
+    fn hash_code() -> u64 {
+        return __self.seed + 100u;
+    }
+}
+
+export fn as_hashable(seed: u64) -> contracts.Hashable {
+    return Key(seed);
+}

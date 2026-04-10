@@ -1,0 +1,11 @@
+fn hidden() -> i64 {
+    return 1;
+}
+
+class Hidden {
+    value: i64;
+}
+
+interface HiddenFace {
+    fn id() -> i64;
+}

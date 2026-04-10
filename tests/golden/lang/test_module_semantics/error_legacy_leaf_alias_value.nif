@@ -1,0 +1,5 @@
+import tests.golden.lang.test_module_semantics.util.math;
+
+fn main() -> i64 {
+    return math.add(20, 22);
+}

@@ -1,0 +1,93 @@
+import std.test;
+import std.io;
+import tests.golden.lang.test_module_semantics.contracts;
+import tests.golden.lang.test_module_semantics.model as model;
+import tests.golden.lang.test_module_semantics.util.math;
+import tests.golden.lang.test_module_semantics.util.ops as ops;
+import tests.golden.lang.test_module_semantics.util.shadow as shadow;
+import tests.golden.lang.test_module_semantics.bridge as bridge;
+import tests.golden.lang.test_module_semantics.left.math;
+import tests.golden.lang.test_module_semantics.left.alias as left_alias;
+import tests.golden.lang.test_module_semantics.right.math;
+import tests.golden.lang.test_module_semantics.right.alias as right_alias;
+import tests.golden.lang.test_module_semantics.tools.worker as worker;
+
+fn bounce_hashable(value: Hashable) -> Hashable {
+    return value;
+}
+
+fn pick() -> i64 {
+    return 9;
+}
+
+fn test_unique_unqualified_imports() -> unit {
+    assert_eq_i64(add(20, 22), 42);
+
+    var counter: Counter = Counter(40);
+    assert_eq_i64(counter.inc(2), 42);
+
+    var value: Hashable = model.as_hashable(5u);
+    var bounced: Hashable = bounce_hashable(value);
+    assert_eq_u64(bounced.hash_code(), 105u);
+}
+
+fn test_full_imported_path_qualification() -> unit {
+    assert_eq_i64(tests.golden.lang.test_module_semantics.util.math.add(10, 32), 42);
+
+    var counter: tests.golden.lang.test_module_semantics.util.math.Counter =
+        tests.golden.lang.test_module_semantics.util.math.Counter(39);
+    assert_eq_i64(counter.inc(3), 42);
+}
+
+fn test_explicit_alias_qualification() -> unit {
+    assert_eq_i64(ops.mul(6, 7), 42);
+
+    var box: ops.Box = ops.Box(42);
+    assert_eq_i64(box.read(), 42);
+}
+
+fn test_reexport_alias_chain() -> unit {
+    assert_eq_i64(bridge.math.add(19, 23), 42);
+
+    var value: Hashable = bridge.model.as_hashable(6u);
+    assert_eq_u64(value.hash_code(), 106u);
+
+    var key: bridge.model.Key = bridge.model.Key(7u);
+    assert_eq_u64(key.hash_code(), 107u);
+}
+
+fn test_same_leaf_full_path_disambiguation() -> unit {
+    assert_eq_i64(tests.golden.lang.test_module_semantics.left.math.score(), 12);
+    assert_eq_i64(tests.golden.lang.test_module_semantics.right.math.score(), 30);
+}
+
+fn test_same_leaf_alias_disambiguation() -> unit {
+    assert_eq_i64(left_alias.score(), 14);
+    assert_eq_i64(right_alias.score(), 28);
+}
+
+fn test_local_shadowing_and_qualified_access() -> unit {
+    assert_eq_i64(pick(), 9);
+
+    assert_eq_i64(shadow.pick(), 42);
+}
+
+fn test_imported_non_entry_main() -> unit {
+    assert_eq_i64(worker.main(), 41);
+}
+
+fn main() -> i64 {
+    var select: u64 = read_program_args()[1].to_u64();
+
+    if select == 1u { test_unique_unqualified_imports(); return 0; }
+    if select == 2u { test_full_imported_path_qualification(); return 0; }
+    if select == 3u { test_explicit_alias_qualification(); return 0; }
+    if select == 4u { test_reexport_alias_chain(); return 0; }
+    if select == 5u { test_same_leaf_full_path_disambiguation(); return 0; }
+    if select == 6u { test_same_leaf_alias_disambiguation(); return 0; }
+    if select == 7u { test_local_shadowing_and_qualified_access(); return 0; }
+    if select == 8u { test_imported_non_entry_main(); return 0; }
+
+    fail("Invalid test selection.");
+    return 1;
+}

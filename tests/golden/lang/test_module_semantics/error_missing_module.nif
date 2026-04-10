@@ -1,0 +1,5 @@
+import does.not_exist;
+
+fn main() -> i64 {
+    return 0;
+}

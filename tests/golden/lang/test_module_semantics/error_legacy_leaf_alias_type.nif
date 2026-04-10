@@ -1,0 +1,6 @@
+import tests.golden.lang.test_module_semantics.util.math;
+
+fn main() -> i64 {
+    var counter: math.Counter = null;
+    return counter.value;
+}

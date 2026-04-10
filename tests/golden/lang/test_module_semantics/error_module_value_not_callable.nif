@@ -1,0 +1,5 @@
+import tests.golden.lang.test_module_semantics.bridge as bridge;
+
+fn main() -> i64 {
+    return bridge.math();
+}

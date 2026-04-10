@@ -1,0 +1,6 @@
+import tests.golden.lang.test_module_semantics.left.api;
+import tests.golden.lang.test_module_semantics.right.api;
+
+fn main() -> i64 {
+    return add(1, 2);
+}

@@ -1,0 +1,2 @@
+export import tests.golden.lang.test_module_semantics.util.math as math;
+export import tests.golden.lang.test_module_semantics.model as model;

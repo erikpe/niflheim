@@ -1,0 +1,7 @@
+import tests.golden.lang.test_module_semantics.left.api;
+import tests.golden.lang.test_module_semantics.right.api;
+
+fn main() -> i64 {
+    var counter: Counter = Counter(1);
+    return counter.value;
+}

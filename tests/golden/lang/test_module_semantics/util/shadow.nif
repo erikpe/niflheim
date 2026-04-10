@@ -1,0 +1,7 @@
+export fn pick() -> i64 {
+    return 42;
+}
+
+export class Token {
+    value: i64;
+}

@@ -1,0 +1,57 @@
+tests:
+  - mode: "run"
+    name: "test_module_semantics"
+    src_file: "test_module_semantics.nif"
+    runs:
+      - {name: "unique_unqualified_imports", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "full_imported_path_qualification", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - {name: "explicit_alias_qualification", input: {args: ["3"]}, expect: {exit_code: 0}}
+      - {name: "reexport_alias_chain", input: {args: ["4"]}, expect: {exit_code: 0}}
+      - {name: "same_leaf_full_path_disambiguation", input: {args: ["5"]}, expect: {exit_code: 0}}
+      - {name: "same_leaf_alias_disambiguation", input: {args: ["6"]}, expect: {exit_code: 0}}
+      - {name: "local_shadowing_and_qualified_access", input: {args: ["7"]}, expect: {exit_code: 0}}
+      - {name: "imported_non_entry_main", input: {args: ["8"]}, expect: {exit_code: 0}}
+  - mode: "compile-fail"
+    name: "missing_module"
+    src_file: "error_missing_module.nif"
+    compile_error_match: "Module 'does.not_exist' not found"
+  - mode: "compile-fail"
+    name: "legacy_leaf_alias_value_lookup"
+    src_file: "error_legacy_leaf_alias_value.nif"
+    compile_error_match: "Unknown identifier 'math'"
+  - mode: "compile-fail"
+    name: "legacy_leaf_alias_type_lookup"
+    src_file: "error_legacy_leaf_alias_type.nif"
+    compile_error_match: "Unknown type 'math.Counter'"
+  - mode: "compile-fail"
+    name: "ambiguous_imported_function"
+    src_file: "error_ambiguous_imported_function.nif"
+    compile_error_match: "Ambiguous imported function 'add'"
+  - mode: "compile-fail"
+    name: "ambiguous_imported_type"
+    src_file: "error_ambiguous_imported_type.nif"
+    compile_error_match: "Ambiguous imported type 'Counter'"
+  - mode: "compile-fail"
+    name: "ambiguous_imported_interface"
+    src_file: "error_ambiguous_imported_interface.nif"
+    compile_error_match: "Ambiguous imported interface 'Shared'"
+  - mode: "compile-fail"
+    name: "missing_exported_function"
+    src_file: "error_missing_exported_function.nif"
+    compile_error_match: "has no exported member 'hidden'"
+  - mode: "compile-fail"
+    name: "missing_exported_class"
+    src_file: "error_missing_exported_class.nif"
+    compile_error_match: "has no exported class 'Hidden'"
+  - mode: "compile-fail"
+    name: "missing_exported_interface"
+    src_file: "error_missing_exported_interface.nif"
+    compile_error_match: "has no exported interface 'HiddenFace'"
+  - mode: "compile-fail"
+    name: "missing_exported_module"
+    src_file: "error_missing_exported_module.nif"
+    compile_error_match: "has no exported module 'missing'"
+  - mode: "compile-fail"
+    name: "module_value_not_callable"
+    src_file: "error_module_value_not_callable.nif"
+    compile_error_match: "Module values are not callable"

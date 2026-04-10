@@ -1,0 +1,9 @@
+import tests.golden.lang.test_module_semantics.bridge as bridge;
+
+fn main() -> i64 {
+    var counter: bridge.missing.Counter = null;
+    if counter == null {
+        return 0;
+    }
+    return 1;
+}

@@ -1,0 +1,9 @@
+import tests.golden.lang.test_module_semantics.hidden as hidden;
+
+fn main() -> i64 {
+    var value: hidden.Hidden = null;
+    if value == null {
+        return 0;
+    }
+    return 1;
+}

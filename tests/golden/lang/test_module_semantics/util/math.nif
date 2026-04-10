@@ -1,0 +1,11 @@
+export fn add(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+export class Counter {
+    value: i64;
+
+    fn inc(delta: i64) -> i64 {
+        return __self.value + delta;
+    }
+}
