@@ -11,6 +11,13 @@ tests:
       - {name: "same_leaf_alias_disambiguation", input: {args: ["6"]}, expect: {exit_code: 0}}
       - {name: "local_shadowing_and_qualified_access", input: {args: ["7"]}, expect: {exit_code: 0}}
       - {name: "imported_non_entry_main", input: {args: ["8"]}, expect: {exit_code: 0}}
+      - {name: "alias_import_unique_unqualified_lookup", input: {args: ["9"]}, expect: {exit_code: 0}}
+      - {name: "full_reexported_nested_module_path", input: {args: ["10"]}, expect: {exit_code: 0}}
+  - mode: "run"
+    name: "test_module_semantics_duplicate_symbols"
+    src_file: "test_module_semantics_duplicate_symbols.nif"
+    runs:
+      - {name: "duplicate_symbol_alias_disambiguation", expect: {exit_code: 0}}
   - mode: "compile-fail"
     name: "missing_module"
     src_file: "error_missing_module.nif"

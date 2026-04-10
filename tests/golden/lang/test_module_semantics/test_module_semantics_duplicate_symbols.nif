@@ -1,0 +1,20 @@
+import std.test;
+import tests.golden.lang.test_module_semantics.left.api as left_api;
+import tests.golden.lang.test_module_semantics.right.api as right_api;
+
+fn main() -> i64 {
+    assert_eq_i64(left_api.add(20, 22), 42);
+    assert_eq_i64(right_api.add(20, 21), 42);
+
+    var left_counter: left_api.Counter = left_api.Counter(7);
+    var right_counter: right_api.Counter = right_api.Counter(8);
+    assert_eq_i64(left_counter.value, 7);
+    assert_eq_i64(right_counter.value, 8);
+
+    var left_shared: left_api.Shared = left_api.SharedBox(9);
+    var right_shared: right_api.Shared = right_api.SharedBox(10);
+    assert_eq_i64(left_shared.id(), 9);
+    assert_eq_i64(right_shared.id(), 10);
+
+    return 0;
+}

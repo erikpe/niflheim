@@ -13,3 +13,11 @@ export class Counter {
 export interface Shared {
     fn id() -> i64;
 }
+
+export class SharedBox implements Shared {
+    value: i64;
+
+    fn id() -> i64 {
+        return __self.value;
+    }
+}

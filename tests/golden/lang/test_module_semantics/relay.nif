@@ -1,0 +1,1 @@
+export import tests.golden.lang.test_module_semantics.pkg.inner;
