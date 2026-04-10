@@ -27,8 +27,8 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_ctor_BoxI64" in asm
-    assert "    call __nif_method_BoxI64_value" in main_body
+    assert "    call __nif_ctor_main__BoxI64" in asm
+    assert "    call __nif_method_main__BoxI64_value" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
 
@@ -61,9 +61,9 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Vec_new" in asm
-    assert "    call __nif_method_Vec_push" in main_body
-    assert "    call __nif_method_Vec_len" in main_body
+    assert "    call __nif_method_main__Vec_new" in asm
+    assert "    call __nif_method_main__Vec_push" in main_body
+    assert "    call __nif_method_main__Vec_len" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
     assert "rt_vec_" not in asm
@@ -97,8 +97,8 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Bag_index_set" in main_body
-    assert "    call __nif_method_Bag_index_get" in main_body
+    assert "    call __nif_method_main__Bag_index_set" in main_body
+    assert "    call __nif_method_main__Bag_index_get" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
 
@@ -129,7 +129,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Window_slice_get" in main_body
+    assert "    call __nif_method_main__Window_slice_get" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
 
@@ -186,12 +186,12 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Store_index_get" in main_body
-    assert "    call __nif_method_Store_index_set" in main_body
-    assert "    call __nif_method_Store_slice_get" in main_body
-    assert "    call __nif_method_Store_slice_set" in main_body
-    assert "    call __nif_method_Store_iter_len" in main_body
-    assert "    call __nif_method_Store_iter_get" in main_body
+    assert "    call __nif_method_main__Store_index_get" in main_body
+    assert "    call __nif_method_main__Store_index_set" in main_body
+    assert "    call __nif_method_main__Store_slice_get" in main_body
+    assert "    call __nif_method_main__Store_slice_set" in main_body
+    assert "    call __nif_method_main__Store_iter_len" in main_body
+    assert "    call __nif_method_main__Store_iter_get" in main_body
     assert "    mov rax, qword ptr [rcx + 64]" not in main_body
     assert "    call r11" not in main_body
 
@@ -265,12 +265,12 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Buffer_index_get" in main_body
-    assert "    call __nif_method_Buffer_index_set" in main_body
-    assert "    call __nif_method_Buffer_slice_get" in main_body
-    assert "    call __nif_method_Buffer_slice_set" in main_body
-    assert "    call __nif_method_Buffer_iter_len" in main_body
-    assert "    call __nif_method_Buffer_iter_get" in main_body
+    assert "    call __nif_method_main__Buffer_index_get" in main_body
+    assert "    call __nif_method_main__Buffer_index_set" in main_body
+    assert "    call __nif_method_main__Buffer_slice_get" in main_body
+    assert "    call __nif_method_main__Buffer_slice_set" in main_body
+    assert "    call __nif_method_main__Buffer_iter_len" in main_body
+    assert "    call __nif_method_main__Buffer_iter_get" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
 
@@ -336,12 +336,12 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     read_body = _main_function_body(asm, "read")
 
-    assert "    call __nif_method_BaseBuffer_index_get" in read_body
-    assert "    call __nif_method_BaseBuffer_index_set" in read_body
-    assert "    call __nif_method_BaseBuffer_slice_get" in read_body
-    assert "    call __nif_method_BaseBuffer_slice_set" in read_body
-    assert "    call __nif_method_BaseBuffer_iter_len" in read_body
-    assert "    call __nif_method_BaseBuffer_iter_get" in read_body
+    assert "    call __nif_method_main__BaseBuffer_index_get" in read_body
+    assert "    call __nif_method_main__BaseBuffer_index_set" in read_body
+    assert "    call __nif_method_main__BaseBuffer_slice_get" in read_body
+    assert "    call __nif_method_main__BaseBuffer_slice_set" in read_body
+    assert "    call __nif_method_main__BaseBuffer_iter_len" in read_body
+    assert "    call __nif_method_main__BaseBuffer_iter_get" in read_body
     assert "    mov rax, qword ptr [rcx + 64]" not in read_body
     assert "    call r11" not in read_body
 
@@ -398,12 +398,12 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     read_body = _main_function_body(asm, "read")
 
-    assert "    call __nif_method_BufferBase_index_get" in read_body
-    assert "    call __nif_method_BufferBase_index_set" in read_body
-    assert "    call __nif_method_BufferBase_slice_get" in read_body
-    assert "    call __nif_method_BufferBase_slice_set" in read_body
-    assert "    call __nif_method_BufferBase_iter_len" in read_body
-    assert "    call __nif_method_BufferBase_iter_get" in read_body
+    assert "    call __nif_method_main__BufferBase_index_get" in read_body
+    assert "    call __nif_method_main__BufferBase_index_set" in read_body
+    assert "    call __nif_method_main__BufferBase_slice_get" in read_body
+    assert "    call __nif_method_main__BufferBase_slice_set" in read_body
+    assert "    call __nif_method_main__BufferBase_iter_len" in read_body
+    assert "    call __nif_method_main__BufferBase_iter_get" in read_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in read_body
     assert "    call r11" not in read_body
 
@@ -427,7 +427,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Store_index_get" in main_body
+    assert "    call __nif_method_main__Store_index_get" in main_body
     assert "    mov rax, qword ptr [rcx + 64]" not in main_body
     assert "    call r11" not in main_body
 
@@ -448,8 +448,8 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "__nif_method_Counter_add:" in asm
-    assert "    call __nif_method_Counter_add" in main_body
+    assert "__nif_method_main__Counter_add:" in asm
+    assert "    call __nif_method_main__Counter_add" in main_body
     assert re.search(r"mov rdi, qword ptr \[rbp - \d+\]", main_body)
     assert re.search(r"mov rsi, qword ptr \[rbp - \d+\]", main_body)
     assert "    call rt_panic_null_deref" in main_body
@@ -471,8 +471,8 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "__nif_method_Counter_add:" in asm
-    assert "    call __nif_method_Counter_add" in asm
+    assert "__nif_method_main__Counter_add:" in asm
+    assert "    call __nif_method_main__Counter_add" in asm
 
 
 def test_emit_asm_constructor_call_lowers_to_constructor_symbol(tmp_path) -> None:
@@ -491,8 +491,8 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "__nif_ctor_Counter:" in asm
-    assert "    call __nif_ctor_Counter" in asm
+    assert "__nif_ctor_main__Counter:" in asm
+    assert "    call __nif_ctor_main__Counter" in asm
     assert "    call rt_alloc_obj" in asm
 
 
@@ -521,9 +521,9 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "__nif_ctor_Pair:" in asm
-    assert "__nif_ctor_Pair__1:" in asm
-    assert "    call __nif_ctor_Pair__1" in asm
+    assert "__nif_ctor_main__Pair:" in asm
+    assert "__nif_ctor_main__Pair__1:" in asm
+    assert "    call __nif_ctor_main__Pair__1" in asm
     assert "    call rt_alloc_obj" in asm
 
 
@@ -555,11 +555,11 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "__nif_ctor_init_Base:" in asm
-    assert "__nif_ctor_init_Derived:" in asm
-    assert "    call __nif_ctor_Derived" in asm
-    assert "    call __nif_ctor_init_Derived" in asm
-    assert "    call __nif_ctor_init_Base" in asm
+    assert "__nif_ctor_init_main__Base:" in asm
+    assert "__nif_ctor_init_main__Derived:" in asm
+    assert "    call __nif_ctor_main__Derived" in asm
+    assert "    call __nif_ctor_init_main__Derived" in asm
+    assert "    call __nif_ctor_init_main__Base" in asm
 
 
 def test_emit_asm_constructor_prologues_omit_zeroing_immediately_spilled_param_slots(tmp_path) -> None:
@@ -577,8 +577,8 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    ctor_body = asm[asm.index("__nif_ctor_Box:") : asm.index(".L__nif_ctor_Box_epilogue:")]
-    init_body = asm[asm.index("__nif_ctor_init_Box:") : asm.index(".L__nif_ctor_init_Box_epilogue:")]
+    ctor_body = asm[asm.index("__nif_ctor_main__Box:") : asm.index(".L__nif_ctor_main__Box_epilogue:")]
+    init_body = asm[asm.index("__nif_ctor_init_main__Box:") : asm.index(".L__nif_ctor_init_main__Box_epilogue:")]
 
     assert "    mov qword ptr [rbp - 8], 0" in ctor_body
     assert "    mov qword ptr [rbp - 16], 0" not in ctor_body

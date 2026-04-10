@@ -64,14 +64,14 @@ def test_program_generator_builds_declaration_tables_from_program(tmp_path: Path
     helper_id = FunctionId(module_path=("util",), name="helper")
 
     assert tables.function_label(helper_id) == "__nif_fn_util__helper"
-    assert tables.method_label(make_id) == "__nif_method_Box_make"
-    assert tables.method_label(get_id) == "__nif_method_Box_get"
+    assert tables.method_label(make_id) == "__nif_method_util__Box_make"
+    assert tables.method_label(get_id) == "__nif_method_util__Box_get"
     assert tables.class_field_offset(box_id, "value") == 24
     assert tables.class_field_offset(box_id, "next") == 32
     assert tables.class_vtable_symbol(box_id) == "__nif_vtable_util__Box"
     assert tables.class_virtual_slot_index(box_id, box_id, "get") == 0
-    assert tables.constructor_layout(ctor_id).label == "__nif_ctor_Box"
-    assert tables.constructor_layout(ctor_id).init_label == "__nif_ctor_init_Box"
+    assert tables.constructor_layout(ctor_id).label == "__nif_ctor_util__Box"
+    assert tables.constructor_layout(ctor_id).init_label == "__nif_ctor_init_util__Box"
     assert tables.constructor_layout(ctor_id).type_symbol == "__nif_type_util__Box"
     assert tables.constructor_layout(ctor_id).param_field_names == ["value", "next"]
 
@@ -101,7 +101,7 @@ def test_program_generator_generate_builds_module_output(tmp_path: Path) -> None
     assert generator.type_metadata is not None
     assert generator.declaration_tables.function_label(FunctionId(module_path=("main",), name="main")) == "__nif_fn_main__main"
     assert generator.declaration_tables.constructor_layout(ConstructorId(module_path=("main",), class_name="Box")) is not None
-    assert "__nif_ctor_Box" in asm
+    assert "__nif_ctor_main__Box" in asm
     assert "main:" in asm
     assert "__nif_fn_main__main:" in asm
 
@@ -141,12 +141,12 @@ def test_program_generator_builds_overloaded_constructor_labels(tmp_path: Path) 
     first_ctor_id = ConstructorId(module_path=("main",), class_name="Box", ordinal=0)
     second_ctor_id = ConstructorId(module_path=("main",), class_name="Box", ordinal=1)
 
-    assert tables.constructor_layout(first_ctor_id).label == "__nif_ctor_Box"
-    assert tables.constructor_layout(first_ctor_id).init_label == "__nif_ctor_init_Box"
+    assert tables.constructor_layout(first_ctor_id).label == "__nif_ctor_main__Box"
+    assert tables.constructor_layout(first_ctor_id).init_label == "__nif_ctor_init_main__Box"
     assert tables.constructor_layout(first_ctor_id).param_names == ["value"]
     assert tables.constructor_layout(first_ctor_id).param_field_names == []
-    assert tables.constructor_layout(second_ctor_id).label == "__nif_ctor_Box__1"
-    assert tables.constructor_layout(second_ctor_id).init_label == "__nif_ctor_init_Box__1"
+    assert tables.constructor_layout(second_ctor_id).label == "__nif_ctor_main__Box__1"
+    assert tables.constructor_layout(second_ctor_id).init_label == "__nif_ctor_init_main__Box__1"
     assert tables.constructor_layout(second_ctor_id).param_names == ["value", "other"]
     assert tables.constructor_layout(second_ctor_id).param_field_names == []
 
@@ -178,7 +178,7 @@ def test_program_generator_builds_constructor_init_metadata_for_inherited_compat
     derived_ctor_id = ConstructorId(module_path=("main",), class_name="Derived")
     derived_layout = tables.constructor_layout(derived_ctor_id)
 
-    assert derived_layout.init_label == "__nif_ctor_init_Derived"
+    assert derived_layout.init_label == "__nif_ctor_init_main__Derived"
     assert derived_layout.param_names == ["value", "extra"]
     assert derived_layout.super_param_count == 1
 
@@ -315,9 +315,9 @@ def test_program_generator_builds_type_metadata_before_emission(tmp_path: Path) 
     assert key_metadata.interface_table_slot_count == 1
     assert key_metadata.interface_table_entries == ("__nif_interface_methods_main__Key__main__Hashable",)
     assert key_metadata.interface_method_tables[0].method_table_symbol == "__nif_interface_methods_main__Key__main__Hashable"
-    assert key_metadata.interface_method_tables[0].method_labels == ("__nif_method_Key_hash_code",)
+    assert key_metadata.interface_method_tables[0].method_labels == ("__nif_method_main__Key_hash_code",)
     assert key_metadata.class_vtable_symbol == "__nif_vtable_main__Key"
-    assert key_metadata.class_vtable_labels == ("__nif_method_Key_hash_code",)
+    assert key_metadata.class_vtable_labels == ("__nif_method_main__Key_hash_code",)
     assert person_metadata.aliases == ("Person", "main::Person")
     assert person_metadata.interface_tables_symbol == "__nif_interface_tables_main__Person"
     assert person_metadata.interface_table_slot_count == 1
@@ -413,9 +413,9 @@ def test_program_generator_uses_effective_layout_and_inherited_interface_methods
     assert derived_metadata.interface_table_slot_count == 1
     assert derived_metadata.interface_table_entries == ("__nif_interface_methods_main__Derived__main__Hashable",)
     assert derived_metadata.interface_method_tables[0].method_table_symbol == "__nif_interface_methods_main__Derived__main__Hashable"
-    assert derived_metadata.interface_method_tables[0].method_labels == ("__nif_method_Derived_hash_code",)
+    assert derived_metadata.interface_method_tables[0].method_labels == ("__nif_method_main__Derived_hash_code",)
     assert derived_metadata.class_vtable_symbol == "__nif_vtable_main__Derived"
-    assert derived_metadata.class_vtable_labels == ("__nif_method_Derived_hash_code",)
+    assert derived_metadata.class_vtable_labels == ("__nif_method_main__Derived_hash_code",)
 
 
 def test_program_generator_builds_slotted_interface_table_entries_with_null_holes(tmp_path: Path) -> None:
@@ -511,3 +511,58 @@ def test_program_generator_omits_short_aliases_for_duplicate_class_leaf_names(tm
     assert right_metadata.aliases == ("right::Key",)
     assert tables.constructor_layout(ConstructorId(module_path=("left",), class_name="Key")).type_symbol == "__nif_type_left__Key"
     assert tables.constructor_layout(ConstructorId(module_path=("right",), class_name="Key")).type_symbol == "__nif_type_right__Key"
+
+
+def test_program_generator_canonicalizes_class_owned_labels_for_duplicate_leaf_names(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "left.nif",
+        """
+        export class Key {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "right.nif",
+        """
+        export class Key {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value + 1;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import left;
+        import right;
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    tables = ProgramGenerator(program).build_declaration_tables()
+
+    left_ctor_id = ConstructorId(module_path=("left",), class_name="Key")
+    right_ctor_id = ConstructorId(module_path=("right",), class_name="Key")
+    left_method_id = MethodId(module_path=("left",), class_name="Key", name="read")
+    right_method_id = MethodId(module_path=("right",), class_name="Key", name="read")
+
+    assert tables.constructor_layout(left_ctor_id).label == "__nif_ctor_left__Key"
+    assert tables.constructor_layout(right_ctor_id).label == "__nif_ctor_right__Key"
+    assert tables.constructor_layout(left_ctor_id).init_label == "__nif_ctor_init_left__Key"
+    assert tables.constructor_layout(right_ctor_id).init_label == "__nif_ctor_init_right__Key"
+    assert tables.method_label(left_method_id) == "__nif_method_left__Key_read"
+    assert tables.method_label(right_method_id) == "__nif_method_right__Key_read"

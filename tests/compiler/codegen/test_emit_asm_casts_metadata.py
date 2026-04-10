@@ -261,7 +261,7 @@ fn main() -> i64 {
 
     assert "__nif_type_name_main__Derived__ptr_offsets:" in asm
     assert "__nif_type_name_main__Derived__ptr_offsets:\n    .long 24\n    .long 40" in asm
-    assert "__nif_interface_methods_main__Derived__main__Hashable:\n    .quad __nif_method_Base_hash_code" in asm
+    assert "__nif_interface_methods_main__Derived__main__Hashable:\n    .quad __nif_method_main__Base_hash_code" in asm
     assert "    .quad __nif_type_main__Base" in asm
 
 
@@ -293,9 +293,9 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "__nif_vtable_main__Base:\n    .quad __nif_method_Base_head" in asm
+    assert "__nif_vtable_main__Base:\n    .quad __nif_method_main__Base_head" in asm
     assert (
-        "__nif_vtable_main__Derived:\n    .quad __nif_method_Derived_head\n    .quad __nif_method_Derived_tail"
+        "__nif_vtable_main__Derived:\n    .quad __nif_method_main__Derived_head\n    .quad __nif_method_main__Derived_tail"
         in asm
     )
     assert "__nif_type_main__Derived:" in asm
@@ -424,7 +424,7 @@ fn main() -> i64 {
 
     assert "__nif_interface_methods_main__Key__main__Hashable:" in asm
     assert (
-        "__nif_interface_methods_main__Key__main__Hashable:\n    .quad __nif_method_Key_hash_code\n    .quad __nif_method_Key_equals"
+        "__nif_interface_methods_main__Key__main__Hashable:\n    .quad __nif_method_main__Key_hash_code\n    .quad __nif_method_main__Key_equals"
         in asm
     )
     assert "__nif_interface_tables_main__Key:\n    .quad __nif_interface_methods_main__Key__main__Hashable" in asm

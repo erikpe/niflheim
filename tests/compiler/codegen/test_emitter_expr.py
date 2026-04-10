@@ -146,17 +146,17 @@ def test_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None:
     generator.asm.lines.clear()
     _assert_call_target(var_inits[2], StaticMethodCallTarget)
     emit_expr(generator, var_inits[2], ctx)
-    assert "    call __nif_method_Math_add" in generator.asm.lines
+    assert "    call __nif_method_main__Math_add" in generator.asm.lines
 
     generator.asm.lines.clear()
     _assert_call_target(var_inits[3], ConstructorCallTarget)
     emit_expr(generator, var_inits[3], ctx)
-    assert "    call __nif_ctor_Box" in generator.asm.lines
+    assert "    call __nif_ctor_main__Box" in generator.asm.lines
 
     generator.asm.lines.clear()
     _assert_call_target(var_inits[4], VirtualMethodCallTarget)
     emit_expr(generator, var_inits[4], ctx)
-    assert "    call __nif_method_Box_get" not in generator.asm.lines
+    assert "    call __nif_method_main__Box_get" not in generator.asm.lines
     assert "    mov rcx, qword ptr [rsp]" in generator.asm.lines
     assert "    mov rcx, qword ptr [rcx]" in generator.asm.lines
     assert "    mov rcx, qword ptr [rcx + 80]" in generator.asm.lines
@@ -274,8 +274,8 @@ def test_emitter_expr_emits_string_literal_helper_form_and_slice_reads(tmp_path:
     assert isinstance(return_stmt, SemanticReturn)
     emit_expr(generator, return_stmt.value, ctx)
     assert f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}" in generator.asm.lines
-    assert "    call __nif_method_Str_from_u8_array" in generator.asm.lines
-    assert "    call __nif_method_Str_concat" in generator.asm.lines
+    assert "    call __nif_method_main__Str_from_u8_array" in generator.asm.lines
+    assert "    call __nif_method_main__Str_concat" in generator.asm.lines
 
 
 def test_emitter_expr_emits_class_structural_index_reads(tmp_path: Path) -> None:

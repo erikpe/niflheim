@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.codegen.symbols import mangle_function_symbol
+from compiler.codegen.symbols import mangle_function_symbol, mangle_method_symbol, mangle_constructor_symbol
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write_project
 
 
@@ -59,7 +59,7 @@ def test_cli_codegen_imported_constructor_call_lowers(tmp_path: Path, monkeypatc
     entry = tmp_path / "main.nif"
     out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
-    assert "    call __nif_ctor_Box" in asm
+    assert f"    call {mangle_constructor_symbol('util::Box')}" in asm
 
 
 def test_cli_codegen_imported_static_method_call_lowers(tmp_path: Path, monkeypatch) -> None:
@@ -87,7 +87,50 @@ def test_cli_codegen_imported_static_method_call_lowers(tmp_path: Path, monkeypa
     out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
-    assert "    call __nif_method_Math_add" in asm
+    assert f"    call {mangle_method_symbol('util::Math', 'add')}" in asm
+
+
+def test_cli_codegen_keeps_duplicate_leaf_class_constructors_and_methods_distinct(tmp_path: Path, monkeypatch) -> None:
+    write_project(
+        tmp_path,
+        {
+            "left.nif": """
+            export class Key {
+                value: i64;
+
+                fn read() -> i64 {
+                    return __self.value;
+                }
+            }
+            """,
+            "right.nif": """
+            export class Key {
+                value: i64;
+
+                fn read() -> i64 {
+                    return __self.value + 1;
+                }
+            }
+            """,
+            "main.nif": """
+            import left as left_lib;
+            import right as right_lib;
+
+            fn main() -> i64 {
+                return left_lib.Key(20).read() + right_lib.Key(21).read();
+            }
+            """,
+        },
+    )
+
+    entry = tmp_path / "main.nif"
+    out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
+    asm = out_file.read_text(encoding="utf-8")
+
+    assert f"    call {mangle_constructor_symbol('left::Key')}" in asm
+    assert f"    call {mangle_constructor_symbol('right::Key')}" in asm
+    assert f"    call {mangle_method_symbol('left::Key', 'read')}" in asm
+    assert f"    call {mangle_method_symbol('right::Key', 'read')}" in asm
 
 
 def test_cli_codegen_resolves_nested_project_root_imports(tmp_path: Path, monkeypatch) -> None:

@@ -20,6 +20,14 @@ fn pick() -> i64 {
     return 9;
 }
 
+class Token {
+    value: i64;
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}
+
 fn test_unique_unqualified_imports() -> unit {
     assert_eq_i64(add(20, 22), 42);
 
@@ -68,8 +76,10 @@ fn test_same_leaf_alias_disambiguation() -> unit {
 
 fn test_local_shadowing_and_qualified_access() -> unit {
     assert_eq_i64(pick(), 9);
+    assert_eq_i64(Token(7).read(), 7);
 
     assert_eq_i64(shadow.pick(), 42);
+    assert_eq_i64(shadow.Token(11).read(), 11);
 }
 
 fn test_imported_non_entry_main() -> unit {

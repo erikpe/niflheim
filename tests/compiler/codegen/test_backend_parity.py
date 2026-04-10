@@ -44,11 +44,11 @@ def test_backend_emits_expected_call_shapes(tmp_path) -> None:
 
     for expected in [
         f'    call {mangle_function_symbol(("main",), "add")}',
-        "    call __nif_method_Math_inc",
-        "    call __nif_ctor_Box",
+        "    call __nif_method_main__Math_inc",
+        "    call __nif_ctor_main__Box",
     ]:
         assert expected in asm
-    assert "    call __nif_method_Box_get" in main_body
+    assert "    call __nif_method_main__Box_get" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
 
@@ -92,8 +92,8 @@ def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
         f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_U8]}",
         f"    call {ARRAY_SLICE_GET_RUNTIME_CALLS[ArrayRuntimeKind.U8]}",
         f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}",
-        "    call __nif_method_Str_from_u8_array",
-        "    call __nif_method_Str_concat",
+        "    call __nif_method_main__Str_from_u8_array",
+        "    call __nif_method_main__Str_concat",
         "    call rt_checked_cast",
         "__nif_type_name_Person:",
         "__nif_type_Person:",

@@ -113,22 +113,39 @@ class ProgramGenerator(CodeGenerator):
         interface_descriptor_symbols_by_id: dict[InterfaceId, str] = {}
         interface_slots_by_id: dict[InterfaceId, int] = {}
         interface_method_slots_by_id: dict[InterfaceMethodId, int] = {}
+        emitted_symbols: dict[str, str] = {}
+
+        def register_emitted_symbol(symbol: str, owner: str) -> str:
+            existing_owner = emitted_symbols.get(symbol)
+            if existing_owner is not None and existing_owner != owner:
+                raise ValueError(
+                    f"Conflicting emitted symbol '{symbol}' for {owner} (already used by {existing_owner})"
+                )
+            emitted_symbols[symbol] = owner
+            return symbol
 
         for function in self.program.functions:
             if function.is_extern:
-                function_labels_by_id[function.function_id] = function.function_id.name
+                function_labels_by_id[function.function_id] = register_emitted_symbol(
+                    function.function_id.name,
+                    f"function {'.'.join(function.function_id.module_path)}::{function.function_id.name}",
+                )
                 continue
-            function_labels_by_id[function.function_id] = codegen_symbols.mangle_function_symbol(
-                function.function_id.module_path,
-                function.function_id.name,
+            function_labels_by_id[function.function_id] = register_emitted_symbol(
+                codegen_symbols.mangle_function_symbol(
+                    function.function_id.module_path,
+                    function.function_id.name,
+                ),
+                f"function {'.'.join(function.function_id.module_path)}::{function.function_id.name}",
             )
 
         next_interface_slot = 0
         for module in self.program.ordered_modules:
             for interface in module.interfaces:
                 qualified_name = qualified_interface_type_name(interface.interface_id)
-                interface_descriptor_symbols_by_id[interface.interface_id] = codegen_symbols.mangle_interface_symbol(
-                    qualified_name
+                interface_descriptor_symbols_by_id[interface.interface_id] = register_emitted_symbol(
+                    codegen_symbols.mangle_interface_symbol(qualified_name),
+                    f"interface {qualified_name}",
                 )
                 interface_slots_by_id[interface.interface_id] = next_interface_slot
                 next_interface_slot += 1
@@ -144,11 +161,20 @@ class ProgramGenerator(CodeGenerator):
         for cls in self.program.classes:
             class_name = cls.class_id.name
             qualified_type_name = qualified_class_type_name(cls.class_id)
-            class_vtable_symbols_by_id[cls.class_id] = codegen_symbols.mangle_class_vtable_symbol(qualified_type_name)
+            class_vtable_symbols_by_id[cls.class_id] = register_emitted_symbol(
+                codegen_symbols.mangle_class_vtable_symbol(qualified_type_name),
+                f"class vtable {qualified_type_name}",
+            )
             for constructor in cls.constructors:
                 constructor_id = constructor.constructor_id
-                constructor_label = codegen_symbols.mangle_constructor_symbol(class_name, constructor_id.ordinal)
-                constructor_init_label = codegen_symbols.mangle_constructor_init_symbol(class_name, constructor_id.ordinal)
+                constructor_label = register_emitted_symbol(
+                    codegen_symbols.mangle_constructor_symbol(qualified_type_name, constructor_id.ordinal),
+                    f"constructor {qualified_type_name}#{constructor_id.ordinal}",
+                )
+                constructor_init_label = register_emitted_symbol(
+                    codegen_symbols.mangle_constructor_init_symbol(qualified_type_name, constructor_id.ordinal),
+                    f"constructor init {qualified_type_name}#{constructor_id.ordinal}",
+                )
                 constructor_layouts_by_id[constructor_id] = ConstructorLayout(
                     class_name=class_name,
                     label=constructor_label,
@@ -182,8 +208,9 @@ class ProgramGenerator(CodeGenerator):
                 ] = virtual_slot.slot_index
 
             for method in cls.methods:
-                method_labels_by_id[method.method_id] = codegen_symbols.mangle_method_symbol(
-                    class_name, method.method_id.name
+                method_labels_by_id[method.method_id] = register_emitted_symbol(
+                    codegen_symbols.mangle_method_symbol(qualified_type_name, method.method_id.name),
+                    f"method {qualified_type_name}.{method.method_id.name}",
                 )
 
         self.declaration_tables = DeclarationTables(

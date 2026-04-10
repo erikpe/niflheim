@@ -22,8 +22,8 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call __nif_method_Math_add" in asm
-    assert "    lea rax, [rip + __nif_method_Math_add]" in asm
+    assert "    call __nif_method_main__Math_add" in asm
+    assert "    lea rax, [rip + __nif_method_main__Math_add]" in asm
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
 

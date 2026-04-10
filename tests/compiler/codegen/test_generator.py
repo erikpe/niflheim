@@ -85,10 +85,10 @@ def test_codegen_builds_constructor_and_field_tables(tmp_path) -> None:
     make_id = MethodId(module_path=("main",), class_name="Box", name="make")
     get_id = MethodId(module_path=("main",), class_name="Box", name="get")
 
-    assert tables.method_label(make_id) == "__nif_method_Box_make"
-    assert tables.method_label(get_id) == "__nif_method_Box_get"
+    assert tables.method_label(make_id) == "__nif_method_main__Box_make"
+    assert tables.method_label(get_id) == "__nif_method_main__Box_get"
     assert tables.class_field_offset(box_id, "value") == 24
-    assert tables.constructor_layout(ctor_id).label == "__nif_ctor_Box"
+    assert tables.constructor_layout(ctor_id).label == "__nif_ctor_main__Box"
     assert tables.constructor_layout(ctor_id).param_field_names == ["value", "next"]
 
 
@@ -141,8 +141,8 @@ def test_codegen_orchestrates_sections_and_class_symbols(tmp_path) -> None:
     asm = generator.generate()
 
     assert ".text" in asm
-    assert "__nif_method_Box_get" in asm
-    assert "__nif_ctor_Box" in asm
+    assert "__nif_method_main__Box_get" in asm
+    assert "__nif_ctor_main__Box" in asm
     assert '.section .note.GNU-stack,"",@progbits' in asm
 
 

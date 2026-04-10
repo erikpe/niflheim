@@ -4,4 +4,8 @@ export fn pick() -> i64 {
 
 export class Token {
     value: i64;
+
+    fn read() -> i64 {
+        return __self.value;
+    }
 }

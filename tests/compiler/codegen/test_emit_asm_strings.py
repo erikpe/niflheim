@@ -24,7 +24,7 @@ fn main() -> i64 {
 
     assert "__nif_str_lit_0:" in asm
     assert f"    call {ARRAY_FROM_BYTES_U8_RUNTIME_CALL}" in asm
-    assert "    call __nif_method_Str_from_u8_array" in asm
+    assert "    call __nif_method_main__Str_from_u8_array" in asm
 
 
 def test_emit_asm_string_literal_inside_for_in_is_collected(tmp_path) -> None:
@@ -85,7 +85,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Str_index_get" in main_body
+    assert "    call __nif_method_main__Str_index_get" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
 

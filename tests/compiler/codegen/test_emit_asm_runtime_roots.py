@@ -247,7 +247,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    ctor_label = "__nif_ctor_Boxed:"
+    ctor_label = "__nif_ctor_main__Boxed:"
     assert ctor_label in asm
     ctor_start = asm.index(ctor_label)
     ctor_body = asm[ctor_start:]
@@ -271,8 +271,8 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    ctor_start = asm.index("__nif_ctor_Counter:")
-    ctor_end = asm.index(".L__nif_ctor_Counter_epilogue:")
+    ctor_start = asm.index("__nif_ctor_main__Counter:")
+    ctor_end = asm.index(".L__nif_ctor_main__Counter_epilogue:")
     ctor_body = asm[ctor_start:ctor_end]
 
     assert "    call rt_root_frame_init" in ctor_body

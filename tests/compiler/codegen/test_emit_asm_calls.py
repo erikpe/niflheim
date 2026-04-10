@@ -227,7 +227,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    lea rax, [rip + __nif_method_Math_add]" in asm
+    assert "    lea rax, [rip + __nif_method_main__Math_add]" in asm
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
 
@@ -474,7 +474,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     call_hash_body = _main_function_body(asm, "call_hash")
 
-    assert "    call __nif_method_Key_hash_code" in call_hash_body
+    assert "    call __nif_method_main__Key_hash_code" in call_hash_body
     assert "    mov rax, qword ptr [rcx + 64]" not in call_hash_body
     assert "    call r11" not in call_hash_body
 
@@ -504,8 +504,8 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     read_body = _main_function_body(asm, "read")
 
-    assert "    call __nif_method_Base_head" not in read_body
-    assert "    call __nif_method_Derived_head" not in read_body
+    assert "    call __nif_method_main__Base_head" not in read_body
+    assert "    call __nif_method_main__Derived_head" not in read_body
     assert "    mov rcx, qword ptr [rcx]" in read_body
     assert "    mov rcx, qword ptr [rcx + 80]" in read_body
     assert "    mov rax, qword ptr [rcx]" in read_body
@@ -535,7 +535,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Derived_head" in main_body
+    assert "    call __nif_method_main__Derived_head" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
 
@@ -562,7 +562,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     read_body = _main_function_body(asm, "read")
 
-    assert "    call __nif_method_Base_head" in read_body
+    assert "    call __nif_method_main__Base_head" in read_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in read_body
     assert "    call r11" not in read_body
 
@@ -588,7 +588,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    assert "    call __nif_method_Derived_head" in main_body
+    assert "    call __nif_method_main__Derived_head" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
     assert "    call r11" not in main_body
 

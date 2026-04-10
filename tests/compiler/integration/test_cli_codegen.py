@@ -205,12 +205,12 @@ def test_cli_default_codegen_prunes_dead_declarations_but_keeps_virtual_methods_
     asm = out_file.read_text(encoding="utf-8")
 
     assert f'{mangle_function_symbol(("main",), "dead_helper")}:' not in asm
-    assert "__nif_method_Box_dead:" in asm
-    assert "__nif_method_Box_dead_private:" not in asm
-    assert "__nif_method_Box_dead_static:" not in asm
+    assert "__nif_method_main__Box_dead:" in asm
+    assert "__nif_method_main__Box_dead_private:" not in asm
+    assert "__nif_method_main__Box_dead_static:" not in asm
     assert f'{mangle_function_symbol(("main",), "helper")}:' in asm
-    assert "__nif_method_Box_make:" in asm
-    assert "__nif_method_Box_read:" in asm
+    assert "__nif_method_main__Box_make:" in asm
+    assert "__nif_method_main__Box_read:" in asm
 
 
 def test_cli_default_codegen_prunes_dead_imported_interface_descriptors_from_assembly(
