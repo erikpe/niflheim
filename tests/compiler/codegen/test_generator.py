@@ -217,3 +217,42 @@ def test_codegen_named_root_slot_clears_can_target_specific_locals(tmp_path) -> 
     assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[first_param])}, 0" in asm
     assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[second_param])}, 0" not in asm
     assert "    call rt_root_slot_store" not in asm
+
+
+def test_codegen_zero_slots_can_skip_immediately_spilled_param_slots_but_keep_root_slots(tmp_path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn keep(value: Obj) -> Obj {
+            return value;
+        }
+
+        fn main() -> i64 {
+            if keep(null) == null {
+                return 0;
+            }
+            return 1;
+        }
+        """,
+    )
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    fn = next(
+        fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "keep"
+    )
+    layout = build_layout(fn)
+    generator = CodeGenerator()
+
+    param_local_id = next(
+        local_info.local_id for local_info in fn.local_info_by_id.values() if local_info.binding_kind == "param"
+    )
+    param_slot_offset = layout.local_slot_offsets[param_local_id]
+    param_root_offset = layout.root_slot_offsets_by_local_id[param_local_id]
+
+    generator.emit_zero_slots(layout, skipped_value_slot_offsets={param_slot_offset})
+
+    asm = "\n".join(generator.asm.lines)
+    assert f"    mov {offset_operand(param_slot_offset)}, 0" not in asm
+    assert f"    mov {offset_operand(param_root_offset)}, 0" in asm
+

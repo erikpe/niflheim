@@ -556,6 +556,34 @@ fn main() -> i64 {
     assert "    call __nif_ctor_init_Base" in asm
 
 
+def test_emit_asm_constructor_prologues_omit_zeroing_immediately_spilled_param_slots(tmp_path) -> None:
+    source = """
+class Box {
+    value: Obj;
+}
+
+fn main() -> i64 {
+    var b: Box = Box(null);
+    if b == null {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    ctor_body = asm[asm.index("__nif_ctor_Box:") : asm.index(".L__nif_ctor_Box_epilogue:")]
+    init_body = asm[asm.index("__nif_ctor_init_Box:") : asm.index(".L__nif_ctor_init_Box_epilogue:")]
+
+    assert "    mov qword ptr [rbp - 8], 0" in ctor_body
+    assert "    mov qword ptr [rbp - 16], 0" not in ctor_body
+    assert "    mov qword ptr [rbp - 16], rdi" in ctor_body
+
+    assert "    mov qword ptr [rbp - 8], 0" not in init_body
+    assert "    mov qword ptr [rbp - 16], 0" not in init_body
+    assert "    mov qword ptr [rbp - 8], rdi" in init_body
+    assert "    mov qword ptr [rbp - 16], rsi" in init_body
+
+
 def test_emit_asm_class_field_read_lowers_to_object_payload_load(tmp_path) -> None:
     source = """
 class Counter {

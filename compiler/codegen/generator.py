@@ -119,8 +119,16 @@ class CodeGenerator:
             self.asm.instr(f"sub rsp, {layout.stack_size}")
         self.stack_depth_bytes = 0
 
-    def emit_zero_slots(self, layout: FunctionLayout) -> None:
+    def emit_zero_slots(
+        self,
+        layout: FunctionLayout,
+        *,
+        skipped_value_slot_offsets: Iterable[int] = (),
+    ) -> None:
+        skipped_offsets = set(skipped_value_slot_offsets)
         for slot in layout.slots:
+            if slot.offset in skipped_offsets:
+                continue
             self.asm.instr(f"mov {offset_operand(slot.offset)}, 0")
         for slot in layout.root_slots:
             if slot.root_offset is None:

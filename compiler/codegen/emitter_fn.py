@@ -170,8 +170,9 @@ def emit_function(
         global_symbol=(fn.is_export or fn.function_id.name == "main") if global_symbol is None else global_symbol,
     )
     codegen.emit_location_comment(file_path=fn.span.start.path, line=fn.span.start.line, column=fn.span.start.column)
-    codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_function_param_spills(fn, layout))
+    param_spills = _function_param_spills(fn, layout)
+    codegen.emit_zero_slots(layout, skipped_value_slot_offsets={offset for offset, _type_ref, _span in param_spills})
+    codegen.emit_param_spills(param_spills)
 
     if layout.root_slot_count > 0:
         first_root_offset = (
@@ -277,8 +278,9 @@ def _emit_constructor_wrapper(
         line=constructor.span.start.line,
         column=constructor.span.start.column,
     )
-    codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_constructor_param_local_spills(constructor, layout))
+    param_spills = _constructor_param_local_spills(constructor, layout)
+    codegen.emit_zero_slots(layout, skipped_value_slot_offsets={offset for offset, _type_ref, _span in param_spills})
+    codegen.emit_param_spills(param_spills)
 
     if layout.root_slot_count > 0:
         first_root_offset = (
@@ -372,8 +374,9 @@ def _emit_constructor_init_helper(
         line=constructor.span.start.line,
         column=constructor.span.start.column,
     )
-    codegen.emit_zero_slots(layout)
-    codegen.emit_param_spills(_constructor_init_param_spills(constructor, layout))
+    param_spills = _constructor_init_param_spills(constructor, layout)
+    codegen.emit_zero_slots(layout, skipped_value_slot_offsets={offset for offset, _type_ref, _span in param_spills})
+    codegen.emit_param_spills(param_spills)
 
     if layout.root_slot_count > 0:
         first_root_offset = (

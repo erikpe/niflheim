@@ -146,7 +146,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
 
-    assert "    mov qword ptr [rbp - 8], 0" in f_body
+    assert "    mov qword ptr [rbp - 8], 0" not in f_body
     assert "    mov qword ptr [rbp - 16], 0" in f_body
     assert "    mov qword ptr [rbp - 24], 0" not in f_body
     assert "    mov qword ptr [rbp - 32], 0" not in f_body

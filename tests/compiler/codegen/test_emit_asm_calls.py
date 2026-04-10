@@ -85,6 +85,47 @@ fn main() -> i64 {
     assert "    mov qword ptr [rbp - 56], rax" in asm
 
 
+def test_emit_asm_function_prologue_omits_zeroing_immediately_spilled_param_slots(tmp_path) -> None:
+    source = """
+fn sum2(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+fn main() -> i64 {
+    return sum2(20, 22);
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    sum2_body = asm[asm.index("sum2:") : asm.index(".Lsum2_epilogue:")]
+
+    assert "    mov qword ptr [rbp - 8], 0" not in sum2_body
+    assert "    mov qword ptr [rbp - 16], 0" not in sum2_body
+    assert "    mov qword ptr [rbp - 8], rdi" in sum2_body
+    assert "    mov qword ptr [rbp - 16], rsi" in sum2_body
+
+
+def test_emit_asm_function_prologue_keeps_root_slot_zeroing_for_reference_params(tmp_path) -> None:
+    source = """
+fn keep(value: Obj) -> Obj {
+    return value;
+}
+
+fn main() -> i64 {
+    if keep(null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    keep_body = asm[asm.index("keep:") : asm.index(".Lkeep_epilogue:")]
+
+    assert "    mov qword ptr [rbp - 8], 0" not in keep_body
+    assert "    mov qword ptr [rbp - 8], rdi" in keep_body
+    assert "    call rt_root_frame_init" in keep_body
+    assert re.search(r"^\s+mov qword ptr \[rbp - \d+\], 0$", keep_body, re.MULTILINE) is not None
+
+
 def test_emit_asm_direct_call_with_floating_stack_args(tmp_path) -> None:
     source = """
 fn sum9(a0: double, a1: double, a2: double, a3: double, a4: double, a5: double, a6: double, a7: double, a8: double) -> double {
