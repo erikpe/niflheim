@@ -64,7 +64,7 @@ def test_link_semantic_program_orders_non_entry_modules_before_entry(tmp_path: P
     assert [fn.function_id.name for fn in program.functions] == ["helper_a", "helper_z", "main"]
 
 
-def test_link_semantic_program_prefers_body_over_extern_duplicate(tmp_path: Path) -> None:
+def test_link_semantic_program_preserves_cross_module_functions_with_same_leaf_name(tmp_path: Path) -> None:
     _write(
         tmp_path / "decls.nif",
         """
@@ -88,10 +88,11 @@ def test_link_semantic_program_prefers_body_over_extern_duplicate(tmp_path: Path
 
     program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
 
-    helper = next(fn for fn in program.functions if fn.function_id.name == "helper")
-    assert helper.function_id.module_path == ("main",)
-    assert helper.body is not None
-    assert helper.is_extern is False
+    helpers = [fn for fn in program.functions if fn.function_id.name == "helper"]
+    assert [(fn.function_id.module_path, fn.is_extern, fn.body is not None) for fn in helpers] == [
+        (("decls",), True, False),
+        (("main",), False, True),
+    ]
 
 
 def test_link_semantic_program_preserves_module_interfaces_for_codegen_metadata(tmp_path: Path) -> None:
@@ -129,7 +130,7 @@ def test_link_semantic_program_preserves_module_interfaces_for_codegen_metadata(
     assert util_key.implemented_interfaces == [util_module.interfaces[0].interface_id]
 
 
-def test_link_semantic_program_rejects_duplicate_class_symbols(tmp_path: Path) -> None:
+def test_link_semantic_program_preserves_cross_module_classes_with_same_leaf_name(tmp_path: Path) -> None:
     _write(
         tmp_path / "left.nif",
         """
@@ -158,10 +159,10 @@ def test_link_semantic_program_rejects_duplicate_class_symbols(tmp_path: Path) -
         """,
     )
 
-    semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
+    program = link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
 
-    with pytest.raises(ValueError, match="Duplicate class symbol 'Box'"):
-        link_semantic_program(semantic)
+    boxes = [cls.class_id.module_path for cls in program.classes if cls.class_id.name == "Box"]
+    assert boxes == [("left",), ("right",)]
 
 
 def test_require_main_function_validates_entrypoint(tmp_path: Path) -> None:

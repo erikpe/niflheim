@@ -153,7 +153,7 @@ def resolve_visible_interface_id(
     if module_info is None:
         return None
 
-    matches: list[InterfaceId] = []
+    matches: set[InterfaceId] = set()
     for import_info in module_info.imports.values():
         imported_module = program.modules[import_info.module_path]
         symbol = imported_module.exported_symbols.get(interface_name)
@@ -162,7 +162,7 @@ def resolve_visible_interface_id(
 
         interface_id = symbol_index.local_interfaces_by_module.get(import_info.module_path, {}).get(interface_name)
         if interface_id is not None:
-            matches.append(interface_id)
+            matches.add(interface_id)
 
     if not matches:
         return None
@@ -171,7 +171,7 @@ def resolve_visible_interface_id(
         candidates = ", ".join(sorted(".".join(interface_id.module_path) for interface_id in matches))
         raise ValueError(f"Ambiguous imported interface '{interface_name}' (matches: {candidates})")
 
-    return matches[0]
+    return next(iter(matches))
 
 
 def build_program_symbol_index(program: ProgramInfo) -> ProgramSymbolIndex:

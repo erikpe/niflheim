@@ -164,9 +164,76 @@ def test_resolve_program_supports_import_alias_and_full_path_qualification(tmp_p
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
 
     main_module = program.modules[("main",)]
-    assert "math" in main_module.imports
     assert main_module.imports["math"].module_path == ("util", "math")
     assert main_module.imports["math"].alias == "math"
+
+
+def test_resolve_program_allows_dotted_imports_with_same_leaf_name_under_strict_qualification(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "left" / "math.nif",
+        """
+        export fn lhs() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "right" / "math.nif",
+        """
+        export fn rhs() -> i64 {
+            return 2;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import left.math;
+        import right.math;
+
+        fn main() -> unit {
+            left.math.lhs();
+            right.math.rhs();
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert sorted(program.modules) == [("left", "math"), ("main",), ("right", "math")]
+
+
+def test_resolve_program_supports_full_path_reexport_chain_without_leaf_alias_fallback(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn gcd(a: i64, b: i64) -> i64 {
+            return a;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        export import util.math;
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            lib.util.math.gcd(10, 5);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert ("util", "math") in program.modules
 
 
 def test_resolve_program_detects_duplicate_declarations(tmp_path: Path) -> None:

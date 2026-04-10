@@ -102,7 +102,7 @@ def test_cli_codegen_resolves_nested_project_root_imports(tmp_path: Path, monkey
             import lib.math;
 
             fn main() -> i64 {
-                return math.add(20, 22);
+                return lib.math.add(20, 22);
             }
             """,
         },

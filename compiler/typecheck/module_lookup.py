@@ -3,7 +3,7 @@ from __future__ import annotations
 from compiler.frontend.ast_nodes import Expression, FieldAccessExpr, IdentifierExpr
 from compiler.typecheck.context import TypeCheckContext
 from compiler.common.span import SourceSpan
-from compiler.resolver import ModuleInfo, ModulePath, match_import_chain_prefix
+from compiler.resolver import ModuleInfo, ModulePath, match_exported_import_chain_prefix, match_import_chain_prefix
 from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError
 
 
@@ -63,13 +63,13 @@ def resolve_imported_function_sig(ctx: TypeCheckContext, fn_name: str, span: Sou
     if current_module is None or ctx.modules is None or ctx.module_function_sigs is None:
         return None
 
-    matches: list[ModulePath] = []
+    matches: set[ModulePath] = set()
     for import_info in current_module.imports.values():
         imported_module_path = import_info.module_path
         module_info = ctx.modules[imported_module_path]
         symbol = module_info.exported_symbols.get(fn_name)
         if symbol is not None and symbol.kind == "function":
-            matches.append(imported_module_path)
+            matches.add(imported_module_path)
 
     if not matches:
         return None
@@ -78,7 +78,8 @@ def resolve_imported_function_sig(ctx: TypeCheckContext, fn_name: str, span: Sou
         candidates = ", ".join(sorted(".".join(path) for path in matches))
         raise TypeCheckError(f"Ambiguous imported function '{fn_name}' (matches: {candidates})", span)
 
-    return ctx.module_function_sigs[matches[0]][fn_name]
+    matched_module = next(iter(matches))
+    return ctx.module_function_sigs[matched_module][fn_name]
 
 
 def _resolve_unique_imported_symbol_module(
@@ -88,13 +89,13 @@ def _resolve_unique_imported_symbol_module(
     if current_module is None or ctx.modules is None:
         return None
 
-    matches: list[ModulePath] = []
+    matches: set[ModulePath] = set()
     for import_info in current_module.imports.values():
         imported_module_path = import_info.module_path
         module_info = ctx.modules[imported_module_path]
         symbol = module_info.exported_symbols.get(symbol_name)
         if symbol is not None and symbol.kind == symbol_kind:
-            matches.append(imported_module_path)
+            matches.add(imported_module_path)
 
     if not matches:
         return None
@@ -103,7 +104,7 @@ def _resolve_unique_imported_symbol_module(
         candidates = ", ".join(sorted(".".join(path) for path in matches))
         raise TypeCheckError(f"Ambiguous imported {ambiguity_label} '{symbol_name}' (matches: {candidates})", span)
 
-    return matches[0]
+    return next(iter(matches))
 
 
 def resolve_unique_global_class_name(ctx: TypeCheckContext, class_name: str, span: SourceSpan) -> str | None:
@@ -177,13 +178,16 @@ def _resolve_qualified_imported_symbol_name(
 
     import_info, consumed = matched_import
     current_path = import_info.module_path
-    for segment in parts[consumed:-1]:
+    remaining_module_segments = tuple(parts[consumed:-1])
+    while remaining_module_segments:
         module_info = ctx.modules[current_path]
-        next_module = module_info.exported_modules.get(segment)
-        if next_module is None:
+        matched_export = match_exported_import_chain_prefix(module_info, remaining_module_segments)
+        if matched_export is None:
             dotted = ".".join(current_path)
-            raise TypeCheckError(f"Module '{dotted}' has no exported module '{segment}'", span)
-        current_path = next_module
+            raise TypeCheckError(f"Module '{dotted}' has no exported module '{remaining_module_segments[0]}'", span)
+        export_info, export_consumed = matched_export
+        current_path = export_info.module_path
+        remaining_module_segments = remaining_module_segments[export_consumed:]
 
     symbol_name = parts[-1]
     module_info = ctx.modules[current_path]
@@ -238,17 +242,25 @@ def resolve_module_member(ctx: TypeCheckContext, expr: FieldAccessExpr) -> tuple
 
     import_info, consumed = matched_import
     current_path = import_info.module_path
-    remaining_segments = chain[consumed:]
-    for index, segment in enumerate(remaining_segments):
-        module_info = ctx.modules[current_path]
-        is_last = index == len(remaining_segments) - 1
+    remaining_segments = tuple(chain[consumed:])
+    if not remaining_segments:
+        return ("module", current_path, current_path[-1])
 
-        reexported = module_info.exported_modules.get(segment)
-        if reexported is not None:
-            current_path = reexported
-            if is_last:
-                return ("module", current_path, segment)
+    while remaining_segments:
+        module_info = ctx.modules[current_path]
+        matched_export = match_exported_import_chain_prefix(module_info, remaining_segments)
+        if matched_export is not None:
+            export_info, export_consumed = matched_export
+            current_path = export_info.module_path
+            remaining_segments = remaining_segments[export_consumed:]
+            if not remaining_segments:
+                return ("module", current_path, current_path[-1])
             continue
+
+        if len(remaining_segments) != 1:
+            return None
+
+        segment = remaining_segments[0]
 
         exported_symbol = module_info.exported_symbols.get(segment)
 
@@ -258,9 +270,7 @@ def resolve_module_member(ctx: TypeCheckContext, expr: FieldAccessExpr) -> tuple
             and exported_symbol is not None
             and exported_symbol.kind == "function"
         ):
-            if is_last:
-                return ("function", current_path, segment)
-            return None
+            return ("function", current_path, segment)
 
         if (
             ctx.module_class_infos is not None
@@ -268,9 +278,7 @@ def resolve_module_member(ctx: TypeCheckContext, expr: FieldAccessExpr) -> tuple
             and exported_symbol is not None
             and exported_symbol.kind == "class"
         ):
-            if is_last:
-                return ("class", current_path, segment)
-            return None
+            return ("class", current_path, segment)
 
         return None
 

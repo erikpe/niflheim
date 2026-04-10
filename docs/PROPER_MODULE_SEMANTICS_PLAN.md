@@ -1,4 +1,4 @@
-Status: phase 1 implemented; phases 2-4 design only.
+Status: phases 1-2 implemented; phases 3-4 design only.
 
 This document defines a concrete implementation plan for proper top-level module semantics.
 
@@ -38,10 +38,6 @@ What already matches:
 
 What still blocks proper module semantics:
 
-- `compiler/frontend/ast_nodes.py` and `compiler/frontend/declaration_parser.py` do not yet represent or parse explicit import aliases.
-- `compiler/grammar/niflheim_v0_1.ebnf` and `docs/GRAMMAR_EBNF.md` still describe only `import foo.bar;` and `export import foo.bar;`.
-- `compiler/resolver.py` still binds imports under the leaf alias, which matches current syntax but not the stricter full-path qualification target.
-- `compiler/semantic/linker.py` still merges top-level functions and classes by bare leaf name across modules.
 - `compiler/codegen/emitter_fn.py` still defaults top-level function labels to `fn.function_id.name`.
 - `compiler/codegen/emitter_expr.py` still references top-level function symbols by bare name for function refs and direct calls.
 - `compiler/codegen/program_generator.py` already treats methods and constructors as declaration-table-backed symbols, but top-level functions do not yet go through the same canonical label path.
@@ -431,31 +427,31 @@ Tests for phase 1:
 
 Goal: switch from implicit leaf aliases to the target qualification rule, then make the linker respect canonical top-level identities.
 
-- [ ] Flip qualified resolution to the strict target rule.
+- [x] Flip qualified resolution to the strict target rule.
     Files:
     `compiler/resolver.py`, `compiler/typecheck/module_lookup.py`
     Expected outcome:
     Plain imports no longer create hidden leaf aliases. Explicit qualification must use the full imported path or an explicit alias.
 
-- [ ] Remove any temporary compatibility shim from phase 1.
+- [x] Remove any temporary compatibility shim from phase 1.
     Files:
     `compiler/resolver.py`, `compiler/typecheck/module_lookup.py`
     Expected outcome:
     The final semantics are enforced directly, with no migration-only fallback left behind.
 
-- [ ] Add negative coverage for the old implicit leaf-alias behavior.
+- [x] Add negative coverage for the old implicit leaf-alias behavior.
     Files:
     `tests/compiler/typecheck/test_program_imports.py`, `tests/compiler/semantic/test_lowering_resolution.py`
     Expected outcome:
     Plain-import leaf qualification now fails, while explicit alias and full-path qualification still succeed.
 
-- [ ] Remove cross-module top-level dedup in the linker.
+- [x] Remove cross-module top-level dedup in the linker.
     Files:
     `compiler/semantic/linker.py`
     Expected outcome:
     Top-level functions and classes are preserved by canonical ID instead of merged by leaf name.
 
-- [ ] Update linker tests for the new semantics.
+- [x] Update linker tests for the new semantics.
     Files:
     `tests/compiler/semantic/test_linker.py`
     Expected outcome:
@@ -463,9 +459,9 @@ Goal: switch from implicit leaf aliases to the target qualification rule, then m
 
 Tests for phase 2:
 
-- [ ] Re-run `tests/compiler/typecheck/test_program_imports.py`.
-- [ ] Re-run `tests/compiler/semantic/test_lowering_resolution.py`.
-- [ ] Run `tests/compiler/semantic/test_linker.py`.
+- [x] Re-run `tests/compiler/typecheck/test_program_imports.py`.
+- [x] Re-run `tests/compiler/semantic/test_lowering_resolution.py`.
+- [x] Run `tests/compiler/semantic/test_linker.py`.
 
 ### Phase 3: Top-Level Function Codegen Phase
 

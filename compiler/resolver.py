@@ -30,27 +30,42 @@ class ImportInfo:
     span: SourceSpan
 
 
-def import_visible_name(import_info: ImportInfo) -> str:
-    return import_info.alias if import_info.alias is not None else import_info.module_path[-1]
+def _iter_import_infos(
+    imports: dict[str, ImportInfo] | tuple[ImportInfo, ...] | list[ImportInfo],
+):
+    return imports.values() if isinstance(imports, dict) else imports
+
+
+def import_binding_name(import_info: ImportInfo) -> str | None:
+    if import_info.alias is not None:
+        return import_info.alias
+    if len(import_info.module_path) == 1:
+        return import_info.module_path[0]
+    return None
+
+
+def lookup_import_binding(
+    imports: dict[str, ImportInfo] | tuple[ImportInfo, ...] | list[ImportInfo], name: str
+) -> ImportInfo | None:
+    for import_info in _iter_import_infos(imports):
+        if import_binding_name(import_info) == name:
+            return import_info
+    return None
 
 
 def match_import_chain_prefix(
     imports: dict[str, ImportInfo] | tuple[ImportInfo, ...] | list[ImportInfo],
     chain: tuple[str, ...] | list[str],
-    *,
-    allow_implicit_leaf_alias: bool = True,
 ) -> tuple[ImportInfo, int] | None:
-    import_infos = imports.values() if isinstance(imports, dict) else imports
     best_match: tuple[ImportInfo, int] | None = None
     best_length = -1
     parts = tuple(chain)
 
-    for import_info in import_infos:
+    for import_info in _iter_import_infos(imports):
         candidate_prefixes: list[tuple[str, ...]] = [import_info.module_path]
-        if import_info.alias is not None:
-            candidate_prefixes.append((import_info.alias,))
-        elif allow_implicit_leaf_alias:
-            candidate_prefixes.append((import_info.module_path[-1],))
+        binding_name = import_binding_name(import_info)
+        if binding_name is not None:
+            candidate_prefixes.append((binding_name,))
 
         seen_prefixes: set[tuple[str, ...]] = set()
         for prefix in candidate_prefixes:
@@ -74,7 +89,31 @@ class ModuleInfo:
     symbols: dict[str, SymbolInfo]
     exported_symbols: dict[str, SymbolInfo]
     imports: dict[str, ImportInfo]
-    exported_modules: dict[str, ModulePath]
+
+
+def match_exported_import_chain_prefix(
+    module_info: ModuleInfo, chain: tuple[str, ...] | list[str]
+) -> tuple[ImportInfo, int] | None:
+    exported_imports = tuple(import_info for import_info in module_info.imports.values() if import_info.is_export)
+    return match_import_chain_prefix(exported_imports, chain)
+
+
+def has_exported_import_chain_prefix(module_info: ModuleInfo, chain: tuple[str, ...] | list[str]) -> bool:
+    parts = tuple(chain)
+    for import_info in module_info.imports.values():
+        if not import_info.is_export:
+            continue
+
+        candidate_prefixes: list[tuple[str, ...]] = [import_info.module_path]
+        binding_name = import_binding_name(import_info)
+        if binding_name is not None:
+            candidate_prefixes.append((binding_name,))
+
+        for prefix in candidate_prefixes:
+            if len(parts) < len(prefix) and prefix[: len(parts)] == parts:
+                return True
+
+    return False
 
 
 @dataclass
@@ -160,7 +199,7 @@ def resolve_program(entry_file: str | Path, project_root: str | Path | None = No
         stats.record_parse(len(tokens), (perf_counter() - parse_start) * 1000.0)
 
         symbols, exported_symbols = _build_symbol_tables(module_ast)
-        imports, exported_modules = _build_import_tables(module_ast)
+        imports = _build_import_tables(module_ast)
 
         module_info = ModuleInfo(
             module_path=module_path,
@@ -169,7 +208,6 @@ def resolve_program(entry_file: str | Path, project_root: str | Path | None = No
             symbols=symbols,
             exported_symbols=exported_symbols,
             imports=imports,
-            exported_modules=exported_modules,
         )
         modules[module_path] = module_info
 
@@ -227,9 +265,9 @@ def _build_symbol_tables(module_ast: ModuleAst) -> tuple[dict[str, SymbolInfo], 
     return symbols, exported
 
 
-def _build_import_tables(module_ast: ModuleAst) -> tuple[dict[str, ImportInfo], dict[str, ModulePath]]:
+def _build_import_tables(module_ast: ModuleAst) -> dict[str, ImportInfo]:
     imports: dict[str, ImportInfo] = {}
-    exported_modules: dict[str, ModulePath] = {}
+    bound_import_names: set[str] = set()
 
     for import_decl in module_ast.imports:
         module_path = tuple(import_decl.module_path)
@@ -239,16 +277,19 @@ def _build_import_tables(module_ast: ModuleAst) -> tuple[dict[str, ImportInfo], 
             is_export=import_decl.is_export,
             span=import_decl.span,
         )
-        visible_name = import_visible_name(info)
-        if visible_name in imports:
-            raise ResolveError(f"Duplicate import alias '{visible_name}'", span=import_decl.span)
+        import_key = info.alias if info.alias is not None else ".".join(module_path)
+        if import_key in imports:
+            raise ResolveError(f"Duplicate import '{'.'.join(module_path)}'", span=import_decl.span)
 
-        imports[visible_name] = info
+        binding_name = import_binding_name(info)
+        if binding_name is not None:
+            if binding_name in bound_import_names:
+                raise ResolveError(f"Duplicate import alias '{binding_name}'", span=import_decl.span)
+            bound_import_names.add(binding_name)
 
-        if import_decl.is_export:
-            exported_modules[visible_name] = module_path
+        imports[import_key] = info
 
-    return imports, exported_modules
+    return imports
 
 
 def _validate_module_visibility(module_info: ModuleInfo, modules: dict[ModulePath, ModuleInfo]) -> None:
@@ -353,13 +394,7 @@ def _resolve_module_chain(
 
     import_info, consumed = matched_import
     current_module = modules[import_info.module_path]
-    for member_name in chain[consumed:]:
-        next_module = _resolve_exported_member(current_module, member_name, expr.span, modules)
-        if next_module is None:
-            return None
-        current_module = next_module
-
-    return current_module
+    return _resolve_module_chain_tail(current_module, chain[consumed:], expr.span, modules)
 
 
 def _flatten_field_chain(expr: Expression) -> list[str] | None:
@@ -373,18 +408,36 @@ def _flatten_field_chain(expr: Expression) -> list[str] | None:
     return None
 
 
-def _resolve_exported_member(
-    target_module: ModuleInfo, member_name: str, span: SourceSpan, modules: dict[ModulePath, ModuleInfo]
+def _resolve_module_chain_tail(
+    current_module: ModuleInfo,
+    remaining_segments: list[str] | tuple[str, ...],
+    span: SourceSpan,
+    modules: dict[ModulePath, ModuleInfo],
 ) -> ModuleInfo | None:
-    if member_name in target_module.exported_symbols:
-        return None
+    remaining = tuple(remaining_segments)
+    if not remaining:
+        return current_module
 
-    module_path = target_module.exported_modules.get(member_name)
-    if module_path is not None:
-        return modules[module_path]
+    while remaining:
+        matched_export = match_exported_import_chain_prefix(current_module, remaining)
+        if matched_export is not None:
+            export_info, consumed = matched_export
+            current_module = modules[export_info.module_path]
+            remaining = remaining[consumed:]
+            if not remaining:
+                return current_module
+            continue
 
-    dotted = ".".join(target_module.module_path)
-    raise ResolveError(f"Module '{dotted}' has no exported member '{member_name}'", span=span)
+        if has_exported_import_chain_prefix(current_module, remaining):
+            return current_module
+
+        if remaining[0] in current_module.exported_symbols:
+            return None
+
+        dotted = ".".join(current_module.module_path)
+        raise ResolveError(f"Module '{dotted}' has no exported member '{remaining[0]}'", span=span)
+
+    return current_module
 
 
 def _file_path_to_module_path(file_path: Path, root_path: Path) -> ModulePath:

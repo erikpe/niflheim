@@ -129,7 +129,34 @@ def test_typecheck_program_keeps_legacy_leaf_alias_qualification_during_alias_mi
     )
 
     program = resolve_program_from_main(tmp_path)
-    typecheck_program(program)
+    with pytest.raises(TypeCheckError, match="Unknown identifier 'math'"):
+        typecheck_program(program)
+
+
+def test_typecheck_program_rejects_plain_import_leaf_alias_in_type_annotations(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util.math;
+
+        fn main() -> unit {
+            var c: math.Counter = util.math.Counter(10);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    with pytest.raises(TypeCheckError, match="Unknown type 'math.Counter'"):
+        typecheck_program(program)
 
 
 def test_typecheck_program_allows_imported_function_value(tmp_path: Path) -> None:
@@ -1019,7 +1046,7 @@ def test_typecheck_program_allows_access_through_reexported_nested_module(tmp_pa
         import util;
 
         fn main() -> unit {
-            var c: util.inner.Counter = util.inner.Counter(1);
+            var c: util.pkg.inner.Counter = util.pkg.inner.Counter(1);
             return;
         }
         """,
@@ -1082,7 +1109,7 @@ def test_typecheck_program_rejects_calling_reexported_module_value(tmp_path: Pat
         import util;
 
         fn main() -> unit {
-            util.inner();
+            util.pkg.inner();
             return;
         }
         """,

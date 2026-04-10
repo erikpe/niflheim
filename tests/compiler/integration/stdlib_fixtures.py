@@ -89,7 +89,7 @@ def install_std_error_fixture(project_root: Path) -> None:
 
 def make_std_io_entry(call_lines: str) -> str:
     return f"""
-    import std.io;
+    import std.io as io;
 
     fn main() -> i64 {{
         {call_lines.strip()}
@@ -109,7 +109,7 @@ def make_std_error_entry(message: str) -> str:
 
 def make_std_error_entry_with_call(message: str, call_target: str) -> str:
     return f"""
-    import std.error;
+    import std.error as error;
 
     fn main() -> i64 {{
         {call_target}({_nif_string_literal(message)});

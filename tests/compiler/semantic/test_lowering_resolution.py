@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from compiler.frontend.ast_nodes import CallExpr, ExprStmt, FieldAccessExpr, IdentifierExpr, ReturnStmt, VarDeclStmt
 from compiler.resolver import resolve_program
 from compiler.semantic.lowering.orchestration import build_typecheck_contexts
@@ -19,7 +21,7 @@ from compiler.semantic.lowering.resolution import (
 )
 from compiler.semantic.symbols import ClassId, ConstructorId, MethodId, build_program_symbol_index
 from compiler.typecheck.context import declare_variable, pop_scope, push_scope
-from compiler.typecheck.model import TypeInfo
+from compiler.typecheck.model import TypeCheckError, TypeInfo
 
 
 def _write(path: Path, content: str) -> None:
@@ -231,7 +233,7 @@ def test_resolution_helpers_classify_alias_qualified_module_member_values(tmp_pa
     assert class_target.constructor_id.class_name == "Box"
 
 
-def test_resolution_helpers_keep_legacy_leaf_alias_module_member_values_during_alias_migration(tmp_path: Path) -> None:
+def test_resolution_helpers_reject_legacy_leaf_alias_module_member_values_after_alias_migration(tmp_path: Path) -> None:
     _write(
         tmp_path / "util" / "math.nif",
         """
@@ -257,29 +259,9 @@ def test_resolution_helpers_keep_legacy_leaf_alias_module_member_values_during_a
     )
 
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
-    contexts = build_typecheck_contexts(program)
-    symbol_index = build_program_symbol_index(program)
-    statements = program.modules[("main",)].ast.functions[0].body.statements
 
-    function_expr = statements[0]
-    class_expr = statements[1]
-    assert isinstance(function_expr, ExprStmt)
-    assert isinstance(class_expr, ExprStmt)
-    assert isinstance(function_expr.expression, FieldAccessExpr)
-    assert isinstance(class_expr.expression, FieldAccessExpr)
-
-    function_target = resolve_module_member_value_target(contexts[("main",)], symbol_index, function_expr.expression)
-    class_target = resolve_module_member_value_target(contexts[("main",)], symbol_index, class_expr.expression)
-
-    assert isinstance(function_target, ResolvedFunctionValueTarget)
-    assert function_target.function_id.module_path == ("util", "math")
-    assert function_target.function_id.name == "twice"
-
-    assert isinstance(class_target, ResolvedClassValueTarget)
-    assert class_target.class_id.module_path == ("util", "math")
-    assert class_target.class_id.name == "Box"
-    assert class_target.constructor_id.module_path == ("util", "math")
-    assert class_target.constructor_id.class_name == "Box"
+    with pytest.raises(TypeCheckError, match="Unknown identifier 'math'"):
+        build_typecheck_contexts(program)
 
 
 def test_resolution_helpers_classify_static_instance_and_field_member_targets(tmp_path: Path) -> None:

@@ -61,14 +61,14 @@ def function_id_for_imported_name(
     assert modules is not None
 
     current_module = modules[module_path]
-    matches: list[FunctionId] = []
+    matches: set[FunctionId] = set()
     for import_info in current_module.imports.values():
         function_id = symbol_index.local_functions_by_module.get(import_info.module_path, {}).get(name)
         if function_id is not None:
-            matches.append(function_id)
+            matches.add(function_id)
     if len(matches) != 1:
         raise ValueError(f"Expected unique imported function '{name}'")
-    return matches[0]
+    return next(iter(matches))
 
 
 def function_id_for_module_member(symbol_index: ProgramSymbolIndex, owner_module: ModulePath, name: str) -> FunctionId:

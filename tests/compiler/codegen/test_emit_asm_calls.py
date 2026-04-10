@@ -271,7 +271,7 @@ fn main() -> i64 {
 def test_emit_asm_module_qualified_call_uses_member_symbol_name(tmp_path) -> None:
     install_std_io_fixture(tmp_path)
     source = """
-import std.io;
+import std.io as io;
 
 fn main() -> i64 {
     io.println_i64(23);
