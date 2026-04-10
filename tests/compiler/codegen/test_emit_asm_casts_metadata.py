@@ -45,7 +45,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_checked_cast" in asm
-    assert "    lea rsi, [rip + __nif_type_Person]" in asm
+    assert "    lea rsi, [rip + __nif_type_main__Person]" in asm
 
 
 def test_emit_asm_reference_upcast_to_obj_does_not_call_rt_checked_cast(tmp_path) -> None:
@@ -359,7 +359,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
 
     assert "    call rt_is_instance_of_type" in asm
-    assert "    lea rsi, [rip + __nif_type_Person]" in asm
+    assert "    lea rsi, [rip + __nif_type_main__Person]" in asm
 
 
 def test_emit_asm_obj_type_test_inlines_slot_table_check(tmp_path) -> None:

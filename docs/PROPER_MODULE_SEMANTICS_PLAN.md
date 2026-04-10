@@ -1,4 +1,4 @@
-Status: phases 1-3 implemented; phase 4 design only.
+Status: phases 1-4 implemented.
 
 This document defines a concrete implementation plan for proper top-level module semantics.
 
@@ -502,13 +502,13 @@ Tests for phase 3:
 
 Goal: finish the remaining compatibility work and confirm the full compiler pipeline behaves correctly under the new module semantics.
 
-- [ ] Make runtime metadata alias emission safe under duplicate leaf names.
+- [x] Make runtime metadata alias emission safe under duplicate leaf names.
     Files:
     `compiler/codegen/metadata.py`, `compiler/codegen/program_generator.py`, `tests/compiler/codegen/test_program_generator.py`
     Expected outcome:
     Metadata always includes canonical aliases and only includes short leaf aliases when they are genuinely unique.
 
-- [ ] Update end-to-end regression coverage and golden expectations.
+- [x] Update end-to-end regression coverage and golden expectations.
     Files:
     `tests/golden/runner.py` only as needed, `tests/golden/vm_benchmark/test_vm_benchmark_spec.yaml`, relevant integration and golden tests
     Expected outcome:
@@ -516,9 +516,9 @@ Goal: finish the remaining compatibility work and confirm the full compiler pipe
 
 Tests for phase 4:
 
-- [ ] Run `tests/compiler/codegen/test_program_generator.py`.
-- [ ] Run the VM benchmark golden with `build_args: ["--skip-optimize"]`.
-- [ ] Run the full pytest suite.
+- [x] Run `tests/compiler/codegen/test_program_generator.py`.
+- [x] Run the VM benchmark golden with `build_args: ["--skip-optimize"]`.
+- [x] Run the full pytest suite.
 
 ## Suggested Test Sequence
 

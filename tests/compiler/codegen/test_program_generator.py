@@ -72,6 +72,7 @@ def test_program_generator_builds_declaration_tables_from_program(tmp_path: Path
     assert tables.class_virtual_slot_index(box_id, box_id, "get") == 0
     assert tables.constructor_layout(ctor_id).label == "__nif_ctor_Box"
     assert tables.constructor_layout(ctor_id).init_label == "__nif_ctor_init_Box"
+    assert tables.constructor_layout(ctor_id).type_symbol == "__nif_type_util__Box"
     assert tables.constructor_layout(ctor_id).param_field_names == ["value", "next"]
 
 
@@ -462,3 +463,51 @@ def test_program_generator_builds_slotted_interface_table_entries_with_null_hole
         None,
         "__nif_interface_methods_main__Mixed__main__Gamma",
     )
+
+
+def test_program_generator_omits_short_aliases_for_duplicate_class_leaf_names(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "left.nif",
+        """
+        export class Key {
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "right.nif",
+        """
+        export class Key {
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import left;
+        import right;
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    generator = ProgramGenerator(program)
+
+    metadata = generator.build_type_metadata()
+    tables = generator.build_declaration_tables()
+
+    left_id = ClassId(module_path=("left",), name="Key")
+    right_id = ClassId(module_path=("right",), name="Key")
+    left_metadata = next(record for record in metadata.classes if record.class_id == left_id)
+    right_metadata = next(record for record in metadata.classes if record.class_id == right_id)
+
+    assert left_metadata.aliases == ("left::Key",)
+    assert right_metadata.aliases == ("right::Key",)
+    assert tables.constructor_layout(ConstructorId(module_path=("left",), class_name="Key")).type_symbol == "__nif_type_left__Key"
+    assert tables.constructor_layout(ConstructorId(module_path=("right",), class_name="Key")).type_symbol == "__nif_type_right__Key"

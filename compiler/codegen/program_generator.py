@@ -153,7 +153,7 @@ class ProgramGenerator(CodeGenerator):
                     class_name=class_name,
                     label=constructor_label,
                     init_label=constructor_init_label,
-                    type_symbol=codegen_symbols.mangle_type_symbol(class_name),
+                    type_symbol=codegen_symbols.mangle_type_symbol(qualified_type_name),
                     payload_bytes=class_hierarchy.payload_bytes(cls.class_id),
                     field_names=[field.name for field in cls.fields],
                     param_names=[param.name for param in constructor.params],

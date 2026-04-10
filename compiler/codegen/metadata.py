@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -77,8 +78,15 @@ def build_type_metadata(
     declaration_tables: DeclarationTables,
     class_hierarchy: ClassHierarchyIndex,
 ) -> TypeMetadata:
+    reference_cast_type_names = _collect_reference_cast_type_names(program, declaration_tables)
     interface_decls = [interface for module in program.ordered_modules for interface in module.interfaces]
     interfaces_by_id = {interface.interface_id: interface for interface in interface_decls}
+    reserved_class_alias_names = _reserved_class_alias_names(program.classes)
+    short_type_alias_counts = _short_type_alias_counts(
+        program.classes,
+        reference_cast_type_names,
+        reserved_class_alias_names,
+    )
 
     interface_records = tuple(
         InterfaceMetadataRecord(
@@ -93,13 +101,9 @@ def build_type_metadata(
     interface_slot_count = len(interface_records)
 
     class_records: list[ClassMetadataRecord] = []
-    class_alias_names: set[str] = set()
     for cls in program.classes:
         qualified_type_name = qualified_class_type_name(cls.class_id)
-        aliases = [cls.class_id.name]
-        if qualified_type_name != cls.class_id.name:
-            aliases.append(qualified_type_name)
-        class_alias_names.update(aliases)
+        aliases = _class_aliases(cls.class_id, short_type_alias_counts)
 
         display_name = qualified_type_name if qualified_type_name != cls.class_id.name else cls.class_id.name
         superclass_symbol = None
@@ -181,16 +185,17 @@ def build_type_metadata(
         ExtraRuntimeTypeRecord(
             canonical_type_name=canonical_name,
             display_name=display_name,
-            aliases=tuple(
-                alias
-                for alias in (display_name, canonical_name)
-                if alias not in class_alias_names and alias != ""
+            aliases=_extra_runtime_type_aliases(
+                canonical_name,
+                display_name,
+                reserved_class_alias_names,
+                short_type_alias_counts,
             ),
         )
         for canonical_name, display_name in sorted(
-            _collect_reference_cast_type_names(program, declaration_tables).items(), key=lambda item: item[0]
+            reference_cast_type_names.items(), key=lambda item: item[0]
         )
-        if canonical_name not in class_alias_names
+        if canonical_name not in reserved_class_alias_names
     )
 
     return TypeMetadata(
@@ -203,6 +208,56 @@ def _require_interface_slot(declaration_tables: DeclarationTables, interface_id:
     if slot_index is None:
         raise ValueError(f"Missing interface slot for '{qualified_interface_type_name(interface_id)}'")
     return slot_index
+
+
+def _reserved_class_alias_names(classes: tuple[LoweredSemanticClass, ...]) -> set[str]:
+    reserved_names: set[str] = set()
+    for cls in classes:
+        reserved_names.add(cls.class_id.name)
+        reserved_names.add(qualified_class_type_name(cls.class_id))
+    return reserved_names
+
+
+def _short_type_alias_counts(
+    classes: tuple[LoweredSemanticClass, ...],
+    reference_cast_type_names: dict[str, str],
+    reserved_class_alias_names: set[str],
+) -> Counter[str]:
+    counts = Counter(cls.class_id.name for cls in classes)
+    for canonical_name, display_name in reference_cast_type_names.items():
+        if canonical_name in reserved_class_alias_names:
+            continue
+        if display_name == "" or display_name == canonical_name:
+            continue
+        counts[display_name] += 1
+    return counts
+
+
+def _class_aliases(class_id: ClassId, short_type_alias_counts: Counter[str]) -> tuple[str, ...]:
+    aliases: list[str] = []
+    if short_type_alias_counts[class_id.name] == 1:
+        aliases.append(class_id.name)
+    qualified_type_name = qualified_class_type_name(class_id)
+    aliases.append(qualified_type_name)
+    return tuple(aliases)
+
+
+def _extra_runtime_type_aliases(
+    canonical_name: str,
+    display_name: str,
+    reserved_class_alias_names: set[str],
+    short_type_alias_counts: Counter[str],
+) -> tuple[str, ...]:
+    aliases: list[str] = []
+    if (
+        display_name != ""
+        and display_name != canonical_name
+        and display_name not in reserved_class_alias_names
+        and short_type_alias_counts[display_name] == 1
+    ):
+        aliases.append(display_name)
+    aliases.append(canonical_name)
+    return tuple(aliases)
 
 
 def _collect_reference_cast_type_names(
