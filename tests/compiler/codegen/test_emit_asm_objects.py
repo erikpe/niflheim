@@ -1,6 +1,12 @@
 import re
 
+from compiler.codegen.symbols import mangle_function_symbol
 from tests.compiler.codegen.helpers import emit_source_asm
+
+
+def _main_function_body(asm: str, name: str) -> str:
+    label = mangle_function_symbol(("main",), name)
+    return asm[asm.index(f"{label}:") : asm.index(f".L{label}_epilogue:")]
 
 
 def test_emit_asm_box_i64_constructor_and_value_method_lower_to_class_symbols(tmp_path) -> None:
@@ -328,7 +334,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    read_body = asm[asm.index("read:") : asm.index(".Lread_epilogue:")]
+    read_body = _main_function_body(asm, "read")
 
     assert "    call __nif_method_BaseBuffer_index_get" in read_body
     assert "    call __nif_method_BaseBuffer_index_set" in read_body
@@ -390,7 +396,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    read_body = asm[asm.index("read:") : asm.index(".Lread_epilogue:")]
+    read_body = _main_function_body(asm, "read")
 
     assert "    call __nif_method_BufferBase_index_get" in read_body
     assert "    call __nif_method_BufferBase_index_set" in read_body

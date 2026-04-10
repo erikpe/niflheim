@@ -7,6 +7,7 @@ from compiler.codegen.symbols import (
     mangle_constructor_symbol,
     mangle_debug_file_symbol,
     mangle_debug_function_symbol,
+    mangle_function_symbol,
     mangle_method_symbol,
     mangle_type_pointer_offsets_symbol,
     next_label,
@@ -20,6 +21,8 @@ def test_codegen_symbol_helpers() -> None:
     assert next_label("f", "loop", counter) == ".Lf_loop_0"
     assert next_label("f", "loop", counter) == ".Lf_loop_1"
     assert mangle_method_symbol("std::Str", "concat") == "__nif_method_std__Str_concat"
+    assert mangle_function_symbol(("std",), "helper") == "__nif_fn_std__helper"
+    assert mangle_function_symbol(("std", "io"), "print") == "__nif_fn_std_io__print"
     assert mangle_constructor_symbol("std::BigInt") == "__nif_ctor_std__BigInt"
     assert mangle_constructor_symbol("std::BigInt", 1) == "__nif_ctor_std__BigInt__1"
     assert mangle_constructor_init_symbol("std::BigInt") == "__nif_ctor_init_std__BigInt"

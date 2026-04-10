@@ -11,12 +11,13 @@ from compiler.codegen.emitter_module import generate_module
 from compiler.codegen.model import ConstructorLayout
 from compiler.resolver import ModulePath
 from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
-from compiler.semantic.symbols import ClassId, ConstructorId, InterfaceId, InterfaceMethodId, MethodId
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId
 from compiler.semantic.types import SemanticTypeRef
 
 
 @dataclass(frozen=True)
 class DeclarationTables:
+    _function_labels_by_id: dict[FunctionId, str]
     _method_labels_by_id: dict[MethodId, str]
     _constructor_layouts_by_id: dict[ConstructorId, ConstructorLayout]
     _class_field_offsets_by_id: dict[tuple[ClassId, str], int]
@@ -25,6 +26,9 @@ class DeclarationTables:
     _interface_descriptor_symbols_by_id: dict[InterfaceId, str]
     _interface_slots_by_id: dict[InterfaceId, int]
     _interface_method_slots_by_id: dict[InterfaceMethodId, int]
+
+    def function_label(self, function_id: FunctionId) -> str | None:
+        return self._function_labels_by_id.get(function_id)
 
     def method_label(self, method_id: MethodId) -> str | None:
         return self._method_labels_by_id.get(method_id)
@@ -100,6 +104,7 @@ class ProgramGenerator(CodeGenerator):
 
         class_hierarchy = self.build_class_hierarchy()
 
+        function_labels_by_id: dict[FunctionId, str] = {}
         method_labels_by_id: dict[MethodId, str] = {}
         constructor_layouts_by_id: dict[ConstructorId, ConstructorLayout] = {}
         class_field_offsets_by_id: dict[tuple[ClassId, str], int] = {}
@@ -108,6 +113,15 @@ class ProgramGenerator(CodeGenerator):
         interface_descriptor_symbols_by_id: dict[InterfaceId, str] = {}
         interface_slots_by_id: dict[InterfaceId, int] = {}
         interface_method_slots_by_id: dict[InterfaceMethodId, int] = {}
+
+        for function in self.program.functions:
+            if function.is_extern:
+                function_labels_by_id[function.function_id] = function.function_id.name
+                continue
+            function_labels_by_id[function.function_id] = codegen_symbols.mangle_function_symbol(
+                function.function_id.module_path,
+                function.function_id.name,
+            )
 
         next_interface_slot = 0
         for module in self.program.ordered_modules:
@@ -173,6 +187,7 @@ class ProgramGenerator(CodeGenerator):
                 )
 
         self.declaration_tables = DeclarationTables(
+            _function_labels_by_id=function_labels_by_id,
             _method_labels_by_id=method_labels_by_id,
             _constructor_layouts_by_id=constructor_layouts_by_id,
             _class_field_offsets_by_id=class_field_offsets_by_id,

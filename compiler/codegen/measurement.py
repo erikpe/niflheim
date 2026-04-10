@@ -35,14 +35,26 @@ def analyze_assembly_metrics(asm: str) -> AssemblyMetrics:
 def extract_function_asm(asm: str, symbol: str) -> str | None:
     lines = asm.splitlines()
     start_index: int | None = None
-    end_label = f".L{symbol}_epilogue:"
+    start_label: str | None = None
+    canonical_matches = [
+        index
+        for index, line in enumerate(lines)
+        if line.startswith("__nif_fn_") and line.endswith(f"__{symbol}:")
+    ]
     for index, line in enumerate(lines):
         if line == f"{symbol}:":
             start_index = index
+            start_label = symbol
             break
+    if start_index is None and len(canonical_matches) == 1:
+        start_index = canonical_matches[0]
+        start_label = lines[start_index][:-1]
     if start_index is None:
         return None
+    if start_label is None:
+        return None
 
+    end_label = f".L{start_label}_epilogue:"
     end_index = len(lines)
     for index in range(start_index + 1, len(lines)):
         if lines[index] == end_label:

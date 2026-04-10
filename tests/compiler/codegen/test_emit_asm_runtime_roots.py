@@ -2,6 +2,7 @@ import re
 
 from compiler.codegen.abi.array import array_length_operand
 from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS, ARRAY_LEN_RUNTIME_CALL
+from compiler.codegen.symbols import mangle_function_symbol
 from tests.compiler.codegen.helpers import emit_source_asm
 
 
@@ -44,6 +45,11 @@ def _named_root_clear_counts(asm: str) -> list[int]:
     return [len(re.findall(clear_pattern, block)) for block in blocks]
 
 
+def _main_function_body(asm: str, name: str) -> str:
+    label = mangle_function_symbol(("main",), name)
+    return asm[asm.index(f"{label}:") : asm.index(f".L{label}_epilogue:")]
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;
@@ -60,8 +66,9 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
 
-    assert ".Lf_rt_safepoint_before_" in asm
-    assert ".Lf_rt_safepoint_after_" in asm
+    f_label = mangle_function_symbol(("main",), "f")
+    assert f".L{f_label}_rt_safepoint_before_" in asm
+    assert f".L{f_label}_rt_safepoint_after_" in asm
     assert "    call rt_gc_collect" in asm
 
 
@@ -80,11 +87,12 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
-    make_body = asm[asm.index("make:") : asm.index(".Lmake_epilogue:")]
+    make_body = _main_function_body(asm, "make")
 
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in make_body
-    assert ".Lmake_rt_safepoint_before_" in make_body
-    assert ".Lmake_rt_safepoint_after_" in make_body
+    make_label = mangle_function_symbol(("main",), "make")
+    assert f".L{make_label}_rt_safepoint_before_" in make_body
+    assert f".L{make_label}_rt_safepoint_after_" in make_body
     assert "    call rt_root_slot_store" not in make_body
     _assert_named_root_store_block(make_body, expected_store_count=0)
 
@@ -121,7 +129,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     assert "    mov qword ptr [rbp - 8], rdi" in f_body
     assert "    mov qword ptr [rbp - 16], rax" in f_body
@@ -144,7 +152,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     assert "    mov qword ptr [rbp - 8], 0" not in f_body
     assert "    mov qword ptr [rbp - 16], 0" in f_body
@@ -219,8 +227,9 @@ fn main() -> i64 {
     assert "    call rt_trace_push" not in asm
     assert "    call rt_trace_pop" not in asm
     assert "    call rt_trace_set_location" not in asm
-    assert ".Lf_rt_safepoint_before_" in asm
-    assert ".Lf_rt_safepoint_after_" in asm
+    f_label = mangle_function_symbol(("main",), "f")
+    assert f".L{f_label}_rt_safepoint_before_" in asm
+    assert f".L{f_label}_rt_safepoint_after_" in asm
 
 
 def test_emit_asm_pushes_roots_before_trace_push_for_constructors(tmp_path) -> None:
@@ -283,7 +292,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     assert "rt_root_frame_init" not in f_body
     assert "rt_push_roots" not in f_body
@@ -307,7 +316,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     _assert_named_root_store_block(f_body, expected_store_count=0)
     assert "    mov rax, qword ptr [rbp - 16]" not in f_body
@@ -322,7 +331,7 @@ fn sum(a: i64, b: i64) -> i64 {
 """
     source += "\nfn main() -> i64 { return sum(20, 22); }\n"
     asm = emit_source_asm(tmp_path, source)
-    sum_body = asm[asm.index("sum:") : asm.index(".Lsum_epilogue:")]
+    sum_body = _main_function_body(asm, "sum")
 
     assert "rt_root_frame_init" not in sum_body
     assert "rt_push_roots" not in sum_body
@@ -348,7 +357,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     clear_block_i = f_body.index("# clear dead named reference shadow-stack slots")
     second_stmt_i = f_body.index(":5:5 | rt_gc_collect(dead);")
@@ -379,7 +388,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     assign_stmt_i = f_body.index(":7:5 | dead = second;")
     next_call_stmt_i = f_body.index(":8:5 | rt_gc_collect(keep);")
@@ -410,10 +419,11 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
-    loop_start_i = f_body.index(".Lf_while_start_")
-    loop_end_i = f_body.index(".Lf_while_end_")
+    f_label = mangle_function_symbol(("main",), "f")
+    loop_start_i = f_body.index(f".L{f_label}_while_start_")
+    loop_end_i = f_body.index(f".L{f_label}_while_end_")
     loop_body = f_body[loop_start_i:loop_end_i]
 
     assert "# clear dead named reference shadow-stack slots" not in loop_body
@@ -450,7 +460,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call callee" in asm
+    assert f'    call {mangle_function_symbol(("main",), "callee")}' in asm
     assert "rt_safepoint_before" not in asm
     assert "rt_safepoint_after" not in asm
 
@@ -466,7 +476,8 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    measure_body = asm[asm.index("measure:") : asm.index(".Lmeasure_epilogue:")]
+    measure_label = mangle_function_symbol(("main",), "measure")
+    measure_body = asm[asm.index(f"{measure_label}:") : asm.index(f".L{measure_label}_epilogue:")]
 
     assert f"    mov rax, {array_length_operand('rax')}" in measure_body
     assert f"    call {ARRAY_LEN_RUNTIME_CALL}" not in measure_body
@@ -496,9 +507,10 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    caller_body = asm[asm.index("caller:") : asm.index(".Lcaller_epilogue:")]
+    caller_label = mangle_function_symbol(("main",), "caller")
+    caller_body = asm[asm.index(f"{caller_label}:") : asm.index(f".L{caller_label}_epilogue:")]
 
-    assert "    call callee" in caller_body
+    assert f'    call {mangle_function_symbol(("main",), "callee")}' in caller_body
     _assert_named_root_store_block(caller_body, expected_store_count=0)
     assert "rt_safepoint_before" not in caller_body
 
@@ -526,7 +538,7 @@ fn main() -> i64 {
         source,
         disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
     )
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     _assert_named_root_store_block(f_body, expected_store_count=1)
 
@@ -554,7 +566,7 @@ fn main() -> i64 {
         source,
         disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
     )
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     assert "    call rt_gc_collect" in f_body
     assert _named_root_store_counts(f_body) == [1]
@@ -585,7 +597,7 @@ fn main() -> i64 {
         source,
         disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
     )
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     assert "    call rt_gc_collect" in f_body
     assert _named_root_store_counts(f_body) == [2, 1]
@@ -616,7 +628,7 @@ fn main() -> i64 {
         source,
         disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
     )
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     assert "    call rt_gc_collect" in f_body
     assert _named_root_store_counts(f_body) == [1]
@@ -638,10 +650,11 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    caller_start = asm.index("caller:")
-    caller_end = asm.index(".Lcaller_epilogue:")
+    caller_label = mangle_function_symbol(("main",), "caller")
+    caller_start = asm.index(f"{caller_label}:")
+    caller_end = asm.index(f".L{caller_label}_epilogue:")
     caller_body = asm[caller_start:caller_end]
-    assert "    call takes_two" in caller_body
+    assert f'    call {mangle_function_symbol(("main",), "takes_two")}' in caller_body
     assert "    call rt_root_slot_store" not in caller_body
     assert "    mov qword ptr [rbp - 64], rax" in caller_body
     assert "    mov qword ptr [rbp - 56], rax" in caller_body
@@ -673,7 +686,7 @@ fn main() -> i64 {
         source,
         disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
     )
-    f_body = asm[asm.index("f:") : asm.index(".Lf_epilogue:")]
+    f_body = _main_function_body(asm, "f")
 
     assert "    call rt_gc_collect" in f_body
     assert "    call rt_array_len" not in f_body

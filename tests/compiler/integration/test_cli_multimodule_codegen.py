@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from compiler.codegen.symbols import mangle_function_symbol
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write_project
 
 
@@ -112,4 +113,69 @@ def test_cli_codegen_resolves_nested_project_root_imports(tmp_path: Path, monkey
     out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
-    assert "    call add" in asm
+    assert f'    call {mangle_function_symbol(("lib", "math"), "add")}' in asm
+
+
+def test_cli_codegen_keeps_distinct_imported_helper_functions_by_canonical_label(tmp_path: Path, monkeypatch) -> None:
+    write_project(
+        tmp_path,
+        {
+            "left/math.nif": """
+            export fn helper() -> i64 {
+                return 20;
+            }
+            """,
+            "right/math.nif": """
+            export fn helper() -> i64 {
+                return 22;
+            }
+            """,
+            "app/main.nif": """
+            import left.math as left_math;
+            import right.math as right_math;
+
+            fn main() -> i64 {
+                return left_math.helper() + right_math.helper();
+            }
+            """,
+        },
+    )
+
+    entry = tmp_path / "app" / "main.nif"
+    out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
+    asm = out_file.read_text(encoding="utf-8")
+
+    assert f'    call {mangle_function_symbol(("left", "math"), "helper")}' in asm
+    assert f'    call {mangle_function_symbol(("right", "math"), "helper")}' in asm
+
+
+def test_cli_codegen_entry_module_main_keeps_abi_entrypoint_while_other_main_stays_canonical(
+    tmp_path: Path, monkeypatch
+) -> None:
+    write_project(
+        tmp_path,
+        {
+            "tools/worker.nif": """
+            export fn main() -> i64 {
+                return 41;
+            }
+            """,
+            "app/main.nif": """
+            import tools.worker as worker;
+
+            fn main() -> i64 {
+                return worker.main() + 1;
+            }
+            """,
+        },
+    )
+
+    entry = tmp_path / "app" / "main.nif"
+    out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
+    asm = out_file.read_text(encoding="utf-8")
+
+    assert ".globl main" in asm
+    assert "main:" in asm
+    assert f'{mangle_function_symbol(("app", "main"), "main")}:' in asm
+    assert f'{mangle_function_symbol(("tools", "worker"), "main")}:' in asm
+    assert f'    call {mangle_function_symbol(("tools", "worker"), "main")}' in asm

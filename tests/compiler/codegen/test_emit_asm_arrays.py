@@ -22,6 +22,7 @@ from compiler.codegen.abi.runtime import (
     ARRAY_SLICE_GET_RUNTIME_CALLS,
     ARRAY_SLICE_SET_RUNTIME_CALLS,
 )
+from compiler.codegen.symbols import mangle_function_symbol
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
 from tests.compiler.codegen.helpers import emit_source_asm
@@ -382,7 +383,7 @@ fn main() -> i64 {
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
-    assert "    call choose" in main_body
+    assert f'    call {mangle_function_symbol(("main",), "choose")}' in main_body
     assert f"    mov {direct_ref_array_store_operand('rax', 'rcx')}, rdx" in main_body
     assert "    mov qword ptr [rbp -" in main_body
 
@@ -402,10 +403,11 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    caller_body = asm[asm.index("caller:") : asm.index(".Lcaller_epilogue:")]
+    caller_label = mangle_function_symbol(("main",), "caller")
+    caller_body = asm[asm.index(f"{caller_label}:") : asm.index(f".L{caller_label}_epilogue:")]
 
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in caller_body
-    assert "    call consume" in caller_body
+    assert f'    call {mangle_function_symbol(("main",), "consume")}' in caller_body
     assert "    test rsp, 8" not in caller_body
     assert "    sub rsp, 8" not in caller_body
     assert "    add rsp, 8" not in caller_body

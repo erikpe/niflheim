@@ -9,7 +9,7 @@ from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
-from compiler.semantic.symbols import ClassId, ConstructorId, InterfaceId, InterfaceMethodId, MethodId
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, InterfaceMethodId, MethodId
 
 
 def _write(path: Path, content: str) -> None:
@@ -61,7 +61,9 @@ def test_program_generator_builds_declaration_tables_from_program(tmp_path: Path
     make_id = MethodId(module_path=("util",), class_name="Box", name="make")
     get_id = MethodId(module_path=("util",), class_name="Box", name="get")
     ctor_id = ConstructorId(module_path=("util",), class_name="Box")
+    helper_id = FunctionId(module_path=("util",), name="helper")
 
+    assert tables.function_label(helper_id) == "__nif_fn_util__helper"
     assert tables.method_label(make_id) == "__nif_method_Box_make"
     assert tables.method_label(get_id) == "__nif_method_Box_get"
     assert tables.class_field_offset(box_id, "value") == 24
@@ -96,9 +98,11 @@ def test_program_generator_generate_builds_module_output(tmp_path: Path) -> None
 
     assert generator.declaration_tables is not None
     assert generator.type_metadata is not None
+    assert generator.declaration_tables.function_label(FunctionId(module_path=("main",), name="main")) == "__nif_fn_main__main"
     assert generator.declaration_tables.constructor_layout(ConstructorId(module_path=("main",), class_name="Box")) is not None
     assert "__nif_ctor_Box" in asm
     assert "main:" in asm
+    assert "__nif_fn_main__main:" in asm
 
 
 def test_program_generator_builds_overloaded_constructor_labels(tmp_path: Path) -> None:

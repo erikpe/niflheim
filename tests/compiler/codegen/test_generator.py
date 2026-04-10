@@ -2,6 +2,7 @@ from compiler.codegen.asm import offset_operand
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.layout import build_layout
 from compiler.codegen.program_generator import ProgramGenerator
+from compiler.codegen.symbols import mangle_function_symbol
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
@@ -43,7 +44,7 @@ def test_codegen_uses_builder_for_static_call_padding_and_comments(tmp_path) -> 
     assert any(line.startswith("    # ") for line in generator.asm.lines)
     assert "    test rsp, 8" not in asm
     assert ".L__nif_aligned_call_0:" not in asm
-    assert "    call callee" in asm
+    assert f'    call {mangle_function_symbol(("main",), "callee")}' in asm
 
 
 def test_codegen_builds_constructor_and_field_tables(tmp_path) -> None:

@@ -152,6 +152,7 @@ def emit_function(
     fn: SemanticFunction | LoweredSemanticFunction,
     *,
     label: str | None = None,
+    alias_labels: tuple[str, ...] = (),
     global_symbol: bool | None = None,
 ) -> None:
     if fn.body is None:
@@ -167,7 +168,8 @@ def emit_function(
     codegen.emit_frame_prologue(
         target_label,
         layout,
-        global_symbol=(fn.is_export or fn.function_id.name == "main") if global_symbol is None else global_symbol,
+        global_symbol=fn.is_export if global_symbol is None else global_symbol,
+        alias_labels=alias_labels,
     )
     codegen.emit_location_comment(file_path=fn.span.start.path, line=fn.span.start.line, column=fn.span.start.column)
     param_spills = _function_param_spills(fn, layout)

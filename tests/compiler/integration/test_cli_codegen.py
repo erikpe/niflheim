@@ -6,6 +6,7 @@ import pytest
 
 import compiler.cli as cli
 
+from compiler.codegen.symbols import mangle_function_symbol
 from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write, write_project
 
@@ -203,11 +204,11 @@ def test_cli_default_codegen_prunes_dead_declarations_but_keeps_virtual_methods_
     out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
-    assert "dead_helper:" not in asm
+    assert f'{mangle_function_symbol(("main",), "dead_helper")}:' not in asm
     assert "__nif_method_Box_dead:" in asm
     assert "__nif_method_Box_dead_private:" not in asm
     assert "__nif_method_Box_dead_static:" not in asm
-    assert "helper:" in asm
+    assert f'{mangle_function_symbol(("main",), "helper")}:' in asm
     assert "__nif_method_Box_make:" in asm
     assert "__nif_method_Box_read:" in asm
 

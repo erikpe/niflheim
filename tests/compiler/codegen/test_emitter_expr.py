@@ -6,6 +6,7 @@ from pathlib import Path
 from compiler.codegen.abi.array import array_data_index_address, array_length_operand
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.emitter_expr import EmitContext, emit_expr
+from compiler.codegen.symbols import mangle_function_symbol
 from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
@@ -140,7 +141,7 @@ def test_emitter_expr_emits_resolved_call_forms(tmp_path: Path) -> None:
 
     _assert_call_target(var_inits[1], FunctionCallTarget)
     emit_expr(generator, var_inits[1], ctx)
-    assert "    call inc" in generator.asm.lines
+    assert f'    call {mangle_function_symbol(("main",), "inc")}' in generator.asm.lines
 
     generator.asm.lines.clear()
     _assert_call_target(var_inits[2], StaticMethodCallTarget)

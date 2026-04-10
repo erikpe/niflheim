@@ -109,10 +109,19 @@ class CodeGenerator:
         self.asm.comment(f"{file_path}:{line}:{column} | {source_line}")
         self.last_emitted_comment_location = location_key
 
-    def emit_frame_prologue(self, target_label: str, layout: FunctionLayout, *, global_symbol: bool) -> None:
+    def emit_frame_prologue(
+        self,
+        target_label: str,
+        layout: FunctionLayout,
+        *,
+        global_symbol: bool,
+        alias_labels: Iterable[str] = (),
+    ) -> None:
         if global_symbol:
             self.asm.directive(f".globl {target_label}")
         self.asm.label(target_label)
+        for alias_label in alias_labels:
+            self.asm.label(alias_label)
         self.asm.instr("push rbp")
         self.asm.instr("mov rbp, rsp")
         if layout.stack_size > 0:

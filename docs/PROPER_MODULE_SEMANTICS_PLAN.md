@@ -1,4 +1,4 @@
-Status: phases 1-2 implemented; phases 3-4 design only.
+Status: phases 1-3 implemented; phase 4 design only.
 
 This document defines a concrete implementation plan for proper top-level module semantics.
 
@@ -467,25 +467,25 @@ Tests for phase 2:
 
 Goal: make top-level function emission use canonical labels so same-name functions across modules remain codegen-safe.
 
-- [ ] Add canonical top-level function mangling.
+- [x] Add canonical top-level function mangling.
     Files:
     `compiler/codegen/symbols.py`, `tests/compiler/codegen/test_symbols.py`
     Expected outcome:
     A single helper defines stable assembly labels for `FunctionId` values.
 
-- [ ] Route top-level function labels through declaration tables.
+- [x] Route top-level function labels through declaration tables.
     Files:
     `compiler/codegen/program_generator.py`, related declaration-table model files
     Expected outcome:
     Top-level functions use the same kind of canonical label plumbing that methods and constructors already use.
 
-- [ ] Switch function emission, function references, and direct calls to canonical labels.
+- [x] Switch function emission, function references, and direct calls to canonical labels.
     Files:
     `compiler/codegen/emitter_fn.py`, `compiler/codegen/emitter_expr.py`
     Expected outcome:
     Assembly no longer depends on bare top-level leaf names, so top-level symbol collisions disappear.
 
-- [ ] Separate semantic entrypoint identity from the ABI `main` symbol.
+- [x] Separate semantic entrypoint identity from the ABI `main` symbol.
     Files:
     top-level program emission code, `compiler/codegen/emitter_fn.py`, CLI and integration test files
     Expected outcome:
@@ -493,10 +493,10 @@ Goal: make top-level function emission use canonical labels so same-name functio
 
 Tests for phase 3:
 
-- [ ] Run `tests/compiler/codegen/test_symbols.py`.
-- [ ] Run focused `tests/compiler/codegen/` tests that currently assert raw top-level function labels or direct calls.
-- [ ] Add and run a regression test with two imported `helper` functions and explicit qualified calls.
-- [ ] Add and run an integration test with two modules that both define `main`, confirming the CLI-selected entry module is the one that becomes the ABI entrypoint.
+- [x] Run `tests/compiler/codegen/test_symbols.py`.
+- [x] Run focused `tests/compiler/codegen/` tests that currently assert raw top-level function labels or direct calls.
+- [x] Add and run a regression test with two imported `helper` functions and explicit qualified calls.
+- [x] Add and run an integration test with two modules that both define `main`, confirming the CLI-selected entry module is the one that becomes the ABI entrypoint.
 
 ### Phase 4: Metadata And End-To-End Validation Phase
 

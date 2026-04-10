@@ -19,7 +19,20 @@ def generate_module(codegen, program, declaration_tables, type_metadata: TypeMet
         if fn.is_extern:
             continue
         codegen.asm.blank()
-        emit_function(codegen, declaration_tables, fn)
+        function_label = declaration_tables.function_label(fn.function_id)
+        if function_label is None:
+            raise ValueError(f"Missing function label for {fn.function_id}")
+        if fn.function_id.module_path == program.entry_module and fn.function_id.name == "main":
+            emit_function(
+                codegen,
+                declaration_tables,
+                fn,
+                label="main",
+                alias_labels=(function_label,),
+                global_symbol=True,
+            )
+            continue
+        emit_function(codegen, declaration_tables, fn, label=function_label)
 
     for cls in program.classes:
         for method in cls.methods:

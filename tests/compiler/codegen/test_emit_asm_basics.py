@@ -1,10 +1,15 @@
 from compiler.codegen.generator import emit_asm
+from compiler.codegen.symbols import mangle_function_symbol
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.pipeline import optimize_semantic_program
 from tests.compiler.codegen.helpers import emit_source_asm
+
+
+def _main_fn_label(name: str) -> str:
+    return mangle_function_symbol(("main",), name)
 
 
 def test_emit_asm_emits_intel_text_header(tmp_path) -> None:
@@ -40,9 +45,10 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
+    f_label = _main_fn_label("f")
 
-    assert asm.count("jmp .Lf_epilogue") == 1
-    assert asm.count(".Lf_epilogue:") == 1
+    assert asm.count(f"jmp .L{f_label}_epilogue") == 1
+    assert asm.count(f".L{f_label}_epilogue:") == 1
 
 
 def test_emit_asm_marks_exported_functions_global(tmp_path) -> None:
@@ -62,7 +68,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert ".globl pubf" in asm
+    assert f'.globl {mangle_function_symbol(("main",), "pubf")}' in asm
     assert ".globl privf" not in asm
 
 
@@ -82,9 +88,10 @@ def test_emit_asm_return_integer_literal(tmp_path) -> None:
         """,
     )
 
-    assert "answer:" in asm
+    answer_label = mangle_function_symbol(("main",), "answer")
+    assert f"{answer_label}:" in asm
     assert "    mov rax, 42" in asm
-    assert "    jmp .Lanswer_epilogue" in asm
+    assert f"    jmp .L{answer_label}_epilogue" in asm
 
 
 def test_emit_asm_return_u64_suffixed_integer_literal(tmp_path) -> None:
@@ -97,7 +104,7 @@ def test_emit_asm_return_u64_suffixed_integer_literal(tmp_path) -> None:
         """,
     )
 
-    assert "answer:" in asm
+    assert f'{mangle_function_symbol(("main",), "answer")}:' in asm
     assert "    mov rax, 42" in asm
     assert "    mov rax, 42u" not in asm
 
@@ -112,7 +119,7 @@ def test_emit_asm_return_u8_suffixed_integer_literal(tmp_path) -> None:
         """,
     )
 
-    assert "answer:" in asm
+    assert f'{mangle_function_symbol(("main",), "answer")}:' in asm
     assert "    mov rax, 113" in asm
     assert "    mov rax, 113u8" not in asm
 
@@ -131,9 +138,9 @@ def test_emit_asm_return_hex_integer_literals_from_canonical_values(tmp_path) ->
         """,
     )
 
-    assert "answer_i64:" in asm
-    assert "answer_u64:" in asm
-    assert "answer_u8:" in asm
+    assert f'{mangle_function_symbol(("main",), "answer_i64")}:' in asm
+    assert f'{mangle_function_symbol(("main",), "answer_u64")}:' in asm
+    assert f'{mangle_function_symbol(("main",), "answer_u8")}:' in asm
     assert asm.count("    mov rax, 42") >= 2
     assert "    mov rax, 255" in asm
     assert "    mov rax, 0x2a" not in asm
@@ -150,7 +157,7 @@ def test_emit_asm_return_char_literal(tmp_path) -> None:
         """,
     )
 
-    assert "answer:" in asm
+    assert f'{mangle_function_symbol(("main",), "answer")}:' in asm
     assert "    mov rax, 113" in asm
 
 
@@ -164,7 +171,7 @@ def test_emit_asm_return_double_literal_bits(tmp_path) -> None:
         """,
     )
 
-    assert "answer:" in asm
+    assert f'{mangle_function_symbol(("main",), "answer")}:' in asm
     assert "0x3ff8000000000000" in asm
 
 
@@ -255,7 +262,7 @@ def test_emit_asm_null_reference_expression(tmp_path) -> None:
         """,
     )
 
-    assert "f:" in asm
+    assert f"{_main_fn_label('f')}:" in asm
     assert "    mov rax, 0" in asm
 
 
@@ -274,8 +281,9 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert ".Lf_logic_rhs_0:" in asm
-    assert ".Lf_logic_done_0:" in asm
+    f_label = _main_fn_label("f")
+    assert f".L{f_label}_logic_rhs_0:" in asm
+    assert f".L{f_label}_logic_done_0:" in asm
     assert "    cmp rax, 0" in asm
 
 
@@ -292,9 +300,10 @@ fn choose(flag: bool) -> i64 {
     source += "\nfn main() -> i64 { return choose(true); }\n"
     asm = emit_source_asm(tmp_path, source)
 
-    assert ".Lchoose_if_else_" in asm
-    assert ".Lchoose_if_end_" in asm
-    assert "    je .Lchoose_if_else_" in asm
+    choose_label = _main_fn_label("choose")
+    assert f".L{choose_label}_if_else_" in asm
+    assert f".L{choose_label}_if_end_" in asm
+    assert f"    je .L{choose_label}_if_else_" in asm
 
 
 def test_emit_asm_while_loop_control_flow(tmp_path) -> None:
@@ -310,10 +319,11 @@ fn loop_to(limit: i64) -> i64 {
     source += "\nfn main() -> i64 { return loop_to(4); }\n"
     asm = emit_source_asm(tmp_path, source)
 
-    assert ".Lloop_to_while_start_" in asm
-    assert ".Lloop_to_while_end_" in asm
-    assert "    je .Lloop_to_while_end_" in asm
-    assert "    jmp .Lloop_to_while_start_" in asm
+    loop_label = _main_fn_label("loop_to")
+    assert f".L{loop_label}_while_start_" in asm
+    assert f".L{loop_label}_while_end_" in asm
+    assert f"    je .L{loop_label}_while_end_" in asm
+    assert f"    jmp .L{loop_label}_while_start_" in asm
 
 
 def test_emit_asm_else_if_chain_and_nested_locals(tmp_path) -> None:

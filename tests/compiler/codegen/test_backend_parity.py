@@ -7,6 +7,7 @@ from compiler.codegen.abi.runtime import (
     ARRAY_SLICE_GET_RUNTIME_CALLS,
 )
 from compiler.codegen.abi.array import direct_primitive_array_store_operand
+from compiler.codegen.symbols import mangle_function_symbol
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_U8
 from tests.compiler.codegen.helpers import emit_source_asm
@@ -41,7 +42,11 @@ def test_backend_emits_expected_call_shapes(tmp_path) -> None:
     asm = emit_source_asm(tmp_path, source)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    for expected in ["    call add", "    call __nif_method_Math_inc", "    call __nif_ctor_Box"]:
+    for expected in [
+        f'    call {mangle_function_symbol(("main",), "add")}',
+        "    call __nif_method_Math_inc",
+        "    call __nif_ctor_Box",
+    ]:
         assert expected in asm
     assert "    call __nif_method_Box_get" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
@@ -208,9 +213,10 @@ def test_backend_emits_while_control_flow_shape(tmp_path) -> None:
         """,
     )
 
-    assert ".Lloop_to_while_start_" in asm
-    assert ".Lloop_to_while_end_" in asm
-    assert "    je .Lloop_to_while_end_" in asm
+    loop_label = mangle_function_symbol(("main",), "loop_to")
+    assert f".L{loop_label}_while_start_" in asm
+    assert f".L{loop_label}_while_end_" in asm
+    assert f"    je .L{loop_label}_while_end_" in asm
 
 
 def test_backend_emits_if_else_control_flow_shape(tmp_path) -> None:
@@ -231,7 +237,8 @@ def test_backend_emits_if_else_control_flow_shape(tmp_path) -> None:
         """,
     )
 
-    assert ".Lchoose_if_else_" in asm
-    assert ".Lchoose_if_end_" in asm
-    assert "    je .Lchoose_if_else_" in asm
-    assert "    jmp .Lchoose_if_end_" in asm
+    choose_label = mangle_function_symbol(("main",), "choose")
+    assert f".L{choose_label}_if_else_" in asm
+    assert f".L{choose_label}_if_end_" in asm
+    assert f"    je .L{choose_label}_if_else_" in asm
+    assert f"    jmp .L{choose_label}_if_end_" in asm

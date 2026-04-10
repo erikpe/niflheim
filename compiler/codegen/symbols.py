@@ -5,6 +5,12 @@ def _mangle_type_fragment(name: str) -> str:
     return name.replace(".", "_").replace(":", "_").replace("[", "_").replace("]", "_")
 
 
+def mangle_function_symbol(module_path: tuple[str, ...], name: str) -> str:
+    safe_module = _mangle_type_fragment(".".join(module_path))
+    safe_name = _mangle_type_fragment(name)
+    return f"__nif_fn_{safe_module}__{safe_name}"
+
+
 def epilogue_label(fn_name: str) -> str:
     return f".L{fn_name}_epilogue"
 

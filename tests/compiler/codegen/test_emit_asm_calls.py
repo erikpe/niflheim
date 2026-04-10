@@ -1,8 +1,14 @@
 import re
 
 from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS
+from compiler.codegen.symbols import mangle_function_symbol
 from tests.compiler.codegen.helpers import emit_source_asm
 from tests.compiler.integration.stdlib_fixtures import install_std_io_fixture
+
+
+def _main_function_body(asm: str, name: str) -> str:
+    label = mangle_function_symbol(("main",), name)
+    return asm[asm.index(f"{label}:") : asm.index(f".L{label}_epilogue:")]
 
 
 def test_emit_asm_direct_call_no_args(tmp_path) -> None:
@@ -21,7 +27,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call callee" in asm
+    assert f'    call {mangle_function_symbol(("main",), "callee")}' in asm
     assert "    test rsp, 8" not in asm
 
 
@@ -47,7 +53,7 @@ fn main() -> i64 {
     assert "    mov rsi, qword ptr [rbp - 16]" in asm
     assert "    mov rdx, qword ptr [rbp - 8]" in asm
     assert "qword ptr [rsp]" not in asm
-    assert "    call sum3" in asm
+    assert f'    call {mangle_function_symbol(("main",), "sum3")}' in asm
 
 
 def test_emit_asm_direct_call_with_integer_stack_args(tmp_path) -> None:
@@ -62,7 +68,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call sum7" in asm
+    assert f'    call {mangle_function_symbol(("main",), "sum7")}' in asm
     assert "    mov rax, qword ptr [r10 + 48]" in asm
     assert "    push rax" in asm
     assert "    add rsp, 64" in asm
@@ -80,7 +86,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "sum7:" in asm
+    assert f'{mangle_function_symbol(("main",), "sum7")}:' in asm
     assert "    mov rax, qword ptr [rbp + 16]" in asm
     assert "    mov qword ptr [rbp - 56], rax" in asm
 
@@ -96,7 +102,8 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    sum2_body = asm[asm.index("sum2:") : asm.index(".Lsum2_epilogue:")]
+    sum2_label = mangle_function_symbol(("main",), "sum2")
+    sum2_body = asm[asm.index(f"{sum2_label}:") : asm.index(f".L{sum2_label}_epilogue:")]
 
     assert "    mov qword ptr [rbp - 8], 0" not in sum2_body
     assert "    mov qword ptr [rbp - 16], 0" not in sum2_body
@@ -118,7 +125,8 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    keep_body = asm[asm.index("keep:") : asm.index(".Lkeep_epilogue:")]
+    keep_label = mangle_function_symbol(("main",), "keep")
+    keep_body = asm[asm.index(f"{keep_label}:") : asm.index(f".L{keep_label}_epilogue:")]
 
     assert "    mov qword ptr [rbp - 8], 0" not in keep_body
     assert "    mov qword ptr [rbp - 8], rdi" in keep_body
@@ -139,7 +147,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call sum9" in asm
+    assert f'    call {mangle_function_symbol(("main",), "sum9")}' in asm
     assert "    movq xmm7, qword ptr [r10 + 56]" in asm
     assert "    mov rax, qword ptr [r10 + 64]" in asm
     assert "    push rax" in asm
@@ -158,7 +166,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    call id" in asm
+    assert f'    call {mangle_function_symbol(("main",), "id")}' in asm
     assert "    test rsp, 8" not in asm
     assert "    mov qword ptr [rbp - 8], rax" in asm
     assert "    mov rdi, qword ptr [rbp - 8]" in asm
@@ -179,7 +187,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source)
 
-    assert "    lea rax, [rip + add]" in asm
+    assert f'    lea rax, [rip + {mangle_function_symbol(("main",), "add")}]' in asm
     assert "    mov r11, rax" in asm
     assert "    call r11" in asm
 
@@ -280,7 +288,7 @@ fn main() -> i64 {
 """
     asm = emit_source_asm(tmp_path, source, project_root=tmp_path)
 
-    assert "    call println_i64" in asm
+    assert f'    call {mangle_function_symbol(("std", "io"), "println_i64")}' in asm
 
 
 def test_emit_asm_interface_method_call_uses_inline_slot_lookup_and_indirect_call(tmp_path) -> None:
@@ -310,7 +318,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    call_hash_body = asm[asm.index("call_hash:") : asm.index(".Lcall_hash_epilogue:")]
+    call_hash_body = _main_function_body(asm, "call_hash")
 
     assert "    call rt_lookup_interface_method" not in call_hash_body
     assert "    mov rax, qword ptr [rcx + 64]" in call_hash_body
@@ -391,7 +399,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    call_next_body = asm[asm.index("call_next:") : asm.index(".Lcall_next_epilogue:")]
+    call_next_body = _main_function_body(asm, "call_next")
 
     assert "    call rt_lookup_interface_method" not in call_next_body
     assert "    mov rax, qword ptr [rcx + 64]" in call_next_body
@@ -431,7 +439,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    call_mix_body = asm[asm.index("call_mix:") : asm.index(".Lcall_mix_epilogue:")]
+    call_mix_body = _main_function_body(asm, "call_mix")
 
     assert "    call rt_lookup_interface_method" not in call_mix_body
     assert "    mov rax, qword ptr [rcx + 64]" in call_mix_body
@@ -464,7 +472,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    call_hash_body = asm[asm.index("call_hash:") : asm.index(".Lcall_hash_epilogue:")]
+    call_hash_body = _main_function_body(asm, "call_hash")
 
     assert "    call __nif_method_Key_hash_code" in call_hash_body
     assert "    mov rax, qword ptr [rcx + 64]" not in call_hash_body
@@ -494,7 +502,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    read_body = asm[asm.index("read:") : asm.index(".Lread_epilogue:")]
+    read_body = _main_function_body(asm, "read")
 
     assert "    call __nif_method_Base_head" not in read_body
     assert "    call __nif_method_Derived_head" not in read_body
@@ -552,7 +560,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    read_body = asm[asm.index("read:") : asm.index(".Lread_epilogue:")]
+    read_body = _main_function_body(asm, "read")
 
     assert "    call __nif_method_Base_head" in read_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in read_body

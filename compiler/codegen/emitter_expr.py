@@ -60,7 +60,7 @@ from compiler.semantic.operations import (
     binary_op_uses_u8_mask,
     unary_op_text,
 )
-from compiler.semantic.symbols import InterfaceMethodId, MethodId
+from compiler.semantic.symbols import FunctionId, InterfaceMethodId, MethodId
 from compiler.semantic.types import (
     semantic_type_array_element,
     semantic_type_canonical_name,
@@ -171,7 +171,7 @@ def emit_expr(codegen: CodeGenerator, expr: SemanticExpr, ctx: EmitContext) -> N
         _emit_local_ref_expr(codegen, expr, ctx)
         return
     if isinstance(expr, FunctionRefExpr):
-        codegen.asm.instr(f"lea rax, [rip + {expr.function_id.name}]")
+        codegen.asm.instr(f"lea rax, [rip + {_function_label(expr.function_id, ctx)}]")
         return
     if isinstance(expr, MethodRefExpr):
         _emit_method_ref_expr(codegen, expr, ctx)
@@ -626,7 +626,14 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
     target = expr.target
     named_root_local_ids = _named_root_sync_local_ids_for_expr(ctx, expr)
     if isinstance(target, FunctionCallTarget):
-        _emit_named_call(codegen, target.function_id.name, expr.args, expr.type_ref, ctx, named_root_local_ids=named_root_local_ids)
+        _emit_named_call(
+            codegen,
+            _function_label(target.function_id, ctx),
+            expr.args,
+            expr.type_ref,
+            ctx,
+            named_root_local_ids=named_root_local_ids,
+        )
         return
     if isinstance(target, StaticMethodCallTarget):
         _emit_named_call(
@@ -1301,6 +1308,13 @@ def _method_label(method_id: MethodId, ctx: EmitContext) -> str:
     label = ctx.declaration_tables.method_label(method_id)
     if label is None:
         raise ValueError(f"Missing method label for {method_id}")
+    return label
+
+
+def _function_label(function_id: FunctionId, ctx: EmitContext) -> str:
+    label = ctx.declaration_tables.function_label(function_id)
+    if label is None:
+        raise ValueError(f"Missing function label for {function_id}")
     return label
 
 
