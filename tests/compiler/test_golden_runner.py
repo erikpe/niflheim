@@ -135,17 +135,68 @@ def test_discover_tests_parses_build_args(tmp_path: Path, monkeypatch: pytest.Mo
     assert tests[0].build_args == ["--skip-optimize", "--omit-runtime-trace"]
 
 
-def test_build_output_path_flattens_names_to_avoid_prefix_collisions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_output_path_flattens_spec_path_and_test_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     golden_root = tmp_path / "golden"
     build_root = tmp_path / "build"
-    top_level = golden_root / "lang" / "test_inheritance.nif"
-    nested = golden_root / "lang" / "test_inheritance" / "test_inheritance.nif"
+    top_level = runner.GoldenTest(
+        name="inheritance",
+        mode="run",
+        source_path=golden_root / "lang" / "test_inheritance.nif",
+        spec_path=golden_root / "lang" / "test_inheritance_spec.yaml",
+        runs=[],
+        compile_error_match=None,
+        build_args=[],
+    )
+    nested = runner.GoldenTest(
+        name="case_nested",
+        mode="run",
+        source_path=golden_root / "lang" / "test_inheritance" / "test_inheritance.nif",
+        spec_path=golden_root / "lang" / "test_inheritance" / "test_inheritance_spec.yaml",
+        runs=[],
+        compile_error_match=None,
+        build_args=[],
+    )
 
     monkeypatch.setattr(runner, "GOLDEN_ROOT", golden_root)
     monkeypatch.setattr(runner, "BUILD_ROOT", build_root)
 
-    assert runner._build_output_path(top_level) == build_root / runner.BUILD_CASES_DIRNAME / "lang__test_inheritance"
-    assert runner._build_output_path(nested) == build_root / runner.BUILD_CASES_DIRNAME / "lang__test_inheritance__test_inheritance"
+    assert runner._build_output_path(top_level) == (
+        build_root / runner.BUILD_CASES_DIRNAME / "lang__test_inheritance_spec__inheritance"
+    )
+    assert runner._build_output_path(nested) == (
+        build_root / runner.BUILD_CASES_DIRNAME / "lang__test_inheritance__test_inheritance_spec__case_nested"
+    )
+
+
+def test_build_output_path_distinguishes_multiple_tests_for_same_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    golden_root = tmp_path / "golden"
+    build_root = tmp_path / "build"
+    source_path = golden_root / "vm_benchmark" / "test_vm_benchmark.nif"
+    spec_path = golden_root / "vm_benchmark" / "test_vm_benchmark_spec.yaml"
+
+    monkeypatch.setattr(runner, "GOLDEN_ROOT", golden_root)
+    monkeypatch.setattr(runner, "BUILD_ROOT", build_root)
+
+    traced = runner.GoldenTest(
+        name="test_vm_benchmark",
+        mode="run",
+        source_path=source_path,
+        spec_path=spec_path,
+        runs=[],
+        compile_error_match=None,
+        build_args=[],
+    )
+    no_trace = runner.GoldenTest(
+        name="test_vm_benchmark_no_trace",
+        mode="run",
+        source_path=source_path,
+        spec_path=spec_path,
+        runs=[],
+        compile_error_match=None,
+        build_args=["--omit-runtime-trace"],
+    )
+
+    assert runner._build_output_path(traced) != runner._build_output_path(no_trace)
 
 
 def test_compile_run_test_passes_prebuilt_runtime_archive_to_build_script(
@@ -188,7 +239,7 @@ def test_compile_run_test_passes_prebuilt_runtime_archive_to_build_script(
 
     assert ok is True
     assert error is None
-    assert output_path == build_root / runner.BUILD_CASES_DIRNAME / "suite__test_alpha"
+    assert output_path == build_root / runner.BUILD_CASES_DIRNAME / "suite__test_alpha_spec__alpha"
     env = captured["env"]
     assert isinstance(env, dict)
     assert env[runner.PREBUILT_RUNTIME_ENV_VAR] == str(runtime_archive)
@@ -235,7 +286,7 @@ def test_compile_run_test_forwards_build_args_to_build_script(
     assert captured["cmd"] == [
         str(repo_root / "scripts" / "build.sh"),
         "tests/golden/suite/test_alpha.nif",
-        "build/golden/__cases__/suite__test_alpha",
+        "build/golden/__cases__/suite__test_alpha_spec__alpha",
         "--",
         "--skip-optimize",
         "--omit-runtime-trace",
@@ -286,7 +337,7 @@ def test_compile_fail_test_forwards_build_args_to_compiler(
         "compiler.main",
         str(source_path),
         "-o",
-        str(build_root / runner.BUILD_CASES_DIRNAME / "suite__test_bad.s"),
+        str(build_root / runner.BUILD_CASES_DIRNAME / "suite__test_bad_spec__bad.s"),
         "--project-root",
         str(repo_root),
         "--skip-optimize",

@@ -4,6 +4,7 @@ import argparse
 import difflib
 import fnmatch
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -302,9 +303,18 @@ def _discover_tests(filter_glob: str | None) -> list[GoldenTest]:
     return tests
 
 
-def _build_output_path(source_path: Path) -> Path:
-    rel = source_path.relative_to(GOLDEN_ROOT)
-    flat_name = rel.with_suffix("").as_posix().replace("/", "__")
+def _flatten_relative_stem(path: Path, root: Path) -> str:
+    return path.relative_to(root).with_suffix("").as_posix().replace("/", "__")
+
+
+def _sanitize_output_component(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
+
+
+def _build_output_path(test: GoldenTest) -> Path:
+    spec_stem = _flatten_relative_stem(test.spec_path, GOLDEN_ROOT)
+    test_name = _sanitize_output_component(test.name)
+    flat_name = f"{spec_stem}__{test_name}"
     return BUILD_ROOT / BUILD_CASES_DIRNAME / flat_name
 
 
@@ -330,7 +340,7 @@ def _prepare_runtime_archive() -> tuple[bool, str | None, Path]:
 
 
 def _compile_run_test(test: GoldenTest, runtime_archive: Path | None = None) -> tuple[bool, str | None, Path]:
-    output_path = _build_output_path(test.source_path)
+    output_path = _build_output_path(test)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = [
@@ -353,7 +363,7 @@ def _compile_run_test(test: GoldenTest, runtime_archive: Path | None = None) -> 
 
 
 def _compile_fail_test(test: GoldenTest) -> tuple[bool, str | None]:
-    asm_path = _build_output_path(test.source_path).with_suffix(".s")
+    asm_path = _build_output_path(test).with_suffix(".s")
     asm_path.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = [
