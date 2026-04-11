@@ -414,6 +414,8 @@ Expected review size: medium.
 
 #### Patch 5: End-to-end validation and benchmark check
 
+Status: implemented on the current branch.
+
 Goal: confirm the smaller root frames are correct under GC pressure and actually reduce generated shadow-stack state on the benchmark.
 
 Files to change:
@@ -423,11 +425,23 @@ Files to change:
 
 Tasks:
 
-1. Run the focused compiler tests for liveness, layout, and root-emission behavior.
-2. Run `make -C runtime test-all` even though the runtime code is unchanged, because GC/rooting correctness is what this package is trying to preserve.
-3. Rebuild and run [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) and the `solver2` benchmark.
-4. Compare root-frame sizes and touched root slots in generated assembly before and after.
-5. Record the observed deltas in the patch or PR description.
+1. [x] Run the focused compiler tests for liveness, layout, and root-emission behavior.
+2. [x] Run `make -C runtime test-all` even though the runtime code is unchanged, because GC/rooting correctness is what this package is trying to preserve.
+3. [x] Rebuild and run [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) and the `solver2` benchmark.
+4. [x] Compare root-frame sizes and touched root slots in generated assembly before and after.
+5. [x] Record the observed deltas in the patch or PR description.
+
+Validation note on the current branch:
+
+- focused compiler coverage passes, including the broader root/call/array/generator batch and the full `tests/compiler` suite (`1005 passed`)
+- `make -C runtime test-all` passes
+- `./scripts/golden.sh` passes (`51/51` spec files, `427` runs total)
+- a no-runtime-trace profile build of [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) completes successfully on `full_input` with `RESULT:20172`, `/usr/bin/time` elapsed time of about `0.94s`, and `perf stat -d` elapsed time of about `1.07s`
+- a no-runtime-trace profile build of [aoc/2025/11/part2/solver2.nif](../aoc/2025/11/part2/solver2.nif) completes successfully on the full workload input with repeated `RESULT:287039700129600`, `/usr/bin/time` elapsed time of about `2.85s`, and `perf stat -d` elapsed time of about `2.74s`
+- layout/assembly delta analysis against the pre-package-2 "all reference locals get dedicated named root slots" rule shows:
+   - [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif): total named root slots drop from `70` to `39`, and total root-frame slots drop from `172` to `141`; the largest individual reductions are `rref` (`17` to `12` total slots), `decode_levels` (`11` to `8`), `decode_button` (`11` to `8`), and `swap_rows` (`2` to `0`)
+   - [aoc/2025/11/part2/solver2.nif](../aoc/2025/11/part2/solver2.nif): total named root slots drop from `29` to `11`, and total root-frame slots drop from `77` to `59`; the main hot path `run` drops from `20` total root-frame slots to `11`
+- flat `perf report` output for both workloads is now dominated by runtime GC/tracked-set/allocation work (`rt_tracked_set_find_slot`, `rt_gc_collect`, allocator internals, and `Map` operations), which is consistent with package 2 reducing shadow-stack footprint without introducing a new codegen-side hotspot
 
 Why this patch goes last:
 
@@ -456,8 +470,8 @@ Use this exact sequence:
 6. [x] Update generator and emitter code to use the reduced root-slot mapping without changing temp-root behavior.
 7. [x] Extend assembly tests to assert fewer named root slots are touched when liveness permits.
 8. [x] Run the focused compiler tests for liveness, layout, and root emission.
-9. Run `make -C runtime test-all`.
-10. Re-run the benchmark workloads and record the generated root-frame and timing deltas.
+9. [x] Run `make -C runtime test-all`.
+10. [x] Re-run the benchmark workloads and record the generated root-frame and timing deltas.
 
 ### Testing Checklist
 
@@ -470,10 +484,10 @@ Use this exact sequence:
    - reused `root_index` values for non-overlapping locals
    - stable temp-root layout
 3. Extend [tests/compiler/codegen/test_emit_asm_runtime_roots.py](../tests/compiler/codegen/test_emit_asm_runtime_roots.py) to assert that generated functions use fewer root slots when liveness permits.
-4. Run the focused compiler suite:
+4. [x] Run the focused compiler suite:
    `pytest tests/compiler/codegen/test_root_liveness.py tests/compiler/codegen/test_layout.py tests/compiler/codegen/test_emit_asm_runtime_roots.py`
-5. Run golden tests that stress loops, method calls, array writes, and constructors.
-6. Re-run [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) and the original `solver2` workload to confirm both performance and GC correctness.
+5. [x] Run golden tests that stress loops, method calls, array writes, and constructors.
+6. [x] Re-run [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) and the original `solver2` workload to confirm both performance and GC correctness.
 
 ### Exit Criteria
 
