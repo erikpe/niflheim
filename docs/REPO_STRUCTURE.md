@@ -101,5 +101,6 @@ Supporting documentation:
 - [ROADMAP_v0.1.md](ROADMAP_v0.1.md) - milestone/iteration plan.
 - [INTERFACES_V1.md](INTERFACES_V1.md) - future-facing design for interface types, casts, and dispatch.
 - [ABI_NOTES.md](ABI_NOTES.md) - compiler/runtime ABI notes.
+- [RUNTIME_CODEGEN_HOT_PATH_PLAN.md](RUNTIME_CODEGEN_HOT_PATH_PLAN.md) - staged implementation plan for shadow-stack, root-slot, allocation, and tracked-set hot paths.
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.
 - [SUGARING_DESIGN.md](SUGARING_DESIGN.md) - canonical sugar protocols (indexing/slicing and for-in iteration).

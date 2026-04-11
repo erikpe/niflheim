@@ -1,3 +1,4 @@
+from compiler.codegen.abi import runtime_layout
 from compiler.codegen.asm import offset_operand
 from compiler.codegen.generator import CodeGenerator
 from compiler.codegen.layout import build_layout
@@ -256,4 +257,22 @@ def test_codegen_zero_slots_can_skip_immediately_spilled_param_slots_but_keep_ro
     asm = "\n".join(generator.asm.lines)
     assert f"    mov {offset_operand(param_slot_offset)}, 0" not in asm
     assert f"    mov {offset_operand(param_root_offset)}, 0" in asm
+
+
+def test_codegen_runtime_root_layout_helpers_match_runtime_abi() -> None:
+    generator = CodeGenerator()
+
+    assert runtime_layout.RT_THREAD_STATE_ROOTS_TOP_OFFSET == 0
+    assert runtime_layout.RT_ROOT_FRAME_PREV_OFFSET == 0
+    assert runtime_layout.RT_ROOT_FRAME_SLOT_COUNT_OFFSET == 8
+    assert runtime_layout.RT_ROOT_FRAME_RESERVED_OFFSET == 12
+    assert runtime_layout.RT_ROOT_FRAME_SLOTS_OFFSET == 16
+    assert runtime_layout.RT_ROOT_FRAME_SIZE_BYTES == 24
+
+    assert generator.root_frame_size_bytes() == 24
+    assert generator.thread_state_roots_top_operand("rdi") == "qword ptr [rdi]"
+    assert generator.root_frame_prev_operand("rsi") == "qword ptr [rsi]"
+    assert generator.root_frame_slot_count_operand("rsi") == "dword ptr [rsi + 8]"
+    assert generator.root_frame_reserved_operand("rsi") == "dword ptr [rsi + 12]"
+    assert generator.root_frame_slots_operand("rsi") == "qword ptr [rsi + 16]"
 

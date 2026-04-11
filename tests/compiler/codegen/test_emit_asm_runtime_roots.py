@@ -50,6 +50,21 @@ def _main_function_body(asm: str, name: str) -> str:
     return asm[asm.index(f"{label}:") : asm.index(f".L{label}_epilogue:")]
 
 
+def _main_function_with_epilogue(asm: str, name: str) -> str:
+    label = mangle_function_symbol(("main",), name)
+    start = asm.index(f"{label}:")
+    end = asm.index("    ret", start)
+    return asm[start:end]
+
+
+def _assert_in_order(text: str, snippets: list[str]) -> None:
+    position = -1
+    for snippet in snippets:
+        next_position = text.index(snippet, position + 1)
+        assert next_position > position
+        position = next_position
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;
@@ -152,7 +167,7 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
-    f_body = _main_function_body(asm, "f")
+    f_body = _main_function_with_epilogue(asm, "f")
 
     assert "    mov qword ptr [rbp - 8], 0" not in f_body
     assert "    mov qword ptr [rbp - 16], 0" in f_body
@@ -174,11 +189,30 @@ fn main() -> i64 {
 }
 """
     asm = emit_source_asm(tmp_path, source)
+    f_body = _main_function_with_epilogue(asm, "f")
 
     assert "    call rt_thread_state" in asm
     assert "    call rt_root_frame_init" in asm
     assert "    call rt_push_roots" in asm
     assert "    call rt_pop_roots" in asm
+    _assert_in_order(
+        f_body,
+        [
+            "    call rt_thread_state",
+            "    call rt_root_frame_init",
+            "    call rt_push_roots",
+            "    call rt_trace_push",
+        ],
+    )
+    _assert_in_order(
+        f_body,
+        [
+            "    push rax",
+            "    call rt_pop_roots",
+            "    call rt_trace_pop",
+            "    pop rax",
+        ],
+    )
 
 
 def test_emit_asm_pushes_roots_before_trace_push_for_reference_functions(tmp_path) -> None:
@@ -251,9 +285,15 @@ fn main() -> i64 {
     assert ctor_label in asm
     ctor_start = asm.index(ctor_label)
     ctor_body = asm[ctor_start:]
-    push_roots_i = ctor_body.index("    call rt_push_roots")
-    trace_push_i = ctor_body.index("    call rt_trace_push")
-    assert push_roots_i < trace_push_i
+    _assert_in_order(
+        ctor_body,
+        [
+            "    call rt_thread_state",
+            "    call rt_root_frame_init",
+            "    call rt_push_roots",
+            "    call rt_trace_push",
+        ],
+    )
 
 
 def test_emit_asm_constructor_with_only_primitive_params_still_roots_allocated_object(tmp_path) -> None:

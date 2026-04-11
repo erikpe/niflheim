@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from compiler.common.type_names import TYPE_NAME_DOUBLE
+from compiler.codegen.abi import runtime_layout
 import compiler.codegen.symbols as codegen_symbols
 import compiler.codegen.types as codegen_types
 
@@ -43,6 +44,30 @@ class CodeGenerator:
     @property
     def runtime_trace_enabled(self) -> bool:
         return self.options.runtime_trace_enabled
+
+    @staticmethod
+    def root_frame_size_bytes() -> int:
+        return runtime_layout.RT_ROOT_FRAME_SIZE_BYTES
+
+    @staticmethod
+    def thread_state_roots_top_operand(thread_state_register: str) -> str:
+        return runtime_layout.thread_state_roots_top_operand(thread_state_register)
+
+    @staticmethod
+    def root_frame_prev_operand(root_frame_register: str) -> str:
+        return runtime_layout.root_frame_prev_operand(root_frame_register)
+
+    @staticmethod
+    def root_frame_slot_count_operand(root_frame_register: str) -> str:
+        return runtime_layout.root_frame_slot_count_operand(root_frame_register)
+
+    @staticmethod
+    def root_frame_reserved_operand(root_frame_register: str) -> str:
+        return runtime_layout.root_frame_reserved_operand(root_frame_register)
+
+    @staticmethod
+    def root_frame_slots_operand(root_frame_register: str) -> str:
+        return runtime_layout.root_frame_slots_operand(root_frame_register)
 
     def runtime_panic_message_label(self, message: str) -> str:
         label = self.runtime_panic_message_labels.get(message)
