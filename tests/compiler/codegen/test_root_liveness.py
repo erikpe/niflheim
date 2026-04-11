@@ -41,6 +41,10 @@ def _local_id_by_name(fn, display_name: str):
     return next(local_info.local_id for local_info in fn.local_info_by_id.values() if local_info.display_name == display_name)
 
 
+def _safepoint_live_sets(safepoints):
+    return tuple(safepoint.live_local_ids for safepoint in safepoints)
+
+
 def test_root_liveness_tracks_straight_line_call_live_roots(tmp_path: Path) -> None:
     fn = _lower_function(
         tmp_path,
@@ -63,6 +67,7 @@ def test_root_liveness_tracks_straight_line_call_live_roots(tmp_path: Path) -> N
     assert isinstance(call_stmt.expr, CallExprS)
 
     assert liveness.for_expr(call_stmt.expr) == {_local_id_by_name(fn, "keep")}
+    assert _safepoint_live_sets(liveness.safepoints.expr_calls) == (frozenset({_local_id_by_name(fn, "keep")}),)
 
 
 def test_root_liveness_tracks_nested_call_continuations(tmp_path: Path) -> None:
@@ -93,6 +98,7 @@ def test_root_liveness_tracks_nested_call_continuations(tmp_path: Path) -> None:
 
     assert liveness.for_expr(outer_call) == frozenset()
     assert liveness.for_expr(inner_call) == frozenset()
+    assert _safepoint_live_sets(liveness.safepoints.expr_calls) == (frozenset(), frozenset())
 
 
 def test_root_liveness_merges_branch_successors(tmp_path: Path) -> None:
@@ -120,6 +126,7 @@ def test_root_liveness_merges_branch_successors(tmp_path: Path) -> None:
     assert isinstance(call_stmt.expr, CallExprS)
 
     assert liveness.for_expr(call_stmt.expr) == {_local_id_by_name(fn, "keep")}
+    assert _safepoint_live_sets(liveness.safepoints.expr_calls) == (frozenset({_local_id_by_name(fn, "keep")}),)
 
 
 def test_root_liveness_converges_for_loops(tmp_path: Path) -> None:
@@ -145,6 +152,31 @@ def test_root_liveness_converges_for_loops(tmp_path: Path) -> None:
     assert isinstance(call_stmt.expr, CallExprS)
 
     assert liveness.for_expr(call_stmt.expr) == {_local_id_by_name(fn, "keep")}
+    assert _safepoint_live_sets(liveness.safepoints.expr_calls) == (frozenset({_local_id_by_name(fn, "keep")}),)
+
+
+def test_root_liveness_tracks_gc_capable_lvalue_call_safepoints(tmp_path: Path) -> None:
+    fn = _lower_function(
+        tmp_path,
+        """
+        interface Buffer {
+            fn slice_set(begin: i64, end: i64, value: Buffer) -> unit;
+        }
+
+        fn f(buffer: Buffer, keep: Buffer) -> Buffer {
+            buffer[0:1] = keep;
+            return keep;
+        }
+        """,
+        function_name="f",
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    liveness = analyze_named_root_liveness(fn)
+
+    assign_stmt = next(stmt for stmt in fn.body.statements if isinstance(stmt, SemanticAssign))
+
+    assert liveness.for_lvalue_call(assign_stmt.target) == {_local_id_by_name(fn, "keep")}
+    assert _safepoint_live_sets(liveness.safepoints.lvalue_calls) == (frozenset({_local_id_by_name(fn, "keep")}),)
 
 
 def test_root_liveness_tracks_lowered_for_in_dispatch_calls(tmp_path: Path) -> None:
@@ -178,6 +210,12 @@ def test_root_liveness_tracks_lowered_for_in_dispatch_calls(tmp_path: Path) -> N
 
     assert liveness.for_for_in_iter_len(for_in_stmt) == {for_in_stmt.collection_local_id}
     assert liveness.for_for_in_iter_get(for_in_stmt) == {for_in_stmt.collection_local_id}
+    assert _safepoint_live_sets(liveness.safepoints.for_in_iter_len_calls) == (
+        frozenset({for_in_stmt.collection_local_id}),
+    )
+    assert _safepoint_live_sets(liveness.safepoints.for_in_iter_get_calls) == (
+        frozenset({for_in_stmt.collection_local_id}),
+    )
 
 
 def test_root_liveness_tracks_statement_live_after_sets(tmp_path: Path) -> None:

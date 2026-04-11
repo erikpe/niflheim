@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from compiler.codegen.abi.runtime import runtime_call_metadata
+from compiler.codegen.effects import expr_may_execute_gc
+from compiler.codegen.model import NamedRootSafepoint, NamedRootSafepointSummary
+from compiler.codegen.runtime_calls import runtime_dispatch_call_name
 import compiler.codegen.types as codegen_types
 
 from compiler.semantic.lowered_ir import (
@@ -24,6 +28,7 @@ class NamedRootLiveness:
     lvalue_call_live_after: dict[int, frozenset[LocalId]] = field(default_factory=dict)
     for_in_iter_len_live_after: dict[int, frozenset[LocalId]] = field(default_factory=dict)
     for_in_iter_get_live_after: dict[int, frozenset[LocalId]] = field(default_factory=dict)
+    safepoints: NamedRootSafepointSummary = field(default_factory=NamedRootSafepointSummary)
 
     def for_stmt(self, stmt: SemanticStmt | LoweredSemanticStmt) -> frozenset[LocalId]:
         return self.stmt_live_after.get(id(stmt), frozenset())
@@ -74,6 +79,10 @@ class _NamedRootLivenessAnalyzer:
         self._lvalue_call_live_after: dict[int, frozenset[LocalId]] = {}
         self._for_in_iter_len_live_after: dict[int, frozenset[LocalId]] = {}
         self._for_in_iter_get_live_after: dict[int, frozenset[LocalId]] = {}
+        self._expr_safepoint_live_after: dict[int, frozenset[LocalId]] = {}
+        self._lvalue_safepoint_live_after: dict[int, frozenset[LocalId]] = {}
+        self._for_in_iter_len_safepoint_live_after: dict[int, frozenset[LocalId]] = {}
+        self._for_in_iter_get_safepoint_live_after: dict[int, frozenset[LocalId]] = {}
 
     def analyze(self) -> NamedRootLiveness:
         body = self.owner.body
@@ -85,6 +94,12 @@ class _NamedRootLivenessAnalyzer:
             lvalue_call_live_after=self._lvalue_call_live_after,
             for_in_iter_len_live_after=self._for_in_iter_len_live_after,
             for_in_iter_get_live_after=self._for_in_iter_get_live_after,
+            safepoints=NamedRootSafepointSummary(
+                expr_calls=self._ordered_safepoints(self._expr_safepoint_live_after),
+                lvalue_calls=self._ordered_safepoints(self._lvalue_safepoint_live_after),
+                for_in_iter_len_calls=self._ordered_safepoints(self._for_in_iter_len_safepoint_live_after),
+                for_in_iter_get_calls=self._ordered_safepoints(self._for_in_iter_get_safepoint_live_after),
+            ),
         )
 
     def _analyze_block(
@@ -288,28 +303,75 @@ class _NamedRootLivenessAnalyzer:
         return current
 
     def _record_expr_call(self, expr: SemanticExpr, live_after: set[LocalId]) -> None:
-        self._expr_call_live_after[id(expr)] = self._existing_union(self._expr_call_live_after.get(id(expr)), live_after)
+        tracked_live_after = self._tracked_live_after(live_after)
+        self._expr_call_live_after[id(expr)] = self._merge_live_after(
+            self._expr_call_live_after.get(id(expr)), tracked_live_after
+        )
+        if expr_may_execute_gc(expr):
+            self._expr_safepoint_live_after[id(expr)] = self._merge_live_after(
+                self._expr_safepoint_live_after.get(id(expr)), tracked_live_after
+            )
 
     def _record_stmt_live_after(self, stmt: SemanticStmt | LoweredSemanticStmt, live_after: set[LocalId]) -> None:
-        self._stmt_live_after[id(stmt)] = self._existing_union(self._stmt_live_after.get(id(stmt)), live_after)
+        tracked_live_after = self._tracked_live_after(live_after)
+        self._stmt_live_after[id(stmt)] = self._merge_live_after(self._stmt_live_after.get(id(stmt)), tracked_live_after)
 
     def _record_lvalue_call(self, target: SemanticLValue, live_after: set[LocalId]) -> None:
-        self._lvalue_call_live_after[id(target)] = self._existing_union(
-            self._lvalue_call_live_after.get(id(target)), live_after
+        tracked_live_after = self._tracked_live_after(live_after)
+        self._lvalue_call_live_after[id(target)] = self._merge_live_after(
+            self._lvalue_call_live_after.get(id(target)), tracked_live_after
         )
+        if self._lvalue_call_may_execute_gc(target):
+            self._lvalue_safepoint_live_after[id(target)] = self._merge_live_after(
+                self._lvalue_safepoint_live_after.get(id(target)), tracked_live_after
+            )
 
     def _record_for_in_iter_len(self, stmt: LoweredSemanticForIn, live_after: set[LocalId]) -> None:
-        self._for_in_iter_len_live_after[id(stmt)] = self._existing_union(
-            self._for_in_iter_len_live_after.get(id(stmt)), live_after
+        tracked_live_after = self._tracked_live_after(live_after)
+        self._for_in_iter_len_live_after[id(stmt)] = self._merge_live_after(
+            self._for_in_iter_len_live_after.get(id(stmt)), tracked_live_after
         )
+        if self._dispatch_may_execute_gc(stmt.iter_len_dispatch):
+            self._for_in_iter_len_safepoint_live_after[id(stmt)] = self._merge_live_after(
+                self._for_in_iter_len_safepoint_live_after.get(id(stmt)), tracked_live_after
+            )
 
     def _record_for_in_iter_get(self, stmt: LoweredSemanticForIn, live_after: set[LocalId]) -> None:
-        self._for_in_iter_get_live_after[id(stmt)] = self._existing_union(
-            self._for_in_iter_get_live_after.get(id(stmt)), live_after
+        tracked_live_after = self._tracked_live_after(live_after)
+        self._for_in_iter_get_live_after[id(stmt)] = self._merge_live_after(
+            self._for_in_iter_get_live_after.get(id(stmt)), tracked_live_after
         )
+        if self._dispatch_may_execute_gc(stmt.iter_get_dispatch):
+            self._for_in_iter_get_safepoint_live_after[id(stmt)] = self._merge_live_after(
+                self._for_in_iter_get_safepoint_live_after.get(id(stmt)), tracked_live_after
+            )
 
-    def _existing_union(self, existing: frozenset[LocalId] | None, live_after: set[LocalId]) -> frozenset[LocalId]:
-        tracked_live_after = frozenset(local_id for local_id in live_after if local_id in self._tracked_named_roots)
+    def _tracked_live_after(self, live_after: set[LocalId]) -> frozenset[LocalId]:
+        return frozenset(local_id for local_id in live_after if local_id in self._tracked_named_roots)
+
+    def _merge_live_after(
+        self, existing: frozenset[LocalId] | None, tracked_live_after: frozenset[LocalId]
+    ) -> frozenset[LocalId]:
         if existing is None:
             return tracked_live_after
         return existing | tracked_live_after
+
+    def _ordered_safepoints(
+        self, live_after_by_node_id: dict[int, frozenset[LocalId]]
+    ) -> tuple[NamedRootSafepoint, ...]:
+        return tuple(
+            NamedRootSafepoint(node_id=node_id, live_local_ids=live_local_ids)
+            for node_id, live_local_ids in sorted(live_after_by_node_id.items(), key=lambda item: item[0])
+        )
+
+    def _lvalue_call_may_execute_gc(self, target: SemanticLValue) -> bool:
+        if isinstance(target, (IndexLValue, SliceLValue)):
+            return self._dispatch_may_execute_gc(target.dispatch)
+        raise TypeError(f"Unsupported lvalue call safepoint analysis: {type(target).__name__}")
+
+    def _dispatch_may_execute_gc(self, dispatch: SemanticDispatch) -> bool:
+        if isinstance(dispatch, RuntimeDispatch):
+            return runtime_call_metadata(runtime_dispatch_call_name(dispatch)).may_gc
+        if isinstance(dispatch, (MethodDispatch, VirtualMethodDispatch, InterfaceDispatch)):
+            return True
+        raise TypeError(f"Unsupported liveness safepoint dispatch: {type(dispatch).__name__}")

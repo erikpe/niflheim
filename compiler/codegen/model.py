@@ -7,6 +7,31 @@ from compiler.semantic.types import SemanticTypeRef
 
 
 @dataclass(frozen=True)
+class NamedRootSafepoint:
+    node_id: int
+    live_local_ids: frozenset[LocalId]
+
+
+@dataclass(frozen=True)
+class NamedRootSafepointSummary:
+    expr_calls: tuple[NamedRootSafepoint, ...] = ()
+    lvalue_calls: tuple[NamedRootSafepoint, ...] = ()
+    for_in_iter_len_calls: tuple[NamedRootSafepoint, ...] = ()
+    for_in_iter_get_calls: tuple[NamedRootSafepoint, ...] = ()
+
+    def all_live_local_id_sets(self) -> tuple[frozenset[LocalId], ...]:
+        return tuple(
+            safepoint.live_local_ids
+            for safepoint in (
+                *self.expr_calls,
+                *self.lvalue_calls,
+                *self.for_in_iter_len_calls,
+                *self.for_in_iter_get_calls,
+            )
+        )
+
+
+@dataclass(frozen=True)
 class LayoutSlot:
     key: str
     display_name: str

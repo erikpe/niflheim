@@ -294,6 +294,169 @@ Primary files:
 6. Preserve existing spill/clear behavior.
    The emitted code should still clear temp root slots and still move named roots into the correct root slot offsets. The change is slot count and slot reuse, not the meaning of roots.
 
+### Implementation Task List And Estimated Patch Order
+
+The safest way to land package 2 is as five small patches.
+
+#### Patch 1: Make safepoints explicit in the liveness result
+
+Goal: turn the current liveness analysis into data that can drive slot allocation without coupling layout directly to IR traversal details.
+
+Files to change:
+
+- [compiler/codegen/root_liveness.py](../compiler/codegen/root_liveness.py)
+- [compiler/codegen/model.py](../compiler/codegen/model.py)
+- [tests/compiler/codegen/test_root_liveness.py](../tests/compiler/codegen/test_root_liveness.py)
+
+Tasks:
+
+1. [x] Extend the liveness result with a compact safepoint-oriented view, not just per-node query helpers.
+2. [x] Record which named reference locals are live across each GC-capable expression call, lvalue call, and lowered `for ... in` helper call.
+3. [x] Keep the existing query methods intact so emitter behavior does not change in this patch.
+4. [x] Add tests that assert the new safepoint summaries for straight-line code, branches, and loops.
+
+Why this patch goes first:
+
+- it isolates analysis changes from layout changes
+- it makes later slot allocation logic easier to reason about and test independently
+- it keeps the first patch behavior-preserving
+
+Expected review size: small.
+
+#### Patch 2: Introduce `NamedRootSlotPlan` and greedy slot reuse
+
+Goal: compute a reusable named-root slot assignment from the safepoint data before touching stack layout.
+
+Files to change:
+
+- [compiler/codegen/root_liveness.py](../compiler/codegen/root_liveness.py)
+- [compiler/codegen/model.py](../compiler/codegen/model.py)
+- `compiler/codegen/root_slot_plan.py`
+- [tests/compiler/codegen/test_root_liveness.py](../tests/compiler/codegen/test_root_liveness.py)
+- `tests/compiler/codegen/test_root_slot_plan.py`
+
+Tasks:
+
+1. Add a small `NamedRootSlotPlan` model that maps `LocalId` values to reusable named root-slot indices.
+2. Build the plan from the safepoint summaries using a greedy coloring-style pass:
+   - two locals cannot share a slot if they are live at the same safepoint
+   - locals with no safepoint liveness must get no named root slot
+3. Keep temp root slots out of this plan entirely.
+4. Add focused unit tests for:
+   - locals that never cross a safepoint
+   - locals live at disjoint safepoints
+   - locals simultaneously live across the same call
+   - loop-carried references that must keep a stable slot
+
+Why this patch is separate:
+
+- it is the core policy change for package 2
+- it can be tested without changing generated assembly yet
+
+Expected review size: medium.
+
+#### Patch 3: Switch layout building to the slot plan
+
+Goal: shrink function root frames by deriving named root slots from `NamedRootSlotPlan` instead of from all reference locals.
+
+Files to change:
+
+- [compiler/codegen/layout.py](../compiler/codegen/layout.py)
+- [compiler/codegen/model.py](../compiler/codegen/model.py)
+- [compiler/codegen/emitter_fn.py](../compiler/codegen/emitter_fn.py)
+- [tests/compiler/codegen/test_layout.py](../tests/compiler/codegen/test_layout.py)
+
+Tasks:
+
+1. Thread `NamedRootSlotPlan` into layout construction.
+2. Replace the current `root_slot_keys = all reference locals` rule with plan-driven root-slot indices.
+3. Preserve the existing temp-root allocation rules and offsets.
+4. Update layout tests to assert:
+   - smaller `root_slot_count` when locals never cross safepoints
+   - reused `root_index` values for non-overlapping locals
+   - unchanged temp-root behavior
+
+Why this patch is separate:
+
+- it changes stack-frame shape and should be easy to review against stable analysis inputs
+- it keeps generator/emitter changes minimal until the new layout is validated
+
+Expected review size: medium.
+
+#### Patch 4: Update codegen to use smaller named-root frames
+
+Goal: make the existing emitter and generator logic consume the reduced/reused named root slots correctly.
+
+Files to change:
+
+- [compiler/codegen/generator.py](../compiler/codegen/generator.py)
+- [compiler/codegen/emitter_fn.py](../compiler/codegen/emitter_fn.py)
+- [compiler/codegen/emitter_expr.py](../compiler/codegen/emitter_expr.py)
+- [compiler/codegen/emitter_stmt.py](../compiler/codegen/emitter_stmt.py)
+- [tests/compiler/codegen/test_emit_asm_runtime_roots.py](../tests/compiler/codegen/test_emit_asm_runtime_roots.py)
+- [tests/compiler/codegen/test_emit_asm_calls.py](../tests/compiler/codegen/test_emit_asm_calls.py)
+
+Tasks:
+
+1. Ensure named-root spill and clear paths consult the plan-driven `root_slot_offsets_by_local_id` values only.
+2. Keep temp-root call protection exactly as it works today.
+3. Add assembly tests showing that functions now reserve and touch fewer named root slots when liveness permits.
+4. Keep existing regression coverage for loops, array writes, runtime calls, and return paths.
+
+Why this patch is separate:
+
+- it is the first point where reduced root-slot counts become visible in emitted assembly
+- separating it from layout makes regressions easier to localize
+
+Expected review size: medium.
+
+#### Patch 5: End-to-end validation and benchmark check
+
+Goal: confirm the smaller root frames are correct under GC pressure and actually reduce generated shadow-stack state on the benchmark.
+
+Files to change:
+
+- [docs/RUNTIME_CODEGEN_HOT_PATH_PLAN.md](../docs/RUNTIME_CODEGEN_HOT_PATH_PLAN.md)
+- optionally golden metadata or test comments if any fixture needs clarification
+
+Tasks:
+
+1. Run the focused compiler tests for liveness, layout, and root-emission behavior.
+2. Run `make -C runtime test-all` even though the runtime code is unchanged, because GC/rooting correctness is what this package is trying to preserve.
+3. Rebuild and run [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) and the `solver2` benchmark.
+4. Compare root-frame sizes and touched root slots in generated assembly before and after.
+5. Record the observed deltas in the patch or PR description.
+
+Why this patch goes last:
+
+- it keeps measurement and documentation separate from mechanism changes
+- it makes the previous four patches easier to review as code-only changes
+
+Expected review size: small.
+
+### Recommended Review And Landing Sequence
+
+Use this exact sequence:
+
+1. Land patch 1 by itself.
+2. Land patch 2 and review the slot-allocation policy independently of layout.
+3. Land patch 3 and rerun `test_layout.py` plus `test_root_liveness.py`.
+4. Land patch 4 and rerun the focused codegen suite.
+5. Land patch 5 only after benchmark and GC-correctness checks are complete.
+
+### Package 2 Execution Checklist
+
+1. [x] Extend `NamedRootLiveness` with safepoint-oriented summaries.
+2. Add a `NamedRootSlotPlan` model and a greedy slot allocator.
+3. Add dedicated unit tests for slot planning.
+4. Thread the slot plan into [compiler/codegen/layout.py](../compiler/codegen/layout.py).
+5. Update layout tests to assert smaller root frames and reused slots.
+6. Update generator and emitter code to use the reduced root-slot mapping without changing temp-root behavior.
+7. Extend assembly tests to assert fewer named root slots are touched when liveness permits.
+8. Run the focused compiler tests for liveness, layout, and root emission.
+9. Run `make -C runtime test-all`.
+10. Re-run the benchmark workloads and record the generated root-frame and timing deltas.
+
 ### Testing Checklist
 
 1. Add unit coverage in [tests/compiler/codegen/test_root_liveness.py](../tests/compiler/codegen/test_root_liveness.py) for locals that are:
