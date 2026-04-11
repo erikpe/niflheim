@@ -538,10 +538,17 @@ def _clear_dead_named_roots_if_needed(
         return
 
     live_local_ids = ctx.named_root_liveness.for_stmt(stmt)
+    live_slot_indices = {
+        slot_index
+        for local_id in live_local_ids
+        for slot_index in [ctx.layout.named_root_slot_plan.for_local(local_id)]
+        if slot_index is not None
+    }
     local_ids_to_clear = frozenset(
         local_id
         for local_id in ctx.tracked_named_root_local_ids
         if local_id not in live_local_ids and local_id not in ctx.known_cleared_named_root_local_ids
+        and ctx.layout.named_root_slot_plan.for_local(local_id) not in live_slot_indices
     )
     if not local_ids_to_clear:
         return

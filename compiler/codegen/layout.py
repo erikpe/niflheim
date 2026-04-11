@@ -9,7 +9,9 @@ from compiler.codegen.effects import expr_may_execute_gc
 from compiler.codegen.runtime_calls import runtime_dispatch_call_name
 import compiler.codegen.types as codegen_types
 
-from compiler.codegen.model import FunctionLayout, LayoutSlot, TEMP_RUNTIME_ROOT_SLOT_COUNT
+from compiler.codegen.model import FunctionLayout, LayoutSlot, NamedRootSlotPlan, TEMP_RUNTIME_ROOT_SLOT_COUNT
+from compiler.codegen.root_liveness import analyze_named_root_liveness
+from compiler.codegen.root_slot_plan import build_named_root_slot_plan, build_named_root_slot_plan_from_live_local_id_sets
 from compiler.semantic.lowered_ir import (
     LoweredSemanticBlock,
     LoweredSemanticClass,
@@ -36,32 +38,47 @@ class _SlotSpec:
 
 
 def _build_function_layout(
-    slot_specs: list[_SlotSpec], *, needs_temp_runtime_roots: bool, max_call_temp_root_slots: int, max_call_scratch_slots: int
+    slot_specs: list[_SlotSpec],
+    *,
+    needs_temp_runtime_roots: bool,
+    max_call_temp_root_slots: int,
+    max_call_scratch_slots: int,
+    named_root_slot_plan=None,
 ) -> FunctionLayout:
     slot_offsets = {slot_spec.key: -(8 * index) for index, slot_spec in enumerate(slot_specs, start=1)}
     call_scratch_slot_offsets = [
         -(8 * (len(slot_specs) + index)) for index in range(1, max_call_scratch_slots + 1)
     ]
-    root_slot_keys = [
-        slot_spec.key for slot_spec in slot_specs if codegen_types.is_reference_type_ref(slot_spec.type_ref)
-    ]
-    root_slot_indices = {key: index for index, key in enumerate(root_slot_keys)}
+    named_root_slot_plan = named_root_slot_plan or NamedRootSlotPlan()
+    root_slot_indices: dict[str, int] = {}
+    next_root_slot_index = named_root_slot_plan.slot_count
+    for slot_spec in slot_specs:
+        if not codegen_types.is_reference_type_ref(slot_spec.type_ref):
+            continue
+        if slot_spec.local_id is None:
+            root_slot_indices[slot_spec.key] = next_root_slot_index
+            next_root_slot_index += 1
+            continue
+        root_slot_index = named_root_slot_plan.for_local(slot_spec.local_id)
+        if root_slot_index is not None:
+            root_slot_indices[slot_spec.key] = root_slot_index
 
     temp_root_slot_count = 0
     if needs_temp_runtime_roots:
         temp_root_slot_count = max(TEMP_RUNTIME_ROOT_SLOT_COUNT, max_call_temp_root_slots)
 
-    temp_root_slot_start_index = len(root_slot_keys)
-    root_slot_count = len(root_slot_keys) + temp_root_slot_count
+    named_root_slot_count = next_root_slot_index
+    temp_root_slot_start_index = named_root_slot_count
+    root_slot_count = named_root_slot_count + temp_root_slot_count
 
     root_slot_offsets: dict[str, int] = {}
     root_slots_base_offset = (
         -(8 * (len(slot_specs) + max_call_scratch_slots + root_slot_count)) if root_slot_count > 0 else 0
     )
-    for index, key in enumerate(root_slot_keys):
+    for key, index in root_slot_indices.items():
         root_slot_offsets[key] = root_slots_base_offset + (8 * index)
     temp_root_slot_offsets = [
-        root_slots_base_offset + (8 * (len(root_slot_keys) + index)) for index in range(temp_root_slot_count)
+        root_slots_base_offset + (8 * (named_root_slot_count + index)) for index in range(temp_root_slot_count)
     ]
 
     bytes_for_value_slots = (len(slot_specs) + max_call_scratch_slots) * 8
@@ -85,7 +102,14 @@ def _build_function_layout(
         )
         for slot_spec in slot_specs
     ]
-    root_slots = [slot for slot in slots if slot.root_index is not None and slot.root_offset is not None]
+    root_slots = sorted(
+        (slot for slot in slots if slot.root_index is not None and slot.root_offset is not None),
+        key=lambda slot: (
+            slot.root_index if slot.root_index is not None else -1,
+            slot.local_id.ordinal if slot.local_id is not None else -1,
+            slot.key,
+        ),
+    )
 
     slot_names = [slot.key for slot in slots]
     slot_type_refs = {slot.key: slot.type_ref for slot in slots}
@@ -112,10 +136,33 @@ def _build_function_layout(
         temp_root_slot_offsets=temp_root_slot_offsets,
         temp_root_slot_start_index=temp_root_slot_start_index,
         root_slot_count=root_slot_count,
+        named_root_slot_plan=named_root_slot_plan,
         thread_state_offset=thread_state_offset,
         root_frame_offset=root_frame_offset,
         stack_size=stack_size,
     )
+
+
+def _function_named_root_slot_plan(
+    owner: SemanticFunction | LoweredSemanticFunction,
+) -> NamedRootSlotPlan:
+    return build_named_root_slot_plan(analyze_named_root_liveness(owner))
+
+
+def _constructor_named_root_slot_plan(
+    constructor: SemanticConstructor | LoweredSemanticConstructor,
+) -> NamedRootSlotPlan:
+    liveness = analyze_named_root_liveness(constructor)
+    wrapper_live_local_ids = frozenset(
+        local_info.local_id
+        for local_info in constructor.local_info_by_id.values()
+        if local_info.binding_kind in {"receiver", "param"}
+        and codegen_types.is_reference_type_ref(local_info.type_ref)
+    )
+    live_local_id_sets = [*liveness.all_safepoint_live_local_id_sets()]
+    if wrapper_live_local_ids:
+        live_local_id_sets.append(wrapper_live_local_ids)
+    return build_named_root_slot_plan_from_live_local_id_sets(live_local_id_sets)
 
 
 def _align16(size: int) -> int:
@@ -667,6 +714,7 @@ def build_layout(fn: SemanticFunction | LoweredSemanticFunction) -> FunctionLayo
         needs_temp_runtime_roots=needs_temp_runtime_roots,
         max_call_temp_root_slots=max_call_temp_root_slots,
         max_call_scratch_slots=max_call_scratch_slots,
+        named_root_slot_plan=_function_named_root_slot_plan(fn),
     )
 
 
@@ -704,6 +752,7 @@ def build_constructor_layout(
             needs_temp_runtime_roots=needs_temp_runtime_roots,
             max_call_temp_root_slots=max_call_temp_root_slots,
             max_call_scratch_slots=max_call_scratch_slots,
+            named_root_slot_plan=_constructor_named_root_slot_plan(constructor),
         )
 
     slot_specs = _constructor_slot_specs(cls, ctor_layout, constructor_object_slot_name=constructor_object_slot_name)

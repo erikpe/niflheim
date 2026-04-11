@@ -75,6 +75,7 @@ class FunctionLayout:
     temp_root_slot_offsets: list[int]
     temp_root_slot_start_index: int
     root_slot_count: int
+    named_root_slot_plan: NamedRootSlotPlan
     thread_state_offset: int
     root_frame_offset: int
     stack_size: int

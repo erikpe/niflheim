@@ -6,9 +6,13 @@ from compiler.semantic.symbols import LocalId
 
 
 def build_named_root_slot_plan(liveness: NamedRootLiveness) -> NamedRootSlotPlan:
-    live_local_id_sets = tuple(
-        live_local_ids for live_local_ids in liveness.all_safepoint_live_local_id_sets() if live_local_ids
-    )
+    return build_named_root_slot_plan_from_live_local_id_sets(liveness.all_safepoint_live_local_id_sets())
+
+
+def build_named_root_slot_plan_from_live_local_id_sets(
+    live_local_id_sets: tuple[frozenset[LocalId], ...] | list[frozenset[LocalId]]
+) -> NamedRootSlotPlan:
+    live_local_id_sets = tuple(live_local_ids for live_local_ids in live_local_id_sets if live_local_ids)
     if not live_local_id_sets:
         return NamedRootSlotPlan()
 

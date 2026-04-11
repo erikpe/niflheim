@@ -112,7 +112,7 @@ fn main() -> i64 {
     assert "    mov qword ptr [rbp - 16], rsi" in sum2_body
 
 
-def test_emit_asm_function_prologue_keeps_root_slot_zeroing_for_reference_params(tmp_path) -> None:
+def test_emit_asm_function_prologue_skips_root_frame_for_reference_params_without_safepoints(tmp_path) -> None:
     source = """
 fn keep(value: Obj) -> Obj {
     return value;
@@ -132,9 +132,9 @@ fn main() -> i64 {
     assert "    mov qword ptr [rbp - 8], 0" not in keep_body
     assert "    mov qword ptr [rbp - 8], rdi" in keep_body
     assert_no_shadow_stack_runtime_helpers(keep_body)
-    assert f"    mov dword ptr [rdi + {runtime_layout.RT_ROOT_FRAME_SLOT_COUNT_OFFSET}]," in keep_body
-    assert "    mov qword ptr [rax], rdi" in keep_body
-    assert re.search(r"^\s+mov qword ptr \[rbp - \d+\], 0$", keep_body, re.MULTILINE) is not None
+    assert f"    mov dword ptr [rdi + {runtime_layout.RT_ROOT_FRAME_SLOT_COUNT_OFFSET}]," not in keep_body
+    assert "    mov qword ptr [rax], rdi" not in keep_body
+    assert re.search(r"^\s+mov qword ptr \[rbp - \d+\], 0$", keep_body, re.MULTILINE) is None
 
 
 def test_emit_asm_direct_call_with_floating_stack_args(tmp_path) -> None:

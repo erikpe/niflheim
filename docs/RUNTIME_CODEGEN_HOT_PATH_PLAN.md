@@ -368,10 +368,10 @@ Files to change:
 
 Tasks:
 
-1. Thread `NamedRootSlotPlan` into layout construction.
-2. Replace the current `root_slot_keys = all reference locals` rule with plan-driven root-slot indices.
-3. Preserve the existing temp-root allocation rules and offsets.
-4. Update layout tests to assert:
+1. [x] Thread `NamedRootSlotPlan` into layout construction.
+2. [x] Replace the current `root_slot_keys = all reference locals` rule with plan-driven root-slot indices.
+3. [x] Preserve the existing temp-root allocation rules and offsets.
+4. [x] Update layout tests to assert:
    - smaller `root_slot_count` when locals never cross safepoints
    - reused `root_index` values for non-overlapping locals
    - unchanged temp-root behavior
@@ -449,11 +449,11 @@ Use this exact sequence:
 1. [x] Extend `NamedRootLiveness` with safepoint-oriented summaries.
 2. [x] Add a `NamedRootSlotPlan` model and a greedy slot allocator.
 3. [x] Add dedicated unit tests for slot planning.
-4. Thread the slot plan into [compiler/codegen/layout.py](../compiler/codegen/layout.py).
-5. Update layout tests to assert smaller root frames and reused slots.
+4. [x] Thread the slot plan into [compiler/codegen/layout.py](../compiler/codegen/layout.py).
+5. [x] Update layout tests to assert smaller root frames and reused slots.
 6. Update generator and emitter code to use the reduced root-slot mapping without changing temp-root behavior.
 7. Extend assembly tests to assert fewer named root slots are touched when liveness permits.
-8. Run the focused compiler tests for liveness, layout, and root emission.
+8. [x] Run the focused compiler tests for liveness, layout, and root emission.
 9. Run `make -C runtime test-all`.
 10. Re-run the benchmark workloads and record the generated root-frame and timing deltas.
 

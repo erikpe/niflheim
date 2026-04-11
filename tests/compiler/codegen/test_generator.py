@@ -152,8 +152,13 @@ def test_codegen_named_root_slot_updates_can_target_specific_locals(tmp_path) ->
     _write(
         tmp_path / "main.nif",
         """
-        fn f(a: Obj, b: Obj) -> unit {
-            return;
+        extern fn rt_gc_collect(value: Obj) -> unit;
+
+        fn f(a: Obj, b: Obj) -> Obj {
+            var keep: Obj = a;
+            var dead: Obj = b;
+            rt_gc_collect(keep);
+            return keep;
         }
 
         fn main() -> i64 {
@@ -173,16 +178,16 @@ def test_codegen_named_root_slot_updates_can_target_specific_locals(tmp_path) ->
         (local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind == "param"),
         key=lambda local_info: local_info.local_id.ordinal,
     )
-    first_param = local_infos[0].local_id
-    second_param = local_infos[1].local_id
+    keep_local_id = next(local_info.local_id for local_info in fn.local_info_by_id.values() if local_info.display_name == "keep")
+    dead_local_id = next(local_info.local_id for local_info in fn.local_info_by_id.values() if local_info.display_name == "dead")
 
-    generator.emit_named_root_slot_updates(layout, local_ids={first_param})
+    generator.emit_named_root_slot_updates(layout, local_ids={keep_local_id})
 
     asm = "\n".join(generator.asm.lines)
-    assert f"    mov rax, {offset_operand(layout.local_slot_offsets[first_param])}" in asm
-    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[first_param])}, rax" in asm
-    assert f"    mov rax, {offset_operand(layout.local_slot_offsets[second_param])}" not in asm
-    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[second_param])}, rax" not in asm
+    assert f"    mov rax, {offset_operand(layout.local_slot_offsets[keep_local_id])}" in asm
+    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[keep_local_id])}, rax" in asm
+    assert dead_local_id not in layout.root_slot_offsets_by_local_id
+    assert f"    mov rax, {offset_operand(layout.local_slot_offsets[dead_local_id])}" not in asm
     assert_no_shadow_stack_runtime_helpers(asm)
 
 
@@ -190,8 +195,13 @@ def test_codegen_named_root_slot_clears_can_target_specific_locals(tmp_path) -> 
     _write(
         tmp_path / "main.nif",
         """
-        fn f(a: Obj, b: Obj) -> unit {
-            return;
+        extern fn rt_gc_collect(value: Obj) -> unit;
+
+        fn f(a: Obj, b: Obj) -> Obj {
+            var keep: Obj = a;
+            var dead: Obj = b;
+            rt_gc_collect(keep);
+            return keep;
         }
 
         fn main() -> i64 {
@@ -211,14 +221,14 @@ def test_codegen_named_root_slot_clears_can_target_specific_locals(tmp_path) -> 
         (local_info for local_info in fn.local_info_by_id.values() if local_info.binding_kind == "param"),
         key=lambda local_info: local_info.local_id.ordinal,
     )
-    first_param = local_infos[0].local_id
-    second_param = local_infos[1].local_id
+    keep_local_id = next(local_info.local_id for local_info in fn.local_info_by_id.values() if local_info.display_name == "keep")
+    dead_local_id = next(local_info.local_id for local_info in fn.local_info_by_id.values() if local_info.display_name == "dead")
 
-    generator.emit_named_root_slot_clears(layout, local_ids={first_param})
+    generator.emit_named_root_slot_clears(layout, local_ids={keep_local_id})
 
     asm = "\n".join(generator.asm.lines)
-    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[first_param])}, 0" in asm
-    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[second_param])}, 0" not in asm
+    assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[keep_local_id])}, 0" in asm
+    assert dead_local_id not in layout.root_slot_offsets_by_local_id
     assert_no_shadow_stack_runtime_helpers(asm)
 
 
@@ -226,7 +236,10 @@ def test_codegen_zero_slots_can_skip_immediately_spilled_param_slots_but_keep_ro
     _write(
         tmp_path / "main.nif",
         """
+        extern fn rt_gc_collect(value: Obj) -> unit;
+
         fn keep(value: Obj) -> Obj {
+            rt_gc_collect(value);
             return value;
         }
 

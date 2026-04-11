@@ -105,7 +105,11 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
 
     f_label = mangle_function_symbol(("main",), "f")
     assert f".L{f_label}_rt_safepoint_before_" in asm
@@ -127,7 +131,11 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
     make_body = _main_function_body(asm, "make")
 
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in make_body
@@ -169,7 +177,11 @@ fn main() -> i64 {
     return 0;
 }
 """
-    asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
     f_body = _main_function_body(asm, "f")
 
     assert "    mov qword ptr [rbp - 8], rdi" in f_body
@@ -203,7 +215,10 @@ fn main() -> i64 {
 
 def test_emit_asm_wires_shadow_stack_abi_calls_in_prologue_and_epilogue(tmp_path) -> None:
     source = """
+extern fn rt_gc_collect(value: Obj) -> unit;
+
 fn f(x: Obj) -> Obj {
+    rt_gc_collect(x);
     return x;
 }
 
@@ -242,7 +257,10 @@ fn main() -> i64 {
 
 def test_emit_asm_pushes_roots_before_trace_push_for_reference_functions(tmp_path) -> None:
     source = """
+extern fn rt_gc_collect(value: Obj) -> unit;
+
 fn f(x: Obj) -> Obj {
+    rt_gc_collect(x);
     return x;
 }
 """
@@ -465,6 +483,41 @@ fn main() -> i64 {
     assert _named_root_clear_counts(f_body) == [1, 1]
 
 
+def test_emit_asm_does_not_clear_reused_named_root_slot_while_alias_is_live(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn pick(left: Obj, right: Obj) -> Obj {
+    return left;
+}
+
+fn f(value: Obj) -> Obj {
+    var first: Obj = value;
+    var middle: Obj = value;
+    var last: Obj = null;
+    rt_gc_collect(first);
+    last = first;
+    rt_gc_collect(middle);
+    return pick(middle, last);
+}
+
+fn main() -> i64 {
+    if f(null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    f_body = _main_function_body(asm, "f")
+
+    assert "# clear dead named reference shadow-stack slots" not in f_body
+
+
 def test_emit_asm_does_not_clear_loop_carried_named_roots_inside_loop_body(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;
@@ -498,7 +551,10 @@ fn main() -> i64 {
 
 def test_emit_asm_preserves_rax_across_inline_root_pop(tmp_path) -> None:
     source = """
+extern fn rt_gc_collect(value: Obj) -> unit;
+
 fn f(x: Obj) -> Obj {
+    rt_gc_collect(x);
     return x;
 }
 """

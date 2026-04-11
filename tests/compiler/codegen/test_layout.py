@@ -39,8 +39,11 @@ def test_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) ->
 
     layout = build_layout(fn)
 
-    assert [slot.display_name for slot in layout.root_slots] == ["a"]
-    assert layout.root_slot_count >= 7
+    assert [slot.display_name for slot in layout.root_slots] == []
+    assert layout.named_root_slot_plan.slot_count == 0
+    assert layout.root_slot_count == 6
+    assert layout.temp_root_slot_start_index == 0
+    assert len(layout.temp_root_slot_offsets) == 6
     assert layout.thread_state_offset - layout.root_frame_offset == runtime_layout.RT_ROOT_FRAME_SIZE_BYTES
     assert layout.stack_size % 16 == 0
 
@@ -69,7 +72,8 @@ def test_codegen_build_layout_uses_canonical_local_type_refs_after_local_type_ca
 
     layout = build_layout(fn)
 
-    assert [slot.display_name for slot in layout.root_slots] == ["a"]
+    assert [slot.display_name for slot in layout.root_slots] == []
+    assert layout.named_root_slot_plan.slot_count == 0
     assert not hasattr(next(iter(fn.local_info_by_id.values())), "type_name")
 
 
@@ -144,10 +148,10 @@ def test_codegen_build_explicit_constructor_layout_tracks_receiver_params_and_lo
     )
 
     assert [slot.key for slot in layout.slots] == ["__self", "next", "tmp"]
-    assert [slot.key for slot in layout.root_slots] == ["__self", "next", "tmp"]
+    assert [slot.key for slot in layout.root_slots] == ["__self", "next"]
     assert CONSTRUCTOR_OBJECT_SLOT_NAME not in layout.slot_names
-    assert layout.root_slot_count >= 3
-    assert layout.temp_root_slot_start_index == 3
+    assert layout.root_slot_count == 8
+    assert layout.temp_root_slot_start_index == 2
 
 
 def test_codegen_build_layout_assigns_distinct_slots_to_shadowed_locals(tmp_path) -> None:
@@ -238,7 +242,98 @@ def test_codegen_build_layout_tracks_identity_first_slot_records(tmp_path) -> No
     assert kept_slot.display_name == "kept"
     assert param_slot.offset == layout.local_slot_offsets[param_info.local_id]
     assert kept_slot.offset == layout.local_slot_offsets[kept_info.local_id]
-    assert [slot.local_id for slot in layout.root_slots] == [param_info.local_id, kept_info.local_id]
+    assert [slot.local_id for slot in layout.root_slots] == []
+    assert layout.root_slot_count == 0
+
+
+def test_codegen_build_layout_skips_named_root_slots_for_reference_locals_without_safepoints(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        fn main(value: Obj) -> Obj {
+            var kept: Obj = value;
+            return kept;
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
+
+    layout = build_layout(fn)
+
+    assert layout.named_root_slot_plan.slot_count == 0
+    assert layout.root_slots == []
+    assert layout.root_slot_offsets_by_local_id == {}
+    assert layout.temp_root_slot_start_index == 0
+    assert layout.root_slot_count == 0
+
+
+def test_codegen_build_layout_reuses_named_root_slots_for_disjoint_safepoints(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        extern fn rt_gc_collect(value: Obj) -> unit;
+
+        fn main(value: Obj) -> Obj {
+            var first: Obj = value;
+            rt_gc_collect(first);
+            var second: Obj = first;
+            rt_gc_collect(second);
+            return second;
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
+
+    layout = build_layout(fn)
+    first_info = next(local_info for local_info in fn.local_info_by_id.values() if local_info.display_name == "first")
+    second_info = next(local_info for local_info in fn.local_info_by_id.values() if local_info.display_name == "second")
+    first_slot = next(slot for slot in layout.root_slots if slot.local_id == first_info.local_id)
+    second_slot = next(slot for slot in layout.root_slots if slot.local_id == second_info.local_id)
+
+    assert layout.named_root_slot_plan.slot_count == 1
+    assert first_slot.root_index == second_slot.root_index == 0
+    assert first_slot.root_offset == second_slot.root_offset
+    assert layout.temp_root_slot_start_index == 1
+    assert len(layout.temp_root_slot_offsets) == 6
+
+
+def test_codegen_build_layout_orders_root_slots_by_physical_slot_index(tmp_path) -> None:
+    source = tmp_path / "main.nif"
+    source.write_text(
+        """
+        extern fn rt_gc_collect(value: Obj) -> unit;
+
+        fn pick(left: Obj, right: Obj) -> Obj {
+            return left;
+        }
+
+        fn main(value: Obj) -> Obj {
+            var first: Obj = value;
+            var middle: Obj = value;
+            var last: Obj = null;
+            rt_gc_collect(first);
+            last = first;
+            rt_gc_collect(middle);
+            return pick(middle, last);
+        }
+        """.strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    program = lower_linked_semantic_program(link_semantic_program(lower_program(resolve_program(source, project_root=tmp_path))))
+    fn = next(fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "main")
+
+    layout = build_layout(fn)
+
+    assert [slot.display_name for slot in layout.root_slots] == ["middle", "first", "last"]
+    assert [slot.root_index for slot in layout.root_slots] == [0, 1, 1]
+    assert layout.root_slots[0].root_offset == min(slot.root_offset for slot in layout.root_slots if slot.root_offset is not None)
 
 
 def test_codegen_build_layout_allocates_call_scratch_slots_for_nested_register_only_direct_calls(tmp_path) -> None:
