@@ -117,6 +117,8 @@ Expected review size: small.
 
 #### Patch 2: Inline root-frame setup in function and constructor prologues
 
+Status: implemented on the current branch.
+
 Goal: remove `rt_root_frame_init` and `rt_push_roots` calls from generated code while keeping the same shadow-stack semantics.
 
 Files to change:

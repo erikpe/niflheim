@@ -1,5 +1,6 @@
 import re
 
+from compiler.codegen.abi import runtime_layout
 from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS
 from compiler.codegen.symbols import mangle_function_symbol
 from tests.compiler.codegen.helpers import emit_source_asm
@@ -130,7 +131,9 @@ fn main() -> i64 {
 
     assert "    mov qword ptr [rbp - 8], 0" not in keep_body
     assert "    mov qword ptr [rbp - 8], rdi" in keep_body
-    assert "    call rt_root_frame_init" in keep_body
+    assert "    call rt_root_frame_init" not in keep_body
+    assert f"    mov dword ptr [rdi + {runtime_layout.RT_ROOT_FRAME_SLOT_COUNT_OFFSET}]," in keep_body
+    assert "    mov qword ptr [rax], rdi" in keep_body
     assert re.search(r"^\s+mov qword ptr \[rbp - \d+\], 0$", keep_body, re.MULTILINE) is not None
 
 

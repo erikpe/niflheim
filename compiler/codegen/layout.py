@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from compiler.codegen.abi import runtime_layout
 from compiler.codegen.abi.runtime import ARRAY_LEN_RUNTIME_CALL, runtime_call_metadata
 from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.effects import expr_may_execute_gc
@@ -66,10 +67,10 @@ def _build_function_layout(
     bytes_for_value_slots = (len(slot_specs) + max_call_scratch_slots) * 8
     bytes_for_root_slots = root_slot_count * 8
     thread_state_offset = -(bytes_for_value_slots + bytes_for_root_slots + 8)
-    root_frame_offset = thread_state_offset - 24 if root_slot_count > 0 else 0
+    root_frame_offset = thread_state_offset - runtime_layout.RT_ROOT_FRAME_SIZE_BYTES if root_slot_count > 0 else 0
 
     bytes_for_thread_state = 8
-    bytes_for_root_frame = 24 if root_slot_count > 0 else 0
+    bytes_for_root_frame = runtime_layout.RT_ROOT_FRAME_SIZE_BYTES if root_slot_count > 0 else 0
     stack_size = _align16(bytes_for_value_slots + bytes_for_root_slots + bytes_for_thread_state + bytes_for_root_frame)
 
     slots = [

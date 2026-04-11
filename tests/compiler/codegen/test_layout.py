@@ -1,5 +1,6 @@
 import pytest
 
+from compiler.codegen.abi import runtime_layout
 from compiler.codegen.layout import build_constructor_layout, build_layout
 from compiler.codegen.model import CONSTRUCTOR_OBJECT_SLOT_NAME
 from compiler.codegen.program_generator import ProgramGenerator
@@ -40,6 +41,7 @@ def test_codegen_build_layout_tracks_reference_roots_and_temp_roots(tmp_path) ->
 
     assert [slot.display_name for slot in layout.root_slots] == ["a"]
     assert layout.root_slot_count >= 7
+    assert layout.thread_state_offset - layout.root_frame_offset == runtime_layout.RT_ROOT_FRAME_SIZE_BYTES
     assert layout.stack_size % 16 == 0
 
 
@@ -102,6 +104,7 @@ def test_codegen_build_constructor_layout_tracks_params_and_allocated_object_roo
     assert [slot.key for slot in layout.slots] == ["next", CONSTRUCTOR_OBJECT_SLOT_NAME]
     assert [slot.key for slot in layout.root_slots] == ["next", CONSTRUCTOR_OBJECT_SLOT_NAME]
     assert layout.root_slot_count == 2
+    assert layout.thread_state_offset - layout.root_frame_offset == runtime_layout.RT_ROOT_FRAME_SIZE_BYTES
     assert layout.stack_size % 16 == 0
 
 

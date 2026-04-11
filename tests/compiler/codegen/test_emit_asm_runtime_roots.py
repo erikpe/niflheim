@@ -65,6 +65,22 @@ def _assert_in_order(text: str, snippets: list[str]) -> None:
         position = next_position
 
 
+def _assert_inline_root_frame_setup(text: str, *, root_count_pattern: str = r"\d+") -> None:
+    pattern = (
+        r"    call rt_thread_state\n"
+        r"    mov qword ptr \[rbp - \d+\], rax\n"
+        r"    lea rdi, \[rbp - \d+\]\n"
+        r"    mov rcx, qword ptr \[rax\]\n"
+        r"    mov qword ptr \[rdi\], rcx\n"
+        + fr"    mov dword ptr \[rdi \+ 8\], {root_count_pattern}\n"
+        + r"    mov dword ptr \[rdi \+ 12\], 0\n"
+        r"    lea rcx, \[rbp - \d+\]\n"
+        r"    mov qword ptr \[rdi \+ 16\], rcx\n"
+        r"    mov qword ptr \[rax\], rdi\n"
+    )
+    assert re.search(pattern, text), text
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;
@@ -192,15 +208,15 @@ fn main() -> i64 {
     f_body = _main_function_with_epilogue(asm, "f")
 
     assert "    call rt_thread_state" in asm
-    assert "    call rt_root_frame_init" in asm
-    assert "    call rt_push_roots" in asm
+    assert "    call rt_root_frame_init" not in asm
+    assert "    call rt_push_roots" not in asm
     assert "    call rt_pop_roots" in asm
+    _assert_inline_root_frame_setup(f_body)
     _assert_in_order(
         f_body,
         [
             "    call rt_thread_state",
-            "    call rt_root_frame_init",
-            "    call rt_push_roots",
+            "    mov qword ptr [rax], rdi",
             "    call rt_trace_push",
         ],
     )
@@ -223,10 +239,17 @@ fn f(x: Obj) -> Obj {
 """
     source += "\nfn main() -> i64 { if f(null) == null { return 0; } return 1; }\n"
     asm = emit_source_asm(tmp_path, source)
+    f_body = _main_function_body(asm, "f")
 
-    push_roots_i = asm.index("    call rt_push_roots")
-    trace_push_i = asm.index("    call rt_trace_push")
-    assert push_roots_i < trace_push_i
+    _assert_inline_root_frame_setup(f_body)
+    _assert_in_order(
+        f_body,
+        [
+            "    call rt_thread_state",
+            "    mov qword ptr [rax], rdi",
+            "    call rt_trace_push",
+        ],
+    )
 
 
 def test_emit_asm_keeps_trace_push_for_functions_without_roots(tmp_path) -> None:
@@ -285,12 +308,12 @@ fn main() -> i64 {
     assert ctor_label in asm
     ctor_start = asm.index(ctor_label)
     ctor_body = asm[ctor_start:]
+    _assert_inline_root_frame_setup(ctor_body)
     _assert_in_order(
         ctor_body,
         [
             "    call rt_thread_state",
-            "    call rt_root_frame_init",
-            "    call rt_push_roots",
+            "    mov qword ptr [rax], rdi",
             "    call rt_trace_push",
         ],
     )
@@ -315,9 +338,10 @@ fn main() -> i64 {
     ctor_end = asm.index(".L__nif_ctor_main__Counter_epilogue:")
     ctor_body = asm[ctor_start:ctor_end]
 
-    assert "    call rt_root_frame_init" in ctor_body
-    assert "    call rt_push_roots" in ctor_body
+    assert "    call rt_root_frame_init" not in ctor_body
+    assert "    call rt_push_roots" not in ctor_body
     assert "    call rt_pop_roots" not in ctor_body
+    _assert_inline_root_frame_setup(ctor_body)
 
 
 def test_emit_asm_omits_shadow_stack_abi_when_no_named_slots(tmp_path) -> None:
