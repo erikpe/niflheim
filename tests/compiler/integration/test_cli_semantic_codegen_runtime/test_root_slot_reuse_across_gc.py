@@ -90,7 +90,16 @@ fn main() -> i64 {
 """
 
 
-@pytest.mark.parametrize("extra_args", [["--omit-runtime-trace"], ["--omit-runtime-trace", "--skip-optimize"]])
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        [],
+        ["--omit-runtime-trace"],
+        ["--skip-optimize"],
+        ["--omit-runtime-trace", "--skip-optimize"],
+    ],
+    ids=["default", "no_trace", "skip_optimize", "no_trace_skip_optimize"],
+)
 def test_cli_semantic_codegen_runs_root_slot_reuse_across_forced_gc(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extra_args: list[str]
 ) -> None:

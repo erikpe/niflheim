@@ -5,3 +5,32 @@ tests:
     runs:
       - {name: "shared_slot_alias_survives_forced_gc", input: {args: ["1"]}, expect: {exit_code: 0}}
       - {name: "repeated_shared_slot_reuse", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - {name: "branchy_nested_slot_reuse", input: {args: ["3"]}, expect: {exit_code: 0}}
+      - {name: "large_root_slot_reuse_stress", input: {args: ["4"]}, expect: {exit_code: 0}}
+  - mode: "run"
+    name: "test_root_slot_reuse_no_trace"
+    src_file: "test_root_slot_reuse.nif"
+    build_args: ["--omit-runtime-trace"]
+    runs:
+      - {name: "shared_slot_alias_survives_forced_gc", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "repeated_shared_slot_reuse", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - {name: "branchy_nested_slot_reuse", input: {args: ["3"]}, expect: {exit_code: 0}}
+      - {name: "large_root_slot_reuse_stress", input: {args: ["4"]}, expect: {exit_code: 0}}
+  - mode: "run"
+    name: "test_root_slot_reuse_skip_optimize"
+    src_file: "test_root_slot_reuse.nif"
+    build_args: ["--skip-optimize"]
+    runs:
+      - {name: "shared_slot_alias_survives_forced_gc", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "repeated_shared_slot_reuse", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - {name: "branchy_nested_slot_reuse", input: {args: ["3"]}, expect: {exit_code: 0}}
+      - {name: "large_root_slot_reuse_stress", input: {args: ["4"]}, expect: {exit_code: 0}}
+  - mode: "run"
+    name: "test_root_slot_reuse_no_trace_skip_optimize"
+    src_file: "test_root_slot_reuse.nif"
+    build_args: ["--omit-runtime-trace", "--skip-optimize"]
+    runs:
+      - {name: "shared_slot_alias_survives_forced_gc", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "repeated_shared_slot_reuse", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - {name: "branchy_nested_slot_reuse", input: {args: ["3"]}, expect: {exit_code: 0}}
+      - {name: "large_root_slot_reuse_stress", input: {args: ["4"]}, expect: {exit_code: 0}}

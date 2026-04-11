@@ -12,6 +12,20 @@ fn choose_last(left: Box, right: Box) -> Box {
     return right;
 }
 
+fn choose_by_flag(flag: bool, left: Box, right: Box) -> Box {
+    rt_gc_collect();
+    if flag {
+        return left;
+    }
+    return right;
+}
+
+fn nested_choose(flag: bool, left: Box, right: Box) -> Box {
+    var picked: Box = choose_by_flag(flag, left, right);
+    rt_gc_collect();
+    return picked;
+}
+
 fn test_shared_slot_alias_survives_forced_gc() -> unit {
     var first: Box = Box(41);
     var middle: Box = Box(99);
@@ -40,6 +54,52 @@ fn test_repeated_shared_slot_reuse() -> unit {
     }
 }
 
+fn test_branchy_nested_slot_reuse() -> unit {
+    var first: Box = Box(17);
+    var second: Box = Box(23);
+    var selected: Box = null;
+    var alias: Box = null;
+    var take_first: bool = true;
+
+    if take_first {
+        selected = first;
+    } else {
+        selected = second;
+    }
+
+    rt_gc_collect();
+    alias = selected;
+
+    if alias.value == 17 {
+        selected = second;
+    } else {
+        selected = first;
+    }
+
+    rt_gc_collect();
+
+    var kept: Box = nested_choose(true, alias, selected);
+    assert_false(kept == null);
+    assert_eq_i64(kept.value, 17);
+    assert_false(alias == null);
+    assert_eq_i64(alias.value, 17);
+    assert_false(selected == null);
+    assert_eq_i64(selected.value, 23);
+
+    rt_gc_collect();
+    assert_false(alias == null);
+    assert_eq_i64(alias.value, 17);
+}
+
+fn test_large_root_slot_reuse_stress() -> unit {
+    var i: i64 = 0;
+    while i < 2000 {
+        test_shared_slot_alias_survives_forced_gc();
+        test_branchy_nested_slot_reuse();
+        i = i + 1;
+    }
+}
+
 fn main() -> i64 {
     var select: u64 = read_program_args()[1].to_u64();
 
@@ -49,6 +109,14 @@ fn main() -> i64 {
     }
     if select == 2u {
         test_repeated_shared_slot_reuse();
+        return 0;
+    }
+    if select == 3u {
+        test_branchy_nested_slot_reuse();
+        return 0;
+    }
+    if select == 4u {
+        test_large_root_slot_reuse_stress();
         return 0;
     }
 
