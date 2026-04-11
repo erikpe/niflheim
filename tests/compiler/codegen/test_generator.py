@@ -276,3 +276,37 @@ def test_codegen_runtime_root_layout_helpers_match_runtime_abi() -> None:
     assert generator.root_frame_reserved_operand("rsi") == "dword ptr [rsi + 12]"
     assert generator.root_frame_slots_operand("rsi") == "qword ptr [rsi + 16]"
 
+
+def test_codegen_emit_root_frame_pop_restores_previous_shadow_stack_top(tmp_path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        fn keep(value: Obj) -> Obj {
+            return value;
+        }
+
+        fn main() -> i64 {
+            if keep(null) == null {
+                return 0;
+            }
+            return 1;
+        }
+        """,
+    )
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    fn = next(
+        fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "keep"
+    )
+    layout = build_layout(fn)
+    generator = CodeGenerator()
+
+    generator.emit_root_frame_pop(layout)
+
+    asm = "\n".join(generator.asm.lines)
+    assert f"    mov rdi, {offset_operand(layout.thread_state_offset)}" in asm
+    assert f"    lea rcx, [rbp - {abs(layout.root_frame_offset)}]" in asm
+    assert "    mov rcx, qword ptr [rcx]" in asm
+    assert "    mov qword ptr [rdi], rcx" in asm
+

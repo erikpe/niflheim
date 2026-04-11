@@ -147,6 +147,8 @@ Expected review size: medium.
 
 #### Patch 3: Inline root popping in both epilogues
 
+Status: implemented on the current branch.
+
 Goal: remove `rt_pop_roots` calls from generated returns without changing return-value preservation.
 
 Files to change:

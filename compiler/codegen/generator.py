@@ -219,6 +219,12 @@ class CodeGenerator:
         self.asm.instr(f"mov {self.root_frame_slots_operand('rdi')}, rcx")
         self.asm.instr(f"mov {self.thread_state_roots_top_operand('rax')}, rdi")
 
+    def emit_root_frame_pop(self, layout: FunctionLayout) -> None:
+        self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
+        self.asm.instr(f"lea rcx, [rbp - {abs(layout.root_frame_offset)}]")
+        self.asm.instr(f"mov rcx, {self.root_frame_prev_operand('rcx')}")
+        self.asm.instr(f"mov {self.thread_state_roots_top_operand('rdi')}, rcx")
+
     def emit_function_epilogue(self, layout: FunctionLayout, return_type_ref: SemanticTypeRef) -> None:
         return_type_name = semantic_type_canonical_name(return_type_ref)
         if return_type_name == TYPE_NAME_DOUBLE:
@@ -227,8 +233,7 @@ class CodeGenerator:
         else:
             self.emit_push("rax")
         if layout.root_slot_count > 0:
-            self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
-            self.asm.instr("call rt_pop_roots")
+            self.emit_root_frame_pop(layout)
         if self.runtime_trace_enabled:
             self.asm.instr("call rt_trace_pop")
         if return_type_name == TYPE_NAME_DOUBLE:
@@ -243,8 +248,7 @@ class CodeGenerator:
     def emit_ref_epilogue(self, layout: FunctionLayout) -> None:
         self.emit_push("rax")
         if layout.root_slot_count > 0:
-            self.asm.instr(f"mov rdi, {offset_operand(layout.thread_state_offset)}")
-            self.asm.instr("call rt_pop_roots")
+            self.emit_root_frame_pop(layout)
         if self.runtime_trace_enabled:
             self.asm.instr("call rt_trace_pop")
         self.emit_pop("rax")

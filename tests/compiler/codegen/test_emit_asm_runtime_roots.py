@@ -81,6 +81,16 @@ def _assert_inline_root_frame_setup(text: str, *, root_count_pattern: str = r"\d
     assert re.search(pattern, text), text
 
 
+def _assert_inline_root_frame_pop(text: str) -> None:
+    pattern = (
+        r"    mov rdi, qword ptr \[rbp - \d+\]\n"
+        r"    lea rcx, \[rbp - \d+\]\n"
+        r"    mov rcx, qword ptr \[rcx\]\n"
+        r"    mov qword ptr \[rdi\], rcx\n"
+    )
+    assert re.search(pattern, text), text
+
+
 def test_emit_asm_runtime_call_has_safepoint_hooks(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;
@@ -210,8 +220,9 @@ fn main() -> i64 {
     assert "    call rt_thread_state" in asm
     assert "    call rt_root_frame_init" not in asm
     assert "    call rt_push_roots" not in asm
-    assert "    call rt_pop_roots" in asm
+    assert "    call rt_pop_roots" not in asm
     _assert_inline_root_frame_setup(f_body)
+    _assert_inline_root_frame_pop(f_body)
     _assert_in_order(
         f_body,
         [
@@ -224,7 +235,7 @@ fn main() -> i64 {
         f_body,
         [
             "    push rax",
-            "    call rt_pop_roots",
+            "    mov qword ptr [rdi], rcx",
             "    call rt_trace_pop",
             "    pop rax",
         ],
@@ -493,7 +504,7 @@ fn main() -> i64 {
     assert "# clear dead named reference shadow-stack slots" not in loop_body
 
 
-def test_emit_asm_preserves_rax_across_rt_pop_roots(tmp_path) -> None:
+def test_emit_asm_preserves_rax_across_inline_root_pop(tmp_path) -> None:
     source = """
 fn f(x: Obj) -> Obj {
     return x;
@@ -501,11 +512,12 @@ fn f(x: Obj) -> Obj {
 """
     source += "\nfn main() -> i64 { if f(null) == null { return 0; } return 1; }\n"
     asm = emit_source_asm(tmp_path, source)
+    f_body = _main_function_with_epilogue(asm, "f")
 
-    push_i = asm.index("    push rax")
-    pop_call_i = asm.index("    call rt_pop_roots")
-    pop_i = asm.index("    pop rax")
-    assert push_i < pop_call_i < pop_i
+    push_i = f_body.index("    push rax")
+    pop_restore_i = f_body.rindex("    mov qword ptr [rdi], rcx")
+    pop_i = f_body.index("    pop rax")
+    assert push_i < pop_restore_i < pop_i
 
 
 def test_emit_asm_non_runtime_call_has_no_runtime_hooks(tmp_path) -> None:
