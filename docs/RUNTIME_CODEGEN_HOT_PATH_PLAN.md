@@ -542,6 +542,171 @@ Optional stage 2 files if intrusive metadata is still needed:
 5. Only if needed, implement intrusive tracking as a separate follow-up.
    If profiling still shows tracking-node overhead is substantial, add a `gc_next` pointer to `RtObjHeader` in [runtime/include/runtime.h](../runtime/include/runtime.h) and remove the separate `RtTrackedObject` node type. Do not land this in the same patch as pooling.
 
+### Implementation Task List And Estimated Patch Order
+
+The safest way to land package 3 is as three small patches plus one optional follow-up.
+
+#### Patch 1: Add tracking-pool observability and lock in tests
+
+Status: implemented on the current branch.
+
+Goal: create a small measurement and test surface for tracked-node reuse before changing allocation behavior.
+
+Files to change:
+
+- [runtime/include/gc.h](../runtime/include/gc.h)
+- [runtime/src/gc.c](../runtime/src/gc.c)
+- [runtime/Makefile](../runtime/Makefile)
+- `tests/runtime/test_gc_tracking_pool.c`
+- [tests/runtime/test_gc_stress.c](../tests/runtime/test_gc_stress.c)
+
+Tasks:
+
+1. [x] Add a tiny stats/debug surface for tracked-node allocation behavior, for example pool hits, pool misses, chunk allocations, and nodes returned.
+2. [x] Keep that surface runtime-local and opt-in so normal callers do not have to know about pooling internals.
+3. [x] Add a focused runtime test that can assert reuse once pooling exists, even if the first patch still reports zero hits.
+4. [x] Keep this patch behavior-preserving.
+
+Validation note on the current branch:
+
+- the new tracking-pool stats surface lives in [runtime/include/gc.h](../runtime/include/gc.h) and [runtime/src/gc.c](../runtime/src/gc.c)
+- the focused runtime regression lives in `tests/runtime/test_gc_tracking_pool.c`
+- `make -C runtime test-all` passes with the new test included
+
+Why this patch goes first:
+
+- it gives later pooling changes a concrete assertion surface
+- it keeps the first review small and mostly diagnostic
+- it reduces the chance of arguing about performance improvements without measurement hooks
+
+Expected review size: small.
+
+#### Patch 2: Introduce pooled `RtTrackedObject` allocation
+
+Status: implemented on the current branch.
+
+Goal: replace one-`malloc`-per-tracking-node allocation with a chunked free-list while leaving object payload allocation alone.
+
+Files to change:
+
+- [runtime/src/gc.c](../runtime/src/gc.c)
+- [runtime/include/gc.h](../runtime/include/gc.h)
+- `tests/runtime/test_gc_tracking_pool.c`
+- [tests/runtime/test_gc_stress.c](../tests/runtime/test_gc_stress.c)
+
+Tasks:
+
+1. [x] Add a free-list for `RtTrackedObject` nodes.
+2. [x] Add chunk allocation when the free-list is empty instead of calling `malloc(sizeof(RtTrackedObject))` for every tracked object.
+3. [x] Keep the tracked-object linked-list semantics unchanged so mark/sweep traversal logic does not have to be redesigned.
+4. [x] Route `rt_gc_track_allocation` through the new pool allocator.
+5. [x] Update the new runtime test so it proves the pool is actually being exercised.
+
+Validation note on the current branch:
+
+- tracked-node allocation now uses a chunk-backed free-list in [runtime/src/gc.c](../runtime/src/gc.c)
+- `tests/runtime/test_gc_tracking_pool.c` now asserts observable pool hits and chunk refill behavior
+- `make -C runtime test-gc-tracking-pool` and `make -C runtime test-all` pass
+
+Why this patch is separate:
+
+- it is the core mechanism change for package 3
+- it can be reviewed without mixing in sweep-policy or intrusive-layout changes
+- it limits the correctness surface to allocation and bookkeeping, not collection semantics
+
+Expected review size: medium.
+
+#### Patch 3: Return nodes to the pool during sweep and validate benchmark impact
+
+Status: implemented on the current branch.
+
+Goal: complete the reuse loop by recycling tracked nodes during collection and reset paths, then measure the end-to-end effect.
+
+Files to change:
+
+- [runtime/src/gc.c](../runtime/src/gc.c)
+- [runtime/Makefile](../runtime/Makefile)
+- `tests/runtime/test_gc_tracking_pool.c`
+- [tests/runtime/test_gc_stress.c](../tests/runtime/test_gc_stress.c)
+- [docs/RUNTIME_CODEGEN_HOT_PATH_PLAN.md](../docs/RUNTIME_CODEGEN_HOT_PATH_PLAN.md)
+
+Tasks:
+
+1. [x] Return swept `RtTrackedObject` nodes to the pool instead of freeing them immediately.
+2. [x] Make `rt_gc_reset_state` and any test-only reset path release pooled chunks cleanly so the runtime does not leak memory across test processes.
+3. [x] Tighten tests so repeated allocate/sweep cycles with a stable live set show reuse instead of steady node allocation churn.
+4. [x] Re-run the benchmark and compare `_int_malloc`, `_int_free`, and `rt_gc_track_allocation` flat samples against the package 2 baseline.
+5. [x] Record the before/after benchmark note in the patch or PR description.
+
+Validation note on the current branch:
+
+- swept tracked nodes are now returned to the free-list in [runtime/src/gc.c](../runtime/src/gc.c), and `rt_gc_reset_state` still releases pooled chunks cleanly
+- `tests/runtime/test_gc_tracking_pool.c` now proves post-collection reuse without requiring new chunk allocations, and [tests/runtime/test_gc_stress.c](../tests/runtime/test_gc_stress.c) now covers repeated allocate/collect cycles with stable chunk usage
+- `make -C runtime test-gc-tracking-pool`, `make -C runtime test`, and `make -C runtime test-all` pass
+- a no-runtime-trace profile build of [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) completes successfully with `RESULT:20172`, `/usr/bin/time` elapsed time of about `0.80s`, and `perf stat -d` elapsed time of about `0.80s`
+- compared with the package 2 baseline on the same workload, allocator-side flat samples move materially in the expected direction:
+   - `_int_free`: about `5.10%` to about `2.49%`
+   - `_int_malloc`: about `4.58%` to about `1.36%`
+   - `rt_gc_track_allocation`: now visible at about `2.18%`, but still below the tracked-set and collection hotspots
+- the remaining top flat samples are still `rt_tracked_set_find_slot.constprop.0` and `rt_gc_collect`, which is consistent with package 3 reducing tracked-node allocation churn without changing the tracked-set or collector algorithms yet
+
+Why this patch goes last in stage 1:
+
+- recycling on sweep is where correctness bugs are most likely to hide
+- keeping measurement in the same patch makes it obvious whether the completed pool moved the hotspot enough
+- it keeps cleanup informed by the actual final mechanism rather than by scaffolding assumptions
+
+Expected review size: medium.
+
+#### Patch 4: Optional intrusive metadata follow-up only if pooling is insufficient
+
+Goal: remove the separate `RtTrackedObject` node type entirely, but only if stage 1 pooling still leaves tracked-node overhead materially visible.
+
+Files to change:
+
+- [runtime/include/runtime.h](../runtime/include/runtime.h)
+- [runtime/include/gc.h](../runtime/include/gc.h)
+- [runtime/src/runtime.c](../runtime/src/runtime.c)
+- [runtime/src/gc.c](../runtime/src/gc.c)
+- [tests/runtime/test_gc_stress.c](../tests/runtime/test_gc_stress.c)
+- `tests/runtime/test_gc_tracking_pool.c`
+
+Tasks:
+
+1. Add intrusive GC list linkage to `RtObjHeader`.
+2. Remove the separate tracked-node allocation path and update mark/sweep traversal accordingly.
+3. Add structure-layout and reset-path assertions so the new object-header contract stays explicit.
+4. Re-run the full runtime suite and benchmark validation again before deciding whether the extra complexity is justified.
+
+Why this patch is optional and last:
+
+- it changes core runtime object layout rather than staying local to GC bookkeeping
+- it is harder to revert and easier to get subtly wrong than stage 1 pooling
+- the document's intended path is to stop after pooling if the profile has already moved enough
+
+Expected review size: medium to large.
+
+### Recommended Review And Landing Sequence
+
+Use this exact sequence:
+
+1. Land patch 1 by itself.
+2. Land patch 2 and rerun the new pool-focused runtime tests plus `test_gc_stress.c`.
+3. Land patch 3 and rerun `make -C runtime test-all`, then re-profile the benchmark.
+4. Only do patch 4 if the package 3 profile still shows tracked-node allocation overhead as a significant remaining hotspot.
+
+### Package 3 Execution Checklist
+
+1. [x] Add a minimal tracked-node pool stats surface.
+2. [x] Add `tests/runtime/test_gc_tracking_pool.c`.
+3. [x] Route `rt_gc_track_allocation` through a pooled tracked-node allocator.
+4. [x] Recycle tracked nodes during sweep and reset-state paths.
+5. [x] Extend runtime stress coverage for repeated allocate/sweep cycles.
+6. [x] Run `make -C runtime test-all`.
+7. [x] Rebuild [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) with `NIF_PROFILE_BUILD=1` and `--omit-runtime-trace`.
+8. [x] Compare `_int_malloc`, `_int_free`, and `rt_gc_track_allocation` against the package 2 baseline.
+9. Stop after stage 1 if the tracked-node hotspot moves enough; only then consider intrusive metadata.
+
 ### Testing Checklist
 
 1. Add a runtime unit test that allocates many small objects, forces multiple collections, and asserts tracking-node reuse is exercised.

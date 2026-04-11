@@ -275,6 +275,42 @@ static void test_high_churn_stabilizes(void) {
 }
 
 
+static void test_repeated_collect_reuses_tracking_nodes(void) {
+    rt_gc_reset_state();
+    rt_gc_reset_tracking_pool_stats();
+
+    alloc_leaf(1);
+    RtGcTrackingPoolStats first_stats = rt_gc_get_tracking_pool_stats();
+    uint64_t inferred_chunk_capacity = first_stats.available_nodes + 1;
+
+    rt_gc_reset_state();
+    rt_gc_reset_tracking_pool_stats();
+
+    uint64_t round_allocation_count = inferred_chunk_capacity + 8;
+    uint64_t expected_chunk_allocations = 0;
+    for (uint64_t round = 0; round < 4; round++) {
+        for (uint64_t index = 0; index < round_allocation_count; index++) {
+            alloc_leaf((round * round_allocation_count) + index);
+        }
+        rt_gc_collect();
+
+        RtGcTrackingPoolStats stats = rt_gc_get_tracking_pool_stats();
+        if (round == 0) {
+            expected_chunk_allocations = stats.chunk_allocations;
+            if (expected_chunk_allocations == 0) {
+                fail("first churn round should allocate at least one tracked-object chunk");
+            }
+        } else if (stats.chunk_allocations != expected_chunk_allocations) {
+            fail("repeated allocate/collect cycles should reuse tracked nodes without allocating more chunks");
+        }
+    }
+
+    RtGcStats final_stats = rt_gc_get_stats();
+    assert_u64_eq(final_stats.tracked_object_count, 0, "repeated tracking-node reuse test should end with zero live objects");
+    rt_gc_reset_state();
+}
+
+
 int main(void) {
     rt_init();
 
@@ -286,6 +322,7 @@ int main(void) {
     test_collect_without_explicit_argument();
     test_threshold_trigger_under_pressure();
     test_high_churn_stabilizes();
+    test_repeated_collect_reuses_tracking_nodes();
 
     rt_shutdown();
     puts("test_gc_stress: ok");

@@ -13,6 +13,12 @@ typedef struct RtTrackedObject {
 } RtTrackedObject;
 
 
+typedef struct RtTrackedObjectChunk {
+    struct RtTrackedObjectChunk* next;
+    RtTrackedObject nodes[];
+} RtTrackedObjectChunk;
+
+
 typedef struct RtGlobalRoot {
     void** slot;
     struct RtGlobalRoot* next;
@@ -20,16 +26,20 @@ typedef struct RtGlobalRoot {
 
 
 static RtTrackedObject* g_tracked_objects = NULL;
+static RtTrackedObject* g_tracked_object_free_list = NULL;
+static RtTrackedObjectChunk* g_tracked_object_chunks = NULL;
 static RtGlobalRoot* g_global_roots = NULL;
 static uint64_t g_allocated_bytes = 0;
 static uint64_t g_live_bytes = 0;
 static uint64_t g_next_gc_threshold = 64u * 1024u;
 static uint64_t g_tracked_object_count = 0;
+static RtGcTrackingPoolStats g_tracking_pool_stats = {0};
 
 enum {
     RT_GC_MIN_THRESHOLD_BYTES = 64u * 1024u,
     RT_GC_GROWTH_NUM = 2u,
     RT_GC_GROWTH_DEN = 1u,
+    RT_GC_TRACKED_OBJECTS_PER_CHUNK = 64u,
 };
 
 
@@ -55,6 +65,74 @@ static void rt_update_threshold_from_live(uint64_t live_bytes) {
         next = RT_GC_MIN_THRESHOLD_BYTES;
     }
     g_next_gc_threshold = next;
+}
+
+
+static void rt_gc_allocate_tracked_object_chunk(void) {
+    size_t chunk_bytes = sizeof(RtTrackedObjectChunk) + (sizeof(RtTrackedObject) * RT_GC_TRACKED_OBJECTS_PER_CHUNK);
+    RtTrackedObjectChunk* chunk = (RtTrackedObjectChunk*)malloc(chunk_bytes);
+    if (chunk == NULL) {
+        rt_panic_oom();
+    }
+
+    chunk->next = g_tracked_object_chunks;
+    g_tracked_object_chunks = chunk;
+
+    for (uint32_t index = 0; index < RT_GC_TRACKED_OBJECTS_PER_CHUNK; index++) {
+        RtTrackedObject* node = &chunk->nodes[index];
+        node->obj = NULL;
+        node->next = g_tracked_object_free_list;
+        g_tracked_object_free_list = node;
+    }
+
+    g_tracking_pool_stats.chunk_allocations = rt_saturating_add_u64(g_tracking_pool_stats.chunk_allocations, 1);
+    g_tracking_pool_stats.available_nodes = rt_saturating_add_u64(
+        g_tracking_pool_stats.available_nodes,
+        RT_GC_TRACKED_OBJECTS_PER_CHUNK
+    );
+}
+
+
+static RtTrackedObject* rt_gc_acquire_tracked_object_node(void) {
+    g_tracking_pool_stats.allocation_requests = rt_saturating_add_u64(g_tracking_pool_stats.allocation_requests, 1);
+
+    if (g_tracked_object_free_list == NULL) {
+        g_tracking_pool_stats.pool_misses = rt_saturating_add_u64(g_tracking_pool_stats.pool_misses, 1);
+        rt_gc_allocate_tracked_object_chunk();
+    } else {
+        g_tracking_pool_stats.pool_hits = rt_saturating_add_u64(g_tracking_pool_stats.pool_hits, 1);
+    }
+
+    RtTrackedObject* node = g_tracked_object_free_list;
+    if (node == NULL) {
+        rt_panic_oom();
+    }
+
+    g_tracked_object_free_list = node->next;
+    node->obj = NULL;
+    node->next = NULL;
+    if (g_tracking_pool_stats.available_nodes > 0) {
+        g_tracking_pool_stats.available_nodes--;
+    }
+    return node;
+}
+
+
+static void rt_gc_release_tracked_object_node(RtTrackedObject* node) {
+    if (node == NULL) {
+        return;
+    }
+
+    node->obj = NULL;
+    node->next = g_tracked_object_free_list;
+    g_tracked_object_free_list = node;
+    g_tracking_pool_stats.nodes_returned = rt_saturating_add_u64(g_tracking_pool_stats.nodes_returned, 1);
+    g_tracking_pool_stats.available_nodes = rt_saturating_add_u64(g_tracking_pool_stats.available_nodes, 1);
+}
+
+
+void rt_gc_reset_tracking_pool_stats(void) {
+    g_tracking_pool_stats = (RtGcTrackingPoolStats){0};
 }
 
 
@@ -154,7 +232,7 @@ static uint64_t rt_sweep_unmarked(void) {
 
         if (obj == NULL) {
             *current = node->next;
-            free(node);
+            rt_gc_release_tracked_object_node(node);
             if (g_tracked_object_count > 0) {
                 g_tracked_object_count--;
             }
@@ -173,7 +251,7 @@ static uint64_t rt_sweep_unmarked(void) {
         *current = node->next;
         rt_gc_tracked_set_remove(obj);
         free(obj);
-        free(node);
+        rt_gc_release_tracked_object_node(node);
         if (g_tracked_object_count > 0) {
             g_tracked_object_count--;
         }
@@ -192,10 +270,7 @@ void rt_gc_maybe_collect(uint64_t upcoming_bytes) {
 
 
 void rt_gc_track_allocation(RtObjHeader* obj) {
-    RtTrackedObject* node = (RtTrackedObject*)malloc(sizeof(RtTrackedObject));
-    if (node == NULL) {
-        rt_panic_oom();
-    }
+    RtTrackedObject* node = rt_gc_acquire_tracked_object_node();
 
     node->obj = obj;
     node->next = g_tracked_objects;
@@ -252,10 +327,18 @@ void rt_gc_reset_state(void) {
     while (object_node != NULL) {
         RtTrackedObject* next = object_node->next;
         free(object_node->obj);
-        free(object_node);
         object_node = next;
     }
     g_tracked_objects = NULL;
+    g_tracked_object_free_list = NULL;
+
+    RtTrackedObjectChunk* chunk_node = g_tracked_object_chunks;
+    while (chunk_node != NULL) {
+        RtTrackedObjectChunk* next = chunk_node->next;
+        free(chunk_node);
+        chunk_node = next;
+    }
+    g_tracked_object_chunks = NULL;
 
     RtGlobalRoot* root_node = g_global_roots;
     while (root_node != NULL) {
@@ -271,6 +354,7 @@ void rt_gc_reset_state(void) {
     g_live_bytes = 0;
     g_next_gc_threshold = RT_GC_MIN_THRESHOLD_BYTES;
     g_tracked_object_count = 0;
+    rt_gc_reset_tracking_pool_stats();
     rt_gc_trace_reset();
 }
 
@@ -282,6 +366,11 @@ RtGcStats rt_gc_get_stats(void) {
     stats.next_gc_threshold = g_next_gc_threshold;
     stats.tracked_object_count = g_tracked_object_count;
     return stats;
+}
+
+
+RtGcTrackingPoolStats rt_gc_get_tracking_pool_stats(void) {
+    return g_tracking_pool_stats;
 }
 
 void rt_gc_collect(void) {
