@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from compiler.semantic.symbols import LocalId
 from compiler.semantic.types import SemanticTypeRef
@@ -29,6 +29,23 @@ class NamedRootSafepointSummary:
                 *self.for_in_iter_get_calls,
             )
         )
+
+
+@dataclass(frozen=True)
+class NamedRootSlotPlan:
+    slot_index_by_local_id: dict[LocalId, int] = field(default_factory=dict)
+    slot_local_ids: tuple[tuple[LocalId, ...], ...] = ()
+
+    def for_local(self, local_id: LocalId) -> int | None:
+        return self.slot_index_by_local_id.get(local_id)
+
+    @property
+    def local_ids(self) -> frozenset[LocalId]:
+        return frozenset(self.slot_index_by_local_id)
+
+    @property
+    def slot_count(self) -> int:
+        return len(self.slot_local_ids)
 
 
 @dataclass(frozen=True)

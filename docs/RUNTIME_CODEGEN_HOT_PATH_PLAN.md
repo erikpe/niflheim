@@ -337,12 +337,12 @@ Files to change:
 
 Tasks:
 
-1. Add a small `NamedRootSlotPlan` model that maps `LocalId` values to reusable named root-slot indices.
-2. Build the plan from the safepoint summaries using a greedy coloring-style pass:
+1. [x] Add a small `NamedRootSlotPlan` model that maps `LocalId` values to reusable named root-slot indices.
+2. [x] Build the plan from the safepoint summaries using a greedy coloring-style pass:
    - two locals cannot share a slot if they are live at the same safepoint
    - locals with no safepoint liveness must get no named root slot
-3. Keep temp root slots out of this plan entirely.
-4. Add focused unit tests for:
+3. [x] Keep temp root slots out of this plan entirely.
+4. [x] Add focused unit tests for:
    - locals that never cross a safepoint
    - locals live at disjoint safepoints
    - locals simultaneously live across the same call
@@ -447,8 +447,8 @@ Use this exact sequence:
 ### Package 2 Execution Checklist
 
 1. [x] Extend `NamedRootLiveness` with safepoint-oriented summaries.
-2. Add a `NamedRootSlotPlan` model and a greedy slot allocator.
-3. Add dedicated unit tests for slot planning.
+2. [x] Add a `NamedRootSlotPlan` model and a greedy slot allocator.
+3. [x] Add dedicated unit tests for slot planning.
 4. Thread the slot plan into [compiler/codegen/layout.py](../compiler/codegen/layout.py).
 5. Update layout tests to assert smaller root frames and reused slots.
 6. Update generator and emitter code to use the reduced root-slot mapping without changing temp-root behavior.

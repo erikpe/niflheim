@@ -45,6 +45,14 @@ class NamedRootLiveness:
     def for_for_in_iter_get(self, stmt: LoweredSemanticForIn) -> frozenset[LocalId]:
         return self.for_in_iter_get_live_after.get(id(stmt), frozenset())
 
+    def all_safepoint_live_local_id_sets(self) -> tuple[frozenset[LocalId], ...]:
+        return self.safepoints.all_live_local_id_sets()
+
+    def named_root_local_ids_needing_slots(self) -> frozenset[LocalId]:
+        return frozenset(
+            local_id for live_local_ids in self.all_safepoint_live_local_id_sets() for local_id in live_local_ids
+        )
+
 
 def analyze_named_root_liveness(
     owner: SemanticFunction

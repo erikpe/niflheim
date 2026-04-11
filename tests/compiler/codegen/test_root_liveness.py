@@ -68,6 +68,7 @@ def test_root_liveness_tracks_straight_line_call_live_roots(tmp_path: Path) -> N
 
     assert liveness.for_expr(call_stmt.expr) == {_local_id_by_name(fn, "keep")}
     assert _safepoint_live_sets(liveness.safepoints.expr_calls) == (frozenset({_local_id_by_name(fn, "keep")}),)
+    assert liveness.named_root_local_ids_needing_slots() == {_local_id_by_name(fn, "keep")}
 
 
 def test_root_liveness_tracks_nested_call_continuations(tmp_path: Path) -> None:
@@ -237,3 +238,4 @@ def test_root_liveness_tracks_statement_live_after_sets(tmp_path: Path) -> None:
     assign_stmt = next(stmt for stmt in fn.body.statements if isinstance(stmt, SemanticAssign))
 
     assert liveness.for_stmt(assign_stmt) == {_local_id_by_name(fn, "keep")}
+    assert liveness.named_root_local_ids_needing_slots() == frozenset()
