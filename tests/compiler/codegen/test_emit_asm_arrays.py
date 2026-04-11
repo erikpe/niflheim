@@ -25,7 +25,7 @@ from compiler.codegen.abi.runtime import (
 from compiler.codegen.symbols import mangle_function_symbol
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
-from tests.compiler.codegen.helpers import emit_source_asm
+from tests.compiler.codegen.helpers import assert_no_shadow_stack_runtime_helpers, emit_source_asm
 
 
 def _erased_array_method_dispatch(method_name: str) -> MethodDispatch:
@@ -340,7 +340,7 @@ fn main() -> i64 {
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
     assert f"    call {ARRAY_INDEX_SET_RUNTIME_CALLS[ArrayRuntimeKind.REF]}" not in asm
-    assert "    call rt_root_slot_store" not in main_body
+    assert_no_shadow_stack_runtime_helpers(main_body)
     assert f"    mov {direct_ref_array_store_operand('rax', 'rcx')}, rdx" in main_body
 
 
@@ -426,6 +426,4 @@ fn main() -> i64 {
 
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in main_body
     assert f"    call {ARRAY_LEN_RUNTIME_CALL}" in main_body
-    assert "rt_root_frame_init" not in main_body
-    assert "rt_push_roots" not in main_body
-    assert "rt_root_slot_store" not in main_body
+    assert_no_shadow_stack_runtime_helpers(main_body)

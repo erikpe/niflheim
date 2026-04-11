@@ -10,6 +10,25 @@ from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.pipeline import DEFAULT_SEMANTIC_OPTIMIZATION_PASSES, optimize_semantic_program
 
 
+SHADOW_STACK_RUNTIME_HELPER_SYMBOLS = (
+    "rt_root_frame_init",
+    "rt_root_slot_store",
+    "rt_root_slot_load",
+    "rt_push_roots",
+    "rt_pop_roots",
+    "rt_dbg_root_frame_init",
+    "rt_dbg_root_slot_store",
+    "rt_dbg_root_slot_load",
+    "rt_dbg_push_roots",
+    "rt_dbg_pop_roots",
+)
+
+
+def assert_no_shadow_stack_runtime_helpers(asm: str) -> None:
+    for symbol in SHADOW_STACK_RUNTIME_HELPER_SYMBOLS:
+        assert symbol not in asm
+
+
 def emit_source_asm(
     tmp_path,
     source: str,

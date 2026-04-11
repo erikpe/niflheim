@@ -9,6 +9,7 @@ from compiler.semantic.linker import link_semantic_program
 from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.symbols import ClassId, ConstructorId, MethodId
+from tests.compiler.codegen.helpers import assert_no_shadow_stack_runtime_helpers
 
 
 def _write(path, content: str) -> None:
@@ -182,7 +183,7 @@ def test_codegen_named_root_slot_updates_can_target_specific_locals(tmp_path) ->
     assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[first_param])}, rax" in asm
     assert f"    mov rax, {offset_operand(layout.local_slot_offsets[second_param])}" not in asm
     assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[second_param])}, rax" not in asm
-    assert "    call rt_root_slot_store" not in asm
+    assert_no_shadow_stack_runtime_helpers(asm)
 
 
 def test_codegen_named_root_slot_clears_can_target_specific_locals(tmp_path) -> None:
@@ -218,7 +219,7 @@ def test_codegen_named_root_slot_clears_can_target_specific_locals(tmp_path) -> 
     asm = "\n".join(generator.asm.lines)
     assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[first_param])}, 0" in asm
     assert f"    mov {offset_operand(layout.root_slot_offsets_by_local_id[second_param])}, 0" not in asm
-    assert "    call rt_root_slot_store" not in asm
+    assert_no_shadow_stack_runtime_helpers(asm)
 
 
 def test_codegen_zero_slots_can_skip_immediately_spilled_param_slots_but_keep_root_slots(tmp_path) -> None:

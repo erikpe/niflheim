@@ -3,7 +3,7 @@ import re
 from compiler.codegen.abi import runtime_layout
 from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS
 from compiler.codegen.symbols import mangle_function_symbol
-from tests.compiler.codegen.helpers import emit_source_asm
+from tests.compiler.codegen.helpers import assert_no_shadow_stack_runtime_helpers, emit_source_asm
 from tests.compiler.integration.stdlib_fixtures import install_std_io_fixture
 
 
@@ -131,7 +131,7 @@ fn main() -> i64 {
 
     assert "    mov qword ptr [rbp - 8], 0" not in keep_body
     assert "    mov qword ptr [rbp - 8], rdi" in keep_body
-    assert "    call rt_root_frame_init" not in keep_body
+    assert_no_shadow_stack_runtime_helpers(keep_body)
     assert f"    mov dword ptr [rdi + {runtime_layout.RT_ROOT_FRAME_SLOT_COUNT_OFFSET}]," in keep_body
     assert "    mov qword ptr [rax], rdi" in keep_body
     assert re.search(r"^\s+mov qword ptr \[rbp - \d+\], 0$", keep_body, re.MULTILINE) is not None
@@ -331,7 +331,7 @@ fn main() -> i64 {
     assert "    mov rsi, qword ptr [rsi]" in call_hash_body
     assert "# mirror named reference slots into shadow-stack slots" not in call_hash_body
     load_index = call_hash_body.index("    mov rcx, qword ptr [rsp]")
-    assert "    call rt_root_slot_store" not in call_hash_body[:load_index]
+    assert_no_shadow_stack_runtime_helpers(call_hash_body[:load_index])
     assert re.search(r"push rax\n\s+mov rcx, qword ptr \[rsp\]", call_hash_body)
     assert "    mov r11, rax" in call_hash_body
     assert "    call r11" in call_hash_body
@@ -407,7 +407,7 @@ fn main() -> i64 {
     assert "    call rt_lookup_interface_method" not in call_next_body
     assert "    mov rax, qword ptr [rcx + 64]" in call_next_body
     assert "    mov rax, qword ptr [rax]" in call_next_body
-    assert "    call rt_root_slot_store" not in call_next_body
+    assert_no_shadow_stack_runtime_helpers(call_next_body)
     assert "    mov qword ptr [rbp - 64], rax" in call_next_body
     assert "    mov qword ptr [rbp - 56], rax" in call_next_body
     assert "# mirror named reference slots into shadow-stack slots" not in call_next_body
@@ -609,6 +609,4 @@ fn main() -> i64 {
 
     assert f"    call {ARRAY_CONSTRUCTOR_RUNTIME_CALLS['ref']}" in main_body
     assert "    call rt_array_len" in main_body
-    assert "rt_root_frame_init" not in main_body
-    assert "rt_push_roots" not in main_body
-    assert "rt_root_slot_store" not in main_body
+    assert_no_shadow_stack_runtime_helpers(main_body)

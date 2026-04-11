@@ -1,4 +1,4 @@
-#include "runtime.h"
+#include "runtime_dbg.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -114,8 +114,8 @@ static void test_no_roots_reclaim(void) {
 static void test_rooted_chain_survives_then_reclaims(void) {
     void* slots[1] = {NULL};
     RtRootFrame frame;
-    rt_root_frame_init(&frame, slots, 1);
-    rt_push_roots(rt_thread_state(), &frame);
+    rt_dbg_root_frame_init(&frame, slots, 1);
+    rt_dbg_push_roots(rt_thread_state(), &frame);
 
     NodeObj* a = alloc_node();
     NodeObj* b = alloc_node();
@@ -124,14 +124,14 @@ static void test_rooted_chain_survives_then_reclaims(void) {
     b->next = c;
     c->next = NULL;
 
-    rt_root_slot_store(&frame, 0, a);
+    rt_dbg_root_slot_store(&frame, 0, a);
 
     rt_gc_collect(rt_thread_state());
     RtGcStats alive = rt_gc_get_stats();
     assert_u64_eq(alive.tracked_object_count, 3, "rooted chain should survive collection");
 
-    rt_root_slot_store(&frame, 0, NULL);
-    rt_pop_roots(rt_thread_state());
+    rt_dbg_root_slot_store(&frame, 0, NULL);
+    rt_dbg_pop_roots(rt_thread_state());
 
     rt_gc_collect(rt_thread_state());
     RtGcStats cleared = rt_gc_get_stats();
@@ -142,21 +142,21 @@ static void test_rooted_chain_survives_then_reclaims(void) {
 static void test_cycle_reachable_then_unreachable(void) {
     void* slots[1] = {NULL};
     RtRootFrame frame;
-    rt_root_frame_init(&frame, slots, 1);
-    rt_push_roots(rt_thread_state(), &frame);
+    rt_dbg_root_frame_init(&frame, slots, 1);
+    rt_dbg_push_roots(rt_thread_state(), &frame);
 
     NodeObj* n1 = alloc_node();
     NodeObj* n2 = alloc_node();
     n1->next = n2;
     n2->next = n1;
 
-    rt_root_slot_store(&frame, 0, n1);
+    rt_dbg_root_slot_store(&frame, 0, n1);
     rt_gc_collect(rt_thread_state());
     RtGcStats reachable = rt_gc_get_stats();
     assert_u64_eq(reachable.tracked_object_count, 2, "reachable cycle should survive");
 
-    rt_root_slot_store(&frame, 0, NULL);
-    rt_pop_roots(rt_thread_state());
+    rt_dbg_root_slot_store(&frame, 0, NULL);
+    rt_dbg_pop_roots(rt_thread_state());
 
     rt_gc_collect(rt_thread_state());
     RtGcStats unreachable = rt_gc_get_stats();
@@ -191,28 +191,28 @@ static void test_nested_shadow_stack_frames(void) {
     RtRootFrame outer;
     RtRootFrame inner;
 
-    rt_root_frame_init(&outer, outer_slots, 1);
-    rt_root_frame_init(&inner, inner_slots, 1);
+    rt_dbg_root_frame_init(&outer, outer_slots, 1);
+    rt_dbg_root_frame_init(&inner, inner_slots, 1);
 
-    rt_push_roots(rt_thread_state(), &outer);
-    rt_root_slot_store(&outer, 0, alloc_node());
+    rt_dbg_push_roots(rt_thread_state(), &outer);
+    rt_dbg_root_slot_store(&outer, 0, alloc_node());
 
-    rt_push_roots(rt_thread_state(), &inner);
-    rt_root_slot_store(&inner, 0, alloc_node());
+    rt_dbg_push_roots(rt_thread_state(), &inner);
+    rt_dbg_root_slot_store(&inner, 0, alloc_node());
 
     rt_gc_collect(rt_thread_state());
     RtGcStats both_alive = rt_gc_get_stats();
     assert_u64_eq(both_alive.tracked_object_count, 2, "both root frames should keep their objects alive");
 
-    rt_root_slot_store(&inner, 0, NULL);
-    rt_pop_roots(rt_thread_state());
+    rt_dbg_root_slot_store(&inner, 0, NULL);
+    rt_dbg_pop_roots(rt_thread_state());
 
     rt_gc_collect(rt_thread_state());
     RtGcStats outer_only = rt_gc_get_stats();
     assert_u64_eq(outer_only.tracked_object_count, 1, "popped inner frame should release its object");
 
-    rt_root_slot_store(&outer, 0, NULL);
-    rt_pop_roots(rt_thread_state());
+    rt_dbg_root_slot_store(&outer, 0, NULL);
+    rt_dbg_pop_roots(rt_thread_state());
 
     rt_gc_collect(rt_thread_state());
     RtGcStats none_alive = rt_gc_get_stats();

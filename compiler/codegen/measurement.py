@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 class AssemblyMetrics:
     line_count: int
     instruction_count: int
-    root_slot_store_call_count: int
+    shadow_stack_helper_call_count: int
     named_root_sync_block_count: int
     dead_named_root_clear_block_count: int
     safepoint_hook_count: int
@@ -18,10 +18,24 @@ class AssemblyMetrics:
 
 def analyze_assembly_metrics(asm: str) -> AssemblyMetrics:
     lines = asm.splitlines()
+    shadow_stack_helper_calls = (
+        "call rt_root_frame_init",
+        "call rt_root_slot_store",
+        "call rt_root_slot_load",
+        "call rt_push_roots",
+        "call rt_pop_roots",
+        "call rt_dbg_root_frame_init",
+        "call rt_dbg_root_slot_store",
+        "call rt_dbg_root_slot_load",
+        "call rt_dbg_push_roots",
+        "call rt_dbg_pop_roots",
+    )
     return AssemblyMetrics(
         line_count=len(lines),
         instruction_count=sum(1 for line in lines if line.startswith("    ") and not line.startswith("    #")),
-        root_slot_store_call_count=sum(1 for line in lines if "call rt_root_slot_store" in line),
+        shadow_stack_helper_call_count=sum(
+            1 for line in lines if any(helper_call in line for helper_call in shadow_stack_helper_calls)
+        ),
         named_root_sync_block_count=sum(
             1 for line in lines if line.strip() == "# mirror named reference slots into shadow-stack slots"
         ),

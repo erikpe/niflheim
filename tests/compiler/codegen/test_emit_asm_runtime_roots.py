@@ -3,7 +3,7 @@ import re
 from compiler.codegen.abi.array import array_length_operand
 from compiler.codegen.abi.runtime import ARRAY_CONSTRUCTOR_RUNTIME_CALLS, ARRAY_LEN_RUNTIME_CALL
 from compiler.codegen.symbols import mangle_function_symbol
-from tests.compiler.codegen.helpers import emit_source_asm
+from tests.compiler.codegen.helpers import assert_no_shadow_stack_runtime_helpers, emit_source_asm
 
 
 def _assert_named_root_store_block(asm: str, *, expected_store_count: int) -> None:
@@ -134,7 +134,7 @@ fn main() -> i64 {
     make_label = mangle_function_symbol(("main",), "make")
     assert f".L{make_label}_rt_safepoint_before_" in make_body
     assert f".L{make_label}_rt_safepoint_after_" in make_body
-    assert "    call rt_root_slot_store" not in make_body
+    assert_no_shadow_stack_runtime_helpers(make_body)
     _assert_named_root_store_block(make_body, expected_store_count=0)
 
 
@@ -174,7 +174,7 @@ fn main() -> i64 {
 
     assert "    mov qword ptr [rbp - 8], rdi" in f_body
     assert "    mov qword ptr [rbp - 16], rax" in f_body
-    assert "    call rt_root_slot_store" not in f_body
+    assert_no_shadow_stack_runtime_helpers(f_body)
     assert re.search(r"mov qword ptr \[rbp - \d+\], rax[\s\S]+mov rdi, qword ptr \[rbp - \d+\]", f_body)
     assert "qword ptr [rsp]" not in f_body
     _assert_named_root_store_block(f_body, expected_store_count=0)
@@ -218,9 +218,7 @@ fn main() -> i64 {
     f_body = _main_function_with_epilogue(asm, "f")
 
     assert "    call rt_thread_state" in asm
-    assert "    call rt_root_frame_init" not in asm
-    assert "    call rt_push_roots" not in asm
-    assert "    call rt_pop_roots" not in asm
+    assert_no_shadow_stack_runtime_helpers(asm)
     _assert_inline_root_frame_setup(f_body)
     _assert_inline_root_frame_pop(f_body)
     _assert_in_order(
@@ -349,9 +347,7 @@ fn main() -> i64 {
     ctor_end = asm.index(".L__nif_ctor_main__Counter_epilogue:")
     ctor_body = asm[ctor_start:ctor_end]
 
-    assert "    call rt_root_frame_init" not in ctor_body
-    assert "    call rt_push_roots" not in ctor_body
-    assert "    call rt_pop_roots" not in ctor_body
+    assert_no_shadow_stack_runtime_helpers(ctor_body)
     _assert_inline_root_frame_setup(ctor_body)
 
 
@@ -369,9 +365,7 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source)
     f_body = _main_function_body(asm, "f")
 
-    assert "rt_root_frame_init" not in f_body
-    assert "rt_push_roots" not in f_body
-    assert "rt_pop_roots" not in f_body
+    assert_no_shadow_stack_runtime_helpers(f_body)
 
 
 def test_emit_asm_roots_only_reference_typed_bindings(tmp_path) -> None:
@@ -408,9 +402,7 @@ fn sum(a: i64, b: i64) -> i64 {
     asm = emit_source_asm(tmp_path, source)
     sum_body = _main_function_body(asm, "sum")
 
-    assert "rt_root_frame_init" not in sum_body
-    assert "rt_push_roots" not in sum_body
-    assert "rt_pop_roots" not in sum_body
+    assert_no_shadow_stack_runtime_helpers(sum_body)
 
 
 def test_emit_asm_clears_clean_named_roots_after_their_last_live_use(tmp_path) -> None:
@@ -558,7 +550,7 @@ fn main() -> i64 {
     assert f"    mov rax, {array_length_operand('rax')}" in measure_body
     assert f"    call {ARRAY_LEN_RUNTIME_CALL}" not in measure_body
     assert "    call rt_panic" in measure_body
-    assert "    call rt_root_slot_store" not in measure_body
+    assert_no_shadow_stack_runtime_helpers(measure_body)
     assert "rt_safepoint_before" not in measure_body
     assert "rt_safepoint_after" not in measure_body
 
@@ -731,7 +723,7 @@ fn main() -> i64 {
     caller_end = asm.index(f".L{caller_label}_epilogue:")
     caller_body = asm[caller_start:caller_end]
     assert f'    call {mangle_function_symbol(("main",), "takes_two")}' in caller_body
-    assert "    call rt_root_slot_store" not in caller_body
+    assert_no_shadow_stack_runtime_helpers(caller_body)
     assert "    mov qword ptr [rbp - 64], rax" in caller_body
     assert "    mov qword ptr [rbp - 56], rax" in caller_body
 

@@ -16,7 +16,7 @@ def test_analyze_assembly_metrics_counts_scaffolding_markers() -> None:
     # mirror named reference slots into shadow-stack slots
     mov rax, qword ptr [rbp - 8]
     mov qword ptr [rbp - 16], rax
-    call rt_root_slot_store
+    call rt_dbg_root_slot_store
     # runtime safepoint hook
     # clear dead named reference shadow-stack slots
     mov qword ptr [rbp - 16], 0
@@ -27,7 +27,7 @@ def test_analyze_assembly_metrics_counts_scaffolding_markers() -> None:
 
     assert metrics.line_count == 10
     assert metrics.instruction_count == 5
-    assert metrics.root_slot_store_call_count == 1
+    assert metrics.shadow_stack_helper_call_count == 1
     assert metrics.named_root_sync_block_count == 1
     assert metrics.dead_named_root_clear_block_count == 1
     assert metrics.safepoint_hook_count == 1

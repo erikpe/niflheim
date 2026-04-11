@@ -1,4 +1,4 @@
-#include "runtime.h"
+#include "runtime_dbg.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -94,11 +94,11 @@ static void test_ref_array_gc_tracing(void) {
     RtThreadState* ts = rt_thread_state();
     RtRootFrame frame;
     void* slots[1] = {NULL};
-    rt_root_frame_init(&frame, slots, 1);
-    rt_push_roots(ts, &frame);
+    rt_dbg_root_frame_init(&frame, slots, 1);
+    rt_dbg_push_roots(ts, &frame);
 
     void* arr = rt_array_new_ref(2u);
-    rt_root_slot_store(&frame, 0, arr);
+    rt_dbg_root_slot_store(&frame, 0, arr);
 
     LeafObj* a = alloc_leaf(1u);
     LeafObj* b = alloc_leaf(2u);
@@ -119,8 +119,8 @@ static void test_ref_array_gc_tracing(void) {
     RtGcStats all_cleared = rt_gc_get_stats();
     assert_u64_eq(all_cleared.tracked_object_count, 1u, "clearing all ref slots should keep only array alive");
 
-    rt_root_slot_store(&frame, 0, NULL);
-    rt_pop_roots(ts);
+    rt_dbg_root_slot_store(&frame, 0, NULL);
+    rt_dbg_pop_roots(ts);
     rt_gc_collect(ts);
     RtGcStats none_alive = rt_gc_get_stats();
     assert_u64_eq(none_alive.tracked_object_count, 0u, "dropping root should reclaim array");
@@ -130,11 +130,11 @@ static void test_ref_slice_copy_independence(void) {
     RtThreadState* ts = rt_thread_state();
     RtRootFrame frame;
     void* slots[2] = {NULL, NULL};
-    rt_root_frame_init(&frame, slots, 2);
-    rt_push_roots(ts, &frame);
+    rt_dbg_root_frame_init(&frame, slots, 2);
+    rt_dbg_push_roots(ts, &frame);
 
     void* arr = rt_array_new_ref(2u);
-    rt_root_slot_store(&frame, 0, arr);
+    rt_dbg_root_slot_store(&frame, 0, arr);
 
     LeafObj* a = alloc_leaf(10u);
     LeafObj* b = alloc_leaf(20u);
@@ -142,7 +142,7 @@ static void test_ref_slice_copy_independence(void) {
     rt_array_set_ref(arr, 1, b);
 
     void* slice = rt_array_slice_ref(arr, 0, 2);
-    rt_root_slot_store(&frame, 1, slice);
+    rt_dbg_root_slot_store(&frame, 1, slice);
 
     assert_true(rt_array_get_ref(slice, 0) == (void*)a, "ref[] slice should copy slot 0");
     assert_true(rt_array_get_ref(slice, 1) == (void*)b, "ref[] slice should copy slot 1");
@@ -150,9 +150,9 @@ static void test_ref_slice_copy_independence(void) {
     rt_array_set_ref(arr, 0, NULL);
     assert_true(rt_array_get_ref(slice, 0) == (void*)a, "ref[] slice should not alias source slots");
 
-    rt_root_slot_store(&frame, 0, NULL);
-    rt_root_slot_store(&frame, 1, NULL);
-    rt_pop_roots(ts);
+    rt_dbg_root_slot_store(&frame, 0, NULL);
+    rt_dbg_root_slot_store(&frame, 1, NULL);
+    rt_dbg_pop_roots(ts);
     rt_gc_collect(ts);
     RtGcStats cleared = rt_gc_get_stats();
     assert_u64_eq(cleared.tracked_object_count, 0u, "all objects should reclaim after clearing roots");
@@ -162,11 +162,11 @@ static void test_ref_array_alias_and_overwrite_gc_semantics(void) {
     RtThreadState* ts = rt_thread_state();
     RtRootFrame frame;
     void* slots[1] = {NULL};
-    rt_root_frame_init(&frame, slots, 1);
-    rt_push_roots(ts, &frame);
+    rt_dbg_root_frame_init(&frame, slots, 1);
+    rt_dbg_push_roots(ts, &frame);
 
     void* arr = rt_array_new_ref(2u);
-    rt_root_slot_store(&frame, 0, arr);
+    rt_dbg_root_slot_store(&frame, 0, arr);
 
     LeafObj* value = alloc_leaf(33u);
     rt_array_set_ref(arr, 0, value);
@@ -189,8 +189,8 @@ static void test_ref_array_alias_and_overwrite_gc_semantics(void) {
     RtGcStats array_only = rt_gc_get_stats();
     assert_u64_eq(array_only.tracked_object_count, 1u, "clearing last retained alias should reclaim element");
 
-    rt_root_slot_store(&frame, 0, NULL);
-    rt_pop_roots(ts);
+    rt_dbg_root_slot_store(&frame, 0, NULL);
+    rt_dbg_pop_roots(ts);
     rt_gc_collect(ts);
     RtGcStats cleared = rt_gc_get_stats();
     assert_u64_eq(cleared.tracked_object_count, 0u, "dropping array root should reclaim ref array after alias clears");

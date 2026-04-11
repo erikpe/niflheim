@@ -77,8 +77,8 @@ Recommended new helper module:
 4. Inline root popping in both epilogue paths.
    Update `emit_function_epilogue` and `emit_ref_epilogue` in [compiler/codegen/generator.py](../compiler/codegen/generator.py) to restore `ts->roots_top = frame->prev` directly instead of calling `rt_pop_roots`.
 
-5. Keep the runtime helpers temporarily as debug-compatible wrappers.
-   Leave `rt_root_frame_init`, `rt_push_roots`, and `rt_pop_roots` in [runtime/src/runtime.c](../runtime/src/runtime.c) for runtime tests and non-codegen callers, but stop emitting them from compiled code. Remove them only if they become truly unused.
+5. Keep the default runtime ABI small.
+   Leave `rt_trace_*` in the default runtime, but move root-frame compatibility helpers into a separate debug/test-only module so they stop inflating the core runtime surface.
 
 6. Preserve trace ordering.
    Existing tests assert that roots are pushed before `rt_trace_push`. Keep that ordering exactly the same in the generated assembly.
@@ -175,7 +175,9 @@ Expected review size: small to medium.
 
 #### Patch 4: Runtime cleanup, compatibility wrappers, and benchmark validation
 
-Goal: keep the runtime readable after codegen stops calling the helper functions, and verify the intended performance change on the benchmark.
+Status: implemented on the current branch.
+
+Goal: keep the runtime readable after codegen stops calling the helper functions, move compatibility helpers out of the default runtime, and verify the intended performance change on the benchmark.
 
 Files to change:
 
@@ -187,11 +189,19 @@ Files to change:
 
 Tasks:
 
-1. Decide whether `rt_root_frame_init`, `rt_push_roots`, and `rt_pop_roots` remain public wrappers or become runtime-internal test helpers.
-2. If they remain public, keep their implementations simple and obviously equivalent to the new inline code path.
-3. If any signature or visibility changes are needed, update runtime root tests accordingly.
+1. Move the former `rt_root_frame_init`, `rt_push_roots`, and `rt_pop_roots` compatibility surface into debug-only helpers.
+2. Rename them to `rt_dbg_*` in a separate `runtime_dbg` module and header.
+3. Update runtime root tests accordingly.
 4. Rebuild and profile the benchmark to confirm the helper-call hotspots disappear.
 5. Record the before/after profile delta in the patch or PR description.
+
+Validation note on the current branch:
+
+- the compatibility helper API lives in `runtime_dbg.h` / `runtime_dbg.c` for tests and hand-written C callers
+- `make -C runtime test-all` passes
+- a no-runtime-trace benchmark build of [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) completes successfully with `elapsed=0.89s` and `perf stat` elapsed time of about `0.899s`
+- generated assembly for the benchmark contains no `rt_root_frame_init`, `rt_push_roots`, or `rt_pop_roots` calls
+- the default `libruntime.a` excludes the `rt_dbg_*` helper surface
 
 Why this patch goes last:
 
@@ -219,7 +229,7 @@ Use this exact sequence:
 5. Update constructor and function root setup assertions in [tests/compiler/codegen/test_emit_asm_runtime_roots.py](../tests/compiler/codegen/test_emit_asm_runtime_roots.py).
 6. Inline epilogue root popping in [compiler/codegen/generator.py](../compiler/codegen/generator.py).
 7. Re-run codegen tests that exercise root setup, epilogues, and return preservation.
-8. Keep runtime helper wrappers readable and aligned with the inline semantics.
+8. Keep debug helper wrappers readable and aligned with the inline semantics.
 9. Run `make -C runtime test-all`.
 10. Re-profile [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) and verify the helper-call hotspots are gone.
 

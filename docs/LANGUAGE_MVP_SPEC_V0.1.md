@@ -555,7 +555,7 @@ Minimal C runtime provides:
 - [x] Add codegen safepoint hooks around runtime-call sites.
 - [x] Emit root slot updates at safepoints for allocations/runtime calls.
 - [x] Ensure SysV stack alignment at every call site.
-- [x] Wire full shadow-stack ABI calls (`rt_root_frame_init`, `rt_push_roots`, `rt_root_slot_store`, `rt_pop_roots`).
+- [x] Wire full shadow-stack ABI frame publication and slot maintenance (compiler emits inline root-frame setup/pop and direct root-slot stores; `rt_dbg_*` helpers remain available for debug/test C code).
 - [x] Restrict safepoint root-slot spills to exact reference-typed locals/temporaries.
 - [x] Add end-to-end compile+run tests.
 - [x] Add method callee lowering for call expressions.

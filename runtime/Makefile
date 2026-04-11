@@ -2,6 +2,7 @@ CC := cc
 CFLAGS := -std=c11 -Wall -Wextra -Werror -Iinclude
 
 RUNTIME_SRC := src/runtime.c src/gc.c src/gc_trace.c src/gc_tracked_set.c src/io.c src/array.c src/panic.c
+RUNTIME_DBG_SRC := src/runtime_dbg.c
 RUNTIME_OBJ := $(RUNTIME_SRC:.c=.o)
 TEST_DIR := ../tests/runtime
 GC_STRESS_BIN := $(TEST_DIR)/test_gc_stress
@@ -14,6 +15,8 @@ ARRAY_RUNTIME_BIN := $(TEST_DIR)/test_array_runtime
 ARRAY_RUNTIME_SRC := $(TEST_DIR)/test_array_runtime.c
 ARRAY_NEGATIVE_BIN := $(TEST_DIR)/test_array_negative
 ARRAY_NEGATIVE_SRC := $(TEST_DIR)/test_array_negative.c
+ROOT_INLINE_PARITY_BIN := $(TEST_DIR)/test_root_inline_parity
+ROOT_INLINE_PARITY_SRC := $(TEST_DIR)/test_root_inline_parity.c
 INTERFACE_METADATA_BIN := $(TEST_DIR)/test_interface_metadata
 INTERFACE_METADATA_SRC := $(TEST_DIR)/test_interface_metadata.c
 INTERFACE_CASTS_BIN := $(TEST_DIR)/test_interface_casts
@@ -33,17 +36,20 @@ all: libruntime.a
 libruntime.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
-$(GC_STRESS_BIN): $(GC_STRESS_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(GC_STRESS_SRC) $(RUNTIME_SRC)
+$(GC_STRESS_BIN): $(GC_STRESS_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
+	$(CC) $(CFLAGS) -o $@ $(GC_STRESS_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
 
-$(ROOTS_POSITIVE_BIN): $(ROOTS_POSITIVE_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(ROOTS_POSITIVE_SRC) $(RUNTIME_SRC)
+$(ROOTS_POSITIVE_BIN): $(ROOTS_POSITIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
+	$(CC) $(CFLAGS) -o $@ $(ROOTS_POSITIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
 
-$(ROOTS_NEGATIVE_BIN): $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC)
+$(ROOTS_NEGATIVE_BIN): $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
+	$(CC) $(CFLAGS) -o $@ $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
 
-$(ARRAY_RUNTIME_BIN): $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC)
+$(ARRAY_RUNTIME_BIN): $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
+	$(CC) $(CFLAGS) -o $@ $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
+
+$(ROOT_INLINE_PARITY_BIN): $(ROOT_INLINE_PARITY_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
+	$(CC) $(CFLAGS) -o $@ $(ROOT_INLINE_PARITY_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
 
 $(ARRAY_NEGATIVE_BIN): $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
 	$(CC) $(CFLAGS) -o $@ $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC)
@@ -83,6 +89,9 @@ test-negative: $(ROOTS_NEGATIVE_BIN) $(NEGATIVE_DRIVER)
 test-array: $(ARRAY_RUNTIME_BIN)
 	./$(ARRAY_RUNTIME_BIN)
 
+test-inline-parity: $(ROOT_INLINE_PARITY_BIN)
+	./$(ROOT_INLINE_PARITY_BIN)
+
 test-array-negative: $(ARRAY_NEGATIVE_BIN) $(NEGATIVE_DRIVER)
 	@$(NEGATIVE_DRIVER) test_array_negative ./$(ARRAY_NEGATIVE_BIN) \
 		"get_negative::panic: rt_array_get_u8: index out of bounds" \
@@ -111,7 +120,14 @@ test-interface-dispatch-negative: $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(NEGATIVE_
 test-tracked-set-tombstones: $(TRACKED_SET_TOMBSTONES_BIN)
 	./$(TRACKED_SET_TOMBSTONES_BIN)
 
-test-all: test test-positive test-negative test-array test-array-negative test-interface-metadata test-interface-casts test-interface-casts-negative test-interface-dispatch test-interface-dispatch-negative test-tracked-set-tombstones
+check-no-debug-symbols: libruntime.a
+	@if nm -g libruntime.a | grep -E 'rt_dbg_|rt_root_frame_init|rt_root_slot_store|rt_root_slot_load|rt_push_roots|rt_pop_roots' >/dev/null; then \
+		echo "libruntime.a exports debug-only root helpers" >&2; \
+		nm -g libruntime.a | grep -E 'rt_dbg_|rt_root_frame_init|rt_root_slot_store|rt_root_slot_load|rt_push_roots|rt_pop_roots' >&2; \
+		exit 1; \
+	fi
+
+test-all: test test-positive test-negative test-array test-inline-parity test-array-negative test-interface-metadata test-interface-casts test-interface-casts-negative test-interface-dispatch test-interface-dispatch-negative test-tracked-set-tombstones check-no-debug-symbols
 
 clean:
-	rm -f $(RUNTIME_OBJ) libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(INTERFACE_METADATA_BIN) $(INTERFACE_CASTS_BIN) $(INTERFACE_CASTS_NEGATIVE_BIN) $(INTERFACE_DISPATCH_BIN) $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(TRACKED_SET_TOMBSTONES_BIN)
+	rm -f $(RUNTIME_OBJ) src/runtime_dbg.o libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(ROOT_INLINE_PARITY_BIN) $(INTERFACE_METADATA_BIN) $(INTERFACE_CASTS_BIN) $(INTERFACE_CASTS_NEGATIVE_BIN) $(INTERFACE_DISPATCH_BIN) $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(TRACKED_SET_TOMBSTONES_BIN)

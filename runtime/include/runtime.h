@@ -89,13 +89,6 @@ void rt_init(void);
 void rt_shutdown(void);
 RtThreadState* rt_thread_state(void);
 
-void rt_root_frame_init(RtRootFrame* frame, void** slots, uint32_t slot_count);
-void rt_root_slot_store(RtRootFrame* frame, uint32_t slot_index, void* ref);
-void* rt_root_slot_load(const RtRootFrame* frame, uint32_t slot_index);
-
-void rt_push_roots(RtThreadState* ts, RtRootFrame* frame);
-void rt_pop_roots(RtThreadState* ts);
-
 void rt_trace_push(const char* function_name, const char* file_path, uint32_t line, uint32_t column);
 void rt_trace_pop(void);
 void rt_trace_set_location(uint32_t line, uint32_t column);

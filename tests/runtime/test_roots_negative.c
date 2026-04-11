@@ -1,4 +1,4 @@
-#include "runtime.h"
+#include "runtime_dbg.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -7,25 +7,25 @@
 
 static int run_case(const char* name) {
     if (strcmp(name, "pop_underflow") == 0) {
-        rt_pop_roots(rt_thread_state());
+        rt_dbg_pop_roots(rt_thread_state());
         return 0;
     }
 
     if (strcmp(name, "slot_store_oob") == 0) {
         void* slots[1] = {NULL};
         RtRootFrame frame;
-        rt_root_frame_init(&frame, slots, 1);
-        rt_push_roots(rt_thread_state(), &frame);
-        rt_root_slot_store(&frame, 1, NULL);
+        rt_dbg_root_frame_init(&frame, slots, 1);
+        rt_dbg_push_roots(rt_thread_state(), &frame);
+        rt_dbg_root_slot_store(&frame, 1, NULL);
         return 0;
     }
 
     if (strcmp(name, "slot_load_oob") == 0) {
         void* slots[1] = {NULL};
         RtRootFrame frame;
-        rt_root_frame_init(&frame, slots, 1);
-        rt_push_roots(rt_thread_state(), &frame);
-        (void)rt_root_slot_load(&frame, 1);
+        rt_dbg_root_frame_init(&frame, slots, 1);
+        rt_dbg_push_roots(rt_thread_state(), &frame);
+        (void)rt_dbg_root_slot_load(&frame, 1);
         return 0;
     }
 

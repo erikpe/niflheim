@@ -114,28 +114,23 @@ Required runtime entry points:
 ```c
 void rt_gc_register_global_root(void** slot);
 void rt_gc_unregister_global_root(void** slot);
-
-void rt_root_frame_init(RtRootFrame* frame, void** slots, uint32_t slot_count);
-void rt_root_slot_store(RtRootFrame* frame, uint32_t slot_index, void* ref);
-void* rt_root_slot_load(const RtRootFrame* frame, uint32_t slot_index);
-
-void rt_push_roots(RtThreadState* ts, RtRootFrame* frame);
-void rt_pop_roots(RtThreadState* ts);
+RtThreadState* rt_thread_state(void);
 ```
 
 Root frame ABI contract:
 - Compiler registers/unregisters reference-typed globals with `rt_gc_register_global_root` / `rt_gc_unregister_global_root`.
 - Compiler allocates one `RtRootFrame` per function activation that owns reference slots.
-- Compiler allocates `void*` root slots in the same activation frame and calls `rt_root_frame_init` before pushing.
-- `rt_root_slot_store` updates slots at safepoints and before runtime calls; out-of-bounds indices are runtime errors.
-- `rt_push_roots` links the frame into thread-local root stack in prologue.
-- `rt_pop_roots` must run on every function exit path and enforces underflow safety.
+- Compiler allocates `void*` root slots in the same activation frame and zero-initializes them before the frame is published.
+- Compiler calls `rt_thread_state()` in the prologue, writes `frame->prev`, `frame->slot_count`, `frame->reserved`, and `frame->slots` directly, then publishes the frame with `ts->roots_top = frame`.
+- Compiler updates root slots with direct stores at safepoints and before runtime calls.
+- Compiler pops the frame on every function exit path with `ts->roots_top = frame->prev`.
+- Debug/test-only compatibility helpers live in `runtime_dbg.h` as `rt_dbg_*`; they are not part of the default runtime library ABI.
 
 Compiler rules:
 - Register each global reference slot exactly once during runtime/module initialization.
 - Each function that can hold reference locals/temporaries allocates root slots in its stack frame.
-- Function prologue initializes `RtRootFrame` and pushes it.
-- Function epilogue pops it on all exits.
+- Function prologue initializes `RtRootFrame` fields inline and publishes it.
+- Function epilogue unpublishes it inline on all exits.
 - Every live reference at a safepoint must be present in a root slot.
 
 Safepoints in v0.1:
