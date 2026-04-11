@@ -7,7 +7,6 @@
 extern "C" {
 #endif
 
-typedef struct RtThreadState RtThreadState;
 typedef struct RtObjHeader RtObjHeader;
 
 typedef struct RtGcStats {
@@ -21,9 +20,9 @@ void rt_gc_register_global_root(void** slot);
 void rt_gc_unregister_global_root(void** slot);
 
 RtGcStats rt_gc_get_stats(void);
-void rt_gc_collect(RtThreadState* ts);
+void rt_gc_collect(void);
 
-void rt_gc_maybe_collect(RtThreadState* ts, uint64_t upcoming_bytes);
+void rt_gc_maybe_collect(uint64_t upcoming_bytes);
 void rt_gc_track_allocation(RtObjHeader* obj);
 void rt_gc_reset_state(void);
 

@@ -639,7 +639,7 @@ fn main() -> unit {
 
 def test_parse_extern_and_export_extern_function_declarations() -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 export extern fn rt_panic(msg: Str) -> unit;
 """
     module = parse(lex(source, source_path="examples/extern.nif"))
@@ -651,7 +651,7 @@ export extern fn rt_panic(msg: Str) -> unit;
     assert local.is_export is False
     assert local.is_extern is True
     assert local.body is None
-    assert local.params[0].type_ref.name == "Obj"
+    assert local.params == []
 
     exported = module.functions[1]
     assert exported.name == "rt_panic"

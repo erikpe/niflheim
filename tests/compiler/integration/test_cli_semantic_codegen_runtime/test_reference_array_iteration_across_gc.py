@@ -10,7 +10,7 @@ def test_cli_semantic_codegen_runs_reference_array_iteration_across_gc(tmp_path:
     write(
         entry,
         """
-        extern fn rt_gc_collect(ts: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         class Box {
             value: i64;
@@ -23,7 +23,7 @@ def test_cli_semantic_codegen_runs_reference_array_iteration_across_gc(tmp_path:
 
             var sum: i64 = 0;
             for value in values {
-                rt_gc_collect(null);
+                rt_gc_collect();
                 sum = sum + value.value;
             }
 

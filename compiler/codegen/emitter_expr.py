@@ -632,12 +632,19 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
             expr.args,
             expr.type_ref,
             ctx,
+            call_span=expr.span,
             named_root_local_ids=named_root_local_ids,
         )
         return
     if isinstance(target, StaticMethodCallTarget):
         _emit_named_call(
-            codegen, _method_label(target.method_id, ctx), expr.args, expr.type_ref, ctx, named_root_local_ids=named_root_local_ids
+            codegen,
+            _method_label(target.method_id, ctx),
+            expr.args,
+            expr.type_ref,
+            ctx,
+            call_span=expr.span,
+            named_root_local_ids=named_root_local_ids,
         )
         return
     if isinstance(target, InstanceMethodCallTarget):
@@ -648,6 +655,7 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
             expr.type_ref,
             ctx,
             null_check_first_arg=True,
+            call_span=expr.span,
             named_root_local_ids=named_root_local_ids,
         )
         return
@@ -659,7 +667,13 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
         return
     if isinstance(target, ConstructorCallTarget):
         _emit_named_call(
-            codegen, _constructor_label(target.constructor_id, ctx), expr.args, expr.type_ref, ctx, named_root_local_ids=named_root_local_ids
+            codegen,
+            _constructor_label(target.constructor_id, ctx),
+            expr.args,
+            expr.type_ref,
+            ctx,
+            call_span=expr.span,
+            named_root_local_ids=named_root_local_ids,
         )
         return
     if isinstance(target, ConstructorInitCallTarget):
@@ -669,6 +683,7 @@ def _emit_call_expr(codegen: CodeGenerator, expr: CallExprS, ctx: EmitContext) -
             [target.access.receiver, *expr.args],
             expr.type_ref,
             ctx,
+            call_span=expr.span,
             named_root_local_ids=named_root_local_ids,
         )
         return
@@ -926,12 +941,13 @@ def _emit_named_call(
     ctx: EmitContext,
     *,
     null_check_first_arg: bool = False,
+    call_span = None,
     named_root_local_ids: frozenset[LocalId] | None = None,
 ) -> None:
     runtime_metadata = _runtime_call_metadata_for_target(target_name)
     runtime_hook_span = (
-        call_arguments[0].span
-        if runtime_metadata is not None and runtime_metadata.emits_safepoint_hooks and call_arguments
+        (call_arguments[0].span if call_arguments else call_span)
+        if runtime_metadata is not None and runtime_metadata.emits_safepoint_hooks
         else None
     )
     _emit_call_sequence(

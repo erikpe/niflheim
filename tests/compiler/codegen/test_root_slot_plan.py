@@ -67,13 +67,13 @@ def test_root_slot_plan_reuses_slot_for_disjoint_safepoints(tmp_path: Path) -> N
     fn = _lower_function(
         tmp_path,
         """
-        extern fn rt_gc_collect(value: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn f(a: Obj) -> Obj {
             var first: Obj = a;
-            rt_gc_collect(first);
+            rt_gc_collect();
             var second: Obj = first;
-            rt_gc_collect(second);
+            rt_gc_collect();
             return second;
         }
         """,
@@ -95,7 +95,7 @@ def test_root_slot_plan_separates_overlapping_safepoint_locals(tmp_path: Path) -
     fn = _lower_function(
         tmp_path,
         """
-        extern fn rt_gc_collect(value: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn pair(left: Obj, right: Obj) -> Obj {
             return left;
@@ -104,7 +104,7 @@ def test_root_slot_plan_separates_overlapping_safepoint_locals(tmp_path: Path) -
         fn f(a: Obj, b: Obj) -> Obj {
             var left: Obj = a;
             var right: Obj = b;
-            rt_gc_collect(left);
+            rt_gc_collect();
             return pair(left, right);
         }
         """,
@@ -125,11 +125,11 @@ def test_root_slot_plan_keeps_loop_carried_reference_in_stable_slot(tmp_path: Pa
     fn = _lower_function(
         tmp_path,
         """
-        extern fn rt_gc_collect(value: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn f(flag: bool, keep: Obj) -> Obj {
             while flag {
-                rt_gc_collect(keep);
+                rt_gc_collect();
                 break;
             }
             return keep;

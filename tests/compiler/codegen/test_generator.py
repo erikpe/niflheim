@@ -152,12 +152,12 @@ def test_codegen_named_root_slot_updates_can_target_specific_locals(tmp_path) ->
     _write(
         tmp_path / "main.nif",
         """
-        extern fn rt_gc_collect(value: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn f(a: Obj, b: Obj) -> Obj {
             var keep: Obj = a;
             var dead: Obj = b;
-            rt_gc_collect(keep);
+            rt_gc_collect();
             return keep;
         }
 
@@ -195,12 +195,12 @@ def test_codegen_named_root_slot_clears_can_target_specific_locals(tmp_path) -> 
     _write(
         tmp_path / "main.nif",
         """
-        extern fn rt_gc_collect(value: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn f(a: Obj, b: Obj) -> Obj {
             var keep: Obj = a;
             var dead: Obj = b;
-            rt_gc_collect(keep);
+            rt_gc_collect();
             return keep;
         }
 
@@ -236,10 +236,10 @@ def test_codegen_zero_slots_can_skip_immediately_spilled_param_slots_but_keep_ro
     _write(
         tmp_path / "main.nif",
         """
-        extern fn rt_gc_collect(value: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn keep(value: Obj) -> Obj {
-            rt_gc_collect(value);
+            rt_gc_collect();
             return value;
         }
 
@@ -277,13 +277,13 @@ def test_codegen_zero_slots_only_touches_shared_named_root_slot_once(tmp_path) -
     _write(
         tmp_path / "main.nif",
         """
-        extern fn rt_gc_collect(value: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn keep(value: Obj) -> Obj {
             var first: Obj = value;
-            rt_gc_collect(first);
+            rt_gc_collect();
             var second: Obj = first;
-            rt_gc_collect(second);
+            rt_gc_collect();
             return second;
         }
 

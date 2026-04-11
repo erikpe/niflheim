@@ -104,7 +104,7 @@ static void test_no_roots_reclaim(void) {
         alloc_leaf(i);
     }
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats stats = rt_gc_get_stats();
     assert_u64_eq(stats.tracked_object_count, 0, "no roots should reclaim all objects");
     assert_u64_eq(stats.live_bytes, 0, "no roots should leave zero live bytes");
@@ -126,14 +126,14 @@ static void test_rooted_chain_survives_then_reclaims(void) {
 
     rt_dbg_root_slot_store(&frame, 0, a);
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats alive = rt_gc_get_stats();
     assert_u64_eq(alive.tracked_object_count, 3, "rooted chain should survive collection");
 
     rt_dbg_root_slot_store(&frame, 0, NULL);
     rt_dbg_pop_roots(rt_thread_state());
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats cleared = rt_gc_get_stats();
     assert_u64_eq(cleared.tracked_object_count, 0, "cleared root should allow chain reclamation");
 }
@@ -151,14 +151,14 @@ static void test_cycle_reachable_then_unreachable(void) {
     n2->next = n1;
 
     rt_dbg_root_slot_store(&frame, 0, n1);
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats reachable = rt_gc_get_stats();
     assert_u64_eq(reachable.tracked_object_count, 2, "reachable cycle should survive");
 
     rt_dbg_root_slot_store(&frame, 0, NULL);
     rt_dbg_pop_roots(rt_thread_state());
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats unreachable = rt_gc_get_stats();
     assert_u64_eq(unreachable.tracked_object_count, 0, "unreachable cycle should be reclaimed");
 }
@@ -172,14 +172,14 @@ static void test_global_root_registration_and_release(void) {
     root->next = alloc_node();
     g_test_global_root = root;
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats alive = rt_gc_get_stats();
     assert_u64_eq(alive.tracked_object_count, 2, "global root should keep object graph alive");
 
     g_test_global_root = NULL;
     rt_gc_unregister_global_root(&g_test_global_root);
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats cleared = rt_gc_get_stats();
     assert_u64_eq(cleared.tracked_object_count, 0, "unregistered global root should allow reclamation");
 }
@@ -200,23 +200,46 @@ static void test_nested_shadow_stack_frames(void) {
     rt_dbg_push_roots(rt_thread_state(), &inner);
     rt_dbg_root_slot_store(&inner, 0, alloc_node());
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats both_alive = rt_gc_get_stats();
     assert_u64_eq(both_alive.tracked_object_count, 2, "both root frames should keep their objects alive");
 
     rt_dbg_root_slot_store(&inner, 0, NULL);
     rt_dbg_pop_roots(rt_thread_state());
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats outer_only = rt_gc_get_stats();
     assert_u64_eq(outer_only.tracked_object_count, 1, "popped inner frame should release its object");
 
     rt_dbg_root_slot_store(&outer, 0, NULL);
     rt_dbg_pop_roots(rt_thread_state());
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats none_alive = rt_gc_get_stats();
     assert_u64_eq(none_alive.tracked_object_count, 0, "popped outer frame should release final object");
+}
+
+
+static void test_collect_without_explicit_argument(void) {
+    void* slots[1] = {NULL};
+    RtRootFrame frame;
+    rt_dbg_root_frame_init(&frame, slots, 1);
+    rt_dbg_push_roots(rt_thread_state(), &frame);
+
+    NodeObj* root = alloc_node();
+    root->next = alloc_node();
+    rt_dbg_root_slot_store(&frame, 0, root);
+
+    rt_gc_collect();
+    RtGcStats alive = rt_gc_get_stats();
+    assert_u64_eq(alive.tracked_object_count, 2, "collect should use the current thread state implicitly");
+
+    rt_dbg_root_slot_store(&frame, 0, NULL);
+    rt_dbg_pop_roots(rt_thread_state());
+
+    rt_gc_collect();
+    RtGcStats cleared = rt_gc_get_stats();
+    assert_u64_eq(cleared.tracked_object_count, 0, "zero-arg collect should reclaim cleared roots");
 }
 
 
@@ -230,7 +253,7 @@ static void test_threshold_trigger_under_pressure(void) {
         fail("threshold-triggered GC should reclaim some objects during pressure allocation");
     }
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats cleared = rt_gc_get_stats();
     assert_u64_eq(cleared.tracked_object_count, 0, "explicit collection should reclaim pressure allocations");
 }
@@ -243,7 +266,7 @@ static void test_high_churn_stabilizes(void) {
         }
     }
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats stats = rt_gc_get_stats();
     assert_u64_eq(stats.tracked_object_count, 0, "churn test should end with zero live objects");
     if (stats.next_gc_threshold < (64u * 1024u)) {
@@ -260,6 +283,7 @@ int main(void) {
     test_cycle_reachable_then_unreachable();
     test_global_root_registration_and_release();
     test_nested_shadow_stack_frames();
+    test_collect_without_explicit_argument();
     test_threshold_trigger_under_pressure();
     test_high_churn_stabilizes();
 

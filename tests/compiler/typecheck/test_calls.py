@@ -216,27 +216,27 @@ fn main() -> i64 {
 
 def test_typecheck_allows_call_to_extern_function() -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn main() -> unit {
     var x: Obj = null;
-    rt_gc_collect(x);
+    rt_gc_collect();
     return;
 }
 """
     parse_and_typecheck(source)
 
 
-def test_typecheck_rejects_extern_call_with_wrong_argument_type() -> None:
+def test_typecheck_rejects_extern_call_with_wrong_argument_count() -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn main() -> unit {
     rt_gc_collect(1);
     return;
 }
 """
-    with pytest.raises(TypeCheckError, match="Cannot assign 'i64' to 'Obj'"):
+    with pytest.raises(TypeCheckError, match="Expected 0 arguments, got 1"):
         parse_and_typecheck(source)
 
 

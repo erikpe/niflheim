@@ -93,10 +93,10 @@ def _assert_inline_root_frame_pop(text: str) -> None:
 
 def test_emit_asm_runtime_call_has_safepoint_hooks(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(ts: Obj) -> unit {
-    rt_gc_collect(ts);
+    rt_gc_collect();
     return;
 }
 
@@ -148,11 +148,11 @@ fn main() -> i64 {
 
 def test_emit_asm_skips_extern_declaration_body_emission(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn main() -> i64 {
     var root: Obj = null;
-    rt_gc_collect(root);
+    rt_gc_collect();
     return 0;
 }
 """
@@ -164,11 +164,11 @@ fn main() -> i64 {
 
 def test_emit_asm_runtime_call_spills_named_slots_to_root_slots(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(ts: Obj) -> unit {
     var local: Obj = ts;
-    rt_gc_collect(local);
+    rt_gc_collect();
     return;
 }
 
@@ -187,7 +187,6 @@ fn main() -> i64 {
     assert "    mov qword ptr [rbp - 8], rdi" in f_body
     assert "    mov qword ptr [rbp - 16], rax" in f_body
     assert_no_shadow_stack_runtime_helpers(f_body)
-    assert re.search(r"mov qword ptr \[rbp - \d+\], rax[\s\S]+mov rdi, qword ptr \[rbp - \d+\]", f_body)
     assert "qword ptr [rsp]" not in f_body
     _assert_named_root_store_block(f_body, expected_store_count=0)
     assert "    call rt_gc_collect" in f_body
@@ -215,10 +214,10 @@ fn main() -> i64 {
 
 def test_emit_asm_wires_shadow_stack_abi_calls_in_prologue_and_epilogue(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(value: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(x: Obj) -> Obj {
-    rt_gc_collect(x);
+    rt_gc_collect();
     return x;
 }
 
@@ -257,10 +256,10 @@ fn main() -> i64 {
 
 def test_emit_asm_pushes_roots_before_trace_push_for_reference_functions(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(value: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(x: Obj) -> Obj {
-    rt_gc_collect(x);
+    rt_gc_collect();
     return x;
 }
 """
@@ -294,10 +293,10 @@ fn f(a: i64) -> i64 {
 
 def test_emit_asm_can_omit_runtime_trace_calls(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(ts: Obj) -> unit {
-    rt_gc_collect(ts);
+    rt_gc_collect();
     return;
 }
 
@@ -388,12 +387,12 @@ fn main() -> i64 {
 
 def test_emit_asm_roots_only_reference_typed_bindings(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(ts: Obj, n: i64) -> unit {
     var local_ref: Obj = ts;
     var local_i: i64 = n;
-    rt_gc_collect(local_ref);
+    rt_gc_collect();
     return;
 }
 
@@ -425,12 +424,12 @@ fn sum(a: i64, b: i64) -> i64 {
 
 def test_emit_asm_clears_clean_named_roots_after_their_last_live_use(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(dead: Obj, keep: Obj) -> Obj {
-    rt_gc_collect(keep);
-    rt_gc_collect(dead);
-    rt_gc_collect(keep);
+    rt_gc_collect();
+    rt_gc_collect();
+    rt_gc_collect();
     return keep;
 }
 
@@ -444,24 +443,21 @@ fn main() -> i64 {
     asm = emit_source_asm(tmp_path, source, disabled_passes={"dead_stmt_prune", "dead_store_elimination"})
     f_body = _main_function_body(asm, "f")
 
-    clear_block_i = f_body.index("# clear dead named reference shadow-stack slots")
-    second_stmt_i = f_body.index(":5:5 | rt_gc_collect(dead);")
-    third_stmt_i = f_body.index(":6:5 | rt_gc_collect(keep);")
-
-    assert second_stmt_i < clear_block_i < third_stmt_i
-    assert _named_root_clear_counts(f_body) == [1]
+    assert "# clear dead named reference shadow-stack slots" not in f_body
+    assert _named_root_store_counts(f_body) == [1]
+    assert _named_root_clear_counts(f_body) == []
 
 
 def test_emit_asm_clears_stale_named_roots_after_dead_local_writes(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(first: Obj, second: Obj, keep: Obj) -> Obj {
     var dead: Obj = first;
-    rt_gc_collect(keep);
-    rt_gc_collect(dead);
+    rt_gc_collect();
+    rt_gc_collect();
     dead = second;
-    rt_gc_collect(keep);
+    rt_gc_collect();
     return keep;
 }
 
@@ -476,16 +472,16 @@ fn main() -> i64 {
     f_body = _main_function_body(asm, "f")
 
     assign_stmt_i = f_body.index(":7:5 | dead = second;")
-    next_call_stmt_i = f_body.index(":8:5 | rt_gc_collect(keep);")
+    next_call_stmt_i = f_body.index(":8:5 | rt_gc_collect();")
     clear_block_i = f_body.rindex("# clear dead named reference shadow-stack slots")
 
     assert assign_stmt_i < clear_block_i < next_call_stmt_i
-    assert _named_root_clear_counts(f_body) == [1, 1]
+    assert _named_root_clear_counts(f_body) == [1]
 
 
 def test_emit_asm_does_not_clear_reused_named_root_slot_while_alias_is_live(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn pick(left: Obj, right: Obj) -> Obj {
     return left;
@@ -495,9 +491,9 @@ fn f(value: Obj) -> Obj {
     var first: Obj = value;
     var middle: Obj = value;
     var last: Obj = null;
-    rt_gc_collect(first);
+    rt_gc_collect();
     last = first;
-    rt_gc_collect(middle);
+    rt_gc_collect();
     return pick(middle, last);
 }
 
@@ -520,12 +516,12 @@ fn main() -> i64 {
 
 def test_emit_asm_does_not_clear_loop_carried_named_roots_inside_loop_body(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(flag: bool, keep: Obj) -> Obj {
     var i: i64 = 0;
     while flag && i < 2 {
-        rt_gc_collect(keep);
+        rt_gc_collect();
         i = i + 1;
     }
     return keep;
@@ -551,10 +547,10 @@ fn main() -> i64 {
 
 def test_emit_asm_preserves_rax_across_inline_root_pop(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(value: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(x: Obj) -> Obj {
-    rt_gc_collect(x);
+    rt_gc_collect();
     return x;
 }
 """
@@ -641,12 +637,12 @@ fn main() -> i64 {
 
 def test_emit_asm_gc_capable_call_syncs_only_live_named_roots(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(a: Obj, b: Obj) -> Obj {
     var keep: Obj = a;
     var dead: Obj = b;
-    rt_gc_collect(keep);
+    rt_gc_collect();
     return keep;
 }
 
@@ -669,13 +665,13 @@ fn main() -> i64 {
 
 def test_emit_asm_reuses_named_root_slot_in_prologue_when_safepoints_are_disjoint(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(value: Obj) -> Obj {
     var first: Obj = value;
-    rt_gc_collect(first);
+    rt_gc_collect();
     var second: Obj = first;
-    rt_gc_collect(second);
+    rt_gc_collect();
     return second;
 }
 
@@ -693,18 +689,18 @@ fn main() -> i64 {
     )
     f_body = _main_function_body(asm, "f")
 
-    assert "    mov dword ptr [rdi + 8], 7" in f_body
+    assert "    mov dword ptr [rdi + 8], 1" in f_body
     assert _named_root_store_counts(f_body) == [1, 1]
 
 
 def test_emit_asm_gc_capable_calls_skip_redundant_named_root_resync(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(value: Obj) -> Obj {
     var keep: Obj = value;
-    rt_gc_collect(keep);
-    rt_gc_collect(keep);
+    rt_gc_collect();
+    rt_gc_collect();
     return keep;
 }
 
@@ -728,14 +724,14 @@ fn main() -> i64 {
 
 def test_emit_asm_gc_capable_call_resyncs_only_stale_live_named_roots(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(a: Obj, b: Obj, c: Obj) -> Obj {
     var keep: Obj = a;
     var later: Obj = b;
-    rt_gc_collect(keep);
+    rt_gc_collect();
     keep = c;
-    rt_gc_collect(later);
+    rt_gc_collect();
     return keep;
 }
 
@@ -754,17 +750,17 @@ fn main() -> i64 {
     f_body = _main_function_body(asm, "f")
 
     assert "    call rt_gc_collect" in f_body
-    assert _named_root_store_counts(f_body) == [2, 1]
+    assert _named_root_store_counts(f_body) == [1, 1]
 
 
 def test_emit_asm_loop_body_skips_redundant_named_root_resync_without_writes(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn f(flag: bool, keep: Obj) -> Obj {
     while flag {
-        rt_gc_collect(keep);
-        rt_gc_collect(keep);
+        rt_gc_collect();
+        rt_gc_collect();
         break;
     }
     return keep;
@@ -816,7 +812,7 @@ fn main() -> i64 {
 
 def test_emit_asm_array_direct_for_in_keeps_collection_and_element_live_across_gc_call(tmp_path) -> None:
     source = """
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 class Box {
     value: i64;
@@ -825,7 +821,7 @@ class Box {
 fn f(values: Box[]) -> i64 {
     var sum: i64 = 0;
     for value in values {
-        rt_gc_collect(null);
+        rt_gc_collect();
         sum = sum + value.value;
     }
     return sum;

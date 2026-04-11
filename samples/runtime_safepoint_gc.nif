@@ -1,14 +1,14 @@
-extern fn rt_gc_collect(ts: Obj) -> unit;
+extern fn rt_gc_collect() -> unit;
 
 fn safepoint_once(v: Obj) -> Obj {
     var local: Obj = v;
-    rt_gc_collect(local);
+    rt_gc_collect();
     return local;
 }
 
 fn safepoint_twice(v: Obj) -> Obj {
     var step1: Obj = safepoint_once(v);
-    rt_gc_collect(step1);
+    rt_gc_collect();
     return step1;
 }
 
@@ -25,6 +25,6 @@ fn main() -> i64 {
         i = bump(i);
     }
 
-    rt_gc_collect(o);
+    rt_gc_collect();
     return i;
 }

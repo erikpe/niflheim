@@ -69,7 +69,7 @@ static void test_root_slots_basic_roundtrip(void) {
         fail("slot 1 should return stored pointer");
     }
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats alive = rt_gc_get_stats();
     if (alive.tracked_object_count < 2) {
         fail("rooted objects should remain alive across collection");
@@ -79,7 +79,7 @@ static void test_root_slots_basic_roundtrip(void) {
     rt_dbg_root_slot_store(&frame, 1, NULL);
     rt_dbg_pop_roots(rt_thread_state());
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats cleared = rt_gc_get_stats();
     if (cleared.tracked_object_count != 0) {
         fail("cleared and popped frame should allow reclamation");
@@ -107,7 +107,7 @@ static void test_nested_root_frames_pop_in_lifo_order(void) {
         fail("inner frame should become the shadow-stack top after push");
     }
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats both_alive = rt_gc_get_stats();
     if (both_alive.tracked_object_count < 2) {
         fail("nested root frames should keep both objects alive");
@@ -118,7 +118,7 @@ static void test_nested_root_frames_pop_in_lifo_order(void) {
         fail("popping inner frame should restore the outer frame as top");
     }
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats only_outer_alive = rt_gc_get_stats();
     if (only_outer_alive.tracked_object_count != 1) {
         fail("popped inner frame should stop keeping its object alive");
@@ -133,7 +133,7 @@ static void test_nested_root_frames_pop_in_lifo_order(void) {
         fail("popping the last frame should clear the shadow-stack top");
     }
 
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats none_alive = rt_gc_get_stats();
     if (none_alive.tracked_object_count != 0) {
         fail("all objects should be reclaimable after all frames are popped");
@@ -146,7 +146,7 @@ static void test_global_root_basic_roundtrip(void) {
     rt_gc_register_global_root(&global_slot);
 
     global_slot = alloc_leaf(777);
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
     RtGcStats alive = rt_gc_get_stats();
     if (alive.tracked_object_count != 1) {
         fail("registered global root should keep object alive");
@@ -154,7 +154,7 @@ static void test_global_root_basic_roundtrip(void) {
 
     global_slot = NULL;
     rt_gc_unregister_global_root(&global_slot);
-    rt_gc_collect(rt_thread_state());
+    rt_gc_collect();
 
     RtGcStats cleared = rt_gc_get_stats();
     if (cleared.tracked_object_count != 0) {

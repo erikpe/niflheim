@@ -1,0 +1,56 @@
+import std.io;
+import std.test;
+
+extern fn rt_gc_collect() -> unit;
+
+class Box {
+    value: i64;
+}
+
+fn choose_last(left: Box, right: Box) -> Box {
+    rt_gc_collect();
+    return right;
+}
+
+fn test_shared_slot_alias_survives_forced_gc() -> unit {
+    var first: Box = Box(41);
+    var middle: Box = Box(99);
+    var last: Box = null;
+
+    rt_gc_collect();
+    last = first;
+    rt_gc_collect();
+
+    var kept: Box = choose_last(middle, last);
+    assert_false(kept == null);
+    assert_eq_i64(kept.value, 41);
+    assert_false(middle == null);
+    assert_eq_i64(middle.value, 99);
+
+    rt_gc_collect();
+    assert_false(last == null);
+    assert_eq_i64(last.value, 41);
+}
+
+fn test_repeated_shared_slot_reuse() -> unit {
+    var i: i64 = 0;
+    while i < 300 {
+        test_shared_slot_alias_survives_forced_gc();
+        i = i + 1;
+    }
+}
+
+fn main() -> i64 {
+    var select: u64 = read_program_args()[1].to_u64();
+
+    if select == 1u {
+        test_shared_slot_alias_survives_forced_gc();
+        return 0;
+    }
+    if select == 2u {
+        test_repeated_shared_slot_reuse();
+        return 0;
+    }
+
+    return 99;
+}

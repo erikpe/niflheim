@@ -203,16 +203,7 @@
       "is_extern": true,
       "name": "rt_gc_collect",
       "node": "FunctionDecl",
-      "params": [
-        {
-          "name": "ts",
-          "node": "ParamDecl",
-          "type_ref": {
-            "name": "Obj",
-            "node": "TypeRef"
-          }
-        }
-      ],
+      "params": [],
       "return_type": {
         "name": "unit",
         "node": "TypeRef"

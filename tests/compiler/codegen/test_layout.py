@@ -274,13 +274,13 @@ def test_codegen_build_layout_reuses_named_root_slots_for_disjoint_safepoints(tm
     source = tmp_path / "main.nif"
     source.write_text(
         """
-        extern fn rt_gc_collect(value: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn main(value: Obj) -> Obj {
             var first: Obj = value;
-            rt_gc_collect(first);
+            rt_gc_collect();
             var second: Obj = first;
-            rt_gc_collect(second);
+            rt_gc_collect();
             return second;
         }
         """.strip()
@@ -300,14 +300,14 @@ def test_codegen_build_layout_reuses_named_root_slots_for_disjoint_safepoints(tm
     assert first_slot.root_index == second_slot.root_index == 0
     assert first_slot.root_offset == second_slot.root_offset
     assert layout.temp_root_slot_start_index == 1
-    assert len(layout.temp_root_slot_offsets) == 6
+    assert len(layout.temp_root_slot_offsets) == 0
 
 
 def test_codegen_build_layout_orders_root_slots_by_physical_slot_index(tmp_path) -> None:
     source = tmp_path / "main.nif"
     source.write_text(
         """
-        extern fn rt_gc_collect(value: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn pick(left: Obj, right: Obj) -> Obj {
             return left;
@@ -317,9 +317,9 @@ def test_codegen_build_layout_orders_root_slots_by_physical_slot_index(tmp_path)
             var first: Obj = value;
             var middle: Obj = value;
             var last: Obj = null;
-            rt_gc_collect(first);
+            rt_gc_collect();
             last = first;
-            rt_gc_collect(middle);
+            rt_gc_collect();
             return pick(middle, last);
         }
         """.strip()

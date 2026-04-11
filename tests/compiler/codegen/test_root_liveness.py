@@ -49,12 +49,12 @@ def test_root_liveness_tracks_straight_line_call_live_roots(tmp_path: Path) -> N
     fn = _lower_function(
         tmp_path,
         """
-        extern fn rt_gc_collect(ts: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn f(a: Obj, b: Obj) -> Obj {
             var keep: Obj = a;
             var dead: Obj = b;
-            rt_gc_collect(keep);
+            rt_gc_collect();
             return keep;
         }
         """,
@@ -106,13 +106,13 @@ def test_root_liveness_merges_branch_successors(tmp_path: Path) -> None:
     fn = _lower_function(
         tmp_path,
         """
-        extern fn rt_gc_collect(ts: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn f(flag: bool, a: Obj, b: Obj) -> Obj {
             var keep: Obj = a;
             var dead: Obj = b;
             if flag {
-                rt_gc_collect(keep);
+                rt_gc_collect();
             }
             return keep;
         }
@@ -134,11 +134,11 @@ def test_root_liveness_converges_for_loops(tmp_path: Path) -> None:
     fn = _lower_function(
         tmp_path,
         """
-        extern fn rt_gc_collect(ts: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         fn f(flag: bool, keep: Obj) -> Obj {
             while flag {
-                rt_gc_collect(keep);
+                rt_gc_collect();
                 break;
             }
             return keep;

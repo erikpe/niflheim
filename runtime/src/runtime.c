@@ -39,13 +39,13 @@ static uint64_t rt_checked_total_size(uint64_t payload_bytes) {
     return header_bytes + payload_bytes;
 }
 
-static RtObjHeader* rt_try_alloc_zeroed(RtThreadState* ts, uint64_t total_bytes) {
+static RtObjHeader* rt_try_alloc_zeroed(uint64_t total_bytes) {
     RtObjHeader* obj = (RtObjHeader*)calloc(1, (size_t)total_bytes);
     if (obj != NULL) {
         return obj;
     }
 
-    rt_gc_collect(ts);
+    rt_gc_collect();
     return (RtObjHeader*)calloc(1, (size_t)total_bytes);
 }
 
@@ -141,9 +141,9 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
     }
 
     const uint64_t total = rt_checked_total_size(payload_bytes);
-    rt_gc_maybe_collect(ts, total);
+    rt_gc_maybe_collect(total);
 
-    RtObjHeader* obj = rt_try_alloc_zeroed(ts, total);
+    RtObjHeader* obj = rt_try_alloc_zeroed(total);
     if (!obj) {
         rt_panic_oom();
     }

@@ -1,0 +1,7 @@
+tests:
+  - mode: "run"
+    name: "test_root_slot_reuse"
+    src_file: "test_root_slot_reuse.nif"
+    runs:
+      - {name: "shared_slot_alias_survives_forced_gc", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "repeated_shared_slot_reuse", input: {args: ["2"]}, expect: {exit_code: 0}}

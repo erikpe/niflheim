@@ -12,14 +12,14 @@ def test_cli_semantic_codegen_runs_ref_array_write_with_temporary_value_across_t
     write(
         entry,
         """
-        extern fn rt_gc_collect(ts: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         class Box {
             value: i64;
         }
 
         fn choose(values: Box[]) -> Box[] {
-            rt_gc_collect(null);
+            rt_gc_collect();
             return values;
         }
 
@@ -30,7 +30,7 @@ def test_cli_semantic_codegen_runs_ref_array_write_with_temporary_value_across_t
             var keep: Box = Box(9);
             choose(values)[1] = keep;
 
-            rt_gc_collect(null);
+            rt_gc_collect();
 
             if values[0] == null {
                 return 1;

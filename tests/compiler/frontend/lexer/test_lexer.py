@@ -23,16 +23,13 @@ def test_lex_basic_function_signature_and_keywords() -> None:
 
 
 def test_lex_extern_keyword() -> None:
-    source = "extern fn rt_gc_collect(ts: Obj) -> unit;"
+    source = "extern fn rt_gc_collect() -> unit;"
     kinds = [token.kind for token in lex(source)]
     assert kinds == [
         TokenKind.EXTERN,
         TokenKind.FN,
         TokenKind.IDENT,
         TokenKind.LPAREN,
-        TokenKind.IDENT,
-        TokenKind.COLON,
-        TokenKind.OBJ,
         TokenKind.RPAREN,
         TokenKind.ARROW,
         TokenKind.UNIT,

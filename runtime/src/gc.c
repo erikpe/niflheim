@@ -183,14 +183,10 @@ static uint64_t rt_sweep_unmarked(void) {
 }
 
 
-void rt_gc_maybe_collect(RtThreadState* ts, uint64_t upcoming_bytes) {
-    if (ts == NULL) {
-        ts = rt_thread_state();
-    }
-
+void rt_gc_maybe_collect(uint64_t upcoming_bytes) {
     const uint64_t projected = rt_saturating_add_u64(g_allocated_bytes, upcoming_bytes);
     if (projected >= g_next_gc_threshold) {
-        rt_gc_collect(ts);
+        rt_gc_collect();
     }
 }
 
@@ -288,10 +284,8 @@ RtGcStats rt_gc_get_stats(void) {
     return stats;
 }
 
-void rt_gc_collect(RtThreadState* ts) {
-    if (ts == NULL) {
-        ts = rt_thread_state();
-    }
+void rt_gc_collect(void) {
+    RtThreadState* ts = rt_thread_state();
 
     rt_gc_trace_collect_begin();
 

@@ -10,7 +10,7 @@ def test_cli_semantic_codegen_runs_ref_array_alias_and_null_writes_across_gc(tmp
     write(
         entry,
         """
-        extern fn rt_gc_collect(ts: Obj) -> unit;
+        extern fn rt_gc_collect() -> unit;
 
         class Box {
             value: i64;
@@ -20,7 +20,7 @@ def test_cli_semantic_codegen_runs_ref_array_alias_and_null_writes_across_gc(tmp
             var values: Box[] = Box[](2u);
             values[0] = Box(11);
             values[1] = values[0];
-            rt_gc_collect(null);
+            rt_gc_collect();
 
             if values[1] == null {
                 return 1;
@@ -30,7 +30,7 @@ def test_cli_semantic_codegen_runs_ref_array_alias_and_null_writes_across_gc(tmp
             }
 
             values[0] = null;
-            rt_gc_collect(null);
+            rt_gc_collect();
             if values[1] == null {
                 return 3;
             }
@@ -39,7 +39,7 @@ def test_cli_semantic_codegen_runs_ref_array_alias_and_null_writes_across_gc(tmp
             }
 
             values[1] = null;
-            rt_gc_collect(null);
+            rt_gc_collect();
             return 0;
         }
         """,
