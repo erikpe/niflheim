@@ -112,9 +112,6 @@ fn decode_button(button_str: Str, width: u64) -> i64[]
     var button: i64[] = i64[](width);
     for raw_index in button_str[1:-1].split(',') {
         var index_str: Str = (Str)raw_index;
-        if index_str.len() == 0u {
-            continue;
-        }
         button[index_str.to_i64()] = 1;
     }
     return button;
@@ -131,14 +128,14 @@ fn parse_machine(machine: Str) -> Machine
     return Machine(targets, buttons);
 }
 
-fn compute_upper_bounds(buttons: i64[][], targets: i64[]) -> i64[]
+fn compute_upper_bounds(machine: Machine) -> i64[]
 {
-    var upper_bounds: i64[] = i64[](buttons.len());
-    for button_index in Range(0, (i64)buttons.len()) {
+    var upper_bounds: i64[] = i64[](machine.buttons.len());
+    for button_index in Range(0, (i64)machine.buttons.len()) {
         var bound: i64 = -1;
-        for target_index in Range(0, (i64)targets.len()) {
-            if buttons[button_index][target_index] != 0 {
-                var candidate: i64 = targets[target_index];
+        for target_index in Range(0, (i64)machine.targets.len()) {
+            if machine.buttons[button_index][target_index] != 0 {
+                var candidate: i64 = machine.targets[target_index];
                 if bound < 0 || candidate < bound {
                     bound = candidate;
                 }
@@ -152,11 +149,11 @@ fn compute_upper_bounds(buttons: i64[][], targets: i64[]) -> i64[]
     return upper_bounds;
 }
 
-fn sort_buttons_by_upper_bound(buttons: i64[][], upper_bounds: i64[]) -> unit
+fn sort_buttons_by_upper_bound(machine: Machine, upper_bounds: i64[]) -> unit
 {
-    for left_index in Range(0, (i64)buttons.len()) {
+    for left_index in Range(0, (i64)machine.buttons.len()) {
         var best_index: i64 = left_index;
-        for right_index in Range(left_index + 1, (i64)buttons.len()) {
+        for right_index in Range(left_index + 1, (i64)machine.buttons.len()) {
             if upper_bounds[right_index] > upper_bounds[best_index] {
                 best_index = right_index;
             }
@@ -167,22 +164,22 @@ fn sort_buttons_by_upper_bound(buttons: i64[][], upper_bounds: i64[]) -> unit
             upper_bounds[left_index] = upper_bounds[best_index];
             upper_bounds[best_index] = tmp_bound;
 
-            var tmp_button: i64[] = buttons[left_index];
-            buttons[left_index] = buttons[best_index];
-            buttons[best_index] = tmp_button;
+            var tmp_button: i64[] = machine.buttons[left_index];
+            machine.buttons[left_index] = machine.buttons[best_index];
+            machine.buttons[best_index] = tmp_button;
         }
     }
 }
 
-fn build_augmented_matrix(buttons: i64[][], targets: i64[]) -> Rat[][]
+fn build_augmented_matrix(machine: Machine) -> Rat[][]
 {
-    var matrix: Rat[][] = Rat[][](targets.len());
-    for row_index in Range(0, (i64)targets.len()) {
-        var row: Rat[] = Rat[](buttons.len() + 1u);
-        for col_index in Range(0, (i64)buttons.len()) {
-            row[col_index] = make_rat(buttons[col_index][row_index], 1);
+    var matrix: Rat[][] = Rat[][](machine.targets.len());
+    for row_index in Range(0, (i64)machine.targets.len()) {
+        var row: Rat[] = Rat[](machine.buttons.len() + 1u);
+        for col_index in Range(0, (i64)machine.buttons.len()) {
+            row[col_index] = make_rat(machine.buttons[col_index][row_index], 1);
         }
-        row[(i64)buttons.len()] = make_rat(targets[row_index], 1);
+        row[(i64)machine.buttons.len()] = make_rat(machine.targets[row_index], 1);
         matrix[row_index] = row;
     }
     return matrix;
@@ -370,11 +367,11 @@ fn search_best_cost(
 fn solve_machine(machine_line: Str) -> i64
 {
     var machine: Machine = parse_machine(machine_line);
-    var upper_bounds: i64[] = compute_upper_bounds(machine.buttons, machine.targets);
-    sort_buttons_by_upper_bound(machine.buttons, upper_bounds);
+    var upper_bounds: i64[] = compute_upper_bounds(machine);
+    sort_buttons_by_upper_bound(machine, upper_bounds);
 
     var num_buttons: i64 = (i64)machine.buttons.len();
-    var matrix: Rat[][] = build_augmented_matrix(machine.buttons, machine.targets);
+    var matrix: Rat[][] = build_augmented_matrix(machine);
     var pivot_cols: i64[] = rref(matrix, num_buttons);
     validate_consistent(matrix, num_buttons);
 
