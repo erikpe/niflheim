@@ -667,6 +667,36 @@ fn main() -> i64 {
     _assert_named_root_store_block(f_body, expected_store_count=1)
 
 
+def test_emit_asm_reuses_named_root_slot_in_prologue_when_safepoints_are_disjoint(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect(ts: Obj) -> unit;
+
+fn f(value: Obj) -> Obj {
+    var first: Obj = value;
+    rt_gc_collect(first);
+    var second: Obj = first;
+    rt_gc_collect(second);
+    return second;
+}
+
+fn main() -> i64 {
+    if f(null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    f_body = _main_function_body(asm, "f")
+
+    assert "    mov dword ptr [rdi + 8], 7" in f_body
+    assert _named_root_store_counts(f_body) == [1, 1]
+
+
 def test_emit_asm_gc_capable_calls_skip_redundant_named_root_resync(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect(ts: Obj) -> unit;

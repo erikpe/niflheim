@@ -273,6 +273,51 @@ def test_codegen_zero_slots_can_skip_immediately_spilled_param_slots_but_keep_ro
     assert f"    mov {offset_operand(param_root_offset)}, 0" in asm
 
 
+def test_codegen_zero_slots_only_touches_shared_named_root_slot_once(tmp_path) -> None:
+    _write(
+        tmp_path / "main.nif",
+        """
+        extern fn rt_gc_collect(value: Obj) -> unit;
+
+        fn keep(value: Obj) -> Obj {
+            var first: Obj = value;
+            rt_gc_collect(first);
+            var second: Obj = first;
+            rt_gc_collect(second);
+            return second;
+        }
+
+        fn main() -> i64 {
+            if keep(null) == null {
+                return 0;
+            }
+            return 1;
+        }
+        """,
+    )
+    program = lower_linked_semantic_program(
+        link_semantic_program(lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path)))
+    )
+    fn = next(
+        fn for fn in program.functions if fn.function_id.module_path == ("main",) and fn.function_id.name == "keep"
+    )
+    layout = build_layout(fn)
+    generator = CodeGenerator()
+
+    shared_offsets = {
+        slot.root_offset
+        for slot in layout.root_slots
+        if slot.root_offset is not None and slot.root_index == 0
+    }
+    assert len(shared_offsets) == 1
+    shared_offset = next(iter(shared_offsets))
+
+    generator.emit_zero_slots(layout, skipped_value_slot_offsets={layout.local_slot_offsets[next(iter(layout.local_slot_offsets))]})
+
+    asm = "\n".join(generator.asm.lines)
+    assert asm.count(f"    mov {offset_operand(shared_offset)}, 0") == 1
+
+
 def test_codegen_runtime_root_layout_helpers_match_runtime_abi() -> None:
     generator = CodeGenerator()
 

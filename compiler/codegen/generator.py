@@ -12,7 +12,7 @@ import compiler.codegen.types as codegen_types
 
 from compiler.codegen.abi.sysv import plan_sysv_arg_locations
 from compiler.codegen.asm import AsmBuilder, offset_operand, stack_slot_operand
-from compiler.codegen.model import FunctionLayout
+from compiler.codegen.model import FunctionLayout, LayoutSlot
 from compiler.codegen.abi.runtime import runtime_call_metadata
 from compiler.semantic.symbols import LocalId
 from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name
@@ -164,7 +164,7 @@ class CodeGenerator:
             if slot.offset in skipped_offsets:
                 continue
             self.asm.instr(f"mov {offset_operand(slot.offset)}, 0")
-        for slot in layout.root_slots:
+        for slot in self._selected_named_root_slots(layout, local_ids=None, allow_shared_slots=True):
             if slot.root_offset is None:
                 continue
             self.asm.instr(f"mov {offset_operand(slot.root_offset)}, 0")
@@ -284,7 +284,7 @@ class CodeGenerator:
     def emit_named_root_slot_clears(
         self, layout: FunctionLayout, *, local_ids: Iterable[LocalId] | None = None
     ) -> None:
-        root_slots = self._selected_named_root_slots(layout, local_ids=local_ids)
+        root_slots = self._selected_named_root_slots(layout, local_ids=local_ids, allow_shared_slots=True)
         if not root_slots:
             return
 
@@ -295,20 +295,37 @@ class CodeGenerator:
             self.asm.instr(f"mov {offset_operand(slot.root_offset)}, 0")
 
     def _selected_named_root_slots(
-        self, layout: FunctionLayout, *, local_ids: Iterable[LocalId] | None
-    ) -> tuple[object, ...]:
+        self,
+        layout: FunctionLayout,
+        *,
+        local_ids: Iterable[LocalId] | None,
+        allow_shared_slots: bool = False,
+    ) -> tuple[LayoutSlot, ...]:
         if local_ids is None:
-            return tuple(layout.root_slots)
+            candidate_slots = tuple(layout.root_slots)
+        else:
+            requested_local_ids = set(local_ids)
+            if not requested_local_ids:
+                return ()
 
-        requested_local_ids = set(local_ids)
-        if not requested_local_ids:
-            return ()
+            unknown_local_ids = requested_local_ids.difference(layout.root_slot_offsets_by_local_id)
+            if unknown_local_ids:
+                raise ValueError("named root sync requested for locals without root slots")
 
-        unknown_local_ids = requested_local_ids.difference(layout.root_slot_offsets_by_local_id)
-        if unknown_local_ids:
-            raise ValueError("named root sync requested for locals without root slots")
+            candidate_slots = tuple(slot for slot in layout.root_slots if slot.local_id in requested_local_ids)
 
-        return tuple(slot for slot in layout.root_slots if slot.local_id in requested_local_ids)
+        selected_slots: dict[int, LayoutSlot] = {}
+        for slot in candidate_slots:
+            if slot.root_index is None:
+                raise ValueError(f"missing root slot index for named root '{slot.key}'")
+            existing = selected_slots.get(slot.root_index)
+            if existing is not None:
+                if not allow_shared_slots:
+                    raise ValueError("named root sync requested for multiple locals sharing one physical root slot")
+                continue
+            selected_slots[slot.root_index] = slot
+
+        return tuple(selected_slots[root_index] for root_index in sorted(selected_slots))
 
     def emit_runtime_call_arg_temp_roots(
         self, layout: FunctionLayout, target_name: str, arg_count: int, *, span: object | None = None

@@ -385,6 +385,8 @@ Expected review size: medium.
 
 #### Patch 4: Update codegen to use smaller named-root frames
 
+Status: implemented on the current branch.
+
 Goal: make the existing emitter and generator logic consume the reduced/reused named root slots correctly.
 
 Files to change:
@@ -398,10 +400,10 @@ Files to change:
 
 Tasks:
 
-1. Ensure named-root spill and clear paths consult the plan-driven `root_slot_offsets_by_local_id` values only.
-2. Keep temp-root call protection exactly as it works today.
-3. Add assembly tests showing that functions now reserve and touch fewer named root slots when liveness permits.
-4. Keep existing regression coverage for loops, array writes, runtime calls, and return paths.
+1. [x] Ensure named-root spill and clear paths consult the plan-driven `root_slot_offsets_by_local_id` values only.
+2. [x] Keep temp-root call protection exactly as it works today.
+3. [x] Add assembly tests showing that functions now reserve and touch fewer named root slots when liveness permits.
+4. [x] Keep existing regression coverage for loops, array writes, runtime calls, and return paths.
 
 Why this patch is separate:
 
@@ -451,8 +453,8 @@ Use this exact sequence:
 3. [x] Add dedicated unit tests for slot planning.
 4. [x] Thread the slot plan into [compiler/codegen/layout.py](../compiler/codegen/layout.py).
 5. [x] Update layout tests to assert smaller root frames and reused slots.
-6. Update generator and emitter code to use the reduced root-slot mapping without changing temp-root behavior.
-7. Extend assembly tests to assert fewer named root slots are touched when liveness permits.
+6. [x] Update generator and emitter code to use the reduced root-slot mapping without changing temp-root behavior.
+7. [x] Extend assembly tests to assert fewer named root slots are touched when liveness permits.
 8. [x] Run the focused compiler tests for liveness, layout, and root emission.
 9. Run `make -C runtime test-all`.
 10. Re-run the benchmark workloads and record the generated root-frame and timing deltas.
