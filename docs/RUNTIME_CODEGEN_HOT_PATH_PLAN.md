@@ -1009,6 +1009,47 @@ Use this exact sequence:
 4. [x] Run `make -C runtime test-all`.
 5. [x] Re-run the benchmark and compare `rt_tracked_set_find_slot` replacement functions in the flat profile.
 
+### Follow-Up Test Plan
+
+The current package-5 coverage is good enough to ship, but it is still lighter than ideal in a few places. The most useful follow-up tests are:
+
+1. [x] Add a runtime integration test that exercises tracked-set maintenance through real traced objects, not just synthetic zeroed `RtObjHeader` arrays.
+   Implemented on the current branch as `tests/runtime/test_tracked_set_gc_integration.c`.
+   Coverage shape:
+   - allocate objects with reference fields and a real `RtType.pointer_offsets` layout
+   - force repeated `rt_gc_collect()` calls while alternating insert, remove, and reinsertion patterns
+   - assert that rooted graphs survive compaction and that unrooted graphs are reclaimed
+
+2. [x] Add a focused runtime test for the occupancy-driven same-capacity maintenance path, not just the tombstone-dominated compaction path.
+   Implemented on the current branch as `tests/runtime/test_tracked_set_occupancy_rebuild.c`.
+   Coverage shape:
+   - occupancy-triggered maintenance fires without a grow
+   - all live members remain reachable after the maintenance pass
+   - removed members stay absent
+
+3. [x] Add a deterministic runtime test for wrap-around probe chains and tombstone reuse ordering.
+   Implemented on the current branch as `tests/runtime/test_tracked_set_probe_clusters.c`.
+   Coverage shape:
+   - construct a small test-only key set that lands in the same probe cluster
+   - verify lookup across wrap-around
+   - verify insertion prefers the first tombstone before a later `NULL`
+   - verify removal does not break later lookups in the same cluster
+
+4. [x] Add a compiler/runtime integration pytest that stresses tracked-set maintenance indirectly through forced GC and reference churn.
+   Implemented on the current branch as `tests/compiler/integration/test_cli_semantic_codegen_runtime/test_tracked_set_gc_churn.py`.
+   Coverage shape:
+   - compile and run a small NIF program that allocates many short-lived reference objects in loops
+   - call `rt_gc_collect()` repeatedly between aliasing, nulling, and reinsertion steps
+   - assert stable program output under default and `--omit-runtime-trace` builds
+
+5. [x] Add a small golden regression that exercises tracked-set churn without relying on the large AOC benchmark.
+   Implemented on the current branch as `tests/golden/runtime/tracked_set_churn/test_tracked_set_churn.nif` and `tests/golden/runtime/tracked_set_churn/test_tracked_set_churn_spec.yaml`.
+   Coverage shape:
+   - a compact language-level program that creates repeated GC pressure with reference objects and alias churn
+   - expected output that proves live references survived while dead ones were reclaimed
+
+These follow-up tests are not required to consider package 5 complete, but they would make future tracked-set changes safer by covering the runtime table mechanics, the GC integration boundary, and a smaller language-level regression path.
+
 ### Exit Criteria
 
 - Probe behavior stays correct under churn-heavy workloads.

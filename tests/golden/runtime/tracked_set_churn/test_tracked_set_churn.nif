@@ -1,0 +1,155 @@
+import std.io;
+import std.test;
+
+extern fn rt_gc_collect() -> unit;
+
+class Box {
+    value: i64;
+}
+
+fn replacement_value(round: i64, slot: i64) -> i64 {
+    return (round * 100) + slot + 1;
+}
+
+fn expected_value_before_reinsert(round: i64, slot: i64) -> i64 {
+    if round == 0 {
+        return slot + 1;
+    }
+    return replacement_value(round - 1, slot);
+}
+
+fn allocate_short_lived_garbage(base: i64) -> unit {
+    var i: i64 = 0;
+    while i < 48 {
+        var temp: Box = Box(base + i);
+        var alias: Box = temp;
+
+        rt_gc_collect();
+        assert_false(alias == null);
+        assert_eq_i64(alias.value, base + i);
+
+        temp = null;
+        alias = null;
+        rt_gc_collect();
+        i = i + 1;
+    }
+}
+
+fn test_alias_reinsert_summary() -> unit {
+    var values: Box[] = Box[](2u);
+    values[0] = Box(41);
+    values[1] = Box(99);
+
+    var kept: Box = values[0];
+    values[0] = null;
+    rt_gc_collect();
+
+    assert_false(kept == null);
+    assert_eq_i64(kept.value, 41);
+
+    allocate_short_lived_garbage(1000);
+    rt_gc_collect();
+
+    assert_false(values[1] == null);
+    assert_eq_i64(values[1].value, 99);
+    assert_eq_i64(kept.value, 41);
+
+    values[0] = Box(707);
+    rt_gc_collect();
+
+    assert_false(values[0] == null);
+    assert_eq_i64(values[0].value, 707);
+    assert_eq_i64(values[1].value, 99);
+
+    print("ALIAS:");
+    println_i64(kept.value);
+    print("CURRENT_SUM:");
+    println_i64(values[0].value + values[1].value);
+}
+
+fn fill_initial(values: Box[]) -> unit {
+    var slot: i64 = 0;
+    while slot < 8 {
+        values[slot] = Box(slot + 1);
+        slot = slot + 1;
+    }
+}
+
+fn churn_round(values: Box[], round: i64) -> unit {
+    var slot: i64 = 0;
+    while slot < 8 {
+        var keep: Box = values[slot];
+        values[slot] = null;
+        rt_gc_collect();
+
+        assert_false(keep == null);
+        assert_eq_i64(keep.value, expected_value_before_reinsert(round, slot));
+
+        allocate_short_lived_garbage((round * 1000) + (slot * 50));
+
+        values[slot] = Box(replacement_value(round, slot));
+        rt_gc_collect();
+
+        assert_false(values[slot] == null);
+        assert_eq_i64(values[slot].value, replacement_value(round, slot));
+        keep = null;
+        slot = slot + 1;
+    }
+}
+
+fn checksum(values: Box[]) -> i64 {
+    var slot: i64 = 0;
+    var total: i64 = 0;
+
+    while slot < 8 {
+        var current: Box = values[slot];
+        rt_gc_collect();
+
+        assert_false(current == null);
+        total = total + current.value;
+        slot = slot + 1;
+    }
+
+    return total;
+}
+
+fn test_repeated_churn_summary() -> unit {
+    var values: Box[] = Box[](8u);
+    fill_initial(values);
+
+    var round: i64 = 0;
+    while round < 12 {
+        churn_round(values, round);
+        round = round + 1;
+    }
+
+    rt_gc_collect();
+
+    assert_eq_i64(checksum(values), 8836);
+    assert_false(values[0] == null);
+    assert_false(values[7] == null);
+    assert_eq_i64(values[0].value, 1101);
+    assert_eq_i64(values[7].value, 1108);
+
+    print("FINAL_SUM:");
+    println_i64(checksum(values));
+    print("FIRST:");
+    println_i64(values[0].value);
+    print("LAST:");
+    println_i64(values[7].value);
+}
+
+fn main() -> i64 {
+    var select: u64 = read_program_args()[1].to_u64();
+
+    if select == 1u {
+        test_alias_reinsert_summary();
+        return 0;
+    }
+    if select == 2u {
+        test_repeated_churn_summary();
+        return 0;
+    }
+
+    return 99;
+}
