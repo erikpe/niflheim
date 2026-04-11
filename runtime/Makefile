@@ -29,6 +29,8 @@ INTERFACE_DISPATCH_NEGATIVE_BIN := $(TEST_DIR)/test_interface_dispatch_negative
 INTERFACE_DISPATCH_NEGATIVE_SRC := $(TEST_DIR)/test_interface_dispatch_negative.c
 TRACKED_SET_TOMBSTONES_BIN := $(TEST_DIR)/test_tracked_set_tombstones
 TRACKED_SET_TOMBSTONES_SRC := $(TEST_DIR)/test_tracked_set_tombstones.c
+TRACKED_SET_PROBE_BEHAVIOR_BIN := $(TEST_DIR)/test_tracked_set_probe_behavior
+TRACKED_SET_PROBE_BEHAVIOR_SRC := $(TEST_DIR)/test_tracked_set_probe_behavior.c
 GC_TRACKING_POOL_BIN := $(TEST_DIR)/test_gc_tracking_pool
 GC_TRACKING_POOL_SRC := $(TEST_DIR)/test_gc_tracking_pool.c
 NEGATIVE_DRIVER := $(TEST_DIR)/run_negative_driver.sh
@@ -73,6 +75,9 @@ $(INTERFACE_DISPATCH_NEGATIVE_BIN): $(INTERFACE_DISPATCH_NEGATIVE_SRC) $(RUNTIME
 
 $(TRACKED_SET_TOMBSTONES_BIN): $(TRACKED_SET_TOMBSTONES_SRC) $(RUNTIME_SRC) include/runtime.h include/gc_tracked_set.h
 	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_TOMBSTONES_SRC) $(RUNTIME_SRC)
+
+$(TRACKED_SET_PROBE_BEHAVIOR_BIN): $(TRACKED_SET_PROBE_BEHAVIOR_SRC) $(RUNTIME_SRC) include/runtime.h include/gc_tracked_set.h
+	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_PROBE_BEHAVIOR_SRC) $(RUNTIME_SRC)
 
 $(GC_TRACKING_POOL_BIN): $(GC_TRACKING_POOL_SRC) $(RUNTIME_SRC) include/runtime.h include/gc.h
 	$(CC) $(CFLAGS) -o $@ $(GC_TRACKING_POOL_SRC) $(RUNTIME_SRC)
@@ -125,6 +130,9 @@ test-interface-dispatch-negative: $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(NEGATIVE_
 test-tracked-set-tombstones: $(TRACKED_SET_TOMBSTONES_BIN)
 	./$(TRACKED_SET_TOMBSTONES_BIN)
 
+test-tracked-set-probe-behavior: $(TRACKED_SET_PROBE_BEHAVIOR_BIN)
+	./$(TRACKED_SET_PROBE_BEHAVIOR_BIN)
+
 test-gc-tracking-pool: $(GC_TRACKING_POOL_BIN)
 	./$(GC_TRACKING_POOL_BIN)
 
@@ -135,7 +143,7 @@ check-no-debug-symbols: libruntime.a
 		exit 1; \
 	fi
 
-test-all: test test-positive test-negative test-array test-inline-parity test-array-negative test-interface-metadata test-interface-casts test-interface-casts-negative test-interface-dispatch test-interface-dispatch-negative test-tracked-set-tombstones test-gc-tracking-pool check-no-debug-symbols
+test-all: test test-positive test-negative test-array test-inline-parity test-array-negative test-interface-metadata test-interface-casts test-interface-casts-negative test-interface-dispatch test-interface-dispatch-negative test-tracked-set-tombstones test-tracked-set-probe-behavior test-gc-tracking-pool check-no-debug-symbols
 
 clean:
-	rm -f $(RUNTIME_OBJ) src/runtime_dbg.o libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(ROOT_INLINE_PARITY_BIN) $(INTERFACE_METADATA_BIN) $(INTERFACE_CASTS_BIN) $(INTERFACE_CASTS_NEGATIVE_BIN) $(INTERFACE_DISPATCH_BIN) $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(TRACKED_SET_TOMBSTONES_BIN) $(GC_TRACKING_POOL_BIN)
+	rm -f $(RUNTIME_OBJ) src/runtime_dbg.o libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(ROOT_INLINE_PARITY_BIN) $(INTERFACE_METADATA_BIN) $(INTERFACE_CASTS_BIN) $(INTERFACE_CASTS_NEGATIVE_BIN) $(INTERFACE_DISPATCH_BIN) $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(TRACKED_SET_TOMBSTONES_BIN) $(TRACKED_SET_PROBE_BEHAVIOR_BIN) $(GC_TRACKING_POOL_BIN)

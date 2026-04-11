@@ -815,13 +815,199 @@ Recommended new tests:
 5. Add optional probe counters under a debug compile flag.
    Average probes per insert, contains, and remove are useful when deciding whether a later redesign is warranted.
 
+### Implementation Task List And Estimated Patch Order
+
+The safest way to land package 5 is as four small patches.
+
+#### Patch 1: Add probe observability and lock in churn-heavy tests
+
+Status: implemented on the current branch.
+
+Goal: create a small measurement and regression surface for tracked-set probe behavior before changing the fast path.
+
+Files to change:
+
+- [runtime/src/gc_tracked_set.c](../runtime/src/gc_tracked_set.c)
+- [runtime/include/gc_tracked_set.h](../runtime/include/gc_tracked_set.h)
+- [runtime/Makefile](../runtime/Makefile)
+- [tests/runtime/test_tracked_set_tombstones.c](../tests/runtime/test_tracked_set_tombstones.c)
+- `tests/runtime/test_tracked_set_probe_behavior.c`
+
+Tasks:
+
+1. [x] Add an opt-in debug or stats surface for tracked-set probe counts or probe-depth totals.
+2. [x] Keep the default non-debug fast path behavior unchanged in this patch.
+3. [x] Add a focused churn-heavy runtime test that performs repeated insert, contains, and remove cycles and records expected membership behavior.
+4. [x] Keep [tests/runtime/test_tracked_set_tombstones.c](../tests/runtime/test_tracked_set_tombstones.c) as the existing correctness anchor.
+5. [x] Make this patch behavior-preserving apart from the new observability hooks and tests.
+
+Validation note on the current branch:
+
+- the tracked-set probe stats surface now lives in [runtime/include/gc_tracked_set.h](../runtime/include/gc_tracked_set.h) and [runtime/src/gc_tracked_set.c](../runtime/src/gc_tracked_set.c), and remains disabled unless a caller opts in explicitly
+- the new churn-heavy regression lives in `tests/runtime/test_tracked_set_probe_behavior.c`
+- [tests/runtime/test_tracked_set_tombstones.c](../tests/runtime/test_tracked_set_tombstones.c) remains the existing tombstone correctness anchor
+- `make -C runtime test-tracked-set-tombstones test-tracked-set-probe-behavior test-all` passes
+
+Why this patch goes first:
+
+- it gives later fast-path edits a concrete assertion surface
+- it keeps the first review mostly diagnostic and easy to reason about
+- it reduces the chance of arguing about probe improvements without comparable measurements
+
+Expected review size: small.
+
+#### Patch 2: Split lookup and insertion probing into operation-specific helpers
+
+Status: implemented on the current branch.
+
+Goal: simplify the hot loop by replacing the generic `rt_tracked_set_find_slot` path with smaller helpers that match the actual operations.
+
+Files to change:
+
+- [runtime/src/gc_tracked_set.c](../runtime/src/gc_tracked_set.c)
+- [runtime/include/gc_tracked_set.h](../runtime/include/gc_tracked_set.h)
+- [runtime/src/gc.c](../runtime/src/gc.c)
+- `tests/runtime/test_tracked_set_probe_behavior.c`
+- [tests/runtime/test_tracked_set_tombstones.c](../tests/runtime/test_tracked_set_tombstones.c)
+
+Tasks:
+
+1. [x] Replace the current generic probe helper with one helper for existing-entry lookup and one helper for insertion-slot selection with tombstone reuse.
+2. [x] Introduce a tiny local probe-result struct only if it keeps call sites and the loop state simpler than multiple out-parameters.
+3. [x] Update tracked-set callers so insert, contains, and remove each use the narrower helper they actually need.
+4. [x] Keep current resize and rebuild policy unchanged in this patch so the review focuses on helper splitting only.
+5. [x] Extend the new probe-behavior test to cover all three operation paths against the refactored helpers.
+
+Validation note on the current branch:
+
+- [runtime/src/gc_tracked_set.c](../runtime/src/gc_tracked_set.c) now uses separate helper paths for existing-entry lookup and insertion-slot selection, with a tiny local probe-result struct keeping the call sites explicit
+- the tracked-set public operations now record probe stats at the call sites that correspond to their dedicated helper path instead of routing through a single mode-driven probe helper
+- `tests/runtime/test_tracked_set_probe_behavior.c` now covers per-operation counter separation, duplicate insert behavior, and the existing churn-heavy workload
+- `make -C runtime test-tracked-set-tombstones test-tracked-set-probe-behavior test-all` passes
+
+Why this patch is separate:
+
+- it is the core hot-loop simplification for package 5
+- it can be reviewed independently of tombstone policy changes
+- isolating the helper split makes correctness regressions easier to localize
+
+Expected review size: medium.
+
+#### Patch 3: Tighten tombstone-heavy rebuild policy and compact earlier
+
+Status: implemented on the current branch.
+
+Goal: reduce wasted probing under churn-heavy workloads once the fast path is split into operation-specific helpers.
+
+Files to change:
+
+- [runtime/src/gc_tracked_set.c](../runtime/src/gc_tracked_set.c)
+- [runtime/include/gc_tracked_set.h](../runtime/include/gc_tracked_set.h)
+- [runtime/src/gc.c](../runtime/src/gc.c)
+- [tests/runtime/test_tracked_set_tombstones.c](../tests/runtime/test_tracked_set_tombstones.c)
+- `tests/runtime/test_tracked_set_probe_behavior.c`
+- [docs/RUNTIME_CODEGEN_HOT_PATH_PLAN.md](../docs/RUNTIME_CODEGEN_HOT_PATH_PLAN.md)
+
+Tasks:
+
+1. [x] Add an earlier rebuild or compact trigger for tombstone-dominated tables even when total occupancy is still below the normal growth threshold.
+2. [x] Keep the policy small and explicit so the compaction rule remains easy to audit.
+3. [x] Add test coverage or debug assertions that reinsertion preserves every live member across rebuild and compact paths.
+4. [x] Extend the churn-heavy probe test so it exercises the new compaction trigger under repeated remove and reinsert cycles.
+5. [x] Re-run the runtime suite and record whether the tracked-set flat hotspot moves in the expected direction.
+
+Validation note on the current branch:
+
+- [runtime/src/gc_tracked_set.c](../runtime/src/gc_tracked_set.c) now applies a scratch-buffer tombstone compaction pass when tombstones dominate the live set and cross a small minimum threshold, while preserving the existing grow path and occupancy-driven rebuild path
+- the tracked-set probe stats surface now records total maintenance passes and tombstone-triggered compactions so tests can prove the new policy is exercised explicitly
+- `tests/runtime/test_tracked_set_probe_behavior.c` now covers a repeated churn workload that triggers tombstone compaction each round and a focused reinsertion case that proves live members survive compaction while removed members stay absent
+- `make -C runtime test-tracked-set-tombstones test-tracked-set-probe-behavior test-all` passes
+- `./scripts/golden.sh --filter 'aoc/2025/10/part2/**' --print-per-run` passes again after replacing the earlier heap-allocating same-capacity rebuild with the scratch-buffer compaction path
+- a no-runtime-trace profile build of [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) completes successfully with `RESULT:20172`, `/usr/bin/time` elapsed time of about `0.73s`, and `perf stat -d` elapsed time of about `0.73s`
+- compared with the post-package-3 baseline on the same workload, tracked-set flat cost moves in the expected direction:
+   - `rt_tracked_set_lookup_existing`: about `16.23%` for the old monolithic probe helper to about `7.08%`
+   - `rt_gc_collect`: about `11.22%` to about `11.68%`
+   - `_int_free`: about `2.49%` to about `3.57%`
+   - `_int_malloc`: about `1.36%` to about `1.50%`
+   - the new scratch-buffer compaction helper support `rt_tracked_set_rehash_live_entries` is visible at about `2.25%`
+
+Why this patch is separate:
+
+- tombstone policy is the most behavior-sensitive part of package 5
+- keeping it separate from the helper split makes regressions much easier to diagnose
+- it allows the benchmark delta to be attributed to compaction policy rather than to mechanical refactoring
+
+Expected review size: medium.
+
+#### Patch 4: Validation, benchmark check, and documentation update
+
+Status: implemented on the current branch.
+
+Goal: confirm the tracked-set changes stay correct under GC pressure and actually reduce tracked-set flat cost on the benchmark.
+
+Files to change:
+
+- [docs/RUNTIME_CODEGEN_HOT_PATH_PLAN.md](../docs/RUNTIME_CODEGEN_HOT_PATH_PLAN.md)
+- optionally test comments or runtime test notes if a fixture needs clarification
+
+Tasks:
+
+1. [x] Run the focused tracked-set runtime tests, including the tombstone regression and the new churn-heavy probe test.
+2. [x] Run `make -C runtime test-all`.
+3. [x] Rebuild and run [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) with `NIF_PROFILE_BUILD=1` and `--omit-runtime-trace`.
+4. [x] Compare the flat profile for the tracked-set helpers against the post-package-3 baseline.
+5. [x] Record the before or after timing and flat-profile note in this plan document or the eventual patch description.
+
+Validation note on the current branch:
+
+- `make -C runtime test-tracked-set-tombstones test-tracked-set-probe-behavior` passes
+- `make -C runtime test-all` passes
+- `./scripts/golden.sh --filter 'aoc/2025/10/part2/**' --print-per-run` passes
+- a no-runtime-trace profile build of [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) completes successfully with `RESULT:20172`, `/usr/bin/time` elapsed time of about `0.73s`, and `perf stat -d` elapsed time of about `0.73s`
+- compared with the post-package-3 baseline on the same workload, the tracked-set flat hotspot moves materially in the intended direction:
+   - `rt_tracked_set_lookup_existing`: about `16.23%` for the old monolithic probe helper to about `7.08%`
+   - `rt_gc_collect`: about `11.22%` to about `11.68%`
+   - `_int_free`: about `2.49%` to about `3.57%`
+   - `_int_malloc`: about `1.36%` to about `1.50%`
+   - `rt_tracked_set_rehash_live_entries`: about `2.25%`
+- the tracked-set path is now no longer dominated by the old monolithic probe helper, and the remaining visible cost is split across collection, lookup, and the new compaction maintenance path
+
+Why this patch goes last:
+
+- it keeps measurement and documentation separate from the mechanism changes
+- it makes the earlier patches easier to review as code-only changes
+- it prevents benchmark notes from getting stale while the implementation is still moving
+
+Expected review size: small.
+
+### Recommended Review And Landing Sequence
+
+Use this exact sequence:
+
+1. Land patch 1 by itself.
+2. Land patch 2 and rerun the focused tracked-set tests.
+3. Land patch 3 and rerun `make -C runtime test-all`, then re-profile the benchmark.
+4. Land patch 4 only after the benchmark confirms the tracked-set hotspot moved enough to justify stopping.
+
+### Package 5 Execution Checklist
+
+1. [x] Add an opt-in tracked-set probe stats surface.
+2. [x] Add `tests/runtime/test_tracked_set_probe_behavior.c`.
+3. [x] Split generic probing into lookup-specific and insertion-specific helpers.
+4. [x] Keep tracked-set call sites explicit about whether they need lookup, insertion, or tombstone reuse.
+5. [x] Tighten tombstone-heavy rebuild or compact policy.
+6. [x] Extend churn-heavy runtime coverage for repeated insert, contains, and remove cycles.
+7. [x] Run `make -C runtime test-all`.
+8. [x] Rebuild [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif) with `NIF_PROFILE_BUILD=1` and `--omit-runtime-trace`.
+9. [x] Compare the tracked-set flat-profile samples against the post-package-3 baseline and record the result.
+
 ### Testing Checklist
 
-1. Keep [tests/runtime/test_tracked_set_tombstones.c](../tests/runtime/test_tracked_set_tombstones.c) as the core regression test.
-2. Add a runtime test that performs repeated insert/remove/contains cycles with heavy tombstone creation and asserts termination plus expected membership results.
-3. Add a test or debug-only assertion that rebuild/compact logic preserves all live members after reinsertion.
-4. Run `make -C runtime test-all`.
-5. Re-run the benchmark and compare `rt_tracked_set_find_slot` replacement functions in the flat profile.
+1. [x] Keep [tests/runtime/test_tracked_set_tombstones.c](../tests/runtime/test_tracked_set_tombstones.c) as the core regression test.
+2. [x] Add a runtime test that performs repeated insert/remove/contains cycles with heavy tombstone creation and asserts termination plus expected membership results.
+3. [x] Add a test or debug-only assertion that rebuild/compact logic preserves all live members after reinsertion.
+4. [x] Run `make -C runtime test-all`.
+5. [x] Re-run the benchmark and compare `rt_tracked_set_find_slot` replacement functions in the flat profile.
 
 ### Exit Criteria
 
