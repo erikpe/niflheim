@@ -37,6 +37,30 @@ export fn cmp_lt_opcode() -> u64 {
     return 13u;
 }
 
+export fn and_opcode() -> u64 {
+    return 22u;
+}
+
+export fn or_opcode() -> u64 {
+    return 23u;
+}
+
+export fn xor_opcode() -> u64 {
+    return 24u;
+}
+
+export fn shl_opcode() -> u64 {
+    return 25u;
+}
+
+export fn shr_opcode() -> u64 {
+    return 26u;
+}
+
+export fn not_opcode() -> u64 {
+    return 27u;
+}
+
 export fn jump_opcode() -> u64 {
     return 14u;
 }
@@ -112,6 +136,24 @@ export fn opcode_name(opcode: u64) -> Str {
     }
     if opcode == cmp_lt_opcode() {
         return "cmp_lt";
+    }
+    if opcode == and_opcode() {
+        return "and";
+    }
+    if opcode == or_opcode() {
+        return "or";
+    }
+    if opcode == xor_opcode() {
+        return "xor";
+    }
+    if opcode == shl_opcode() {
+        return "shl";
+    }
+    if opcode == shr_opcode() {
+        return "shr";
+    }
+    if opcode == not_opcode() {
+        return "not";
     }
     if opcode == jump_opcode() {
         return "jump";

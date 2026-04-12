@@ -656,8 +656,257 @@ fn build_fibonacci_recursive_case() -> model.BenchmarkCase {
     );
 }
 
+fn _emit_instruction(code: model.Instruction[], pc: i64, instruction: model.Instruction) -> i64 {
+    code[pc] = instruction;
+    return pc + 1;
+}
+
+fn build_sha1_quick_brown_fox_program() -> model.Program {
+    var code: model.Instruction[] = model.Instruction[](512u);
+    var pc: i64 = 0;
+
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 0, 0u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 2, 1u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 3, 2u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 4, 3u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 5, 4u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 6, 5u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 7, 6u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 8, 7u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 9, 8u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 10, 9u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 11, 10u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 12, 11u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 13, 12u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 14, 13u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 20, 14u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 21, 15u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 22, 16u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 23, 17u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 24, 18u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 25, 19u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 26, 20u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 27, 21u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 28, 22u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 29, 23u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 30, 24u));
+    pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 31, 25u));
+
+    var word_const_index: i64 = 26;
+    var word_slot: i64 = 0;
+    while word_slot < 16 {
+        pc = _emit_instruction(code, pc, instructions.LoadConstOp(opcodes.load_const_opcode(), 34, (u64)word_const_index));
+        pc = _emit_instruction(code, pc, instructions.StoreMemOp(opcodes.store_mem_opcode(), word_slot, 34));
+        word_const_index = word_const_index + 1;
+        word_slot = word_slot + 1;
+    }
+
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 1, 8));
+
+    var schedule_loop_start: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 39, 1, 21));
+    var schedule_exit_jump_pc: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, 0u));
+
+    pc = _emit_instruction(code, pc, instructions.SubOp(opcodes.sub_opcode(), 35, 1, 4));
+    pc = _emit_instruction(code, pc, instructions.LoadMemIndexedOp(opcodes.load_mem_indexed_opcode(), 35, 0, 35));
+    pc = _emit_instruction(code, pc, instructions.SubOp(opcodes.sub_opcode(), 36, 1, 6));
+    pc = _emit_instruction(code, pc, instructions.LoadMemIndexedOp(opcodes.load_mem_indexed_opcode(), 36, 0, 36));
+    pc = _emit_instruction(code, pc, instructions.SubOp(opcodes.sub_opcode(), 37, 1, 7));
+    pc = _emit_instruction(code, pc, instructions.LoadMemIndexedOp(opcodes.load_mem_indexed_opcode(), 37, 0, 37));
+    pc = _emit_instruction(code, pc, instructions.SubOp(opcodes.sub_opcode(), 38, 1, 8));
+    pc = _emit_instruction(code, pc, instructions.LoadMemIndexedOp(opcodes.load_mem_indexed_opcode(), 38, 0, 38));
+    pc = _emit_instruction(code, pc, instructions.XorOp(opcodes.xor_opcode(), 35, 35, 36));
+    pc = _emit_instruction(code, pc, instructions.XorOp(opcodes.xor_opcode(), 35, 35, 37));
+    pc = _emit_instruction(code, pc, instructions.XorOp(opcodes.xor_opcode(), 35, 35, 38));
+    pc = _emit_instruction(code, pc, instructions.ShlOp(opcodes.shl_opcode(), 36, 35, 2));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 36, 36, 22));
+    pc = _emit_instruction(code, pc, instructions.ShrOp(opcodes.shr_opcode(), 37, 35, 12));
+    pc = _emit_instruction(code, pc, instructions.OrOp(opcodes.or_opcode(), 35, 36, 37));
+    pc = _emit_instruction(code, pc, instructions.StoreMemIndexedOp(opcodes.store_mem_indexed_opcode(), 35, 0, 1));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 1, 1, 2));
+    pc = _emit_instruction(code, pc, instructions.JumpOp(opcodes.jump_opcode(), (u64)schedule_loop_start));
+    code[schedule_exit_jump_pc] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, (u64)pc);
+
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 15, 27));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 16, 28));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 17, 29));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 18, 30));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 19, 31));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 1, 0));
+
+    var round_loop_start: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 39, 1, 21));
+    var round_exit_jump_pc: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, 0u));
+    pc = _emit_instruction(code, pc, instructions.LoadMemIndexedOp(opcodes.load_mem_indexed_opcode(), 34, 0, 1));
+
+    pc = _emit_instruction(code, pc, instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 39, 1, 9));
+    var choose_jump_pc: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, 0u));
+    pc = _emit_instruction(code, pc, instructions.XorOp(opcodes.xor_opcode(), 35, 17, 18));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 35, 16, 35));
+    pc = _emit_instruction(code, pc, instructions.XorOp(opcodes.xor_opcode(), 32, 18, 35));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 33, 23));
+    var fn_done_after_choose_jump_pc: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.JumpOp(opcodes.jump_opcode(), 0u));
+
+    var parity_one_start: i64 = pc;
+    code[choose_jump_pc] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, (u64)parity_one_start);
+    pc = _emit_instruction(code, pc, instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 39, 1, 14));
+    var parity_one_jump_pc: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, 0u));
+    pc = _emit_instruction(code, pc, instructions.XorOp(opcodes.xor_opcode(), 32, 16, 17));
+    pc = _emit_instruction(code, pc, instructions.XorOp(opcodes.xor_opcode(), 32, 32, 18));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 33, 24));
+    var fn_done_after_parity_one_jump_pc: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.JumpOp(opcodes.jump_opcode(), 0u));
+
+    var majority_start: i64 = pc;
+    code[parity_one_jump_pc] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, (u64)majority_start);
+    pc = _emit_instruction(code, pc, instructions.CmpLtOp(opcodes.cmp_lt_opcode(), 39, 1, 20));
+    var majority_jump_pc: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, 0u));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 35, 16, 17));
+    pc = _emit_instruction(code, pc, instructions.OrOp(opcodes.or_opcode(), 36, 16, 17));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 36, 18, 36));
+    pc = _emit_instruction(code, pc, instructions.OrOp(opcodes.or_opcode(), 32, 35, 36));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 33, 25));
+    var fn_done_after_majority_jump_pc: i64 = pc;
+    pc = _emit_instruction(code, pc, instructions.JumpOp(opcodes.jump_opcode(), 0u));
+
+    var parity_two_start: i64 = pc;
+    code[majority_jump_pc] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, (u64)parity_two_start);
+    pc = _emit_instruction(code, pc, instructions.XorOp(opcodes.xor_opcode(), 32, 16, 17));
+    pc = _emit_instruction(code, pc, instructions.XorOp(opcodes.xor_opcode(), 32, 32, 18));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 33, 26));
+
+    var fn_done_start: i64 = pc;
+    code[fn_done_after_choose_jump_pc] = instructions.JumpOp(opcodes.jump_opcode(), (u64)fn_done_start);
+    code[fn_done_after_parity_one_jump_pc] = instructions.JumpOp(opcodes.jump_opcode(), (u64)fn_done_start);
+    code[fn_done_after_majority_jump_pc] = instructions.JumpOp(opcodes.jump_opcode(), (u64)fn_done_start);
+
+    pc = _emit_instruction(code, pc, instructions.ShlOp(opcodes.shl_opcode(), 35, 15, 5));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 35, 35, 22));
+    pc = _emit_instruction(code, pc, instructions.ShrOp(opcodes.shr_opcode(), 36, 15, 10));
+    pc = _emit_instruction(code, pc, instructions.OrOp(opcodes.or_opcode(), 35, 35, 36));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 35, 35, 32));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 35, 35, 19));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 35, 35, 33));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 35, 35, 34));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 35, 35, 22));
+
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 19, 18));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 18, 17));
+    pc = _emit_instruction(code, pc, instructions.ShlOp(opcodes.shl_opcode(), 36, 16, 11));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 36, 36, 22));
+    pc = _emit_instruction(code, pc, instructions.ShrOp(opcodes.shr_opcode(), 37, 16, 3));
+    pc = _emit_instruction(code, pc, instructions.OrOp(opcodes.or_opcode(), 17, 36, 37));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 17, 17, 22));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 16, 15));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 15, 35));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 1, 1, 2));
+    pc = _emit_instruction(code, pc, instructions.JumpOp(opcodes.jump_opcode(), (u64)round_loop_start));
+    code[round_exit_jump_pc] = instructions.JumpIfFalseOp(opcodes.jump_if_false_opcode(), 39, (u64)pc);
+
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 27, 27, 15));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 27, 27, 22));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 28, 28, 16));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 28, 28, 22));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 29, 29, 17));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 29, 29, 22));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 30, 30, 18));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 30, 30, 22));
+    pc = _emit_instruction(code, pc, instructions.AddOp(opcodes.add_opcode(), 31, 31, 19));
+    pc = _emit_instruction(code, pc, instructions.AndOp(opcodes.and_opcode(), 31, 31, 22));
+
+    pc = _emit_instruction(code, pc, instructions.StoreMemOp(opcodes.store_mem_opcode(), 0, 27));
+    pc = _emit_instruction(code, pc, instructions.StoreMemOp(opcodes.store_mem_opcode(), 1, 28));
+    pc = _emit_instruction(code, pc, instructions.StoreMemOp(opcodes.store_mem_opcode(), 2, 29));
+    pc = _emit_instruction(code, pc, instructions.StoreMemOp(opcodes.store_mem_opcode(), 3, 30));
+    pc = _emit_instruction(code, pc, instructions.StoreMemOp(opcodes.store_mem_opcode(), 4, 31));
+
+    pc = _emit_instruction(code, pc, instructions.ShlOp(opcodes.shl_opcode(), 40, 27, 13));
+    pc = _emit_instruction(code, pc, instructions.OrOp(opcodes.or_opcode(), 40, 40, 28));
+
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 0, 27));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 1, 28));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 2, 29));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 3, 30));
+    pc = _emit_instruction(code, pc, instructions.RegisterCopyOp(opcodes.move_opcode(), 4, 31));
+    pc = _emit_instruction(code, pc, instructions.CallBuiltinOp(opcodes.call_builtin_opcode(), 0u, 5u));
+    pc = _emit_instruction(code, pc, instructions.HaltOp(opcodes.halt_opcode(), 40));
+
+    var functions: model.FunctionInfo[] = model.FunctionInfo[](1u);
+    functions[0] = model.FunctionInfo("main", 0u, 41u, code[:pc]);
+
+    var constants: Obj[] = Obj[](42u);
+    constants[0] = BoxI64(0);
+    constants[1] = BoxI64(1);
+    constants[2] = BoxI64(2);
+    constants[3] = BoxI64(3);
+    constants[4] = BoxI64(5);
+    constants[5] = BoxI64(8);
+    constants[6] = BoxI64(14);
+    constants[7] = BoxI64(16);
+    constants[8] = BoxI64(20);
+    constants[9] = BoxI64(27);
+    constants[10] = BoxI64(30);
+    constants[11] = BoxI64(31);
+    constants[12] = BoxI64(32);
+    constants[13] = BoxI64(40);
+    constants[14] = BoxI64(60);
+    constants[15] = BoxI64(80);
+    constants[16] = BoxI64(4294967295);
+    constants[17] = BoxI64(1518500249);
+    constants[18] = BoxI64(1859775393);
+    constants[19] = BoxI64(2400959708);
+    constants[20] = BoxI64(3395469782);
+    constants[21] = BoxI64(1732584193);
+    constants[22] = BoxI64(4023233417);
+    constants[23] = BoxI64(2562383102);
+    constants[24] = BoxI64(271733878);
+    constants[25] = BoxI64(3285377520);
+    constants[26] = BoxI64(1416127776);
+    constants[27] = BoxI64(1903520099);
+    constants[28] = BoxI64(1797284466);
+    constants[29] = BoxI64(1870097952);
+    constants[30] = BoxI64(1718581280);
+    constants[31] = BoxI64(1786080624);
+    constants[32] = BoxI64(1931505526);
+    constants[33] = BoxI64(1701978228);
+    constants[34] = BoxI64(1751457900);
+    constants[35] = BoxI64(1635416352);
+    constants[36] = BoxI64(1685022592);
+    constants[37] = BoxI64(0);
+    constants[38] = BoxI64(0);
+    constants[39] = BoxI64(0);
+    constants[40] = BoxI64(0);
+    constants[41] = BoxI64(344);
+
+    var builtin_table: model.Builtin[] = model.Builtin[](1u);
+    builtin_table[0] = builtins.TraceAccumulatorBuiltin("trace_accumulate");
+
+    return model.Program("sha1_quick_brown_fox", 0u, functions, constants, builtin_table, 80u);
+}
+
+fn build_sha1_quick_brown_fox_case() -> model.BenchmarkCase {
+    return model.BenchmarkCase(
+        "sha1_quick_brown_fox",
+        build_sha1_quick_brown_fox_program(),
+        3446627857414826236,
+        802480582,
+        -1257569273529833621,
+        10444962798,
+        3933u,
+        0u,
+        326u,
+        1u
+    );
+}
+
 export fn build_cases() -> model.BenchmarkCase[] {
-    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](11u);
+    var benchmark_cases: model.BenchmarkCase[] = model.BenchmarkCase[](12u);
     benchmark_cases[0] = build_minimal_case();
     benchmark_cases[1] = build_arithmetic_case();
     benchmark_cases[2] = build_branch_maze_case();
@@ -669,5 +918,6 @@ export fn build_cases() -> model.BenchmarkCase[] {
     benchmark_cases[8] = build_exact_double_case();
     benchmark_cases[9] = build_prime_sum_100_case();
     benchmark_cases[10] = build_fibonacci_recursive_case();
+    benchmark_cases[11] = build_sha1_quick_brown_fox_case();
     return benchmark_cases;
 }

@@ -99,6 +99,55 @@ export class ModOp extends BinaryOp {
     }
 }
 
+export class AndOp extends BinaryOp {
+    override fn apply(left_value: i64, right_value: i64) -> i64 {
+        return left_value & right_value;
+    }
+}
+
+export class OrOp extends BinaryOp {
+    override fn apply(left_value: i64, right_value: i64) -> i64 {
+        return left_value | right_value;
+    }
+}
+
+export class XorOp extends BinaryOp {
+    override fn apply(left_value: i64, right_value: i64) -> i64 {
+        return left_value ^ right_value;
+    }
+}
+
+export class ShlOp extends BinaryOp {
+    override fn apply(left_value: i64, right_value: i64) -> i64 {
+        return left_value << (u64)right_value;
+    }
+}
+
+export class ShrOp extends BinaryOp {
+    override fn apply(left_value: i64, right_value: i64) -> i64 {
+        return left_value >> (u64)right_value;
+    }
+}
+
+export class UnaryOp extends RegisterWriteInstruction {
+    src: i64;
+
+    fn apply(value: i64) -> i64 {
+        panic("UnaryOp.apply: abstract");
+        return 0;
+    }
+
+    override fn compute_value(vm: model.VmApi) -> i64 {
+        return __self.apply(vm.read_reg(__self.src));
+    }
+}
+
+export class NotOp extends UnaryOp {
+    override fn apply(value: i64) -> i64 {
+        return ~value;
+    }
+}
+
 export class CompareOp extends BinaryOp {
     // Arithmetic-heavy cases mix Add/Sub/Mul/Div/Mod/Cmp* instances through the
     // same BinaryOp.execute body, while simpler regions still produce more

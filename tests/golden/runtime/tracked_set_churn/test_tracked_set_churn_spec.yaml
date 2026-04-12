@@ -12,3 +12,17 @@ tests:
     runs:
       - {name: "alias_reinsert_summary", input: {args: ["1"]}, expect: {exit_code: 0, stdout: "ALIAS:41\nCURRENT_SUM:806\n"}}
       - {name: "repeated_churn_summary", input: {args: ["2"]}, expect: {exit_code: 0, stdout: "FINAL_SUM:8836\nFIRST:1101\nLAST:1108\n"}}
+  - mode: "run"
+    name: "test_tracked_set_churn_skip_optimize"
+    src_file: "test_tracked_set_churn.nif"
+    build_args: ["--skip-optimize"]
+    runs:
+      - {name: "alias_reinsert_summary", input: {args: ["1"]}, expect: {exit_code: 0, stdout: "ALIAS:41\nCURRENT_SUM:806\n"}}
+      - {name: "repeated_churn_summary", input: {args: ["2"]}, expect: {exit_code: 0, stdout: "FINAL_SUM:8836\nFIRST:1101\nLAST:1108\n"}}
+  - mode: "run"
+    name: "test_tracked_set_churn_no_trace_skip_optimize"
+    src_file: "test_tracked_set_churn.nif"
+    build_args: ["--omit-runtime-trace", "--skip-optimize"]
+    runs:
+      - {name: "alias_reinsert_summary", input: {args: ["1"]}, expect: {exit_code: 0, stdout: "ALIAS:41\nCURRENT_SUM:806\n"}}
+      - {name: "repeated_churn_summary", input: {args: ["2"]}, expect: {exit_code: 0, stdout: "FINAL_SUM:8836\nFIRST:1101\nLAST:1108\n"}}

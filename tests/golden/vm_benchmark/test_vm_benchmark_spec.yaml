@@ -14,7 +14,8 @@ tests:
       - {name: "exact_double_output", input: {args: ["9"]}, expect: {exit_code: 0, stdout: "exact_double: return=38 memory0=38 mem_checksum=38 trace_sum=38 steps=8 calls=0 branches=0 builtins=1 checksum=1080327715961\n"}}
       - {name: "prime_sum_100_output", input: {args: ["10"]}, expect: {exit_code: 0, stdout: "prime_sum_100: return=1060 memory0=1060 mem_checksum=32860 trace_sum=1060 steps=8794 calls=0 branches=2388 builtins=1 checksum=31046119749723\n"}}
       - {name: "fibonacci_recursive_output", input: {args: ["11"]}, expect: {exit_code: 0, stdout: "fibonacci_recursive: return=610 memory0=610 mem_checksum=18910 trace_sum=610 steps=15787 calls=1973 branches=987 builtins=1 checksum=17866484683508\n"}}
-      - {name: "run_all_and_aggregate_output", input: {args: ["999"]}, expect: {exit_code: 0, stdout: "final: cases=11 return=267960924 memory0=267960596 mem_checksum=-5410687631863079515 trace_sum=535919728 steps=25417 calls=2014 branches=3464 builtins=15 checksum=4016699218909327506\n"}}
+      - {name: "sha1_quick_brown_fox_output", input: {args: ["12"]}, expect: {exit_code: 0, stdout: "sha1_quick_brown_fox: return=3446627857414826236 memory0=802480582 mem_checksum=-1257569273529833621 trace_sum=10444962798 steps=3933 calls=0 branches=326 builtins=1 checksum=5254056180594626603\n"}}
+      - {name: "run_all_and_aggregate_output", input: {args: ["999"]}, expect: {exit_code: 0, stdout: "final: cases=12 return=3446627857682787160 memory0=1070441178 mem_checksum=-6668256905392913136 trace_sum=10980882526 steps=29350 calls=2014 branches=3790 builtins=16 checksum=-7047877002154064969\n"}}
   - mode: "run"
     name: "test_vm_benchmark_no_trace"
     src_file: "test_vm_benchmark.nif"
@@ -31,7 +32,8 @@ tests:
       - {name: "exact_double_output", input: {args: ["9"]}, expect: {exit_code: 0, stdout: "exact_double: return=38 memory0=38 mem_checksum=38 trace_sum=38 steps=8 calls=0 branches=0 builtins=1 checksum=1080327715961\n"}}
       - {name: "prime_sum_100_output", input: {args: ["10"]}, expect: {exit_code: 0, stdout: "prime_sum_100: return=1060 memory0=1060 mem_checksum=32860 trace_sum=1060 steps=8794 calls=0 branches=2388 builtins=1 checksum=31046119749723\n"}}
       - {name: "fibonacci_recursive_output", input: {args: ["11"]}, expect: {exit_code: 0, stdout: "fibonacci_recursive: return=610 memory0=610 mem_checksum=18910 trace_sum=610 steps=15787 calls=1973 branches=987 builtins=1 checksum=17866484683508\n"}}
-      - {name: "run_all_and_aggregate_output", input: {args: ["999"]}, expect: {exit_code: 0, stdout: "final: cases=11 return=267960924 memory0=267960596 mem_checksum=-5410687631863079515 trace_sum=535919728 steps=25417 calls=2014 branches=3464 builtins=15 checksum=4016699218909327506\n"}}
+      - {name: "sha1_quick_brown_fox_output", input: {args: ["12"]}, expect: {exit_code: 0, stdout: "sha1_quick_brown_fox: return=3446627857414826236 memory0=802480582 mem_checksum=-1257569273529833621 trace_sum=10444962798 steps=3933 calls=0 branches=326 builtins=1 checksum=5254056180594626603\n"}}
+      - {name: "run_all_and_aggregate_output", input: {args: ["999"]}, expect: {exit_code: 0, stdout: "final: cases=12 return=3446627857682787160 memory0=1070441178 mem_checksum=-6668256905392913136 trace_sum=10980882526 steps=29350 calls=2014 branches=3790 builtins=16 checksum=-7047877002154064969\n"}}
   - mode: "run"
     name: "test_vm_benchmark_skip_optimize"
     src_file: "test_vm_benchmark.nif"
@@ -48,4 +50,5 @@ tests:
       - {name: "exact_double_output", input: {args: ["9"]}, expect: {exit_code: 0, stdout: "exact_double: return=38 memory0=38 mem_checksum=38 trace_sum=38 steps=8 calls=0 branches=0 builtins=1 checksum=1080327715961\n"}}
       - {name: "prime_sum_100_output", input: {args: ["10"]}, expect: {exit_code: 0, stdout: "prime_sum_100: return=1060 memory0=1060 mem_checksum=32860 trace_sum=1060 steps=8794 calls=0 branches=2388 builtins=1 checksum=31046119749723\n"}}
       - {name: "fibonacci_recursive_output", input: {args: ["11"]}, expect: {exit_code: 0, stdout: "fibonacci_recursive: return=610 memory0=610 mem_checksum=18910 trace_sum=610 steps=15787 calls=1973 branches=987 builtins=1 checksum=17866484683508\n"}}
-      - {name: "run_all_and_aggregate_output", input: {args: ["999"]}, expect: {exit_code: 0, stdout: "final: cases=11 return=267960924 memory0=267960596 mem_checksum=-5410687631863079515 trace_sum=535919728 steps=25417 calls=2014 branches=3464 builtins=15 checksum=4016699218909327506\n"}}
+      - {name: "sha1_quick_brown_fox_output", input: {args: ["12"]}, expect: {exit_code: 0, stdout: "sha1_quick_brown_fox: return=3446627857414826236 memory0=802480582 mem_checksum=-1257569273529833621 trace_sum=10444962798 steps=3933 calls=0 branches=326 builtins=1 checksum=5254056180594626603\n"}}
+      - {name: "run_all_and_aggregate_output", input: {args: ["999"]}, expect: {exit_code: 0, stdout: "final: cases=12 return=3446627857682787160 memory0=1070441178 mem_checksum=-6668256905392913136 trace_sum=10980882526 steps=29350 calls=2014 branches=3790 builtins=16 checksum=-7047877002154064969\n"}}
