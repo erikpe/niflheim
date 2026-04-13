@@ -1,0 +1,967 @@
+import std.io;
+import std.math as math;
+import std.str;
+import std.test;
+
+fn default_tolerance() -> double {
+    return 0.000000000001;
+}
+
+fn assert_close(actual: double, expected: double, tolerance: double) -> unit {
+    var diff: double = math.abs(actual - expected);
+    if diff > tolerance {
+        fail(
+            "Expected '" + Str.from_double(actual) + "' to be within '" + Str.from_double(tolerance)
+                + "' of '" + Str.from_double(expected) + "'"
+        );
+    }
+}
+
+fn assert_nan(value: double) -> unit {
+    assert_true(math.is_nan(value));
+}
+
+fn assert_pos_inf(value: double) -> unit {
+    assert_true(math.is_infinite(value));
+    assert_true(value > 0.0);
+}
+
+fn assert_neg_inf(value: double) -> unit {
+    assert_true(math.is_infinite(value));
+    assert_true(value < 0.0);
+}
+
+fn assert_neg_zero(value: double) -> unit {
+    assert_eq_double(value, 0.0);
+    var reciprocal: double = 1.0 / value;
+    assert_true(math.is_infinite(reciprocal));
+    assert_true(reciprocal < 0.0);
+}
+
+fn assert_pos_zero(value: double) -> unit {
+    assert_eq_double(value, 0.0);
+    var reciprocal: double = 1.0 / value;
+    assert_true(math.is_infinite(reciprocal));
+    assert_true(reciprocal > 0.0);
+}
+
+fn arg_double(args: Str[], index: i64) -> double {
+    return args[index].to_double();
+}
+
+fn test_sin(args: Str[]) -> unit {
+    var pi_sixth: double = 0.5235987755982988;
+    var neg_pi_half: double = -1.5707963267948966;
+    var zero: double = 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.sin(0.5235987755982988), 0.5, default_tolerance());
+    assert_close(math.sin(-1.5707963267948966), -1.0, default_tolerance());
+    assert_close(math.sin(0.0), 0.0, default_tolerance());
+    assert_nan(math.sin(0.0 / 0.0));
+
+    // locals
+    assert_close(math.sin(pi_sixth), 0.5, default_tolerance());
+    assert_close(math.sin(neg_pi_half), -1.0, default_tolerance());
+    assert_close(math.sin(zero), 0.0, default_tolerance());
+    assert_nan(math.sin(nan_val));
+
+    // argv
+    assert_close(math.sin(arg_double(args, 0)), 0.5, default_tolerance());
+    assert_close(math.sin(arg_double(args, 1)), -1.0, default_tolerance());
+    assert_close(math.sin(arg_double(args, 2)), 0.0, default_tolerance());
+    assert_nan(math.sin(arg_double(args, 3)));
+}
+
+fn test_cos(args: Str[]) -> unit {
+    var zero: double = 0.0;
+    var pi: double = 3.141592653589793;
+    var pi_third: double = 1.0471975511965976;
+    var pi_half: double = 1.5707963267948966;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.cos(0.0), 1.0, default_tolerance());
+    assert_close(math.cos(3.141592653589793), -1.0, default_tolerance());
+    assert_close(math.cos(1.0471975511965976), 0.5, default_tolerance());
+    assert_close(math.cos(1.5707963267948966), 0.0, default_tolerance());
+    assert_nan(math.cos(0.0 / 0.0));
+
+    // locals
+    assert_close(math.cos(zero), 1.0, default_tolerance());
+    assert_close(math.cos(pi), -1.0, default_tolerance());
+    assert_close(math.cos(pi_third), 0.5, default_tolerance());
+    assert_close(math.cos(pi_half), 0.0, default_tolerance());
+    assert_nan(math.cos(nan_val));
+
+    // argv
+    assert_close(math.cos(arg_double(args, 0)), 1.0, default_tolerance());
+    assert_close(math.cos(arg_double(args, 1)), -1.0, default_tolerance());
+    assert_close(math.cos(arg_double(args, 2)), 0.5, default_tolerance());
+    assert_close(math.cos(arg_double(args, 3)), 0.0, default_tolerance());
+    assert_nan(math.cos(arg_double(args, 4)));
+}
+
+fn test_tan(args: Str[]) -> unit {
+    var zero: double = 0.0;
+    var pi_quarter: double = 0.7853981633974483;
+    var neg_pi_quarter: double = -0.7853981633974483;
+    var pi_sixth: double = 0.5235987755982988;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.tan(0.0), 0.0, default_tolerance());
+    assert_close(math.tan(0.7853981633974483), 1.0, default_tolerance());
+    assert_close(math.tan(-0.7853981633974483), -1.0, default_tolerance());
+    assert_close(math.tan(0.5235987755982988), 0.5773502691896257, default_tolerance());
+    assert_nan(math.tan(0.0 / 0.0));
+
+    // locals
+    assert_close(math.tan(zero), 0.0, default_tolerance());
+    assert_close(math.tan(pi_quarter), 1.0, default_tolerance());
+    assert_close(math.tan(neg_pi_quarter), -1.0, default_tolerance());
+    assert_close(math.tan(pi_sixth), 0.5773502691896257, default_tolerance());
+    assert_nan(math.tan(nan_val));
+
+    // argv
+    assert_close(math.tan(arg_double(args, 0)), 0.0, default_tolerance());
+    assert_close(math.tan(arg_double(args, 1)), 1.0, default_tolerance());
+    assert_close(math.tan(arg_double(args, 2)), -1.0, default_tolerance());
+    assert_close(math.tan(arg_double(args, 3)), 0.5773502691896257, default_tolerance());
+    assert_nan(math.tan(arg_double(args, 4)));
+}
+
+fn test_asin(args: Str[]) -> unit {
+    var zero: double = 0.0;
+    var one: double = 1.0;
+    var neg_one: double = -1.0;
+    var half: double = 0.5;
+    var neg_half: double = -0.5;
+    var invalid: double = 2.0;
+
+    // literals
+    assert_close(math.asin(0.0), 0.0, default_tolerance());
+    assert_close(math.asin(1.0), 1.5707963267948966, default_tolerance());
+    assert_close(math.asin(-1.0), -1.5707963267948966, default_tolerance());
+    assert_close(math.asin(0.5), 0.5235987755982989, default_tolerance());
+    assert_close(math.asin(-0.5), -0.5235987755982989, default_tolerance());
+    assert_nan(math.asin(2.0));
+
+    // locals
+    assert_close(math.asin(zero), 0.0, default_tolerance());
+    assert_close(math.asin(one), 1.5707963267948966, default_tolerance());
+    assert_close(math.asin(neg_one), -1.5707963267948966, default_tolerance());
+    assert_close(math.asin(half), 0.5235987755982989, default_tolerance());
+    assert_close(math.asin(neg_half), -0.5235987755982989, default_tolerance());
+    assert_nan(math.asin(invalid));
+
+    // argv
+    assert_close(math.asin(arg_double(args, 0)), 0.0, default_tolerance());
+    assert_close(math.asin(arg_double(args, 1)), 1.5707963267948966, default_tolerance());
+    assert_close(math.asin(arg_double(args, 2)), -1.5707963267948966, default_tolerance());
+    assert_close(math.asin(arg_double(args, 3)), 0.5235987755982989, default_tolerance());
+    assert_close(math.asin(arg_double(args, 4)), -0.5235987755982989, default_tolerance());
+    assert_nan(math.asin(arg_double(args, 5)));
+}
+
+fn test_acos(args: Str[]) -> unit {
+    var one: double = 1.0;
+    var zero: double = 0.0;
+    var neg_one: double = -1.0;
+    var half: double = 0.5;
+    var neg_half: double = -0.5;
+    var invalid: double = 2.0;
+
+    // literals
+    assert_close(math.acos(1.0), 0.0, default_tolerance());
+    assert_close(math.acos(0.0), 1.5707963267948966, default_tolerance());
+    assert_close(math.acos(-1.0), 3.141592653589793, default_tolerance());
+    assert_close(math.acos(0.5), 1.0471975511965979, default_tolerance());
+    assert_close(math.acos(-0.5), 2.0943951023931957, default_tolerance());
+    assert_nan(math.acos(2.0));
+
+    // locals
+    assert_close(math.acos(one), 0.0, default_tolerance());
+    assert_close(math.acos(zero), 1.5707963267948966, default_tolerance());
+    assert_close(math.acos(neg_one), 3.141592653589793, default_tolerance());
+    assert_close(math.acos(half), 1.0471975511965979, default_tolerance());
+    assert_close(math.acos(neg_half), 2.0943951023931957, default_tolerance());
+    assert_nan(math.acos(invalid));
+
+    // argv
+    assert_close(math.acos(arg_double(args, 0)), 0.0, default_tolerance());
+    assert_close(math.acos(arg_double(args, 1)), 1.5707963267948966, default_tolerance());
+    assert_close(math.acos(arg_double(args, 2)), 3.141592653589793, default_tolerance());
+    assert_close(math.acos(arg_double(args, 3)), 1.0471975511965979, default_tolerance());
+    assert_close(math.acos(arg_double(args, 4)), 2.0943951023931957, default_tolerance());
+    assert_nan(math.acos(arg_double(args, 5)));
+}
+
+fn test_atan(args: Str[]) -> unit {
+    var zero: double = 0.0;
+    var one: double = 1.0;
+    var neg_one: double = -1.0;
+    var two: double = 2.0;
+    var neg_two: double = -2.0;
+    var pos_inf: double = 1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.atan(0.0), 0.0, default_tolerance());
+    assert_close(math.atan(1.0), 0.7853981633974483, default_tolerance());
+    assert_close(math.atan(-1.0), -0.7853981633974483, default_tolerance());
+    assert_close(math.atan(2.0), 1.1071487177940904, default_tolerance());
+    assert_close(math.atan(-2.0), -1.1071487177940904, default_tolerance());
+    assert_close(math.atan(1.0 / 0.0), 1.5707963267948966, default_tolerance());
+    assert_nan(math.atan(0.0 / 0.0));
+
+    // locals
+    assert_close(math.atan(zero), 0.0, default_tolerance());
+    assert_close(math.atan(one), 0.7853981633974483, default_tolerance());
+    assert_close(math.atan(neg_one), -0.7853981633974483, default_tolerance());
+    assert_close(math.atan(two), 1.1071487177940904, default_tolerance());
+    assert_close(math.atan(neg_two), -1.1071487177940904, default_tolerance());
+    assert_close(math.atan(pos_inf), 1.5707963267948966, default_tolerance());
+    assert_nan(math.atan(nan_val));
+
+    // argv
+    assert_close(math.atan(arg_double(args, 0)), 0.0, default_tolerance());
+    assert_close(math.atan(arg_double(args, 1)), 0.7853981633974483, default_tolerance());
+    assert_close(math.atan(arg_double(args, 2)), -0.7853981633974483, default_tolerance());
+    assert_close(math.atan(arg_double(args, 3)), 1.1071487177940904, default_tolerance());
+    assert_close(math.atan(arg_double(args, 4)), -1.1071487177940904, default_tolerance());
+    assert_close(math.atan(arg_double(args, 5)), 1.5707963267948966, default_tolerance());
+    assert_nan(math.atan(arg_double(args, 6)));
+}
+
+fn test_atan2(args: Str[]) -> unit {
+    var zero_y: double = 0.0;
+    var pos_x: double = 1.0;
+    var pos_y: double = 1.0;
+    var zero_x: double = 0.0;
+    var neg_y: double = -1.0;
+    var neg_x: double = -1.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.atan2(0.0, 1.0), 0.0, default_tolerance());
+    assert_close(math.atan2(1.0, 0.0), 1.5707963267948966, default_tolerance());
+    assert_close(math.atan2(-1.0, 0.0), -1.5707963267948966, default_tolerance());
+    assert_close(math.atan2(1.0, -1.0), 2.356194490192345, default_tolerance());
+    assert_close(math.atan2(-1.0, 1.0), -0.7853981633974483, default_tolerance());
+    assert_nan(math.atan2(0.0 / 0.0, 1.0));
+
+    // locals
+    assert_close(math.atan2(zero_y, pos_x), 0.0, default_tolerance());
+    assert_close(math.atan2(pos_y, zero_x), 1.5707963267948966, default_tolerance());
+    assert_close(math.atan2(neg_y, zero_x), -1.5707963267948966, default_tolerance());
+    assert_close(math.atan2(pos_y, neg_x), 2.356194490192345, default_tolerance());
+    assert_close(math.atan2(neg_y, pos_x), -0.7853981633974483, default_tolerance());
+    assert_nan(math.atan2(nan_val, pos_x));
+
+    // argv
+    assert_close(math.atan2(arg_double(args, 0), arg_double(args, 1)), 0.0, default_tolerance());
+    assert_close(math.atan2(arg_double(args, 2), arg_double(args, 3)), 1.5707963267948966, default_tolerance());
+    assert_close(math.atan2(arg_double(args, 4), arg_double(args, 5)), -1.5707963267948966, default_tolerance());
+    assert_close(math.atan2(arg_double(args, 6), arg_double(args, 7)), 2.356194490192345, default_tolerance());
+    assert_close(math.atan2(arg_double(args, 8), arg_double(args, 9)), -0.7853981633974483, default_tolerance());
+    assert_nan(math.atan2(arg_double(args, 10), arg_double(args, 11)));
+}
+
+fn test_exp(args: Str[]) -> unit {
+    var zero: double = 0.0;
+    var one: double = 1.0;
+    var neg_one: double = -1.0;
+    var two: double = 2.0;
+    var neg_two: double = -2.0;
+    var pos_inf: double = 1.0 / 0.0;
+    var neg_inf: double = -1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.exp(0.0), 1.0, default_tolerance());
+    assert_close(math.exp(1.0), 2.718281828459045, default_tolerance());
+    assert_close(math.exp(-1.0), 0.36787944117144233, default_tolerance());
+    assert_close(math.exp(2.0), 7.38905609893065, default_tolerance());
+    assert_close(math.exp(-2.0), 0.1353352832366127, default_tolerance());
+    assert_pos_inf(math.exp(1.0 / 0.0));
+    assert_pos_zero(math.exp(-1.0 / 0.0));
+    assert_nan(math.exp(0.0 / 0.0));
+
+    // locals
+    assert_close(math.exp(zero), 1.0, default_tolerance());
+    assert_close(math.exp(one), 2.718281828459045, default_tolerance());
+    assert_close(math.exp(neg_one), 0.36787944117144233, default_tolerance());
+    assert_close(math.exp(two), 7.38905609893065, default_tolerance());
+    assert_close(math.exp(neg_two), 0.1353352832366127, default_tolerance());
+    assert_pos_inf(math.exp(pos_inf));
+    assert_pos_zero(math.exp(neg_inf));
+    assert_nan(math.exp(nan_val));
+
+    // argv
+    assert_close(math.exp(arg_double(args, 0)), 1.0, default_tolerance());
+    assert_close(math.exp(arg_double(args, 1)), 2.718281828459045, default_tolerance());
+    assert_close(math.exp(arg_double(args, 2)), 0.36787944117144233, default_tolerance());
+    assert_close(math.exp(arg_double(args, 3)), 7.38905609893065, default_tolerance());
+    assert_close(math.exp(arg_double(args, 4)), 0.1353352832366127, default_tolerance());
+    assert_pos_inf(math.exp(arg_double(args, 5)));
+    assert_pos_zero(math.exp(arg_double(args, 6)));
+    assert_nan(math.exp(arg_double(args, 7)));
+}
+
+fn test_log(args: Str[]) -> unit {
+    var one: double = 1.0;
+    var e: double = 2.718281828459045;
+    var half: double = 0.5;
+    var ten: double = 10.0;
+    var five: double = 5.0;
+    var zero: double = 0.0;
+    var neg_one: double = -1.0;
+    var pos_inf: double = 1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.log(1.0), 0.0, default_tolerance());
+    assert_close(math.log(2.718281828459045), 1.0, default_tolerance());
+    assert_close(math.log(0.5), -0.6931471805599453, default_tolerance());
+    assert_close(math.log(10.0), 2.302585092994046, default_tolerance());
+    assert_close(math.log(5.0), 1.6094379124341003, default_tolerance());
+    assert_neg_inf(math.log(0.0));
+    assert_nan(math.log(-1.0));
+    assert_pos_inf(math.log(1.0 / 0.0));
+    assert_nan(math.log(0.0 / 0.0));
+
+    // locals
+    assert_close(math.log(one), 0.0, default_tolerance());
+    assert_close(math.log(e), 1.0, default_tolerance());
+    assert_close(math.log(half), -0.6931471805599453, default_tolerance());
+    assert_close(math.log(ten), 2.302585092994046, default_tolerance());
+    assert_close(math.log(five), 1.6094379124341003, default_tolerance());
+    assert_neg_inf(math.log(zero));
+    assert_nan(math.log(neg_one));
+    assert_pos_inf(math.log(pos_inf));
+    assert_nan(math.log(nan_val));
+
+    // argv
+    assert_close(math.log(arg_double(args, 0)), 0.0, default_tolerance());
+    assert_close(math.log(arg_double(args, 1)), 1.0, default_tolerance());
+    assert_close(math.log(arg_double(args, 2)), -0.6931471805599453, default_tolerance());
+    assert_close(math.log(arg_double(args, 3)), 2.302585092994046, default_tolerance());
+    assert_close(math.log(arg_double(args, 4)), 1.6094379124341003, default_tolerance());
+    assert_neg_inf(math.log(arg_double(args, 5)));
+    assert_nan(math.log(arg_double(args, 6)));
+    assert_pos_inf(math.log(arg_double(args, 7)));
+    assert_nan(math.log(arg_double(args, 8)));
+}
+
+fn test_log10(args: Str[]) -> unit {
+    var one: double = 1.0;
+    var ten: double = 10.0;
+    var thousand: double = 1000.0;
+    var hundred: double = 100.0;
+    var tenth: double = 0.1;
+    var zero: double = 0.0;
+    var neg_one: double = -1.0;
+    var pos_inf: double = 1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.log10(1.0), 0.0, default_tolerance());
+    assert_close(math.log10(10.0), 1.0, default_tolerance());
+    assert_close(math.log10(1000.0), 3.0, default_tolerance());
+    assert_close(math.log10(100.0), 2.0, default_tolerance());
+    assert_close(math.log10(0.1), -1.0, default_tolerance());
+    assert_neg_inf(math.log10(0.0));
+    assert_nan(math.log10(-1.0));
+    assert_pos_inf(math.log10(1.0 / 0.0));
+    assert_nan(math.log10(0.0 / 0.0));
+
+    // locals
+    assert_close(math.log10(one), 0.0, default_tolerance());
+    assert_close(math.log10(ten), 1.0, default_tolerance());
+    assert_close(math.log10(thousand), 3.0, default_tolerance());
+    assert_close(math.log10(hundred), 2.0, default_tolerance());
+    assert_close(math.log10(tenth), -1.0, default_tolerance());
+    assert_neg_inf(math.log10(zero));
+    assert_nan(math.log10(neg_one));
+    assert_pos_inf(math.log10(pos_inf));
+    assert_nan(math.log10(nan_val));
+
+    // argv
+    assert_close(math.log10(arg_double(args, 0)), 0.0, default_tolerance());
+    assert_close(math.log10(arg_double(args, 1)), 1.0, default_tolerance());
+    assert_close(math.log10(arg_double(args, 2)), 3.0, default_tolerance());
+    assert_close(math.log10(arg_double(args, 3)), 2.0, default_tolerance());
+    assert_close(math.log10(arg_double(args, 4)), -1.0, default_tolerance());
+    assert_neg_inf(math.log10(arg_double(args, 5)));
+    assert_nan(math.log10(arg_double(args, 6)));
+    assert_pos_inf(math.log10(arg_double(args, 7)));
+    assert_nan(math.log10(arg_double(args, 8)));
+}
+
+fn test_pow(args: Str[]) -> unit {
+    var base_pow2: double = 2.0;
+    var exp_ten: double = 10.0;
+    var base_nine: double = 9.0;
+    var exp_half: double = 0.5;
+    var exp_three: double = 3.0;
+    var exp_neg_two: double = -2.0;
+    var base_neg_two: double = -2.0;
+    var zero: double = 0.0;
+    var neg_one: double = -1.0;
+
+    // literals
+    assert_close(math.pow(2.0, 10.0), 1024.0, 0.0);
+    assert_close(math.pow(9.0, 0.5), 3.0, default_tolerance());
+    assert_close(math.pow(2.0, 3.0), 8.0, 0.0);
+    assert_close(math.pow(2.0, -2.0), 0.25, default_tolerance());
+    assert_close(math.pow(-2.0, 3.0), -8.0, 0.0);
+    assert_eq_double(math.pow(0.0, 0.0), 1.0);
+    assert_nan(math.pow(-1.0, 0.5));
+
+    // locals
+    assert_close(math.pow(base_pow2, exp_ten), 1024.0, 0.0);
+    assert_close(math.pow(base_nine, exp_half), 3.0, default_tolerance());
+    assert_close(math.pow(base_pow2, exp_three), 8.0, 0.0);
+    assert_close(math.pow(base_pow2, exp_neg_two), 0.25, default_tolerance());
+    assert_close(math.pow(base_neg_two, exp_three), -8.0, 0.0);
+    assert_eq_double(math.pow(zero, zero), 1.0);
+    assert_nan(math.pow(neg_one, exp_half));
+
+    // argv
+    assert_close(math.pow(arg_double(args, 0), arg_double(args, 1)), 1024.0, 0.0);
+    assert_close(math.pow(arg_double(args, 2), arg_double(args, 3)), 3.0, default_tolerance());
+    assert_close(math.pow(arg_double(args, 4), arg_double(args, 5)), 8.0, 0.0);
+    assert_close(math.pow(arg_double(args, 6), arg_double(args, 7)), 0.25, default_tolerance());
+    assert_close(math.pow(arg_double(args, 8), arg_double(args, 9)), -8.0, 0.0);
+    assert_eq_double(math.pow(arg_double(args, 10), arg_double(args, 11)), 1.0);
+    assert_nan(math.pow(arg_double(args, 12), arg_double(args, 13)));
+}
+
+fn test_sqrt(args: Str[]) -> unit {
+    var zero: double = 0.0;
+    var nine: double = 9.0;
+    var quarter: double = 0.25;
+    var large_square: double = 144.0;
+    var fractional_square: double = 2.25;
+    var pos_inf: double = 1.0 / 0.0;
+    var neg_one: double = -1.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.sqrt(0.0), 0.0, 0.0);
+    assert_close(math.sqrt(9.0), 3.0, 0.0);
+    assert_close(math.sqrt(0.25), 0.5, default_tolerance());
+    assert_close(math.sqrt(144.0), 12.0, default_tolerance());
+    assert_close(math.sqrt(2.25), 1.5, default_tolerance());
+    assert_pos_inf(math.sqrt(1.0 / 0.0));
+    assert_nan(math.sqrt(-1.0));
+    assert_nan(math.sqrt(0.0 / 0.0));
+
+    // locals
+    assert_close(math.sqrt(zero), 0.0, 0.0);
+    assert_close(math.sqrt(nine), 3.0, 0.0);
+    assert_close(math.sqrt(quarter), 0.5, default_tolerance());
+    assert_close(math.sqrt(large_square), 12.0, default_tolerance());
+    assert_close(math.sqrt(fractional_square), 1.5, default_tolerance());
+    assert_pos_inf(math.sqrt(pos_inf));
+    assert_nan(math.sqrt(neg_one));
+    assert_nan(math.sqrt(nan_val));
+
+    // argv
+    assert_close(math.sqrt(arg_double(args, 0)), 0.0, 0.0);
+    assert_close(math.sqrt(arg_double(args, 1)), 3.0, 0.0);
+    assert_close(math.sqrt(arg_double(args, 2)), 0.5, default_tolerance());
+    assert_close(math.sqrt(arg_double(args, 3)), 12.0, default_tolerance());
+    assert_close(math.sqrt(arg_double(args, 4)), 1.5, default_tolerance());
+    assert_pos_inf(math.sqrt(arg_double(args, 5)));
+    assert_nan(math.sqrt(arg_double(args, 6)));
+    assert_nan(math.sqrt(arg_double(args, 7)));
+}
+
+fn test_cbrt(args: Str[]) -> unit {
+    var zero: double = 0.0;
+    var twenty_seven: double = 27.0;
+    var neg_eight: double = -8.0;
+    var sixty_four: double = 64.0;
+    var neg_one_twenty_five: double = -125.0;
+    var pos_inf: double = 1.0 / 0.0;
+    var neg_inf: double = -1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.cbrt(0.0), 0.0, 0.0);
+    assert_close(math.cbrt(27.0), 3.0, default_tolerance());
+    assert_close(math.cbrt(-8.0), -2.0, default_tolerance());
+    assert_close(math.cbrt(64.0), 4.0, default_tolerance());
+    assert_close(math.cbrt(-125.0), -5.0, default_tolerance());
+    assert_pos_inf(math.cbrt(1.0 / 0.0));
+    assert_neg_inf(math.cbrt(-1.0 / 0.0));
+    assert_nan(math.cbrt(0.0 / 0.0));
+
+    // locals
+    assert_close(math.cbrt(zero), 0.0, 0.0);
+    assert_close(math.cbrt(twenty_seven), 3.0, default_tolerance());
+    assert_close(math.cbrt(neg_eight), -2.0, default_tolerance());
+    assert_close(math.cbrt(sixty_four), 4.0, default_tolerance());
+    assert_close(math.cbrt(neg_one_twenty_five), -5.0, default_tolerance());
+    assert_pos_inf(math.cbrt(pos_inf));
+    assert_neg_inf(math.cbrt(neg_inf));
+    assert_nan(math.cbrt(nan_val));
+
+    // argv
+    assert_close(math.cbrt(arg_double(args, 0)), 0.0, 0.0);
+    assert_close(math.cbrt(arg_double(args, 1)), 3.0, default_tolerance());
+    assert_close(math.cbrt(arg_double(args, 2)), -2.0, default_tolerance());
+    assert_close(math.cbrt(arg_double(args, 3)), 4.0, default_tolerance());
+    assert_close(math.cbrt(arg_double(args, 4)), -5.0, default_tolerance());
+    assert_pos_inf(math.cbrt(arg_double(args, 5)));
+    assert_neg_inf(math.cbrt(arg_double(args, 6)));
+    assert_nan(math.cbrt(arg_double(args, 7)));
+}
+
+fn test_floor(args: Str[]) -> unit {
+    var positive: double = 1.75;
+    var negative: double = -1.25;
+    var already_int: double = 2.0;
+    var almost_eight: double = 7.99;
+    var almost_neg_seven: double = -7.01;
+    var neg_zero: double = -0.0;
+    var pos_inf: double = 1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_eq_double(math.floor(1.75), 1.0);
+    assert_eq_double(math.floor(-1.25), -2.0);
+    assert_eq_double(math.floor(2.0), 2.0);
+    assert_eq_double(math.floor(7.99), 7.0);
+    assert_eq_double(math.floor(-7.01), -8.0);
+    assert_neg_zero(math.floor(-0.0));
+    assert_pos_inf(math.floor(1.0 / 0.0));
+    assert_nan(math.floor(0.0 / 0.0));
+
+    // locals
+    assert_eq_double(math.floor(positive), 1.0);
+    assert_eq_double(math.floor(negative), -2.0);
+    assert_eq_double(math.floor(already_int), 2.0);
+    assert_eq_double(math.floor(almost_eight), 7.0);
+    assert_eq_double(math.floor(almost_neg_seven), -8.0);
+    assert_neg_zero(math.floor(neg_zero));
+    assert_pos_inf(math.floor(pos_inf));
+    assert_nan(math.floor(nan_val));
+
+    // argv
+    assert_eq_double(math.floor(arg_double(args, 0)), 1.0);
+    assert_eq_double(math.floor(arg_double(args, 1)), -2.0);
+    assert_eq_double(math.floor(arg_double(args, 2)), 2.0);
+    assert_eq_double(math.floor(arg_double(args, 3)), 7.0);
+    assert_eq_double(math.floor(arg_double(args, 4)), -8.0);
+    assert_neg_zero(math.floor(arg_double(args, 5)));
+    assert_pos_inf(math.floor(arg_double(args, 6)));
+    assert_nan(math.floor(arg_double(args, 7)));
+}
+
+fn test_ceil(args: Str[]) -> unit {
+    var positive: double = 1.25;
+    var negative: double = -1.75;
+    var already_int: double = -2.0;
+    var almost_eight: double = 7.01;
+    var almost_neg_seven: double = -7.99;
+    var neg_zero: double = -0.0;
+    var pos_inf: double = 1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_eq_double(math.ceil(1.25), 2.0);
+    assert_eq_double(math.ceil(-1.75), -1.0);
+    assert_eq_double(math.ceil(-2.0), -2.0);
+    assert_eq_double(math.ceil(7.01), 8.0);
+    assert_eq_double(math.ceil(-7.99), -7.0);
+    assert_neg_zero(math.ceil(-0.0));
+    assert_pos_inf(math.ceil(1.0 / 0.0));
+    assert_nan(math.ceil(0.0 / 0.0));
+
+    // locals
+    assert_eq_double(math.ceil(positive), 2.0);
+    assert_eq_double(math.ceil(negative), -1.0);
+    assert_eq_double(math.ceil(already_int), -2.0);
+    assert_eq_double(math.ceil(almost_eight), 8.0);
+    assert_eq_double(math.ceil(almost_neg_seven), -7.0);
+    assert_neg_zero(math.ceil(neg_zero));
+    assert_pos_inf(math.ceil(pos_inf));
+    assert_nan(math.ceil(nan_val));
+
+    // argv
+    assert_eq_double(math.ceil(arg_double(args, 0)), 2.0);
+    assert_eq_double(math.ceil(arg_double(args, 1)), -1.0);
+    assert_eq_double(math.ceil(arg_double(args, 2)), -2.0);
+    assert_eq_double(math.ceil(arg_double(args, 3)), 8.0);
+    assert_eq_double(math.ceil(arg_double(args, 4)), -7.0);
+    assert_neg_zero(math.ceil(arg_double(args, 5)));
+    assert_pos_inf(math.ceil(arg_double(args, 6)));
+    assert_nan(math.ceil(arg_double(args, 7)));
+}
+
+fn test_round(args: Str[]) -> unit {
+    var pos_half: double = 1.5;
+    var neg_half: double = -1.5;
+    var below_half: double = 1.49;
+    var above_half: double = 1.51;
+    var below_neg_half: double = -1.51;
+    var neg_quarter: double = -0.25;
+    var pos_inf: double = 1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_eq_double(math.round(1.5), 2.0);
+    assert_eq_double(math.round(-1.5), -2.0);
+    assert_eq_double(math.round(1.49), 1.0);
+    assert_eq_double(math.round(1.51), 2.0);
+    assert_eq_double(math.round(-1.51), -2.0);
+    assert_neg_zero(math.round(-0.25));
+    assert_pos_inf(math.round(1.0 / 0.0));
+    assert_nan(math.round(0.0 / 0.0));
+
+    // locals
+    assert_eq_double(math.round(pos_half), 2.0);
+    assert_eq_double(math.round(neg_half), -2.0);
+    assert_eq_double(math.round(below_half), 1.0);
+    assert_eq_double(math.round(above_half), 2.0);
+    assert_eq_double(math.round(below_neg_half), -2.0);
+    assert_neg_zero(math.round(neg_quarter));
+    assert_pos_inf(math.round(pos_inf));
+    assert_nan(math.round(nan_val));
+
+    // argv
+    assert_eq_double(math.round(arg_double(args, 0)), 2.0);
+    assert_eq_double(math.round(arg_double(args, 1)), -2.0);
+    assert_eq_double(math.round(arg_double(args, 2)), 1.0);
+    assert_eq_double(math.round(arg_double(args, 3)), 2.0);
+    assert_eq_double(math.round(arg_double(args, 4)), -2.0);
+    assert_neg_zero(math.round(arg_double(args, 5)));
+    assert_pos_inf(math.round(arg_double(args, 6)));
+    assert_nan(math.round(arg_double(args, 7)));
+}
+
+fn test_trunc(args: Str[]) -> unit {
+    var positive: double = 1.75;
+    var negative: double = -1.75;
+    var small: double = 0.5;
+    var almost_eight: double = 7.99;
+    var almost_neg_eight: double = -7.99;
+    var neg_quarter: double = -0.25;
+    var pos_inf: double = 1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_eq_double(math.trunc(1.75), 1.0);
+    assert_eq_double(math.trunc(-1.75), -1.0);
+    assert_eq_double(math.trunc(0.5), 0.0);
+    assert_eq_double(math.trunc(7.99), 7.0);
+    assert_eq_double(math.trunc(-7.99), -7.0);
+    assert_neg_zero(math.trunc(-0.25));
+    assert_pos_inf(math.trunc(1.0 / 0.0));
+    assert_nan(math.trunc(0.0 / 0.0));
+
+    // locals
+    assert_eq_double(math.trunc(positive), 1.0);
+    assert_eq_double(math.trunc(negative), -1.0);
+    assert_eq_double(math.trunc(small), 0.0);
+    assert_eq_double(math.trunc(almost_eight), 7.0);
+    assert_eq_double(math.trunc(almost_neg_eight), -7.0);
+    assert_neg_zero(math.trunc(neg_quarter));
+    assert_pos_inf(math.trunc(pos_inf));
+    assert_nan(math.trunc(nan_val));
+
+    // argv
+    assert_eq_double(math.trunc(arg_double(args, 0)), 1.0);
+    assert_eq_double(math.trunc(arg_double(args, 1)), -1.0);
+    assert_eq_double(math.trunc(arg_double(args, 2)), 0.0);
+    assert_eq_double(math.trunc(arg_double(args, 3)), 7.0);
+    assert_eq_double(math.trunc(arg_double(args, 4)), -7.0);
+    assert_neg_zero(math.trunc(arg_double(args, 5)));
+    assert_pos_inf(math.trunc(arg_double(args, 6)));
+    assert_nan(math.trunc(arg_double(args, 7)));
+}
+
+fn test_abs(args: Str[]) -> unit {
+    var neg_three_point_five: double = -3.5;
+    var zero: double = 0.0;
+    var neg_value: double = -123.25;
+    var neg_forty_two_point_five: double = -42.5;
+    var seven: double = 7.0;
+    var neg_zero: double = -0.0;
+    var neg_inf: double = -1.0 / 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_eq_double(math.abs(-3.5), 3.5);
+    assert_eq_double(math.abs(0.0), 0.0);
+    assert_eq_double(math.abs(-123.25), 123.25);
+    assert_eq_double(math.abs(-42.5), 42.5);
+    assert_eq_double(math.abs(7.0), 7.0);
+    assert_pos_zero(math.abs(-0.0));
+    assert_pos_inf(math.abs(-1.0 / 0.0));
+    assert_nan(math.abs(0.0 / 0.0));
+
+    // locals
+    assert_eq_double(math.abs(neg_three_point_five), 3.5);
+    assert_eq_double(math.abs(zero), 0.0);
+    assert_eq_double(math.abs(neg_value), 123.25);
+    assert_eq_double(math.abs(neg_forty_two_point_five), 42.5);
+    assert_eq_double(math.abs(seven), 7.0);
+    assert_pos_zero(math.abs(neg_zero));
+    assert_pos_inf(math.abs(neg_inf));
+    assert_nan(math.abs(nan_val));
+
+    // argv
+    assert_eq_double(math.abs(arg_double(args, 0)), 3.5);
+    assert_eq_double(math.abs(arg_double(args, 1)), 0.0);
+    assert_eq_double(math.abs(arg_double(args, 2)), 123.25);
+    assert_eq_double(math.abs(arg_double(args, 3)), 42.5);
+    assert_eq_double(math.abs(arg_double(args, 4)), 7.0);
+    assert_pos_zero(math.abs(arg_double(args, 5)));
+    assert_pos_inf(math.abs(arg_double(args, 6)));
+    assert_nan(math.abs(arg_double(args, 7)));
+}
+
+fn test_min(args: Str[]) -> unit {
+    var left_one: double = 1.0;
+    var right_two: double = 2.0;
+    var left_neg_four: double = -4.0;
+    var right_three: double = 3.0;
+    var left_seven: double = 7.0;
+    var right_neg_two: double = -2.0;
+    var left_four: double = 4.0;
+    var right_neg_nine: double = -9.0;
+    var left_three: double = 3.0;
+    var right_nine: double = 9.0;
+    var neg_zero: double = -0.0;
+    var zero: double = 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_eq_double(math.min(1.0, 2.0), 1.0);
+    assert_eq_double(math.min(-4.0, 3.0), -4.0);
+    assert_eq_double(math.min(7.0, -2.0), -2.0);
+    assert_eq_double(math.min(4.0, -9.0), -9.0);
+    assert_eq_double(math.min(3.0, 9.0), 3.0);
+    assert_neg_zero(math.min(-0.0, 0.0));
+    assert_nan(math.min(0.0 / 0.0, 1.0));
+
+    // locals
+    assert_eq_double(math.min(left_one, right_two), 1.0);
+    assert_eq_double(math.min(left_neg_four, right_three), -4.0);
+    assert_eq_double(math.min(left_seven, right_neg_two), -2.0);
+    assert_eq_double(math.min(left_four, right_neg_nine), -9.0);
+    assert_eq_double(math.min(left_three, right_nine), 3.0);
+    assert_neg_zero(math.min(neg_zero, zero));
+    assert_nan(math.min(nan_val, left_one));
+
+    // argv
+    assert_eq_double(math.min(arg_double(args, 0), arg_double(args, 1)), 1.0);
+    assert_eq_double(math.min(arg_double(args, 2), arg_double(args, 3)), -4.0);
+    assert_eq_double(math.min(arg_double(args, 4), arg_double(args, 5)), -2.0);
+    assert_eq_double(math.min(arg_double(args, 6), arg_double(args, 7)), -9.0);
+    assert_eq_double(math.min(arg_double(args, 8), arg_double(args, 9)), 3.0);
+    assert_neg_zero(math.min(arg_double(args, 10), arg_double(args, 11)));
+    assert_nan(math.min(arg_double(args, 12), arg_double(args, 13)));
+}
+
+fn test_max(args: Str[]) -> unit {
+    var left_one: double = 1.0;
+    var right_two: double = 2.0;
+    var left_neg_four: double = -4.0;
+    var right_three: double = 3.0;
+    var left_seven: double = 7.0;
+    var right_neg_two: double = -2.0;
+    var left_four: double = 4.0;
+    var right_neg_nine: double = -9.0;
+    var left_three: double = 3.0;
+    var right_nine: double = 9.0;
+    var neg_zero: double = -0.0;
+    var zero: double = 0.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_eq_double(math.max(1.0, 2.0), 2.0);
+    assert_eq_double(math.max(-4.0, 3.0), 3.0);
+    assert_eq_double(math.max(7.0, -2.0), 7.0);
+    assert_eq_double(math.max(4.0, -9.0), 4.0);
+    assert_eq_double(math.max(3.0, 9.0), 9.0);
+    assert_pos_zero(math.max(-0.0, 0.0));
+    assert_nan(math.max(0.0 / 0.0, 1.0));
+
+    // locals
+    assert_eq_double(math.max(left_one, right_two), 2.0);
+    assert_eq_double(math.max(left_neg_four, right_three), 3.0);
+    assert_eq_double(math.max(left_seven, right_neg_two), 7.0);
+    assert_eq_double(math.max(left_four, right_neg_nine), 4.0);
+    assert_eq_double(math.max(left_three, right_nine), 9.0);
+    assert_pos_zero(math.max(neg_zero, zero));
+    assert_nan(math.max(nan_val, left_one));
+
+    // argv
+    assert_eq_double(math.max(arg_double(args, 0), arg_double(args, 1)), 2.0);
+    assert_eq_double(math.max(arg_double(args, 2), arg_double(args, 3)), 3.0);
+    assert_eq_double(math.max(arg_double(args, 4), arg_double(args, 5)), 7.0);
+    assert_eq_double(math.max(arg_double(args, 6), arg_double(args, 7)), 4.0);
+    assert_eq_double(math.max(arg_double(args, 8), arg_double(args, 9)), 9.0);
+    assert_pos_zero(math.max(arg_double(args, 10), arg_double(args, 11)));
+    assert_nan(math.max(arg_double(args, 12), arg_double(args, 13)));
+}
+
+fn test_hypot(args: Str[]) -> unit {
+    var left_three: double = 3.0;
+    var right_four: double = 4.0;
+    var left_five: double = 5.0;
+    var right_twelve: double = 12.0;
+    var left_eight: double = 8.0;
+    var right_fifteen: double = 15.0;
+    var left_seven: double = 7.0;
+    var right_twenty_four: double = 24.0;
+    var left_six: double = 6.0;
+    var right_eight: double = 8.0;
+    var pos_inf: double = 1.0 / 0.0;
+    var one: double = 1.0;
+    var nan_val: double = 0.0 / 0.0;
+
+    // literals
+    assert_close(math.hypot(3.0, 4.0), 5.0, default_tolerance());
+    assert_close(math.hypot(5.0, 12.0), 13.0, default_tolerance());
+    assert_close(math.hypot(8.0, 15.0), 17.0, default_tolerance());
+    assert_close(math.hypot(7.0, 24.0), 25.0, default_tolerance());
+    assert_close(math.hypot(6.0, 8.0), 10.0, default_tolerance());
+    assert_pos_inf(math.hypot(1.0 / 0.0, 1.0));
+    assert_nan(math.hypot(0.0 / 0.0, 1.0));
+
+    // locals
+    assert_close(math.hypot(left_three, right_four), 5.0, default_tolerance());
+    assert_close(math.hypot(left_five, right_twelve), 13.0, default_tolerance());
+    assert_close(math.hypot(left_eight, right_fifteen), 17.0, default_tolerance());
+    assert_close(math.hypot(left_seven, right_twenty_four), 25.0, default_tolerance());
+    assert_close(math.hypot(left_six, right_eight), 10.0, default_tolerance());
+    assert_pos_inf(math.hypot(pos_inf, one));
+    assert_nan(math.hypot(nan_val, one));
+
+    // argv
+    assert_close(math.hypot(arg_double(args, 0), arg_double(args, 1)), 5.0, default_tolerance());
+    assert_close(math.hypot(arg_double(args, 2), arg_double(args, 3)), 13.0, default_tolerance());
+    assert_close(math.hypot(arg_double(args, 4), arg_double(args, 5)), 17.0, default_tolerance());
+    assert_close(math.hypot(arg_double(args, 6), arg_double(args, 7)), 25.0, default_tolerance());
+    assert_close(math.hypot(arg_double(args, 8), arg_double(args, 9)), 10.0, default_tolerance());
+    assert_pos_inf(math.hypot(arg_double(args, 10), arg_double(args, 11)));
+    assert_nan(math.hypot(arg_double(args, 12), arg_double(args, 13)));
+}
+
+fn test_is_nan(args: Str[]) -> unit {
+    var nan_val: double = 0.0 / 0.0;
+    var one: double = 1.0;
+    var neg_one: double = -1.0;
+    var zero: double = 0.0;
+    var pos_inf: double = 1.0 / 0.0;
+    var neg_inf: double = -1.0 / 0.0;
+
+    // literals
+    assert_true(math.is_nan(0.0 / 0.0));
+    assert_false(math.is_nan(1.0));
+    assert_false(math.is_nan(-1.0));
+    assert_false(math.is_nan(0.0));
+    assert_false(math.is_nan(1.0 / 0.0));
+    assert_false(math.is_nan(-1.0 / 0.0));
+
+    // locals
+    assert_true(math.is_nan(nan_val));
+    assert_false(math.is_nan(one));
+    assert_false(math.is_nan(neg_one));
+    assert_false(math.is_nan(zero));
+    assert_false(math.is_nan(pos_inf));
+    assert_false(math.is_nan(neg_inf));
+
+    // argv
+    assert_true(math.is_nan(arg_double(args, 0)));
+    assert_false(math.is_nan(arg_double(args, 1)));
+    assert_false(math.is_nan(arg_double(args, 2)));
+    assert_false(math.is_nan(arg_double(args, 3)));
+    assert_false(math.is_nan(arg_double(args, 4)));
+    assert_false(math.is_nan(arg_double(args, 5)));
+}
+
+fn test_is_infinite(args: Str[]) -> unit {
+    var pos_inf: double = 1.0 / 0.0;
+    var neg_inf: double = -1.0 / 0.0;
+    var forty_two: double = 42.0;
+    var one: double = 1.0;
+    var neg_seven: double = -7.0;
+    var nan_val: double = 0.0 / 0.0;
+    var zero: double = 0.0;
+
+    // literals
+    assert_true(math.is_infinite(1.0 / 0.0));
+    assert_true(math.is_infinite(-1.0 / 0.0));
+    assert_false(math.is_infinite(42.0));
+    assert_false(math.is_infinite(1.0));
+    assert_false(math.is_infinite(-7.0));
+    assert_false(math.is_infinite(0.0 / 0.0));
+    assert_false(math.is_infinite(0.0));
+
+    // locals
+    assert_true(math.is_infinite(pos_inf));
+    assert_true(math.is_infinite(neg_inf));
+    assert_false(math.is_infinite(forty_two));
+    assert_false(math.is_infinite(one));
+    assert_false(math.is_infinite(neg_seven));
+    assert_false(math.is_infinite(nan_val));
+    assert_false(math.is_infinite(zero));
+
+    // argv
+    assert_true(math.is_infinite(arg_double(args, 0)));
+    assert_true(math.is_infinite(arg_double(args, 1)));
+    assert_false(math.is_infinite(arg_double(args, 2)));
+    assert_false(math.is_infinite(arg_double(args, 3)));
+    assert_false(math.is_infinite(arg_double(args, 4)));
+    assert_false(math.is_infinite(arg_double(args, 5)));
+    assert_false(math.is_infinite(arg_double(args, 6)));
+}
+
+fn assert_eq_bool(actual: bool, expected: bool) -> unit {
+    if actual {
+        assert_true(expected);
+        return;
+    }
+    assert_false(expected);
+}
+
+fn main() -> i64 {
+    var args: Str[] = read_program_args();
+    var test_name: Str = args[1];
+    var values: Str[] = args[2:];
+
+    if test_name.equals("sin") { test_sin(values); return 0; }
+    if test_name.equals("cos") { test_cos(values); return 0; }
+    if test_name.equals("tan") { test_tan(values); return 0; }
+    if test_name.equals("asin") { test_asin(values); return 0; }
+    if test_name.equals("acos") { test_acos(values); return 0; }
+    if test_name.equals("atan") { test_atan(values); return 0; }
+    if test_name.equals("atan2") { test_atan2(values); return 0; }
+    if test_name.equals("exp") { test_exp(values); return 0; }
+    if test_name.equals("log") { test_log(values); return 0; }
+    if test_name.equals("log10") { test_log10(values); return 0; }
+    if test_name.equals("pow") { test_pow(values); return 0; }
+    if test_name.equals("sqrt") { test_sqrt(values); return 0; }
+    if test_name.equals("cbrt") { test_cbrt(values); return 0; }
+    if test_name.equals("floor") { test_floor(values); return 0; }
+    if test_name.equals("ceil") { test_ceil(values); return 0; }
+    if test_name.equals("round") { test_round(values); return 0; }
+    if test_name.equals("trunc") { test_trunc(values); return 0; }
+    if test_name.equals("abs") { test_abs(values); return 0; }
+    if test_name.equals("min") { test_min(values); return 0; }
+    if test_name.equals("max") { test_max(values); return 0; }
+    if test_name.equals("hypot") { test_hypot(values); return 0; }
+    if test_name.equals("is_nan") { test_is_nan(values); return 0; }
+    if test_name.equals("is_infinite") { test_is_infinite(values); return 0; }
+
+    fail("Unknown test selector: " + test_name);
+    return 1;
+}

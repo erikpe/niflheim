@@ -1,9 +1,10 @@
 CC := cc
 CFLAGS := -std=c11 -Wall -Wextra -Werror -Iinclude
 
-RUNTIME_SRC := src/runtime.c src/gc.c src/gc_trace.c src/gc_tracked_set.c src/io.c src/array.c src/panic.c
+RUNTIME_SRC := src/runtime.c src/gc.c src/gc_trace.c src/gc_tracked_set.c src/io.c src/array.c src/math.c src/panic.c
 RUNTIME_DBG_SRC := src/runtime_dbg.c
 RUNTIME_OBJ := $(RUNTIME_SRC:.c=.o)
+LDLIBS := -lm
 TEST_DIR := ../tests/runtime
 GC_STRESS_BIN := $(TEST_DIR)/test_gc_stress
 GC_STRESS_SRC := $(TEST_DIR)/test_gc_stress.c
@@ -39,6 +40,8 @@ TRACKED_SET_PROBE_CLUSTERS_BIN := $(TEST_DIR)/test_tracked_set_probe_clusters
 TRACKED_SET_PROBE_CLUSTERS_SRC := $(TEST_DIR)/test_tracked_set_probe_clusters.c
 GC_TRACKING_POOL_BIN := $(TEST_DIR)/test_gc_tracking_pool
 GC_TRACKING_POOL_SRC := $(TEST_DIR)/test_gc_tracking_pool.c
+MATH_RUNTIME_BIN := $(TEST_DIR)/test_math_runtime
+MATH_RUNTIME_SRC := $(TEST_DIR)/test_math_runtime.c
 NEGATIVE_DRIVER := $(TEST_DIR)/run_negative_driver.sh
 
 all: libruntime.a
@@ -47,55 +50,58 @@ libruntime.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
 $(GC_STRESS_BIN): $(GC_STRESS_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
-	$(CC) $(CFLAGS) -o $@ $(GC_STRESS_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
+	$(CC) $(CFLAGS) -o $@ $(GC_STRESS_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) $(LDLIBS)
 
 $(ROOTS_POSITIVE_BIN): $(ROOTS_POSITIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
-	$(CC) $(CFLAGS) -o $@ $(ROOTS_POSITIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
+	$(CC) $(CFLAGS) -o $@ $(ROOTS_POSITIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) $(LDLIBS)
 
 $(ROOTS_NEGATIVE_BIN): $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
-	$(CC) $(CFLAGS) -o $@ $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
+	$(CC) $(CFLAGS) -o $@ $(ROOTS_NEGATIVE_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) $(LDLIBS)
 
 $(ARRAY_RUNTIME_BIN): $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
-	$(CC) $(CFLAGS) -o $@ $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
+	$(CC) $(CFLAGS) -o $@ $(ARRAY_RUNTIME_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) $(LDLIBS)
 
 $(ROOT_INLINE_PARITY_BIN): $(ROOT_INLINE_PARITY_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h
-	$(CC) $(CFLAGS) -o $@ $(ROOT_INLINE_PARITY_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
+	$(CC) $(CFLAGS) -o $@ $(ROOT_INLINE_PARITY_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) $(LDLIBS)
 
 $(ARRAY_NEGATIVE_BIN): $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(ARRAY_NEGATIVE_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(INTERFACE_METADATA_BIN): $(INTERFACE_METADATA_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(INTERFACE_METADATA_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(INTERFACE_METADATA_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(INTERFACE_CASTS_BIN): $(INTERFACE_CASTS_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(INTERFACE_CASTS_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(INTERFACE_CASTS_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(INTERFACE_CASTS_NEGATIVE_BIN): $(INTERFACE_CASTS_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(INTERFACE_CASTS_NEGATIVE_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(INTERFACE_CASTS_NEGATIVE_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(INTERFACE_DISPATCH_BIN): $(INTERFACE_DISPATCH_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(INTERFACE_DISPATCH_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(INTERFACE_DISPATCH_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(INTERFACE_DISPATCH_NEGATIVE_BIN): $(INTERFACE_DISPATCH_NEGATIVE_SRC) $(RUNTIME_SRC) include/runtime.h
-	$(CC) $(CFLAGS) -o $@ $(INTERFACE_DISPATCH_NEGATIVE_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(INTERFACE_DISPATCH_NEGATIVE_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(TRACKED_SET_TOMBSTONES_BIN): $(TRACKED_SET_TOMBSTONES_SRC) $(RUNTIME_SRC) include/runtime.h include/gc_tracked_set.h
-	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_TOMBSTONES_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_TOMBSTONES_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(TRACKED_SET_PROBE_BEHAVIOR_BIN): $(TRACKED_SET_PROBE_BEHAVIOR_SRC) $(RUNTIME_SRC) include/runtime.h include/gc_tracked_set.h
-	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_PROBE_BEHAVIOR_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_PROBE_BEHAVIOR_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(TRACKED_SET_GC_INTEGRATION_BIN): $(TRACKED_SET_GC_INTEGRATION_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) include/runtime.h include/runtime_dbg.h include/gc_tracked_set.h
-	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_GC_INTEGRATION_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC)
+	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_GC_INTEGRATION_SRC) $(RUNTIME_SRC) $(RUNTIME_DBG_SRC) $(LDLIBS)
 
 $(TRACKED_SET_OCCUPANCY_REBUILD_BIN): $(TRACKED_SET_OCCUPANCY_REBUILD_SRC) $(RUNTIME_SRC) include/runtime.h include/gc_tracked_set.h
-	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_OCCUPANCY_REBUILD_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_OCCUPANCY_REBUILD_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(TRACKED_SET_PROBE_CLUSTERS_BIN): $(TRACKED_SET_PROBE_CLUSTERS_SRC) $(RUNTIME_SRC) include/runtime.h include/gc_tracked_set.h
-	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_PROBE_CLUSTERS_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(TRACKED_SET_PROBE_CLUSTERS_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(GC_TRACKING_POOL_BIN): $(GC_TRACKING_POOL_SRC) $(RUNTIME_SRC) include/runtime.h include/gc.h
-	$(CC) $(CFLAGS) -o $@ $(GC_TRACKING_POOL_SRC) $(RUNTIME_SRC)
+	$(CC) $(CFLAGS) -o $@ $(GC_TRACKING_POOL_SRC) $(RUNTIME_SRC) $(LDLIBS)
+
+$(MATH_RUNTIME_BIN): $(MATH_RUNTIME_SRC) $(RUNTIME_SRC) include/runtime.h include/math_rt.h
+	$(CC) $(CFLAGS) -o $@ $(MATH_RUNTIME_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 test: $(GC_STRESS_BIN)
 	./$(GC_STRESS_BIN)
@@ -160,6 +166,9 @@ test-tracked-set-probe-clusters: $(TRACKED_SET_PROBE_CLUSTERS_BIN)
 test-gc-tracking-pool: $(GC_TRACKING_POOL_BIN)
 	./$(GC_TRACKING_POOL_BIN)
 
+test-math-runtime: $(MATH_RUNTIME_BIN)
+	./$(MATH_RUNTIME_BIN)
+
 check-no-debug-symbols: libruntime.a
 	@if nm -g libruntime.a | grep -E 'rt_dbg_|rt_root_frame_init|rt_root_slot_store|rt_root_slot_load|rt_push_roots|rt_pop_roots' >/dev/null; then \
 		echo "libruntime.a exports debug-only root helpers" >&2; \
@@ -167,7 +176,7 @@ check-no-debug-symbols: libruntime.a
 		exit 1; \
 	fi
 
-test-all: test test-positive test-negative test-array test-inline-parity test-array-negative test-interface-metadata test-interface-casts test-interface-casts-negative test-interface-dispatch test-interface-dispatch-negative test-tracked-set-tombstones test-tracked-set-probe-behavior test-tracked-set-gc-integration test-tracked-set-occupancy-rebuild test-tracked-set-probe-clusters test-gc-tracking-pool check-no-debug-symbols
+test-all: test test-positive test-negative test-array test-inline-parity test-array-negative test-interface-metadata test-interface-casts test-interface-casts-negative test-interface-dispatch test-interface-dispatch-negative test-tracked-set-tombstones test-tracked-set-probe-behavior test-tracked-set-gc-integration test-tracked-set-occupancy-rebuild test-tracked-set-probe-clusters test-gc-tracking-pool test-math-runtime check-no-debug-symbols
 
 clean:
-	rm -f $(RUNTIME_OBJ) src/runtime_dbg.o libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(ROOT_INLINE_PARITY_BIN) $(INTERFACE_METADATA_BIN) $(INTERFACE_CASTS_BIN) $(INTERFACE_CASTS_NEGATIVE_BIN) $(INTERFACE_DISPATCH_BIN) $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(TRACKED_SET_TOMBSTONES_BIN) $(TRACKED_SET_PROBE_BEHAVIOR_BIN) $(TRACKED_SET_GC_INTEGRATION_BIN) $(TRACKED_SET_OCCUPANCY_REBUILD_BIN) $(TRACKED_SET_PROBE_CLUSTERS_BIN) $(GC_TRACKING_POOL_BIN)
+	rm -f $(RUNTIME_OBJ) src/runtime_dbg.o libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(ROOT_INLINE_PARITY_BIN) $(INTERFACE_METADATA_BIN) $(INTERFACE_CASTS_BIN) $(INTERFACE_CASTS_NEGATIVE_BIN) $(INTERFACE_DISPATCH_BIN) $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(TRACKED_SET_TOMBSTONES_BIN) $(TRACKED_SET_PROBE_BEHAVIOR_BIN) $(TRACKED_SET_GC_INTEGRATION_BIN) $(TRACKED_SET_OCCUPANCY_REBUILD_BIN) $(TRACKED_SET_PROBE_CLUSTERS_BIN) $(GC_TRACKING_POOL_BIN) $(MATH_RUNTIME_BIN)

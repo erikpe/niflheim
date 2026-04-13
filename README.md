@@ -49,6 +49,7 @@ Recent backend/runtime updates:
 - `std.box` primitive wrapper classes (`Box*`) are available for `Obj`-container use cases.
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
 - `std.io` supports stdout printing, stdin batch reads (`read_stdin`), whole-file reads (`read_file(path)`), and program-argument decoding (`read_program_args()`) using minimal runtime file/byte-array primitives.
+- `std.math` exposes a grouped `double` math surface backed by runtime `libm` wrappers, including trigonometric, exponential/logarithmic, rounding, comparison, and classification helpers.
 
 Recent language/runtime additions are reflected directly in [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md).
 

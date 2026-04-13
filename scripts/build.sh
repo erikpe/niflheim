@@ -73,8 +73,10 @@ cc \
   "$repo_root/runtime/src/gc_tracked_set.c" \
   "$repo_root/runtime/src/io.c" \
   "$repo_root/runtime/src/array.c" \
+  "$repo_root/runtime/src/math.c" \
   "$repo_root/runtime/src/panic.c" \
   "$asm_out" \
+  -lm \
   "${ld_args[@]}" \
   -o "$output"
 

@@ -70,6 +70,7 @@ Current C runtime and GC support for the generated backend.
 - `src/gc_trace.c` - trace-frame bookkeeping and summary reporting.
 - `src/gc_tracked_set.c` - tracked-allocation set utilities.
 - `src/io.c` - runtime file/stdout byte-array implementation unit.
+- `src/math.c` - runtime `double` math wrappers and classification helpers.
 - `src/array.c` - fixed-size array allocation/access/slice implementation.
 - `src/panic.c` - panic reporting and trace rendering.
 - `src/runtime_dbg.c` - debug/test-only helper implementations.
@@ -80,6 +81,7 @@ Current C runtime and GC support for the generated backend.
 Standard library modules layered on the compiler/runtime surface.
 
 - `io.nif` - stdout printing, whole-file reads, stdin reads, and argv decoding helpers.
+- `math.nif` - grouped `double` math functions plus NaN/infinity classification helpers.
 - `str.nif`, `vec.nif`, `map.nif`, `box.nif`, `lang.nif` - core containers, boxing, and shared interface definitions.
 - `object.nif`, `range.nif`, `error.nif`, `test.nif`, `bigint.nif` - supporting standard-library modules.
 

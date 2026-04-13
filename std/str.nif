@@ -332,6 +332,15 @@ export class Str implements Hashable, Equalable, Comparable
         if length == 0u {
             panic("Str.to_double on empty string");
         }
+        if __self.equals("nan") {
+            return 0.0 / 0.0;
+        }
+        if __self.equals("inf") {
+            return 1.0 / 0.0;
+        }
+        if __self.equals("-inf") {
+            return -1.0 / 0.0;
+        }
 
         var negative: bool = false;
         var index: u64 = 0u;
@@ -384,6 +393,9 @@ export class Str implements Hashable, Equalable, Comparable
 
         var out: double = (double)integer_part + fractional_part;
         if negative {
+            if integer_part == 0u && fractional_part == 0.0 {
+                return -0.0;
+            }
             return -out;
         }
         return out;

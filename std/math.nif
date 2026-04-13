@@ -1,0 +1,115 @@
+extern fn rt_math_sin(value: double) -> double;
+extern fn rt_math_cos(value: double) -> double;
+extern fn rt_math_tan(value: double) -> double;
+extern fn rt_math_asin(value: double) -> double;
+extern fn rt_math_acos(value: double) -> double;
+extern fn rt_math_atan(value: double) -> double;
+extern fn rt_math_atan2(y: double, x: double) -> double;
+extern fn rt_math_exp(value: double) -> double;
+extern fn rt_math_log(value: double) -> double;
+extern fn rt_math_log10(value: double) -> double;
+extern fn rt_math_pow(base: double, exponent: double) -> double;
+extern fn rt_math_sqrt(value: double) -> double;
+extern fn rt_math_cbrt(value: double) -> double;
+extern fn rt_math_floor(value: double) -> double;
+extern fn rt_math_ceil(value: double) -> double;
+extern fn rt_math_round(value: double) -> double;
+extern fn rt_math_trunc(value: double) -> double;
+extern fn rt_math_abs(value: double) -> double;
+extern fn rt_math_min(left: double, right: double) -> double;
+extern fn rt_math_max(left: double, right: double) -> double;
+extern fn rt_math_hypot(left: double, right: double) -> double;
+extern fn rt_math_is_nan(value: double) -> u64;
+extern fn rt_math_is_infinite(value: double) -> u64;
+
+export fn sin(value: double) -> double {
+    return rt_math_sin(value);
+}
+
+export fn cos(value: double) -> double {
+    return rt_math_cos(value);
+}
+
+export fn tan(value: double) -> double {
+    return rt_math_tan(value);
+}
+
+export fn asin(value: double) -> double {
+    return rt_math_asin(value);
+}
+
+export fn acos(value: double) -> double {
+    return rt_math_acos(value);
+}
+
+export fn atan(value: double) -> double {
+    return rt_math_atan(value);
+}
+
+export fn atan2(y: double, x: double) -> double {
+    return rt_math_atan2(y, x);
+}
+
+export fn exp(value: double) -> double {
+    return rt_math_exp(value);
+}
+
+export fn log(value: double) -> double {
+    return rt_math_log(value);
+}
+
+export fn log10(value: double) -> double {
+    return rt_math_log10(value);
+}
+
+export fn pow(base: double, exponent: double) -> double {
+    return rt_math_pow(base, exponent);
+}
+
+export fn sqrt(value: double) -> double {
+    return rt_math_sqrt(value);
+}
+
+export fn cbrt(value: double) -> double {
+    return rt_math_cbrt(value);
+}
+
+export fn floor(value: double) -> double {
+    return rt_math_floor(value);
+}
+
+export fn ceil(value: double) -> double {
+    return rt_math_ceil(value);
+}
+
+export fn round(value: double) -> double {
+    return rt_math_round(value);
+}
+
+export fn trunc(value: double) -> double {
+    return rt_math_trunc(value);
+}
+
+export fn abs(value: double) -> double {
+    return rt_math_abs(value);
+}
+
+export fn min(left: double, right: double) -> double {
+    return rt_math_min(left, right);
+}
+
+export fn max(left: double, right: double) -> double {
+    return rt_math_max(left, right);
+}
+
+export fn hypot(left: double, right: double) -> double {
+    return rt_math_hypot(left, right);
+}
+
+export fn is_nan(value: double) -> bool {
+    return rt_math_is_nan(value) != 0u;
+}
+
+export fn is_infinite(value: double) -> bool {
+    return rt_math_is_infinite(value) != 0u;
+}

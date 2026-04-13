@@ -89,6 +89,7 @@ def build_executable(asm_path: Path, *, exe_path: Path | None = None) -> Path:
         repository_root / "runtime" / "src" / "gc_tracked_set.c",
         repository_root / "runtime" / "src" / "io.c",
         repository_root / "runtime" / "src" / "array.c",
+        repository_root / "runtime" / "src" / "math.c",
         repository_root / "runtime" / "src" / "panic.c",
     ]
     output_path = asm_path.with_suffix("") if exe_path is None else exe_path
@@ -101,6 +102,7 @@ def build_executable(asm_path: Path, *, exe_path: Path | None = None) -> Path:
             str(runtime_include),
             *(str(source_path) for source_path in runtime_sources),
             str(asm_path),
+            "-lm",
             "-o",
             str(output_path),
         ],

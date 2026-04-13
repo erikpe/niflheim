@@ -61,12 +61,12 @@ Optional second-pass additions if the first patch stays small enough:
 
 Add:
 
-- `std/math.nif`
-- `runtime/include/math.h`
-- `runtime/src/math.c`
-- `tests/golden/std/math/test_math.nif`
-- `tests/golden/std/math/test_math_spec.yaml`
-- `tests/runtime/test_math_runtime.c`
+- [std/math.nif](../std/math.nif)
+- `runtime/include/math_rt.h`
+- [runtime/src/math.c](../runtime/src/math.c)
+- [tests/golden/std/math/test_math.nif](../tests/golden/std/math/test_math.nif)
+- [tests/golden/std/math/test_math_spec.yaml](../tests/golden/std/math/test_math_spec.yaml)
+- [tests/runtime/test_math_runtime.c](../tests/runtime/test_math_runtime.c)
 
 Update:
 
@@ -78,25 +78,25 @@ Update:
 
 ## Implementation Checklist
 
-- [ ] Freeze the first-pass API list and naming in [std/math.nif](../std/math.nif).
-- [ ] Add runtime declarations in `runtime/include/math.h`.
-- [ ] Implement thin `libm` wrappers in `runtime/src/math.c`.
-- [ ] Include the new header from [runtime/include/runtime.h](../runtime/include/runtime.h).
-- [ ] Add the new runtime source to [runtime/Makefile](../runtime/Makefile).
-- [ ] Add `-lm` to runtime harness linking in [runtime/Makefile](../runtime/Makefile).
-- [ ] Add the new runtime source and `-lm` to [scripts/build.sh](../scripts/build.sh).
-- [ ] Add the new runtime source and `-lm` to [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py).
-- [ ] Export the public Niflheim wrappers in `std/math.nif`.
-- [ ] Add golden coverage for representative normal, boundary, NaN, and infinity cases.
-- [ ] Add a small C runtime harness that checks wrapper behavior against `libm` on representative inputs.
+- [x] Freeze the first-pass API list and naming in [std/math.nif](../std/math.nif).
+- [x] Add runtime declarations in `runtime/include/math_rt.h`.
+- [x] Implement thin `libm` wrappers in `runtime/src/math.c`.
+- [x] Include the new header from [runtime/include/runtime.h](../runtime/include/runtime.h).
+- [x] Add the new runtime source to [runtime/Makefile](../runtime/Makefile).
+- [x] Add `-lm` to runtime harness linking in [runtime/Makefile](../runtime/Makefile).
+- [x] Add the new runtime source and `-lm` to [scripts/build.sh](../scripts/build.sh).
+- [x] Add the new runtime source and `-lm` to [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py).
+- [x] Export the public Niflheim wrappers in [std/math.nif](../std/math.nif).
+- [x] Add golden coverage for representative normal, boundary, NaN, and infinity cases.
+- [x] Add a small C runtime harness that checks wrapper behavior against `libm` on representative inputs.
 
 ## Testing Checklist
 
-- [ ] Golden tests for ordinary results: `sin(0)`, `cos(0)`, `sqrt(9)`, `pow(2, 10)`, `floor(1.75)`, `ceil(-1.25)`.
-- [ ] Golden tests for sign/edge cases: negative zero handling where observable, `abs(-0.0)`, `atan2` quadrants, `min`/`max` ordering.
-- [ ] Golden tests for exceptional values: NaN propagation, infinity propagation, domain-ish cases such as `sqrt(-1.0)` and `log(-1.0)` if the chosen `libm` behavior is accepted.
-- [ ] Runtime harness checks that the exported C wrappers return values close to direct `libm` calls for representative inputs.
-- [ ] Integration smoke test that imports `std.math`, compiles, links, and executes through the full CLI path.
+- [x] Golden tests for ordinary results: `sin(0)`, `cos(0)`, `sqrt(9)`, `pow(2, 10)`, `floor(1.75)`, `ceil(-1.25)`.
+- [x] Golden tests for sign/edge cases: negative zero handling where observable, `abs(-0.0)`, `atan2` quadrants, `min`/`max` ordering.
+- [x] Golden tests for exceptional values: NaN propagation, infinity propagation, domain-ish cases such as `sqrt(-1.0)` and `log(-1.0)` if the chosen `libm` behavior is accepted.
+- [x] Runtime harness checks that the exported C wrappers return values close to direct `libm` calls for representative inputs.
+- [x] Integration smoke test that imports `std.math`, compiles, links, and executes through the full CLI path.
 
 Recommended commands once implemented:
 

@@ -6,6 +6,7 @@
 #include "array.h"
 #include "gc.h"
 #include "io.h"
+#include "math_rt.h"
 #include "panic.h"
 
 #ifdef __cplusplus

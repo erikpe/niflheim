@@ -1,6 +1,7 @@
-import std.test;
 import std.io;
+import std.math as math;
 import std.str;
+import std.test;
 import std.vec;
 
 
@@ -214,6 +215,23 @@ fn test_merge_to_double() -> unit {
     assert_true("123456.125".to_double() == 123456.125);
     assert_true(".5".to_double() == 0.5);
     assert_true("42.".to_double() == 42.0);
+
+    var neg_zero: double = "-0.0".to_double();
+    assert_true(neg_zero == 0.0);
+    var neg_zero_reciprocal: double = 1.0 / neg_zero;
+    assert_true(math.is_infinite(neg_zero_reciprocal));
+    assert_true(neg_zero_reciprocal < 0.0);
+
+    var nan_val: double = "nan".to_double();
+    assert_true(math.is_nan(nan_val));
+
+    var pos_inf: double = "inf".to_double();
+    assert_true(math.is_infinite(pos_inf));
+    assert_true(pos_inf > 0.0);
+
+    var neg_inf: double = "-inf".to_double();
+    assert_true(math.is_infinite(neg_inf));
+    assert_true(neg_inf < 0.0);
 }
 
 

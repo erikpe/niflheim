@@ -188,6 +188,12 @@ Constructor details (explicit + compatibility constructors in v0.1):
 - `Str` is indexable via `[]` with `i64` index and returns `u8`.
 - `std.str::StrBuf` is a mutable byte-buffer companion type with explicit methods (for example: `from_str`, `len`, `get_u8`, `set_u8`, `to_str`).
 
+### 5.1.1 `std.math`
+
+- `std.math` provides a grouped `double` math surface backed by runtime wrappers.
+- Current implemented functions: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `log`, `log10`, `pow`, `sqrt`, `cbrt`, `floor`, `ceil`, `round`, `trunc`, `abs`, `min`, `max`, `hypot`, `is_nan`, `is_infinite`.
+- Semantics are intended to be Java-like where practical, but they follow the underlying runtime floating-point implementation rather than a bit-exact Java specification.
+
 ### 5.2 Vec (`std.vec`)
 
 - `Vec` is a standard-library class in `std.vec`, not a dedicated runtime-native container type.
