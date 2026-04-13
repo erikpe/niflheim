@@ -113,6 +113,7 @@ Supporting documentation:
 - [RUNTIME_CODEGEN_HOT_PATH_PLAN.md](RUNTIME_CODEGEN_HOT_PATH_PLAN.md) - staged implementation plan for shadow-stack, root-slot, allocation, and tracked-set hot paths.
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.
 - [SUGARING_DESIGN.md](SUGARING_DESIGN.md) - canonical sugar protocols (indexing/slicing and for-in iteration).
+- [TRACI_HIGH_VALUE_ADDITIONS_PLAN.md](TRACI_HIGH_VALUE_ADDITIONS_PLAN.md) - staged plan for math, file-output, RNG, and primitive-buffer additions needed before a practical Traci port.
 - `archive/` - implemented plans and superseded design notes retained for historical context.
 - [archive/CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md](archive/CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md) - implemented plan for precise root-slot liveness and reduced runtime-call scaffolding in codegen.
 - [archive/EXPLICIT_CONSTRUCTORS_PLAN.md](archive/EXPLICIT_CONSTRUCTORS_PLAN.md) - implemented plan for explicit constructors and constructor-only overload resolution as preparation for inheritance.
