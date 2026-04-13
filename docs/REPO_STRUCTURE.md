@@ -90,12 +90,7 @@ Utility scripts for repository workflows (for example golden refresh/build helpe
 Supporting documentation:
 
 - [REPO_STRUCTURE.md](REPO_STRUCTURE.md) - this file.
-- [CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md](CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md) - implementation plan for precise root-slot liveness and reduced runtime-call scaffolding in codegen.
-- [EXPLICIT_CONSTRUCTORS_PLAN.md](EXPLICIT_CONSTRUCTORS_PLAN.md) - design and staged plan for explicit constructors and constructor-only overload resolution as preparation for inheritance.
-- [FLOW_SENSITIVE_TYPE_NARROWING_PLAN.md](FLOW_SENSITIVE_TYPE_NARROWING_PLAN.md) - implementation plan for eliminating redundant runtime type checks using branch-local type facts.
 - [GRAMMAR_EBNF.md](GRAMMAR_EBNF.md) - grammar conventions and parser-facing notes.
-- [OVERRIDE_VIRTUAL_DISPATCH_PLAN.md](OVERRIDE_VIRTUAL_DISPATCH_PLAN.md) - design and staged plan for explicit `override` plus virtual class dispatch after single inheritance.
-- [SINGLE_INHERITANCE_PLAN.md](SINGLE_INHERITANCE_PLAN.md) - design and staged plan for single inheritance as a subtype/layout feature that prepares later override and virtual dispatch work.
 - [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) - canonical language and implementation checklist.
 - [SEMANTIC_IR_SPEC.md](SEMANTIC_IR_SPEC.md) - current semantic IR node set, invariants, and layering boundaries.
 - [ROADMAP_v0.1.md](ROADMAP_v0.1.md) - milestone/iteration plan.
@@ -104,3 +99,11 @@ Supporting documentation:
 - [RUNTIME_CODEGEN_HOT_PATH_PLAN.md](RUNTIME_CODEGEN_HOT_PATH_PLAN.md) - staged implementation plan for shadow-stack, root-slot, allocation, and tracked-set hot paths.
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.
 - [SUGARING_DESIGN.md](SUGARING_DESIGN.md) - canonical sugar protocols (indexing/slicing and for-in iteration).
+- `archive/` - implemented plans and superseded design notes retained for historical context.
+- [archive/CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md](archive/CODEGEN_ROOT_SLOT_LIVENESS_PLAN.md) - implemented plan for precise root-slot liveness and reduced runtime-call scaffolding in codegen.
+- [archive/EXPLICIT_CONSTRUCTORS_PLAN.md](archive/EXPLICIT_CONSTRUCTORS_PLAN.md) - implemented plan for explicit constructors and constructor-only overload resolution as preparation for inheritance.
+- [archive/FLOW_SENSITIVE_TYPE_NARROWING_PLAN.md](archive/FLOW_SENSITIVE_TYPE_NARROWING_PLAN.md) - implemented plan for eliminating redundant runtime type checks using branch-local type facts.
+- [archive/OVERRIDE_VIRTUAL_DISPATCH_PLAN.md](archive/OVERRIDE_VIRTUAL_DISPATCH_PLAN.md) - implemented plan for explicit `override` plus virtual class dispatch after single inheritance.
+- [archive/PROPER_MODULE_SEMANTICS_PLAN.md](archive/PROPER_MODULE_SEMANTICS_PLAN.md) - implemented plan for canonical top-level module identity, qualification, and codegen naming.
+- [archive/SINGLE_INHERITANCE_PLAN.md](archive/SINGLE_INHERITANCE_PLAN.md) - implemented plan for single inheritance as a subtype/layout feature that prepares later override and virtual dispatch work.
+- [archive/VM_BENCHMARK_PLAN.md](archive/VM_BENCHMARK_PLAN.md) - implemented plan for the VM benchmark regression workload.
