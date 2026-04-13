@@ -139,6 +139,7 @@ Recommended CI split:
 - Reference nullability defaults and runtime null-dereference behavior.
 - Explicit primitive cast enforcement.
 - `Obj` upcast and checked downcast typing rules.
+- Callable types, function/static-method values, and indirect calls.
 - Assignment/call/return compatibility.
 - Non-`unit` return-path completeness across control flow.
 - Strict assignment lvalue target enforcement (`ident`, `field`, `index`).
@@ -148,6 +149,8 @@ Recommended CI split:
 - Implicit primitive cast attempt (must fail).
 - Valid upcast to `Obj`.
 - Invalid downcast path (compile-time when statically impossible; runtime when dynamic).
+- Valid top-level/static callable value assignment and indirect invocation.
+- Invalid instance-method/interface-method reference in MVP surface.
 - Null dereference path panics deterministically at runtime (no compile-time static null analysis in v0.1).
 - Non-`unit` function missing an `else` return path (must fail).
 - Assignment to function symbol/expression target (must fail).
@@ -164,6 +167,7 @@ Recommended CI split:
 
 ### Must Cover
 - SysV argument/return handling for integer, pointer, and double.
+- Indirect call lowering for callable values.
 - Stack alignment before calls.
 - Callee-saved register preservation.
 - Control flow lowering correctness.
@@ -235,7 +239,8 @@ Recommended CI split:
 
 ## Map (Obj -> Obj)
 - Put/get/update semantics.
-- Identity-based key behavior (distinct equal-looking objects are distinct keys).
+- Hash/equality-driven key behavior through `Hashable.hash_code()` and `Equalable.equals(Obj)`.
+- Protocol failure behavior when keys do not satisfy the required interfaces.
 - Collision and resize behavior under load.
 
 ## Box Types

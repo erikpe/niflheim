@@ -53,12 +53,12 @@ Reference types are always:
 - Call-by-reference
 - Nullable
 
-Built-in reference types for v0.1:
+Core reference types and standard-library reference classes used in v0.1:
 - `Obj` (universal reference supertype)
 - `Str`
 - `T[]` (fixed-size array type constructor)
-- `Vec` (dynamic vector of `Obj`)
-- `Map` (hash map `Obj -> Obj`, identity hash/equality)
+- `Vec` (dynamic vector of `Obj`, provided by `std.vec`)
+- `Map` (hash map `Obj -> Obj`, provided by `std.map`; key lookup/update use `Hashable.hash_code()` and `Equalable.equals(Obj)`)
 - User-defined class instance types
 
 User-defined reference types also include interface types. Class types participate in nominal single inheritance, and classes may implement zero or more interfaces.
@@ -173,12 +173,12 @@ Constructor details (explicit + compatibility constructors in v0.1):
 ### 4.4 Equality
 
 - Primitive types: value equality.
-- Reference types: identity equality.
-- `Map` uses identity hash and identity equality for keys.
+- Reference types: identity equality by default.
+- `Map` is a library-level exception: key lookup/update use `Hashable.hash_code()` and `Equalable.equals(Obj)` rather than reference identity, and missing protocol implementations surface as checked-cast panics.
 
 ---
 
-## 5) Built-in Reference Types (v0.1)
+## 5) Core and Standard Reference Types (v0.1)
 
 ### 5.1 Str
 
@@ -188,19 +188,27 @@ Constructor details (explicit + compatibility constructors in v0.1):
 - `Str` is indexable via `[]` with `i64` index and returns `u8`.
 - `std.str::StrBuf` is a mutable byte-buffer companion type with explicit methods (for example: `from_str`, `len`, `get_u8`, `set_u8`, `to_str`).
 
-### 5.2 Vec
+### 5.2 Vec (`std.vec`)
 
-- `Vec` is a dynamic array of `Obj`.
-- Baseline operations: `len`, `push`, `get`, `set`.
+- `Vec` is a standard-library class in `std.vec`, not a dedicated runtime-native container type.
+- `Vec` stores `Obj` elements.
+- Core operations implemented in the current tree: `len`, `push`, `clear`, `with_capacity`, `index_get`, `index_set`, `slice_get`, `slice_set`, `iter_len`, `iter_get`.
+- Higher-order helpers implemented in the current tree: `map(func: fn(Obj) -> Obj)`, `filter(pred: fn(Obj) -> bool)`, `reduce(func: fn(Obj, Obj) -> Obj, initial: Obj)`.
 - `len() -> u64`.
 - `with_capacity(capacity: u64) -> Vec`.
-- Index and slice parameters are signed: `index_get(index: i64)`, `index_set(index: i64, value: Obj)`, `slice_get(begin: i64, end: i64)`.
+- Index and slice parameters are signed: `index_get(index: i64)`, `index_set(index: i64, value: Obj)`, `slice_get(begin: i64, end: i64)`, `slice_set(begin: i64, end: i64, value: Vec)`.
+- Negative indices and slice bounds are normalized relative to the current length before bounds checks.
 
-### 5.3 Map
+### 5.3 Map (`std.map`)
 
-- `Map` is a hash map from `Obj` to `Obj`.
-- Key semantics: identity only.
-- Baseline operations: `len`, `put`, `get`, `contains`.
+- `Map` is a standard-library class in `std.map`, not a dedicated runtime-native container type.
+- `Map` maps `Obj` keys to `Obj` values.
+- Key semantics use `Hashable.hash_code()` and `Equalable.equals(Obj)`, not reference identity.
+- Keys that do not implement the required interfaces fail through the same checked-cast panic path used by ordinary reference casts.
+- Core operations implemented in the current tree: `len`, `contains`, `put`, `index_get`, `index_set`, `with_capacity`.
+- `m[key]` and `m[key] = value` are indexing sugar over `index_get` and `index_set`.
+- `index_get` panics when the key is absent.
+- `put` and `index_set` overwrite the existing entry when an equal key is already present.
 
 ### 5.4 std.box Wrapper Types
 
@@ -379,14 +387,15 @@ Notes:
 - Non-goal: replacing high-level safe APIs with pointer-first style in general user code.
 - Safe wrappers over unsafe internals are encouraged as the public API surface.
 
-### 6.3 Function Values (MVP Extension: No Capture)
+### 6.3 Function Values (Current Surface: No Capture)
 
-This subsection freezes the first-class function-value design for the next MVP extension pass.
+This subsection describes the first-class function-value surface implemented in the current tree.
 
 #### 6.3.1 Scope
 
 - Function values are supported without closures.
-- Function values may reference only top-level functions and static class methods.
+- Function values may reference top-level functions and static class methods.
+- Function-typed locals, parameters, return values, and class fields are supported.
 - Captured-variable lambdas and nested-function captures are out of scope.
 
 #### 6.3.2 Type Syntax
@@ -406,10 +415,11 @@ Examples:
 #### 6.3.3 Value Formation Rules
 
 - Legal function values:
-  - unqualified top-level function symbols (for example `add`)
-  - qualified static method symbols (for example `Math.add`)
-- Not part of this MVP extension:
+  - top-level function symbols, including module-qualified imports (for example `add`, `util.add`)
+  - qualified static method symbols (for example `Math.add`, `util.Math.add`)
+- Not part of the current surface:
   - instance method values (bound or unbound)
+  - interface method values
   - inline lambda literals
   - nested local function values
 
@@ -417,6 +427,7 @@ Examples:
 
 - Function-typed expressions are callable: `f(a, b, ...)`.
 - Function-typed fields are callable directly: `obj.fn_field(a, b, ...)`.
+- Function values may be returned from functions and assigned back into variables or fields.
 - Calls through function values use normal argument/return type checking.
 - Codegen lowers function-valued callees to indirect calls.
 - Existing SysV ABI integer/floating calling convention rules remain unchanged.
@@ -430,6 +441,7 @@ Examples:
 #### 6.3.6 Interactions and Non-Goals
 
 - Explicit casts involving function types are out of scope for this MVP extension.
+- Array function types are not currently supported by the parser (`fn(...) -> T[]` is valid, but `fn(...)[]` is rejected).
 - Arrays/containers of function values are deferred until post-MVP unless required by implementation constraints.
 - Interface-style callable objects are out of scope for this extension.
 
@@ -443,7 +455,7 @@ Minimal C runtime provides:
 - Allocation APIs
 - GC APIs
 - Panic/abort
-- Basic OS wrappers (read/write/malloc-level facilities)
+- Basic file/stdio byte-array wrappers plus allocation facilities
 
 ### 7.2 GC Strategy
 
@@ -561,26 +573,26 @@ Minimal C runtime provides:
 - [x] Add method callee lowering for call expressions.
 - [x] Add constructor callee lowering for call expressions.
 
-## F. Built-in Runtime Types
+## F. Core / Standard Types
 
 - [x] Implement `Str` (immutable).
 - [x] Implement `Vec` (`Obj` elements).
-- [ ] Implement `Map` (`Obj -> Obj`, identity key semantics).
+- [x] Implement `Map` (`Obj -> Obj`, `Hashable`/`Equalable` key semantics).
 - [x] Provide primitive wrapper classes in `std.box`.
 - [ ] Add API and behavioral tests for nested containers.
 
 ## G. Tooling and Diagnostics
 
 - [ ] Implement stable diagnostic format with spans.
-- [ ] Implement minimal CLI flow (`build`, optional `run`).
-- [ ] Add sample programs for sanity checks.
+- [x] Implement minimal CLI flow (`build`, optional `run`).
+- [x] Add sample programs for sanity checks.
 
 ## H. Early Post-MVP Extension Hook
 
 - [ ] Add container specialization extension point.
 - [ ] Prototype one specialized container (`VecI64` or `MapStrObj`) without changing language core.
-- [ ] Extend call lowering to support >6 positional args (stack-passed args under SysV).
-- [ ] Add indirect callee lowering for call expressions.
+- [x] Extend call lowering to support >6 positional args (stack-passed args under SysV).
+- [x] Add indirect callee lowering for call expressions.
 - [x] Add floating-point call/return ABI lowering (`xmm0`-`xmm7` path).
 - [ ] Move local slot allocation from name-based to lexical-scope-aware slots (no shadow aliasing).
 - [ ] Add unsafe systems layer (`unsafe` blocks/functions + stdlib-only gate).

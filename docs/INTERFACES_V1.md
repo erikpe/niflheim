@@ -10,7 +10,7 @@ The goal is to support interface-typed values, class conformance checking, runti
 
 Implemented in the current compiler/runtime.
 
-Interfaces still remain outside the original MVP v0.1 scope as defined in [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md), but the feature itself is now implemented and validated.
+Interfaces are part of the current language surface documented in [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md). This document remains the design-reference record for how interface typing, metadata, casts, and dispatch are modeled.
 
 ## Goals
 
@@ -464,7 +464,7 @@ This matches the intended `Map` use case without needing generics in v1.
 8. Private methods do not satisfy interface conformance.
 9. Direct explicit interface-to-interface casts are allowed and runtime-checked.
 10. Interface method references are out of scope for v1.
-11. v1 stays narrow: no inheritance, no defaults, no generics.
+11. v1 stays narrow: no interface inheritance, no defaults, no generics.
 
 ## Implementation Outline
 

@@ -24,8 +24,9 @@ Key design docs:
 - `compiler/` - Python stage-0 compiler
 	- `compiler/frontend/` contains the syntax-layer modules: lexer, tokens, parser, AST nodes, and AST debug dumping helpers.
 - `runtime/` - C runtime and GC
+- `std/` - standard library modules layered on the compiler/runtime surface
 - `tests/` - unit, golden, integration, and stress tests
-- `examples/` - small language programs
+- `samples/` - runnable language samples and example programs
 - `docs/` - repository-level reference docs
 
 ## Current Status
@@ -36,17 +37,18 @@ Frontend for MVP v0.1 is largely implemented:
 - Program-level module import/export visibility checks are implemented.
 - Type checking includes explicit casts, `Obj` up/downcast typing rules, return-path checks, and module-aware type resolution.
 
-Backend/codegen, runtime GC implementation details, and full CLI workflow are still in progress.
+The end-to-end compiler pipeline is implemented: resolve, typecheck, semantic lowering/optimization, linking, and assembly emission all run through the default CLI path. Current work is mostly on optimization/runtime hot paths, diagnostics polish, and broadening the standard-library/runtime surface.
 
 Recent backend/runtime updates:
 - Full `double` lowering is implemented in codegen, including literals, arithmetic/comparisons, casts, and mixed integer/floating call signatures.
 - SysV floating-point ABI paths are implemented for parameters/returns (`xmm0`-`xmm7`) in function calls, method calls, and constructors.
+- Callable types plus indirect calls for top-level functions and static methods are implemented end-to-end; instance and interface method references remain out of scope for MVP.
 - Single inheritance without overriding is implemented end-to-end, including inherited field/method access, transitive interface implementation, subtype-aware class casts/type tests, and constructor chaining via `super(...)`.
 - Explicit `override` declarations and virtual dispatch for ordinary instance methods are implemented end-to-end, including base-typed dispatch, virtual calls through `__self`, and override-aware interface dispatch updates.
 - Interface dispatch now uses inline slot-table loads from `RtType` rather than a runtime lookup helper, and runtime interface casts/type tests use the same slot metadata.
 - `std.box` primitive wrapper classes (`Box*`) are available for `Obj`-container use cases.
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
-- `std.io` supports both stdin batch reads (`read_stdin`) and whole-file reads (`read_file(path)`) using minimal runtime open/read/close primitives.
+- `std.io` supports stdout printing, stdin batch reads (`read_stdin`), whole-file reads (`read_file(path)`), and program-argument decoding (`read_program_args()`) using minimal runtime file/byte-array primitives.
 
 Recent language/runtime additions are reflected directly in [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md).
 
@@ -64,9 +66,12 @@ Runtime test harnesses live under `tests/runtime/` and are built/run via `runtim
 Runtime sources are split by responsibility:
 - `runtime/src/runtime.c` - low-level runtime infrastructure (thread state, roots, allocation, panic support)
 - `runtime/src/gc.c` - GC implementation
+- `runtime/src/gc_trace.c` - runtime trace-frame bookkeeping and summary reporting
+- `runtime/src/gc_tracked_set.c` - tracked-allocation set backing GC bookkeeping
 - `runtime/src/io.c` - runtime IO/println implementation
 	- includes minimal file-handle primitives used by `std/io.nif` (`open/read/close`), while buffering/growth logic stays in stdlib
-- `runtime/src/vec.c` - `Vec` implementation
+- `runtime/src/array.c` - fixed-size array allocation, element access, and slicing helpers
+- `runtime/src/panic.c` - panic reporting and trace rendering
 
 - `make -C runtime test` runs GC stress scenarios (`test_gc_stress`):
 	- no-root reclaim
@@ -114,7 +119,7 @@ Golden tests live under `tests/golden/`.
 - Each spec declares one or more test entries under `tests:`.
 - Each test entry must set `mode` and explicitly reference `src_file` relative to the spec file.
 	- `mode: run` compiles and runs the produced binary against the listed `runs`.
-	- `mode: compile` only performs compilation and can assert a compiler error with `compile_error_match`.
+	- `mode: compile-fail` only performs compilation and can assert a compiler error with `compile_error_match`.
 	- Example source: `tests/golden/arithmetic/test_addition.nif`
 	- Example spec: `tests/golden/arithmetic/test_addition_spec.yaml`
 - Each referenced source is compiled once via `scripts/build.sh` and output goes to `build/golden/...`.

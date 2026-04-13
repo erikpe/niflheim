@@ -47,27 +47,41 @@ Stage-0 compiler implementation in Python.
 	- `statements.py` - extracted statement checking, return analysis, assignment-target validation, and visibility helpers.
 	- `engine.py` - lean internal typecheck engine adapter composed from the extracted helper modules.
 - `codegen/` - backend package entry point and internal code generation modules.
-	- `__init__.py` - stable `emit_asm(module_ast)` public entry point.
-	- `generator.py` - shared backend state and remaining coordination helpers.
-	- `model.py`, `strings.py`, `symbols.py`, `types.py`, `layout.py`, `call_resolution.py`, `abi_sysv.py` - shared backend helpers by responsibility.
+	- `generator.py` - shared backend state and emission coordination.
+	- `model.py`, `metadata.py`, `class_hierarchy.py`, `layout.py`, `measurement.py`, `root_liveness.py`, `root_slot_plan.py`, `runtime_calls.py`, `strings.py`, `symbols.py`, `types.py`, `walk.py` - backend metadata, layout, liveness, runtime-call, and symbol helpers.
 	- `asm.py`, `ops_int.py`, `ops_float.py` - assembly building and operator instruction selection.
 	- `emitter_expr.py`, `emitter_stmt.py`, `emitter_fn.py`, `emitter_module.py` - layered expression, statement, function, and module emission.
+	- `abi/` - backend ABI and array-lowering helpers used by codegen.
 - `cli.py` - minimal phase-oriented CLI scaffold.
 - `main.py` - package entry point.
 - `grammar/niflheim_v0_1.ebnf` - canonical grammar source.
 
 ## `runtime/`
 
-Minimal C runtime skeleton for upcoming backend/GC work.
+Current C runtime and GC support for the generated backend.
 
 - `include/runtime.h` - runtime ABI declarations.
-- `include/io.h` - runtime IO/println API declarations.
-- `include/vec.h` - `Vec` runtime API declarations.
+- `include/array.h` - fixed-size array runtime API declarations.
+- `include/gc.h`, `include/gc_trace.h`, `include/gc_tracked_set.h` - GC and tracing support headers.
+- `include/io.h` - runtime file/stdout byte-array API declarations.
+- `include/panic.h`, `include/runtime_dbg.h` - panic and debug/test helper declarations.
 - `src/runtime.c` - low-level runtime infrastructure (thread state, root frames, allocation, panic support).
 - `src/gc.c` - GC implementation unit.
-- `src/io.c` - runtime IO/println implementation unit.
-- `src/vec.c` - `Vec` object implementation.
+- `src/gc_trace.c` - trace-frame bookkeeping and summary reporting.
+- `src/gc_tracked_set.c` - tracked-allocation set utilities.
+- `src/io.c` - runtime file/stdout byte-array implementation unit.
+- `src/array.c` - fixed-size array allocation/access/slice implementation.
+- `src/panic.c` - panic reporting and trace rendering.
+- `src/runtime_dbg.c` - debug/test-only helper implementations.
 - `Makefile` - runtime static library build.
+
+## `std/`
+
+Standard library modules layered on the compiler/runtime surface.
+
+- `io.nif` - stdout printing, whole-file reads, stdin reads, and argv decoding helpers.
+- `str.nif`, `vec.nif`, `map.nif`, `box.nif`, `lang.nif` - core containers, boxing, and shared interface definitions.
+- `object.nif`, `range.nif`, `error.nif`, `test.nif`, `bigint.nif` - supporting standard-library modules.
 
 ## `tests/`
 
@@ -93,8 +107,8 @@ Supporting documentation:
 - [GRAMMAR_EBNF.md](GRAMMAR_EBNF.md) - grammar conventions and parser-facing notes.
 - [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) - canonical language and implementation checklist.
 - [SEMANTIC_IR_SPEC.md](SEMANTIC_IR_SPEC.md) - current semantic IR node set, invariants, and layering boundaries.
-- [ROADMAP_v0.1.md](ROADMAP_v0.1.md) - milestone/iteration plan.
-- [INTERFACES_V1.md](INTERFACES_V1.md) - future-facing design for interface types, casts, and dispatch.
+- [ROADMAP_v0.1.md](ROADMAP_v0.1.md) - milestone ordering plus current completion-status summary.
+- [INTERFACES_V1.md](INTERFACES_V1.md) - implemented interface design and runtime-dispatch model.
 - [ABI_NOTES.md](ABI_NOTES.md) - compiler/runtime ABI notes.
 - [RUNTIME_CODEGEN_HOT_PATH_PLAN.md](RUNTIME_CODEGEN_HOT_PATH_PLAN.md) - staged implementation plan for shadow-stack, root-slot, allocation, and tracked-set hot paths.
 - [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) - testing strategy and release gate criteria.

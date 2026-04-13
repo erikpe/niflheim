@@ -2,6 +2,12 @@
 
 This roadmap operationalizes [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) into a practical sequence of milestones and weekly execution blocks.
 
+## Current Status
+
+- M1 through M6 are largely complete in the current repository: frontend, module resolution, type checking, semantic lowering, codegen, runtime GC, interfaces, inheritance/override dispatch, arrays, and the core stdlib surface are all implemented and tested.
+- Current active work is mostly follow-on engineering: optimization/runtime hot paths, diagnostics polish, and selective post-MVP surface expansion.
+- The week-by-week sections below are best read as the original milestone ordering baseline rather than an up-to-the-day task board.
+
 ## Planning Assumptions
 
 - Single primary developer.
@@ -241,7 +247,7 @@ This roadmap operationalizes [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.
 ### Deliverables
 - Immutable `Str`.
 - `Vec` over `Obj` with core operations.
-- `Map` `Obj -> Obj` with identity hash/equality semantics.
+- `Map` `Obj -> Obj` with `Hashable`/`Equalable`-driven key semantics.
 - Primitive box wrappers.
 
 ### Exit Criteria
@@ -249,7 +255,7 @@ This roadmap operationalizes [LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.
 - Container behavior matches spec exactly.
 
 ### Risks
-- `Map` behavior confusion due to identity-only keys.
+- `Map` behavior confusion if key protocol expectations are not documented clearly.
 
 ### Mitigation
 - Document key semantics prominently and add explicit tests.

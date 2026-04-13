@@ -76,6 +76,13 @@ typedef struct RtType {
     const uint32_t* pointer_offsets; // Optional pointer-slot offsets from object base
     uint32_t pointer_offsets_count;  // Number of entries in pointer_offsets
     uint32_t reserved0;
+    const RtType* super_type;
+    const void* const* interface_tables;
+    uint32_t interface_slot_count;
+    uint32_t reserved1;
+    const void* class_vtable;
+    uint32_t class_vtable_count;
+    uint32_t reserved2;
 } RtType;
 ```
 
@@ -85,6 +92,9 @@ Tracing contract:
 - `mark_ref` expects address of a pointer slot (`void**`) so GC can read/update consistently.
 - For objects with no pointer fields, `trace_fn` may be a no-op.
 - `pointer_offsets` may be used for simple descriptor-based tracing; if both descriptor and `trace_fn` are present, runtime may prefer `trace_fn`.
+- `super_type` encodes nominal single-inheritance ancestry for subtype-aware class casts and type tests.
+- `interface_tables` and `interface_slot_count` encode slot-indexed interface dispatch/type-test metadata.
+- `class_vtable` and `class_vtable_count` encode concrete class virtual-dispatch metadata.
 
 ---
 
@@ -104,8 +114,18 @@ typedef struct RtRootFrame {
 Runtime thread state:
 
 ```c
+typedef struct RtTraceFrame {
+    const char* function_name;
+    const char* file_path;
+    uint32_t line;
+    uint32_t column;
+} RtTraceFrame;
+
 typedef struct RtThreadState {
     RtRootFrame* roots_top;
+    RtTraceFrame* trace_frames;
+    uint32_t trace_size;
+    uint32_t trace_capacity;
 } RtThreadState;
 ```
 
@@ -115,6 +135,9 @@ Required runtime entry points:
 void rt_gc_register_global_root(void** slot);
 void rt_gc_unregister_global_root(void** slot);
 RtThreadState* rt_thread_state(void);
+void rt_trace_push(const char* function_name, const char* file_path, uint32_t line, uint32_t column);
+void rt_trace_pop(void);
+void rt_trace_set_location(uint32_t line, uint32_t column);
 ```
 
 Root frame ABI contract:
@@ -125,6 +148,7 @@ Root frame ABI contract:
 - Compiler updates root slots with direct stores at safepoints and before runtime calls.
 - Compiler pops the frame on every function exit path with `ts->roots_top = frame->prev`.
 - Debug/test-only compatibility helpers live in `runtime_dbg.h` as `rt_dbg_*`; they are not part of the default runtime library ABI.
+- The trace stack in `RtThreadState` is independent of GC roots and is used for panic reporting / runtime trace summaries.
 
 Compiler rules:
 - Register each global reference slot exactly once during runtime/module initialization.
@@ -150,31 +174,60 @@ void rt_init(void);
 void rt_shutdown(void);
 RtThreadState* rt_thread_state(void);
 
-// Allocation
-void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
+// Optional runtime trace stack used by emitted debug/panic metadata
+void rt_trace_push(const char* function_name, const char* file_path, uint32_t line, uint32_t column);
+void rt_trace_pop(void);
+void rt_trace_set_location(uint32_t line, uint32_t column);
 
-// GC
-void rt_gc_collect(RtThreadState* ts);
+// Allocation and runtime type / numeric helpers
+void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes);
 void* rt_checked_cast(void* obj, const RtType* expected_type);
+uint64_t rt_is_instance_of_type(void* obj, const RtType* expected_type);
+uint64_t rt_obj_same_type(void* lhs, void* rhs);
+double rt_cast_u64_to_double(uint64_t value);
+int64_t rt_cast_double_to_i64(double value);
+uint64_t rt_cast_double_to_u64(double value);
+uint64_t rt_cast_double_to_u8(double value);
+
+// GC control / stats
+void rt_gc_collect(void);
+void rt_gc_maybe_collect(uint64_t upcoming_bytes);
+void rt_gc_track_allocation(RtObjHeader* obj);
+RtGcStats rt_gc_get_stats(void);
+RtGcTrackingPoolStats rt_gc_get_tracking_pool_stats(void);
+void rt_gc_reset_tracking_pool_stats(void);
+void rt_gc_reset_state(void);
+
+// Arrays (`array.h`)
+// Typed constructor/accessor/slice families exist for `i64`, `u64`, `u8`,
+// `bool`, `double`, and `ref`, plus these common helpers:
+void* rt_array_from_bytes_u8(const uint8_t* bytes, uint64_t len);
+uint64_t rt_array_len(const void* array_obj);
+const void* rt_array_data_ptr(const void* array_obj);
 
 // Panic / abort
 __attribute__((noreturn)) void rt_panic(const char* message);
 __attribute__((noreturn)) void rt_panic_null_deref(void);
 __attribute__((noreturn)) void rt_panic_bad_cast(const char* from_type, const char* to_type);
 __attribute__((noreturn)) void rt_panic_oom(void);
+__attribute__((noreturn)) void rt_panic_null_term_array(const void* array_obj);
 
-// Optional minimal IO wrappers
-int64_t rt_read(int64_t fd, void* buf, uint64_t count);
-int64_t rt_write(int64_t fd, const void* buf, uint64_t count);
+// Minimal file / stdout IO wrappers
+uint64_t rt_file_stdin_handle(void);
+uint64_t rt_file_open_for_read(const void* path_u8_array_obj);
+void rt_file_close(uint64_t file_handle);
+uint64_t rt_file_read_u8_array(uint64_t file_handle, void* array_obj, uint64_t offset);
+uint64_t rt_write_u8_array(const void* array_obj);
 ```
 
 Allocation semantics:
+- `ts` may be `NULL`; the runtime falls back to the current process thread state.
 - `payload_bytes` excludes header size.
 - Runtime allocates `sizeof(RtObjHeader) + payload_bytes`.
 - Runtime validates that type metadata pointer is non-null.
 - Memory for object payload is zero-initialized in v0.1 to guarantee deterministic defaults.
-- If threshold exceeded, runtime may trigger GC before/after allocation.
-- On failed allocation after retrying post-GC, runtime panics with OOM.
+- Runtime calls `rt_gc_maybe_collect(total_bytes)` before allocation.
+- On failed allocation, runtime performs a full `rt_gc_collect()` retry before panicking with OOM.
 
 ---
 
@@ -225,41 +278,26 @@ Compiler requirements:
 
 Because all references can cast to/from `Obj`, runtime type checks are required for downcasts.
 
-Suggested helper:
+Current helpers:
 
 ```c
-typedef struct RtInterfaceType RtInterfaceType;
-
-struct RtInterfaceType {
-    const char* debug_name;
-    uint32_t slot_index;
-    uint32_t method_count;
-    uint32_t reserved0;
-};
-
-struct RtType {
-    // ...
-    const void* const* interface_tables;
-    uint32_t interface_slot_count;
-    uint32_t reserved1;
-    const void* class_vtable;
-    uint32_t class_vtable_count;
-    uint32_t reserved2;
-};
-
 void* rt_checked_cast(void* obj, const RtType* expected_type);
+uint64_t rt_is_instance_of_type(void* obj, const RtType* expected_type);
+uint64_t rt_obj_same_type(void* lhs, void* rhs);
 ```
 
 Behavior:
 - If `obj == NULL`, nullable casts return `NULL` and interface type tests produce `0`.
-- Class checked casts still use `rt_checked_cast(...)`.
+- Class checked casts use `rt_checked_cast(...)` and are subtype-aware via the `RtType.super_type` chain.
+- `rt_is_instance_of_type(...)` uses that same subtype-aware class relation.
+- `rt_obj_same_type(...)` remains exact-header-type equality only.
 - Interface checked casts and interface type tests are emitted inline by probing `RtType.interface_tables[expected_interface->slot_index]`.
-- A non-null interface table entry means the object implements the interface.
-- Interface checked-cast failures panic with the same bad-cast diagnostic used before helper removal.
+- A non-null interface table entry means the object implements the interface; compiler-emitted metadata closes over inherited interfaces and override substitution before codegen.
+- Interface checked-cast failures panic with the same bad-cast diagnostic path used by class checked casts.
 
 Type identity in v0.1:
-- Exact type match only.
-- No subtype checks in `rt_checked_cast` yet.
+- `same_type` / `rt_obj_same_type` mean exact concrete header type equality.
+- Subtype-aware class membership is handled separately by `rt_checked_cast` / `rt_is_instance_of_type`.
 - Interface compatibility is checked separately from concrete type equality using slot-indexed interface metadata.
 
 Interface metadata support now present in the runtime ABI:
@@ -270,33 +308,37 @@ Interface metadata support now present in the runtime ABI:
 
 ---
 
-## 10) Built-in Type Layout Notes
+## 10) Selected Runtime and Stdlib Type Notes
 
 ### 10.1 Str
 
 - Immutable object with payload fields such as length and byte buffer reference/inline storage.
 - Equality at language level remains reference identity in v0.1 unless library helper used.
 
-### 10.2 Vec (Obj elements)
+### 10.2 Arrays
 
-Suggested payload fields:
-- `uint64_t len`
-- `uint64_t cap`
-- `void** data` (pointer to object references, managed as GC-visible memory)
+- Fixed-size arrays are runtime-native variable-size objects exported through `array.h`.
+- Element families currently supported by the runtime are `i64`, `u64`, `u8`, `bool`, `double`, and `ref`.
+- The runtime exports constructor, `len`, typed `get`/`set`, typed `slice_get`/`slice_set`, and `rt_array_from_bytes_u8` helpers.
+- Ref arrays participate directly in GC tracing; primitive arrays have no interior reference slots.
 
-Tracing requirement:
-- Trace each element in range `[0, len)` as a reference slot.
+### 10.3 Vec (stdlib class, `Obj` elements)
 
-### 10.3 Map (Obj -> Obj)
+- `Vec` is currently a stdlib class backed by fields like `_len`, `_capacity`, and `_storage: Obj[]`.
+- There is no dedicated runtime-native `Vec` ABI surface; the runtime only sees an ordinary class object plus array fields.
+- GC behavior follows ordinary class tracing plus array tracing.
 
-- Identity hash and identity equality only.
-- Buckets/entries must be fully traced by GC.
-- If separate entry objects are used, all entry links and key/value references must be traced.
+### 10.4 Map (stdlib class, `Obj -> Obj`)
 
-### 10.4 Box types
+- `Map` is currently a stdlib class backed by fields like `_len`, `_capacity`, `_keys: Obj[]`, `_values: Obj[]`, and `_occupied: bool[]`.
+- There is no dedicated runtime-native `Map` ABI surface; the runtime only sees an ordinary class object plus arrays.
+- Key lookup/update use `Hashable.hash_code()` and `Equalable.equals(Obj)`, not identity hash/equality.
+- GC behavior follows ordinary class tracing plus array tracing.
 
-- Box payload stores primitive value only.
-- No internal reference fields, so trace can be no-op.
+### 10.5 Box types
+
+- `std.box` wrappers are ordinary classes whose payload is a primitive value.
+- In the current tree they do not require a dedicated runtime-native ABI surface.
 
 ---
 

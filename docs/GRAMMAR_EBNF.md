@@ -27,12 +27,13 @@ Expression precedence from lowest to highest:
 5. `&`
 6. `==`, `!=`
 7. `<`, `<=`, `>`, `>=`
-8. `<<`, `>>`
-9. `+`, `-`
-10. `*`, `/`, `%`
-11. `**`
-12. unary (`!`, unary `-`, `~`), cast
-13. postfix (call, field access, indexing)
+8. `is`
+9. `<<`, `>>`
+10. `+`, `-`
+11. `*`, `/`, `%`
+12. `**`
+13. unary (`!`, unary `-`, `~`), cast
+14. postfix (call, field access, indexing, slicing)
 
 All binary operators are left-associative in v0.1 except `**`, which is right-associative.
 
@@ -43,9 +44,14 @@ Grammar permits forms that are filtered later by semantic analysis.
 Examples:
 - Cast syntax parses as `(Type)expr`, but cast validity is type-checked later.
 - Call arguments are positional-only in v0.1.
-- `named_type` includes `IDENT` for user classes; actual type resolution is done in resolver/type checker.
+- `named_type` includes qualified identifiers for user classes/interfaces; actual type resolution is done in resolver/type checker.
 - `lvalue` shape is syntactic; mutability checks are semantic, while null-dereference checks are runtime-only in v0.1.
 - `for elem in collection { ... }` parses as dedicated loop syntax; iterable eligibility is semantic and requires `iter_len() -> u64` plus `iter_get(i64) -> T`.
+- `extends` / `implements` currently parse general type references; type checking later restricts them to valid class/interface targets.
+- Class member modifiers parse broadly enough to support targeted diagnostics; invalid combinations such as `final fn ...` or `override constructor ...` are rejected by parser validation rather than pure EBNF shape alone.
+- `super(...)` parses as a dedicated statement form; constructor-only placement rules are enforced later.
+- Function literals/closures are not part of the grammar surface in expression position.
+- Array function types are not supported; `fn(...) -> T[]` is a valid function type returning an array, but `(fn(...) -> T)[]` / `fn(...)[]`-style array-of-function types are rejected.
 
 Frozen array syntax (v0.1 extension track):
 - Array type: `T[]`
@@ -65,6 +71,20 @@ Design decision (MVP): constructor and type-name resolution are symmetric across
 - Unqualified imported class names must be unique or produce ambiguity diagnostics.
 
 Implementation status note: unqualified and module-qualified imported class names in type annotations are supported, and unqualified imported constructor-call fallback follows the same local-first + ambiguity rules.
+
+## Current Surface
+
+The current parser surface includes:
+
+- module imports, import aliases, and re-exports
+- top-level `class`, `interface`, `fn`, and `extern fn` declarations, each optionally prefixed with `export`
+- single inheritance via `extends` and interface conformance via `implements`
+- explicit constructors, `private` fields/methods/constructors, `final` fields, `override` instance methods, and `static fn` methods
+- `if`, `while`, `for ... in`, `return`, `break`, `continue`, and `super(...)` statements
+- array constructors `T[](len)` / `T[][](len)` and function types `fn(T1, T2) -> R`
+- type tests with `is`
+
+These forms are active in the current parser/typechecker/codegen pipeline and are covered by parser tests, semantic tests, and integration/golden coverage.
 
 ## Module and Export Model in Grammar
 
@@ -92,11 +112,12 @@ The grammar assumes the lexer:
 - Distinguishes keywords from identifiers.
 - Skips whitespace and `//` line comments.
 
-## MVP Limits Reflected in Grammar
+## Out Of Scope For Current Grammar
 
-- No inheritance or interface syntax.
 - No generics syntax.
 - No recoverable error-handling constructs.
 - No concurrency syntax.
+- No lambda literals / captured-variable closures.
+- No array-of-function type syntax (`fn(...) -> T` is supported; `fn(...)[]` is not).
 
-When introducing post-v0.1 features, update `compiler/grammar/niflheim_v0_1.ebnf` first, then this document, then parser tests.
+When introducing new syntax, update `compiler/grammar/niflheim_v0_1.ebnf` first, then this document, then parser tests.
