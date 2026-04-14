@@ -1,7 +1,7 @@
 import std.test;
 import std.io;
 import std.str;
-import samples.vm_benchmark.main as main;
+import samples.vm_benchmark.main as vm.main;
 
 fn _run_all_select() -> u64 {
     return 999u;
@@ -11,11 +11,11 @@ fn main() -> i64 {
     var args: Str[] = read_program_args();
     var select: u64 = args[1].to_u64();
 
-    if select >= 1u && select <= main.num_cases() {
-        return main.run_case_and_report(select - 1u);
+    if select >= 1u && select <= vm.main.num_cases() {
+        return vm.main.run_case_and_report(select - 1u);
     }
     if select == _run_all_select() {
-        return main.run_and_report();
+        return vm.main.run_and_report();
     }
 
     fail("vm_benchmark golden: invalid selection");

@@ -1,1 +1,15 @@
 export import tests.golden.lang.test_module_semantics.flat_api as .;
+
+export fn local_twice() -> i64 {
+	return twice(21);
+}
+
+export fn local_math_total() -> i64 {
+	return math.add(19, 23);
+}
+
+export fn local_face_hash() -> u64 {
+	var key: DirectKey = DirectKey(7u);
+	var face: DirectFace = key;
+	return face.hash_code();
+}

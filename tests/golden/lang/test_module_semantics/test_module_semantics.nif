@@ -6,6 +6,7 @@ import tests.golden.lang.test_module_semantics.util.math;
 import tests.golden.lang.test_module_semantics.util.ops as ops;
 import tests.golden.lang.test_module_semantics.util.shadow as shadow;
 import tests.golden.lang.test_module_semantics.bridge as bridge;
+import tests.golden.lang.test_module_semantics.plain_bindings as plain_bindings;
 import tests.golden.lang.test_module_semantics.path_bridge as path_bridge;
 import tests.golden.lang.test_module_semantics.flat_bridge as flat_bridge;
 import tests.golden.lang.test_module_semantics.left.math;
@@ -109,6 +110,9 @@ fn test_full_reexported_nested_module_path() -> unit {
 }
 
 fn test_explicit_reexport_path_alias() -> unit {
+    assert_eq_i64(path_bridge.local_add(), 42);
+    assert_eq_i64(path_bridge.local_counter_total(), 42);
+
     assert_eq_i64(path_bridge.tools.calc.add(19, 23), 42);
 
     var counter: path_bridge.tools.calc.Counter = path_bridge.tools.calc.Counter(40);
@@ -116,6 +120,9 @@ fn test_explicit_reexport_path_alias() -> unit {
 }
 
 fn test_root_flatten_reexport_function_class_and_interface() -> unit {
+    assert_eq_i64(flat_bridge.local_twice(), 42);
+    assert_eq_u64(flat_bridge.local_face_hash(), 507u);
+
     assert_eq_i64(flat_bridge.twice(21), 42);
 
     var key: flat_bridge.DirectKey = flat_bridge.DirectKey(7u);
@@ -124,10 +131,20 @@ fn test_root_flatten_reexport_function_class_and_interface() -> unit {
 }
 
 fn test_root_flatten_reexport_preserves_nested_namespace() -> unit {
+    assert_eq_i64(flat_bridge.local_math_total(), 42);
+
     assert_eq_i64(flat_bridge.math.add(19, 23), 42);
 
     var counter: flat_bridge.math.Counter = flat_bridge.math.Counter(39);
     assert_eq_i64(counter.inc(3), 42);
+}
+
+fn test_plain_import_bind_path_and_root_flatten() -> unit {
+    assert_eq_i64(plain_bindings.dotted_add(), 42);
+    assert_eq_i64(plain_bindings.dotted_counter_total(), 42);
+    assert_eq_i64(plain_bindings.root_twice(), 42);
+    assert_eq_i64(plain_bindings.root_math_total(), 42);
+    assert_eq_u64(plain_bindings.root_face_hash(), 507u);
 }
 
 fn main() -> i64 {
@@ -146,6 +163,7 @@ fn main() -> i64 {
     if select == 11u { test_explicit_reexport_path_alias(); return 0; }
     if select == 12u { test_root_flatten_reexport_function_class_and_interface(); return 0; }
     if select == 13u { test_root_flatten_reexport_preserves_nested_namespace(); return 0; }
+    if select == 14u { test_plain_import_bind_path_and_root_flatten(); return 0; }
 
     fail("Invalid test selection.");
     return 1;

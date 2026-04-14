@@ -1,0 +1,5 @@
+import tests.golden.lang.test_module_semantics.flat_api as .;
+
+fn main() -> i64 {
+    return tests.golden.lang.test_module_semantics.flat_api.twice(21);
+}

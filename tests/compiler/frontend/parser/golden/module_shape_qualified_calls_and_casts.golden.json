@@ -218,8 +218,9 @@
   ],
   "imports": [
     {
-      "alias": "math",
-      "export_path": null,
+      "bind_path": [
+        "math"
+      ],
       "is_export": false,
       "module_path": [
         "util",
@@ -228,8 +229,7 @@
       "node": "ImportDecl"
     },
     {
-      "alias": null,
-      "export_path": null,
+      "bind_path": null,
       "is_export": false,
       "module_path": [
         "std",

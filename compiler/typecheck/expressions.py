@@ -28,7 +28,7 @@ from compiler.typecheck.relations import (
 from compiler.typecheck.type_resolution import qualify_member_type_for_owner, resolve_string_type, resolve_type_ref
 from compiler.typecheck.visibility import require_member_visible
 from compiler.typecheck.context import TypeCheckContext
-from compiler.resolver import lookup_import_binding
+from compiler.resolver import has_bound_import_root
 
 
 def _infer_identifier_expression_type(ctx: TypeCheckContext, expr: IdentifierExpr) -> TypeInfo:
@@ -55,7 +55,7 @@ def _infer_identifier_expression_type(ctx: TypeCheckContext, expr: IdentifierExp
         return TypeInfo(name=f"__class__:{imported_class_name}", kind="callable")
 
     module_info = current_module_info(ctx)
-    if module_info is not None and lookup_import_binding(module_info.imports, expr.name) is not None:
+    if module_info is not None and has_bound_import_root(module_info.bound_imports, expr.name):
         return TypeInfo(name=f"__module__:{expr.name}", kind="module")
 
     raise TypeCheckError(f"Unknown identifier '{expr.name}'", expr.span)

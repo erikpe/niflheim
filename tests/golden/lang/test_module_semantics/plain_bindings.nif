@@ -1,0 +1,25 @@
+import tests.golden.lang.test_module_semantics.util.math as tools.calc;
+import tests.golden.lang.test_module_semantics.flat_api as .;
+
+export fn dotted_add() -> i64 {
+    return tools.calc.add(19, 23);
+}
+
+export fn dotted_counter_total() -> i64 {
+    var counter: tools.calc.Counter = tools.calc.Counter(40);
+    return counter.inc(2);
+}
+
+export fn root_twice() -> i64 {
+    return twice(21);
+}
+
+export fn root_math_total() -> i64 {
+    return math.add(19, 23);
+}
+
+export fn root_face_hash() -> u64 {
+    var key: DirectKey = DirectKey(7u);
+    var face: DirectFace = key;
+    return face.hash_code();
+}

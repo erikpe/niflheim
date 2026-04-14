@@ -1,0 +1,9 @@
+export import tests.golden.lang.test_module_semantics.conflict_left as tools.calc;
+
+fn tools() -> i64 {
+    return 99;
+}
+
+fn main() -> i64 {
+    return 0;
+}

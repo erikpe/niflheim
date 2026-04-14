@@ -1,1 +1,10 @@
 export import tests.golden.lang.test_module_semantics.util.math as tools.calc;
+
+export fn local_add() -> i64 {
+	return tools.calc.add(19, 23);
+}
+
+export fn local_counter_total() -> i64 {
+	var counter: tools.calc.Counter = tools.calc.Counter(40);
+	return counter.inc(2);
+}

@@ -311,10 +311,12 @@ Design lock-in note:
 - Frozen v0.1 module import syntax forms:
   - `import a.b;`
   - `import a.b as b;`
+  - `import a.b as x.y;`
+  - `import a.b as .;`
   - `export import a.b;` (re-export)
-  - `export import a.b as b;` (re-export under `current_module.b`)
-  - `export import a.b as x.y;` (re-export under `current_module.x.y`)
-  - `export import a.b as .;` (merge the exported surface of `a.b` into the current module root)
+  - `export import a.b as b;`
+  - `export import a.b as x.y;`
+  - `export import a.b as .;`
 - External function declaration forms:
   - `extern fn name(args...) -> type;`
   - `export extern fn name(args...) -> type;` (re-export)
@@ -323,15 +325,18 @@ Design lock-in note:
 - Re-export of imported symbols/modules is allowed.
 - No namespace feature beyond module boundaries.
 
-### 6.1 Re-export Rooting and Paths
+### 6.1 Bind Paths and Visibility
 
-- Every re-export is rooted in the exporting module.
-- `export import foo.bar;` makes the imported module visible to downstream users at `current_module.foo.bar`.
-- `export import pop.corn as baz;` makes it visible at `current_module.baz`.
-- `export import hej as .;` is the explicit flattening form and makes `hej`'s exported members directly visible at `current_module.<member>`.
-- Flattening also merges the imported module's exported submodule paths into the current module root.
-- Plain `export import` never performs implicit flattening; downstream users only get the nested export path unless `as .` is used.
-- Flattened classes, functions, and interfaces keep the defining module as their canonical owner for nominal identity and later compilation phases.
+- `as PATH` always means “bind this module at `PATH` in the current namespace”.
+- Adding `export` means “and make that same binding visible to downstream importers too”.
+- `import foo.bar;` binds `foo.bar` locally at `foo.bar`.
+- `import foo.bar as baz.qux;` binds `foo.bar` locally at `baz.qux`.
+- `import foo.bar as .;` binds the exported surface of `foo.bar` at the current module root.
+- `export import foo.bar;` exports that same `foo.bar` binding.
+- `export import pop.corn as baz;` exports that same `baz` binding.
+- `export import hej as .;` binds and exports `hej` at the current module root.
+- `as .` merges both direct exported symbols and exported submodule paths from the imported module into the current module root.
+- Canonical ownership of flattened classes, functions, and interfaces remains with the defining module for nominal identity and later compilation phases.
 
 ### 6.2 Imported Class Name Resolution (Design Decision)
 

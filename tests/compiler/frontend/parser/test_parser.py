@@ -116,13 +116,11 @@ export fn main() -> unit {
     assert len(module.imports) == 2
     assert all(isinstance(item, ImportDecl) for item in module.imports)
     assert module.imports[0].module_path == ["a", "b"]
-    assert module.imports[0].alias == "b"
+    assert module.imports[0].bind_path == ["b"]
     assert module.imports[0].is_export is False
-    assert module.imports[0].export_path is None
     assert module.imports[1].module_path == ["std", "io"]
-    assert module.imports[1].alias == "io"
+    assert module.imports[1].bind_path == ["io"]
     assert module.imports[1].is_export is True
-    assert module.imports[1].export_path == ["io"]
 
     assert module.interfaces == []
 
@@ -1285,13 +1283,14 @@ fn main() -> unit {
     module = parse(lex(source, source_path="examples/import_alias.nif"))
 
     assert [import_decl.module_path for import_decl in module.imports] == [["util", "math"], ["std", "io"]]
-    assert [import_decl.alias for import_decl in module.imports] == ["math", "io"]
-    assert [import_decl.export_path for import_decl in module.imports] == [None, ["io"]]
+    assert [import_decl.bind_path for import_decl in module.imports] == [["math"], ["io"]]
     assert [import_decl.is_export for import_decl in module.imports] == [False, True]
 
 
-def test_parse_export_import_supports_multi_segment_export_path_and_root_flatten() -> None:
+def test_parse_imports_support_multi_segment_bind_path_and_root_flatten() -> None:
     source = """
+import util.math as tools.calc;
+import util.api as .;
 export import util.math as tools.calc;
 export import util.api as .;
 
@@ -1302,10 +1301,19 @@ fn main() -> unit {
 
     module = parse(lex(source, source_path="examples/export_import_paths.nif"))
 
-    assert [import_decl.module_path for import_decl in module.imports] == [["util", "math"], ["util", "api"]]
-    assert [import_decl.alias for import_decl in module.imports] == [None, None]
-    assert [import_decl.export_path for import_decl in module.imports] == [["tools", "calc"], []]
-    assert [import_decl.is_export for import_decl in module.imports] == [True, True]
+    assert [import_decl.module_path for import_decl in module.imports] == [
+        ["util", "math"],
+        ["util", "api"],
+        ["util", "math"],
+        ["util", "api"],
+    ]
+    assert [import_decl.bind_path for import_decl in module.imports] == [
+        ["tools", "calc"],
+        [],
+        ["tools", "calc"],
+        [],
+    ]
+    assert [import_decl.is_export for import_decl in module.imports] == [False, False, True, True]
 
 
 def test_parse_expression_ast_nodes_have_spans_recursively() -> None:

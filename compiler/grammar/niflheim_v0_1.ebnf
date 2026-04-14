@@ -15,11 +15,11 @@ module_item        = import_decl
                    | top_level_decl
                    ;
 
-import_decl        = "import" module_path [ "as" IDENT ] ";" ;
+import_decl        = "import" module_path [ "as" bind_path ] ";" ;
 
-export_import_decl = "export" "import" module_path [ "as" export_path ] ";" ;
+export_import_decl = "export" "import" module_path [ "as" bind_path ] ";" ;
 
-export_path        = "."
+bind_path          = "."
                    | module_path
                    ;
 

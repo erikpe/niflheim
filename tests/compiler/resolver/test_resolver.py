@@ -169,8 +169,86 @@ def test_resolve_program_supports_explicit_reexport_path_alias(tmp_path: Path) -
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
     lib_module = program.modules[("lib",)]
 
-    assert lib_module.exported_imports[0].export_path == ("tools", "calc")
+    assert lib_module.exported_imports[0].bind_path == ("tools", "calc")
     assert lib_module.exported_imports[0].module_path == ("util", "math")
+
+
+def test_resolve_program_supports_local_bind_path_for_plain_import(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn gcd(a: i64, b: i64) -> i64 {
+            return a;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        import util.math as tools.calc;
+
+        export fn local_score() -> i64 {
+            return tools.calc.gcd(10, 5);
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            lib.local_score();
+            return;
+        }
+        """,
+    )
+
+    resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+
+def test_resolve_program_supports_local_root_flatten_for_plain_import(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn gcd(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "api.nif",
+        """
+        export import util.math as math;
+
+        export fn twice(value: i64) -> i64 {
+            return value * 2;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        import api as .;
+
+        export fn local_score() -> i64 {
+            return math.gcd(19, 23) + twice(0);
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            lib.local_score();
+            return;
+        }
+        """,
+    )
+
+    resolve_program(tmp_path / "main.nif", project_root=tmp_path)
 
 
 def test_resolve_program_supports_root_flatten_reexport_surface(tmp_path: Path) -> None:
@@ -262,7 +340,127 @@ def test_resolve_program_rejects_conflicting_root_flatten_reexports(tmp_path: Pa
     assert "Duplicate exported symbol 'clash'" in str(error.value)
 
 
-def test_resolve_program_supports_import_alias_and_full_path_qualification(tmp_path: Path) -> None:
+def test_resolve_program_rejects_plain_root_flatten_import_conflicting_with_local_definition(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "dep.nif",
+        """
+        export fn clash() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import dep as .;
+
+        fn clash() -> i64 {
+            return 2;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError) as error:
+        resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert "Duplicate imported symbol 'clash'" in str(error.value)
+
+
+def test_resolve_program_rejects_root_flatten_reexport_conflicting_with_local_definition(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "dep.nif",
+        """
+        export fn clash() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        export import dep as .;
+
+        fn clash() -> i64 {
+            return 2;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError) as error:
+        resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert "Duplicate exported symbol 'clash'" in str(error.value)
+
+
+def test_resolve_program_rejects_import_bind_path_conflicting_with_local_definition(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "dep.nif",
+        """
+        export fn clash() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import dep as tools.calc;
+
+        fn tools() -> i64 {
+            return 2;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError) as error:
+        resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert "Duplicate import path 'tools.calc'" in str(error.value)
+
+
+def test_resolve_program_rejects_export_import_bind_path_conflicting_with_local_definition(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "dep.nif",
+        """
+        export fn clash() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        export import dep as tools.calc;
+
+        fn tools() -> i64 {
+            return 2;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError) as error:
+        resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert "Duplicate exported module 'tools.calc'" in str(error.value)
+
+
+def test_resolve_program_supports_import_bind_path_qualification(tmp_path: Path) -> None:
     _write(
         tmp_path / "util" / "math.nif",
         """
@@ -278,7 +476,6 @@ def test_resolve_program_supports_import_alias_and_full_path_qualification(tmp_p
 
         fn main() -> unit {
             math.gcd(10, 5);
-            util.math.gcd(10, 5);
             return;
         }
         """,
@@ -287,8 +484,9 @@ def test_resolve_program_supports_import_alias_and_full_path_qualification(tmp_p
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
 
     main_module = program.modules[("main",)]
-    assert main_module.imports["math"].module_path == ("util", "math")
-    assert main_module.imports["math"].alias == "math"
+    imported_math = next(import_info for import_info in main_module.imports.values() if import_info.module_path == ("util", "math"))
+    assert imported_math.bind_path == ("math",)
+    assert main_module.bound_imports[0].bind_path == ("math",)
 
 
 def test_resolve_program_allows_dotted_imports_with_same_leaf_name_under_strict_qualification(tmp_path: Path) -> None:

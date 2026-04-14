@@ -3,7 +3,7 @@ from __future__ import annotations
 from compiler.frontend.ast_nodes import Expression, FieldAccessExpr, IdentifierExpr
 from compiler.typecheck.context import TypeCheckContext
 from compiler.common.span import SourceSpan
-from compiler.resolver import ModuleInfo, ModulePath, match_exported_import_chain_prefix, match_import_chain_prefix
+from compiler.resolver import ModuleInfo, ModulePath, match_bound_import_chain_prefix, match_exported_import_chain_prefix
 from compiler.typecheck.model import ClassInfo, FunctionSig, InterfaceInfo, TypeCheckError
 
 
@@ -172,7 +172,7 @@ def _resolve_qualified_imported_symbol_name(
     if len(parts) < 2:
         return None
 
-    matched_import = match_import_chain_prefix(current_module.imports, parts)
+    matched_import = match_bound_import_chain_prefix(current_module.bound_imports, parts)
     if matched_import is None:
         return None
 
@@ -236,7 +236,7 @@ def resolve_module_member(ctx: TypeCheckContext, expr: FieldAccessExpr) -> tuple
         return None
 
     current_module = ctx.modules[ctx.module_path]
-    matched_import = match_import_chain_prefix(current_module.imports, chain)
+    matched_import = match_bound_import_chain_prefix(current_module.bound_imports, chain)
     if matched_import is None:
         return None
 

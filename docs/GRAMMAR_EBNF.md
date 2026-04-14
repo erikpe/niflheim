@@ -90,22 +90,28 @@ These forms are active in the current parser/typechecker/codegen pipeline and ar
 
 - `import foo.bar;`
 - `import foo.bar as bar;`
+- `import foo.bar as baz.qux;`
+- `import foo.bar as .;`
 - `export import foo.bar;` (re-export)
-- `export import foo.bar as bar;` (re-export under `current_module.bar`)
-- `export import foo.bar as baz.qux;` (re-export under `current_module.baz.qux`)
-- `export import foo.bar as .;` (merge the exported surface of `foo.bar` into the current module root)
+- `export import foo.bar as bar;`
+- `export import foo.bar as baz.qux;`
+- `export import foo.bar as .;`
 - `export` can prefix `class` and `fn` declarations.
 
 These import/re-export forms are frozen for MVP v0.1.
 
-### Re-export Path Semantics
+### Bind Path Semantics
 
-- Plain `import` aliases remain single identifiers and only affect local source spelling inside the importing module.
-- `export import` always re-roots the imported module under the exporting module.
-- `export import foo.bar;` is equivalent to re-exporting `foo.bar` under the path `foo.bar` from the current module.
-- `export import foo.bar as baz.qux;` re-exports the imported module under `current_module.baz.qux`.
-- `export import foo.bar as .;` is the only form that flattens the imported module's exported surface into the current module root.
-- Plain `export import foo.bar;` does not implicitly expose `foo.bar`'s direct members at the exporter root.
+- `as PATH` always means “bind this module at `PATH` in the current namespace”.
+- Adding `export` means “and make that same binding visible to downstream importers too”.
+- `import foo.bar;` binds `foo.bar` locally at `foo.bar`.
+- `import foo.bar as baz.qux;` binds `foo.bar` locally at `baz.qux`.
+- `import foo.bar as .;` binds the exported surface of `foo.bar` at the current module root.
+- `export import foo.bar;` exports the same `foo.bar` binding to downstream users.
+- `export import foo.bar as baz.qux;` exports the same `baz.qux` binding to downstream users.
+- `export import foo.bar as .;` flattens `foo.bar` into the current module root locally and for downstream users.
+- `as .` merges both direct exported symbols and exported submodule paths from the imported module into the current module root.
+- Canonical ownership of flattened classes/functions/interfaces remains with the defining module.
 
 ## Class Member Visibility in Grammar
 

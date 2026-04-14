@@ -1088,6 +1088,217 @@ def test_typecheck_program_rejects_direct_access_without_root_flatten(tmp_path: 
         resolve_program_from_main(tmp_path)
 
 
+def test_typecheck_program_allows_local_plain_import_bind_path_lookup(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn score() -> i64 {
+            return 42;
+        }
+
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "lib.nif",
+        """
+        import util.math as tools.calc;
+
+        export fn total() -> i64 {
+            var counter: tools.calc.Counter = tools.calc.Counter(42);
+            return tools.calc.score() + counter.value - 42;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            var total: i64 = lib.total();
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_allows_local_plain_root_flatten_lookup(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    write(
+        tmp_path / "api.nif",
+        """
+        export import util.math as math;
+
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        export class Key implements Hashable {
+            seed: u64;
+
+            fn hash_code() -> u64 {
+                return __self.seed + 500u;
+            }
+        }
+
+        export fn twice(value: i64) -> i64 {
+            return value * 2;
+        }
+        """,
+    )
+    write(
+        tmp_path / "lib.nif",
+        """
+        import api as .;
+
+        export fn total() -> i64 {
+            var key: Key = Key(7u);
+            var face: Hashable = key;
+            return math.add(19, 23) + twice(0) + (i64)face.hash_code() - 507;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            var total: i64 = lib.total();
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_rejects_plain_root_flatten_import_conflicting_with_local_definition(tmp_path: Path) -> None:
+    write(
+        tmp_path / "dep.nif",
+        """
+        export fn clash() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import dep as .;
+
+        fn clash() -> i64 {
+            return 2;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError, match="Duplicate imported symbol 'clash'"):
+        resolve_program_from_main(tmp_path)
+
+
+def test_typecheck_program_rejects_root_flatten_reexport_conflicting_with_local_definition(tmp_path: Path) -> None:
+    write(
+        tmp_path / "dep.nif",
+        """
+        export fn clash() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        export import dep as .;
+
+        fn clash() -> i64 {
+            return 2;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError, match="Duplicate exported symbol 'clash'"):
+        resolve_program_from_main(tmp_path)
+
+
+def test_typecheck_program_rejects_import_bind_path_conflicting_with_local_definition(tmp_path: Path) -> None:
+    write(
+        tmp_path / "dep.nif",
+        """
+        export fn clash() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import dep as tools.calc;
+
+        fn tools() -> i64 {
+            return 2;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError, match="Duplicate import path 'tools.calc'"):
+        resolve_program_from_main(tmp_path)
+
+
+def test_typecheck_program_rejects_export_import_bind_path_conflicting_with_local_definition(tmp_path: Path) -> None:
+    write(
+        tmp_path / "dep.nif",
+        """
+        export fn clash() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        export import dep as tools.calc;
+
+        fn tools() -> i64 {
+            return 2;
+        }
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError, match="Duplicate exported module 'tools.calc'"):
+        resolve_program_from_main(tmp_path)
+
+
 def test_typecheck_program_allows_access_through_explicit_reexport_path_alias(tmp_path: Path) -> None:
     write(
         tmp_path / "util" / "math.nif",
@@ -1105,6 +1316,11 @@ def test_typecheck_program_allows_access_through_explicit_reexport_path_alias(tm
         tmp_path / "lib.nif",
         """
         export import util.math as tools.calc;
+
+        export fn total() -> i64 {
+            var counter: tools.calc.Counter = tools.calc.Counter(42);
+            return tools.calc.score() + counter.value - 42;
+        }
         """,
     )
     write(
@@ -1115,6 +1331,7 @@ def test_typecheck_program_allows_access_through_explicit_reexport_path_alias(tm
         fn main() -> unit {
             var total: i64 = lib.tools.calc.score();
             var counter: lib.tools.calc.Counter = lib.tools.calc.Counter(42);
+            var same: i64 = lib.total();
             return;
         }
         """,
@@ -1149,6 +1366,12 @@ def test_typecheck_program_allows_access_through_root_flatten_reexport(tmp_path:
         tmp_path / "lib.nif",
         """
         export import util as .;
+
+        export fn total() -> i64 {
+            var key: Key = Key(7u);
+            var face: Hashable = key;
+            return score(19, 23) + (i64)face.hash_code() - 507;
+        }
         """,
     )
     write(
@@ -1164,6 +1387,7 @@ def test_typecheck_program_allows_access_through_root_flatten_reexport(tmp_path:
             var total: i64 = lib.score(19, 23);
             var key: lib.Key = lib.Key(7u);
             var face: Hashable = echo(key);
+            var same: i64 = lib.total();
             return;
         }
         """,
@@ -1171,6 +1395,58 @@ def test_typecheck_program_allows_access_through_root_flatten_reexport(tmp_path:
 
     program = resolve_program_from_main(tmp_path)
     typecheck_program(program)
+
+
+def test_typecheck_program_rejects_original_module_path_after_dotted_bind_path(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn score() -> i64 {
+            return 42;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util.math as tools.calc;
+
+        fn main() -> unit {
+            util.math.score();
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    with pytest.raises(TypeCheckError, match="Unknown identifier 'util'"):
+        typecheck_program(program)
+
+
+def test_typecheck_program_rejects_original_module_path_after_root_flatten_bind(tmp_path: Path) -> None:
+    write(
+        tmp_path / "api.nif",
+        """
+        export fn score() -> i64 {
+            return 42;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import api as .;
+
+        fn main() -> unit {
+            api.score();
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    with pytest.raises(TypeCheckError, match="Unknown identifier 'api'"):
+        typecheck_program(program)
 
 
 def test_typecheck_program_rejects_missing_reexported_nested_module_segment(tmp_path: Path) -> None:

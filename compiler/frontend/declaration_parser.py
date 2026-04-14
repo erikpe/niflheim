@@ -128,32 +128,22 @@ class DeclarationParser:
             part = expect_symbol_name(self.stream, "Expected identifier after '.' in module path")
             parts.append(part.lexeme)
 
-        alias: str | None = None
-        export_path: list[str] | None = None
+        bind_path: list[str] | None = None
         if self.stream.match(TokenKind.AS):
-            if is_export:
-                if self.stream.match(TokenKind.DOT):
-                    export_path = []
-                else:
-                    export_path = [expect_symbol_name(self.stream, "Expected export path after 'as'").lexeme]
-                    while self.stream.match(TokenKind.DOT):
-                        export_path.append(
-                            expect_symbol_name(self.stream, "Expected identifier after '.' in export path").lexeme
-                        )
-
-                if export_path is not None and len(export_path) == 1:
-                    alias = export_path[0]
+            if self.stream.match(TokenKind.DOT):
+                bind_path = []
             else:
-                alias = expect_symbol_name(self.stream, "Expected alias name after 'as'").lexeme
+                bind_path = [expect_symbol_name(self.stream, "Expected bind path after 'as'").lexeme]
+                while self.stream.match(TokenKind.DOT):
+                    bind_path.append(expect_symbol_name(self.stream, "Expected identifier after '.' in bind path").lexeme)
 
         semicolon = self.stream.expect(TokenKind.SEMICOLON, "Expected ';' after import declaration")
         start_pos = export_token.span.start if export_token is not None else import_token.span.start
         return ImportDecl(
             module_path=parts,
-            alias=alias,
+            bind_path=bind_path,
             is_export=is_export,
             span=SourceSpan(start=start_pos, end=semicolon.span.end),
-            export_path=export_path,
         )
 
     def _parse_class_decl(self, *, is_export: bool, class_token: Token, export_token: Token | None = None) -> ClassDecl:
