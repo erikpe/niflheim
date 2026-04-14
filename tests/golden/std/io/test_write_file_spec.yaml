@@ -1,0 +1,28 @@
+tests:
+  - mode: "run"
+    name: "test_write_file"
+    src_file: "test_write_file.nif"
+    runs:
+      - name: "write_file_round_trips_content"
+        input:
+          args: ["roundtrip", "build/golden/__runtime__/std_io_write_roundtrip.txt", "alpha-beta"]
+        expect:
+          exit_code: 0
+          stdout: "alpha-beta"
+      - name: "write_file_overwrites_existing_file"
+        input:
+          args: ["overwrite", "build/golden/__runtime__/std_io_write_overwrite.txt", "old-value", "new-value"]
+        expect:
+          exit_code: 0
+          stdout: "new-value"
+      - name: "write_file_handles_empty_content"
+        input:
+          args: ["empty", "build/golden/__runtime__/std_io_write_empty.txt"]
+        expect:
+          exit_code: 0
+          stdout: "0\n"
+      - name: "write_file_invalid_path_panics"
+        input:
+          args: ["invalid", "tests/golden/std/io", "x"]
+        expect:
+          panic: "rt_file_write_all: failed opening file"

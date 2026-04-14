@@ -6,6 +6,7 @@ extern fn rt_file_stdin_handle() -> u64;
 extern fn rt_file_open_for_read(path: u8[]) -> u64;
 extern fn rt_file_close(handle: u64) -> unit;
 extern fn rt_file_read_u8_array(handle: u64, value: u8[], offset: u64) -> u64;
+extern fn rt_file_write_all(path: u8[], value: u8[]) -> unit;
 extern fn rt_write_u8_array(value: u8[]) -> u64;
 
 export fn print(text: Str) -> unit
@@ -100,6 +101,11 @@ export fn read_file(path: Str) -> Str
     var content: Str = _read_all_from_handle(handle);
     rt_file_close(handle);
     return content;
+}
+
+export fn write_file(path: Str, content: Str) -> unit
+{
+    rt_file_write_all(path.to_u8_array(), content.to_u8_array());
 }
 
 export fn read_stdin() -> Str

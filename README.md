@@ -48,8 +48,9 @@ Recent backend/runtime updates:
 - Interface dispatch now uses inline slot-table loads from `RtType` rather than a runtime lookup helper, and runtime interface casts/type tests use the same slot metadata.
 - `std.box` primitive wrapper classes (`Box*`) are available for `Obj`-container use cases.
 - Fixed-size arrays (`T[]`, `T[](len)`) are implemented end-to-end (typecheck/runtime/codegen/golden tests), including indexing, slicing, and bounds panics.
-- `std.io` supports stdout printing, stdin batch reads (`read_stdin`), whole-file reads (`read_file(path)`), and program-argument decoding (`read_program_args()`) using minimal runtime file/byte-array primitives.
+- `std.io` supports stdout printing, stdin batch reads (`read_stdin`), whole-file reads (`read_file(path)`), whole-file writes (`write_file(path, content)`), and program-argument decoding (`read_program_args()`) using minimal runtime file/byte-array primitives.
 - `std.math` exposes a grouped `double` math surface backed by runtime `libm` wrappers, including trigonometric, exponential/logarithmic, rounding, comparison, and classification helpers.
+- `std.random` provides a deterministic, seedable `Random` generator implemented in stdlib using SplitMix64, with `next_u64`, `next_bool`, `next_double`, `next_bounded`, and `randint`.
 
 Recent language/runtime additions are reflected directly in [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md).
 
@@ -70,7 +71,7 @@ Runtime sources are split by responsibility:
 - `runtime/src/gc_trace.c` - runtime trace-frame bookkeeping and summary reporting
 - `runtime/src/gc_tracked_set.c` - tracked-allocation set backing GC bookkeeping
 - `runtime/src/io.c` - runtime IO/println implementation
-	- includes minimal file-handle primitives used by `std/io.nif` (`open/read/close`), while buffering/growth logic stays in stdlib
+	- includes minimal file-handle primitives plus whole-file write support used by `std/io.nif` (`open/read/close`, `write-all`), while buffering/growth logic stays in stdlib
 - `runtime/src/array.c` - fixed-size array allocation, element access, and slicing helpers
 - `runtime/src/panic.c` - panic reporting and trace rendering
 

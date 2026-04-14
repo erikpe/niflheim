@@ -114,11 +114,7 @@ Add the smallest useful output surface for generated content and renderer output
 
 Extend [std/io.nif](../std/io.nif) with:
 
-- `write_file(path: Str, data: u8[]) -> unit`
-
-Optional convenience follow-up after the base path works:
-
-- `write_text_file(path: Str, text: Str) -> unit`
+- `write_file(path: Str, content: Str) -> unit`
 
 The public API should stay high-level for now. User code should not need to manage file handles to write one file.
 
@@ -148,21 +144,21 @@ Add:
 
 ## Implementation Checklist
 
-- [ ] Choose one minimal runtime write helper shape and document it in [runtime/include/io.h](../runtime/include/io.h).
-- [ ] Implement the helper in [runtime/src/io.c](../runtime/src/io.c) using ordinary buffered C file IO.
-- [ ] Add `write_file(path: Str, data: u8[]) -> unit` to [std/io.nif](../std/io.nif).
-- [ ] Decide whether `write_file` should overwrite unconditionally or fail if the path cannot be opened. The default recommendation is overwrite/truncate.
-- [ ] Reuse existing panic style for failed open/write/close operations.
-- [ ] Keep stdout writing behavior unchanged; this workstream is additive.
-- [ ] Add at least one integration test that verifies bytes on disk through a real compiled binary.
+- [x] Choose one minimal runtime write helper shape and document it in [runtime/include/io.h](../runtime/include/io.h).
+- [x] Implement the helper in [runtime/src/io.c](../runtime/src/io.c) using ordinary buffered C file IO.
+- [x] Add `write_file(path: Str, content: Str) -> unit` to [std/io.nif](../std/io.nif).
+- [x] Overwrite/truncate existing files by default and panic when the path cannot be opened.
+- [x] Reuse existing panic style for failed open/write/close operations.
+- [x] Keep stdout writing behavior unchanged; this workstream is additive.
+- [x] Add at least one integration test that verifies bytes on disk through a real compiled binary.
 
 ## Testing Checklist
 
-- [ ] Golden test that writes a small byte payload to a file path passed in via argv, reads it back with `read_file`, and prints the content.
-- [ ] Golden test for overwriting an existing file.
-- [ ] Golden test for empty writes.
-- [ ] Golden test for failure behavior on an invalid path.
-- [ ] Python integration test that runs the compiled binary under `tmp_path` and asserts the resulting file bytes directly.
+- [x] Golden test that writes a small string payload to a file path passed in via argv, reads it back with `read_file`, and prints the content.
+- [x] Golden test for overwriting an existing file.
+- [x] Golden test for empty writes.
+- [x] Golden test for failure behavior on an invalid path.
+- [x] Python integration test that runs the compiled binary under `tmp_path` and asserts the resulting file bytes directly.
 
 Recommended commands once implemented:
 
@@ -211,20 +207,20 @@ Update:
 
 ## Implementation Checklist
 
-- [ ] Choose and document the RNG algorithm in `std/random.nif`.
-- [ ] Keep the initial implementation stdlib-only unless profiling proves a runtime helper is needed.
-- [ ] Define exact seed behavior and sequence stability as part of the public contract.
-- [ ] Implement `next_bounded` with rejection sampling.
-- [ ] Implement `next_double` with a stable conversion strategy from integer state to `[0.0, 1.0)`.
-- [ ] Add deterministic golden tests with fixed seeds and expected outputs.
+- [x] Choose and document the RNG algorithm in `std/random.nif`.
+- [x] Keep the initial implementation stdlib-only unless profiling proves a runtime helper is needed.
+- [x] Define exact seed behavior and sequence stability as part of the public contract.
+- [x] Implement `next_bounded` with rejection sampling.
+- [x] Implement `next_double` with a stable conversion strategy from integer state to `[0.0, 1.0)`.
+- [x] Add deterministic golden tests with fixed seeds and expected outputs.
 
 ## Testing Checklist
 
-- [ ] Same-seed / same-sequence golden test.
-- [ ] Different-seed / different-sequence golden test.
-- [ ] `next_bounded` tests for `bound = 1`, small bounds, and large bounds.
-- [ ] `randint` tests for inclusive endpoints and negative ranges.
-- [ ] `next_double` tests for range only (`>= 0.0`, `< 1.0`) rather than brittle exact decimal text unless the formatting is intentionally frozen.
+- [x] Same-seed / same-sequence golden test.
+- [x] Different-seed / different-sequence golden test.
+- [x] `next_bounded` tests for `bound = 1`, small bounds, and large bounds.
+- [x] `randint` tests for inclusive endpoints and negative ranges.
+- [x] `next_double` tests for range only (`>= 0.0`, `< 1.0`) rather than brittle exact decimal text unless the formatting is intentionally frozen.
 
 Recommended commands once implemented:
 

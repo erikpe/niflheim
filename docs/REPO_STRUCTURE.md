@@ -63,13 +63,13 @@ Current C runtime and GC support for the generated backend.
 - `include/runtime.h` - runtime ABI declarations.
 - `include/array.h` - fixed-size array runtime API declarations.
 - `include/gc.h`, `include/gc_trace.h`, `include/gc_tracked_set.h` - GC and tracing support headers.
-- `include/io.h` - runtime file/stdout byte-array API declarations.
+- `include/io.h` - runtime file/stdout byte-array API declarations, including whole-file write support.
 - `include/panic.h`, `include/runtime_dbg.h` - panic and debug/test helper declarations.
 - `src/runtime.c` - low-level runtime infrastructure (thread state, root frames, allocation, panic support).
 - `src/gc.c` - GC implementation unit.
 - `src/gc_trace.c` - trace-frame bookkeeping and summary reporting.
 - `src/gc_tracked_set.c` - tracked-allocation set utilities.
-- `src/io.c` - runtime file/stdout byte-array implementation unit.
+- `src/io.c` - runtime file/stdout byte-array implementation unit, including whole-file reads and writes.
 - `src/math.c` - runtime `double` math wrappers and classification helpers.
 - `src/array.c` - fixed-size array allocation/access/slice implementation.
 - `src/panic.c` - panic reporting and trace rendering.
@@ -80,9 +80,9 @@ Current C runtime and GC support for the generated backend.
 
 Standard library modules layered on the compiler/runtime surface.
 
-- `io.nif` - stdout printing, whole-file reads, stdin reads, and argv decoding helpers.
+- `io.nif` - stdout printing, whole-file reads/writes, stdin reads, and argv decoding helpers.
 - `math.nif` - grouped `double` math functions plus NaN/infinity classification helpers.
-- `str.nif`, `vec.nif`, `map.nif`, `box.nif`, `lang.nif` - core containers, boxing, and shared interface definitions.
+- `str.nif`, `vec.nif`, `map.nif`, `box.nif`, `lang.nif`, `random.nif` - core containers, deterministic RNG, boxing, and shared interface definitions.
 - `object.nif`, `range.nif`, `error.nif`, `test.nif`, `bigint.nif` - supporting standard-library modules.
 
 ## `tests/`

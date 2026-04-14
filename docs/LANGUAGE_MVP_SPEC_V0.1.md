@@ -194,6 +194,19 @@ Constructor details (explicit + compatibility constructors in v0.1):
 - Current implemented functions: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `log`, `log10`, `pow`, `sqrt`, `cbrt`, `floor`, `ceil`, `round`, `trunc`, `abs`, `min`, `max`, `hypot`, `is_nan`, `is_infinite`.
 - Semantics are intended to be Java-like where practical, but they follow the underlying runtime floating-point implementation rather than a bit-exact Java specification.
 
+### 5.1.2 `std.io`
+
+- `std.io` provides stdout printing helpers plus high-level whole-file and process-input helpers.
+- Current implemented functions include `print`, `println`, scalar `println_*` helpers, `read_file(path: Str) -> Str`, `write_file(path: Str, content: Str) -> unit`, `read_stdin() -> Str`, and `read_program_args() -> Str[]`.
+- `read_file` and `write_file` are intentionally high-level in v0.1; user code does not manage file handles directly.
+
+### 5.1.3 `std.random`
+
+- `std.random` provides a deterministic, seedable `Random` class implemented in stdlib.
+- Current implemented methods: `next_u64`, `next_bool`, `next_double`, `next_bounded`, and `randint`.
+- The current generator algorithm is SplitMix64. Sequence stability for a given seed is part of the public contract for the current stdlib surface.
+- `next_bounded(bound)` panics for `bound == 0` and otherwise uses rejection sampling to avoid modulo bias.
+
 ### 5.2 Vec (`std.vec`)
 
 - `Vec` is a standard-library class in `std.vec`, not a dedicated runtime-native container type.

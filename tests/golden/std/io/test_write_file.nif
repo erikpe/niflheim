@@ -1,0 +1,40 @@
+import std.error;
+import std.io;
+import std.str;
+
+fn main() -> i64 {
+    var args: Str[] = read_program_args();
+    if args.len() < 3u {
+        panic("test_write_file: missing mode/path arguments");
+    }
+
+    var mode: Str = args[1];
+    var path: Str = args[2];
+
+    if mode.equals("roundtrip") {
+        write_file(path, args[3]);
+        print(read_file(path));
+        return 0;
+    }
+
+    if mode.equals("overwrite") {
+        write_file(path, args[3]);
+        write_file(path, args[4]);
+        print(read_file(path));
+        return 0;
+    }
+
+    if mode.equals("empty") {
+        write_file(path, "");
+        println_u64(read_file(path).len());
+        return 0;
+    }
+
+    if mode.equals("invalid") {
+        write_file(path, args[3]);
+        return 0;
+    }
+
+    panic("test_write_file: unknown mode");
+    return 1;
+}

@@ -1,0 +1,146 @@
+import std.error;
+import std.io;
+import std.random;
+import std.str;
+import std.test;
+
+fn test_next_u64_fixed_sequence() -> unit {
+    var rng: Random = Random(42u);
+
+    assert_eq_u64(rng.next_u64(), 13679457532755275413u);
+    assert_eq_u64(rng.next_u64(), 2949826092126892291u);
+    assert_eq_u64(rng.next_u64(), 5139283748462763858u);
+    assert_eq_u64(rng.next_u64(), 6349198060258255764u);
+    assert_eq_u64(rng.next_u64(), 701532786141963250u);
+}
+
+fn test_same_seed_same_sequence() -> unit {
+    var left: Random = Random(1u);
+    var right: Random = Random(1u);
+
+    var i: u64 = 0u;
+    while i < 12u {
+        assert_eq_u64(left.next_u64(), right.next_u64());
+        i = i + 1u;
+    }
+}
+
+fn test_different_seeds_different_sequence() -> unit {
+    var left: Random = Random(0u);
+    var right: Random = Random(1u);
+
+    assert_true(left.next_u64() != right.next_u64());
+    assert_true(left.next_u64() != right.next_u64());
+}
+
+fn test_next_bool_fixed_bits() -> unit {
+    var rng: Random = Random(123456789u);
+
+    assert_true(rng.next_bool());
+    assert_false(rng.next_bool());
+    assert_true(rng.next_bool());
+    assert_true(rng.next_bool());
+    assert_true(rng.next_bool());
+    assert_false(rng.next_bool());
+    assert_false(rng.next_bool());
+    assert_false(rng.next_bool());
+    assert_true(rng.next_bool());
+    assert_true(rng.next_bool());
+}
+
+fn test_next_double_same_seed_and_range() -> unit {
+    var left: Random = Random(123456789u);
+    var right: Random = Random(123456789u);
+
+    var i: u64 = 0u;
+    while i < 16u {
+        var left_value: double = left.next_double();
+        var right_value: double = right.next_double();
+        assert_eq_double(left_value, right_value);
+        assert_true(left_value >= 0.0);
+        assert_true(left_value < 1.0);
+        i = i + 1u;
+    }
+}
+
+fn test_next_bounded_edges() -> unit {
+    var ones: Random = Random(42u);
+    var i: u64 = 0u;
+    while i < 5u {
+        assert_eq_u64(ones.next_bounded(1u), 0u);
+        i = i + 1u;
+    }
+
+    var small: Random = Random(42u);
+    assert_eq_u64(small.next_bounded(10u), 3u);
+    assert_eq_u64(small.next_bounded(10u), 1u);
+    assert_eq_u64(small.next_bounded(10u), 8u);
+    assert_eq_u64(small.next_bounded(10u), 4u);
+    assert_eq_u64(small.next_bounded(10u), 0u);
+
+    var large: Random = Random(42u);
+    assert_eq_u64(large.next_bounded(1099511627776u), 164012715669u);
+    assert_eq_u64(large.next_bounded(1099511627776u), 222036422915u);
+    assert_eq_u64(large.next_bounded(1099511627776u), 373981945682u);
+    assert_eq_u64(large.next_bounded(1099511627776u), 1095456449428u);
+    assert_eq_u64(large.next_bounded(1099511627776u), 387155764210u);
+}
+
+fn test_randint_ranges() -> unit {
+    var cross_zero: Random = Random(42u);
+    assert_eq_i64(cross_zero.randint(-3, 5), -2);
+    assert_eq_i64(cross_zero.randint(-3, 5), -2);
+    assert_eq_i64(cross_zero.randint(-3, 5), -3);
+    assert_eq_i64(cross_zero.randint(-3, 5), -3);
+    assert_eq_i64(cross_zero.randint(-3, 5), 4);
+
+    var negative_only: Random = Random(42u);
+    assert_eq_i64(negative_only.randint(-20, -10), -11);
+    assert_eq_i64(negative_only.randint(-20, -10), -15);
+    assert_eq_i64(negative_only.randint(-20, -10), -18);
+    assert_eq_i64(negative_only.randint(-20, -10), -19);
+    assert_eq_i64(negative_only.randint(-20, -10), -18);
+
+    var positive_only: Random = Random(42u);
+    assert_eq_i64(positive_only.randint(10, 20), 19);
+    assert_eq_i64(positive_only.randint(10, 20), 15);
+    assert_eq_i64(positive_only.randint(10, 20), 12);
+    assert_eq_i64(positive_only.randint(10, 20), 11);
+    assert_eq_i64(positive_only.randint(10, 20), 12);
+
+    var singleton: Random = Random(99u);
+    assert_eq_i64(singleton.randint(-7, -7), -7);
+
+    var full_span: Random = Random(42u);
+    assert_eq_i64(full_span.randint(-9223372036854775808, 9223372036854775807), -4767286540954276203);
+}
+
+fn test_next_bounded_zero_panics() -> unit {
+    var rng: Random = Random(0u);
+    rng.next_bounded(0u);
+}
+
+fn test_randint_invalid_range_panics() -> unit {
+    var rng: Random = Random(0u);
+    rng.randint(5, 4);
+}
+
+fn main() -> i64 {
+    if read_program_args().len() < 2u {
+        panic("test_random: missing selector");
+    }
+
+    var select: Str = read_program_args()[1];
+    if select.equals("fixed_sequence") { test_next_u64_fixed_sequence(); return 0; }
+    if select.equals("same_seed") { test_same_seed_same_sequence(); return 0; }
+    if select.equals("different_seed") { test_different_seeds_different_sequence(); return 0; }
+    if select.equals("next_bool") { test_next_bool_fixed_bits(); return 0; }
+    if select.equals("next_double") { test_next_double_same_seed_and_range(); return 0; }
+    if select.equals("next_bounded") { test_next_bounded_edges(); return 0; }
+    if select.equals("randint") { test_randint_ranges(); return 0; }
+    if select.equals("next_bounded_zero") { test_next_bounded_zero_panics(); return 0; }
+    if select.equals("randint_invalid") { test_randint_invalid_range_panics(); return 0; }
+
+    panic("test_random: unknown selector");
+    return 1;
+}

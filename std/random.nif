@@ -1,0 +1,75 @@
+import std.error;
+
+export class Random
+{
+    private _state: u64;
+
+    constructor(seed: u64) {
+        __self._state = seed;
+    }
+
+    fn next_u64() -> u64 {
+        __self._state = __self._state + 11400714819323198485u;
+
+        var mixed: u64 = __self._state;
+        mixed = (mixed ^ (mixed >> 30u)) * 13787848793156543929u;
+        mixed = (mixed ^ (mixed >> 27u)) * 10723151780598845931u;
+        return mixed ^ (mixed >> 31u);
+    }
+
+    fn next_bool() -> bool {
+        return (__self.next_u64() & 1u) != 0u;
+    }
+
+    fn next_double() -> double {
+        var mantissa: u64 = __self.next_u64() >> 11u;
+        return (double)mantissa / 9007199254740992.0;
+    }
+
+    fn next_bounded(bound: u64) -> u64 {
+        if bound == 0u {
+            panic("Random.next_bounded: bound must be > 0");
+        }
+
+        var threshold: u64 = ((~bound) + 1u) % bound;
+        while true {
+            var candidate: u64 = __self.next_u64();
+            if candidate >= threshold {
+                return candidate % bound;
+            }
+        }
+
+        panic("Random.next_bounded: unreachable");
+        return 0u;
+    }
+
+    fn randint(min_inclusive: i64, max_inclusive: i64) -> i64 {
+        if min_inclusive > max_inclusive {
+            panic("Random.randint: min_inclusive must be <= max_inclusive");
+        }
+
+        if min_inclusive == -9223372036854775808 && max_inclusive == 9223372036854775807 {
+            return (i64)__self.next_u64();
+        }
+
+        if min_inclusive >= 0 || max_inclusive < 0 {
+            var span: u64 = (u64)(max_inclusive - min_inclusive) + 1u;
+            return min_inclusive + (i64)__self.next_bounded(span);
+        }
+
+        var below_zero_count: u64 = Random._negative_count(min_inclusive);
+        var nonnegative_count: u64 = (u64)max_inclusive + 1u;
+        var offset: u64 = __self.next_bounded(below_zero_count + nonnegative_count);
+        if offset < below_zero_count {
+            return min_inclusive + (i64)offset;
+        }
+        return (i64)(offset - below_zero_count);
+    }
+
+    private static fn _negative_count(min_inclusive: i64) -> u64 {
+        if min_inclusive == -9223372036854775808 {
+            return 9223372036854775808u;
+        }
+        return (u64)(-min_inclusive);
+    }
+}

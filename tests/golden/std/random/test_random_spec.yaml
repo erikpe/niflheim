@@ -1,0 +1,14 @@
+tests:
+  - mode: "run"
+    name: "test_random"
+    src_file: "test_random.nif"
+    runs:
+      - {name: "fixed_sequence", input: {args: ["fixed_sequence"]}, expect: {exit_code: 0}}
+      - {name: "same_seed", input: {args: ["same_seed"]}, expect: {exit_code: 0}}
+      - {name: "different_seed", input: {args: ["different_seed"]}, expect: {exit_code: 0}}
+      - {name: "next_bool", input: {args: ["next_bool"]}, expect: {exit_code: 0}}
+      - {name: "next_double", input: {args: ["next_double"]}, expect: {exit_code: 0}}
+      - {name: "next_bounded", input: {args: ["next_bounded"]}, expect: {exit_code: 0}}
+      - {name: "randint", input: {args: ["randint"]}, expect: {exit_code: 0}}
+      - {name: "next_bounded_zero_panics", input: {args: ["next_bounded_zero"]}, expect: {panic: "Random.next_bounded: bound must be > 0"}}
+      - {name: "randint_invalid_range_panics", input: {args: ["randint_invalid"]}, expect: {panic: "Random.randint: min_inclusive must be <= max_inclusive"}}
