@@ -118,9 +118,11 @@ export fn main() -> unit {
     assert module.imports[0].module_path == ["a", "b"]
     assert module.imports[0].alias == "b"
     assert module.imports[0].is_export is False
+    assert module.imports[0].export_path is None
     assert module.imports[1].module_path == ["std", "io"]
     assert module.imports[1].alias == "io"
     assert module.imports[1].is_export is True
+    assert module.imports[1].export_path == ["io"]
 
     assert module.interfaces == []
 
@@ -1284,7 +1286,26 @@ fn main() -> unit {
 
     assert [import_decl.module_path for import_decl in module.imports] == [["util", "math"], ["std", "io"]]
     assert [import_decl.alias for import_decl in module.imports] == ["math", "io"]
+    assert [import_decl.export_path for import_decl in module.imports] == [None, ["io"]]
     assert [import_decl.is_export for import_decl in module.imports] == [False, True]
+
+
+def test_parse_export_import_supports_multi_segment_export_path_and_root_flatten() -> None:
+    source = """
+export import util.math as tools.calc;
+export import util.api as .;
+
+fn main() -> unit {
+    return;
+}
+"""
+
+    module = parse(lex(source, source_path="examples/export_import_paths.nif"))
+
+    assert [import_decl.module_path for import_decl in module.imports] == [["util", "math"], ["util", "api"]]
+    assert [import_decl.alias for import_decl in module.imports] == [None, None]
+    assert [import_decl.export_path for import_decl in module.imports] == [["tools", "calc"], []]
+    assert [import_decl.is_export for import_decl in module.imports] == [True, True]
 
 
 def test_parse_expression_ast_nodes_have_spans_recursively() -> None:

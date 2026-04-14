@@ -335,3 +335,36 @@ def test_build_program_symbol_index_rejects_ambiguous_imported_interface_lookup(
 
     with pytest.raises(ValueError, match="Ambiguous imported interface 'Shared'"):
         resolve_visible_interface_id(index, program, ("main",), "Shared")
+
+
+def test_build_program_symbol_index_deduplicates_root_flatten_reexported_interface_owner(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        export import util as .;
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util;
+        import lib;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    index = build_program_symbol_index(program)
+
+    assert resolve_visible_interface_id(index, program, ("main",), "Hashable") == InterfaceId(("util",), "Hashable")

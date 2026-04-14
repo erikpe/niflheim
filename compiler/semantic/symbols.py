@@ -160,7 +160,7 @@ def resolve_visible_interface_id(
         if symbol is None or symbol.kind != "interface":
             continue
 
-        interface_id = symbol_index.local_interfaces_by_module.get(import_info.module_path, {}).get(interface_name)
+        interface_id = symbol_index.local_interfaces_by_module.get(symbol.owner_module_path, {}).get(interface_name)
         if interface_id is not None:
             matches.add(interface_id)
 

@@ -91,10 +91,21 @@ These forms are active in the current parser/typechecker/codegen pipeline and ar
 - `import foo.bar;`
 - `import foo.bar as bar;`
 - `export import foo.bar;` (re-export)
-- `export import foo.bar as bar;` (re-export with alias)
+- `export import foo.bar as bar;` (re-export under `current_module.bar`)
+- `export import foo.bar as baz.qux;` (re-export under `current_module.baz.qux`)
+- `export import foo.bar as .;` (merge the exported surface of `foo.bar` into the current module root)
 - `export` can prefix `class` and `fn` declarations.
 
 These import/re-export forms are frozen for MVP v0.1.
+
+### Re-export Path Semantics
+
+- Plain `import` aliases remain single identifiers and only affect local source spelling inside the importing module.
+- `export import` always re-roots the imported module under the exporting module.
+- `export import foo.bar;` is equivalent to re-exporting `foo.bar` under the path `foo.bar` from the current module.
+- `export import foo.bar as baz.qux;` re-exports the imported module under `current_module.baz.qux`.
+- `export import foo.bar as .;` is the only form that flattens the imported module's exported surface into the current module root.
+- Plain `export import foo.bar;` does not implicitly expose `foo.bar`'s direct members at the exporter root.
 
 ## Class Member Visibility in Grammar
 

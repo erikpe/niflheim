@@ -312,7 +312,9 @@ Design lock-in note:
   - `import a.b;`
   - `import a.b as b;`
   - `export import a.b;` (re-export)
-  - `export import a.b as b;` (re-export with alias)
+  - `export import a.b as b;` (re-export under `current_module.b`)
+  - `export import a.b as x.y;` (re-export under `current_module.x.y`)
+  - `export import a.b as .;` (merge the exported surface of `a.b` into the current module root)
 - External function declaration forms:
   - `extern fn name(args...) -> type;`
   - `export extern fn name(args...) -> type;` (re-export)
@@ -321,7 +323,17 @@ Design lock-in note:
 - Re-export of imported symbols/modules is allowed.
 - No namespace feature beyond module boundaries.
 
-### 6.1 Imported Class Name Resolution (Design Decision)
+### 6.1 Re-export Rooting and Paths
+
+- Every re-export is rooted in the exporting module.
+- `export import foo.bar;` makes the imported module visible to downstream users at `current_module.foo.bar`.
+- `export import pop.corn as baz;` makes it visible at `current_module.baz`.
+- `export import hej as .;` is the explicit flattening form and makes `hej`'s exported members directly visible at `current_module.<member>`.
+- Flattening also merges the imported module's exported submodule paths into the current module root.
+- Plain `export import` never performs implicit flattening; downstream users only get the nested export path unless `as .` is used.
+- Flattened classes, functions, and interfaces keep the defining module as their canonical owner for nominal identity and later compilation phases.
+
+### 6.2 Imported Class Name Resolution (Design Decision)
 
 - Resolution is symmetric between constructor calls and type annotations.
 - Unqualified class names are local-first:
@@ -333,7 +345,7 @@ Design lock-in note:
 - If no local class exists, unqualified imported class names may resolve from imports only when unique.
 - If multiple imported modules export the same unqualified class name and no local class shadows it, unqualified usage is a compile-time ambiguity error.
 
-### 6.2 Unsafe Systems Layer (Proposed Extension)
+### 6.3 Unsafe Systems Layer (Proposed Extension)
 
 Goal: allow stdlib code to implement low-level runtime-adjacent logic (for example `Str`/`StrBuf`) in Nif while keeping normal user code safe by default.
 

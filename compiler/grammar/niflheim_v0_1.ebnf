@@ -17,7 +17,11 @@ module_item        = import_decl
 
 import_decl        = "import" module_path [ "as" IDENT ] ";" ;
 
-export_import_decl = "export" "import" module_path [ "as" IDENT ] ";" ;
+export_import_decl = "export" "import" module_path [ "as" export_path ] ";" ;
+
+export_path        = "."
+                   | module_path
+                   ;
 
 top_level_decl     = [ "export" ] ( class_decl | interface_decl | fn_decl | extern_fn_decl ) ;
 

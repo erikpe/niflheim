@@ -223,6 +223,7 @@
   "imports": [
     {
       "alias": "b",
+      "export_path": null,
       "is_export": false,
       "module_path": [
         "a",
@@ -232,6 +233,9 @@
     },
     {
       "alias": "io",
+      "export_path": [
+        "io"
+      ],
       "is_export": true,
       "module_path": [
         "std",

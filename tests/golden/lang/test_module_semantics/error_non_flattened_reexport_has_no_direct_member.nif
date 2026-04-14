@@ -1,0 +1,5 @@
+import tests.golden.lang.test_module_semantics.relay as relay;
+
+fn main() -> i64 {
+    return relay.add(19, 23);
+}

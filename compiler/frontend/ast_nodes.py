@@ -57,6 +57,7 @@ class ImportDecl:
     alias: str | None
     is_export: bool
     span: SourceSpan
+    export_path: list[str] | None = None
 
 
 @dataclass(frozen=True)

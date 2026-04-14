@@ -13,6 +13,9 @@ tests:
       - {name: "imported_non_entry_main", input: {args: ["8"]}, expect: {exit_code: 0}}
       - {name: "alias_import_unique_unqualified_lookup", input: {args: ["9"]}, expect: {exit_code: 0}}
       - {name: "full_reexported_nested_module_path", input: {args: ["10"]}, expect: {exit_code: 0}}
+      - {name: "explicit_reexport_path_alias", input: {args: ["11"]}, expect: {exit_code: 0}}
+      - {name: "root_flatten_reexport_function_class_and_interface", input: {args: ["12"]}, expect: {exit_code: 0}}
+      - {name: "root_flatten_reexport_preserves_nested_namespace", input: {args: ["13"]}, expect: {exit_code: 0}}
   - mode: "run"
     name: "test_module_semantics_duplicate_symbols"
     src_file: "test_module_semantics_duplicate_symbols.nif"
@@ -62,3 +65,11 @@ tests:
     name: "module_value_not_callable"
     src_file: "error_module_value_not_callable.nif"
     compile_error_match: "Module values are not callable"
+  - mode: "compile-fail"
+    name: "non_flattened_reexport_has_no_direct_member"
+    src_file: "error_non_flattened_reexport_has_no_direct_member.nif"
+    compile_error_match: "has no exported member 'add'"
+  - mode: "compile-fail"
+    name: "duplicate_root_flatten_export_symbol"
+    src_file: "error_duplicate_root_flatten_export_symbol.nif"
+    compile_error_match: "Duplicate exported symbol 'clash'"

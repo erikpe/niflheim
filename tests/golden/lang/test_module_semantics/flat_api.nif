@@ -1,0 +1,17 @@
+export import tests.golden.lang.test_module_semantics.util.math as math;
+
+export interface DirectFace {
+    fn hash_code() -> u64;
+}
+
+export class DirectKey implements DirectFace {
+    seed: u64;
+
+    fn hash_code() -> u64 {
+        return __self.seed + 500u;
+    }
+}
+
+export fn twice(value: i64) -> i64 {
+    return value * 2;
+}

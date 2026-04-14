@@ -6,6 +6,8 @@ import tests.golden.lang.test_module_semantics.util.math;
 import tests.golden.lang.test_module_semantics.util.ops as ops;
 import tests.golden.lang.test_module_semantics.util.shadow as shadow;
 import tests.golden.lang.test_module_semantics.bridge as bridge;
+import tests.golden.lang.test_module_semantics.path_bridge as path_bridge;
+import tests.golden.lang.test_module_semantics.flat_bridge as flat_bridge;
 import tests.golden.lang.test_module_semantics.left.math;
 import tests.golden.lang.test_module_semantics.left.alias as left_alias;
 import tests.golden.lang.test_module_semantics.right.math;
@@ -14,6 +16,10 @@ import tests.golden.lang.test_module_semantics.relay as relay;
 import tests.golden.lang.test_module_semantics.tools.worker as worker;
 
 fn bounce_hashable(value: Hashable) -> Hashable {
+    return value;
+}
+
+fn bounce_flat_face(value: flat_bridge.DirectFace) -> flat_bridge.DirectFace {
     return value;
 }
 
@@ -102,6 +108,28 @@ fn test_full_reexported_nested_module_path() -> unit {
     assert_eq_i64(counter.value, 42);
 }
 
+fn test_explicit_reexport_path_alias() -> unit {
+    assert_eq_i64(path_bridge.tools.calc.add(19, 23), 42);
+
+    var counter: path_bridge.tools.calc.Counter = path_bridge.tools.calc.Counter(40);
+    assert_eq_i64(counter.inc(2), 42);
+}
+
+fn test_root_flatten_reexport_function_class_and_interface() -> unit {
+    assert_eq_i64(flat_bridge.twice(21), 42);
+
+    var key: flat_bridge.DirectKey = flat_bridge.DirectKey(7u);
+    var face: flat_bridge.DirectFace = bounce_flat_face(key);
+    assert_eq_u64(face.hash_code(), 507u);
+}
+
+fn test_root_flatten_reexport_preserves_nested_namespace() -> unit {
+    assert_eq_i64(flat_bridge.math.add(19, 23), 42);
+
+    var counter: flat_bridge.math.Counter = flat_bridge.math.Counter(39);
+    assert_eq_i64(counter.inc(3), 42);
+}
+
 fn main() -> i64 {
     var select: u64 = read_program_args()[1].to_u64();
 
@@ -115,6 +143,9 @@ fn main() -> i64 {
     if select == 8u { test_imported_non_entry_main(); return 0; }
     if select == 9u { test_alias_import_unique_unqualified_lookup(); return 0; }
     if select == 10u { test_full_reexported_nested_module_path(); return 0; }
+    if select == 11u { test_explicit_reexport_path_alias(); return 0; }
+    if select == 12u { test_root_flatten_reexport_function_class_and_interface(); return 0; }
+    if select == 13u { test_root_flatten_reexport_preserves_nested_namespace(); return 0; }
 
     fail("Invalid test selection.");
     return 1;

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from compiler.resolver import ResolveError
 from compiler.typecheck.api import typecheck_program
 from compiler.typecheck.model import TypeCheckError
 from tests.compiler.typecheck.helpers import resolve_program_from_main, write
@@ -1047,6 +1048,122 @@ def test_typecheck_program_allows_access_through_reexported_nested_module(tmp_pa
 
         fn main() -> unit {
             var c: util.pkg.inner.Counter = util.pkg.inner.Counter(1);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_rejects_direct_access_without_root_flatten(tmp_path: Path) -> None:
+    write(
+        tmp_path / "pkg" / "inner.nif",
+        """
+        export fn score() -> i64 {
+            return 42;
+        }
+        """,
+    )
+    write(
+        tmp_path / "util.nif",
+        """
+        export import pkg.inner;
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util;
+
+        fn main() -> unit {
+            util.score();
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError, match="Module 'util' has no exported member 'score'"):
+        resolve_program_from_main(tmp_path)
+
+
+def test_typecheck_program_allows_access_through_explicit_reexport_path_alias(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn score() -> i64 {
+            return 42;
+        }
+
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    write(
+        tmp_path / "lib.nif",
+        """
+        export import util.math as tools.calc;
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            var total: i64 = lib.tools.calc.score();
+            var counter: lib.tools.calc.Counter = lib.tools.calc.Counter(42);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_allows_access_through_root_flatten_reexport(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        export class Key implements Hashable {
+            seed: u64;
+
+            fn hash_code() -> u64 {
+                return __self.seed + 500u;
+            }
+        }
+
+        export fn score(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    write(
+        tmp_path / "lib.nif",
+        """
+        export import util as .;
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn echo(value: Hashable) -> lib.Hashable {
+            return value;
+        }
+
+        fn main() -> unit {
+            var total: i64 = lib.score(19, 23);
+            var key: lib.Key = lib.Key(7u);
+            var face: Hashable = echo(key);
             return;
         }
         """,

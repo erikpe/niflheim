@@ -139,6 +139,129 @@ def test_resolve_program_supports_export_import_reexport_chain(tmp_path: Path) -
     assert ("util", "math") in program.modules
 
 
+def test_resolve_program_supports_explicit_reexport_path_alias(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn gcd(a: i64, b: i64) -> i64 {
+            return a;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        export import util.math as tools.calc;
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            lib.tools.calc.gcd(10, 5);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    lib_module = program.modules[("lib",)]
+
+    assert lib_module.exported_imports[0].export_path == ("tools", "calc")
+    assert lib_module.exported_imports[0].module_path == ("util", "math")
+
+
+def test_resolve_program_supports_root_flatten_reexport_surface(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util.nif",
+        """
+        export interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        export class Key implements Hashable {
+            seed: u64;
+
+            fn hash_code() -> u64 {
+                return __self.seed + 100u;
+            }
+        }
+
+        export fn score(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        export import util as .;
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            lib.score(19, 23);
+            var key: Obj = lib.Key(7u);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    lib_module = program.modules[("lib",)]
+
+    assert lib_module.exported_symbols["score"].owner_module_path == ("util",)
+    assert lib_module.exported_symbols["Key"].owner_module_path == ("util",)
+    assert lib_module.exported_symbols["Hashable"].owner_module_path == ("util",)
+
+
+def test_resolve_program_rejects_conflicting_root_flatten_reexports(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "left.nif",
+        """
+        export fn clash() -> i64 {
+            return 1;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "right.nif",
+        """
+        export fn clash() -> i64 {
+            return 2;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        export import left as .;
+        export import right as .;
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError) as error:
+        resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert "Duplicate exported symbol 'clash'" in str(error.value)
+
+
 def test_resolve_program_supports_import_alias_and_full_path_qualification(tmp_path: Path) -> None:
     _write(
         tmp_path / "util" / "math.nif",

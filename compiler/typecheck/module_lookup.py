@@ -69,7 +69,7 @@ def resolve_imported_function_sig(ctx: TypeCheckContext, fn_name: str, span: Sou
         module_info = ctx.modules[imported_module_path]
         symbol = module_info.exported_symbols.get(fn_name)
         if symbol is not None and symbol.kind == "function":
-            matches.add(imported_module_path)
+            matches.add(symbol.owner_module_path)
 
     if not matches:
         return None
@@ -95,7 +95,7 @@ def _resolve_unique_imported_symbol_module(
         module_info = ctx.modules[imported_module_path]
         symbol = module_info.exported_symbols.get(symbol_name)
         if symbol is not None and symbol.kind == symbol_kind:
-            matches.add(imported_module_path)
+            matches.add(symbol.owner_module_path)
 
     if not matches:
         return None
@@ -204,7 +204,7 @@ def _resolve_qualified_imported_symbol_name(
         dotted = ".".join(current_path)
         raise TypeCheckError(f"Module '{dotted}' has no exported {symbol_label} '{symbol_name}'", span)
 
-    owner_dotted = ".".join(current_path)
+    owner_dotted = ".".join(symbol.owner_module_path)
     return f"{owner_dotted}::{symbol_name}"
 
 
@@ -263,22 +263,25 @@ def resolve_module_member(ctx: TypeCheckContext, expr: FieldAccessExpr) -> tuple
         segment = remaining_segments[0]
 
         exported_symbol = module_info.exported_symbols.get(segment)
+        owner_module = None if exported_symbol is None else exported_symbol.owner_module_path
 
         if (
             ctx.module_function_sigs is not None
-            and segment in ctx.module_function_sigs[current_path]
+            and owner_module is not None
+            and segment in ctx.module_function_sigs[owner_module]
             and exported_symbol is not None
             and exported_symbol.kind == "function"
         ):
-            return ("function", current_path, segment)
+            return ("function", owner_module, segment)
 
         if (
             ctx.module_class_infos is not None
-            and segment in ctx.module_class_infos[current_path]
+            and owner_module is not None
+            and segment in ctx.module_class_infos[owner_module]
             and exported_symbol is not None
             and exported_symbol.kind == "class"
         ):
-            return ("class", current_path, segment)
+            return ("class", owner_module, segment)
 
         return None
 

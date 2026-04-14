@@ -1,0 +1,5 @@
+import tests.golden.lang.test_module_semantics.flat_conflict_bridge;
+
+fn main() -> i64 {
+    return 0;
+}
