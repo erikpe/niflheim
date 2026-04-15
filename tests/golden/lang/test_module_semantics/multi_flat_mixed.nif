@@ -1,0 +1,15 @@
+import tests.golden.lang.test_module_semantics.util.math as .;
+export import tests.golden.lang.test_module_semantics.util.ops as .;
+
+export fn local_add() -> i64 {
+    return add(19, 23);
+}
+
+export fn local_counter_total() -> i64 {
+    var counter: Counter = Counter(40);
+    return counter.inc(2);
+}
+
+export fn local_mul() -> i64 {
+    return mul(6, 7);
+}

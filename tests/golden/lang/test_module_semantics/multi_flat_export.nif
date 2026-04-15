@@ -1,0 +1,10 @@
+export import tests.golden.lang.test_module_semantics.util.math as .;
+export import tests.golden.lang.test_module_semantics.util.ops as .;
+
+export fn local_add() -> i64 {
+    return add(19, 23);
+}
+
+export fn local_mul() -> i64 {
+    return mul(6, 7);
+}

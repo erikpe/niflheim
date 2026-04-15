@@ -460,6 +460,268 @@ def test_resolve_program_rejects_export_import_bind_path_conflicting_with_local_
     assert "Duplicate exported module 'tools.calc'" in str(error.value)
 
 
+def test_resolve_program_rejects_duplicate_export_import_bind_path(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        export import util.math as tools.calc;
+        export import util.ops as tools.calc;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError) as error:
+        resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert "Duplicate import path 'tools.calc'" in str(error.value)
+
+
+def test_resolve_program_rejects_duplicate_mixed_import_bind_path(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util.math as tools.calc;
+        export import util.ops as tools.calc;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError) as error:
+        resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert "Duplicate import path 'tools.calc'" in str(error.value)
+
+
+def test_resolve_program_rejects_duplicate_same_module_import_bind_path(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util.math as tools.calc;
+        import util.math as tools.calc;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError) as error:
+        resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+    assert "Duplicate import path 'tools.calc'" in str(error.value)
+
+
+def test_resolve_program_supports_disjoint_multi_root_flatten_plain_imports(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        export class Counter {
+            value: i64;
+
+            fn inc(delta: i64) -> i64 {
+                return __self.value + delta;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+
+        export class Box {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        import util.math as .;
+        import util.ops as .;
+
+        export fn total() -> i64 {
+            var counter: Counter = Counter(40);
+            var box: Box = Box(0);
+            return add(19, 23) + counter.inc(2) + mul(6, 7) + box.read() - 84;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            lib.total();
+            return;
+        }
+        """,
+    )
+
+    resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+
+
+def test_resolve_program_supports_disjoint_multi_root_flatten_reexports(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        export class Counter {
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+
+        export class Box {
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        export import util.math as .;
+        export import util.ops as .;
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            lib.add(19, 23);
+            lib.mul(6, 7);
+            var counter: Obj = lib.Counter(40);
+            var box: Obj = lib.Box(42);
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    lib_module = program.modules[("lib",)]
+
+    assert lib_module.exported_symbols["add"].owner_module_path == ("util", "math")
+    assert lib_module.exported_symbols["Counter"].owner_module_path == ("util", "math")
+    assert lib_module.exported_symbols["mul"].owner_module_path == ("util", "ops")
+    assert lib_module.exported_symbols["Box"].owner_module_path == ("util", "ops")
+
+
+def test_resolve_program_supports_mixed_multi_root_flatten_import_and_reexport(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "lib.nif",
+        """
+        import util.math as .;
+        export import util.ops as .;
+
+        export fn total() -> i64 {
+            return add(19, 23) + mul(6, 7) - 42;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            lib.mul(6, 7);
+            lib.total();
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    lib_module = program.modules[("lib",)]
+
+    assert "add" not in lib_module.exported_symbols
+    assert lib_module.exported_symbols["mul"].owner_module_path == ("util", "ops")
+
+
 def test_resolve_program_supports_import_bind_path_qualification(tmp_path: Path) -> None:
     _write(
         tmp_path / "util" / "math.nif",

@@ -1299,6 +1299,287 @@ def test_typecheck_program_rejects_export_import_bind_path_conflicting_with_loca
         resolve_program_from_main(tmp_path)
 
 
+def test_typecheck_program_rejects_duplicate_export_import_bind_path(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        export import util.math as tools.calc;
+        export import util.ops as tools.calc;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError, match="Duplicate import path 'tools.calc'"):
+        resolve_program_from_main(tmp_path)
+
+
+def test_typecheck_program_rejects_duplicate_mixed_import_bind_path(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util.math as tools.calc;
+        export import util.ops as tools.calc;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError, match="Duplicate import path 'tools.calc'"):
+        resolve_program_from_main(tmp_path)
+
+
+def test_typecheck_program_rejects_duplicate_same_module_import_bind_path(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import util.math as tools.calc;
+        import util.math as tools.calc;
+
+        fn main() -> unit {
+            return;
+        }
+        """,
+    )
+
+    with pytest.raises(ResolveError, match="Duplicate import path 'tools.calc'"):
+        resolve_program_from_main(tmp_path)
+
+
+def test_typecheck_program_allows_disjoint_multi_root_flatten_plain_imports(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        export class Counter {
+            value: i64;
+
+            fn inc(delta: i64) -> i64 {
+                return __self.value + delta;
+            }
+        }
+        """,
+    )
+    write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+
+        export class Box {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+        """,
+    )
+    write(
+        tmp_path / "lib.nif",
+        """
+        import util.math as .;
+        import util.ops as .;
+
+        export fn total() -> i64 {
+            var counter: Counter = Counter(40);
+            var box: Box = Box(0);
+            return add(19, 23) + counter.inc(2) + mul(6, 7) + box.read() - 84;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            var total: i64 = lib.total();
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_allows_disjoint_multi_root_flatten_reexports(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        export class Counter {
+            value: i64;
+
+            fn inc(delta: i64) -> i64 {
+                return __self.value + delta;
+            }
+        }
+        """,
+    )
+    write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+
+        export class Box {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+        """,
+    )
+    write(
+        tmp_path / "lib.nif",
+        """
+        export import util.math as .;
+        export import util.ops as .;
+
+        export fn total() -> i64 {
+            return add(19, 23) + mul(6, 7) - 42;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            var n1: i64 = lib.add(19, 23);
+            var n2: i64 = lib.mul(6, 7);
+            var counter: lib.Counter = lib.Counter(40);
+            var box: lib.Box = lib.Box(42);
+            var total: i64 = lib.total() + counter.inc(2) + box.read() - 84;
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
+def test_typecheck_program_allows_mixed_multi_root_flatten_import_and_reexport(tmp_path: Path) -> None:
+    write(
+        tmp_path / "util" / "math.nif",
+        """
+        export fn add(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        export class Counter {
+            value: i64;
+
+            fn inc(delta: i64) -> i64 {
+                return __self.value + delta;
+            }
+        }
+        """,
+    )
+    write(
+        tmp_path / "util" / "ops.nif",
+        """
+        export fn mul(a: i64, b: i64) -> i64 {
+            return a * b;
+        }
+
+        export class Box {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+        """,
+    )
+    write(
+        tmp_path / "lib.nif",
+        """
+        import util.math as .;
+        export import util.ops as .;
+
+        export fn total() -> i64 {
+            var counter: Counter = Counter(40);
+            var box: Box = Box(42);
+            return add(19, 23) + counter.inc(2) + mul(0, 1) + box.read() - 84;
+        }
+        """,
+    )
+    write(
+        tmp_path / "main.nif",
+        """
+        import lib;
+
+        fn main() -> unit {
+            var n: i64 = lib.mul(6, 7);
+            var box: lib.Box = lib.Box(42);
+            var total: i64 = lib.total() + n + box.read() - 84;
+            return;
+        }
+        """,
+    )
+
+    program = resolve_program_from_main(tmp_path)
+    typecheck_program(program)
+
+
 def test_typecheck_program_allows_access_through_explicit_reexport_path_alias(tmp_path: Path) -> None:
     write(
         tmp_path / "util" / "math.nif",

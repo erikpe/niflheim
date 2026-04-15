@@ -1,0 +1,6 @@
+export import tests.golden.lang.test_module_semantics.util.math as tools.calc;
+export import tests.golden.lang.test_module_semantics.util.ops as tools.calc;
+
+fn main() -> i64 {
+    return 0;
+}

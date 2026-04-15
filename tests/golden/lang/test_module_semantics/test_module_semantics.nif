@@ -9,6 +9,9 @@ import tests.golden.lang.test_module_semantics.bridge as bridge;
 import tests.golden.lang.test_module_semantics.plain_bindings as plain_bindings;
 import tests.golden.lang.test_module_semantics.path_bridge as path_bridge;
 import tests.golden.lang.test_module_semantics.flat_bridge as flat_bridge;
+import tests.golden.lang.test_module_semantics.multi_flat_plain as multi_flat_plain;
+import tests.golden.lang.test_module_semantics.multi_flat_export as multi_flat_export;
+import tests.golden.lang.test_module_semantics.multi_flat_mixed as multi_flat_mixed;
 import tests.golden.lang.test_module_semantics.left.math;
 import tests.golden.lang.test_module_semantics.left.alias as left_alias;
 import tests.golden.lang.test_module_semantics.right.math;
@@ -147,6 +150,38 @@ fn test_plain_import_bind_path_and_root_flatten() -> unit {
     assert_eq_u64(plain_bindings.root_face_hash(), 507u);
 }
 
+fn test_plain_multi_root_flatten_merge() -> unit {
+    assert_eq_i64(multi_flat_plain.local_add(), 42);
+    assert_eq_i64(multi_flat_plain.local_counter_total(), 42);
+    assert_eq_i64(multi_flat_plain.local_mul(), 42);
+    assert_eq_i64(multi_flat_plain.local_box_value(), 42);
+}
+
+fn test_export_multi_root_flatten_merge() -> unit {
+    assert_eq_i64(multi_flat_export.local_add(), 42);
+    assert_eq_i64(multi_flat_export.local_mul(), 42);
+
+    assert_eq_i64(multi_flat_export.add(19, 23), 42);
+    assert_eq_i64(multi_flat_export.mul(6, 7), 42);
+
+    var counter: multi_flat_export.Counter = multi_flat_export.Counter(40);
+    assert_eq_i64(counter.inc(2), 42);
+
+    var box: multi_flat_export.Box = multi_flat_export.Box(42);
+    assert_eq_i64(box.read(), 42);
+}
+
+fn test_mixed_multi_root_flatten_merge() -> unit {
+    assert_eq_i64(multi_flat_mixed.local_add(), 42);
+    assert_eq_i64(multi_flat_mixed.local_counter_total(), 42);
+    assert_eq_i64(multi_flat_mixed.local_mul(), 42);
+
+    assert_eq_i64(multi_flat_mixed.mul(6, 7), 42);
+
+    var box: multi_flat_mixed.Box = multi_flat_mixed.Box(42);
+    assert_eq_i64(box.read(), 42);
+}
+
 fn main() -> i64 {
     var select: u64 = read_program_args()[1].to_u64();
 
@@ -164,6 +199,9 @@ fn main() -> i64 {
     if select == 12u { test_root_flatten_reexport_function_class_and_interface(); return 0; }
     if select == 13u { test_root_flatten_reexport_preserves_nested_namespace(); return 0; }
     if select == 14u { test_plain_import_bind_path_and_root_flatten(); return 0; }
+    if select == 15u { test_plain_multi_root_flatten_merge(); return 0; }
+    if select == 16u { test_export_multi_root_flatten_merge(); return 0; }
+    if select == 17u { test_mixed_multi_root_flatten_merge(); return 0; }
 
     fail("Invalid test selection.");
     return 1;

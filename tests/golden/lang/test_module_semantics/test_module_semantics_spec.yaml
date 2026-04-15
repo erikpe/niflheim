@@ -17,6 +17,9 @@ tests:
       - {name: "root_flatten_reexport_function_class_and_interface", input: {args: ["12"]}, expect: {exit_code: 0}}
       - {name: "root_flatten_reexport_preserves_nested_namespace", input: {args: ["13"]}, expect: {exit_code: 0}}
       - {name: "plain_import_bind_path_and_root_flatten", input: {args: ["14"]}, expect: {exit_code: 0}}
+      - {name: "plain_multi_root_flatten_merge", input: {args: ["15"]}, expect: {exit_code: 0}}
+      - {name: "export_multi_root_flatten_merge", input: {args: ["16"]}, expect: {exit_code: 0}}
+      - {name: "mixed_multi_root_flatten_merge", input: {args: ["17"]}, expect: {exit_code: 0}}
   - mode: "run"
     name: "test_module_semantics_duplicate_symbols"
     src_file: "test_module_semantics_duplicate_symbols.nif"
@@ -101,6 +104,18 @@ tests:
   - mode: "compile-fail"
     name: "duplicate_import_bind_path"
     src_file: "error_duplicate_import_bind_path.nif"
+    compile_error_match: "Duplicate import path 'tools.calc'"
+  - mode: "compile-fail"
+    name: "duplicate_export_import_bind_path"
+    src_file: "error_duplicate_export_import_bind_path.nif"
+    compile_error_match: "Duplicate import path 'tools.calc'"
+  - mode: "compile-fail"
+    name: "duplicate_mixed_import_bind_path"
+    src_file: "error_duplicate_mixed_import_bind_path.nif"
+    compile_error_match: "Duplicate import path 'tools.calc'"
+  - mode: "compile-fail"
+    name: "duplicate_same_module_import_bind_path"
+    src_file: "error_duplicate_same_module_import_bind_path.nif"
     compile_error_match: "Duplicate import path 'tools.calc'"
   - mode: "compile-fail"
     name: "import_bind_path_conflicts_with_local_definition"
