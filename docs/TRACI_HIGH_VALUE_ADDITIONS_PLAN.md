@@ -238,45 +238,48 @@ Start with explicit specialized modules rather than a shared abstraction.
 
 Recommended modules and classes:
 
-- `std/bytebuf.nif` exporting `ByteBuf`
-- `std/i64vec.nif` exporting `I64Vec`
-- `std/u64vec.nif` exporting `U64Vec`
-- `std/doublevec.nif` exporting `DoubleVec`
+- `std/vec_impl/vec_u8.nif` exporting `VecU8`
+- `std/vec_impl/vec_i64.nif` exporting `VecI64`
+- `std/vec_impl/vec_u64.nif` exporting `VecU64`
+- `std/vec_impl/vec_double.nif` exporting `VecDouble`
 
 Recommended common surface:
 
-- `new()`
-- `with_capacity(capacity: u64)`
+- `constructor()`
+- `constructor(value: T[])`
 - `len()`
 - `clear()`
-- `push(value)`
+- `push(value: T)`
+- `pop()`
+- `append(value: VecT)`
+- `iter_len()`
+- `iter_get(index: i64)`
 - `index_get(index: i64)`
-- `index_set(index: i64, value)`
+- `index_set(index: i64, value: T)`
 - `slice_get(begin: i64, end: i64)`
-- `slice_set(begin: i64, end: i64, value)`
+- `slice_set(begin: i64, end: i64, value: VecT)`
 - `to_array()`
-
-Recommended `ByteBuf` extras:
-
-- `append_u8(value: u8)`
-- `append_bytes(value: u8[])`
 
 ## Design Recommendation
 
-- Copy the current [std/vec.nif](../std/vec.nif) structure instead of trying to invent a generic container substrate now.
+- Be inspired by the current [std/vec.nif](../std/vec.nif) structure instead of trying to invent a generic container substrate now.
 - Use primitive arrays for backing storage: `u8[]`, `i64[]`, `u64[]`, `double[]`.
 - Keep the modules independent even if that means repeated code. The duplication is acceptable at this stage because the semantics are simple and the specialization is the point.
+- Make one template to be used for all primitive types, then make a script that generates the code
 
 ## Files To Change
 
 Add:
 
-- `std/bytebuf.nif`
-- `std/i64vec.nif`
-- `std/u64vec.nif`
-- `std/doublevec.nif`
-- `tests/golden/std/buffers/test_primitive_buffers.nif`
-- `tests/golden/std/buffers/test_primitive_buffers_spec.yaml`
+- `scripts/gen_vec.py
+- `std/vec_impl/vec_T.nif.template
+
+Generate from script:
+
+- `std/vec_impl/vec_u8.nif`
+- `std/vec_impl/vec_i64.nif`
+- `std/vec_impl/vec_u64.nif`
+- `std/vec_impl/vec_double.nif`
 
 Update:
 
@@ -286,25 +289,22 @@ Update:
 
 ## Implementation Checklist
 
-- [ ] Freeze the initial module names and class names.
-- [ ] Copy the current growth/shrink/index-normalization structure from [std/vec.nif](../std/vec.nif).
-- [ ] Replace `Obj[]` storage with primitive array storage in each specialized module.
-- [ ] Add `to_array()` to each module so the buffers integrate with existing array-based APIs.
-- [ ] Add `ByteBuf.append_bytes(u8[])` so parser/file-output code has a direct fast path.
-- [ ] Keep `ByteBuf` first-class and finish it before adding the numeric buffers.
-- [ ] Add at least one negative-path bounds/slice test per module family.
+- [x] Freeze the initial module names and class names.
+- [x] Copy the current growth/shrink/index-normalization structure from [std/vec.nif](../std/vec.nif).
+- [x] Replace `Obj[]` storage with primitive array storage in each specialized module.
+- [x] Add `to_array()` to each module so the buffers integrate with existing array-based APIs.
+- [x] Add at least one negative-path bounds/slice test per module family.
 
 ## Testing Checklist
 
-- [ ] Golden tests for push/grow/index/slice behavior on each specialized buffer type.
-- [ ] Golden tests for negative indexing if the `Vec`-style normalization policy is preserved.
-- [ ] Golden tests for `to_array()` round-trips.
-- [ ] Golden tests for `ByteBuf.append_bytes` across multi-grow workloads.
-- [ ] Golden tests for bounds and slice panics.
+- [x] Golden tests for push/grow/index/slice behavior on each specialized buffer type.
+- [x] Golden tests for negative indexing if the `Vec`-style normalization policy is preserved.
+- [x] Golden tests for `to_array()` round-trips.
+- [x] Golden tests for bounds and slice panics.
 
 Recommended commands once implemented:
 
-- `./scripts/golden.sh --filter 'std/buffers/**' --print-per-run`
+- `./scripts/golden.sh --filter 'std/vec/test_vec_primitive_spec.yaml' --print-per-run`
 
 ## Cross-Cutting Follow-Through
 
@@ -312,10 +312,10 @@ After each workstream lands, update the live docs so the implementation and the 
 
 ## Docs Checklist
 
-- [ ] Update [README.md](../README.md) feature summary and stdlib/runtime file lists.
-- [ ] Update [docs/REPO_STRUCTURE.md](REPO_STRUCTURE.md) with any new stdlib/runtime docs or modules.
-- [ ] Update [docs/LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) where the additions become part of the baseline language/runtime surface.
-- [ ] Update [docs/TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) with the new testing coverage expectations.
+- [x] Update [README.md](../README.md) feature summary and stdlib/runtime file lists.
+- [x] Update [docs/REPO_STRUCTURE.md](REPO_STRUCTURE.md) with any new stdlib/runtime docs or modules.
+- [x] Update [docs/LANGUAGE_MVP_SPEC_V0.1.md](LANGUAGE_MVP_SPEC_V0.1.md) where the additions become part of the baseline language/runtime surface.
+- [x] Update [docs/TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) with the new testing coverage expectations.
 
 ## Suggested Patch Breakdown
 

@@ -12,7 +12,13 @@ from compiler.cli import main
 
 
 STD_INTERNAL_MODULE_DEPENDENCIES: dict[str, tuple[str, ...]] = {
-    "vec": ("std/vec_impl/vec_obj.nif",),
+    "vec": (
+        "std/vec_impl/vec_obj.nif",
+        "std/vec_impl/vec_u8.nif",
+        "std/vec_impl/vec_i64.nif",
+        "std/vec_impl/vec_u64.nif",
+        "std/vec_impl/vec_double.nif",
+    ),
 }
 
 

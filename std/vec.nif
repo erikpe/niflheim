@@ -1,1 +1,5 @@
 export import std.vec_impl.vec_obj as .;
+export import std.vec_impl.vec_u8 as .;
+export import std.vec_impl.vec_i64 as .;
+export import std.vec_impl.vec_u64 as .;
+export import std.vec_impl.vec_double as .;

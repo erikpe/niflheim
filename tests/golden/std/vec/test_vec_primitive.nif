@@ -1,0 +1,199 @@
+import std.test;
+import std.io;
+import std.vec;
+
+
+fn make_u8_array(a: u8, b: u8, c: u8) -> u8[] {
+    var values: u8[] = u8[](3u);
+    values[0] = a;
+    values[1] = b;
+    values[2] = c;
+    return values;
+}
+
+
+fn make_i64_pair(a: i64, b: i64) -> i64[] {
+    var values: i64[] = i64[](2u);
+    values[0] = a;
+    values[1] = b;
+    return values;
+}
+
+
+fn make_u64_pair(a: u64, b: u64) -> u64[] {
+    var values: u64[] = u64[](2u);
+    values[0] = a;
+    values[1] = b;
+    return values;
+}
+
+
+fn make_double_pair(a: double, b: double) -> double[] {
+    var values: double[] = double[](2u);
+    values[0] = a;
+    values[1] = b;
+    return values;
+}
+
+
+fn test_vec_u8_round_trip_and_slice() -> unit {
+    var v: VecU8 = VecU8(make_u8_array(1u8, 2u8, 3u8));
+    v.push(4u8);
+    v.append(VecU8(make_u8_array(5u8, 6u8, 7u8)[0:2]));
+
+    assert_eq_u64(v.len(), 6u);
+    assert_eq_u8(v[-1], 6u8);
+
+    var repl: u8[] = make_u8_array(8u8, 9u8, 0u8)[:2];
+    v[1:3] = VecU8(repl);
+
+    var mid: VecU8 = v[1:4];
+    assert_eq_u64(mid.len(), 3u);
+    assert_eq_u8(mid[0], 8u8);
+    assert_eq_u8(mid[2], 4u8);
+
+    assert_eq_u8(v.pop(), 6u8);
+
+    var out: u8[] = v.to_array();
+    assert_eq_u64(out.len(), 5u);
+    assert_eq_u8(out[0], 1u8);
+    assert_eq_u8(out[1], 8u8);
+    assert_eq_u8(out[2], 9u8);
+    assert_eq_u8(out[3], 4u8);
+    assert_eq_u8(out[4], 5u8);
+}
+
+
+fn test_vec_i64_grow_negative_index_and_slice() -> unit {
+    var v: VecI64 = VecI64();
+    var i: i64 = 0;
+    while i < 12 {
+        v.push(i * 2 - 5);
+        i = i + 1;
+    }
+
+    assert_eq_u64(v.len(), 12u);
+    assert_eq_i64(v[0], -5);
+    assert_eq_i64(v[-1], 17);
+
+    var repl: VecI64 = VecI64(make_i64_pair(100, 200));
+    v[1:3] = repl;
+
+    var tail: VecI64 = v[9:12];
+    assert_eq_u64(tail.len(), 3u);
+    assert_eq_i64(tail[0], 13);
+    assert_eq_i64(tail[2], 17);
+
+    assert_eq_i64(v.pop(), 17);
+
+    var out: i64[] = v.to_array();
+    assert_eq_u64(out.len(), 11u);
+    assert_eq_i64(out[1], 100);
+    assert_eq_i64(out[2], 200);
+    assert_eq_i64(out[10], 15);
+}
+
+
+fn test_vec_u64_append_iteration_and_round_trip() -> unit {
+    var seed: u64[] = u64[](4u);
+    seed[0] = 10u;
+    seed[1] = 20u;
+    seed[2] = 30u;
+    seed[3] = 40u;
+
+    var v: VecU64 = VecU64(seed);
+    v.append(VecU64(make_u64_pair(50u, 60u)));
+
+    var repl: VecU64 = VecU64(make_u64_pair(7u, 8u));
+    v[0:2] = repl;
+
+    var total: u64 = 0u;
+    for value in v {
+        total = total + value;
+    }
+
+    assert_eq_u64(total, 195u);
+
+    var mid: VecU64 = v[2:5];
+    assert_eq_u64(mid.len(), 3u);
+    assert_eq_u64(mid[0], 30u);
+    assert_eq_u64(mid[2], 50u);
+
+    var out: u64[] = v.to_array();
+    assert_eq_u64(out.len(), 6u);
+    assert_eq_u64(out[0], 7u);
+    assert_eq_u64(out[1], 8u);
+    assert_eq_u64(out[5], 60u);
+}
+
+
+fn test_vec_double_slice_and_to_array() -> unit {
+    var seed: double[] = double[](3u);
+    seed[0] = 1.5;
+    seed[1] = 2.25;
+    seed[2] = 3.75;
+
+    var v: VecDouble = VecDouble(seed);
+    v.push(4.5);
+
+    var slice: VecDouble = v[1:3];
+    assert_eq_u64(slice.len(), 2u);
+    assert_eq_double(slice[0], 2.25);
+    assert_eq_double(slice[1], 3.75);
+
+    v[1:3] = VecDouble(make_double_pair(9.0, 8.5));
+    assert_eq_double(v.pop(), 4.5);
+
+    var out: double[] = v.to_array();
+    assert_eq_u64(out.len(), 3u);
+    assert_eq_double(out[0], 1.5);
+    assert_eq_double(out[1], 9.0);
+    assert_eq_double(out[2], 8.5);
+}
+
+
+fn test_vec_u8_get_oob_panics() -> unit {
+    var v: VecU8 = VecU8();
+    var out: u8 = v[0];
+}
+
+
+fn test_vec_i64_set_negative_wrap_oob_panics() -> unit {
+    var v: VecI64 = VecI64();
+    v.push(1);
+    v[-2] = 5;
+}
+
+
+fn test_vec_u64_slice_oob_panics() -> unit {
+    var v: VecU64 = VecU64();
+    v.push(1u);
+    var out: VecU64 = v[0:2];
+}
+
+
+fn test_vec_double_slice_write_length_mismatch_panics() -> unit {
+    var seed: double[] = double[](3u);
+    seed[0] = 1.0;
+    seed[1] = 2.0;
+    seed[2] = 3.0;
+
+    var v: VecDouble = VecDouble(seed);
+    v[0:2] = VecDouble(make_double_pair(7.0, 0.0)[0:1]);
+}
+
+
+fn main() -> i64 {
+    var select: u64 = read_stdin().strip().to_u64();
+
+    if select == 1u { test_vec_u8_round_trip_and_slice(); }
+    if select == 2u { test_vec_i64_grow_negative_index_and_slice(); }
+    if select == 3u { test_vec_u64_append_iteration_and_round_trip(); }
+    if select == 4u { test_vec_double_slice_and_to_array(); }
+    if select == 5u { test_vec_u8_get_oob_panics(); }
+    if select == 6u { test_vec_i64_set_negative_wrap_oob_panics(); }
+    if select == 7u { test_vec_u64_slice_oob_panics(); }
+    if select == 8u { test_vec_double_slice_write_length_mismatch_panics(); }
+
+    return 0;
+}

@@ -1,0 +1,174 @@
+import std.error;
+
+export class VecI64
+{
+    private _len: u64;
+    private _capacity: u64;
+    private _storage: i64[];
+
+    constructor() {
+        var capacity: u64 = VecI64._default_capacity();
+        __self._len = 0u;
+        __self._capacity = capacity;
+        __self._storage = i64[](capacity);
+    }
+
+    constructor(value: i64[]) {
+        var length: u64 = value.len();
+        var capacity: u64 = VecI64._capacity_for_len(length);
+        var storage: i64[] = i64[](capacity);
+        storage[:(i64)length] = value;
+
+        __self._len = length;
+        __self._capacity = capacity;
+        __self._storage = storage;
+    }
+
+    fn len() -> u64 {
+        return __self._len;
+    }
+
+    fn clear() -> unit {
+        var capacity: u64 = VecI64._default_capacity();
+        __self._len = 0u;
+        __self._capacity = capacity;
+        __self._storage = i64[](capacity);
+    }
+
+    fn push(value: i64) -> unit {
+        __self._maybe_grow(__self._len + 1u);
+        __self._storage[(i64)__self._len] = value;
+        __self._len = __self._len + 1u;
+    }
+
+    fn pop() -> i64 {
+        if __self._len == 0u {
+            panic("VecI64.pop: empty vector");
+        }
+
+        var last_index: i64 = (i64)__self._len - 1;
+        var value: i64 = __self._storage[last_index];
+        __self._len = __self._len - 1u;
+        __self._maybe_shrink();
+        return value;
+    }
+
+    fn append(value: VecI64) -> unit {
+        var source: i64[] = value.to_array();
+        var source_len: u64 = source.len();
+        if source_len == 0u {
+            return;
+        }
+
+        __self._maybe_grow(__self._len + source_len);
+        __self._storage[(i64)__self._len:(i64)(__self._len + source_len)] = source;
+        __self._len = __self._len + source_len;
+    }
+
+    fn iter_len() -> u64 {
+        return __self._len;
+    }
+
+    fn iter_get(index: i64) -> i64 {
+        return __self._storage[index];
+    }
+
+    fn index_get(index: i64) -> i64 {
+        index = __self._normalize_index(index);
+        if index < 0 || index >= (i64)__self._len {
+            panic("VecI64.index_get: index out of bounds");
+        }
+        return __self._storage[index];
+    }
+
+    fn index_set(index: i64, value: i64) -> unit {
+        index = __self._normalize_index(index);
+        if index < 0 || index >= (i64)__self._len {
+            panic("VecI64.index_set: index out of bounds");
+        }
+        __self._storage[index] = value;
+    }
+
+    fn slice_get(begin: i64, end: i64) -> VecI64 {
+        begin = __self._normalize_index(begin);
+        end = __self._normalize_index(end);
+
+        if begin < 0 || end < begin || (u64)end > __self._len {
+            panic("VecI64.slice_get: invalid slice range");
+        }
+
+        return VecI64(__self._storage[begin:end]);
+    }
+
+    fn slice_set(begin: i64, end: i64, value: VecI64) -> unit {
+        begin = __self._normalize_index(begin);
+        end = __self._normalize_index(end);
+
+        if begin < 0 || end < begin || (u64)end > __self._len {
+            panic("VecI64.slice_set: invalid slice range");
+        }
+
+        var source: i64[] = value.to_array();
+        var target_len: u64 = (u64)(end - begin);
+        if source.len() != target_len {
+            panic("VecI64.slice_set: length mismatch");
+        }
+
+        __self._storage[begin:end] = source;
+    }
+
+    fn to_array() -> i64[] {
+        return __self._storage[:(i64)__self._len];
+    }
+
+    private fn _maybe_grow(min_capacity: u64) -> unit {
+        if __self._capacity >= min_capacity {
+            return;
+        }
+
+        var next_capacity: u64 = VecI64._capacity_for_len(min_capacity);
+        var next_storage: i64[] = i64[](next_capacity);
+        next_storage[:(i64)__self._len] = __self._storage[:(i64)__self._len];
+
+        __self._storage = next_storage;
+        __self._capacity = next_capacity;
+    }
+
+    private fn _maybe_shrink() -> unit {
+        var floor_capacity: u64 = VecI64._default_capacity();
+        var next_capacity: u64 = __self._capacity;
+        while next_capacity > floor_capacity && (next_capacity / 2u) >= (__self._len * 2u) {
+            next_capacity = next_capacity / 2u;
+        }
+
+        if next_capacity == __self._capacity {
+            return;
+        }
+
+        var next_storage: i64[] = i64[](next_capacity);
+        next_storage[:(i64)__self._len] = __self._storage[:(i64)__self._len];
+
+        __self._capacity = next_capacity;
+        __self._storage = next_storage;
+    }
+
+    private fn _normalize_index(index: i64) -> i64 {
+        var len_i64: i64 = (i64)__self._len;
+        if index < 0 {
+            index = len_i64 + index;
+        }
+        return index;
+    }
+
+    private static fn _default_capacity() -> u64 {
+        return 4u;
+    }
+
+    private static fn _capacity_for_len(length: u64) -> u64 {
+        var capacity: u64 = VecI64._default_capacity();
+        while capacity < length {
+            capacity = capacity * 2u;
+        }
+        return capacity;
+    }
+}

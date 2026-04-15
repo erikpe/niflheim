@@ -237,11 +237,14 @@ Constructor details (explicit + compatibility constructors in v0.1):
 
 ### 5.5 Planned Early Extensions
 
-Likely early additions after v0.1:
-- `VecI64`
-- `MapStrObj`
+Specialized primitive dynamic buffers are provided by generated stdlib modules under `std.vec_impl`.
 
-These are specialization/performance features and should not change core semantics.
+- Current implementations: `VecU8`, `VecI64`, `VecU64`, `VecDouble`.
+- Constructors: `VecT()` and `VecT(value: T[])`.
+- Current implemented methods: `len`, `clear`, `push`, `pop`, `append`, `iter_len`, `iter_get`, `index_get`, `index_set`, `slice_get`, `slice_set`, `to_array`.
+- Like `Vec`, index and slice parameters use `i64` and negative indices are normalized relative to the current length before bounds checks.
+- `to_array()` returns a copied primitive array containing the live prefix.
+- These are specialization/performance features and do not change core language semantics.
 
 ### 5.6 Arrays (Frozen Syntax and Semantics)
 

@@ -237,6 +237,12 @@ Recommended CI split:
 - Reallocation paths preserve existing elements.
 - Stored references remain GC-visible.
 
+## Primitive VecT Buffers
+- `VecU8`, `VecI64`, `VecU64`, and `VecDouble` constructor/push/pop/append semantics.
+- Negative indexing and slice behavior match the current `Vec` normalization policy where exposed.
+- `to_array()` returns the live prefix as a copied primitive array.
+- Bounds and slice panics remain deterministic per buffer family.
+
 ## Map (Obj -> Obj)
 - Put/get/update semantics.
 - Hash/equality-driven key behavior through `Hashable.hash_code()` and `Equalable.equals(Obj)`.

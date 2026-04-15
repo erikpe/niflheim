@@ -1,0 +1,17 @@
+tests:
+  - mode: "run"
+    name: "test_vec_primitive"
+    src_file: "test_vec_primitive.nif"
+    runs:
+      - {name: "vec_u8_round_trip_and_slice", input: {stdin: "1"}, expect: {exit_code: 0}}
+      - {name: "vec_i64_grow_negative_index_and_slice", input: {stdin: "2"}, expect: {exit_code: 0}}
+      - {name: "vec_u64_append_iteration_and_round_trip", input: {stdin: "3"}, expect: {exit_code: 0}}
+      - {name: "vec_double_slice_and_to_array", input: {stdin: "4"}, expect: {exit_code: 0}}
+      - {name: "vec_u8_get_oob_panics", input: {stdin: "5"}, expect: {panic: "VecU8.index_get: index out of bounds"}}
+      - {name: "vec_i64_set_negative_wrap_oob_panics", input: {stdin: "6"}, expect: {panic: "VecI64.index_set: index out of bounds"}}
+      - {name: "vec_u64_slice_oob_panics", input: {stdin: "7"}, expect: {panic: "VecU64.slice_get: invalid slice range"}}
+      - name: "vec_double_slice_write_length_mismatch_panics"
+        input:
+          stdin: "8"
+        expect:
+          panic: "VecDouble.slice_set: length mismatch"

@@ -83,6 +83,7 @@ Standard library modules layered on the compiler/runtime surface.
 - `io.nif` - stdout printing, whole-file reads/writes, stdin reads, and argv decoding helpers.
 - `math.nif` - grouped `double` math functions plus NaN/infinity classification helpers.
 - `str.nif`, `vec.nif`, `map.nif`, `box.nif`, `lang.nif`, `random.nif` - core containers, deterministic RNG, boxing, and shared interface definitions.
+- `vec_impl/` - internal vector implementation modules, including the `Obj`-backed `vec_obj.nif` facade target plus generated primitive buffers (`vec_u8.nif`, `vec_i64.nif`, `vec_u64.nif`, `vec_double.nif`) sourced from `vec_T.nif.template`.
 - `object.nif`, `range.nif`, `error.nif`, `test.nif`, `bigint.nif` - supporting standard-library modules.
 
 ## `tests/`
@@ -100,6 +101,8 @@ Small `.nif` source programs used for language bring-up, runtime checks, and exp
 ## `scripts/`
 
 Utility scripts for repository workflows (for example golden refresh/build helpers).
+
+- `gen_vec.py` - generates specialized primitive vector implementations under `std/vec_impl/` from the shared `vec_T.nif.template` source.
 
 ## `docs/`
 
