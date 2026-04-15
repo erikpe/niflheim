@@ -11,6 +11,11 @@ import pytest
 from compiler.cli import main
 
 
+STD_INTERNAL_MODULE_DEPENDENCIES: dict[str, tuple[str, ...]] = {
+    "vec": ("std/vec_impl/vec_obj.nif",),
+}
+
+
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
@@ -39,6 +44,12 @@ def install_std_modules(
             continue
         source_path = repository_std_root / f"{module_name}.nif"
         write(project_root / relative_path, source_path.read_text(encoding="utf-8"))
+
+        for dependency_relative_path in STD_INTERNAL_MODULE_DEPENDENCIES.get(module_name, ()): 
+            if dependency_relative_path in overrides:
+                continue
+            dependency_source_path = repo_root() / dependency_relative_path.replace("std/", "std/", 1)
+            write(project_root / dependency_relative_path, dependency_source_path.read_text(encoding="utf-8"))
 
     for relative_path, content in overrides.items():
         write(project_root / relative_path, content)
