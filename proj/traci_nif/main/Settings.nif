@@ -1,0 +1,54 @@
+import std.str;
+import std.vec;
+
+export class Settings {
+    debug: bool = false;
+    input_filename: Str = null;
+    private _include_dirs: Vec;
+    private _preprocessor_macros: Vec;
+
+    constructor() {
+        __self._include_dirs = Vec.new();
+        __self._preprocessor_macros = Vec.new();
+    }
+
+    static fn mock() -> Settings {
+        return Settings();
+    }
+
+    fn set_debug(enabled: bool) -> unit {
+        __self.debug = enabled;
+    }
+
+    fn set_input_filename(input_filename: Str) -> unit {
+        __self.input_filename = input_filename;
+    }
+
+    fn get_input_filename() -> Str {
+        return __self.input_filename;
+    }
+
+    fn add_include_dir(include_dir: Str) -> unit {
+        __self._include_dirs.push((Obj)include_dir);
+    }
+
+    fn get_include_dir_count() -> u64 {
+        return __self._include_dirs.len();
+    }
+
+    fn get_include_dir(index: i64) -> Str {
+        return (Str)__self._include_dirs[index];
+    }
+
+    fn add_preprocessor_macro(macro_str: Str) -> unit {
+        __self._preprocessor_macros.push((Obj)macro_str);
+    }
+
+    fn get_preprocessor_macro_count() -> u64 {
+        return __self._preprocessor_macros.len();
+    }
+
+    fn get_preprocessor_macro(index: i64) -> Str {
+        return (Str)__self._preprocessor_macros[index];
+    }
+}

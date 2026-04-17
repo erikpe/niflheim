@@ -1,0 +1,73 @@
+import std.str;
+import std.vec;
+
+export class FileLocation {
+    filename: Str;
+    row: i64;
+    col: i64;
+
+    fn render() -> Str {
+        return __self.filename + ":" + Str.from_i64(__self.row) + ":" + Str.from_i64(__self.col);
+    }
+}
+
+export class IncludeLocation {
+    file_location: FileLocation;
+    private _include_path: Vec;
+
+    constructor(file_location: FileLocation) {
+        __self.file_location = file_location;
+        __self._include_path = Vec.new();
+    }
+
+    constructor(file_location: FileLocation, include_path: Vec) {
+        __self.file_location = file_location;
+        __self._include_path = include_path.clone();
+    }
+
+    static fn from_parts(filename: Str, row: i64, col: i64) -> IncludeLocation {
+        return IncludeLocation(FileLocation(filename, row, col));
+    }
+
+    fn include_depth() -> u64 {
+        return __self._include_path.len();
+    }
+
+    fn get_include_frame(index: i64) -> FileLocation {
+        return (FileLocation)__self._include_path[index];
+    }
+
+    fn render() -> Str {
+        var out: StrBuf = StrBuf.new(64u);
+        var index: i64 = (i64)__self._include_path.len() - 1;
+
+        while index >= 0 {
+            var frame: FileLocation = (FileLocation)__self._include_path[index];
+            if index == (i64)__self._include_path.len() - 1 {
+                out.append("In file included from ");
+            }
+            else {
+                out.append("                 from ");
+            }
+            out.append(frame.filename);
+            out.append_char(':');
+            out.append_i64(frame.row);
+            if index == 0 {
+                out.append(":\n");
+            }
+            else {
+                out.append(",\n");
+            }
+            index = index - 1;
+        }
+
+        out.append("In file: ");
+        out.append(__self.file_location.filename);
+        out.append_char(':');
+        out.append_i64(__self.file_location.row);
+        out.append_char(':');
+        out.append_i64(__self.file_location.col);
+        out.append_char(':');
+        return out.to_str();
+    }
+}

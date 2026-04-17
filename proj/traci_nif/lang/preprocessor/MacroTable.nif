@@ -1,0 +1,148 @@
+import std.str;
+import std.map;
+import proj.traci_nif.main.Settings;
+
+fn _find_char(text: Str, target: u8) -> i64 {
+    var i: i64 = 0;
+    while (u64)i < text.len() {
+        if text[i] == target {
+            return i;
+        }
+        i = i + 1;
+    }
+    return -1;
+}
+
+fn _is_digit(ch: u8) -> bool {
+    return ch >= '0' && ch <= '9';
+}
+
+fn _is_integer_literal(text: Str) -> bool {
+    if text == null {
+        return false;
+    }
+
+    var value: Str = text.strip();
+    if value.len() == 0u {
+        return false;
+    }
+
+    var i: i64 = 0;
+    if value[0] == '-' {
+        if value.len() == 1u {
+            return false;
+        }
+        i = 1;
+    }
+
+    while (u64)i < value.len() {
+        if !_is_digit(value[i]) {
+            return false;
+        }
+        i = i + 1;
+    }
+
+    return true;
+}
+
+export class MacroTable {
+    private _items: Map;
+
+    constructor() {
+        __self._items = Map.new();
+    }
+
+    static fn from_settings(settings: Settings) -> MacroTable {
+        var table: MacroTable = MacroTable();
+        var i: i64 = 0;
+        while (u64)i < settings.get_preprocessor_macro_count() {
+            table.define_from_setting(settings.get_preprocessor_macro(i));
+            i = i + 1;
+        }
+        return table;
+    }
+
+    fn define(name: Str, value: Str) -> unit {
+        if value == null {
+            value = "";
+        }
+
+        __self._items[(Obj)name] = (Obj)value;
+    }
+
+    fn define_flag(name: Str) -> unit {
+        __self.define(name, "");
+    }
+
+    fn define_from_setting(macro_str: Str) -> unit {
+        var separator_idx: i64 = _find_char(macro_str, '=');
+        if separator_idx < 0 {
+            __self.define(macro_str.strip(), "1");
+            return;
+        }
+
+        var name: Str = macro_str[:separator_idx].strip();
+        var value: Str = macro_str[separator_idx + 1:(i64)macro_str.len()].strip();
+        __self.define(name, value);
+    }
+
+    fn is_defined(name: Str) -> bool {
+        return __self._items.contains((Obj)name);
+    }
+
+    fn get_value(name: Str) -> Str {
+        if !__self._items.contains((Obj)name) {
+            return null;
+        }
+        return (Str)__self._items[(Obj)name];
+    }
+
+    fn expand_identifier(name: Str) -> Str {
+        if !__self.is_defined(name) {
+            return name;
+        }
+        return __self.get_value(name);
+    }
+
+    fn evaluate_condition(expr: Str) -> bool {
+        if expr == null {
+            return false;
+        }
+
+        var value: Str = expr.strip();
+        if value.len() == 0u {
+            return false;
+        }
+
+        var negate: bool = false;
+        while value.len() > 0u && value[0] == '!' {
+            negate = !negate;
+            value = value[1:(i64)value.len()].strip();
+        }
+
+        var result: bool;
+        if _is_integer_literal(value) {
+            result = value.to_i64() != 0;
+        }
+        else if !__self.is_defined(value) {
+            result = false;
+        }
+        else {
+            var macro_value: Str = __self.get_value(value);
+            if macro_value == null || macro_value.strip().len() == 0u {
+                result = true;
+            }
+            else if _is_integer_literal(macro_value.strip()) {
+                result = macro_value.strip().to_i64() != 0;
+            }
+            else {
+                result = !macro_value.strip().equals("0") && !macro_value.strip().equals("false");
+            }
+        }
+
+        if negate {
+            return !result;
+        }
+        return result;
+    }
+}

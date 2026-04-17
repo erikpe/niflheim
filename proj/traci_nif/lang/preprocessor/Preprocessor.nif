@@ -1,0 +1,394 @@
+import std.io;
+import std.str;
+import std.vec;
+import proj.traci_nif.main.Settings;
+import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.parser.ParseError;
+import proj.traci_nif.lang.preprocessor.IncludeResolver;
+import proj.traci_nif.lang.preprocessor.MacroTable;
+
+fn _is_identifier_start(ch: u8) -> bool {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_';
+}
+
+fn _is_identifier_continue(ch: u8) -> bool {
+    return _is_identifier_start(ch) || (ch >= '0' && ch <= '9');
+}
+
+fn _is_inline_ws(ch: u8) -> bool {
+    return ch == ' ' || ch == '\t';
+}
+
+fn _trim_leading_inline_ws(text: Str) -> Str {
+    var i: i64 = 0;
+    while (u64)i < text.len() && _is_inline_ws(text[i]) {
+        i = i + 1;
+    }
+    return text[i:(i64)text.len()];
+}
+
+fn _parse_directive_name(text: Str) -> Str {
+    var i: i64 = 0;
+    while (u64)i < text.len() && !_is_inline_ws(text[i]) {
+        i = i + 1;
+    }
+    return text[:i];
+}
+
+fn _parse_directive_rest(text: Str) -> Str {
+    var i: i64 = 0;
+    while (u64)i < text.len() && !_is_inline_ws(text[i]) {
+        i = i + 1;
+    }
+    return _trim_leading_inline_ws(text[i:(i64)text.len()]);
+}
+
+fn _first_token(text: Str) -> Str {
+    var i: i64 = 0;
+    while (u64)i < text.len() && !_is_inline_ws(text[i]) {
+        i = i + 1;
+    }
+    return text[:i];
+}
+
+fn _parse_include_name(text: Str) -> Str {
+    var value: Str = text.strip();
+    if value.len() < 2u || value[0] != '"' {
+        return null;
+    }
+
+    var i: i64 = 1;
+    while (u64)i < value.len() {
+        if value[i] == '"' {
+            return value[1:i];
+        }
+        i = i + 1;
+    }
+
+    return null;
+}
+
+fn _last_frame(frames: Vec) -> ConditionalFrame {
+    return (ConditionalFrame)frames.last();
+}
+
+fn _current_active(frames: Vec) -> bool {
+    if frames.len() == 0u {
+        return true;
+    }
+    return _last_frame(frames).branch_active;
+}
+
+class ConditionalFrame {
+    parent_active: bool;
+    branch_active: bool;
+    branch_taken: bool;
+    else_seen: bool;
+}
+
+export class Preprocessor {
+    private _settings: Settings;
+    private _resolver: IncludeResolver;
+    private _macros: MacroTable;
+    private _diagnostics: ParseErrorBag;
+    private _output: StrBuf;
+    private _io_error: bool;
+    private _in_block_comment: bool;
+
+    constructor(settings: Settings) {
+        __self._settings = settings;
+        __self._resolver = IncludeResolver(settings);
+        __self._macros = MacroTable.from_settings(settings);
+        __self._diagnostics = ParseErrorBag();
+        __self._output = StrBuf.new(256u);
+        __self._io_error = false;
+        __self._in_block_comment = false;
+    }
+
+    fn get_diagnostics() -> ParseErrorBag {
+        return __self._diagnostics;
+    }
+
+    fn get_processed_code() -> Str {
+        return __self._output.to_str();
+    }
+
+    fn has_io_error() -> bool {
+        return __self._io_error;
+    }
+
+    fn run(input_filename: Str) -> unit {
+        __self._diagnostics = ParseErrorBag();
+        __self._output = StrBuf.new(256u);
+        __self._io_error = false;
+        __self._in_block_comment = false;
+        __self._macros = MacroTable.from_settings(__self._settings);
+
+        var input_code: Str = try_read_file(input_filename);
+        if input_code == null {
+            __self._io_error = true;
+            __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation.from_parts(input_filename, 0, 0), "Unable to open input file: '" + input_filename + "'"));
+            return;
+        }
+
+        __self._process_file(input_filename, input_code, Vec.new());
+    }
+
+    private fn _process_file(filename: Str, source: Str, include_stack: Vec) -> bool {
+        var saved_block_comment: bool = __self._in_block_comment;
+        __self._in_block_comment = false;
+
+        __self._append_line_marker(1, filename, 1);
+
+        var frames: Vec = Vec.new();
+        var row: i64 = 1;
+        var index: i64 = 0;
+        while (u64)index < source.len() {
+            var line_end: i64 = index;
+            while (u64)line_end < source.len() && source[line_end] != '\n' && source[line_end] != '\r' {
+                line_end = line_end + 1;
+            }
+
+            var line: Str = source[index:line_end];
+            var has_newline: bool = false;
+            if (u64)line_end < source.len() {
+                has_newline = true;
+                if source[line_end] == '\r' && (u64)(line_end + 1) < source.len() && source[line_end + 1] == '\n' {
+                    index = line_end + 2;
+                }
+                else {
+                    index = line_end + 1;
+                }
+            }
+            else {
+                index = line_end;
+            }
+
+            var active: bool = _current_active(frames);
+            if !__self._in_block_comment && __self._is_directive_line(line) {
+                var directive_result: i64 = __self._handle_directive(line, filename, row, include_stack, frames, active);
+                if directive_result == 0 {
+                    __self._in_block_comment = saved_block_comment;
+                    return false;
+                }
+                if directive_result == 2 && has_newline {
+                    __self._output.append_char('\n');
+                }
+            }
+            else if active {
+                __self._output.append(__self._expand_line(line));
+                if has_newline {
+                    __self._output.append_char('\n');
+                }
+            }
+            else if has_newline {
+                __self._output.append_char('\n');
+            }
+
+            row = row + 1;
+        }
+
+        if frames.len() != 0u {
+            __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Unterminated conditional directive block"));
+            __self._in_block_comment = saved_block_comment;
+            return false;
+        }
+
+        __self._in_block_comment = saved_block_comment;
+        return true;
+    }
+
+    private fn _handle_directive(line: Str, filename: Str, row: i64, include_stack: Vec, frames: Vec, active: bool) -> i64 {
+        var trimmed: Str = _trim_leading_inline_ws(line);
+        var after_hash: Str = _trim_leading_inline_ws(trimmed[1:(i64)trimmed.len()]);
+        var directive_name: Str = _parse_directive_name(after_hash);
+        var directive_rest: Str = _parse_directive_rest(after_hash);
+
+        if directive_name.equals("include") {
+            if !active {
+                return 2;
+            }
+
+            var include_name: Str = _parse_include_name(directive_rest);
+            if include_name == null {
+                __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Malformed #include directive"));
+                return 0;
+            }
+
+            var resolved: ResolvedInclude = __self._resolver.resolve(include_name, filename);
+            if resolved == null {
+                __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Unable to resolve include: '" + include_name + "'"));
+                return 0;
+            }
+
+            var nested_stack: Vec = include_stack.clone();
+            nested_stack.push((Obj)FileLocation(filename, row, 0));
+
+            if !__self._process_file(resolved.path, resolved.content, nested_stack) {
+                return 0;
+            }
+
+            __self._append_line_marker(row, filename, 2);
+            return 1;
+        }
+
+        if directive_name.equals("define") {
+            if active {
+                var macro_name: Str = _first_token(directive_rest);
+                if macro_name.len() == 0u {
+                    __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Malformed #define directive"));
+                    return 0;
+                }
+
+                var value_start: i64 = (i64)macro_name.len();
+                var macro_value: Str = _trim_leading_inline_ws(directive_rest[value_start:(i64)directive_rest.len()]);
+                __self._macros.define(macro_name, macro_value);
+            }
+            return 2;
+        }
+
+        if directive_name.equals("ifndef") {
+            var name: Str = _first_token(directive_rest);
+            if name.len() == 0u {
+                __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Malformed #ifndef directive"));
+                return 0;
+            }
+            var parent_active: bool = active;
+            var cond: bool = parent_active && !__self._macros.is_defined(name);
+            frames.push((Obj)ConditionalFrame(parent_active, cond, cond, false));
+            return 2;
+        }
+
+        if directive_name.equals("if") {
+            var parent_active: bool = active;
+            var cond: bool = parent_active && __self._macros.evaluate_condition(_first_token(directive_rest));
+            frames.push((Obj)ConditionalFrame(parent_active, cond, cond, false));
+            return 2;
+        }
+
+        if directive_name.equals("elif") {
+            if frames.len() == 0u {
+                __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Unexpected #elif"));
+                return 0;
+            }
+            var frame: ConditionalFrame = _last_frame(frames);
+            if frame.else_seen {
+                __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "#elif after #else"));
+                return 0;
+            }
+
+            var take_branch: bool = false;
+            if frame.parent_active && !frame.branch_taken {
+                take_branch = __self._macros.evaluate_condition(_first_token(directive_rest));
+            }
+            frame.branch_active = frame.parent_active && !frame.branch_taken && take_branch;
+            frame.branch_taken = frame.branch_taken || frame.branch_active;
+            return 2;
+        }
+
+        if directive_name.equals("else") {
+            if frames.len() == 0u {
+                __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Unexpected #else"));
+                return 0;
+            }
+            var frame: ConditionalFrame = _last_frame(frames);
+            if frame.else_seen {
+                __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Duplicate #else"));
+                return 0;
+            }
+            frame.else_seen = true;
+            frame.branch_active = frame.parent_active && !frame.branch_taken;
+            if frame.parent_active {
+                frame.branch_taken = true;
+            }
+            return 2;
+        }
+
+        if directive_name.equals("endif") {
+            if frames.len() == 0u {
+                __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Unexpected #endif"));
+                return 0;
+            }
+            frames.pop();
+            return 2;
+        }
+
+        __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation(FileLocation(filename, row, 0), include_stack), "Unsupported preprocessor directive: #" + directive_name));
+        return 0;
+    }
+
+    private fn _is_directive_line(line: Str) -> bool {
+        var trimmed: Str = _trim_leading_inline_ws(line);
+        return trimmed.len() > 1u && trimmed[0] == '#';
+    }
+
+    private fn _expand_line(line: Str) -> Str {
+        var out: StrBuf = StrBuf.new(line.len() + 8u);
+        var i: i64 = 0;
+        while (u64)i < line.len() {
+            if __self._in_block_comment {
+                if (u64)(i + 1) < line.len() && line[i] == '*' && line[i + 1] == '/' {
+                    out.append("*/");
+                    i = i + 2;
+                    __self._in_block_comment = false;
+                }
+                else {
+                    out.append_char(line[i]);
+                    i = i + 1;
+                }
+                continue;
+            }
+
+            if (u64)(i + 1) < line.len() && line[i] == '/' && line[i + 1] == '/' {
+                out.append(line[i:(i64)line.len()]);
+                break;
+            }
+            if (u64)(i + 1) < line.len() && line[i] == '/' && line[i + 1] == '*' {
+                out.append("/*");
+                i = i + 2;
+                __self._in_block_comment = true;
+                continue;
+            }
+            if line[i] == '"' {
+                out.append_char('"');
+                i = i + 1;
+                while (u64)i < line.len() {
+                    out.append_char(line[i]);
+                    if line[i] == '\\' && (u64)(i + 1) < line.len() {
+                        i = i + 1;
+                        out.append_char(line[i]);
+                    }
+                    else if line[i] == '"' {
+                        i = i + 1;
+                        break;
+                    }
+                    i = i + 1;
+                }
+                continue;
+            }
+            if _is_identifier_start(line[i]) {
+                var start: i64 = i;
+                i = i + 1;
+                while (u64)i < line.len() && _is_identifier_continue(line[i]) {
+                    i = i + 1;
+                }
+                out.append(__self._macros.expand_identifier(line[start:i]));
+                continue;
+            }
+
+            out.append_char(line[i]);
+            i = i + 1;
+        }
+        return out.to_str();
+    }
+
+    private fn _append_line_marker(row: i64, filename: Str, action: i64) -> unit {
+        __self._output.append("#line ");
+        __self._output.append_i64(row);
+        __self._output.append(" \"");
+        __self._output.append(filename);
+        __self._output.append("\" ");
+        __self._output.append_i64(action);
+        __self._output.append_char('\n');
+    }
+}

@@ -1,0 +1,21 @@
+import std.str;
+import proj.traci_nif.lang.parser.IncludeLocation;
+
+export class TraciToken {
+    kind: Str;
+    text: Str;
+    channel: i64;
+    start: i64;
+    stop: i64;
+    line: i64;
+    col: i64;
+    location: IncludeLocation;
+
+    fn render() -> Str {
+        var text: Str = __self.text;
+        if text == null {
+            text = "<null>";
+        }
+        return __self.kind + " '" + text + "' @ " + __self.location.render();
+    }
+}

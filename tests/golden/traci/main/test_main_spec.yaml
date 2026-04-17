@@ -1,0 +1,21 @@
+tests:
+  - mode: "run"
+    name: "test_main"
+    src_file: "test_main.nif"
+    runs:
+      - name: "missing_input_file_returns_structured_preprocessor_diagnostic"
+        input:
+          args: ["missing"]
+        expect:
+          exit_code: 0
+          stdout: |
+            In file: proj/traci_java/testcode/does_not_exist.traci:0:0:
+            Preprocessor error: Unable to open input file: 'proj/traci_java/testcode/does_not_exist.traci'
+      - name: "existing_input_runs_through_parser_stub"
+        input:
+          args: ["parser_stub"]
+        expect:
+          exit_code: 0
+          stdout: |
+            In file: proj/traci_java/testcode/fibonacci.traci:1:0:
+            Parse error: Parser phase not implemented yet

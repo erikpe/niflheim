@@ -1,0 +1,6 @@
+#define LOCAL_VALUE 7
+#if FAST_LEGO
+LOCAL_VALUE
+#else
+0
+#endif

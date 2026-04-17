@@ -1,0 +1,34 @@
+import proj.traci_nif.main.Result;
+import proj.traci_nif.main.Settings;
+import proj.traci_nif.lang.parser.ParseError;
+import proj.traci_nif.lang.parser.ParserRunner;
+import proj.traci_nif.lang.preprocessor.PreprocessorRunner;
+
+export class FrontendRun {
+    result: Result;
+    preprocessor_runner: PreprocessorRunner;
+    parser_runner: ParserRunner;
+
+    fn all_diagnostics() -> ParseErrorBag {
+        var out: ParseErrorBag = ParseErrorBag();
+        if __self.preprocessor_runner != null {
+            out.extend(__self.preprocessor_runner.get_diagnostics());
+        }
+        if __self.parser_runner != null {
+            out.extend(__self.parser_runner.get_diagnostics());
+        }
+        return out;
+    }
+}
+
+export fn run(settings: Settings) -> FrontendRun {
+    var pre: PreprocessorRunner = PreprocessorRunner(settings);
+    var pre_result: Result = pre.run();
+    if !pre_result.is_success() {
+        return FrontendRun(pre_result, pre, null);
+    }
+
+    var parser: ParserRunner = ParserRunner(settings, pre.get_processed_code());
+    var parse_result: Result = parser.run();
+    return FrontendRun(parse_result, pre, parser);
+}

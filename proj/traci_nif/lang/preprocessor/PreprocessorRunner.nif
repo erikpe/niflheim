@@ -1,0 +1,58 @@
+import std.io;
+import std.str;
+import proj.traci_nif.main.Result;
+import proj.traci_nif.main.Settings;
+import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.parser.ParseError;
+import proj.traci_nif.lang.preprocessor.Preprocessor;
+
+fn _input_location(input_filename: Str) -> IncludeLocation {
+    if input_filename == null {
+        return IncludeLocation.from_parts("<unknown>", 0, 0);
+    }
+    return IncludeLocation.from_parts(input_filename, 0, 0);
+}
+
+export class PreprocessorRunner {
+    private _settings: Settings;
+    private _processed_code: Str = null;
+    private _diagnostics: ParseErrorBag;
+
+    constructor(settings: Settings) {
+        __self._settings = settings;
+        __self._diagnostics = ParseErrorBag();
+    }
+
+    fn get_processed_code() -> Str {
+        return __self._processed_code;
+    }
+
+    fn get_diagnostics() -> ParseErrorBag {
+        return __self._diagnostics;
+    }
+
+    fn run() -> Result {
+        __self._processed_code = null;
+        __self._diagnostics = ParseErrorBag();
+
+        var input_filename: Str = __self._settings.get_input_filename();
+        if input_filename == null {
+            __self._diagnostics.add(ParseError("PREPROCESSOR", IncludeLocation.from_parts("<unknown>", 0, 0), "Missing input filename"));
+            return Result.invalid_argument_error();
+        }
+
+        var preprocessor: Preprocessor = Preprocessor(__self._settings);
+        preprocessor.run(input_filename);
+
+        __self._diagnostics.extend(preprocessor.get_diagnostics());
+        if !preprocessor.get_diagnostics().is_empty() {
+            if preprocessor.has_io_error() {
+                return Result.io_error();
+            }
+            return Result.preprocessor_error();
+        }
+
+        __self._processed_code = preprocessor.get_processed_code();
+        return Result.success();
+    }
+}

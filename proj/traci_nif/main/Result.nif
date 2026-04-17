@@ -1,0 +1,46 @@
+import std.str;
+
+export class Result {
+    code: i64;
+    label: Str;
+
+    static fn success() -> Result {
+        return Result(0, "SUCCESS");
+    }
+
+    static fn abort() -> Result {
+        return Result(0, "ABORT");
+    }
+
+    static fn io_error() -> Result {
+        return Result(-1, "IO_ERROR");
+    }
+
+    static fn parse_error() -> Result {
+        return Result(-2, "PARSE_ERROR");
+    }
+
+    static fn runtime_error() -> Result {
+        return Result(-3, "RUNTIME_ERROR");
+    }
+
+    static fn invalid_argument_error() -> Result {
+        return Result(-4, "INVALID_ARGUMENT_ERROR");
+    }
+
+    static fn preprocessor_error() -> Result {
+        return Result(-5, "PREPROCESSOR_ERROR");
+    }
+
+    static fn internal_error() -> Result {
+        return Result(-6, "INTERNAL_ERROR");
+    }
+
+    fn is_success() -> bool {
+        return __self.code == 0;
+    }
+
+    fn render() -> Str {
+        return __self.label + "(" + Str.from_i64(__self.code) + ")";
+    }
+}

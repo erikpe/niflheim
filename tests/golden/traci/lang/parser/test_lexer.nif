@@ -1,0 +1,154 @@
+import std.io;
+import std.str;
+import std.test;
+import std.error;
+import proj.traci_nif.lang.parser.TraciLexer as traci_lexer;
+import proj.traci_nif.lang.parser.TokenKind as token_kind;
+import proj.traci_nif.lang.parser.TraciToken as traci_token;
+
+fn _escape_text(value: Str) -> Str {
+    if value == null {
+        return "<null>";
+    }
+
+    var out: StrBuf = StrBuf.new(value.len() + 8u);
+    var i: i64 = 0;
+    while (u64)i < value.len() {
+        var ch: u8 = value[i];
+        if ch == '\n' {
+            out.append("\\n");
+        }
+        else if ch == '\r' {
+            out.append("\\r");
+        }
+        else if ch == '\t' {
+            out.append("\\t");
+        }
+        else if ch == '\\' {
+            out.append("\\\\");
+        }
+        else if ch == '"' {
+            out.append("\\\"");
+        }
+        else {
+            out.append_char(ch);
+        }
+        i = i + 1;
+    }
+    return out.to_str();
+}
+
+fn _dump_token(token: traci_token.TraciToken) -> unit {
+    var out: StrBuf = StrBuf.new(96u);
+    out.append(token.kind);
+    out.append("|");
+    out.append(_escape_text(token.text));
+    out.append("|");
+    out.append_i64(token.channel);
+    out.append("|");
+    out.append_i64(token.line);
+    out.append("|");
+    out.append_i64(token.col);
+    out.append("|");
+    out.append(token.location.file_location.render());
+    out.append("|");
+    out.append_u64(token.location.include_depth());
+    out.append("|");
+    if token.location.include_depth() == 0u {
+        out.append("-");
+    }
+    else {
+        out.append(token.location.get_include_frame((i64)token.location.include_depth() - 1).render());
+    }
+    println(out.to_str());
+}
+
+fn test_basic_tokens() -> unit {
+    var scanner: traci_lexer.TraciLexer = traci_lexer.TraciLexer("17+\n23;", "basic.traci");
+    scanner.run();
+
+    assert_true(!scanner.has_errors());
+    assert_eq_u64(scanner.get_token_count(), 6u);
+    assert_eq_str(scanner.get_token(0).kind, "INT");
+    assert_eq_str(scanner.get_token(2).kind, "WS");
+    assert_eq_i64(scanner.get_token(2).channel, token_kind.hidden_channel());
+    assert_eq_str(scanner.get_token(5).kind, "EOF");
+
+    _dump_token(scanner.get_token(0));
+    _dump_token(scanner.get_token(1));
+    _dump_token(scanner.get_token(2));
+    _dump_token(scanner.get_token(3));
+    _dump_token(scanner.get_token(4));
+    _dump_token(scanner.get_token(5));
+}
+
+fn test_keyword_categories() -> unit {
+    var scanner: traci_lexer.TraciLexer = traci_lexer.TraciLexer("translate box union color image camera finish interior", "keywords.traci");
+    scanner.run();
+
+    assert_true(!scanner.has_errors());
+    assert_eq_str(scanner.get_token(0).kind, "TRANSFORMATION");
+    assert_eq_str(scanner.get_token(2).kind, "PRIMITIVE_SHAPE");
+    assert_eq_str(scanner.get_token(4).kind, "CSG_SHAPE");
+    assert_eq_str(scanner.get_token(6).kind, "COLOR");
+    assert_eq_str(scanner.get_token(8).kind, "PIGMENT");
+    assert_eq_str(scanner.get_token(10).kind, "CAMERA");
+    assert_eq_str(scanner.get_token(12).kind, "FINISH");
+    assert_eq_str(scanner.get_token(14).kind, "INTERIOR");
+
+    println(scanner.get_token(0).kind + "," + scanner.get_token(2).kind + "," + scanner.get_token(4).kind + "," + scanner.get_token(6).kind + "," + scanner.get_token(8).kind + "," + scanner.get_token(10).kind + "," + scanner.get_token(12).kind + "," + scanner.get_token(14).kind);
+}
+
+fn test_include_locations() -> unit {
+    var code: Str = "#line 1 \"a.traci\" 1\n17\n#line 1 \"b.traci\" 1\n+\n23\n#line 2 \"a.traci\" 2\n;\n";
+    var scanner: traci_lexer.TraciLexer = traci_lexer.TraciLexer(code, "flattened.traci");
+    scanner.run();
+
+    assert_true(!scanner.has_errors());
+    assert_eq_str(scanner.get_token(2).location.file_location.filename, "a.traci");
+    assert_eq_str(scanner.get_token(8).location.file_location.filename, "b.traci");
+    assert_eq_u64(scanner.get_token(8).location.include_depth(), 1u);
+    assert_eq_str(scanner.get_token(12).location.file_location.filename, "a.traci");
+
+    _dump_token(scanner.get_token(2));
+    _dump_token(scanner.get_token(8));
+    _dump_token(scanner.get_token(12));
+    _dump_token(scanner.get_token(-1));
+}
+
+fn test_invalid_float_error() -> unit {
+    var scanner: traci_lexer.TraciLexer = traci_lexer.TraciLexer("1.2e+", "bad_float.traci");
+    scanner.run();
+
+    assert_true(scanner.has_errors());
+    assert_eq_u64(scanner.get_errors().len(), 1u);
+    println(scanner.get_errors().get(0).full_msg());
+}
+
+fn main() -> i64 {
+    var args: Str[] = read_program_args();
+    if args.len() < 2u {
+        fail("test_lexer: missing mode argument");
+    }
+
+    var mode: Str = args[1];
+    if mode.equals("basic") {
+        test_basic_tokens();
+        return 0;
+    }
+    if mode.equals("keywords") {
+        test_keyword_categories();
+        return 0;
+    }
+    if mode.equals("include") {
+        test_include_locations();
+        return 0;
+    }
+    if mode.equals("bad_float") {
+        test_invalid_float_error();
+        return 0;
+    }
+
+    fail("test_lexer: unknown mode");
+    return 1;
+}

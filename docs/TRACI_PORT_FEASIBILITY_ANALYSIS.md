@@ -626,6 +626,8 @@ Suggested module groups:
 - `proj/traci_nif/render` for ray traversal, shading, image buffer, output formats
 - `proj/traci_nif/io` for output/image/runtime helpers
 
+Within `proj/traci_nif`, prefer Java-style CamelCase module filenames. If a module corresponds directly to a Java Traci class, reuse that class name for the file, for example `Settings.nif`, `ParserRunner.nif`, and `TraciLexer.nif`. For Nif-specific Traci modules, still prefer CamelCase so the package reads consistently; keep snake_case for local functions, methods, and ordinary repository test naming outside the Traci module tree.
+
 That preserves the original mental model while still allowing the Nif implementation to depart where needed.
 
 ## Recommended Implementation Order

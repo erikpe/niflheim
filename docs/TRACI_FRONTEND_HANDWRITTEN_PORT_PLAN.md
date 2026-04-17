@@ -219,50 +219,58 @@ This avoids frontend drift while still keeping the risky part, the preprocessor,
 
 Stay close to the Java package structure, but use the repo's existing hand-written frontend style where it helps.
 
+Naming principle for files under `proj/traci_nif`:
+
+- prefer Java-style CamelCase filenames for Traci modules
+- if a Nif module corresponds directly to a Java Traci class, reuse that class name for the file, for example `Settings.nif`, `PreprocessorRunner.nif`, `ParserRunner.nif`, `TraciLexer.nif`
+- for Nif-specific helper modules inside the Traci port, still prefer CamelCase so the package reads consistently, for example `PreprocessAndParse.nif` and `TokenKind.nif`
+- keep snake_case for local functions, methods, variables, and for existing non-Traci test naming conventions elsewhere in the repository
+
 Recommended layout:
 
 ```text
 proj/traci_nif/
   main/
-    settings.nif
-    preprocess_and_parse.nif
+    Settings.nif
+    Result.nif
+    PreprocessAndParse.nif
   lang/
     preprocessor/
-      preprocessor_runner.nif
-      preprocessor.nif
-      include_resolver.nif
-      macro_table.nif
+      PreprocessorRunner.nif
+      Preprocessor.nif
+      IncludeResolver.nif
+      MacroTable.nif
     parser/
-      token_kind.nif
-      traci_token.nif
-      include_location.nif
-      parse_error.nif
-      parser_utilities.nif
-      lexer.nif
-      syntax_nodes.nif
-      parser.nif
-      expression_parser.nif
-      statement_parser.nif
-      declaration_parser.nif
-      tree_walker.nif
-      parser_runner.nif
+      TokenKind.nif
+      TraciToken.nif
+      IncludeLocation.nif
+      ParseError.nif
+      ParserUtilities.nif
+      TraciLexer.nif
+      SyntaxNodes.nif
+      Parser.nif
+      ExpressionParser.nif
+      StatementParser.nif
+      DeclarationParser.nif
+      TreeWalker.nif
+      ParserRunner.nif
     interpreter/
       node/
-        traci_node.nif
-        block_node.nif
-        function_node.nif
-        assign_node.nif
-        binary_op_node.nif
-        const_node.nif
-        for_node.nif
-        function_call_node.nif
-        if_node.nif
-        object_node.nif
-        op.nif
-        ref_node.nif
-        return_node.nif
-        unary_op_node.nif
-        while_node.nif
+        TraciNode.nif
+        BlockNode.nif
+        FunctionNode.nif
+        AssignNode.nif
+        BinaryOpNode.nif
+        ConstNode.nif
+        ForNode.nif
+        FunctionCallNode.nif
+        IfNode.nif
+        ObjectNode.nif
+        Op.nif
+        RefNode.nif
+        ReturnNode.nif
+        UnaryOpNode.nif
+        WhileNode.nif
 ```
 
 Why this shape:
@@ -270,7 +278,7 @@ Why this shape:
 - `lang/preprocessor` stays close to Java
 - `lang/parser` stays close to Java
 - `lang/interpreter/node` preserves the Java node package and names for the later evaluator port
-- parser internals can still follow the main compiler frontend convention of keeping `parser.nif` thin and delegating real grammar work to focused sub-parsers
+- parser internals can still follow the main compiler frontend convention of keeping `Parser.nif` thin and delegating real grammar work to focused sub-parsers
 
 ## Recommended Deviations From Java
 
@@ -402,7 +410,7 @@ Deliverables:
 Notes:
 
 - keep names close to Java where they are user-visible or useful for later porting
-- keep `parser.nif` and `parser_runner.nif` thin
+- keep `Parser.nif` and `ParserRunner.nif` thin
 
 Done when:
 

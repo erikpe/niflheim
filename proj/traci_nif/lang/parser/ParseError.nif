@@ -1,0 +1,57 @@
+import std.str;
+import std.vec;
+import proj.traci_nif.lang.parser.IncludeLocation;
+
+export class ParseError {
+    source: Str;
+    include_location: IncludeLocation;
+    message: Str;
+
+    fn full_msg() -> Str {
+        if __self.include_location == null {
+            return __self._prefix() + __self.message;
+        }
+        return __self.include_location.render() + "\n" + __self._prefix() + __self.message;
+    }
+
+    private fn _prefix() -> Str {
+        if __self.source.equals("LEXER") {
+            return "Lexer error: ";
+        }
+        if __self.source.equals("PARSER") {
+            return "Parse error: ";
+        }
+        if __self.source.equals("PREPROCESSOR") {
+            return "Preprocessor error: ";
+        }
+        return __self.source + ": ";
+    }
+}
+
+export class ParseErrorBag {
+    private _items: Vec;
+
+    constructor() {
+        __self._items = Vec.new();
+    }
+
+    fn add(error: ParseError) -> unit {
+        __self._items.push((Obj)error);
+    }
+
+    fn extend(other: ParseErrorBag) -> unit {
+        __self._items.append(other._items);
+    }
+
+    fn len() -> u64 {
+        return __self._items.len();
+    }
+
+    fn is_empty() -> bool {
+        return __self._items.len() == 0u;
+    }
+
+    fn get(index: i64) -> ParseError {
+        return (ParseError)__self._items[index];
+    }
+}

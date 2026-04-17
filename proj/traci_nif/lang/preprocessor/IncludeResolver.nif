@@ -1,0 +1,101 @@
+import std.io;
+import std.str;
+import std.vec;
+import proj.traci_nif.main.Settings;
+
+fn _last_slash_index(path: Str) -> i64 {
+    var i: i64 = (i64)path.len() - 1;
+    while i >= 0 {
+        if path[i] == '/' {
+            return i;
+        }
+        i = i - 1;
+    }
+    return -1;
+}
+
+fn _dirname(path: Str) -> Str {
+    if path == null {
+        return null;
+    }
+    var slash_idx: i64 = _last_slash_index(path);
+    if slash_idx < 0 {
+        return null;
+    }
+    if slash_idx == 0 {
+        return "/";
+    }
+    return path[:slash_idx];
+}
+
+fn _join_path(base: Str, child: Str) -> Str {
+    if child == null {
+        return base;
+    }
+    if child.len() > 0u && child[0] == '/' {
+        return child;
+    }
+    if base == null || base.len() == 0u {
+        return child;
+    }
+    if base[(i64)base.len() - 1] == '/' {
+        return base + child;
+    }
+    return base + "/" + child;
+}
+
+export class ResolvedInclude {
+    path: Str;
+    content: Str;
+}
+
+export class IncludeResolver {
+    private _search_dirs: Vec;
+
+    constructor(settings: Settings) {
+        __self._search_dirs = Vec.new();
+
+        var input_filename: Str = settings.get_input_filename();
+        var input_dir: Str = _dirname(input_filename);
+        if input_dir != null {
+            __self._search_dirs.push((Obj)input_dir);
+        }
+
+        var i: i64 = 0;
+        while (u64)i < settings.get_include_dir_count() {
+            __self._search_dirs.push((Obj)settings.get_include_dir(i));
+            i = i + 1;
+        }
+    }
+
+    fn resolve(include_name: Str, current_filename: Str) -> ResolvedInclude {
+        var current_dir: Str = _dirname(current_filename);
+        if current_dir != null {
+            var candidate: Str = _join_path(current_dir, include_name);
+            var content: Str = try_read_file(candidate);
+            if content != null {
+                return ResolvedInclude(candidate, content);
+            }
+        }
+
+        var i: i64 = 0;
+        while (u64)i < __self._search_dirs.len() {
+            var search_dir: Str = (Str)__self._search_dirs[i];
+            var candidate: Str = _join_path(search_dir, include_name);
+            var content: Str = try_read_file(candidate);
+            if content != null {
+                return ResolvedInclude(candidate, content);
+            }
+            i = i + 1;
+        }
+
+        if include_name.len() > 0u && include_name[0] == '/' {
+            var direct_content: Str = try_read_file(include_name);
+            if direct_content != null {
+                return ResolvedInclude(include_name, direct_content);
+            }
+        }
+
+        return null;
+    }
+}

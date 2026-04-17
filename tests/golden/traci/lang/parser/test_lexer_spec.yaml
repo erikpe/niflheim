@@ -1,0 +1,42 @@
+tests:
+  - mode: "run"
+    name: "test_lexer"
+    src_file: "test_lexer.nif"
+    runs:
+      - name: "basic_tokens_and_channels"
+        input:
+          args: ["basic"]
+        expect:
+          exit_code: 0
+          stdout: |
+            INT|17|0|1|0|basic.traci:1:0|0|-
+            PLUS_OP|+|0|1|2|basic.traci:1:2|0|-
+            WS|\n|99|1|3|basic.traci:1:3|0|-
+            INT|23|0|2|0|basic.traci:2:0|0|-
+            SEMICOLON|;|0|2|2|basic.traci:2:2|0|-
+            EOF|<EOF>|0|2|3|basic.traci:2:3|0|-
+      - name: "keyword_categories"
+        input:
+          args: ["keywords"]
+        expect:
+          exit_code: 0
+          stdout: |
+            TRANSFORMATION,PRIMITIVE_SHAPE,CSG_SHAPE,COLOR,PIGMENT,CAMERA,FINISH,INTERIOR
+      - name: "pp_line_updates_include_locations"
+        input:
+          args: ["include"]
+        expect:
+          exit_code: 0
+          stdout: |
+            INT|17|0|1|0|a.traci:1:0|0|-
+            INT|23|0|2|0|b.traci:2:0|1|a.traci:2:0
+            SEMICOLON|;|0|3|0|a.traci:3:0|0|-
+            EOF|<EOF>|0|4|0|a.traci:4:0|0|-
+      - name: "invalid_float_reports_lexer_error"
+        input:
+          args: ["bad_float"]
+        expect:
+          exit_code: 0
+          stdout: |
+            In file: bad_float.traci:1:4:
+            Lexer error: Invalid float exponent

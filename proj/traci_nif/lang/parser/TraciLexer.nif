@@ -1,0 +1,565 @@
+import std.str;
+import std.vec;
+import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.parser.ParseError;
+import proj.traci_nif.lang.parser.ParserUtilities as parser_utils;
+import proj.traci_nif.lang.parser.TokenKind as token_kinds;
+import proj.traci_nif.lang.parser.TraciToken;
+
+fn _is_digit(ch: u8) -> bool {
+    return ch >= '0' && ch <= '9';
+}
+
+fn _is_identifier_start(ch: u8) -> bool {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_';
+}
+
+fn _is_identifier_continue(ch: u8) -> bool {
+    return _is_identifier_start(ch) || _is_digit(ch);
+}
+
+fn _is_inline_ws(ch: u8) -> bool {
+    return ch == ' ' || ch == '\t';
+}
+
+fn _is_ws(ch: u8) -> bool {
+    return _is_inline_ws(ch) || ch == '\n' || ch == '\r';
+}
+
+fn _match_text(source: Str, index: i64, expected: Str) -> bool {
+    if index < 0 {
+        return false;
+    }
+    if (u64)(index + (i64)expected.len()) > source.len() {
+        return false;
+    }
+
+    var i: i64 = 0;
+    while (u64)i < expected.len() {
+        if source[index + i] != expected[i] {
+            return false;
+        }
+        i = i + 1;
+    }
+    return true;
+}
+
+export class TraciLexer {
+    private _input: Str;
+    private _input_filename: Str;
+    private _tokens: Vec;
+    private _errors: ParseErrorBag;
+    private _include_stack: Vec;
+    private _index: i64;
+    private _row: i64;
+    private _col: i64;
+    private _current_filename: Str;
+
+    constructor(input: Str) {
+        __self._input = input;
+        __self._input_filename = "<unknown>";
+        __self._tokens = Vec.new();
+        __self._errors = ParseErrorBag();
+        __self._include_stack = Vec.new();
+        __self._index = 0;
+        __self._row = 1;
+        __self._col = 0;
+        __self._current_filename = null;
+    }
+
+    constructor(input: Str, input_filename: Str) {
+        __self._input = input;
+        __self._input_filename = input_filename;
+        __self._tokens = Vec.new();
+        __self._errors = ParseErrorBag();
+        __self._include_stack = Vec.new();
+        __self._index = 0;
+        __self._row = 1;
+        __self._col = 0;
+        __self._current_filename = null;
+    }
+
+    fn get_token_count() -> u64 {
+        return __self._tokens.len();
+    }
+
+    fn get_token(index: i64) -> TraciToken {
+        return (TraciToken)__self._tokens[index];
+    }
+
+    fn get_errors() -> ParseErrorBag {
+        return __self._errors;
+    }
+
+    fn has_errors() -> bool {
+        return !__self._errors.is_empty();
+    }
+
+    fn run() -> unit {
+        __self._tokens = Vec.new();
+        __self._errors = ParseErrorBag();
+        __self._include_stack = Vec.new();
+        __self._index = 0;
+        __self._row = 1;
+        __self._col = 0;
+        __self._current_filename = null;
+
+        while (u64)__self._index < __self._input.len() {
+            if __self._scan_next() {
+                continue;
+            }
+            break;
+        }
+
+        __self._emit_token("EOF", "<EOF>", token_kinds.default_channel(), __self._index, __self._index, __self._row, __self._col);
+    }
+
+    private fn _scan_next() -> bool {
+        var ch: u8 = __self._peek(0);
+
+        if ch == '#' && __self._can_scan_ppline() {
+            return __self._scan_ppline();
+        }
+
+        if _is_ws(ch) {
+            __self._scan_whitespace();
+            return true;
+        }
+
+        if ch == '/' && __self._peek(1) == '/' {
+            __self._scan_line_comment();
+            return true;
+        }
+
+        if ch == '/' && __self._peek(1) == '*' {
+            return __self._scan_block_comment();
+        }
+
+        if ch == '"' {
+            return __self._scan_qstring();
+        }
+
+        if _is_digit(ch) || (ch == '.' && _is_digit(__self._peek(1))) {
+            return __self._scan_number();
+        }
+
+        if _is_identifier_start(ch) {
+            __self._scan_identifier();
+            return true;
+        }
+
+        if __self._scan_symbol() {
+            return true;
+        }
+
+        __self._add_error(__self._row, __self._col, "Unexpected character '" + Str.from_char(ch) + "'");
+        __self._advance_one();
+        return true;
+    }
+
+    private fn _can_scan_ppline() -> bool {
+        if !_match_text(__self._input, __self._index, "#line") {
+            return false;
+        }
+        return _is_ws(__self._peek(5));
+    }
+
+    private fn _scan_ppline() -> bool {
+        var start_index: i64 = __self._index;
+        var start_row: i64 = __self._row;
+        var start_col: i64 = __self._col;
+
+        __self._advance_n(5);
+        if !__self._consume_required_inline_ws() {
+            __self._add_error(start_row, start_col, "Malformed #line directive");
+            return false;
+        }
+
+        var row_start: i64 = __self._index;
+        __self._consume_digits();
+        if row_start == __self._index {
+            __self._add_error(start_row, start_col, "Malformed #line directive");
+            return false;
+        }
+        var row_text: Str = __self._input[row_start:__self._index];
+
+        if !__self._consume_required_inline_ws() {
+            __self._add_error(start_row, start_col, "Malformed #line directive");
+            return false;
+        }
+
+        if __self._peek(0) != '"' {
+            __self._add_error(start_row, start_col, "Malformed #line directive");
+            return false;
+        }
+        var qstring_start: i64 = __self._index;
+        __self._advance_one();
+        while (u64)__self._index < __self._input.len() {
+            var ch: u8 = __self._peek(0);
+            if ch == '"' {
+                __self._advance_one();
+                break;
+            }
+            if ch == '\\' {
+                __self._advance_one();
+                if (u64)__self._index >= __self._input.len() {
+                    __self._add_error(start_row, start_col, "Malformed #line directive");
+                    return false;
+                }
+            }
+            __self._advance_one();
+        }
+        if __self._input[__self._index - 1] != '"' {
+            __self._add_error(start_row, start_col, "Malformed #line directive");
+            return false;
+        }
+        var qstring_text: Str = __self._input[qstring_start:__self._index];
+
+        if !__self._consume_required_inline_ws() {
+            __self._add_error(start_row, start_col, "Malformed #line directive");
+            return false;
+        }
+
+        var action_start: i64 = __self._index;
+        __self._consume_digits();
+        if action_start == __self._index {
+            __self._add_error(start_row, start_col, "Malformed #line directive");
+            return false;
+        }
+        var action_text: Str = __self._input[action_start:__self._index];
+
+        var text: Str = __self._input[start_index:__self._index];
+        __self._emit_token("PPLINE", text, token_kinds.hidden_channel(), start_index, __self._index - 1, start_row, start_col);
+        __self._apply_pp_line(row_text.to_i64(), parser_utils.unquote_qstring(qstring_text), action_text.to_i64(), start_row);
+        return true;
+    }
+
+    private fn _scan_whitespace() -> unit {
+        var start_index: i64 = __self._index;
+        var start_row: i64 = __self._row;
+        var start_col: i64 = __self._col;
+        while (u64)__self._index < __self._input.len() && _is_ws(__self._peek(0)) {
+            __self._advance_one();
+        }
+        __self._emit_token("WS", __self._input[start_index:__self._index], token_kinds.hidden_channel(), start_index, __self._index - 1, start_row, start_col);
+    }
+
+    private fn _scan_line_comment() -> unit {
+        var start_index: i64 = __self._index;
+        var start_row: i64 = __self._row;
+        var start_col: i64 = __self._col;
+        __self._advance_n(2);
+        while (u64)__self._index < __self._input.len() {
+            var ch: u8 = __self._peek(0);
+            if ch == '\n' || ch == '\r' {
+                __self._advance_one();
+                break;
+            }
+            __self._advance_one();
+        }
+        __self._emit_token("COMMENT", __self._input[start_index:__self._index], token_kinds.hidden_channel(), start_index, __self._index - 1, start_row, start_col);
+    }
+
+    private fn _scan_block_comment() -> bool {
+        var start_index: i64 = __self._index;
+        var start_row: i64 = __self._row;
+        var start_col: i64 = __self._col;
+        __self._advance_n(2);
+        while (u64)__self._index < __self._input.len() {
+            if __self._peek(0) == '*' && __self._peek(1) == '/' {
+                __self._advance_n(2);
+                __self._emit_token("COMMENT", __self._input[start_index:__self._index], token_kinds.hidden_channel(), start_index, __self._index - 1, start_row, start_col);
+                return true;
+            }
+            __self._advance_one();
+        }
+
+        __self._add_error(start_row, start_col, "Unterminated block comment");
+        return false;
+    }
+
+    private fn _scan_qstring() -> bool {
+        var start_index: i64 = __self._index;
+        var start_row: i64 = __self._row;
+        var start_col: i64 = __self._col;
+        __self._advance_one();
+
+        while (u64)__self._index < __self._input.len() {
+            var ch: u8 = __self._peek(0);
+            if ch == '"' {
+                __self._advance_one();
+                __self._emit_token("QSTRING", __self._input[start_index:__self._index], token_kinds.default_channel(), start_index, __self._index - 1, start_row, start_col);
+                return true;
+            }
+            if ch == '\\' {
+                __self._advance_one();
+                if (u64)__self._index >= __self._input.len() {
+                    __self._add_error(__self._row, __self._col, "Unterminated string literal");
+                    return false;
+                }
+                __self._advance_one();
+                continue;
+            }
+            if ch == '\n' || ch == '\r' {
+                __self._add_error(__self._row, __self._col, "Unterminated string literal");
+                return false;
+            }
+            __self._advance_one();
+        }
+
+        __self._add_error(__self._row, __self._col, "Unterminated string literal");
+        return false;
+    }
+
+    private fn _scan_number() -> bool {
+        var start_index: i64 = __self._index;
+        var start_row: i64 = __self._row;
+        var start_col: i64 = __self._col;
+
+        if __self._peek(0) == '.' {
+            __self._advance_one();
+            __self._consume_digits();
+            if (__self._peek(0) == 'e' || __self._peek(0) == 'E') && !__self._consume_exponent() {
+                return false;
+            }
+            __self._emit_token("FLOAT", __self._input[start_index:__self._index], token_kinds.default_channel(), start_index, __self._index - 1, start_row, start_col);
+            return true;
+        }
+
+        __self._consume_digits();
+
+        if __self._peek(0) == '.' && __self._peek(1) != '.' {
+            __self._advance_one();
+            __self._consume_digits();
+            if (__self._peek(0) == 'e' || __self._peek(0) == 'E') && !__self._consume_exponent() {
+                return false;
+            }
+            __self._emit_token("FLOAT", __self._input[start_index:__self._index], token_kinds.default_channel(), start_index, __self._index - 1, start_row, start_col);
+            return true;
+        }
+
+        if __self._peek(0) == 'e' || __self._peek(0) == 'E' {
+            if !__self._consume_exponent() {
+                return false;
+            }
+            __self._emit_token("FLOAT", __self._input[start_index:__self._index], token_kinds.default_channel(), start_index, __self._index - 1, start_row, start_col);
+            return true;
+        }
+
+        __self._emit_token("INT", __self._input[start_index:__self._index], token_kinds.default_channel(), start_index, __self._index - 1, start_row, start_col);
+        return true;
+    }
+
+    private fn _scan_identifier() -> unit {
+        var start_index: i64 = __self._index;
+        var start_row: i64 = __self._row;
+        var start_col: i64 = __self._col;
+        __self._advance_one();
+        while _is_identifier_continue(__self._peek(0)) {
+            __self._advance_one();
+        }
+        var text: Str = __self._input[start_index:__self._index];
+        __self._emit_token(token_kinds.classify_identifier(text), text, token_kinds.default_channel(), start_index, __self._index - 1, start_row, start_col);
+    }
+
+    private fn _scan_symbol() -> bool {
+        var start_index: i64 = __self._index;
+        var start_row: i64 = __self._row;
+        var start_col: i64 = __self._col;
+        var ch: u8 = __self._peek(0);
+        var kind: Str = null;
+        var width: i64 = 1;
+
+        if ch == '<' && __self._peek(1) == '=' {
+            kind = "LTE_OP";
+            width = 2;
+        }
+        else if ch == '>' && __self._peek(1) == '=' {
+            kind = "GTE_OP";
+            width = 2;
+        }
+        else if ch == '=' && __self._peek(1) == '=' {
+            kind = "EQ_OP";
+            width = 2;
+        }
+        else if ch == '!' && __self._peek(1) == '=' {
+            kind = "NEQ_OP";
+            width = 2;
+        }
+        else if ch == '.' && __self._peek(1) == '.' {
+            kind = "DOTS";
+            width = 2;
+        }
+        else if ch == '<' {
+            kind = "LT_OP";
+        }
+        else if ch == '>' {
+            kind = "GT_OP";
+        }
+        else if ch == '+' {
+            kind = "PLUS_OP";
+        }
+        else if ch == '-' {
+            kind = "MINUS_OP";
+        }
+        else if ch == '*' {
+            kind = "MUL_OP";
+        }
+        else if ch == '/' {
+            kind = "DIV_OP";
+        }
+        else if ch == '!' {
+            kind = "NOT_OP";
+        }
+        else if ch == ',' {
+            kind = "COMMA_OP";
+        }
+        else if ch == '=' {
+            kind = "ASSIGN";
+        }
+        else if ch == ';' {
+            kind = "SEMICOLON";
+        }
+        else if ch == '[' {
+            kind = "LBRACKET";
+        }
+        else if ch == ']' {
+            kind = "RBRACKET";
+        }
+        else if ch == '(' {
+            kind = "LPAR";
+        }
+        else if ch == ')' {
+            kind = "RPAR";
+        }
+        else if ch == '{' {
+            kind = "LCURLY";
+        }
+        else if ch == '}' {
+            kind = "RCURLY";
+        }
+
+        if kind == null {
+            return false;
+        }
+
+        __self._advance_n(width);
+        __self._emit_token(kind, __self._input[start_index:__self._index], token_kinds.default_channel(), start_index, __self._index - 1, start_row, start_col);
+        return true;
+    }
+
+    private fn _consume_exponent() -> bool {
+        __self._advance_one();
+        var missing_digit_row: i64 = __self._row;
+        var missing_digit_col: i64 = __self._col;
+        if __self._peek(0) == '+' || __self._peek(0) == '-' {
+            missing_digit_col = __self._col;
+            __self._advance_one();
+        }
+        if !_is_digit(__self._peek(0)) {
+            __self._add_error(missing_digit_row, missing_digit_col, "Invalid float exponent");
+            return false;
+        }
+        __self._consume_digits();
+        return true;
+    }
+
+    private fn _consume_digits() -> unit {
+        while _is_digit(__self._peek(0)) {
+            __self._advance_one();
+        }
+    }
+
+    private fn _consume_required_inline_ws() -> bool {
+        if !_is_inline_ws(__self._peek(0)) {
+            return false;
+        }
+        while _is_inline_ws(__self._peek(0)) {
+            __self._advance_one();
+        }
+        return true;
+    }
+
+    private fn _peek(offset: i64) -> u8 {
+        var target: i64 = __self._index + offset;
+        if target < 0 || (u64)target >= __self._input.len() {
+            return 0u8;
+        }
+        return __self._input[target];
+    }
+
+    private fn _advance_n(count: i64) -> unit {
+        var i: i64 = 0;
+        while i < count {
+            __self._advance_one();
+            i = i + 1;
+        }
+    }
+
+    private fn _advance_one() -> unit {
+        if (u64)__self._index >= __self._input.len() {
+            return;
+        }
+
+        var ch: u8 = __self._input[__self._index];
+        if ch == '\r' {
+            __self._index = __self._index + 1;
+            if (u64)__self._index < __self._input.len() && __self._input[__self._index] == '\n' {
+                __self._index = __self._index + 1;
+            }
+            __self._row = __self._row + 1;
+            __self._col = 0;
+            return;
+        }
+
+        __self._index = __self._index + 1;
+        if ch == '\n' {
+            __self._row = __self._row + 1;
+            __self._col = 0;
+            return;
+        }
+
+        __self._col = __self._col + 1;
+    }
+
+    private fn _emit_token(kind: Str, text: Str, channel: i64, start: i64, stop: i64, row: i64, col: i64) -> unit {
+        var filename: Str = __self._current_filename;
+        if filename == null {
+            filename = __self._input_filename;
+        }
+        if filename == null {
+            filename = "<unknown>";
+        }
+        var location: IncludeLocation = IncludeLocation(FileLocation(filename, row, col), __self._include_stack);
+        __self._tokens.push((Obj)TraciToken(kind, text, channel, start, stop, row, col, location));
+    }
+
+    private fn _add_error(row: i64, col: i64, message: Str) -> unit {
+        var filename: Str = __self._current_filename;
+        if filename == null {
+            filename = __self._input_filename;
+        }
+        if filename == null {
+            filename = "<unknown>";
+        }
+        __self._errors.add(ParseError("LEXER", IncludeLocation(FileLocation(filename, row, col), __self._include_stack), message));
+    }
+
+    private fn _apply_pp_line(row: i64, filename: Str, action: i64, current_row: i64) -> unit {
+        if action == 1 {
+            if __self._current_filename != null {
+                __self._include_stack.push((Obj)FileLocation(__self._current_filename, current_row, 0));
+            }
+            __self._row = 0;
+        }
+        else if action == 2 {
+            if __self._include_stack.len() > 0u {
+                var location: FileLocation = (FileLocation)__self._include_stack.pop();
+                __self._row = location.row;
+            }
+        }
+
+        __self._current_filename = filename;
+        __self._col = 0;
+    }
+}

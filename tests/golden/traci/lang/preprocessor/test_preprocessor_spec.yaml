@@ -1,0 +1,66 @@
+tests:
+  - mode: "run"
+    name: "test_preprocessor"
+    src_file: "test_preprocessor.nif"
+    runs:
+      - name: "real_include_order_matches_java_style_markers"
+        input:
+          args: ["real_include"]
+        expect:
+          exit_code: 0
+          stdout: |
+            #line 1 "proj/traci_java/testcode/a.traci" 1
+            17
+            #line 1 "proj/traci_java/testcode/b.traci" 1
+            +
+             23
+            #line 2 "proj/traci_java/testcode/a.traci" 2
+            ;
+      - name: "include_guards_prevent_duplicate_content"
+        input:
+          args: ["guard"]
+        expect:
+          exit_code: 0
+          stdout: |-
+            #line 1 "tests/golden/traci/lang/preprocessor/pp_double_include_root.traci" 1
+            #line 1 "tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci" 1
+            
+            
+            17
+            #line 1 "tests/golden/traci/lang/preprocessor/pp_double_include_root.traci" 2
+            #line 1 "tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci" 1
+            
+            
+            
+            #line 2 "tests/golden/traci/lang/preprocessor/pp_double_include_root.traci" 2
+            VALUE;
+      - name: "fast_lego_macro_true_branch"
+        input:
+          args: ["fast_on"]
+        expect:
+          exit_code: 0
+          stdout: |+
+            #line 1 "tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci" 1
+            
+            
+            7
+            
+            
+      - name: "fast_lego_macro_false_branch"
+        input:
+          args: ["fast_off"]
+        expect:
+          exit_code: 0
+          stdout: |
+            #line 1 "tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci" 1
+            
+            
+            
+            
+            0
+      - name: "missing_include_reports_include_chain"
+        input:
+          args: ["missing"]
+        expect:
+          exit_code: 0
+          stdout: "In file included from tests/golden/traci/lang/preprocessor/pp_missing_root.traci:1:\nIn file: tests/golden/traci/lang/preprocessor/pp_missing_mid.traci:1:0:\nPreprocessor error: Unable to resolve include: 'pp_missing_leaf.traci'\n"
