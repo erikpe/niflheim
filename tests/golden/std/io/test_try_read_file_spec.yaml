@@ -1,0 +1,29 @@
+tests:
+  - mode: "run"
+    name: "test_try_read_file"
+    src_file: "test_try_read_file.nif"
+    runs:
+      - name: "try_read_file_reads_file_contents"
+        input:
+          args: ["tests/golden/std/io/test_read_file_input.txt"]
+        expect:
+          exit_code: 0
+          stdout_file: "test_read_file_expected.txt"
+      - name: "try_read_file_exact_buffer_size"
+        input:
+          args: ["tests/golden/std/io/test_read_file_exact_4096.txt", "len"]
+        expect:
+          exit_code: 0
+          stdout: "4096\n"
+      - name: "try_read_file_larger_than_buffer"
+        input:
+          args: ["tests/golden/std/io/test_read_file_big_5000.txt", "len"]
+        expect:
+          exit_code: 0
+          stdout: "5000\n"
+      - name: "try_read_file_missing_file_returns_null"
+        input:
+          args: ["tests/golden/std/io/does_not_exist.txt"]
+        expect:
+          exit_code: 0
+          stdout: "missing\n"

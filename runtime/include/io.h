@@ -9,6 +9,7 @@ extern "C" {
 
 uint64_t rt_file_stdin_handle(void);
 uint64_t rt_file_open_for_read(const void* path_u8_array_obj);
+uint64_t rt_file_try_open_for_read(const void* path_u8_array_obj);
 void rt_file_close(uint64_t file_handle);
 uint64_t rt_file_read_u8_array(uint64_t file_handle, void* array_obj, uint64_t offset);
 void rt_file_write_all(const void* path_u8_array_obj, const void* value_u8_array_obj);

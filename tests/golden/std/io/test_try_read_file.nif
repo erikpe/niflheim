@@ -1,0 +1,25 @@
+import std.io;
+import std.str;
+import std.error;
+
+fn main() -> i64 {
+    var args: Str[] = read_program_args();
+    if args.len() < 2u {
+        panic("test_try_read_file: missing filename argument");
+    }
+
+    var path: Str = args[1];
+    var text: Str = try_read_file(path);
+    if text == null {
+        println("missing");
+        return 0;
+    }
+
+    if args.len() > 2u && args[2].compare_to("len") == 0 {
+        println_u64(text.len());
+        return 0;
+    }
+
+    print(text);
+    return 0;
+}

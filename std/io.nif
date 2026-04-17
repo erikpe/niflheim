@@ -4,6 +4,7 @@ import std.vec;
 
 extern fn rt_file_stdin_handle() -> u64;
 extern fn rt_file_open_for_read(path: u8[]) -> u64;
+extern fn rt_file_try_open_for_read(path: u8[]) -> u64;
 extern fn rt_file_close(handle: u64) -> unit;
 extern fn rt_file_read_u8_array(handle: u64, value: u8[], offset: u64) -> u64;
 extern fn rt_file_write_all(path: u8[], value: u8[]) -> unit;
@@ -95,12 +96,29 @@ fn _read_all_from_handle(handle: u64) -> Str
     return Str.from_u8_array(bytes[:(i64)filled]);
 }
 
-export fn read_file(path: Str) -> Str
+fn _read_file_from_handle(handle: u64) -> Str
 {
-    var handle: u64 = rt_file_open_for_read(path.to_u8_array());
+    if handle == 0u {
+        return null;
+    }
+
     var content: Str = _read_all_from_handle(handle);
     rt_file_close(handle);
     return content;
+}
+
+export fn read_file(path: Str) -> Str
+{
+    var content: Str = _read_file_from_handle(rt_file_open_for_read(path.to_u8_array()));
+    if content == null {
+        panic("io.read_file: unexpected null file handle");
+    }
+    return content;
+}
+
+export fn try_read_file(path: Str) -> Str
+{
+    return _read_file_from_handle(rt_file_try_open_for_read(path.to_u8_array()));
 }
 
 export fn write_file(path: Str, content: Str) -> unit

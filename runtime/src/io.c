@@ -46,15 +46,26 @@ uint64_t rt_file_stdin_handle(void) {
     return (uint64_t)(uintptr_t)stdin;
 }
 
-uint64_t rt_file_open_for_read(const void* path_u8_array_obj) {
+static uint64_t rt_file_open_for_read_impl(const void* path_u8_array_obj, int panic_on_failure) {
     char* path = rt_copy_path_string(path_u8_array_obj);
     FILE* file = fopen(path, "rb");
     free(path);
     if (file == NULL) {
-        rt_panic("rt_file_open_read: failed opening file");
+        if (panic_on_failure) {
+            rt_panic("rt_file_open_read: failed opening file");
+        }
+        return 0u;
     }
 
     return (uint64_t)(uintptr_t)file;
+}
+
+uint64_t rt_file_open_for_read(const void* path_u8_array_obj) {
+    return rt_file_open_for_read_impl(path_u8_array_obj, 1);
+}
+
+uint64_t rt_file_try_open_for_read(const void* path_u8_array_obj) {
+    return rt_file_open_for_read_impl(path_u8_array_obj, 0);
 }
 
 void rt_file_close(uint64_t file_handle) {
