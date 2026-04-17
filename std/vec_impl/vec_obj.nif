@@ -100,6 +100,33 @@ export class Vec
         return value;
     }
 
+    fn append(value: Vec) -> unit {
+        var source: Vec = value.clone();
+        var source_len: u64 = source.len();
+        if source_len == 0u {
+            return;
+        }
+
+        __self._maybe_grow(__self._len + source_len);
+        __self._storage[(i64)__self._len:(i64)(__self._len + source_len)] = source._storage[:(i64)source._len];
+        __self._len = __self._len + source_len;
+    }
+
+    fn clone() -> Vec {
+        var out: Vec = Vec.with_capacity(__self._len);
+        out._storage[:(i64)__self._len] = __self._storage[:(i64)__self._len];
+        out._len = __self._len;
+        return out;
+    }
+
+    fn last() -> Obj {
+        if __self._len == 0u {
+            panic("Vec.last: empty vector");
+        }
+
+        return __self._storage[(i64)__self._len - 1];
+    }
+
     fn index_get(index: i64) -> Obj {
         index = __self._normalize_index(index);
         if index < 0 || index >= (i64)__self._len {

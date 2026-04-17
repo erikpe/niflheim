@@ -65,6 +65,18 @@ export class VecDouble
         __self._len = __self._len + source_len;
     }
 
+    fn clone() -> VecDouble {
+        return VecDouble(__self._storage[:(i64)__self._len]);
+    }
+
+    fn last() -> double {
+        if __self._len == 0u {
+            panic("VecDouble.last: empty vector");
+        }
+
+        return __self._storage[(i64)__self._len - 1];
+    }
+
     fn iter_len() -> u64 {
         return __self._len;
     }

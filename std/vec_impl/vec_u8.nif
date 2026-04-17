@@ -65,6 +65,18 @@ export class VecU8
         __self._len = __self._len + source_len;
     }
 
+    fn clone() -> VecU8 {
+        return VecU8(__self._storage[:(i64)__self._len]);
+    }
+
+    fn last() -> u8 {
+        if __self._len == 0u {
+            panic("VecU8.last: empty vector");
+        }
+
+        return __self._storage[(i64)__self._len - 1];
+    }
+
     fn iter_len() -> u64 {
         return __self._len;
     }

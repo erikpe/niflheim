@@ -65,6 +65,18 @@ export class VecI64
         __self._len = __self._len + source_len;
     }
 
+    fn clone() -> VecI64 {
+        return VecI64(__self._storage[:(i64)__self._len]);
+    }
+
+    fn last() -> i64 {
+        if __self._len == 0u {
+            panic("VecI64.last: empty vector");
+        }
+
+        return __self._storage[(i64)__self._len - 1];
+    }
+
     fn iter_len() -> u64 {
         return __self._len;
     }

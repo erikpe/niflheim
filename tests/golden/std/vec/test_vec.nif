@@ -348,6 +348,45 @@ fn test_vec_pop_empty_panics() -> unit {
 }
 
 
+fn test_vec_append_clone_and_last() -> unit {
+    var base: Vec = Vec.new();
+    base.push(BoxI64(1));
+    base.push(BoxI64(2));
+
+    var copy: Vec = base.clone();
+    assert_eq_u64(copy.len(), 2u);
+    assert_eq_i64(((BoxI64)copy.last()).val, 2);
+
+    copy[0] = BoxI64(99);
+    assert_eq_i64(((BoxI64)base[0]).val, 1);
+    assert_eq_i64(((BoxI64)copy[0]).val, 99);
+
+    base.append(copy);
+    assert_eq_u64(base.len(), 4u);
+    assert_eq_i64(((BoxI64)base[0]).val, 1);
+    assert_eq_i64(((BoxI64)base[1]).val, 2);
+    assert_eq_i64(((BoxI64)base[2]).val, 99);
+    assert_eq_i64(((BoxI64)base[3]).val, 2);
+    assert_eq_i64(((BoxI64)base.last()).val, 2);
+
+    var alias: Vec = Vec.new();
+    alias.push(BoxI64(7));
+    alias.push(BoxI64(8));
+    alias.append(alias);
+    assert_eq_u64(alias.len(), 4u);
+    assert_eq_i64(((BoxI64)alias[0]).val, 7);
+    assert_eq_i64(((BoxI64)alias[1]).val, 8);
+    assert_eq_i64(((BoxI64)alias[2]).val, 7);
+    assert_eq_i64(((BoxI64)alias.last()).val, 8);
+}
+
+
+fn test_vec_last_empty_panics() -> unit {
+    var v: Vec = Vec.new();
+    v.last();
+}
+
+
 fn test_vec_filter_copies_kept_runs() -> unit {
     var v: Vec = Vec.new();
     v.push(BoxI64(1));
@@ -435,6 +474,8 @@ fn main() -> i64 {
     if select == 24u { test_vec_clear_resets_length_and_allows_reuse(); }
     if select == 25u { test_vec_pop_returns_last_and_updates_length(); }
     if select == 26u { test_vec_pop_empty_panics(); }
+    if select == 27u { test_vec_append_clone_and_last(); }
+    if select == 28u { test_vec_last_empty_panics(); }
 
     return 0;
 }

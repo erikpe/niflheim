@@ -15,3 +15,5 @@ tests:
           stdin: "8"
         expect:
           panic: "VecDouble.slice_set: length mismatch"
+      - {name: "vec_primitives_clone_and_last", input: {stdin: "9"}, expect: {exit_code: 0}}
+      - {name: "vec_u8_last_empty_panics", input: {stdin: "10"}, expect: {panic: "VecU8.last: empty vector"}}

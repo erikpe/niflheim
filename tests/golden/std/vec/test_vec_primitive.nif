@@ -183,6 +183,43 @@ fn test_vec_double_slice_write_length_mismatch_panics() -> unit {
 }
 
 
+fn test_vec_primitives_clone_and_last() -> unit {
+    var u8v: VecU8 = VecU8(make_u8_array(1u8, 2u8, 3u8));
+    var u8clone: VecU8 = u8v.clone();
+    u8clone[0] = 9u8;
+    assert_eq_u8(u8v[0], 1u8);
+    assert_eq_u8(u8v.last(), 3u8);
+    assert_eq_u8(u8clone.last(), 3u8);
+
+    var i64v: VecI64 = VecI64(make_i64_pair(-5, 7));
+    var i64clone: VecI64 = i64v.clone();
+    i64clone[1] = 100;
+    assert_eq_i64(i64v[0], -5);
+    assert_eq_i64(i64v.last(), 7);
+    assert_eq_i64(i64clone.last(), 100);
+
+    var u64v: VecU64 = VecU64(make_u64_pair(10u, 20u));
+    var u64clone: VecU64 = u64v.clone();
+    u64clone[0] = 77u;
+    assert_eq_u64(u64v[0], 10u);
+    assert_eq_u64(u64v.last(), 20u);
+    assert_eq_u64(u64clone.last(), 20u);
+
+    var doublev: VecDouble = VecDouble(make_double_pair(1.25, 2.5));
+    var doubleclone: VecDouble = doublev.clone();
+    doubleclone[0] = 9.5;
+    assert_eq_double(doublev[0], 1.25);
+    assert_eq_double(doublev.last(), 2.5);
+    assert_eq_double(doubleclone.last(), 2.5);
+}
+
+
+fn test_vec_u8_last_empty_panics() -> unit {
+    var v: VecU8 = VecU8();
+    var out: u8 = v.last();
+}
+
+
 fn main() -> i64 {
     var select: u64 = read_stdin().strip().to_u64();
 
@@ -194,6 +231,8 @@ fn main() -> i64 {
     if select == 6u { test_vec_i64_set_negative_wrap_oob_panics(); }
     if select == 7u { test_vec_u64_slice_oob_panics(); }
     if select == 8u { test_vec_double_slice_write_length_mismatch_panics(); }
+    if select == 9u { test_vec_primitives_clone_and_last(); }
+    if select == 10u { test_vec_u8_last_empty_panics(); }
 
     return 0;
 }

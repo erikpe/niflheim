@@ -49,3 +49,5 @@ tests:
       - {name: "vec_clear_resets_length_and_allows_reuse", input: {stdin: "24"}, expect: {exit_code: 0}}
       - {name: "vec_pop_returns_last_and_updates_length", input: {stdin: "25"}, expect: {exit_code: 0}}
       - {name: "vec_pop_empty_panics", input: {stdin: "26"}, expect: {panic: "Vec.pop: empty vector"}}
+      - {name: "vec_append_clone_and_last", input: {stdin: "27"}, expect: {exit_code: 0}}
+      - {name: "vec_last_empty_panics", input: {stdin: "28"}, expect: {panic: "Vec.last: empty vector"}}

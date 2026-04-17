@@ -233,12 +233,12 @@ Recommended CI split:
 - Identity equality behavior is preserved.
 
 ## Vec (Obj)
-- `push`, `pop`, `get`, `set`, `len` semantics.
+- `push`, `pop`, `append`, `clone`, `last`, `get`, `set`, `len` semantics.
 - Reallocation paths preserve existing elements.
 - Stored references remain GC-visible.
 
 ## Primitive VecT Buffers
-- `VecU8`, `VecI64`, `VecU64`, and `VecDouble` constructor/push/pop/append semantics.
+- `VecU8`, `VecI64`, `VecU64`, and `VecDouble` constructor/push/pop/append/clone/last semantics.
 - Negative indexing and slice behavior match the current `Vec` normalization policy where exposed.
 - `to_array()` returns the live prefix as a copied primitive array.
 - Bounds and slice panics remain deterministic per buffer family.
