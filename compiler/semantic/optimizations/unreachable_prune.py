@@ -143,9 +143,21 @@ class _SemanticReachabilityWalker:
         self._enqueue_type_ref(method.method_id.module_path, method.return_type_ref)
         self._walk_block(method.method_id.module_path, method.body, method)
 
+    def _visit_constructor(self, constructor: SemanticConstructor) -> None:
+        self._enqueue_class(
+            ClassId(module_path=constructor.constructor_id.module_path, name=constructor.constructor_id.class_name)
+        )
+        for param in constructor.params:
+            self._enqueue_type_ref(constructor.constructor_id.module_path, param.type_ref)
+        if constructor.body is not None:
+            self._walk_block(constructor.constructor_id.module_path, constructor.body, constructor)
+
     def _visit_class(self, cls: SemanticClass) -> None:
         if cls.superclass_id is not None:
             self._enqueue_class(cls.superclass_id)
+
+        for constructor in cls.constructors:
+            self._visit_constructor(constructor)
 
         for method in cls.methods:
             if not method.is_static and not method.is_private:

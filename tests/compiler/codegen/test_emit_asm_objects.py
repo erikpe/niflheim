@@ -134,6 +134,49 @@ fn main() -> i64 {
     assert "    call r11" not in main_body
 
 
+def test_emit_asm_preserves_static_method_calls_used_only_from_constructor_bodies(tmp_path) -> None:
+    source = """
+class Factory {
+    value: i64;
+
+    static fn new() -> Factory {
+        return Factory(7);
+    }
+
+    constructor(value: i64) {
+        __self.value = value;
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.value;
+    }
+}
+
+class Holder {
+    value: Factory;
+
+    constructor() {
+        __self.value = Factory.new();
+        return;
+    }
+
+    fn read() -> i64 {
+        return __self.value.read();
+    }
+}
+
+fn main() -> i64 {
+    var holder: Holder = Holder();
+    return holder.read();
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+
+    assert "__nif_method_main__Factory_new:" in asm
+    assert "    call __nif_method_main__Factory_new" in asm
+
+
 def test_emit_asm_structural_interface_dispatch_specializes_to_direct_calls_after_exact_constructor_fact(tmp_path) -> None:
     source = """
 interface Buffer {
