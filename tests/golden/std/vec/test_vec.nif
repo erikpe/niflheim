@@ -323,6 +323,31 @@ fn test_vec_clear_resets_length_and_allows_reuse() -> unit {
 }
 
 
+fn test_vec_pop_returns_last_and_updates_length() -> unit {
+    var v: Vec = Vec.new();
+    v.push(BoxI64(4));
+    v.push(BoxI64(9));
+    v.push(BoxI64(13));
+
+    var popped: Obj = v.pop();
+
+    assert_eq_i64(((BoxI64)popped).val, 13);
+    assert_eq_u64(v.len(), 2u);
+    assert_eq_i64(((BoxI64)v[0]).val, 4);
+    assert_eq_i64(((BoxI64)v[1]).val, 9);
+
+    v.push(BoxI64(21));
+    assert_eq_u64(v.len(), 3u);
+    assert_eq_i64(((BoxI64)v[2]).val, 21);
+}
+
+
+fn test_vec_pop_empty_panics() -> unit {
+    var v: Vec = Vec.new();
+    v.pop();
+}
+
+
 fn test_vec_filter_copies_kept_runs() -> unit {
     var v: Vec = Vec.new();
     v.push(BoxI64(1));
@@ -408,6 +433,8 @@ fn main() -> i64 {
     if select == 22u { test_vec_map_returns_transformed_copy(); }
     if select == 23u { test_vec_reduce_accumulates_values(); }
     if select == 24u { test_vec_clear_resets_length_and_allows_reuse(); }
+    if select == 25u { test_vec_pop_returns_last_and_updates_length(); }
+    if select == 26u { test_vec_pop_empty_panics(); }
 
     return 0;
 }

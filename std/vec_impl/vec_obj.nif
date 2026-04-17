@@ -88,6 +88,18 @@ export class Vec
         __self._len = __self._len + 1u;
     }
 
+    fn pop() -> Obj {
+        if __self._len == 0u {
+            panic("Vec.pop: empty vector");
+        }
+
+        var last_index: i64 = (i64)__self._len - 1;
+        var value: Obj = __self._storage[last_index];
+        __self._len = __self._len - 1u;
+        __self._maybe_shrink();
+        return value;
+    }
+
     fn index_get(index: i64) -> Obj {
         index = __self._normalize_index(index);
         if index < 0 || index >= (i64)__self._len {

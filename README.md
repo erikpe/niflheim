@@ -51,6 +51,7 @@ Recent backend/runtime updates:
 - `std.io` supports stdout printing, stdin batch reads (`read_stdin`), whole-file reads (`read_file(path)`), whole-file writes (`write_file(path, content)`), and program-argument decoding (`read_program_args()`) using minimal runtime file/byte-array primitives.
 - `std.math` exposes a grouped `double` math surface backed by runtime `libm` wrappers, including trigonometric, exponential/logarithmic, rounding, comparison, and classification helpers.
 - `std.random` provides a deterministic, seedable `Random` generator implemented in stdlib using SplitMix64, with `next_u64`, `next_bool`, `next_double`, `next_bounded`, and `randint`.
+- `std.vec` provides an `Obj`-backed `Vec` with dynamic growth plus `with_capacity`, `push`, `pop`, indexing/slicing, iteration helpers, and `map`/`filter`/`reduce`.
 - Generated primitive dynamic buffers are available under `std.vec_impl` as `VecU8`, `VecI64`, `VecU64`, and `VecDouble`, with overloaded constructors plus `push`/`pop`/`append`/slice/`to_array` helpers backed by primitive arrays.
 
 Recent language/runtime additions are reflected directly in [docs/LANGUAGE_MVP_SPEC_V0.1.md](docs/LANGUAGE_MVP_SPEC_V0.1.md).

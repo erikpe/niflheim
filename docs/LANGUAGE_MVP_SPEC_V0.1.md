@@ -211,10 +211,11 @@ Constructor details (explicit + compatibility constructors in v0.1):
 
 - `Vec` is a standard-library class in `std.vec`, not a dedicated runtime-native container type.
 - `Vec` stores `Obj` elements.
-- Core operations implemented in the current tree: `len`, `push`, `clear`, `with_capacity`, `index_get`, `index_set`, `slice_get`, `slice_set`, `iter_len`, `iter_get`.
+- Core operations implemented in the current tree: `len`, `push`, `pop`, `clear`, `with_capacity`, `index_get`, `index_set`, `slice_get`, `slice_set`, `iter_len`, `iter_get`.
 - Higher-order helpers implemented in the current tree: `map(func: fn(Obj) -> Obj)`, `filter(pred: fn(Obj) -> bool)`, `reduce(func: fn(Obj, Obj) -> Obj, initial: Obj)`.
 - `len() -> u64`.
 - `with_capacity(capacity: u64) -> Vec`.
+- `pop() -> Obj` removes and returns the last element and panics on an empty vector.
 - Index and slice parameters are signed: `index_get(index: i64)`, `index_set(index: i64, value: Obj)`, `slice_get(begin: i64, end: i64)`, `slice_set(begin: i64, end: i64, value: Vec)`.
 - Negative indices and slice bounds are normalized relative to the current length before bounds checks.
 

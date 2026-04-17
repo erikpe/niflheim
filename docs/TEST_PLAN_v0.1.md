@@ -233,7 +233,7 @@ Recommended CI split:
 - Identity equality behavior is preserved.
 
 ## Vec (Obj)
-- `push`, `get`, `set`, `len` semantics.
+- `push`, `pop`, `get`, `set`, `len` semantics.
 - Reallocation paths preserve existing elements.
 - Stored references remain GC-visible.
 
