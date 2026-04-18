@@ -1,0 +1,8 @@
+import std.vec;
+import proj.traci_nif.lang.parser.IncludeLocation;
+
+export class IfNode {
+    condNodes: Vec;
+    blockNodes: Vec;
+    location: IncludeLocation;
+}

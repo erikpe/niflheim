@@ -1,0 +1,9 @@
+import std.str;
+import std.vec;
+import proj.traci_nif.lang.interpreter.node.BlockNode;
+
+export class FunctionNode {
+    id: Str;
+    argIDs: Vec;
+    bodyNode: BlockNode;
+}

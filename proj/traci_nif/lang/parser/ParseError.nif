@@ -21,6 +21,9 @@ export class ParseError {
         if __self.source.equals("PARSER") {
             return "Parse error: ";
         }
+        if __self.source.equals("TREEWALKER") {
+            return "Tree walker error: ";
+        }
         if __self.source.equals("PREPROCESSOR") {
             return "Preprocessor error: ";
         }

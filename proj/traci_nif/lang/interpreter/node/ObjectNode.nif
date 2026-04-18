@@ -1,0 +1,11 @@
+import std.str;
+import std.vec;
+import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.interpreter.node.BlockNode;
+
+export class ObjectNode {
+    id: Str;
+    argNodes: Vec;
+    blockNode: BlockNode;
+    location: IncludeLocation;
+}

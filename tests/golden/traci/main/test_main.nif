@@ -4,6 +4,9 @@ import std.test;
 import std.error;
 import proj.traci_nif.main.Result as result;
 import proj.traci_nif.main.Settings as settings;
+import proj.traci_nif.lang.interpreter.node.BlockNode;
+import proj.traci_nif.lang.interpreter.node.FunctionNode;
+import proj.traci_nif.lang.interpreter.node.ReturnNode;
 import proj.traci_nif.lang.parser.ParserRunner as parser_runner;
 import proj.traci_nif.lang.parser.SyntaxNodes;
 import proj.traci_nif.lang.preprocessor.PreprocessorRunner as preprocessor_runner;
@@ -45,7 +48,14 @@ fn test_parser_after_preprocessor() -> unit {
     assert_true(scene != null);
     assert_eq_u64(scene.functions.len(), 1u);
     assert_eq_u64(scene.statements.len(), 1u);
-    println("tokens=" + parser.get_token(0).kind + "," + parser.get_token(-1).kind + "|functions=" + Str.from_i64((i64)scene.functions.len()) + "|statements=" + Str.from_i64((i64)scene.statements.len()) + "|first_function=" + ((FunctionSyntax)scene.functions[0]).name);
+
+    var root: BlockNode = parser.get_root_node();
+    assert_true(root != null);
+    assert_eq_u64(root.functions.len(), 1u);
+    assert_eq_u64(root.statements.len(), 1u);
+    assert_true(root.statements[0] is ReturnNode);
+
+    println("tokens=" + parser.get_token(0).kind + "," + parser.get_token(-1).kind + "|scene_functions=" + Str.from_i64((i64)scene.functions.len()) + "|scene_statements=" + Str.from_i64((i64)scene.statements.len()) + "|root_functions=" + Str.from_i64((i64)root.functions.len()) + "|root_statements=" + Str.from_i64((i64)root.statements.len()) + "|first_function=" + ((FunctionNode)root.functions[0]).id + "|first_statement=ReturnNode");
 }
 
 fn main() -> i64 {

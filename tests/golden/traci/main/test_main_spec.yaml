@@ -11,10 +11,10 @@ tests:
           stdout: |
             In file: proj/traci_java/testcode/does_not_exist.traci:0:0:
             Preprocessor error: Unable to open input file: 'proj/traci_java/testcode/does_not_exist.traci'
-      - name: "existing_input_parses_after_preprocessor"
+      - name: "existing_input_treewalks_after_preprocessor"
         input:
           args: ["parse_success"]
         expect:
           exit_code: 0
           stdout: |
-            tokens=PPLINE,EOF|functions=1|statements=1|first_function=fib
+            tokens=PPLINE,EOF|scene_functions=1|scene_statements=1|root_functions=1|root_statements=1|first_function=fib|first_statement=ReturnNode

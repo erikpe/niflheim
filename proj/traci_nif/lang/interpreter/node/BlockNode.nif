@@ -1,0 +1,16 @@
+import std.vec;
+
+export class BlockNode {
+    functions: Vec;
+    statements: Vec;
+
+    fn append(other: BlockNode) -> BlockNode {
+        var combined_functions: Vec = __self.functions.clone();
+        combined_functions.append(other.functions);
+
+        var combined_statements: Vec = __self.statements.clone();
+        combined_statements.append(other.statements);
+
+        return BlockNode(combined_functions, combined_statements);
+    }
+}

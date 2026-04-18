@@ -1,0 +1,341 @@
+import std.box;
+import std.str;
+import std.vec;
+import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.parser.ParserUtilities;
+import proj.traci_nif.lang.parser.SyntaxNodes;
+import proj.traci_nif.lang.interpreter.node.AssignNode;
+import proj.traci_nif.lang.interpreter.node.BinaryOpNode;
+import proj.traci_nif.lang.interpreter.node.BlockNode;
+import proj.traci_nif.lang.interpreter.node.ConstNode;
+import proj.traci_nif.lang.interpreter.node.ForNode;
+import proj.traci_nif.lang.interpreter.node.FunctionCallNode;
+import proj.traci_nif.lang.interpreter.node.FunctionNode;
+import proj.traci_nif.lang.interpreter.node.IfNode;
+import proj.traci_nif.lang.interpreter.node.ObjectNode;
+import proj.traci_nif.lang.interpreter.node.Op;
+import proj.traci_nif.lang.interpreter.node.RefNode;
+import proj.traci_nif.lang.interpreter.node.ReturnNode;
+import proj.traci_nif.lang.interpreter.node.UnaryOpNode;
+import proj.traci_nif.lang.interpreter.node.WhileNode;
+
+export class TreeWalker {
+    private _error_message: Str;
+    private _error_location: IncludeLocation;
+
+    constructor() {
+        __self._error_message = null;
+        __self._error_location = null;
+    }
+
+    fn get_error_message() -> Str {
+        return __self._error_message;
+    }
+
+    fn get_error_location() -> IncludeLocation {
+        return __self._error_location;
+    }
+
+    fn walk_scene(scene: SceneSyntax) -> BlockNode {
+        __self._error_message = null;
+        __self._error_location = null;
+        return __self._walk_scope(scene.functions, scene.statements);
+    }
+
+    private fn _walk_scope(functions: Vec, statements: Vec) -> BlockNode {
+        var function_nodes: Vec = Vec.new();
+        var i: i64 = 0;
+        while (u64)i < functions.len() {
+            var function_node: FunctionNode = __self._walk_function((FunctionSyntax)functions[i]);
+            if function_node == null {
+                return null;
+            }
+            function_nodes.push((Obj)function_node);
+            i = i + 1;
+        }
+
+        var statement_nodes: Vec = Vec.new();
+        i = 0;
+        while (u64)i < statements.len() {
+            var statement_node: Obj = __self._walk_statement(statements[i]);
+            if statement_node == null {
+                return null;
+            }
+            statement_nodes.push(statement_node);
+            i = i + 1;
+        }
+
+        return BlockNode(function_nodes, statement_nodes);
+    }
+
+    private fn _walk_function(node: FunctionSyntax) -> FunctionNode {
+        var body: BlockNode = __self._walk_scope(node.body.functions, node.body.statements);
+        if body == null {
+            return null;
+        }
+        return FunctionNode(node.name, node.params.clone(), body);
+    }
+
+    private fn _walk_statement(node: Obj) -> Obj {
+        if node is ExpressionStatementSyntax {
+            return __self._walk_expr(((ExpressionStatementSyntax)node).expr);
+        }
+
+        if node is AssignSyntax {
+            var assign_syntax: AssignSyntax = (AssignSyntax)node;
+            var assign_expr: Obj = __self._walk_expr(assign_syntax.value);
+            if assign_expr == null {
+                return null;
+            }
+            return (Obj)AssignNode(assign_syntax.name, assign_expr, false);
+        }
+
+        if node is GlobalAssignSyntax {
+            var global_syntax: GlobalAssignSyntax = (GlobalAssignSyntax)node;
+            var global_expr: Obj = __self._walk_expr(global_syntax.value);
+            if global_expr == null {
+                return null;
+            }
+            return (Obj)AssignNode(global_syntax.name, global_expr, true);
+        }
+
+        if node is ReturnSyntax {
+            var return_expr: Obj = __self._walk_expr(((ReturnSyntax)node).value);
+            if return_expr == null {
+                return null;
+            }
+            return (Obj)ReturnNode(return_expr);
+        }
+
+        if node is IfSyntax {
+            return (Obj)__self._walk_if((IfSyntax)node);
+        }
+
+        if node is WhileSyntax {
+            var while_syntax: WhileSyntax = (WhileSyntax)node;
+            var cond_node: Obj = __self._walk_expr(while_syntax.condition);
+            if cond_node == null {
+                return null;
+            }
+            var while_block: BlockNode = __self._walk_scope(while_syntax.body.functions, while_syntax.body.statements);
+            if while_block == null {
+                return null;
+            }
+            return (Obj)WhileNode(cond_node, while_block, while_syntax.location);
+        }
+
+        if node is ForSyntax {
+            var for_syntax: ForSyntax = (ForSyntax)node;
+            var start_node: Obj = __self._walk_expr(for_syntax.start_expr);
+            if start_node == null {
+                return null;
+            }
+            var end_node: Obj = __self._walk_expr(for_syntax.end_expr);
+            if end_node == null {
+                return null;
+            }
+            var for_block: BlockNode = __self._walk_scope(for_syntax.body.functions, for_syntax.body.statements);
+            if for_block == null {
+                return null;
+            }
+            return (Obj)ForNode(for_syntax.name, start_node, end_node, for_block, for_syntax.location);
+        }
+
+        return __self._walk_expr(node);
+    }
+
+    private fn _walk_if(node: IfSyntax) -> IfNode {
+        var cond_nodes: Vec = Vec.new();
+        var block_nodes: Vec = Vec.new();
+
+        var i: i64 = 0;
+        while (u64)i < node.conditions.len() {
+            var cond_node: Obj = __self._walk_expr(node.conditions[i]);
+            if cond_node == null {
+                return null;
+            }
+            cond_nodes.push(cond_node);
+
+            var block_node: BlockNode = __self._walk_scope(((BlockSyntax)node.blocks[i]).functions, ((BlockSyntax)node.blocks[i]).statements);
+            if block_node == null {
+                return null;
+            }
+            block_nodes.push((Obj)block_node);
+            i = i + 1;
+        }
+
+        if node.else_block != null {
+            var else_block: BlockNode = __self._walk_scope(node.else_block.functions, node.else_block.statements);
+            if else_block == null {
+                return null;
+            }
+            block_nodes.push((Obj)else_block);
+        }
+
+        return IfNode(cond_nodes, block_nodes, node.location);
+    }
+
+    private fn _walk_expr(node: Obj) -> Obj {
+        if node is BinaryExprSyntax {
+            var binary_syntax: BinaryExprSyntax = (BinaryExprSyntax)node;
+            var left: Obj = __self._walk_expr(binary_syntax.left);
+            if left == null {
+                return null;
+            }
+            var right: Obj = __self._walk_expr(binary_syntax.right);
+            if right == null {
+                return null;
+            }
+            var op: Str = __self._map_binary_op(binary_syntax.operator);
+            if op == null {
+                __self._set_error(binary_syntax.location, "Unsupported binary operator: " + binary_syntax.operator);
+                return null;
+            }
+            return (Obj)BinaryOpNode(op, left, right, binary_syntax.location);
+        }
+
+        if node is UnaryExprSyntax {
+            var unary_syntax: UnaryExprSyntax = (UnaryExprSyntax)node;
+            var operand: Obj = __self._walk_expr(unary_syntax.operand);
+            if operand == null {
+                return null;
+            }
+            var unary_op: Str = __self._map_unary_op(unary_syntax.operator);
+            if unary_op == null {
+                __self._set_error(unary_syntax.location, "Unsupported unary operator: " + unary_syntax.operator);
+                return null;
+            }
+            return (Obj)UnaryOpNode(unary_op, operand, unary_syntax.location);
+        }
+
+        if node is RefSyntax {
+            var ref_syntax: RefSyntax = (RefSyntax)node;
+            var ref_block: BlockNode = null;
+            if ref_syntax.trailing_block != null {
+                ref_block = __self._walk_scope(ref_syntax.trailing_block.functions, ref_syntax.trailing_block.statements);
+                if ref_block == null {
+                    return null;
+                }
+            }
+            return (Obj)RefNode(ref_syntax.name, ref_block, ref_syntax.location);
+        }
+
+        if node is FunctionCallSyntax {
+            var call_syntax: FunctionCallSyntax = (FunctionCallSyntax)node;
+            var call_args: Vec = __self._walk_expr_list(call_syntax.args);
+            if call_args == null {
+                return null;
+            }
+            var call_block: BlockNode = null;
+            if call_syntax.trailing_block != null {
+                call_block = __self._walk_scope(call_syntax.trailing_block.functions, call_syntax.trailing_block.statements);
+                if call_block == null {
+                    return null;
+                }
+            }
+            return (Obj)FunctionCallNode(call_syntax.name, call_args, call_block, call_syntax.location);
+        }
+
+        if node is ObjectSyntax {
+            var object_syntax: ObjectSyntax = (ObjectSyntax)node;
+            var object_args: Vec = __self._walk_expr_list(object_syntax.args);
+            if object_args == null {
+                return null;
+            }
+            var object_block: BlockNode = null;
+            if object_syntax.trailing_block != null {
+                object_block = __self._walk_scope(object_syntax.trailing_block.functions, object_syntax.trailing_block.statements);
+                if object_block == null {
+                    return null;
+                }
+            }
+            return (Obj)ObjectNode(object_syntax.name, object_args, object_block, object_syntax.location);
+        }
+
+        if node is VectorSyntax {
+            var vector_syntax: VectorSyntax = (VectorSyntax)node;
+            var vector_args: Vec = __self._walk_expr_list(vector_syntax.items);
+            if vector_args == null {
+                return null;
+            }
+            return (Obj)ObjectNode("vector[]", vector_args, null, vector_syntax.location);
+        }
+
+        if node is ColorSyntax {
+            var color_syntax: ColorSyntax = (ColorSyntax)node;
+            var color_args: Vec = __self._walk_expr_list(color_syntax.items);
+            if color_args == null {
+                return null;
+            }
+            return (Obj)ObjectNode("color", color_args, null, color_syntax.location);
+        }
+
+        if node is ConstSyntax {
+            return __self._walk_const((ConstSyntax)node);
+        }
+
+        __self._set_error(null, "Unsupported expression syntax node");
+        return null;
+    }
+
+    private fn _walk_expr_list(items: Vec) -> Vec {
+        var out: Vec = Vec.new();
+        var i: i64 = 0;
+        while (u64)i < items.len() {
+            var item: Obj = __self._walk_expr(items[i]);
+            if item == null {
+                return null;
+            }
+            out.push(item);
+            i = i + 1;
+        }
+        return out;
+    }
+
+    private fn _walk_const(node: ConstSyntax) -> ConstNode {
+        if node.kind.equals("INT") || node.kind.equals("FLOAT") {
+            return ConstNode((Obj)BoxDouble(node.text.to_double()));
+        }
+        if node.kind.equals("QSTRING") {
+            return ConstNode((Obj)unquote_qstring(node.text));
+        }
+        if node.kind.equals("TRUE") {
+            return ConstNode((Obj)BoxBool(true));
+        }
+        if node.kind.equals("FALSE") {
+            return ConstNode((Obj)BoxBool(false));
+        }
+
+        __self._set_error(null, "Unsupported constant syntax kind: " + node.kind);
+        return null;
+    }
+
+    private fn _map_binary_op(operator: Str) -> Str {
+        if operator.equals("PLUS_OP") { return Op.binary_add(); }
+        if operator.equals("MINUS_OP") { return Op.binary_sub(); }
+        if operator.equals("MUL_OP") { return Op.binary_mul(); }
+        if operator.equals("DIV_OP") { return Op.binary_div(); }
+        if operator.equals("LT_OP") { return Op.compare_lt(); }
+        if operator.equals("LTE_OP") { return Op.compare_lte(); }
+        if operator.equals("GT_OP") { return Op.compare_gt(); }
+        if operator.equals("GTE_OP") { return Op.compare_gte(); }
+        if operator.equals("EQ_OP") { return Op.compare_eq(); }
+        if operator.equals("NEQ_OP") { return Op.compare_neq(); }
+        return null;
+    }
+
+    private fn _map_unary_op(operator: Str) -> Str {
+        if operator.equals("PLUS_OP") { return Op.unary_plus(); }
+        if operator.equals("MINUS_OP") { return Op.unary_neg(); }
+        if operator.equals("NOT_OP") { return Op.unary_not(); }
+        return null;
+    }
+
+    private fn _set_error(location: IncludeLocation, message: Str) -> unit {
+        if __self._error_message != null {
+            return;
+        }
+        __self._error_message = message;
+        __self._error_location = location;
+    }
+}

@@ -1,0 +1,7 @@
+import std.str;
+
+export class AssignNode {
+    id: Str;
+    exprNode: Obj;
+    isGlobal: bool;
+}

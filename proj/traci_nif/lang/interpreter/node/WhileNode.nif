@@ -1,0 +1,8 @@
+import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.interpreter.node.BlockNode;
+
+export class WhileNode {
+    condNode: Obj;
+    blockNode: BlockNode;
+    location: IncludeLocation;
+}

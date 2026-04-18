@@ -1,0 +1,11 @@
+import std.str;
+import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.interpreter.node.BlockNode;
+
+export class ForNode {
+    counterId: Str;
+    startNode: Obj;
+    endNode: Obj;
+    blockNode: BlockNode;
+    location: IncludeLocation;
+}

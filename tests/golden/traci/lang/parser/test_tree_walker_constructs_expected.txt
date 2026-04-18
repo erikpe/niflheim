@@ -1,0 +1,127 @@
+BlockNode
+  Functions
+    FunctionNode outer
+      Args [n]
+      Body
+        BlockNode
+          Functions
+            FunctionNode inner
+              Args [x]
+              Body
+                BlockNode
+                  Functions []
+                  Statements
+                    ReturnNode
+                      BinaryOpNode BINARY_ADD
+                        RefNode x
+                          Block []
+                        ConstNode NUMBER 1
+          Statements
+            IfNode
+              Branch 1
+                Condition
+                  BinaryOpNode COMPARE_EQ
+                    RefNode n
+                      Block []
+                    ConstNode NUMBER 0
+                Then
+                  BlockNode
+                    Functions []
+                    Statements
+                      ReturnNode
+                        FunctionCallNode inner
+                          Args
+                            RefNode n
+                              Block []
+                          Block
+                            BlockNode
+                              Functions []
+                              Statements
+                                ObjectNode translate
+                                  Args
+                                    ObjectNode vector[]
+                                      Args
+                                        ConstNode NUMBER 1
+                                        ConstNode NUMBER 2
+                                        ConstNode NUMBER 3
+                                      Block []
+                                  Block []
+              Branch 2
+                Condition
+                  BinaryOpNode COMPARE_LT
+                    RefNode n
+                      Block []
+                    ConstNode NUMBER 10
+                Then
+                  BlockNode
+                    Functions []
+                    Statements
+                      WhileNode
+                        Condition
+                          BinaryOpNode COMPARE_LT
+                            RefNode n
+                              Block []
+                            ConstNode NUMBER 3
+                        Body
+                          BlockNode
+                            Functions []
+                            Statements
+                              AssignNode local n
+                                BinaryOpNode BINARY_ADD
+                                  RefNode n
+                                    Block []
+                                  ConstNode NUMBER 1
+              Else
+                BlockNode
+                  Functions []
+                  Statements
+                    ForNode i
+                      Start
+                        ConstNode NUMBER 0
+                      End
+                        RefNode n
+                          Block []
+                      Body
+                        BlockNode
+                          Functions []
+                          Statements
+                            AssignNode global total
+                              ObjectNode color
+                                Args
+                                  ConstNode NUMBER 1
+                                  ConstNode NUMBER 0.500000
+                                  ConstNode NUMBER 0.250000
+                                  ConstNode NUMBER 1
+                                Block []
+            ReturnNode
+              ObjectNode union
+                Args []
+                Block
+                  BlockNode
+                    Functions []
+                    Statements
+                      ObjectNode box
+                        Args []
+                        Block
+                          BlockNode
+                            Functions []
+                            Statements
+                              ObjectNode scale
+                                Args
+                                  ObjectNode vector[]
+                                    Args
+                                      ConstNode NUMBER 1
+                                      ConstNode NUMBER 2
+                                      ConstNode NUMBER 3
+                                    Block []
+                                Block []
+                      ObjectNode translate
+                        Args
+                          ObjectNode vector[]
+                            Args
+                              ConstNode NUMBER 4
+                              ConstNode NUMBER 5
+                              ConstNode NUMBER 6
+                            Block []
+                        Block []
+  Statements []

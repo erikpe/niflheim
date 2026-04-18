@@ -1,0 +1,8 @@
+import std.str;
+import proj.traci_nif.lang.parser.IncludeLocation;
+
+export class UnaryOpNode {
+    op: Str;
+    aNode: Obj;
+    location: IncludeLocation;
+}

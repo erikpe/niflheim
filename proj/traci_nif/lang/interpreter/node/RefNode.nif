@@ -1,0 +1,9 @@
+import std.str;
+import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.interpreter.node.BlockNode;
+
+export class RefNode {
+    id: Str;
+    blockNode: BlockNode;
+    location: IncludeLocation;
+}

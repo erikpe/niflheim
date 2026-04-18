@@ -147,13 +147,13 @@ export class Parser {
 
     private fn _parse_statement() -> Obj {
         if __self._match("IF") {
-            return (Obj)__self._parse_if_statement();
+            return (Obj)__self._parse_if_statement(__self._previous());
         }
         if __self._match("WHILE") {
-            return (Obj)__self._parse_while_statement();
+            return (Obj)__self._parse_while_statement(__self._previous());
         }
         if __self._match("FOR") {
-            return (Obj)__self._parse_for_statement();
+            return (Obj)__self._parse_for_statement(__self._previous());
         }
         if __self._match("RETURN") {
             return (Obj)__self._parse_return_statement();
@@ -178,7 +178,7 @@ export class Parser {
         return (Obj)ExpressionStatementSyntax(expr);
     }
 
-    private fn _parse_if_statement() -> IfSyntax {
+    private fn _parse_if_statement(if_token: TraciToken) -> IfSyntax {
         var conditions: Vec = Vec.new();
         var blocks: Vec = Vec.new();
 
@@ -226,10 +226,10 @@ export class Parser {
             }
         }
 
-        return IfSyntax(conditions, blocks, else_block);
+        return IfSyntax(conditions, blocks, else_block, if_token.location);
     }
 
-    private fn _parse_while_statement() -> WhileSyntax {
+    private fn _parse_while_statement(while_token: TraciToken) -> WhileSyntax {
         if __self._expect("LPAR", "Expected '(' after 'while'") == null {
             return null;
         }
@@ -244,10 +244,10 @@ export class Parser {
         if body == null {
             return null;
         }
-        return WhileSyntax(condition, body);
+        return WhileSyntax(condition, body, while_token.location);
     }
 
-    private fn _parse_for_statement() -> ForSyntax {
+    private fn _parse_for_statement(for_token: TraciToken) -> ForSyntax {
         if __self._expect("LPAR", "Expected '(' after 'for'") == null {
             return null;
         }
@@ -276,7 +276,7 @@ export class Parser {
         if body == null {
             return null;
         }
-        return ForSyntax(name_token.text, start_expr, end_expr, body);
+        return ForSyntax(name_token.text, start_expr, end_expr, body, for_token.location);
     }
 
     private fn _parse_return_statement() -> ReturnSyntax {
@@ -340,7 +340,7 @@ export class Parser {
         }
         var args: Vec = Vec.new();
         args.push(arg);
-        return ObjectSyntax(token.kind, token.text, args, null);
+        return ObjectSyntax(token.kind, token.text, args, null, token.location);
     }
 
     private fn _parse_expression() -> Obj {
@@ -359,7 +359,7 @@ export class Parser {
             if right == null {
                 return null;
             }
-            expr = (Obj)BinaryExprSyntax(op.kind, expr, right);
+            expr = (Obj)BinaryExprSyntax(op.kind, expr, right, op.location);
         }
 
         return expr;
@@ -377,7 +377,7 @@ export class Parser {
             if right == null {
                 return null;
             }
-            expr = (Obj)BinaryExprSyntax(op.kind, expr, right);
+            expr = (Obj)BinaryExprSyntax(op.kind, expr, right, op.location);
         }
 
         return expr;
@@ -395,7 +395,7 @@ export class Parser {
             if right == null {
                 return null;
             }
-            expr = (Obj)BinaryExprSyntax(op.kind, expr, right);
+            expr = (Obj)BinaryExprSyntax(op.kind, expr, right, op.location);
         }
 
         return expr;
@@ -408,7 +408,7 @@ export class Parser {
             if operand == null {
                 return null;
             }
-            return (Obj)UnaryExprSyntax(op.kind, operand);
+            return (Obj)UnaryExprSyntax(op.kind, operand, op.location);
         }
 
         return __self._parse_primary();
@@ -429,11 +429,11 @@ export class Parser {
         }
 
         if __self._match("LBRACKET") {
-            return __self._parse_vector_after_lbracket();
+            return __self._parse_vector_after_lbracket(__self._previous());
         }
 
         if __self._match("COLOR") {
-            return __self._parse_color_after_color();
+            return __self._parse_color_after_color(__self._previous());
         }
 
         if __self._match("LPAR") {
@@ -461,14 +461,14 @@ export class Parser {
             if __self._has_errors() {
                 return null;
             }
-            return (Obj)FunctionCallSyntax(name_token.text, args, trailing_block);
+            return (Obj)FunctionCallSyntax(name_token.text, args, trailing_block, name_token.location);
         }
 
         var ref_block: BlockSyntax = __self._parse_optional_block();
         if __self._has_errors() {
             return null;
         }
-        return (Obj)RefSyntax(name_token.text, ref_block);
+        return (Obj)RefSyntax(name_token.text, ref_block, name_token.location);
     }
 
     private fn _parse_object_primary(head_token: TraciToken) -> Obj {
@@ -486,7 +486,7 @@ export class Parser {
             if __self._has_errors() {
                 return null;
             }
-            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block);
+            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block, head_token.location);
         }
 
         if head_token.kind.equals("CSG_SHAPE") || head_token.kind.equals("TEXTURE") {
@@ -494,7 +494,7 @@ export class Parser {
             if __self._has_errors() {
                 return null;
             }
-            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block);
+            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block, head_token.location);
         }
 
         if head_token.kind.equals("FINISH") || head_token.kind.equals("INTERIOR") {
@@ -502,7 +502,7 @@ export class Parser {
             if args == null {
                 return null;
             }
-            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, null);
+            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, null, head_token.location);
         }
 
         if head_token.kind.equals("CAMERA") || head_token.kind.equals("SKYBOX") {
@@ -514,14 +514,14 @@ export class Parser {
             if __self._has_errors() {
                 return null;
             }
-            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block);
+            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block, head_token.location);
         }
 
         __self._add_error(head_token, "Unsupported object form: " + head_token.text);
         return null;
     }
 
-    private fn _parse_vector_after_lbracket() -> Obj {
+    private fn _parse_vector_after_lbracket(lbracket_token: TraciToken) -> Obj {
         var items: Vec = Vec.new();
 
         var x: Obj = __self._parse_expression();
@@ -554,10 +554,10 @@ export class Parser {
             return null;
         }
 
-        return (Obj)VectorSyntax(items);
+        return (Obj)VectorSyntax(items, lbracket_token.location);
     }
 
-    private fn _parse_color_after_color() -> Obj {
+    private fn _parse_color_after_color(color_token: TraciToken) -> Obj {
         if __self._expect("LBRACKET", "Expected '[' after 'color'") == null {
             return null;
         }
@@ -599,7 +599,7 @@ export class Parser {
             return null;
         }
 
-        return (Obj)ColorSyntax(items);
+        return (Obj)ColorSyntax(items, color_token.location);
     }
 
     private fn _parse_call_args() -> Vec {

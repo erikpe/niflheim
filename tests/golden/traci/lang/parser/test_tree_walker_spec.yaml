@@ -1,0 +1,53 @@
+tests:
+  - mode: "run"
+    name: "test_tree_walker"
+    src_file: "test_tree_walker.nif"
+    runs:
+      - name: "basic_tree_walker_dump"
+        input:
+          args: ["basic"]
+        expect:
+          exit_code: 0
+          stdout: |
+            BlockNode
+              Functions []
+              Statements
+                BinaryOpNode BINARY_ADD
+                  ConstNode NUMBER 17
+                  ConstNode NUMBER 23
+      - name: "string_constant_is_unquoted"
+        input:
+          args: ["string"]
+        expect:
+          exit_code: 0
+          stdout: |
+            BlockNode
+              Functions []
+              Statements
+                ConstNode STRING foo/bar.hej
+      - name: "constructs_tree_walker_dump"
+        input:
+          args: ["constructs"]
+        expect:
+          exit_code: 0
+          stdout_file: "test_tree_walker_constructs_expected.txt"
+      - name: "fibonacci_preprocessed_file_treewalks"
+        input:
+          args: ["fibonacci"]
+        expect:
+          exit_code: 0
+          stdout: |
+            functions=1|statements=1|first_function=fib|first_statement=ReturnNode
+      - name: "prime_checker_file_treewalks"
+        input:
+          args: ["prime"]
+        expect:
+          exit_code: 0
+          stdout: |
+            functions=3|statements=0|first_function=floor
+      - name: "basic_shapes_preprocessed_file_treewalks"
+        input:
+          args: ["basic_shapes"]
+        expect:
+          exit_code: 0
+          stdout: "functions=18|statements=6|first_function=roundedCylinder0_base|first_statement=AssignNode\n"

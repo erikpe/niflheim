@@ -1,0 +1,253 @@
+import std.box;
+import std.str;
+import std.vec;
+import proj.traci_nif.lang.interpreter.node.AssignNode;
+import proj.traci_nif.lang.interpreter.node.BinaryOpNode;
+import proj.traci_nif.lang.interpreter.node.BlockNode;
+import proj.traci_nif.lang.interpreter.node.ConstNode;
+import proj.traci_nif.lang.interpreter.node.ForNode;
+import proj.traci_nif.lang.interpreter.node.FunctionCallNode;
+import proj.traci_nif.lang.interpreter.node.FunctionNode;
+import proj.traci_nif.lang.interpreter.node.IfNode;
+import proj.traci_nif.lang.interpreter.node.ObjectNode;
+import proj.traci_nif.lang.interpreter.node.RefNode;
+import proj.traci_nif.lang.interpreter.node.ReturnNode;
+import proj.traci_nif.lang.interpreter.node.UnaryOpNode;
+import proj.traci_nif.lang.interpreter.node.WhileNode;
+
+fn _append_indent(out: StrBuf, depth: i64) -> unit {
+    var i: i64 = 0;
+    while i < depth {
+        out.append("  ");
+        i = i + 1;
+    }
+}
+
+fn _append_line(out: StrBuf, depth: i64, text: Str) -> unit {
+    _append_indent(out, depth);
+    out.append(text);
+    out.append_char('\n');
+}
+
+fn _append_name_list_line(out: StrBuf, depth: i64, label: Str, items: Vec) -> unit {
+    _append_indent(out, depth);
+    out.append(label);
+    out.append(" [");
+
+    var i: i64 = 0;
+    while (u64)i < items.len() {
+        if i > 0 {
+            out.append(", ");
+        }
+        out.append((Str)items[i]);
+        i = i + 1;
+    }
+
+    out.append("]\n");
+}
+
+fn _append_section_header(out: StrBuf, depth: i64, label: Str, count: u64) -> unit {
+    _append_indent(out, depth);
+    out.append(label);
+    if count == 0u {
+        out.append(" []");
+    }
+    out.append_char('\n');
+}
+
+fn _render_const_value(value: Obj) -> Str {
+    if value == null {
+        return "NULL <null>";
+    }
+    if value is BoxDouble {
+        var number: double = ((BoxDouble)value).val;
+        var as_i64: i64 = (i64)number;
+        if number == (double)as_i64 {
+            return "NUMBER " + Str.from_i64(as_i64);
+        }
+        return "NUMBER " + Str.from_double(number);
+    }
+    if value is BoxBool {
+        if ((BoxBool)value).val {
+            return "BOOLEAN true";
+        }
+        return "BOOLEAN false";
+    }
+    if value is Str {
+        return "STRING " + (Str)value;
+    }
+    return "OBJECT <unknown>";
+}
+
+fn _dump_block(out: StrBuf, depth: i64, block: BlockNode) -> unit {
+    _append_line(out, depth, "BlockNode");
+
+    _append_section_header(out, depth + 1, "Functions", block.functions.len());
+    var i: i64 = 0;
+    while (u64)i < block.functions.len() {
+        _dump_node(out, depth + 2, block.functions[i]);
+        i = i + 1;
+    }
+
+    _append_section_header(out, depth + 1, "Statements", block.statements.len());
+    i = 0;
+    while (u64)i < block.statements.len() {
+        _dump_node(out, depth + 2, block.statements[i]);
+        i = i + 1;
+    }
+}
+
+fn _dump_optional_block(out: StrBuf, depth: i64, label: Str, block: BlockNode) -> unit {
+    if block == null {
+        _append_line(out, depth, label + " []");
+        return;
+    }
+
+    _append_line(out, depth, label);
+    _dump_block(out, depth + 1, block);
+}
+
+fn _dump_args(out: StrBuf, depth: i64, args: Vec) -> unit {
+    _append_section_header(out, depth, "Args", args.len());
+    var i: i64 = 0;
+    while (u64)i < args.len() {
+        _dump_node(out, depth + 1, args[i]);
+        i = i + 1;
+    }
+}
+
+fn _dump_if_node(out: StrBuf, depth: i64, node: IfNode) -> unit {
+    _append_line(out, depth, "IfNode");
+
+    var i: i64 = 0;
+    while (u64)i < node.condNodes.len() {
+        _append_line(out, depth + 1, "Branch " + Str.from_i64(i + 1));
+        _append_line(out, depth + 2, "Condition");
+        _dump_node(out, depth + 3, node.condNodes[i]);
+        _append_line(out, depth + 2, "Then");
+        _dump_block(out, depth + 3, (BlockNode)node.blockNodes[i]);
+        i = i + 1;
+    }
+
+    if node.blockNodes.len() > node.condNodes.len() {
+        _append_line(out, depth + 1, "Else");
+        _dump_block(out, depth + 2, (BlockNode)node.blockNodes[(i64)node.condNodes.len()]);
+        return;
+    }
+
+    _append_line(out, depth + 1, "Else []");
+}
+
+fn _dump_node(out: StrBuf, depth: i64, node: Obj) -> unit {
+    if node is BlockNode {
+        _dump_block(out, depth, (BlockNode)node);
+        return;
+    }
+
+    if node is FunctionNode {
+        var function_node: FunctionNode = (FunctionNode)node;
+        _append_line(out, depth, "FunctionNode " + function_node.id);
+        _append_name_list_line(out, depth + 1, "Args", function_node.argIDs);
+        _append_line(out, depth + 1, "Body");
+        _dump_block(out, depth + 2, function_node.bodyNode);
+        return;
+    }
+
+    if node is AssignNode {
+        var assign_node: AssignNode = (AssignNode)node;
+        if assign_node.isGlobal {
+            _append_line(out, depth, "AssignNode global " + assign_node.id);
+        }
+        else {
+            _append_line(out, depth, "AssignNode local " + assign_node.id);
+        }
+        _dump_node(out, depth + 1, assign_node.exprNode);
+        return;
+    }
+
+    if node is BinaryOpNode {
+        var binary_node: BinaryOpNode = (BinaryOpNode)node;
+        _append_line(out, depth, "BinaryOpNode " + binary_node.op);
+        _dump_node(out, depth + 1, binary_node.aNode);
+        _dump_node(out, depth + 1, binary_node.bNode);
+        return;
+    }
+
+    if node is ConstNode {
+        var const_node: ConstNode = (ConstNode)node;
+        _append_line(out, depth, "ConstNode " + _render_const_value(const_node.value));
+        return;
+    }
+
+    if node is ForNode {
+        var for_node: ForNode = (ForNode)node;
+        _append_line(out, depth, "ForNode " + for_node.counterId);
+        _append_line(out, depth + 1, "Start");
+        _dump_node(out, depth + 2, for_node.startNode);
+        _append_line(out, depth + 1, "End");
+        _dump_node(out, depth + 2, for_node.endNode);
+        _append_line(out, depth + 1, "Body");
+        _dump_block(out, depth + 2, for_node.blockNode);
+        return;
+    }
+
+    if node is FunctionCallNode {
+        var call_node: FunctionCallNode = (FunctionCallNode)node;
+        _append_line(out, depth, "FunctionCallNode " + call_node.id);
+        _dump_args(out, depth + 1, call_node.argNodes);
+        _dump_optional_block(out, depth + 1, "Block", call_node.blockNode);
+        return;
+    }
+
+    if node is IfNode {
+        _dump_if_node(out, depth, (IfNode)node);
+        return;
+    }
+
+    if node is ObjectNode {
+        var object_node: ObjectNode = (ObjectNode)node;
+        _append_line(out, depth, "ObjectNode " + object_node.id);
+        _dump_args(out, depth + 1, object_node.argNodes);
+        _dump_optional_block(out, depth + 1, "Block", object_node.blockNode);
+        return;
+    }
+
+    if node is RefNode {
+        var ref_node: RefNode = (RefNode)node;
+        _append_line(out, depth, "RefNode " + ref_node.id);
+        _dump_optional_block(out, depth + 1, "Block", ref_node.blockNode);
+        return;
+    }
+
+    if node is ReturnNode {
+        var return_node: ReturnNode = (ReturnNode)node;
+        _append_line(out, depth, "ReturnNode");
+        _dump_node(out, depth + 1, return_node.exprNode);
+        return;
+    }
+
+    if node is UnaryOpNode {
+        var unary_node: UnaryOpNode = (UnaryOpNode)node;
+        _append_line(out, depth, "UnaryOpNode " + unary_node.op);
+        _dump_node(out, depth + 1, unary_node.aNode);
+        return;
+    }
+
+    if node is WhileNode {
+        var while_node: WhileNode = (WhileNode)node;
+        _append_line(out, depth, "WhileNode");
+        _append_line(out, depth + 1, "Condition");
+        _dump_node(out, depth + 2, while_node.condNode);
+        _append_line(out, depth + 1, "Body");
+        _dump_block(out, depth + 2, while_node.blockNode);
+        return;
+    }
+
+    _append_line(out, depth, "<unknown traci node>");
+}
+
+export fn dump_block(root_obj: Obj) -> Str {
+    var out: StrBuf = StrBuf.new(256u);
+    _dump_block(out, 0, (BlockNode)root_obj);
+    return out.to_str();
+}

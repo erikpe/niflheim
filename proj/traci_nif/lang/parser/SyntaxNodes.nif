@@ -1,5 +1,6 @@
 import std.str;
 import std.vec;
+import proj.traci_nif.lang.parser.IncludeLocation;
 
 export class SceneSyntax {
     functions: Vec;
@@ -39,11 +40,13 @@ export class IfSyntax {
     conditions: Vec;
     blocks: Vec;
     else_block: BlockSyntax;
+    location: IncludeLocation;
 }
 
 export class WhileSyntax {
     condition: Obj;
     body: BlockSyntax;
+    location: IncludeLocation;
 }
 
 export class ForSyntax {
@@ -51,28 +54,33 @@ export class ForSyntax {
     start_expr: Obj;
     end_expr: Obj;
     body: BlockSyntax;
+    location: IncludeLocation;
 }
 
 export class BinaryExprSyntax {
     operator: Str;
     left: Obj;
     right: Obj;
+    location: IncludeLocation;
 }
 
 export class UnaryExprSyntax {
     operator: Str;
     operand: Obj;
+    location: IncludeLocation;
 }
 
 export class RefSyntax {
     name: Str;
     trailing_block: BlockSyntax;
+    location: IncludeLocation;
 }
 
 export class FunctionCallSyntax {
     name: Str;
     args: Vec;
     trailing_block: BlockSyntax;
+    location: IncludeLocation;
 }
 
 export class ObjectSyntax {
@@ -80,14 +88,17 @@ export class ObjectSyntax {
     name: Str;
     args: Vec;
     trailing_block: BlockSyntax;
+    location: IncludeLocation;
 }
 
 export class VectorSyntax {
     items: Vec;
+    location: IncludeLocation;
 }
 
 export class ColorSyntax {
     items: Vec;
+    location: IncludeLocation;
 }
 
 export class ConstSyntax {

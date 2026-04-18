@@ -1,0 +1,17 @@
+import std.str;
+
+export class Op {
+    static fn binary_add() -> Str { return "BINARY_ADD"; }
+    static fn binary_sub() -> Str { return "BINARY_SUB"; }
+    static fn binary_mul() -> Str { return "BINARY_MUL"; }
+    static fn binary_div() -> Str { return "BINARY_DIV"; }
+    static fn compare_lt() -> Str { return "COMPARE_LT"; }
+    static fn compare_lte() -> Str { return "COMPARE_LTE"; }
+    static fn compare_gt() -> Str { return "COMPARE_GT"; }
+    static fn compare_gte() -> Str { return "COMPARE_GTE"; }
+    static fn compare_eq() -> Str { return "COMPARE_EQ"; }
+    static fn compare_neq() -> Str { return "COMPARE_NEQ"; }
+    static fn unary_plus() -> Str { return "UNARY_PLUS"; }
+    static fn unary_neg() -> Str { return "UNARY_NEG"; }
+    static fn unary_not() -> Str { return "UNARY_NOT"; }
+}
