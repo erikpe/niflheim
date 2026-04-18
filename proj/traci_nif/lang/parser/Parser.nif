@@ -1,0 +1,712 @@
+import std.str;
+import std.vec;
+import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.parser.ParseError;
+import proj.traci_nif.lang.parser.TraciToken;
+import proj.traci_nif.lang.parser.SyntaxNodes;
+
+fn _fallback_location(input_filename: Str) -> IncludeLocation {
+    if input_filename == null {
+        return IncludeLocation.from_parts("<unknown>", 1, 0);
+    }
+    return IncludeLocation.from_parts(input_filename, 1, 0);
+}
+
+fn _empty_vec() -> Vec {
+    return Vec.new();
+}
+
+export class Parser {
+    private _tokens: Vec;
+    private _index: i64;
+    private _diagnostics: ParseErrorBag;
+    private _input_filename: Str;
+
+    constructor(tokens: Vec, input_filename: Str) {
+        __self._tokens = tokens;
+        __self._index = 0;
+        __self._diagnostics = ParseErrorBag();
+        __self._input_filename = input_filename;
+    }
+
+    fn get_diagnostics() -> ParseErrorBag {
+        return __self._diagnostics;
+    }
+
+    fn parse_scene() -> SceneSyntax {
+        var functions: Vec = Vec.new();
+        var statements: Vec = Vec.new();
+
+        while !__self._is_at_end() {
+            if __self._check("DEF") {
+                var function: FunctionSyntax = __self._parse_function();
+                if function == null {
+                    return null;
+                }
+                functions.push((Obj)function);
+            }
+            else {
+                var statement: Obj = __self._parse_statement();
+                if statement == null {
+                    return null;
+                }
+                statements.push(statement);
+            }
+        }
+
+        return SceneSyntax(functions, statements);
+    }
+
+    private fn _parse_function() -> FunctionSyntax {
+        if __self._expect("DEF", "Expected 'def' to start function declaration") == null {
+            return null;
+        }
+
+        var name_token: TraciToken = __self._expect("ID", "Expected function name after 'def'");
+        if name_token == null {
+            return null;
+        }
+
+        var params: Vec = __self._parse_param_list();
+        if params == null {
+            return null;
+        }
+
+        var body: BlockSyntax = __self._parse_block();
+        if body == null {
+            return null;
+        }
+
+        return FunctionSyntax(name_token.text, params, body);
+    }
+
+    private fn _parse_param_list() -> Vec {
+        if __self._expect("LPAR", "Expected '(' after function name") == null {
+            return null;
+        }
+
+        var params: Vec = Vec.new();
+        if __self._check("RPAR") {
+            __self._advance();
+            return params;
+        }
+
+        while true {
+            var param_token: TraciToken = __self._expect("ID", "Expected parameter name");
+            if param_token == null {
+                return null;
+            }
+            params.push((Obj)param_token.text);
+
+            if !__self._match("COMMA_OP") {
+                break;
+            }
+        }
+
+        if __self._expect("RPAR", "Expected ')' after parameter list") == null {
+            return null;
+        }
+        return params;
+    }
+
+    private fn _parse_block() -> BlockSyntax {
+        if __self._expect("LCURLY", "Expected '{' to start block") == null {
+            return null;
+        }
+
+        var functions: Vec = Vec.new();
+        var statements: Vec = Vec.new();
+
+        while !__self._check("RCURLY") {
+            if __self._is_at_end() {
+                __self._add_error(__self._peek(0), "Unterminated block");
+                return null;
+            }
+
+            if __self._check("DEF") {
+                var function: FunctionSyntax = __self._parse_function();
+                if function == null {
+                    return null;
+                }
+                functions.push((Obj)function);
+            }
+            else {
+                var statement: Obj = __self._parse_statement();
+                if statement == null {
+                    return null;
+                }
+                statements.push(statement);
+            }
+        }
+
+        if __self._expect("RCURLY", "Expected '}' after block") == null {
+            return null;
+        }
+        return BlockSyntax(functions, statements);
+    }
+
+    private fn _parse_statement() -> Obj {
+        if __self._match("IF") {
+            return (Obj)__self._parse_if_statement();
+        }
+        if __self._match("WHILE") {
+            return (Obj)__self._parse_while_statement();
+        }
+        if __self._match("FOR") {
+            return (Obj)__self._parse_for_statement();
+        }
+        if __self._match("RETURN") {
+            return (Obj)__self._parse_return_statement();
+        }
+        if __self._match("GLOBAL") {
+            return (Obj)__self._parse_global_assign_statement();
+        }
+        if __self._is_assignment_statement() {
+            return (Obj)__self._parse_assign_statement();
+        }
+        if __self._is_simplified_transformation_statement() {
+            return (Obj)__self._parse_simplified_transformation_statement();
+        }
+
+        var expr: Obj = __self._parse_expression();
+        if expr == null {
+            return null;
+        }
+        if __self._expect("SEMICOLON", "Expected ';' after expression statement") == null {
+            return null;
+        }
+        return (Obj)ExpressionStatementSyntax(expr);
+    }
+
+    private fn _parse_if_statement() -> IfSyntax {
+        var conditions: Vec = Vec.new();
+        var blocks: Vec = Vec.new();
+
+        if __self._expect("LPAR", "Expected '(' after 'if'") == null {
+            return null;
+        }
+        var if_condition: Obj = __self._parse_expression();
+        if if_condition == null {
+            return null;
+        }
+        if __self._expect("RPAR", "Expected ')' after if condition") == null {
+            return null;
+        }
+        var if_block: BlockSyntax = __self._parse_block();
+        if if_block == null {
+            return null;
+        }
+        conditions.push(if_condition);
+        blocks.push((Obj)if_block);
+
+        while __self._match("ELIF") {
+            if __self._expect("LPAR", "Expected '(' after 'elif'") == null {
+                return null;
+            }
+            var elif_condition: Obj = __self._parse_expression();
+            if elif_condition == null {
+                return null;
+            }
+            if __self._expect("RPAR", "Expected ')' after elif condition") == null {
+                return null;
+            }
+            var elif_block: BlockSyntax = __self._parse_block();
+            if elif_block == null {
+                return null;
+            }
+            conditions.push(elif_condition);
+            blocks.push((Obj)elif_block);
+        }
+
+        var else_block: BlockSyntax = null;
+        if __self._match("ELSE") {
+            else_block = __self._parse_block();
+            if else_block == null {
+                return null;
+            }
+        }
+
+        return IfSyntax(conditions, blocks, else_block);
+    }
+
+    private fn _parse_while_statement() -> WhileSyntax {
+        if __self._expect("LPAR", "Expected '(' after 'while'") == null {
+            return null;
+        }
+        var condition: Obj = __self._parse_expression();
+        if condition == null {
+            return null;
+        }
+        if __self._expect("RPAR", "Expected ')' after while condition") == null {
+            return null;
+        }
+        var body: BlockSyntax = __self._parse_block();
+        if body == null {
+            return null;
+        }
+        return WhileSyntax(condition, body);
+    }
+
+    private fn _parse_for_statement() -> ForSyntax {
+        if __self._expect("LPAR", "Expected '(' after 'for'") == null {
+            return null;
+        }
+        var name_token: TraciToken = __self._expect("ID", "Expected loop variable name after 'for('");
+        if name_token == null {
+            return null;
+        }
+        if __self._expect("IN", "Expected 'in' after loop variable") == null {
+            return null;
+        }
+        var start_expr: Obj = __self._parse_expression();
+        if start_expr == null {
+            return null;
+        }
+        if __self._expect("DOTS", "Expected '..' in for-range expression") == null {
+            return null;
+        }
+        var end_expr: Obj = __self._parse_expression();
+        if end_expr == null {
+            return null;
+        }
+        if __self._expect("RPAR", "Expected ')' after for-range expression") == null {
+            return null;
+        }
+        var body: BlockSyntax = __self._parse_block();
+        if body == null {
+            return null;
+        }
+        return ForSyntax(name_token.text, start_expr, end_expr, body);
+    }
+
+    private fn _parse_return_statement() -> ReturnSyntax {
+        var value: Obj = __self._parse_expression();
+        if value == null {
+            return null;
+        }
+        if __self._expect("SEMICOLON", "Expected ';' after return statement") == null {
+            return null;
+        }
+        return ReturnSyntax(value);
+    }
+
+    private fn _parse_global_assign_statement() -> GlobalAssignSyntax {
+        var name_token: TraciToken = __self._expect("ID", "Expected identifier after 'global'");
+        if name_token == null {
+            return null;
+        }
+        if __self._expect("ASSIGN", "Expected '=' after global identifier") == null {
+            return null;
+        }
+        var value: Obj = __self._parse_expression();
+        if value == null {
+            return null;
+        }
+        if __self._expect("SEMICOLON", "Expected ';' after global assignment") == null {
+            return null;
+        }
+        return GlobalAssignSyntax(name_token.text, value);
+    }
+
+    private fn _parse_assign_statement() -> AssignSyntax {
+        var name_token: TraciToken = __self._expect("ID", "Expected assignment target") ;
+        if name_token == null {
+            return null;
+        }
+        if __self._expect("ASSIGN", "Expected '=' after assignment target") == null {
+            return null;
+        }
+        var value: Obj = __self._parse_expression();
+        if value == null {
+            return null;
+        }
+        if __self._expect("SEMICOLON", "Expected ';' after assignment") == null {
+            return null;
+        }
+        return AssignSyntax(name_token.text, value);
+    }
+
+    private fn _parse_simplified_transformation_statement() -> ObjectSyntax {
+        var token: TraciToken = __self._expect("TRANSFORMATION", "Expected transformation statement");
+        if token == null {
+            return null;
+        }
+        var arg: Obj = __self._parse_expression();
+        if arg == null {
+            return null;
+        }
+        if __self._expect("SEMICOLON", "Expected ';' after simplified transformation statement") == null {
+            return null;
+        }
+        var args: Vec = Vec.new();
+        args.push(arg);
+        return ObjectSyntax(token.kind, token.text, args, null);
+    }
+
+    private fn _parse_expression() -> Obj {
+        return __self._parse_comparison();
+    }
+
+    private fn _parse_comparison() -> Obj {
+        var expr: Obj = __self._parse_addition();
+        if expr == null {
+            return null;
+        }
+
+        if __self._match("LT_OP") || __self._match("GT_OP") || __self._match("LTE_OP") || __self._match("GTE_OP") || __self._match("EQ_OP") || __self._match("NEQ_OP") {
+            var op: TraciToken = __self._previous();
+            var right: Obj = __self._parse_addition();
+            if right == null {
+                return null;
+            }
+            expr = (Obj)BinaryExprSyntax(op.kind, expr, right);
+        }
+
+        return expr;
+    }
+
+    private fn _parse_addition() -> Obj {
+        var expr: Obj = __self._parse_multiplication();
+        if expr == null {
+            return null;
+        }
+
+        while __self._match("PLUS_OP") || __self._match("MINUS_OP") {
+            var op: TraciToken = __self._previous();
+            var right: Obj = __self._parse_multiplication();
+            if right == null {
+                return null;
+            }
+            expr = (Obj)BinaryExprSyntax(op.kind, expr, right);
+        }
+
+        return expr;
+    }
+
+    private fn _parse_multiplication() -> Obj {
+        var expr: Obj = __self._parse_unary();
+        if expr == null {
+            return null;
+        }
+
+        while __self._match("MUL_OP") || __self._match("DIV_OP") {
+            var op: TraciToken = __self._previous();
+            var right: Obj = __self._parse_unary();
+            if right == null {
+                return null;
+            }
+            expr = (Obj)BinaryExprSyntax(op.kind, expr, right);
+        }
+
+        return expr;
+    }
+
+    private fn _parse_unary() -> Obj {
+        if __self._match("MINUS_OP") || __self._match("PLUS_OP") || __self._match("NOT_OP") {
+            var op: TraciToken = __self._previous();
+            var operand: Obj = __self._parse_unary();
+            if operand == null {
+                return null;
+            }
+            return (Obj)UnaryExprSyntax(op.kind, operand);
+        }
+
+        return __self._parse_primary();
+    }
+
+    private fn _parse_primary() -> Obj {
+        if __self._match("FLOAT") || __self._match("INT") || __self._match("QSTRING") || __self._match("TRUE") || __self._match("FALSE") {
+            var const_token: TraciToken = __self._previous();
+            return (Obj)ConstSyntax(const_token.kind, const_token.text);
+        }
+
+        if __self._match("ID") {
+            return __self._parse_identifier_primary(__self._previous());
+        }
+
+        if __self._match("PRIMITIVE_SHAPE") || __self._match("CSG_SHAPE") || __self._match("BBOX") || __self._match("TRANSFORMATION") || __self._match("LIGHT") || __self._match("TEXTURE") || __self._match("PIGMENT") || __self._match("FINISH") || __self._match("INTERIOR") || __self._match("MATERIAL") || __self._match("CAMERA") || __self._match("SKYBOX") {
+            return __self._parse_object_primary(__self._previous());
+        }
+
+        if __self._match("LBRACKET") {
+            return __self._parse_vector_after_lbracket();
+        }
+
+        if __self._match("COLOR") {
+            return __self._parse_color_after_color();
+        }
+
+        if __self._match("LPAR") {
+            var expr: Obj = __self._parse_expression();
+            if expr == null {
+                return null;
+            }
+            if __self._expect("RPAR", "Expected ')' after parenthesized expression") == null {
+                return null;
+            }
+            return expr;
+        }
+
+        __self._add_error(__self._peek(0), "Expected expression");
+        return null;
+    }
+
+    private fn _parse_identifier_primary(name_token: TraciToken) -> Obj {
+        if __self._check("LPAR") {
+            var args: Vec = __self._parse_call_args();
+            if args == null {
+                return null;
+            }
+            var trailing_block: BlockSyntax = __self._parse_optional_block();
+            if __self._has_errors() {
+                return null;
+            }
+            return (Obj)FunctionCallSyntax(name_token.text, args, trailing_block);
+        }
+
+        var ref_block: BlockSyntax = __self._parse_optional_block();
+        if __self._has_errors() {
+            return null;
+        }
+        return (Obj)RefSyntax(name_token.text, ref_block);
+    }
+
+    private fn _parse_object_primary(head_token: TraciToken) -> Obj {
+        var args: Vec = Vec.new();
+        var trailing_block: BlockSyntax = null;
+
+        if head_token.kind.equals("PRIMITIVE_SHAPE") || head_token.kind.equals("BBOX") || head_token.kind.equals("TRANSFORMATION") || head_token.kind.equals("LIGHT") || head_token.kind.equals("PIGMENT") || head_token.kind.equals("MATERIAL") {
+            if __self._check("LPAR") {
+                args = __self._parse_call_args();
+                if args == null {
+                    return null;
+                }
+            }
+            trailing_block = __self._parse_optional_block();
+            if __self._has_errors() {
+                return null;
+            }
+            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block);
+        }
+
+        if head_token.kind.equals("CSG_SHAPE") || head_token.kind.equals("TEXTURE") {
+            trailing_block = __self._parse_optional_block();
+            if __self._has_errors() {
+                return null;
+            }
+            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block);
+        }
+
+        if head_token.kind.equals("FINISH") || head_token.kind.equals("INTERIOR") {
+            args = __self._parse_call_args();
+            if args == null {
+                return null;
+            }
+            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, null);
+        }
+
+        if head_token.kind.equals("CAMERA") || head_token.kind.equals("SKYBOX") {
+            args = __self._parse_call_args();
+            if args == null {
+                return null;
+            }
+            trailing_block = __self._parse_optional_block();
+            if __self._has_errors() {
+                return null;
+            }
+            return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block);
+        }
+
+        __self._add_error(head_token, "Unsupported object form: " + head_token.text);
+        return null;
+    }
+
+    private fn _parse_vector_after_lbracket() -> Obj {
+        var items: Vec = Vec.new();
+
+        var x: Obj = __self._parse_expression();
+        if x == null {
+            return null;
+        }
+        items.push(x);
+
+        if __self._expect("COMMA_OP", "Expected ',' after vector component") == null {
+            return null;
+        }
+
+        var y: Obj = __self._parse_expression();
+        if y == null {
+            return null;
+        }
+        items.push(y);
+
+        if __self._expect("COMMA_OP", "Expected ',' after vector component") == null {
+            return null;
+        }
+
+        var z: Obj = __self._parse_expression();
+        if z == null {
+            return null;
+        }
+        items.push(z);
+
+        if __self._expect("RBRACKET", "Expected ']' after vector literal") == null {
+            return null;
+        }
+
+        return (Obj)VectorSyntax(items);
+    }
+
+    private fn _parse_color_after_color() -> Obj {
+        if __self._expect("LBRACKET", "Expected '[' after 'color'") == null {
+            return null;
+        }
+
+        var items: Vec = Vec.new();
+        var first: Obj = __self._parse_expression();
+        if first == null {
+            return null;
+        }
+        items.push(first);
+
+        if __self._expect("COMMA_OP", "Expected ',' after color component") == null {
+            return null;
+        }
+        var second: Obj = __self._parse_expression();
+        if second == null {
+            return null;
+        }
+        items.push(second);
+
+        if __self._expect("COMMA_OP", "Expected ',' after color component") == null {
+            return null;
+        }
+        var third: Obj = __self._parse_expression();
+        if third == null {
+            return null;
+        }
+        items.push(third);
+
+        if __self._match("COMMA_OP") {
+            var fourth: Obj = __self._parse_expression();
+            if fourth == null {
+                return null;
+            }
+            items.push(fourth);
+        }
+
+        if __self._expect("RBRACKET", "Expected ']' after color literal") == null {
+            return null;
+        }
+
+        return (Obj)ColorSyntax(items);
+    }
+
+    private fn _parse_call_args() -> Vec {
+        if __self._expect("LPAR", "Expected '(' to start argument list") == null {
+            return null;
+        }
+
+        var args: Vec = Vec.new();
+        if __self._check("RPAR") {
+            __self._advance();
+            return args;
+        }
+
+        while true {
+            var expr: Obj = __self._parse_expression();
+            if expr == null {
+                return null;
+            }
+            args.push(expr);
+
+            if !__self._match("COMMA_OP") {
+                break;
+            }
+        }
+
+        if __self._expect("RPAR", "Expected ')' after argument list") == null {
+            return null;
+        }
+        return args;
+    }
+
+    private fn _parse_optional_block() -> BlockSyntax {
+        if !__self._check("LCURLY") {
+            return null;
+        }
+        return __self._parse_block();
+    }
+
+    private fn _is_assignment_statement() -> bool {
+        return __self._check("ID") && __self._peek(1).kind.equals("ASSIGN");
+    }
+
+    private fn _is_simplified_transformation_statement() -> bool {
+        if !__self._check("TRANSFORMATION") {
+            return false;
+        }
+
+        var next_kind: Str = __self._peek(1).kind;
+        return !next_kind.equals("LPAR") && !next_kind.equals("LCURLY") && !next_kind.equals("SEMICOLON");
+    }
+
+    private fn _has_errors() -> bool {
+        return !__self._diagnostics.is_empty();
+    }
+
+    private fn _add_error(token: TraciToken, message: Str) -> unit {
+        var location: IncludeLocation = _fallback_location(__self._input_filename);
+        if token != null && token.location != null {
+            location = token.location;
+        }
+        __self._diagnostics.add(ParseError("PARSER", location, message));
+    }
+
+    private fn _peek(offset: i64) -> TraciToken {
+        var index: i64 = __self._index + offset;
+        if index < 0 {
+            index = 0;
+        }
+        if (u64)index >= __self._tokens.len() {
+            return (TraciToken)__self._tokens[-1];
+        }
+        return (TraciToken)__self._tokens[index];
+    }
+
+    private fn _previous() -> TraciToken {
+        return __self._peek(-1);
+    }
+
+    private fn _is_at_end() -> bool {
+        return __self._peek(0).kind.equals("EOF");
+    }
+
+    private fn _advance() -> TraciToken {
+        var token: TraciToken = __self._peek(0);
+        if !__self._is_at_end() {
+            __self._index = __self._index + 1;
+        }
+        return token;
+    }
+
+    private fn _check(kind: Str) -> bool {
+        return __self._peek(0).kind.equals(kind);
+    }
+
+    private fn _match(kind: Str) -> bool {
+        if !__self._check(kind) {
+            return false;
+        }
+        __self._advance();
+        return true;
+    }
+
+    private fn _expect(kind: Str, message: Str) -> TraciToken {
+        if !__self._check(kind) {
+            __self._add_error(__self._peek(0), message);
+            return null;
+        }
+        return __self._advance();
+    }
+}

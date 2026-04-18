@@ -1,0 +1,122 @@
+Scene
+  Functions
+    Function outer
+      Params [n]
+      Block
+        Functions
+          Function inner
+            Params [x]
+            Block
+              Functions []
+              Statements
+                Return
+                  Binary PLUS_OP
+                    Ref x
+                      TrailingBlock []
+                    Const INT 1
+        Statements
+          If
+            Branch 1
+              Condition
+                Binary EQ_OP
+                  Ref n
+                    TrailingBlock []
+                  Const INT 0
+              Then
+                Block
+                  Functions []
+                  Statements
+                    Return
+                      Call inner
+                        Args
+                          Ref n
+                            TrailingBlock []
+                        TrailingBlock
+                          Block
+                            Functions []
+                            Statements
+                              Object TRANSFORMATION translate
+                                Args
+                                  Vector
+                                    Args
+                                      Const INT 1
+                                      Const INT 2
+                                      Const INT 3
+                                TrailingBlock []
+            Branch 2
+              Condition
+                Binary LT_OP
+                  Ref n
+                    TrailingBlock []
+                  Const INT 10
+              Then
+                Block
+                  Functions []
+                  Statements
+                    While
+                      Condition
+                        Binary LT_OP
+                          Ref n
+                            TrailingBlock []
+                          Const INT 3
+                      Body
+                        Block
+                          Functions []
+                          Statements
+                            Assign n
+                              Binary PLUS_OP
+                                Ref n
+                                  TrailingBlock []
+                                Const INT 1
+            Else
+              Block
+                Functions []
+                Statements
+                  For i
+                    Start
+                      Const INT 0
+                    End
+                      Ref n
+                        TrailingBlock []
+                    Body
+                      Block
+                        Functions []
+                        Statements
+                          GlobalAssign total
+                            Color
+                              Args
+                                Const INT 1
+                                Const FLOAT 0.5
+                                Const FLOAT 0.25
+                                Const INT 1
+          Return
+            Object CSG_SHAPE union
+              Args []
+              TrailingBlock
+                Block
+                  Functions []
+                  Statements
+                    ExprStmt
+                      Object PRIMITIVE_SHAPE box
+                        Args []
+                        TrailingBlock
+                          Block
+                            Functions []
+                            Statements
+                              Object TRANSFORMATION scale
+                                Args
+                                  Vector
+                                    Args
+                                      Const INT 1
+                                      Const INT 2
+                                      Const INT 3
+                                TrailingBlock []
+                    Object TRANSFORMATION translate
+                      Args
+                        Vector
+                          Args
+                            Const INT 4
+                            Const INT 5
+                            Const INT 6
+                      TrailingBlock []
+  Statements []

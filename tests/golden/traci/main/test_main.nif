@@ -5,6 +5,7 @@ import std.error;
 import proj.traci_nif.main.Result as result;
 import proj.traci_nif.main.Settings as settings;
 import proj.traci_nif.lang.parser.ParserRunner as parser_runner;
+import proj.traci_nif.lang.parser.SyntaxNodes;
 import proj.traci_nif.lang.preprocessor.PreprocessorRunner as preprocessor_runner;
 
 fn test_missing_input_file() -> unit {
@@ -17,7 +18,7 @@ fn test_missing_input_file() -> unit {
     println(pre.get_diagnostics().get(0).full_msg());
 }
 
-fn test_parser_stub_after_preprocessor() -> unit {
+fn test_parser_after_preprocessor() -> unit {
     var cfg: settings.Settings = settings.Settings.mock();
     cfg.set_input_filename("proj/traci_java/testcode/fibonacci.traci");
     cfg.add_include_dir("proj/traci_java/testcode");
@@ -34,12 +35,17 @@ fn test_parser_stub_after_preprocessor() -> unit {
     assert_true(pre.get_processed_code().len() > 0u);
 
     var parser: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, pre.get_processed_code());
-    assert_eq_i64(parser.run().code, result.Result.parse_error().code);
+    assert_eq_i64(parser.run().code, result.Result.success().code);
     assert_true(parser.get_token_count() > 1u);
     assert_eq_str(parser.get_token(0).kind, "PPLINE");
     assert_eq_str(parser.get_token(-1).kind, "EOF");
-    assert_eq_u64(parser.get_diagnostics().len(), 1u);
-    println(parser.get_diagnostics().get(0).full_msg());
+    assert_eq_u64(parser.get_diagnostics().len(), 0u);
+
+    var scene: SceneSyntax = parser.get_scene();
+    assert_true(scene != null);
+    assert_eq_u64(scene.functions.len(), 1u);
+    assert_eq_u64(scene.statements.len(), 1u);
+    println("tokens=" + parser.get_token(0).kind + "," + parser.get_token(-1).kind + "|functions=" + Str.from_i64((i64)scene.functions.len()) + "|statements=" + Str.from_i64((i64)scene.statements.len()) + "|first_function=" + ((FunctionSyntax)scene.functions[0]).name);
 }
 
 fn main() -> i64 {
@@ -53,8 +59,8 @@ fn main() -> i64 {
         test_missing_input_file();
         return 0;
     }
-    if mode.equals("parser_stub") {
-        test_parser_stub_after_preprocessor();
+    if mode.equals("parse_success") {
+        test_parser_after_preprocessor();
         return 0;
     }
 

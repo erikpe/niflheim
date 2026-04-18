@@ -11,11 +11,10 @@ tests:
           stdout: |
             In file: proj/traci_java/testcode/does_not_exist.traci:0:0:
             Preprocessor error: Unable to open input file: 'proj/traci_java/testcode/does_not_exist.traci'
-      - name: "existing_input_runs_through_parser_stub"
+      - name: "existing_input_parses_after_preprocessor"
         input:
-          args: ["parser_stub"]
+          args: ["parse_success"]
         expect:
           exit_code: 0
           stdout: |
-            In file: proj/traci_java/testcode/fibonacci.traci:1:0:
-            Parse error: Parser phase not implemented yet
+            tokens=PPLINE,EOF|functions=1|statements=1|first_function=fib

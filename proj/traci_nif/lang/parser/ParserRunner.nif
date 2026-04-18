@@ -4,6 +4,8 @@ import std.vec;
 import proj.traci_nif.main.Result;
 import proj.traci_nif.main.Settings;
 import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.lang.parser.Parser;
+import proj.traci_nif.lang.parser.SyntaxNodes;
 import proj.traci_nif.lang.parser.TraciLexer as traci_lexer;
 import proj.traci_nif.lang.parser.ParseError;
 import proj.traci_nif.lang.parser.TraciToken;
@@ -20,12 +22,14 @@ export class ParserRunner {
     private _code: Str;
     private _diagnostics: ParseErrorBag;
     private _tokens: Vec;
+    private _scene: SceneSyntax;
 
     constructor(settings: Settings, code: Str) {
         __self._settings = settings;
         __self._code = code;
         __self._diagnostics = ParseErrorBag();
         __self._tokens = Vec.new();
+        __self._scene = null;
     }
 
     fn get_diagnostics() -> ParseErrorBag {
@@ -40,9 +44,14 @@ export class ParserRunner {
         return (TraciToken)__self._tokens[index];
     }
 
+    fn get_scene() -> SceneSyntax {
+        return __self._scene;
+    }
+
     fn run() -> Result {
         __self._diagnostics = ParseErrorBag();
         __self._tokens = Vec.new();
+        __self._scene = null;
 
         var input_filename: Str = __self._settings.get_input_filename();
         var code: Str = __self._code;
@@ -72,8 +81,27 @@ export class ParserRunner {
             return Result.parse_error();
         }
 
-        var location: IncludeLocation = _parser_location(input_filename);
-        __self._diagnostics.add(ParseError("PARSER", location, "Parser phase not implemented yet"));
-        return Result.parse_error();
+        var parser_tokens: Vec = Vec.new();
+        i = 0;
+        while (u64)i < __self._tokens.len() {
+            var token: TraciToken = (TraciToken)__self._tokens[i];
+            if token.channel == 0 {
+                parser_tokens.push((Obj)token);
+            }
+            i = i + 1;
+        }
+
+        var parser: Parser = Parser(parser_tokens, input_filename);
+        __self._scene = parser.parse_scene();
+        __self._diagnostics.extend(parser.get_diagnostics());
+        if !parser.get_diagnostics().is_empty() || __self._scene == null {
+            if __self._diagnostics.is_empty() {
+                var location: IncludeLocation = _parser_location(input_filename);
+                __self._diagnostics.add(ParseError("PARSER", location, "Unknown parser failure"));
+            }
+            return Result.parse_error();
+        }
+
+        return Result.success();
     }
 }

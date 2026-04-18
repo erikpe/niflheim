@@ -1,0 +1,325 @@
+import std.str;
+import std.vec;
+
+export class SceneSyntax {
+    functions: Vec;
+    statements: Vec;
+}
+
+export class BlockSyntax {
+    functions: Vec;
+    statements: Vec;
+}
+
+export class FunctionSyntax {
+    name: Str;
+    params: Vec;
+    body: BlockSyntax;
+}
+
+export class ExpressionStatementSyntax {
+    expr: Obj;
+}
+
+export class AssignSyntax {
+    name: Str;
+    value: Obj;
+}
+
+export class GlobalAssignSyntax {
+    name: Str;
+    value: Obj;
+}
+
+export class ReturnSyntax {
+    value: Obj;
+}
+
+export class IfSyntax {
+    conditions: Vec;
+    blocks: Vec;
+    else_block: BlockSyntax;
+}
+
+export class WhileSyntax {
+    condition: Obj;
+    body: BlockSyntax;
+}
+
+export class ForSyntax {
+    name: Str;
+    start_expr: Obj;
+    end_expr: Obj;
+    body: BlockSyntax;
+}
+
+export class BinaryExprSyntax {
+    operator: Str;
+    left: Obj;
+    right: Obj;
+}
+
+export class UnaryExprSyntax {
+    operator: Str;
+    operand: Obj;
+}
+
+export class RefSyntax {
+    name: Str;
+    trailing_block: BlockSyntax;
+}
+
+export class FunctionCallSyntax {
+    name: Str;
+    args: Vec;
+    trailing_block: BlockSyntax;
+}
+
+export class ObjectSyntax {
+    category: Str;
+    name: Str;
+    args: Vec;
+    trailing_block: BlockSyntax;
+}
+
+export class VectorSyntax {
+    items: Vec;
+}
+
+export class ColorSyntax {
+    items: Vec;
+}
+
+export class ConstSyntax {
+    kind: Str;
+    text: Str;
+}
+
+fn _append_indent(out: StrBuf, depth: i64) -> unit {
+    var i: i64 = 0;
+    while i < depth {
+        out.append("  ");
+        i = i + 1;
+    }
+}
+
+fn _append_line(out: StrBuf, depth: i64, text: Str) -> unit {
+    _append_indent(out, depth);
+    out.append(text);
+    out.append_char('\n');
+}
+
+fn _append_name_list_line(out: StrBuf, depth: i64, label: Str, items: Vec) -> unit {
+    _append_indent(out, depth);
+    out.append(label);
+    out.append(" [");
+
+    var i: i64 = 0;
+    while (u64)i < items.len() {
+        if i > 0 {
+            out.append(", ");
+        }
+        out.append((Str)items[i]);
+        i = i + 1;
+    }
+
+    out.append("]\n");
+}
+
+fn _append_section_header(out: StrBuf, depth: i64, label: Str, count: u64) -> unit {
+    _append_indent(out, depth);
+    out.append(label);
+    if count == 0u {
+        out.append(" []");
+    }
+    out.append_char('\n');
+}
+
+fn _dump_scene_like(out: StrBuf, depth: i64, label: Str, functions: Vec, statements: Vec) -> unit {
+    _append_line(out, depth, label);
+
+    _append_section_header(out, depth + 1, "Functions", functions.len());
+    var i: i64 = 0;
+    while (u64)i < functions.len() {
+        _dump_function(out, depth + 2, (FunctionSyntax)functions[i]);
+        i = i + 1;
+    }
+
+    _append_section_header(out, depth + 1, "Statements", statements.len());
+    i = 0;
+    while (u64)i < statements.len() {
+        _dump_node(out, depth + 2, statements[i]);
+        i = i + 1;
+    }
+}
+
+fn _dump_function(out: StrBuf, depth: i64, node: FunctionSyntax) -> unit {
+    _append_line(out, depth, "Function " + node.name);
+    _append_name_list_line(out, depth + 1, "Params", node.params);
+    _dump_scene_like(out, depth + 1, "Block", node.body.functions, node.body.statements);
+}
+
+fn _dump_args(out: StrBuf, depth: i64, args: Vec) -> unit {
+    _append_section_header(out, depth, "Args", args.len());
+    var i: i64 = 0;
+    while (u64)i < args.len() {
+        _dump_node(out, depth + 1, args[i]);
+        i = i + 1;
+    }
+}
+
+fn _dump_optional_block(out: StrBuf, depth: i64, label: Str, block: BlockSyntax) -> unit {
+    if block == null {
+        _append_line(out, depth, label + " []");
+        return;
+    }
+
+    _append_line(out, depth, label);
+    _dump_scene_like(out, depth + 1, "Block", block.functions, block.statements);
+}
+
+fn _dump_if(out: StrBuf, depth: i64, node: IfSyntax) -> unit {
+    _append_line(out, depth, "If");
+
+    var i: i64 = 0;
+    while (u64)i < node.conditions.len() {
+        _append_line(out, depth + 1, "Branch " + Str.from_i64(i + 1));
+        _append_line(out, depth + 2, "Condition");
+        _dump_node(out, depth + 3, node.conditions[i]);
+        _append_line(out, depth + 2, "Then");
+        _dump_scene_like(out, depth + 3, "Block", ((BlockSyntax)node.blocks[i]).functions, ((BlockSyntax)node.blocks[i]).statements);
+        i = i + 1;
+    }
+
+    if node.else_block == null {
+        _append_line(out, depth + 1, "Else []");
+        return;
+    }
+
+    _append_line(out, depth + 1, "Else");
+    _dump_scene_like(out, depth + 2, "Block", node.else_block.functions, node.else_block.statements);
+}
+
+fn _dump_node(out: StrBuf, depth: i64, node: Obj) -> unit {
+    if node is ExpressionStatementSyntax {
+        var expr_stmt: ExpressionStatementSyntax = (ExpressionStatementSyntax)node;
+        _append_line(out, depth, "ExprStmt");
+        _dump_node(out, depth + 1, expr_stmt.expr);
+        return;
+    }
+
+    if node is AssignSyntax {
+        var assign: AssignSyntax = (AssignSyntax)node;
+        _append_line(out, depth, "Assign " + assign.name);
+        _dump_node(out, depth + 1, assign.value);
+        return;
+    }
+
+    if node is GlobalAssignSyntax {
+        var global_assign: GlobalAssignSyntax = (GlobalAssignSyntax)node;
+        _append_line(out, depth, "GlobalAssign " + global_assign.name);
+        _dump_node(out, depth + 1, global_assign.value);
+        return;
+    }
+
+    if node is ReturnSyntax {
+        var ret: ReturnSyntax = (ReturnSyntax)node;
+        _append_line(out, depth, "Return");
+        _dump_node(out, depth + 1, ret.value);
+        return;
+    }
+
+    if node is IfSyntax {
+        _dump_if(out, depth, (IfSyntax)node);
+        return;
+    }
+
+    if node is WhileSyntax {
+        var while_node: WhileSyntax = (WhileSyntax)node;
+        _append_line(out, depth, "While");
+        _append_line(out, depth + 1, "Condition");
+        _dump_node(out, depth + 2, while_node.condition);
+        _append_line(out, depth + 1, "Body");
+        _dump_scene_like(out, depth + 2, "Block", while_node.body.functions, while_node.body.statements);
+        return;
+    }
+
+    if node is ForSyntax {
+        var for_node: ForSyntax = (ForSyntax)node;
+        _append_line(out, depth, "For " + for_node.name);
+        _append_line(out, depth + 1, "Start");
+        _dump_node(out, depth + 2, for_node.start_expr);
+        _append_line(out, depth + 1, "End");
+        _dump_node(out, depth + 2, for_node.end_expr);
+        _append_line(out, depth + 1, "Body");
+        _dump_scene_like(out, depth + 2, "Block", for_node.body.functions, for_node.body.statements);
+        return;
+    }
+
+    if node is BinaryExprSyntax {
+        var binary: BinaryExprSyntax = (BinaryExprSyntax)node;
+        _append_line(out, depth, "Binary " + binary.operator);
+        _dump_node(out, depth + 1, binary.left);
+        _dump_node(out, depth + 1, binary.right);
+        return;
+    }
+
+    if node is UnaryExprSyntax {
+        var unary: UnaryExprSyntax = (UnaryExprSyntax)node;
+        _append_line(out, depth, "Unary " + unary.operator);
+        _dump_node(out, depth + 1, unary.operand);
+        return;
+    }
+
+    if node is RefSyntax {
+        var ref_node: RefSyntax = (RefSyntax)node;
+        _append_line(out, depth, "Ref " + ref_node.name);
+        _dump_optional_block(out, depth + 1, "TrailingBlock", ref_node.trailing_block);
+        return;
+    }
+
+    if node is FunctionCallSyntax {
+        var call: FunctionCallSyntax = (FunctionCallSyntax)node;
+        _append_line(out, depth, "Call " + call.name);
+        _dump_args(out, depth + 1, call.args);
+        _dump_optional_block(out, depth + 1, "TrailingBlock", call.trailing_block);
+        return;
+    }
+
+    if node is ObjectSyntax {
+        var object_node: ObjectSyntax = (ObjectSyntax)node;
+        _append_line(out, depth, "Object " + object_node.category + " " + object_node.name);
+        _dump_args(out, depth + 1, object_node.args);
+        _dump_optional_block(out, depth + 1, "TrailingBlock", object_node.trailing_block);
+        return;
+    }
+
+    if node is VectorSyntax {
+        var vector_node: VectorSyntax = (VectorSyntax)node;
+        _append_line(out, depth, "Vector");
+        _dump_args(out, depth + 1, vector_node.items);
+        return;
+    }
+
+    if node is ColorSyntax {
+        var color_node: ColorSyntax = (ColorSyntax)node;
+        _append_line(out, depth, "Color");
+        _dump_args(out, depth + 1, color_node.items);
+        return;
+    }
+
+    if node is ConstSyntax {
+        var const_node: ConstSyntax = (ConstSyntax)node;
+        _append_line(out, depth, "Const " + const_node.kind + " " + const_node.text);
+        return;
+    }
+
+    _append_line(out, depth, "<unknown syntax node>");
+}
+
+export fn dump_scene(scene_obj: Obj) -> Str {
+    var scene: SceneSyntax = (SceneSyntax)scene_obj;
+    var out: StrBuf = StrBuf.new(256u);
+    _dump_scene_like(out, 0, "Scene", scene.functions, scene.statements);
+    return out.to_str();
+}

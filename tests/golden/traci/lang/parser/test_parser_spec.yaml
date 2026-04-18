@@ -1,0 +1,51 @@
+tests:
+  - mode: "run"
+    name: "test_parser"
+    src_file: "test_parser.nif"
+    runs:
+      - name: "basic_expression_dump"
+        input:
+          args: ["basic"]
+        expect:
+          exit_code: 0
+          stdout: |
+            Scene
+              Functions []
+              Statements
+                ExprStmt
+                  Binary PLUS_OP
+                    Const INT 17
+                    Const INT 23
+      - name: "constructs_dump"
+        input:
+          args: ["constructs"]
+        expect:
+          exit_code: 0
+          stdout_file: "test_parser_constructs_expected.txt"
+      - name: "fibonacci_preprocessed_file_parses"
+        input:
+          args: ["fibonacci"]
+        expect:
+          exit_code: 0
+          stdout: |
+            functions=1|statements=1|names=fib
+      - name: "prime_checker_file_parses"
+        input:
+          args: ["prime"]
+        expect:
+          exit_code: 0
+          stdout: |
+            functions=3|statements=0|names=floor,isDivisible,isPrime
+      - name: "basic_shapes_preprocessed_file_parses"
+        input:
+          args: ["basic_shapes"]
+        expect:
+          exit_code: 0
+          stdout: |
+            functions=18|statements=6|first=roundedCylinder0_base
+      - name: "missing_semicolon_reports_parse_error"
+        input:
+          args: ["missing_semicolon"]
+        expect:
+          exit_code: 0
+          stdout: "In file: missing_semicolon.traci:1:5:\nParse error: Expected ';' after expression statement\n"
