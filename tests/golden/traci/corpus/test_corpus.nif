@@ -1,0 +1,123 @@
+import std.io;
+import std.str;
+import std.test;
+import std.error;
+import proj.traci_nif.main.Result as result;
+import proj.traci_nif.main.Settings as settings;
+import proj.traci_nif.lang.interpreter.node.BlockNode;
+import proj.traci_nif.lang.interpreter.node.TraciNode;
+import proj.traci_nif.lang.parser.ParserRunner as parser_runner;
+import proj.traci_nif.lang.parser.SyntaxNodes;
+import proj.traci_nif.lang.preprocessor.PreprocessorRunner as preprocessor_runner;
+
+fn _is_lego_scene_path(path: Str) -> bool {
+    var prefix: Str = "tests/golden/traci/scenes/lego/";
+    return path.len() >= prefix.len() && path[:(i64)prefix.len()].equals(prefix);
+}
+
+fn _run_pipeline(path: Str) -> parser_runner.ParserRunner {
+    var cfg: settings.Settings = settings.Settings.mock();
+    cfg.set_input_filename(path);
+    if _is_lego_scene_path(path) {
+        cfg.add_include_dir("tests/golden/traci/scenes/lego");
+    }
+
+    var pre: preprocessor_runner.PreprocessorRunner = preprocessor_runner.PreprocessorRunner(cfg);
+    assert_eq_i64(pre.run().code, result.Result.success().code);
+
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, pre.get_processed_code());
+    assert_eq_i64(runner.run().code, result.Result.success().code);
+    assert_eq_u64(runner.get_diagnostics().len(), 0u);
+    assert_true(runner.get_scene() != null);
+    assert_true(runner.get_root_node() != null);
+    return runner;
+}
+
+fn _print_pipeline_summary(path: Str, runner: parser_runner.ParserRunner) -> unit {
+    var scene: SceneSyntax = runner.get_scene();
+    var root: BlockNode = runner.get_root_node();
+    var out: StrBuf = StrBuf.new(path.len() + 96u);
+    out.append(path);
+    out.append("|scene_functions=");
+    out.append_i64((i64)scene.functions.len());
+    out.append("|scene_statements=");
+    out.append_i64((i64)scene.statements.len());
+    out.append("|root_functions=");
+    out.append_i64((i64)root.functions.len());
+    out.append("|root_statements=");
+    out.append_i64((i64)root.statements.len());
+    println(out.to_str());
+}
+
+fn _run_and_print(path: Str) -> unit {
+    var runner: parser_runner.ParserRunner = _run_pipeline(path);
+    _print_pipeline_summary(path, runner);
+}
+
+fn test_if_statement_parser_dump() -> unit {
+    var runner: parser_runner.ParserRunner = _run_pipeline("tests/golden/traci/testcode/if-statement.traci");
+    print(dump_scene((Obj)runner.get_scene()));
+}
+
+fn test_if_statement_tree_dump() -> unit {
+    var runner: parser_runner.ParserRunner = _run_pipeline("tests/golden/traci/testcode/if-statement.traci");
+    print(dump_block((Obj)runner.get_root_node()));
+}
+
+fn test_standalone_testcode_pipeline_smoke() -> unit {
+    _run_and_print("tests/golden/traci/testcode/boolean-comprehensive.traci");
+    _run_and_print("tests/golden/traci/testcode/boolean-literals.traci");
+    _run_and_print("tests/golden/traci/testcode/boolean-simple.traci");
+    _run_and_print("tests/golden/traci/testcode/fibonacci.traci");
+    _run_and_print("tests/golden/traci/testcode/for-loop.traci");
+    _run_and_print("tests/golden/traci/testcode/global-value.traci");
+    _run_and_print("tests/golden/traci/testcode/if-statement.traci");
+    _run_and_print("tests/golden/traci/testcode/nested-function.traci");
+    _run_and_print("tests/golden/traci/testcode/prime-checker.traci");
+    _run_and_print("tests/golden/traci/testcode/while-loop.traci");
+}
+
+fn test_lego_scene_pipeline_smoke() -> unit {
+    _run_and_print("tests/golden/traci/scenes/lego/airplane.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/all-bricks.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-plate.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-primitives.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-technic-axle.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-technic-brick-with-holes.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-technic-bush.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-technic-liftarm.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-technic-pin.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-technic-plate.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-tile.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/bricks/lego-units.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/common/basic-shapes.traci");
+    _run_and_print("tests/golden/traci/scenes/lego/common/basic-units.traci");
+}
+
+fn main() -> i64 {
+    var args: Str[] = read_program_args();
+    if args.len() < 2u {
+        fail("test_corpus: missing mode argument");
+    }
+
+    var mode: Str = args[1];
+    if mode.equals("if_parser") {
+        test_if_statement_parser_dump();
+        return 0;
+    }
+    if mode.equals("if_tree") {
+        test_if_statement_tree_dump();
+        return 0;
+    }
+    if mode.equals("testcode") {
+        test_standalone_testcode_pipeline_smoke();
+        return 0;
+    }
+    if mode.equals("lego") {
+        test_lego_scene_pipeline_smoke();
+        return 0;
+    }
+
+    fail("test_corpus: unknown mode");
+    return 1;
+}

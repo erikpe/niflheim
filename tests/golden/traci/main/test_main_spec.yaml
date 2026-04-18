@@ -9,8 +9,8 @@ tests:
         expect:
           exit_code: 0
           stdout: |
-            In file: proj/traci_java/testcode/does_not_exist.traci:0:0:
-            Preprocessor error: Unable to open input file: 'proj/traci_java/testcode/does_not_exist.traci'
+            In file: tests/golden/traci/testcode/does_not_exist.traci:0:0:
+            Preprocessor error: Unable to open input file: 'tests/golden/traci/testcode/does_not_exist.traci'
       - name: "existing_input_treewalks_after_preprocessor"
         input:
           args: ["parse_success"]

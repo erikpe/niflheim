@@ -13,7 +13,7 @@ import proj.traci_nif.lang.preprocessor.PreprocessorRunner as preprocessor_runne
 
 fn test_missing_input_file() -> unit {
     var cfg: settings.Settings = settings.Settings.mock();
-    cfg.set_input_filename("proj/traci_java/testcode/does_not_exist.traci");
+    cfg.set_input_filename("tests/golden/traci/testcode/does_not_exist.traci");
 
     var pre: preprocessor_runner.PreprocessorRunner = preprocessor_runner.PreprocessorRunner(cfg);
     assert_eq_i64(pre.run().code, result.Result.io_error().code);
@@ -23,12 +23,12 @@ fn test_missing_input_file() -> unit {
 
 fn test_parser_after_preprocessor() -> unit {
     var cfg: settings.Settings = settings.Settings.mock();
-    cfg.set_input_filename("proj/traci_java/testcode/fibonacci.traci");
-    cfg.add_include_dir("proj/traci_java/testcode");
+    cfg.set_input_filename("tests/golden/traci/testcode/fibonacci.traci");
+    cfg.add_include_dir("tests/golden/traci/testcode");
     cfg.add_preprocessor_macro("TRACE=1");
 
     assert_eq_u64(cfg.get_include_dir_count(), 1u);
-    assert_eq_str(cfg.get_include_dir(0), "proj/traci_java/testcode");
+    assert_eq_str(cfg.get_include_dir(0), "tests/golden/traci/testcode");
     assert_eq_u64(cfg.get_preprocessor_macro_count(), 1u);
     assert_eq_str(cfg.get_preprocessor_macro(0), "TRACE=1");
 

@@ -1,0 +1,10 @@
+tests/golden/traci/testcode/boolean-comprehensive.traci|scene_functions=1|scene_statements=24|root_functions=1|root_statements=24
+tests/golden/traci/testcode/boolean-literals.traci|scene_functions=0|scene_statements=17|root_functions=0|root_statements=17
+tests/golden/traci/testcode/boolean-simple.traci|scene_functions=0|scene_statements=8|root_functions=0|root_statements=8
+tests/golden/traci/testcode/fibonacci.traci|scene_functions=1|scene_statements=1|root_functions=1|root_statements=1
+tests/golden/traci/testcode/for-loop.traci|scene_functions=0|scene_statements=3|root_functions=0|root_statements=3
+tests/golden/traci/testcode/global-value.traci|scene_functions=1|scene_statements=3|root_functions=1|root_statements=3
+tests/golden/traci/testcode/if-statement.traci|scene_functions=0|scene_statements=8|root_functions=0|root_statements=8
+tests/golden/traci/testcode/nested-function.traci|scene_functions=3|scene_statements=1|root_functions=3|root_statements=1
+tests/golden/traci/testcode/prime-checker.traci|scene_functions=3|scene_statements=0|root_functions=3|root_statements=0
+tests/golden/traci/testcode/while-loop.traci|scene_functions=0|scene_statements=4|root_functions=0|root_statements=4

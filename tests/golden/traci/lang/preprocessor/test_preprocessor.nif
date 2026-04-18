@@ -13,7 +13,7 @@ fn _new_settings(path: Str) -> settings.Settings {
 }
 
 fn test_real_include_order() -> unit {
-    var cfg: settings.Settings = _new_settings("proj/traci_java/testcode/a.traci");
+    var cfg: settings.Settings = _new_settings("tests/golden/traci/testcode/a.traci");
     var pre: preprocessor_runner.PreprocessorRunner = preprocessor_runner.PreprocessorRunner(cfg);
     assert_eq_i64(pre.run().code, result.Result.success().code);
     print(pre.get_processed_code());

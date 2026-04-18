@@ -94,17 +94,17 @@ fn test_constructs_dump() -> unit {
 }
 
 fn test_fibonacci_preprocessed_file_parses() -> unit {
-    var runner: parser_runner.ParserRunner = _parse_preprocessed_file("proj/traci_java/testcode/fibonacci.traci");
+    var runner: parser_runner.ParserRunner = _parse_preprocessed_file("tests/golden/traci/testcode/fibonacci.traci");
     _print_scene_summary(runner.get_scene());
 }
 
 fn test_prime_checker_file_parses() -> unit {
-    var runner: parser_runner.ParserRunner = _parse_file("proj/traci_java/testcode/prime-checker.traci");
+    var runner: parser_runner.ParserRunner = _parse_file("tests/golden/traci/testcode/prime-checker.traci");
     _print_scene_summary(runner.get_scene());
 }
 
 fn test_basic_shapes_preprocessed_file_parses() -> unit {
-    var runner: parser_runner.ParserRunner = _parse_preprocessed_file("proj/traci_java/scenes/lego/common/basic-shapes.traci");
+    var runner: parser_runner.ParserRunner = _parse_preprocessed_file("tests/golden/traci/scenes/lego/common/basic-shapes.traci");
     _print_scene_edge_summary(runner.get_scene());
 }
 

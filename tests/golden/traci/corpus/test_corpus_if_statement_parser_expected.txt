@@ -1,0 +1,195 @@
+Scene
+  Functions []
+  Statements
+    Assign foo
+      Const INT 0
+    If
+      Branch 1
+        Condition
+          Binary LT_OP
+            Const INT 1
+            Const INT 2
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Const INT 23
+      Else []
+    If
+      Branch 1
+        Condition
+          Binary LT_OP
+            Const INT 1
+            Const INT 2
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary PLUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 1
+      Branch 2
+        Condition
+          Binary GT_OP
+            Const INT 22
+            Const INT 11
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary MINUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 1
+      Else []
+    If
+      Branch 1
+        Condition
+          Binary GT_OP
+            Const INT 1
+            Const INT 2
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary PLUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 10
+      Else
+        Block
+          Functions []
+          Statements
+            Assign foo
+              Binary MINUS_OP
+                Ref foo
+                  TrailingBlock []
+                Const INT 10
+    If
+      Branch 1
+        Condition
+          Binary GT_OP
+            Const INT 1
+            Const INT 2
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary PLUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 100
+      Else []
+    If
+      Branch 1
+        Condition
+          Binary GT_OP
+            Const INT 1
+            Const INT 2
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary MINUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 33
+      Branch 2
+        Condition
+          Binary LT_OP
+            Const INT 323
+            Const INT 321
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary MINUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 44
+      Branch 3
+        Condition
+          Binary LT_OP
+            Const INT 12
+            Const INT 32
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary PLUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 1000
+      Else
+        Block
+          Functions []
+          Statements
+            Assign foo
+              Binary PLUS_OP
+                Ref foo
+                  TrailingBlock []
+                Const INT 123
+    If
+      Branch 1
+        Condition
+          Binary GT_OP
+            Const INT 1
+            Const INT 2
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary MINUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 33
+      Branch 2
+        Condition
+          Binary LT_OP
+            Const INT 323
+            Const INT 321
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary MINUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 44
+      Branch 3
+        Condition
+          Binary GT_OP
+            Const INT 12
+            Const INT 32
+        Then
+          Block
+            Functions []
+            Statements
+              Assign foo
+                Binary PLUS_OP
+                  Ref foo
+                    TrailingBlock []
+                  Const INT 1000
+      Else
+        Block
+          Functions []
+          Statements
+            Assign foo
+              Binary PLUS_OP
+                Ref foo
+                  TrailingBlock []
+                Const INT 123
+    Return
+      Ref foo
+        TrailingBlock []

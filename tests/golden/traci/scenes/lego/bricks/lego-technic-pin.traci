@@ -1,0 +1,145 @@
+#ifndef LEGO_TECHNIC_PIN_TRACI_
+#define LEGO_TECHNIC_PIN_TRACI_
+
+#include "common/basic-units.traci"
+#include "common/basic-shapes.traci"
+#include "lego-units.traci"
+#include "lego-primitives.traci"
+#include "lego-technic-pin.traci"
+
+def legoTechnicPinWithoutFrictionRidgesLengthwise_helper (length)
+{
+    radius = LU*.3;
+    outerStopperRadius = LU*.04;
+    openingWidth = LU*.1;
+    openingDepth = LU*.4;
+    return difference {
+        union {
+            roundedCylinder4 (radius, length, LEGO_ROUNDING) {
+                rotx PI/2;
+            };
+            torus (outerStopperRadius, radius) {
+                translate Z*(length-outerStopperRadius);
+            };
+        };
+        cylinder (.5*openingWidth, [-radius-EPSILON, 0, length-openingDepth], [radius+EPSILON, 0, length-openingDepth]);
+        box {
+            translate [-.5, -.5, 0];
+            scale [2*(radius+outerStopperRadius+EPSILON), openingWidth, openingDepth+EPSILON];
+            translate Z*(length-openingDepth);
+        };
+    };
+}
+
+/*
+ * http://www.bricklink.com/catalogItem.asp?P=3673
+ */
+def legoTechnicPinWithoutFrictionRidgesLengthwise ()
+{
+    middleStopperRadius = .38*LU;
+    middleStopperLength = .15*LU;
+    innerRadius = .22*LU;
+    return difference {
+        union {
+            legoTechnicPinWithoutFrictionRidgesLengthwise_helper (LU-.5*middleStopperLength) {
+                translate Z*.5*middleStopperLength;
+            };
+            legoTechnicPinWithoutFrictionRidgesLengthwise_helper (LU-.5*middleStopperLength) {
+                rotx PI;
+                translate -Z*.5*middleStopperLength;
+            };
+            roundedCylinder1_base (middleStopperRadius, middleStopperLength, LEGO_ROUNDING) {
+                rotx PI/2;
+                translate -Z*.5*middleStopperLength;
+            };
+        };
+        roundedCylinder3_base (innerRadius, 2*LU, LEGO_ROUNDING) {
+            translate -Y*LU;
+            rotx PI/2;
+        };
+        bbox {
+            scale 2;
+            translate [-1, -1, -1];
+            scale [middleStopperRadius, middleStopperRadius, LU];
+        };
+        rotz rand()*2*PI;
+        translate [LU, .7*LU, 0];
+    };
+}
+
+/*
+ * Short-hand for: legoTechnicPinWithoutFrictionRidgesLengthwise()
+ */
+def legoTechnicPin_1 ()
+{
+    return legoTechnicPinWithoutFrictionRidgesLengthwise();
+}
+
+/*
+ * Technic, Axle Pin without Friction Ridges Lengthwise
+ * http://www.bricklink.com/catalogItem.asp?P=3749
+ */
+def legoTechnicAxlePinWithoutFrictionRidgesLengthwise_accurate (middleStopperRadius)
+{
+    middleStopperLength = .15*LU;
+    innerRadius = .22*LU;
+    axleRadius = AXLE_RADIUS;
+    axleThickness = AXLE_THICKNESS;
+    return difference {
+        union {
+            legoTechnicPinWithoutFrictionRidgesLengthwise_helper (LU-.5*middleStopperLength) {
+                rotx PI;
+                translate -Z*.5*middleStopperLength;
+            };
+            roundedCylinder1_base (middleStopperRadius, middleStopperLength, LEGO_ROUNDING) {
+                rotx PI/2;
+                translate -Z*.5*middleStopperLength;
+            };
+            legoTechnicAxle_base3 (LU-middleStopperLength/2, axleRadius, axleThickness, LEGO_ROUNDING) {
+                rotx PI/2;
+                translate [0, 0, middleStopperLength/2];
+            };
+            bbox {
+                scale [middleStopperRadius*2, middleStopperRadius*2, LU*2];
+                translate [-middleStopperRadius, -middleStopperRadius, -LU];
+            };
+        };
+        roundedCylinder4 (innerRadius, 1, LEGO_ROUNDING) {
+            rotx PI/2;
+            translate -Z*LU;
+        };
+    };
+}
+
+/*
+ * Technic, Axle Pin without Friction Ridges Lengthwise
+ * http://www.bricklink.com/catalogItem.asp?P=3749
+ */
+def legoTechnicAxlePinWithoutFrictionRidgesLengthwise ()
+{
+    middleStopperRadius = .38*LU;
+
+#if FAST_LEGO
+    pin = legoTechnicAxlePinWithoutFrictionRidgesLengthwise_accurate (middleStopperRadius);
+#else
+    pin = legoTechnicAxlePinWithoutFrictionRidgesLengthwise_accurate (middleStopperRadius);
+#endif // FAST_LEGO
+
+    return pin {
+        bbox {
+            scale [middleStopperRadius*2, middleStopperRadius*2, 2];
+            translate [-middleStopperRadius, -middleStopperRadius, -1];
+        };
+        translate [1, .7, 1];
+    };
+}
+
+/*
+ * Short hand for: legoTechnicAxlePinWithoutFrictionRidgesLengthwise()
+ */
+def legoTechnicAxlePin ()
+{
+    return legoTechnicAxlePinWithoutFrictionRidgesLengthwise ();
+}
+
+#endif // TECHNIC_PIN_TRACI_

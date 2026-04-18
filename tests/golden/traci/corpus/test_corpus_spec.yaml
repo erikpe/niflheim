@@ -1,0 +1,29 @@
+tests:
+  - mode: "run"
+    name: "test_corpus"
+    src_file: "test_corpus.nif"
+    runs:
+      - name: "if_statement_parser_dump"
+        input:
+          args: ["if_parser"]
+        expect:
+          exit_code: 0
+          stdout_file: "test_corpus_if_statement_parser_expected.txt"
+      - name: "if_statement_tree_dump"
+        input:
+          args: ["if_tree"]
+        expect:
+          exit_code: 0
+          stdout_file: "test_corpus_if_statement_tree_expected.txt"
+      - name: "standalone_testcode_pipeline_smoke"
+        input:
+          args: ["testcode"]
+        expect:
+          exit_code: 0
+          stdout_file: "test_corpus_testcode_expected.txt"
+      - name: "lego_scene_pipeline_smoke"
+        input:
+          args: ["lego"]
+        expect:
+          exit_code: 0
+          stdout_file: "test_corpus_lego_expected.txt"

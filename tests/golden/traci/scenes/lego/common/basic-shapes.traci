@@ -1,0 +1,421 @@
+#ifndef BASIC_SHAPES_TRACI_
+#define BASIC_SHAPES_TRACI_
+
+#include "basic-units.traci"
+
+/*
+ * Rounded cylinder 0 (from side):
+ *  ___
+ * /   \ 
+ * |   |
+ * |___|
+ *
+ */
+def roundedCylinder0_base (radius, height, rounding)
+{
+    return union {
+        cylinder (radius, ORIGO, Y*(height-rounding));
+        cylinder (radius-rounding, Y*(height-rounding-EPSILON), Y*height);
+        torus (rounding, radius-rounding) {
+            rotx PI/2;
+            translate Y*(height-rounding);
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius, height, radius];
+        };
+    };
+}
+
+def roundedCylinder0 (v0, v1, radius, rounding)
+{
+    return roundedCylinder0_base (radius, length(v1-v0), rounding) {
+        rotVecToVec (Y, v1-v0);
+        translate v0;
+    };
+}
+
+/*
+ * Rounded cylinder 1 (from side):
+ *  ___
+ * /   \ 
+ * |   |
+ * \___/
+ *
+ */
+def roundedCylinder1_base (radius, height, rounding)
+{
+    return union {
+        cylinder (radius-rounding, ORIGO, Y*height);
+        cylinder (radius, Y*rounding, Y*(height-rounding));
+        torus (rounding, radius-rounding) {
+            rotx PI/2;
+            translate Y*rounding;
+        };
+        torus (rounding, radius-rounding) {
+            rotx PI/2;
+            translate Y*(height-rounding);
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius, height, radius];
+        };
+    };
+}
+
+def roundedCylinder1 (v0, v1, radius, rounding)
+{
+    return roundedCylinder1_base (radius, length(v1-v0), rounding) {
+        rotVecToVec (Y, v1-v0);
+        translate v0;
+    };
+}
+
+/*
+ * Rounded cylinder 2 (from side):
+ *   ___
+ *  /   \ 
+ *  |   |
+ * /_____\
+ *
+ */
+ def roundedCylinder2_base (radius, height, lowerRounding, upperRounding)
+ {
+    return union {
+        cylinder (radius, Y*(lowerRounding-EPSILON), Y*(height-upperRounding));
+        cylinder (radius-upperRounding, Y*(height-upperRounding-EPSILON), Y*height);
+        torus (upperRounding, radius-upperRounding) {
+            rotx PI/2;
+            translate Y*(height-upperRounding);
+        };
+        difference {
+            cylinder (radius+lowerRounding, -Y*EPSILON, Y*lowerRounding);
+            torus (lowerRounding, radius+lowerRounding) {
+                rotx PI/2;
+                translate Y*lowerRounding;
+            };
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius+lowerRounding, height+EPSILON, radius+lowerRounding];
+            translate -Y*EPSILON;
+        };
+    };
+}
+
+def roundedCylinder2 (v0, v1, radius, rounding)
+{
+    return roundedCylinder2_base (radius, length(v1-v0), rounding, rounding) {
+        rotVecToVec (Y, v1-v0);
+        translate v0;
+    };
+}
+
+/*
+ * Rounded cylinder 3 (from side):
+ * _______
+ * \     /
+ *  |   |
+ * /_____\ 
+ *
+ */
+def roundedCylinder3_base (radius, height, rounding)
+{
+    return union {
+        cylinder (radius, Y*(rounding-EPSILON), Y*(height-rounding+EPSILON));
+        difference {
+            cylinder (radius+rounding, -Y*EPSILON, Y*rounding);
+            torus (rounding, radius+rounding) {
+                rotx PI/2;
+                translate Y*rounding;
+            };
+        };
+        difference {
+            cylinder (radius+rounding, Y*(height-rounding), Y*(height+EPSILON));
+            torus (rounding, radius+rounding) {
+                rotx PI/2;
+                translate Y*(height-rounding);
+            };
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius+rounding, height+EPSILON+EPSILON, radius+rounding];
+            translate -Y*EPSILON;
+       };
+    };
+}
+
+def roundedCylinder3 (v0, v1, radius, rounding)
+{
+    return roundedCylinder3_base (radius, length(v1-v0), rounding) {
+        rotVecToVec (Y, v1-v0);
+        translate v0;
+    };
+}
+
+/*
+ * Rounded cylinder 4 (from side):
+ *   ___
+ *  |   |
+ *  |   |
+ * /_____\ 
+ *
+ */
+def roundedCylinder4 (radius, height, rounding)
+{
+    return union {
+        cylinder (radius, Y*(rounding-EPSILON), Y*height);
+        difference {
+            cylinder (radius+rounding, -Y*EPSILON, Y*rounding);
+            torus (rounding, radius+rounding) {
+                rotx PI/2;
+                translate Y*rounding;
+            };
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius+rounding, height+EPSILON, radius+rounding];
+            translate -Y*EPSILON;
+        };
+    };
+}
+
+def roundedBox_helper1 (x, z, r)
+{
+    v0 = [r, r, r];
+    v1 = [x - r, r, r];
+    v2 = [x - r, r, z - r];
+    v3 = [r, r, z - r];
+    return union {
+        box {
+            scale [x - 2*r, 2*r, z - 2*r];
+            translate [r, 0, r];
+        };
+        sphere { scale r; translate v0; };
+        sphere { scale r; translate v1; };
+        sphere { scale r; translate v2; };
+        sphere { scale r; translate v3; };
+        cylinder (r, v0, v1);
+        cylinder (r, v1, v2);
+        cylinder (r, v2, v3);
+        cylinder (r, v3, v0);
+        bbox { scale [x, 2*r, z]; };
+    };
+}
+
+def roundedBox_helper2 (x, z, r)
+{
+    def corner (r)
+    {
+        return intersection {
+            box {
+                scale [3*r + EPSILON/10, 2*r, 3*r + EPSILON/10];
+                translate [-EPSILON/10, -r, -EPSILON/10];
+            };
+            torus (r, r+r) {
+                rotx PI/2;
+            };
+        };
+    }
+    return union {
+        cylinder (r, [r, 0, -r], [x-r, 0, -r]);
+        cylinder (r, [r+x, 0, r], [x+r, 0, z-r]);
+        cylinder (r, [x-r, 0, z+r], [r, 0, z+r]);
+        cylinder (r, [-r, 0, z-r], [-r, 0, r]);
+        corner (r) {
+            roty PI;
+            translate [r, 0, r];
+        };
+        corner (r) {
+            roty PI/2;
+            translate [x-r, 0, r];
+        };
+        corner (r) {
+            translate [x-r, 0, z-r];
+        };
+        corner (r) {
+            roty -PI/2;
+            translate [r, 0, z-r];
+        };
+        bbox {
+            scale [x + 4*r, 2*r, z + 4*r];
+            translate [-2*r, -r, -2*r];
+        };
+    };
+}
+
+def roundedBox_helper3 (x, z, r)
+{
+    return difference {
+        union {
+            box {
+                scale [x + 2*r, r + EPSILON, z - 2*r];
+                translate [-r, -EPSILON, r];
+            };
+            box {
+                scale [x - 2*r, r + EPSILON, z + 2*r];
+                translate [r, -EPSILON, -r];
+            };
+            cylinder (2*r, [r, -EPSILON, r], [r, r, r]);
+            cylinder (2*r, [x - r, -EPSILON, r], [x - r, r, r]);
+            cylinder (2*r, [x - r, -EPSILON, z - r], [x - r, r, z - r]);
+            cylinder (2*r, [r, -EPSILON, z - r], [r, r, z - r]);
+            bbox {
+                scale [x + 2*r, r + EPSILON, z + 2*r];
+                translate [-r, -EPSILON, -r];
+            };
+        };
+        roundedBox_helper2 (x, z, r) {
+            translate Y*r;
+        };
+        bbox {
+            scale [x + 2*r, r + EPSILON, z + 2*r];
+            translate [-r, -EPSILON, -r];
+        };
+    };
+}
+
+/*
+ * Rounded box base (from side):
+ *  ___
+ * |   |
+ * |   |
+ * |___|
+ *
+ */
+def roundedBox_base (x, y, z, r)
+{
+    v0 = [r, 0, r];
+    v1 = [x - r, 0, r];
+    v2 = [x - r, 0, z - r];
+    v3 = [r, 0, z - r];
+    v4 = [r, y, r];
+    v5 = [x - r, y, r];
+    v6 = [x - r, y, z - r];
+    v7 = [r, y, z - r];
+    return union {
+        box {
+            scale [x, y, z - 2*r];
+            translate Z*r;
+        };
+        box {
+            scale [x - 2*r, y, z];
+            translate X*r;
+        };
+        cylinder (r, v0, v4);
+        cylinder (r, v1, v5);
+        cylinder (r, v2, v6);
+        cylinder (r, v3, v7);
+
+        bbox { scale [x, y, z]; };
+    };
+}
+
+/*
+ * Rounded box 0 (from side):
+ *  ___
+ * /   \ 
+ * |   |
+ * |___|
+ *
+ */
+def roundedBox0 (x, y, z, r)
+ {
+    return union {
+        roundedBox_base (x, y - r, z, r);
+        roundedBox_helper1 (x, z, r) { translate [0, y - 2*r, 0]; };
+
+        bbox { scale [x, y, z]; };
+    };
+ }
+
+/*
+ * Rounded box 1 (from side):
+ *  ___
+ * /   \ 
+ * |   |
+ * \___/
+ *
+ */
+def roundedBox1 (x, y, z, r)
+{
+    return union {
+        roundedBox_base (x, y - 2*r, z, r) { translate Y*r; };
+        roundedBox_helper1 (x, z, r);
+        roundedBox_helper1 (x, z, r) { translate [0, y - 2*r, 0]; };
+
+        bbox { scale [x, y, z]; };
+    };
+}
+
+/*
+ * Rounded box 2 (from side):
+ *   ___
+ *  /   \ 
+ *  |   |
+ * /_____\
+ *
+ */
+def roundedBox2 (x, y, z, r)
+{
+    return union {
+        roundedBox_base (x, y - 2*r + EPSILON, z, r) { translate [0, r - EPSILON, 0]; };
+        roundedBox_helper1 (x, z, r) { translate [0, y - 2*r, 0]; };
+        roundedBox_helper3 (x, z, r);
+
+        bbox {
+            scale [x + 2*r, y + EPSILON, z + 2*r];
+            translate [-r, -EPSILON, -r];
+        };
+    };
+}
+
+/*
+ * Rounded box 3 (from side):
+ * _______
+ * \     /
+ *  |   |
+ * /_____\ 
+ *
+ */
+def roundedBox3 (x, y, z, r)
+{
+    return union {
+        roundedBox_base (x, y - 2*r + 2*EPSILON, z, r) { translate [0, r - EPSILON, 0]; };
+        roundedBox_helper3 (x, z, r) { scaley -1; translate [0, y, 0]; };
+        roundedBox_helper3 (x, z, r);
+
+        bbox {
+            scale [x + 2*r, y + 2*EPSILON, z + 2*r];
+            translate [-r, -EPSILON, -r];
+        };
+    };
+}
+
+/*
+ * Rounded box 4 (from side):
+ *   ___
+ *  |   |
+ *  |   |
+ * /_____\ 
+ *
+ */
+def roundedBox4 (x, y, z, r)
+{
+    return union {
+        roundedBox_base (x, y - r + EPSILON, z, r) { translate [0, r - EPSILON, 0]; };
+        roundedBox_helper3 (x, z, r);
+
+        bbox {
+            scale [x + 2*r, y + EPSILON, z + 2*r];
+            translate [-r, -EPSILON, -r];
+        };
+    };
+}
+
+#endif // BASIC_SHAPES_TRACI_

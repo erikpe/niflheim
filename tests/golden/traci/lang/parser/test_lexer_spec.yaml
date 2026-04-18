@@ -40,3 +40,9 @@ tests:
           stdout: |
             In file: bad_float.traci:1:4:
             Lexer error: Invalid float exponent
+      - name: "airplane_scene_preprocessed_lexes"
+        input:
+          args: ["airplane"]
+        expect:
+          exit_code: 0
+          stdout_file: "test_lexer_airplane_expected.txt"

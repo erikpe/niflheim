@@ -1,0 +1,195 @@
+BlockNode
+  Functions []
+  Statements
+    AssignNode local foo
+      ConstNode NUMBER 0
+    IfNode
+      Branch 1
+        Condition
+          BinaryOpNode COMPARE_LT
+            ConstNode NUMBER 1
+            ConstNode NUMBER 2
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                ConstNode NUMBER 23
+      Else []
+    IfNode
+      Branch 1
+        Condition
+          BinaryOpNode COMPARE_LT
+            ConstNode NUMBER 1
+            ConstNode NUMBER 2
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_ADD
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 1
+      Branch 2
+        Condition
+          BinaryOpNode COMPARE_GT
+            ConstNode NUMBER 22
+            ConstNode NUMBER 11
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_SUB
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 1
+      Else []
+    IfNode
+      Branch 1
+        Condition
+          BinaryOpNode COMPARE_GT
+            ConstNode NUMBER 1
+            ConstNode NUMBER 2
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_ADD
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 10
+      Else
+        BlockNode
+          Functions []
+          Statements
+            AssignNode local foo
+              BinaryOpNode BINARY_SUB
+                RefNode foo
+                  Block []
+                ConstNode NUMBER 10
+    IfNode
+      Branch 1
+        Condition
+          BinaryOpNode COMPARE_GT
+            ConstNode NUMBER 1
+            ConstNode NUMBER 2
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_ADD
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 100
+      Else []
+    IfNode
+      Branch 1
+        Condition
+          BinaryOpNode COMPARE_GT
+            ConstNode NUMBER 1
+            ConstNode NUMBER 2
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_SUB
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 33
+      Branch 2
+        Condition
+          BinaryOpNode COMPARE_LT
+            ConstNode NUMBER 323
+            ConstNode NUMBER 321
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_SUB
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 44
+      Branch 3
+        Condition
+          BinaryOpNode COMPARE_LT
+            ConstNode NUMBER 12
+            ConstNode NUMBER 32
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_ADD
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 1000
+      Else
+        BlockNode
+          Functions []
+          Statements
+            AssignNode local foo
+              BinaryOpNode BINARY_ADD
+                RefNode foo
+                  Block []
+                ConstNode NUMBER 123
+    IfNode
+      Branch 1
+        Condition
+          BinaryOpNode COMPARE_GT
+            ConstNode NUMBER 1
+            ConstNode NUMBER 2
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_SUB
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 33
+      Branch 2
+        Condition
+          BinaryOpNode COMPARE_LT
+            ConstNode NUMBER 323
+            ConstNode NUMBER 321
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_SUB
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 44
+      Branch 3
+        Condition
+          BinaryOpNode COMPARE_GT
+            ConstNode NUMBER 12
+            ConstNode NUMBER 32
+        Then
+          BlockNode
+            Functions []
+            Statements
+              AssignNode local foo
+                BinaryOpNode BINARY_ADD
+                  RefNode foo
+                    Block []
+                  ConstNode NUMBER 1000
+      Else
+        BlockNode
+          Functions []
+          Statements
+            AssignNode local foo
+              BinaryOpNode BINARY_ADD
+                RefNode foo
+                  Block []
+                ConstNode NUMBER 123
+    ReturnNode
+      RefNode foo
+        Block []

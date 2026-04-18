@@ -95,17 +95,17 @@ fn test_tree_walker_constructs() -> unit {
 }
 
 fn test_tree_walker_fibonacci_preprocessed() -> unit {
-    var runner: parser_runner.ParserRunner = _walk_preprocessed_file("proj/traci_java/testcode/fibonacci.traci");
+    var runner: parser_runner.ParserRunner = _walk_preprocessed_file("tests/golden/traci/testcode/fibonacci.traci");
     _print_root_summary(runner.get_root_node());
 }
 
 fn test_tree_walker_prime_checker() -> unit {
-    var runner: parser_runner.ParserRunner = _walk_file("proj/traci_java/testcode/prime-checker.traci");
+    var runner: parser_runner.ParserRunner = _walk_file("tests/golden/traci/testcode/prime-checker.traci");
     _print_root_summary(runner.get_root_node());
 }
 
 fn test_tree_walker_basic_shapes_preprocessed() -> unit {
-    var runner: parser_runner.ParserRunner = _walk_preprocessed_file("proj/traci_java/scenes/lego/common/basic-shapes.traci");
+    var runner: parser_runner.ParserRunner = _walk_preprocessed_file("tests/golden/traci/scenes/lego/common/basic-shapes.traci");
     _print_root_summary(runner.get_root_node());
 }
 

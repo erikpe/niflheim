@@ -1,0 +1,219 @@
+#ifndef LEGO_TECHNIC_AXLE_TRACI_
+#define LEGO_TECHNIC_AXLE_TRACI_
+
+#include "common/basic-units.traci"
+#include "common/basic-shapes.traci"
+#include "lego-units.traci"
+#include "lego-primitives.traci"
+
+def legoTechnicAxle_helper (radius, thickness, rounding)
+{
+    def corner (rounding, thickness)
+    {
+        return intersection {
+            box {
+                scale [rounding*3, rounding*2, rounding*3];
+                translate [-rounding*3, -rounding, 0];
+            };
+            torus (rounding, rounding*2) { rotx PI/2; };
+            translate [thickness/2+rounding, rounding, -thickness/2-rounding];
+        };
+    }
+    return union {
+        difference {
+            box {
+                scale [thickness + rounding*2, rounding*2, thickness + rounding*2];
+                translate [-thickness/2 - rounding, 0, -thickness/2 - rounding];
+            };
+            v0 = [-thickness/2 - rounding, -EPSILON, -thickness/2 - rounding];
+            v1 = [thickness/2 + rounding, -EPSILON, -thickness/2 - rounding];
+            v2 = [thickness/2 + rounding, -EPSILON, thickness/2 + rounding];
+            v3 = [-thickness/2 - rounding, -EPSILON, thickness/2 + rounding];
+            v4 = [-thickness/2 - rounding, rounding*2 + EPSILON, -thickness/2 - rounding];
+            v5 = [thickness/2 + rounding, rounding*2 + EPSILON, -thickness/2 - rounding];
+            v6 = [thickness/2 + rounding, rounding*2 + EPSILON, thickness/2 + rounding];
+            v7 = [-thickness/2 - rounding, rounding*2 + EPSILON, thickness/2 + rounding];
+            cylinder (rounding*2, v0, v4);
+            cylinder (rounding*2, v1, v5);
+            cylinder (rounding*2, v2, v6);
+            cylinder (rounding*2, v3, v7);
+        };
+        corner (rounding, thickness);
+        corner (rounding, thickness) { roty PI/2; };
+        corner (rounding, thickness) { roty -PI/2; };
+        corner (rounding, thickness) { roty PI; };
+        bbox {
+            scale [thickness + rounding*2, rounding*2, thickness + rounding*2];
+            translate [-thickness/2 - rounding, 0, -thickness/2 - rounding];
+        };
+    };
+}
+
+def legoTechnicAxle_base1 (length, radius, thickness, rounding)
+{
+    return union {
+        roundedBox1 (radius*2, length, thickness, rounding) {
+            translate [-radius, 0, -thickness/2];
+        };
+        roundedBox1 (thickness, length, radius*2, rounding) {
+            translate [-thickness/2, 0, -radius];
+        };
+        difference {
+            box {
+                scale [thickness + rounding*2, length - rounding*2, thickness + rounding*2];
+                translate [-thickness/2 - rounding, rounding, -thickness/2 - rounding];
+            };
+            v0 = [-thickness/2 - rounding, rounding - EPSILON, -thickness/2 - rounding];
+            v1 = [-thickness/2 - rounding, rounding - EPSILON, thickness/2 + rounding];
+            v2 = [thickness/2 + rounding, rounding - EPSILON, thickness/2 + rounding];
+            v3 = [thickness/2 + rounding, rounding - EPSILON, -thickness/2 - rounding];
+            v4 = [-thickness/2 - rounding, length - rounding + EPSILON, -thickness/2 - rounding];
+            v5 = [-thickness/2 - rounding, length - rounding + EPSILON, thickness/2 + rounding];
+            v6 = [thickness/2 + rounding, length - rounding + EPSILON, thickness/2 + rounding];
+            v7 = [thickness/2 + rounding, length - rounding + EPSILON, -thickness/2 - rounding];
+            cylinder (rounding, v0, v4);
+            cylinder (rounding, v1, v5);
+            cylinder (rounding, v2, v6);
+            cylinder (rounding, v3, v7);
+        };
+        legoTechnicAxle_helper (radius, thickness, rounding);
+        legoTechnicAxle_helper (radius, thickness, rounding) { translate Y*(length-rounding*2); };
+        bbox {
+            scale [radius*2, length, radius*2];
+            translate [-radius, 0, -radius];
+        };
+    };
+}
+
+def legoTechnicAxle_base2 (length, radius, thickness, rounding)
+{
+    return union {
+        roundedBox3 (radius*2, length, thickness, rounding) {
+            translate [-radius, 0, -thickness/2];
+        };
+        roundedBox3 (thickness, length, radius*2, rounding) {
+            translate [-thickness/2, 0, -radius];
+        };
+        difference {
+            box {
+                scale [thickness + 2*rounding, length + 2*EPSILON, thickness + 2*rounding];
+                translate [-thickness/2-rounding, -EPSILON, -thickness/2-rounding];
+            };
+            v0 = [-thickness/2 - rounding, rounding, -thickness/2 - rounding];
+            v1 = [-thickness/2 - rounding, rounding, thickness/2 + rounding];
+            v2 = [thickness/2 + rounding, rounding, thickness/2 + rounding];
+            v3 = [thickness/2 + rounding, rounding, -thickness/2 - rounding];
+            v4 = [-thickness/2 - rounding, length - rounding, -thickness/2 - rounding];
+            v5 = [-thickness/2 - rounding, length - rounding, thickness/2 + rounding];
+            v6 = [thickness/2 + rounding, length - rounding, thickness/2 + rounding];
+            v7 = [thickness/2 + rounding, length - rounding, -thickness/2 - rounding];
+            cylinder (rounding, v0, v4);
+            cylinder (rounding, v1, v5);
+            cylinder (rounding, v2, v6);
+            cylinder (rounding, v3, v7);
+            sphere (rounding) { translate v0; };
+            sphere (rounding) { translate v1; };
+            sphere (rounding) { translate v2; };
+            sphere (rounding) { translate v3; };
+            sphere (rounding) { translate v4; };
+            sphere (rounding) { translate v5; };
+            sphere (rounding) { translate v6; };
+            sphere (rounding) { translate v7; };
+        };
+        bbox {
+            scale [radius*2 + rounding*2, length + 2*EPSILON, radius*2 + rounding*2];
+            translate [-radius-rounding, -EPSILON, -radius-rounding];
+        };
+    };
+}
+
+def legoTechnicAxle_base3 (length, radius, thickness, rounding)
+{
+    return union {
+        roundedBox2 (radius*2, length, thickness, rounding) {
+            translate [-radius, 0, -thickness/2];
+        };
+        roundedBox2 (thickness, length, radius*2, rounding) {
+            translate [-thickness/2, 0, -radius];
+        };
+        difference {
+            box {
+                scale [thickness + 2*rounding, length + EPSILON - rounding, thickness + 2*rounding];
+                translate [-thickness/2-rounding, -EPSILON, -thickness/2-rounding];
+            };
+            v0 = [-thickness/2 - rounding, rounding, -thickness/2 - rounding];
+            v1 = [-thickness/2 - rounding, rounding, thickness/2 + rounding];
+            v2 = [thickness/2 + rounding, rounding, thickness/2 + rounding];
+            v3 = [thickness/2 + rounding, rounding, -thickness/2 - rounding];
+            v4 = [-thickness/2 - rounding, length - rounding + EPSILON, -thickness/2 - rounding];
+            v5 = [-thickness/2 - rounding, length - rounding + EPSILON, thickness/2 + rounding];
+            v6 = [thickness/2 + rounding, length - rounding + EPSILON, thickness/2 + rounding];
+            v7 = [thickness/2 + rounding, length - rounding + EPSILON, -thickness/2 - rounding];
+            cylinder (rounding, v0, v4);
+            cylinder (rounding, v1, v5);
+            cylinder (rounding, v2, v6);
+            cylinder (rounding, v3, v7);
+            sphere (rounding) { translate v0; };
+            sphere (rounding) { translate v1; };
+            sphere (rounding) { translate v2; };
+            sphere (rounding) { translate v3; };
+        };
+        legoTechnicAxle_helper (radius, thickness, rounding) { translate Y*(length-rounding*2); };
+        bbox {
+            scale [radius*2 + rounding*2, length + EPSILON, radius*2 + rounding*2];
+            translate [-radius-rounding, -EPSILON, -radius-rounding];
+        };
+    };
+}
+
+/*
+ * http://www.bricklink.com/catalogList.asp?catType=P&catString=134
+ */
+def legoTechnicAxle (length)
+{
+    radius = AXLE_RADIUS;
+    thickness = AXLE_THICKNESS;
+    rounding = LEGO_ROUNDING;
+    return legoTechnicAxle_base1 (length, radius, thickness, rounding) {
+        rotx PI/2;
+        translate [1, .7, 0];
+    };
+}
+
+/*
+ * Technic, Axle 2
+ * http://www.bricklink.com/catalogItem.asp?P=3704
+ */
+def legoTechnicAxle_2 ()
+{
+    return legoTechnicAxle(2);
+}
+
+/*
+ * Technic, Axle 4
+ * http://www.bricklink.com/catalogItem.asp?P=3705
+ */
+def legoTechnicAxle_4 ()
+{
+    return legoTechnicAxle(4);
+}
+
+/*
+ * Technic, Axle 6
+ * http://www.bricklink.com/catalogItem.asp?P=3706
+ */
+def legoTechnicAxle_6 ()
+{
+    return legoTechnicAxle(6);
+}
+
+/*
+ * Technic, Axle 8
+ * http://www.bricklink.com/catalogItem.asp?P=3707
+ */
+def legoTechnicAxle_8 ()
+{
+    return legoTechnicAxle(8);
+}
+
+#endif // LEGO_TECHNIC_AXLE_TRACI_

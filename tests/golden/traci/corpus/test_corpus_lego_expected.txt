@@ -1,0 +1,14 @@
+tests/golden/traci/scenes/lego/airplane.traci|scene_functions=88|scene_statements=31|root_functions=88|root_statements=31
+tests/golden/traci/scenes/lego/bricks/all-bricks.traci|scene_functions=74|scene_statements=13|root_functions=74|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-plate.traci|scene_functions=30|scene_statements=13|root_functions=30|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-primitives.traci|scene_functions=23|scene_statements=13|root_functions=23|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-technic-axle.traci|scene_functions=32|scene_statements=13|root_functions=32|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-technic-brick-with-holes.traci|scene_functions=34|scene_statements=13|root_functions=34|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-technic-bush.traci|scene_functions=29|scene_statements=13|root_functions=29|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-technic-liftarm.traci|scene_functions=25|scene_statements=13|root_functions=25|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-technic-pin.traci|scene_functions=29|scene_statements=13|root_functions=29|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-technic-plate.traci|scene_functions=28|scene_statements=13|root_functions=28|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-tile.traci|scene_functions=28|scene_statements=13|root_functions=28|root_statements=13
+tests/golden/traci/scenes/lego/bricks/lego-units.traci|scene_functions=0|scene_statements=7|root_functions=0|root_statements=7
+tests/golden/traci/scenes/lego/common/basic-shapes.traci|scene_functions=18|scene_statements=6|root_functions=18|root_statements=6
+tests/golden/traci/scenes/lego/common/basic-units.traci|scene_functions=0|scene_statements=6|root_functions=0|root_statements=6
