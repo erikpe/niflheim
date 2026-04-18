@@ -18,6 +18,8 @@ from compiler.codegen.emitter_expr import (
     _emit_array_index_bounds_check,
     _emit_array_null_check,
     emit_expr,
+    pop_preserved_expr_result,
+    push_expr_result_for_later_use,
 )
 from compiler.semantic.lowered_ir import (
     LoweredSemanticBlock,
@@ -182,9 +184,15 @@ def _emit_assign(codegen, stmt: SemanticAssign, ctx: EmitContext) -> None:
         return
     if isinstance(target, FieldLValue):
         emit_expr(codegen, target.receiver, ctx)
-        codegen.emit_push("rax")
+        receiver_temp_root_index = push_expr_result_for_later_use(
+            codegen,
+            target.receiver,
+            ctx,
+            preserve_across_gc=expr_may_execute_gc(stmt.value),
+            span=stmt.span,
+        )
         emit_expr(codegen, stmt.value, ctx)
-        codegen.emit_pop("rcx")
+        pop_preserved_expr_result(codegen, ctx, "rcx", temp_root_index=receiver_temp_root_index)
         field_offset = ctx.declaration_tables.class_field_offset(target.owner_class_id, target.field_name)
         if field_offset is None:
             codegen_types.raise_codegen_error(

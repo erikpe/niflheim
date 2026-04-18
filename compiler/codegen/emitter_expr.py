@@ -41,6 +41,7 @@ from compiler.codegen.abi.runtime import (
     RuntimeCallMetadata,
     runtime_call_metadata,
 )
+from compiler.codegen.effects import expr_may_execute_gc
 from compiler.codegen.model import FunctionLayout
 from compiler.codegen.root_liveness import NamedRootLiveness
 from compiler.codegen.ops_float import emit_double_binary_op, emit_unary_negate_double
@@ -1196,10 +1197,15 @@ def _emit_binary_expr(codegen: CodeGenerator, expr: BinaryExprS, ctx: EmitContex
     left_type_name = _canonical_expr_type_name(expr.left)
     right_type_name = _canonical_expr_type_name(expr.right)
     emit_expr(codegen, expr.left, ctx)
-    codegen.emit_push("rax")
+    left_temp_root_index = push_expr_result_for_later_use(
+        codegen,
+        expr.left,
+        ctx,
+        preserve_across_gc=expr_may_execute_gc(expr.right),
+    )
     emit_expr(codegen, expr.right, ctx)
     codegen.asm.instr("mov rcx, rax")
-    codegen.emit_pop("rax")
+    pop_preserved_expr_result(codegen, ctx, "rax", temp_root_index=left_temp_root_index)
     if expr.op.flavor in {BinaryOpFlavor.FLOAT, BinaryOpFlavor.FLOAT_COMPARISON}:
         codegen.asm.instr("movq xmm1, rcx")
         codegen.asm.instr("movq xmm0, rax")
@@ -1262,6 +1268,42 @@ def _canonical_expr_type_name(expr: SemanticExpr) -> str:
 
 def _emit_runtime_call_hooks_after(codegen: CodeGenerator, ctx: EmitContext) -> None:
     codegen.emit_runtime_call_hook(fn_name=ctx.fn_name, phase="after", label_counter=ctx.label_counter)
+
+
+def push_expr_result_for_later_use(
+    codegen: CodeGenerator,
+    expr: SemanticExpr,
+    ctx: EmitContext,
+    *,
+    preserve_across_gc: bool,
+    span=None,
+) -> int | None:
+    temp_root_index: int | None = None
+    if preserve_across_gc and codegen_types.is_reference_type_name(_canonical_expr_type_name(expr)):
+        temp_root_index = ctx.temp_root_depth[0]
+        codegen.emit_temp_root_slot_store(
+            ctx.layout,
+            temp_root_index,
+            "rax",
+            span=expr.span if span is None else span,
+        )
+        ctx.temp_root_depth[0] = temp_root_index + 1
+    codegen.emit_push("rax")
+    return temp_root_index
+
+
+def pop_preserved_expr_result(
+    codegen: CodeGenerator,
+    ctx: EmitContext,
+    register: str,
+    *,
+    temp_root_index: int | None,
+) -> None:
+    codegen.emit_pop(register)
+    if temp_root_index is None:
+        return
+    codegen.emit_clear_temp_root_slots(ctx.layout, temp_root_index, 1)
+    ctx.temp_root_depth[0] = temp_root_index
 
 
 def _runtime_call_metadata_for_target(target_name: str | None) -> RuntimeCallMetadata | None:

@@ -810,6 +810,78 @@ fn main() -> i64 {
     assert "    mov qword ptr [rbp - 56], rax" in caller_body
 
 
+def test_emit_asm_binary_expr_keeps_temporary_ref_left_operand_alive_across_gc_rhs(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect() -> unit;
+
+fn rhs() -> Obj {
+    rt_gc_collect();
+    return null;
+}
+
+fn main() -> i64 {
+    if Obj[](1u) == rhs() {
+        return 1;
+    }
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    main_start = asm.rindex("\nmain:\n") + 1
+    main_body = asm[main_start : asm.index(".Lmain_epilogue:", main_start)]
+
+    assert f'    call {mangle_function_symbol(("main",), "rhs")}' in main_body
+    assert re.search(
+        r"    mov qword ptr \[rbp - \d+\], rax\n"
+        r"    push rax\n"
+        r"(?:.*\n)*?"
+        r"    call __nif_fn_main__rhs\n"
+        r"(?:.*\n)*?"
+        r"    pop rax\n"
+        r"    mov qword ptr \[rbp - \d+\], 0\n",
+        main_body,
+    )
+
+
+def test_emit_asm_field_assign_keeps_temporary_ref_receiver_alive_across_gc_value(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect() -> unit;
+
+class Box {
+    value: Obj;
+}
+
+fn mk() -> Box {
+    return Box(null);
+}
+
+fn rhs() -> Obj {
+    rt_gc_collect();
+    return null;
+}
+
+fn main() -> i64 {
+    mk().value = rhs();
+    return 0;
+}
+"""
+    asm = emit_source_asm(tmp_path, source)
+    main_start = asm.rindex("\nmain:\n") + 1
+    main_body = asm[main_start : asm.index(".Lmain_epilogue:", main_start)]
+
+    assert f'    call {mangle_function_symbol(("main",), "rhs")}' in main_body
+    assert re.search(
+        r"    mov qword ptr \[rbp - \d+\], rax\n"
+        r"    push rax\n"
+        r"(?:.*\n)*?"
+        r"    call __nif_fn_main__rhs\n"
+        r"(?:.*\n)*?"
+        r"    pop rcx\n"
+        r"    mov qword ptr \[rbp - \d+\], 0\n",
+        main_body,
+    )
+
+
 def test_emit_asm_array_direct_for_in_keeps_collection_and_element_live_across_gc_call(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect() -> unit;

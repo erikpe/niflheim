@@ -492,7 +492,12 @@ def _max_call_temp_root_slots_in_expr(expr: SemanticExpr) -> int:
     if isinstance(expr, UnaryExprS):
         return _max_call_temp_root_slots_in_expr(expr.operand)
     if isinstance(expr, BinaryExprS):
-        return max(_max_call_temp_root_slots_in_expr(expr.left), _max_call_temp_root_slots_in_expr(expr.right))
+        left_slots = _max_call_temp_root_slots_in_expr(expr.left)
+        right_slots = _max_call_temp_root_slots_in_expr(expr.right)
+        preserved_left_slots = 0
+        if codegen_types.is_reference_type_ref(expression_type_ref(expr.left)) and expr_may_execute_gc(expr.right):
+            preserved_left_slots = 1 + right_slots
+        return max(left_slots, right_slots, preserved_left_slots)
     if isinstance(expr, FieldReadExpr):
         return _max_call_temp_root_slots_in_expr(expr.access.receiver)
     return 0
@@ -515,7 +520,12 @@ def _max_call_temp_root_slots_in_stmt(
         return _max_call_temp_root_slots_in_expr(stmt.initializer) if stmt.initializer is not None else 0
     if isinstance(stmt, SemanticAssign):
         target_slots = _max_call_temp_root_slots_for_lvalue(stmt.target)
-        return max(target_slots, _max_call_temp_root_slots_in_expr(stmt.value), _max_call_temp_root_slots_for_ref_array_fast_write(stmt))
+        value_slots = _max_call_temp_root_slots_in_expr(stmt.value)
+        preserved_receiver_slots = 0
+        if isinstance(stmt.target, FieldLValue):
+            if codegen_types.is_reference_type_ref(expression_type_ref(stmt.target.receiver)) and expr_may_execute_gc(stmt.value):
+                preserved_receiver_slots = 1 + value_slots
+        return max(target_slots, value_slots, preserved_receiver_slots, _max_call_temp_root_slots_for_ref_array_fast_write(stmt))
     if isinstance(stmt, SemanticExprStmt):
         return _max_call_temp_root_slots_in_expr(stmt.expr)
     if isinstance(stmt, SemanticReturn):
