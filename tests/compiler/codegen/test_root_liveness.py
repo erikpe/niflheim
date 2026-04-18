@@ -239,3 +239,28 @@ def test_root_liveness_tracks_statement_live_after_sets(tmp_path: Path) -> None:
 
     assert liveness.for_stmt(assign_stmt) == {_local_id_by_name(fn, "keep")}
     assert liveness.named_root_local_ids_needing_slots() == frozenset()
+
+
+def test_root_liveness_tracks_nested_block_live_after_sets(tmp_path: Path) -> None:
+    fn = _lower_function(
+        tmp_path,
+        """
+        fn f(flag: bool, value: Obj) -> Obj {
+            var keep: Obj = null;
+            if flag {
+                keep = value;
+                if keep == null {
+                    return null;
+                }
+            }
+            return keep;
+        }
+        """,
+        function_name="f",
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    liveness = analyze_named_root_liveness(fn)
+
+    if_stmt = next(stmt for stmt in fn.body.statements if isinstance(stmt, LoweredSemanticIf))
+
+    assert liveness.for_stmt(if_stmt.then_block) == {_local_id_by_name(fn, "keep")}

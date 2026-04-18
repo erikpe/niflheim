@@ -663,6 +663,52 @@ fn main() -> i64 {
     _assert_named_root_store_block(f_body, expected_store_count=1)
 
 
+def test_emit_asm_nested_block_keeps_dirty_named_root_alive_across_later_gc_call(tmp_path) -> None:
+    source = """
+extern fn rt_gc_collect() -> unit;
+
+fn f(flag: bool, value: Obj) -> Obj {
+    var keep: Obj = null;
+    if flag {
+        keep = value;
+        if keep == null {
+            return null;
+        }
+    }
+    rt_gc_collect();
+    return keep;
+}
+
+fn main() -> i64 {
+    if f(true, null) == null {
+        return 0;
+    }
+    return 1;
+}
+"""
+    asm = emit_source_asm(
+        tmp_path,
+        source,
+        disabled_passes={"copy_propagation", "dead_stmt_prune", "dead_store_elimination"},
+    )
+    f_body = _main_function_body(asm, "f")
+
+    _assert_in_order(
+        f_body,
+        [
+            "# mirror named reference slots into shadow-stack slots",
+            "    call rt_gc_collect",
+        ],
+    )
+    assert re.search(
+        r"# mirror named reference slots into shadow-stack slots\n"
+        r"\s+mov rax, qword ptr \[rbp - \d+\]\n"
+        r"\s+mov qword ptr \[rbp - \d+\], rax\n"
+        r"\s+call rt_gc_collect",
+        f_body,
+    )
+
+
 def test_emit_asm_reuses_named_root_slot_in_prologue_when_safepoints_are_disjoint(tmp_path) -> None:
     source = """
 extern fn rt_gc_collect() -> unit;

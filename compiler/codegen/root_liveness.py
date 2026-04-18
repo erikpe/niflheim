@@ -118,6 +118,7 @@ class _NamedRootLivenessAnalyzer:
         loop_continue_live: set[LocalId],
         loop_break_live: set[LocalId],
     ) -> set[LocalId]:
+        self._record_stmt_live_after(block, live_after)
         current = set(live_after)
         for stmt in reversed(block.statements):
             current = self._analyze_stmt(
