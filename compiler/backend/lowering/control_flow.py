@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
 from compiler.backend.ir import model as ir_model
@@ -12,10 +12,17 @@ from compiler.backend.lowering.expressions import (
     lower_null_operand,
     lower_unit_operand,
 )
+from compiler.codegen.abi.runtime import ARRAY_FROM_BYTES_U8_RUNTIME_CALL, runtime_call_metadata
+from compiler.codegen.runtime_calls import runtime_dispatch_call_name
+from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind, array_runtime_kind_for_element_type_name
 from compiler.common.span import SourceSpan
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_OBJ, TYPE_NAME_U64
 from compiler.semantic.ir import (
+    ArrayCtorExprS,
+    ArrayLenExpr,
     BinaryExprS,
     CallExprS,
+    CastExprS,
     CallableValueCallTarget,
     ClassRefExpr,
     ConstructorCallTarget,
@@ -24,37 +31,57 @@ from compiler.semantic.ir import (
     FieldReadExpr,
     FunctionCallTarget,
     FunctionRefExpr,
+    IndexReadExpr,
+    InterfaceDispatch,
     IndexLValue,
     InstanceMethodCallTarget,
     InterfaceMethodCallTarget,
     LocalLValue,
     LocalRefExpr,
+    MethodDispatch,
     MethodRefExpr,
     NullExprS,
+    RuntimeDispatch,
     SemanticAssign,
     SemanticBlock,
     SemanticBreak,
     SemanticContinue,
     SemanticExpr,
     SemanticExprStmt,
+    SemanticForIn,
     SemanticIf,
     SemanticReturn,
     SemanticStmt,
     SemanticVarDecl,
     SemanticWhile,
     SliceLValue,
+    SliceReadExpr,
     StaticMethodCallTarget,
+    StringLiteralBytesExpr,
+    TypeTestExprS,
     UnaryExprS,
+    VirtualMethodDispatch,
     VirtualMethodCallTarget,
 )
+from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, SemanticBinaryOp
 from compiler.semantic.symbols import ClassId, LocalId
 from compiler.semantic.types import (
     SemanticTypeRef,
+    semantic_primitive_type_ref,
     semantic_type_callable_params,
     semantic_type_callable_return,
     semantic_type_canonical_name,
     semantic_type_is_callable,
+    semantic_type_is_array,
 )
+
+
+_BOOL_TYPE_REF = semantic_primitive_type_ref(TYPE_NAME_BOOL)
+_I64_TYPE_REF = semantic_primitive_type_ref(TYPE_NAME_I64)
+_U64_TYPE_REF = semantic_primitive_type_ref(TYPE_NAME_U64)
+_OPAQUE_DATA_TYPE_REF = SemanticTypeRef(kind="reference", canonical_name=TYPE_NAME_OBJ, display_name=TYPE_NAME_OBJ)
+_I64_LT_OP = SemanticBinaryOp(kind=BinaryOpKind.LESS_THAN, flavor=BinaryOpFlavor.INTEGER_COMPARISON)
+_I64_ADD_OP = SemanticBinaryOp(kind=BinaryOpKind.ADD, flavor=BinaryOpFlavor.INTEGER)
 
 
 @dataclass(frozen=True)
@@ -103,6 +130,7 @@ class _CallableCFGBuilder:
     registers: list[ir_model.BackendRegister]
     register_by_id: dict[ir_model.BackendRegId, ir_model.BackendRegister]
     call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface]
+    string_data_operand_for_literal: Callable[[str], tuple[ir_model.BackendDataOperand, int]]
     next_reg_ordinal: int
     next_inst_ordinal: int = 0
     next_block_ordinal: int = 0
@@ -230,6 +258,7 @@ class _CallableCFGBuilder:
         target: ir_model.BackendCallTarget,
         args: tuple[ir_model.BackendOperand, ...],
         signature: ir_model.BackendSignature,
+        effects: ir_model.BackendEffects | None = None,
         span: SourceSpan,
     ) -> None:
         self._active_block_for(state).instructions.append(
@@ -239,7 +268,7 @@ class _CallableCFGBuilder:
                 target=target,
                 args=args,
                 signature=signature,
-                effects=_conservative_user_call_effects(),
+                effects=_conservative_user_call_effects() if effects is None else effects,
                 span=span,
             )
         )
@@ -316,6 +345,195 @@ class _CallableCFGBuilder:
             ir_model.BackendNullCheckInst(
                 inst_id=self._next_inst_id(),
                 value=value,
+                span=span,
+            )
+        )
+
+    def emit_array_alloc(
+        self,
+        state: _ControlFlowState,
+        *,
+        dest: ir_model.BackendRegId,
+        array_runtime_kind: ArrayRuntimeKind,
+        length: ir_model.BackendOperand,
+        effects: ir_model.BackendEffects,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendArrayAllocInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                array_runtime_kind=array_runtime_kind,
+                length=length,
+                effects=effects,
+                span=span,
+            )
+        )
+
+    def emit_array_length(
+        self,
+        state: _ControlFlowState,
+        *,
+        dest: ir_model.BackendRegId,
+        array_ref: ir_model.BackendOperand,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendArrayLengthInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                array_ref=array_ref,
+                span=span,
+            )
+        )
+
+    def emit_array_load(
+        self,
+        state: _ControlFlowState,
+        *,
+        dest: ir_model.BackendRegId,
+        array_runtime_kind: ArrayRuntimeKind,
+        array_ref: ir_model.BackendOperand,
+        index: ir_model.BackendOperand,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendArrayLoadInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                array_runtime_kind=array_runtime_kind,
+                array_ref=array_ref,
+                index=index,
+                span=span,
+            )
+        )
+
+    def emit_array_store(
+        self,
+        state: _ControlFlowState,
+        *,
+        array_runtime_kind: ArrayRuntimeKind,
+        array_ref: ir_model.BackendOperand,
+        index: ir_model.BackendOperand,
+        value: ir_model.BackendOperand,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendArrayStoreInst(
+                inst_id=self._next_inst_id(),
+                array_runtime_kind=array_runtime_kind,
+                array_ref=array_ref,
+                index=index,
+                value=value,
+                span=span,
+            )
+        )
+
+    def emit_array_slice(
+        self,
+        state: _ControlFlowState,
+        *,
+        dest: ir_model.BackendRegId,
+        array_runtime_kind: ArrayRuntimeKind,
+        array_ref: ir_model.BackendOperand,
+        begin: ir_model.BackendOperand,
+        end: ir_model.BackendOperand,
+        effects: ir_model.BackendEffects,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendArraySliceInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                array_runtime_kind=array_runtime_kind,
+                array_ref=array_ref,
+                begin=begin,
+                end=end,
+                effects=effects,
+                span=span,
+            )
+        )
+
+    def emit_array_slice_store(
+        self,
+        state: _ControlFlowState,
+        *,
+        array_runtime_kind: ArrayRuntimeKind,
+        array_ref: ir_model.BackendOperand,
+        begin: ir_model.BackendOperand,
+        end: ir_model.BackendOperand,
+        value: ir_model.BackendOperand,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendArraySliceStoreInst(
+                inst_id=self._next_inst_id(),
+                array_runtime_kind=array_runtime_kind,
+                array_ref=array_ref,
+                begin=begin,
+                end=end,
+                value=value,
+                span=span,
+            )
+        )
+
+    def emit_bounds_check(
+        self,
+        state: _ControlFlowState,
+        *,
+        array_ref: ir_model.BackendOperand,
+        index: ir_model.BackendOperand,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendBoundsCheckInst(
+                inst_id=self._next_inst_id(),
+                array_ref=array_ref,
+                index=index,
+                span=span,
+            )
+        )
+
+    def emit_cast(
+        self,
+        state: _ControlFlowState,
+        *,
+        dest: ir_model.BackendRegId,
+        cast_kind: CastSemanticsKind,
+        operand: ir_model.BackendOperand,
+        target_type_ref: SemanticTypeRef,
+        trap_on_failure: bool,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendCastInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                cast_kind=cast_kind,
+                operand=operand,
+                target_type_ref=target_type_ref,
+                trap_on_failure=trap_on_failure,
+                span=span,
+            )
+        )
+
+    def emit_type_test(
+        self,
+        state: _ControlFlowState,
+        *,
+        dest: ir_model.BackendRegId,
+        test_kind,
+        operand: ir_model.BackendOperand,
+        target_type_ref: SemanticTypeRef,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendTypeTestInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                test_kind=test_kind,
+                operand=operand,
+                target_type_ref=target_type_ref,
                 span=span,
             )
         )
@@ -406,6 +624,7 @@ def lower_callable_body(
     registers: list[ir_model.BackendRegister],
     register_by_id: dict[ir_model.BackendRegId, ir_model.BackendRegister],
     call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
+    string_data_operand_for_literal: Callable[[str], tuple[ir_model.BackendDataOperand, int]],
     next_reg_ordinal: int,
     body: SemanticBlock | None,
     block_span: SourceSpan,
@@ -419,6 +638,7 @@ def lower_callable_body(
         registers=list(registers),
         register_by_id=dict(register_by_id),
         call_surface_by_id=call_surface_by_id,
+        string_data_operand_for_literal=string_data_operand_for_literal,
         next_reg_ordinal=next_reg_ordinal,
     )
     entry_block_id = builder.create_block(debug_name="entry", span=block_span)
@@ -504,10 +724,14 @@ def _lower_stmt(
             )
             return state
 
-        if not isinstance(stmt.target, (IndexLValue, SliceLValue)):
-            raise NotImplementedError(
-                f"Backend lowering does not support assignment target '{type(stmt.target).__name__}' yet"
-            )
+        if isinstance(stmt.target, IndexLValue):
+            _lower_index_assignment(builder, state, target=stmt.target, value_expr=stmt.value)
+            return state
+
+        if isinstance(stmt.target, SliceLValue):
+            _lower_slice_assignment(builder, state, target=stmt.target, value_expr=stmt.value)
+            return state
+
         raise NotImplementedError(
             f"Backend lowering does not support assignment target '{type(stmt.target).__name__}' yet"
         )
@@ -525,6 +749,9 @@ def _lower_stmt(
 
     if isinstance(stmt, SemanticWhile):
         return _lower_while_stmt(builder, state, stmt)
+
+    if isinstance(stmt, SemanticForIn):
+        return _lower_for_in_stmt(builder, state, stmt)
 
     if isinstance(stmt, SemanticBreak):
         loop_ctx = _require_loop_context(builder)
@@ -720,6 +947,170 @@ def _lower_while_stmt(
     )
 
 
+def _lower_for_in_stmt(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    stmt: SemanticForIn,
+) -> _ControlFlowState:
+    incoming_mapping = dict(state.reg_by_local_id)
+    collection_reg_id = builder.allocate_temp(type_ref=stmt.collection.type_ref, span=stmt.span, debug_hint="forin_collection")
+    length_reg_id = builder.allocate_temp(type_ref=_U64_TYPE_REF, span=stmt.span, debug_hint="forin_length")
+    length_i64_reg_id = builder.allocate_temp(type_ref=_I64_TYPE_REF, span=stmt.span, debug_hint="forin_length_i64")
+    index_reg_id = builder.allocate_temp(type_ref=_I64_TYPE_REF, span=stmt.span, debug_hint="forin_index")
+
+    _materialize_expr_into(builder, state, dest_reg_id=collection_reg_id, expr=stmt.collection, span=stmt.collection.span)
+    builder.emit_const(
+        state,
+        dest=index_reg_id,
+        constant=ir_model.BackendIntConst(type_name=TYPE_NAME_I64, value=0),
+        span=stmt.span,
+    )
+
+    collection_operand = ir_model.BackendRegOperand(reg_id=collection_reg_id)
+    if _uses_direct_for_in_array_fast_path(stmt):
+        builder.emit_null_check(state, value=collection_operand, span=stmt.span)
+        builder.emit_array_length(state, dest=length_reg_id, array_ref=collection_operand, span=stmt.span)
+    else:
+        _emit_dispatch_call(
+            builder,
+            state,
+            dispatch=stmt.iter_len_dispatch,
+            receiver=stmt.collection,
+            receiver_operand=collection_operand,
+            extra_arg_exprs=(),
+            extra_arg_operands=(),
+            extra_arg_types=(),
+            return_type_ref=_U64_TYPE_REF,
+            dest_reg_id=length_reg_id,
+            span=stmt.span,
+        )
+    builder.emit_cast(
+        state,
+        dest=length_i64_reg_id,
+        cast_kind=CastSemanticsKind.TO_INTEGER,
+        operand=ir_model.BackendRegOperand(reg_id=length_reg_id),
+        target_type_ref=_I64_TYPE_REF,
+        trap_on_failure=False,
+        span=stmt.span,
+    )
+
+    cond_block_id = builder.create_block(debug_name="forin.cond", span=stmt.span)
+    body_block_id = builder.create_block(debug_name="forin.body", span=stmt.body.span)
+    step_block_id = builder.create_block(debug_name="forin.step", span=stmt.span)
+    exit_block_id = builder.create_block(debug_name="forin.exit", span=stmt.span)
+    builder.terminate_with_jump(state.current_block_id, target_block_id=cond_block_id, span=stmt.span)
+
+    cond_state = _ControlFlowState(
+        current_block_id=cond_block_id,
+        reg_by_local_id=dict(incoming_mapping),
+        merge_local_ids=state.merge_local_ids,
+    )
+    cond_reg_id = builder.allocate_temp(type_ref=_BOOL_TYPE_REF, span=stmt.span, debug_hint="forin_cond")
+    builder.emit_binary(
+        cond_state,
+        dest=cond_reg_id,
+        op=_I64_LT_OP,
+        left=ir_model.BackendRegOperand(reg_id=index_reg_id),
+        right=ir_model.BackendRegOperand(reg_id=length_i64_reg_id),
+        span=stmt.span,
+    )
+    builder.terminate_with_branch(
+        cond_block_id,
+        condition=ir_model.BackendRegOperand(reg_id=cond_reg_id),
+        true_block_id=body_block_id,
+        false_block_id=exit_block_id,
+        span=stmt.span,
+    )
+
+    builder.loop_stack.append(
+        _LoopContext(
+            break_target_block_id=exit_block_id,
+            continue_target_block_id=step_block_id,
+            target_reg_by_local_id=dict(incoming_mapping),
+        )
+    )
+    try:
+        body_merge_local_ids = state.merge_local_ids | frozenset(_sorted_local_ids(_assigned_local_ids_in_block(stmt.body)))
+        body_state = _ControlFlowState(
+            current_block_id=body_block_id,
+            reg_by_local_id=dict(incoming_mapping),
+            merge_local_ids=body_merge_local_ids,
+        )
+        element_dest_reg_id = _assignment_dest_reg(
+            builder,
+            body_state,
+            stmt.element_local_id,
+            stmt.element_type_ref,
+            stmt.span,
+        )
+        if stmt.element_local_id in body_state.merge_local_ids:
+            body_state.reg_by_local_id[stmt.element_local_id] = element_dest_reg_id
+        if _uses_direct_for_in_array_fast_path(stmt):
+            builder.emit_null_check(body_state, value=collection_operand, span=stmt.span)
+            builder.emit_bounds_check(
+                body_state,
+                array_ref=collection_operand,
+                index=ir_model.BackendRegOperand(reg_id=index_reg_id),
+                span=stmt.span,
+            )
+            builder.emit_array_load(
+                body_state,
+                dest=element_dest_reg_id,
+                array_runtime_kind=_require_direct_array_runtime_kind(stmt.iter_get_dispatch, span=stmt.span),
+                array_ref=collection_operand,
+                index=ir_model.BackendRegOperand(reg_id=index_reg_id),
+                span=stmt.span,
+            )
+        else:
+            _emit_dispatch_call(
+                builder,
+                body_state,
+                dispatch=stmt.iter_get_dispatch,
+                receiver=stmt.collection,
+                receiver_operand=collection_operand,
+                extra_arg_exprs=(),
+                extra_arg_operands=(ir_model.BackendRegOperand(reg_id=index_reg_id),),
+                extra_arg_types=(_I64_TYPE_REF,),
+                return_type_ref=stmt.element_type_ref,
+                dest_reg_id=element_dest_reg_id,
+                span=stmt.span,
+            )
+        body_state = _lower_block(builder, body_state, stmt.body)
+    finally:
+        builder.loop_stack.pop()
+
+    _emit_merge_jump(
+        builder,
+        state=body_state,
+        target_block_id=step_block_id,
+        target_reg_by_local_id=incoming_mapping,
+        merge_local_ids=body_state.merge_local_ids,
+        span=stmt.span,
+        debug_name="forin.body_to_step",
+    )
+
+    step_state = _ControlFlowState(
+        current_block_id=step_block_id,
+        reg_by_local_id=dict(incoming_mapping),
+        merge_local_ids=state.merge_local_ids,
+    )
+    builder.emit_binary(
+        step_state,
+        dest=index_reg_id,
+        op=_I64_ADD_OP,
+        left=ir_model.BackendRegOperand(reg_id=index_reg_id),
+        right=ir_model.BackendConstOperand(constant=ir_model.BackendIntConst(type_name=TYPE_NAME_I64, value=1)),
+        span=stmt.span,
+    )
+    builder.terminate_with_jump(step_block_id, target_block_id=cond_block_id, span=stmt.span)
+
+    return _ControlFlowState(
+        current_block_id=exit_block_id,
+        reg_by_local_id=dict(incoming_mapping),
+        merge_local_ids=state.merge_local_ids,
+    )
+
+
 def _emit_merge_jump(
     builder: _CallableCFGBuilder,
     *,
@@ -793,6 +1184,104 @@ def _materialize_expr_into(
         right = _lower_expression_to_operand(builder, state, expr.right)
         builder.emit_binary(state, dest=dest_reg_id, op=expr.op, left=left, right=right, span=expr.span)
         return
+    if isinstance(expr, CastExprS):
+        builder.emit_cast(
+            state,
+            dest=dest_reg_id,
+            cast_kind=expr.cast_kind,
+            operand=_lower_expression_to_operand(builder, state, expr.operand),
+            target_type_ref=expr.target_type_ref,
+            trap_on_failure=_cast_traps_on_failure(expr),
+            span=expr.span,
+        )
+        return
+    if isinstance(expr, TypeTestExprS):
+        builder.emit_type_test(
+            state,
+            dest=dest_reg_id,
+            test_kind=expr.test_kind,
+            operand=_lower_expression_to_operand(builder, state, expr.operand),
+            target_type_ref=expr.target_type_ref,
+            span=expr.span,
+        )
+        return
+    if isinstance(expr, ArrayCtorExprS):
+        builder.emit_array_alloc(
+            state,
+            dest=dest_reg_id,
+            array_runtime_kind=array_runtime_kind_for_element_type_name(semantic_type_canonical_name(expr.element_type_ref)),
+            length=_lower_expression_to_operand(builder, state, expr.length_expr),
+            effects=_conservative_alloc_effects(),
+            span=expr.span,
+        )
+        return
+    if isinstance(expr, ArrayLenExpr):
+        array_operand = _lower_receiver_operand(builder, state, expr.target, span=expr.span)
+        builder.emit_null_check(state, value=array_operand, span=expr.span)
+        builder.emit_array_length(state, dest=dest_reg_id, array_ref=array_operand, span=expr.span)
+        return
+    if isinstance(expr, IndexReadExpr):
+        if _uses_direct_array_fast_path(expr.dispatch):
+            array_operand = _lower_receiver_operand(builder, state, expr.target, span=expr.span)
+            index_operand = _lower_expression_to_operand(builder, state, expr.index)
+            builder.emit_null_check(state, value=array_operand, span=expr.span)
+            builder.emit_bounds_check(state, array_ref=array_operand, index=index_operand, span=expr.span)
+            builder.emit_array_load(
+                state,
+                dest=dest_reg_id,
+                array_runtime_kind=_require_direct_array_runtime_kind(expr.dispatch, span=expr.span),
+                array_ref=array_operand,
+                index=index_operand,
+                span=expr.span,
+            )
+            return
+        _emit_dispatch_call(
+            builder,
+            state,
+            dispatch=expr.dispatch,
+            receiver=expr.target,
+            receiver_operand=None,
+            extra_arg_exprs=(expr.index,),
+            extra_arg_operands=(),
+            extra_arg_types=(),
+            return_type_ref=expr.type_ref,
+            dest_reg_id=dest_reg_id,
+            span=expr.span,
+        )
+        return
+    if isinstance(expr, SliceReadExpr):
+        if _uses_direct_array_fast_path(expr.dispatch):
+            array_operand = _lower_receiver_operand(builder, state, expr.target, span=expr.span)
+            begin_operand = _lower_expression_to_operand(builder, state, expr.begin)
+            end_operand = _lower_expression_to_operand(builder, state, expr.end)
+            builder.emit_null_check(state, value=array_operand, span=expr.span)
+            builder.emit_bounds_check(state, array_ref=array_operand, index=begin_operand, span=expr.span)
+            builder.emit_bounds_check(state, array_ref=array_operand, index=end_operand, span=expr.span)
+            builder.emit_array_slice(
+                state,
+                dest=dest_reg_id,
+                array_runtime_kind=_require_direct_array_runtime_kind(expr.dispatch, span=expr.span),
+                array_ref=array_operand,
+                begin=begin_operand,
+                end=end_operand,
+                effects=_conservative_alloc_effects(),
+                span=expr.span,
+            )
+            return
+        _emit_dispatch_call(
+            builder,
+            state,
+            dispatch=expr.dispatch,
+            receiver=expr.target,
+            receiver_operand=None,
+            extra_arg_exprs=(expr.begin, expr.end),
+            extra_arg_operands=(),
+            extra_arg_types=(),
+            return_type_ref=expr.type_ref,
+            dest_reg_id=dest_reg_id,
+            span=expr.span,
+        )
+        return
     if isinstance(expr, CallExprS):
         _emit_call_expression(builder, state, expr=expr, dest_reg_id=dest_reg_id)
         return
@@ -805,6 +1294,9 @@ def _materialize_expr_into(
                 source=ir_model.BackendRegOperand(reg_id=field_reg_id),
                 span=span,
             )
+        return
+    if isinstance(expr, StringLiteralBytesExpr):
+        _emit_string_literal_bytes_expr(builder, state, expr=expr, dest_reg_id=dest_reg_id)
         return
 
     operand = _lower_expression_to_operand(builder, state, expr)
@@ -864,7 +1356,19 @@ def _lower_expression_to_operand(
         dest_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="tmp")
         _materialize_expr_into(builder, state, dest_reg_id=dest_reg_id, expr=expr, span=expr.span)
         return ir_model.BackendRegOperand(reg_id=dest_reg_id)
-    if isinstance(expr, BinaryExprS):
+    if isinstance(
+        expr,
+        (
+            BinaryExprS,
+            CastExprS,
+            TypeTestExprS,
+            ArrayCtorExprS,
+            ArrayLenExpr,
+            IndexReadExpr,
+            SliceReadExpr,
+            StringLiteralBytesExpr,
+        ),
+    ):
         dest_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="tmp")
         _materialize_expr_into(builder, state, dest_reg_id=dest_reg_id, expr=expr, span=expr.span)
         return ir_model.BackendRegOperand(reg_id=dest_reg_id)
@@ -1115,6 +1619,195 @@ def _emit_field_read(
     return dest_reg_id
 
 
+def _lower_index_assignment(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    *,
+    target: IndexLValue,
+    value_expr: SemanticExpr,
+) -> None:
+    if _uses_direct_array_fast_path(target.dispatch):
+        array_operand = _lower_receiver_operand(builder, state, target.target, span=target.span)
+        index_operand = _lower_expression_to_operand(builder, state, target.index)
+        value_operand = _lower_expression_to_operand(builder, state, value_expr)
+        builder.emit_null_check(state, value=array_operand, span=target.span)
+        builder.emit_bounds_check(state, array_ref=array_operand, index=index_operand, span=target.span)
+        builder.emit_array_store(
+            state,
+            array_runtime_kind=_require_direct_array_runtime_kind(target.dispatch, span=target.span),
+            array_ref=array_operand,
+            index=index_operand,
+            value=value_operand,
+            span=target.span,
+        )
+        return
+
+    _emit_dispatch_call(
+        builder,
+        state,
+        dispatch=target.dispatch,
+        receiver=target.target,
+        receiver_operand=None,
+        extra_arg_exprs=(target.index, value_expr),
+        extra_arg_operands=(),
+        extra_arg_types=(),
+        return_type_ref=None,
+        dest_reg_id=None,
+        span=target.span,
+    )
+
+
+def _lower_slice_assignment(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    *,
+    target: SliceLValue,
+    value_expr: SemanticExpr,
+) -> None:
+    if _uses_direct_array_fast_path(target.dispatch):
+        array_operand = _lower_receiver_operand(builder, state, target.target, span=target.span)
+        begin_operand = _lower_expression_to_operand(builder, state, target.begin)
+        end_operand = _lower_expression_to_operand(builder, state, target.end)
+        value_operand = _lower_expression_to_operand(builder, state, value_expr)
+        builder.emit_null_check(state, value=array_operand, span=target.span)
+        builder.emit_bounds_check(state, array_ref=array_operand, index=begin_operand, span=target.span)
+        builder.emit_bounds_check(state, array_ref=array_operand, index=end_operand, span=target.span)
+        builder.emit_array_slice_store(
+            state,
+            array_runtime_kind=_require_direct_array_runtime_kind(target.dispatch, span=target.span),
+            array_ref=array_operand,
+            begin=begin_operand,
+            end=end_operand,
+            value=value_operand,
+            span=target.span,
+        )
+        return
+
+    _emit_dispatch_call(
+        builder,
+        state,
+        dispatch=target.dispatch,
+        receiver=target.target,
+        receiver_operand=None,
+        extra_arg_exprs=(target.begin, target.end, value_expr),
+        extra_arg_operands=(),
+        extra_arg_types=(),
+        return_type_ref=None,
+        dest_reg_id=None,
+        span=target.span,
+    )
+
+
+def _emit_dispatch_call(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    *,
+    dispatch,
+    receiver: SemanticExpr,
+    receiver_operand: ir_model.BackendOperand | None,
+    extra_arg_exprs: tuple[SemanticExpr, ...],
+    extra_arg_operands: tuple[ir_model.BackendOperand, ...],
+    extra_arg_types: tuple[SemanticTypeRef, ...],
+    return_type_ref: SemanticTypeRef | None,
+    dest_reg_id: ir_model.BackendRegId | None,
+    span: SourceSpan,
+) -> None:
+    lowered_receiver_operand = (
+        receiver_operand if receiver_operand is not None else _lower_receiver_operand(builder, state, receiver, span=span)
+    )
+    lowered_expr_operands = tuple(_lower_expression_to_operand(builder, state, argument) for argument in extra_arg_exprs)
+    if extra_arg_operands and extra_arg_exprs:
+        raise ValueError("dispatch lowering accepts extra args as expressions or operands, not both")
+
+    if isinstance(dispatch, RuntimeDispatch):
+        call_name = runtime_dispatch_call_name(dispatch)
+        metadata = runtime_call_metadata(call_name)
+        builder.emit_call(
+            state,
+            dest=dest_reg_id,
+            target=ir_model.BackendRuntimeCallTarget(name=call_name, ref_arg_indices=metadata.ref_arg_indices),
+            args=(lowered_receiver_operand, *(lowered_expr_operands or extra_arg_operands)),
+            signature=ir_model.BackendSignature(
+                param_types=(receiver.type_ref, *(argument.type_ref for argument in extra_arg_exprs), *extra_arg_types),
+                return_type=backend_signature_return_type(return_type_ref) if return_type_ref is not None else None,
+            ),
+            effects=_runtime_call_effects(call_name),
+            span=span,
+        )
+        return
+
+    if isinstance(dispatch, MethodDispatch):
+        builder.emit_call(
+            state,
+            dest=dest_reg_id,
+            target=ir_model.BackendDirectCallTarget(callable_id=dispatch.method_id),
+            args=(lowered_receiver_operand, *(lowered_expr_operands or extra_arg_operands)),
+            signature=builder.require_callable_surface(dispatch.method_id).signature,
+            span=span,
+        )
+        return
+
+    if isinstance(dispatch, VirtualMethodDispatch):
+        builder.emit_call(
+            state,
+            dest=dest_reg_id,
+            target=ir_model.BackendVirtualCallTarget(
+                slot_owner_class_id=dispatch.slot_owner_class_id,
+                method_name=dispatch.method_name,
+                selected_method_id=dispatch.selected_method_id,
+            ),
+            args=(lowered_receiver_operand, *(lowered_expr_operands or extra_arg_operands)),
+            signature=builder.require_callable_surface(dispatch.selected_method_id).signature,
+            span=span,
+        )
+        return
+
+    if isinstance(dispatch, InterfaceDispatch):
+        builder.emit_call(
+            state,
+            dest=dest_reg_id,
+            target=ir_model.BackendInterfaceCallTarget(interface_id=dispatch.interface_id, method_id=dispatch.method_id),
+            args=(lowered_receiver_operand, *(lowered_expr_operands or extra_arg_operands)),
+            signature=ir_model.BackendSignature(
+                param_types=tuple(argument.type_ref for argument in extra_arg_exprs) + extra_arg_types,
+                return_type=backend_signature_return_type(return_type_ref) if return_type_ref is not None else None,
+            ),
+            span=span,
+        )
+        return
+
+    raise NotImplementedError(f"Backend lowering does not support dispatch '{type(dispatch).__name__}' yet")
+
+
+def _emit_string_literal_bytes_expr(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    *,
+    expr: StringLiteralBytesExpr,
+    dest_reg_id: ir_model.BackendRegId,
+) -> None:
+    data_operand, data_len = builder.string_data_operand_for_literal(expr.literal_text)
+    metadata = runtime_call_metadata(ARRAY_FROM_BYTES_U8_RUNTIME_CALL)
+    builder.emit_call(
+        state,
+        dest=dest_reg_id,
+        target=ir_model.BackendRuntimeCallTarget(
+            name=ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
+            ref_arg_indices=metadata.ref_arg_indices,
+        ),
+        args=(
+            data_operand,
+            ir_model.BackendConstOperand(constant=ir_model.BackendIntConst(type_name=TYPE_NAME_U64, value=data_len)),
+        ),
+        signature=ir_model.BackendSignature(
+            param_types=(_OPAQUE_DATA_TYPE_REF, _U64_TYPE_REF),
+            return_type=backend_signature_return_type(expr.type_ref),
+        ),
+        effects=_runtime_call_effects(ARRAY_FROM_BYTES_U8_RUNTIME_CALL),
+        span=expr.span,
+    )
+
+
 def _lower_receiver_operand(
     builder: _CallableCFGBuilder,
     state: _ControlFlowState,
@@ -1153,6 +1846,41 @@ def _conservative_user_call_effects() -> ir_model.BackendEffects:
     return ir_model.BackendEffects(reads_memory=True, writes_memory=True, may_gc=True, may_trap=True)
 
 
+def _runtime_call_effects(call_name: str) -> ir_model.BackendEffects:
+    metadata = runtime_call_metadata(call_name)
+    return ir_model.BackendEffects(
+        reads_memory=True,
+        writes_memory=True,
+        may_gc=metadata.may_gc,
+        may_trap=True,
+        needs_safepoint_hooks=metadata.emits_safepoint_hooks,
+    )
+
+
+def _uses_direct_array_fast_path(dispatch) -> bool:
+    return isinstance(dispatch, RuntimeDispatch) and dispatch.runtime_kind is not None
+
+
+def _uses_direct_for_in_array_fast_path(stmt: SemanticForIn) -> bool:
+    return (
+        isinstance(stmt.iter_len_dispatch, RuntimeDispatch)
+        and isinstance(stmt.iter_get_dispatch, RuntimeDispatch)
+        and stmt.iter_len_dispatch.operation is CollectionOpKind.ITER_LEN
+        and stmt.iter_get_dispatch.operation is CollectionOpKind.ITER_GET
+        and stmt.iter_get_dispatch.runtime_kind is not None
+    )
+
+
+def _require_direct_array_runtime_kind(dispatch: RuntimeDispatch, *, span: SourceSpan) -> ArrayRuntimeKind:
+    if dispatch.runtime_kind is None:
+        raise ValueError(f"Direct array lowering requires a concrete runtime kind at {span}")
+    return dispatch.runtime_kind
+
+
+def _cast_traps_on_failure(expr: CastExprS) -> bool:
+    return expr.cast_kind is CastSemanticsKind.REFERENCE_COMPATIBILITY
+
+
 def _is_unit_typed(type_ref: SemanticTypeRef) -> bool:
     return semantic_type_canonical_name(type_ref) == "unit"
 
@@ -1187,6 +1915,8 @@ def _assigned_local_ids_in_stmt(stmt: SemanticStmt) -> set[LocalId]:
             assigned_local_ids.update(_assigned_local_ids_in_block(stmt.else_block))
         return assigned_local_ids
     if isinstance(stmt, SemanticWhile):
+        return _assigned_local_ids_in_block(stmt.body)
+    if isinstance(stmt, SemanticForIn):
         return _assigned_local_ids_in_block(stmt.body)
     if isinstance(
         stmt,

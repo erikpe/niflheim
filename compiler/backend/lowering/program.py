@@ -14,6 +14,7 @@ from compiler.backend.lowering.functions import (
     lower_function_callable,
     lower_method_callable,
 )
+from compiler.common.literals import decode_string_literal
 from compiler.semantic.ir import SemanticClass, SemanticInterface
 from compiler.semantic.linker import LinkedSemanticProgram, require_main_function
 from compiler.semantic.symbols import ClassId, FunctionId, InterfaceId
@@ -26,12 +27,32 @@ class ProgramLoweringContext:
     class_decl_by_id: dict[ClassId, ir_model.BackendClassDecl] = field(default_factory=dict)
     callable_decl_by_id: dict[ir_model.BackendCallableId, ir_model.BackendCallableDecl] = field(default_factory=dict)
     data_blobs: list[ir_model.BackendDataBlob] = field(default_factory=list)
+    string_literal_data_by_text: dict[str, tuple[ir_model.BackendDataId, int]] = field(default_factory=dict)
     next_data_ordinal: int = 0
 
     def allocate_data_id(self) -> ir_model.BackendDataId:
         data_id = ir_model.BackendDataId(ordinal=self.next_data_ordinal)
         self.next_data_ordinal += 1
         return data_id
+
+    def intern_string_literal_data(self, literal_text: str) -> tuple[ir_model.BackendDataOperand, int]:
+        cached = self.string_literal_data_by_text.get(literal_text)
+        if cached is None:
+            data = decode_string_literal(literal_text)
+            data_id = self.allocate_data_id()
+            self.data_blobs.append(
+                ir_model.BackendDataBlob(
+                    data_id=data_id,
+                    debug_name=f"string_bytes_{data_id.ordinal}",
+                    alignment=1,
+                    bytes_hex=data.hex(),
+                    readonly=True,
+                )
+            )
+            cached = (data_id, len(data))
+            self.string_literal_data_by_text[literal_text] = cached
+        data_id, data_len = cached
+        return ir_model.BackendDataOperand(data_id=data_id), data_len
 
 
 def lower_to_backend_ir(program: LinkedSemanticProgram) -> ir_model.BackendProgram:
@@ -49,7 +70,11 @@ def lower_to_backend_ir(program: LinkedSemanticProgram) -> ir_model.BackendProgr
 
     callable_decls = [
         lowered_callable.callable_decl
-        for lowered_callable in _iter_lowered_callables(program, call_surface_by_id=call_surface_by_id)
+        for lowered_callable in _iter_lowered_callables(
+            program,
+            call_surface_by_id=call_surface_by_id,
+            string_data_operand_for_literal=context.intern_string_literal_data,
+        )
     ]
     for callable_decl in callable_decls:
         context.callable_decl_by_id[callable_decl.callable_id] = callable_decl
@@ -102,14 +127,29 @@ def _iter_lowered_callables(
     program: LinkedSemanticProgram,
     *,
     call_surface_by_id,
+    string_data_operand_for_literal,
 ):
     for function in program.functions:
-        yield lower_function_callable(function, call_surface_by_id=call_surface_by_id)
+        yield lower_function_callable(
+            function,
+            call_surface_by_id=call_surface_by_id,
+            string_data_operand_for_literal=string_data_operand_for_literal,
+        )
     for class_decl in program.classes:
         for method in class_decl.methods:
-            yield lower_method_callable(class_decl.class_id, method, call_surface_by_id=call_surface_by_id)
+            yield lower_method_callable(
+                class_decl.class_id,
+                method,
+                call_surface_by_id=call_surface_by_id,
+                string_data_operand_for_literal=string_data_operand_for_literal,
+            )
         for constructor in class_decl.constructors:
-            yield lower_constructor_callable(class_decl.class_id, constructor, call_surface_by_id=call_surface_by_id)
+            yield lower_constructor_callable(
+                class_decl.class_id,
+                constructor,
+                call_surface_by_id=call_surface_by_id,
+                string_data_operand_for_literal=string_data_operand_for_literal,
+            )
 
 
 __all__ = ["ProgramLoweringContext", "lower_to_backend_ir"]

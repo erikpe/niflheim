@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -68,6 +69,7 @@ def lower_function_callable(
     function: SemanticFunction,
     *,
     call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
+    string_data_operand_for_literal: Callable[[str], tuple[ir_model.BackendDataOperand, int]],
 ) -> LoweredCallable:
     signature = _function_signature(function)
     layout = _allocate_register_layout(
@@ -89,6 +91,7 @@ def lower_function_callable(
             body=function.body,
             layout=layout,
             call_surface_by_id=call_surface_by_id,
+            string_data_operand_for_literal=string_data_operand_for_literal,
         ),
         reg_id_by_local_id=dict(layout.reg_id_by_local_id),
     )
@@ -99,6 +102,7 @@ def lower_method_callable(
     method: SemanticMethod,
     *,
     call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
+    string_data_operand_for_literal: Callable[[str], tuple[ir_model.BackendDataOperand, int]],
 ) -> LoweredCallable:
     signature = _method_signature(method)
     receiver_type_ref = None if method.is_static else semantic_type_ref_for_class_id(owner_class_id)
@@ -121,6 +125,7 @@ def lower_method_callable(
             body=method.body,
             layout=layout,
             call_surface_by_id=call_surface_by_id,
+            string_data_operand_for_literal=string_data_operand_for_literal,
         ),
         reg_id_by_local_id=dict(layout.reg_id_by_local_id),
     )
@@ -131,6 +136,7 @@ def lower_constructor_callable(
     constructor: SemanticConstructor,
     *,
     call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
+    string_data_operand_for_literal: Callable[[str], tuple[ir_model.BackendDataOperand, int]],
 ) -> LoweredCallable:
     receiver_type_ref = semantic_type_ref_for_class_id(owner_class_id)
     signature = _constructor_signature(owner_class_id, constructor)
@@ -154,6 +160,7 @@ def lower_constructor_callable(
             body=body,
             layout=layout,
             call_surface_by_id=call_surface_by_id,
+            string_data_operand_for_literal=string_data_operand_for_literal,
         ),
         reg_id_by_local_id=dict(layout.reg_id_by_local_id),
     )
@@ -259,6 +266,7 @@ def _lower_callable_decl(
     body: SemanticBlock | None,
     layout: _RegisterLayout,
     call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
+    string_data_operand_for_literal: Callable[[str], tuple[ir_model.BackendDataOperand, int]],
 ) -> ir_model.BackendCallableDecl:
     if is_extern:
         return ir_model.BackendCallableDecl(
@@ -287,6 +295,7 @@ def _lower_callable_decl(
         registers=list(layout.registers),
         register_by_id={register.reg_id: register for register in layout.registers},
         call_surface_by_id=call_surface_by_id,
+        string_data_operand_for_literal=string_data_operand_for_literal,
         next_reg_ordinal=layout.next_ordinal,
         body=body,
         block_span=block_span,

@@ -34,7 +34,7 @@ Use these rules for every phase-2 patch:
 2. [x] PR 2: Lower straight-line scalar bodies, locals, and direct or static call shapes.
 3. [x] PR 3: Lower structured control flow to explicit CFG blocks and merge copies.
 4. [x] PR 4: Lower receiver-aware bodies, constructors, object allocation, field access, and dispatch calls.
-5. [ ] PR 5: Lower arrays, slices, collection dispatch, casts, type tests, safety checks, and data blobs.
+5. [x] PR 5: Lower arrays, slices, collection dispatch, casts, type tests, safety checks, and data blobs.
 6. [ ] PR 6: Wire checked-path CLI backend IR dump and stop-after behavior to the real lowering path.
 
 ## PR 1: Lowering Entrypoint, Shared Context, And Top-Level Declarations
@@ -472,12 +472,12 @@ pytest -n auto --dist loadfile tests/compiler/backend/lowering/test_arrays.py te
 
 ### Checklist
 
-- [ ] Lower array, slice, and index operations.
-- [ ] Emit explicit null and bounds checks where required.
-- [ ] Lower `for in` directly to backend CFG.
-- [ ] Lower runtime-backed collection dispatch via registered runtime calls.
-- [ ] Lower casts, type tests, and bad-cast trap behavior.
-- [ ] Lower deterministic string-byte data blobs.
+- [x] Lower array, slice, and index operations.
+- [x] Emit explicit null and bounds checks where required.
+- [x] Lower `for in` directly to backend CFG.
+- [x] Lower runtime-backed collection dispatch via registered runtime calls.
+- [x] Lower casts, type tests, and bad-cast trap behavior.
+- [x] Lower deterministic string-byte data blobs.
 
 ## PR 6: Checked-Path CLI Dump And Stop-After Wiring
 
