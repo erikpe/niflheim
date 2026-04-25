@@ -1,6 +1,6 @@
 # Backend IR Phase 1 Implementation Plan
 
-Status: proposed.
+Status: in progress.
 
 This document expands phase 1 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
@@ -30,7 +30,7 @@ Use these rules for every phase-1 patch:
 
 ## Ordered PR Checklist
 
-1. [ ] PR 1: Create the backend package skeleton, target API scaffold, and reserve the CLI flag surface.
+1. [x] PR 1: Create the backend package skeleton, target API scaffold, and reserve the CLI flag surface.
 2. [ ] PR 2: Implement the backend IR core model and test fixture helpers.
 3. [ ] PR 3: Implement canonical JSON serialization and parsing.
 4. [ ] PR 4: Implement the deterministic human-readable text dump.
@@ -124,12 +124,12 @@ pytest -n auto --dist loadfile tests/compiler/integration/test_cli_backend_ir_fl
 
 ### Checklist
 
-- [ ] Create the `compiler/backend/` package tree and minimal `__init__.py` files.
-- [ ] Add `compiler/backend/targets/api.py` with the frozen target interface scaffold.
-- [ ] Extend [compiler/cli.py](../compiler/cli.py) with reserved backend IR flags and stop phases.
-- [ ] Add explicit not-yet-implemented behavior for backend IR flags.
-- [ ] Add CLI integration tests for the reserved surface.
-- [ ] Re-run existing CLI codegen and CLI error coverage to prove default behavior is unchanged.
+- [x] Create the `compiler/backend/` package tree and minimal `__init__.py` files.
+- [x] Add `compiler/backend/targets/api.py` with the frozen target interface scaffold.
+- [x] Extend [compiler/cli.py](../compiler/cli.py) with reserved backend IR flags and stop phases.
+- [x] Add explicit not-yet-implemented behavior for backend IR flags.
+- [x] Add CLI integration tests for the reserved surface.
+- [x] Re-run existing CLI codegen and CLI error coverage to prove default behavior is unchanged.
 
 ## PR 2: Backend IR Core Model And Fixture Helpers
 

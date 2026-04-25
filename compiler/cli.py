@@ -16,7 +16,38 @@ from compiler.semantic.optimizations.pipeline import optimize_semantic_program
 from compiler.typecheck.api import typecheck_program
 
 
-STOP_PHASES = ["check", "codegen"]
+BACKEND_IR_DUMP_FORMATS = ["text", "json"]
+BACKEND_IR_STOP_PHASES = frozenset({"backend-ir", "backend-ir-passes"})
+STOP_PHASES = ["check", *sorted(BACKEND_IR_STOP_PHASES), "codegen"]
+
+
+def _requested_backend_ir_surface(args: argparse.Namespace) -> tuple[str, ...]:
+    requested: list[str] = []
+    if args.dump_backend_ir is not None:
+        requested.append("--dump-backend-ir")
+    if args.dump_backend_ir_dir is not None:
+        requested.append("--dump-backend-ir-dir")
+    if args.stop_after in BACKEND_IR_STOP_PHASES:
+        requested.append(f"--stop-after {args.stop_after}")
+    return tuple(requested)
+
+
+def _backend_ir_reserved_error(requested: tuple[str, ...]) -> str:
+    requested_summary = ", ".join(requested)
+    return (
+        "Backend IR CLI surface is reserved for phase 2 because backend lowering "
+        "is not wired into the checked compiler path yet; "
+        f"unsupported request(s): {requested_summary}. "
+        "Phase 1 only freezes the flag names and stop phases."
+    )
+
+
+def _reject_reserved_backend_ir_surface(args: argparse.Namespace) -> None:
+    requested = _requested_backend_ir_surface(args)
+    if not requested:
+        return
+
+    raise ValueError(_backend_ir_reserved_error(requested))
 
 
 def _format_token(token: Token) -> str:
@@ -92,6 +123,16 @@ def main() -> int:
     output_group = parser.add_argument_group("Output")
     output_group.add_argument("-o", "--output", help="Output assembly file path (default: stdout)")
     output_group.add_argument("--print-asm", action="store_true", help="Also print emitted assembly to stdout")
+    output_group.add_argument(
+        "--dump-backend-ir",
+        choices=BACKEND_IR_DUMP_FORMATS,
+        help="Reserved backend IR dump format; rejected until backend lowering lands",
+    )
+    output_group.add_argument(
+        "--dump-backend-ir-dir",
+        metavar="DIR",
+        help="Reserved backend IR dump directory; rejected until backend lowering lands",
+    )
 
     logging_group = parser.add_argument_group("Logging")
     logging_group.add_argument(
@@ -127,6 +168,8 @@ def main() -> int:
     logger = get_logger(__name__)
 
     try:
+        _reject_reserved_backend_ir_surface(args)
+
         input_path = Path(args.input)
 
         program = _resolve_program_graph(logger, input_path, args.project_root)
