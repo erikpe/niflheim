@@ -344,22 +344,24 @@ This avoids mixing global metadata discovery with per-function instruction emiss
 
 ## Pre-Phase-1 Freeze Checklist
 
-Before implementation starts, freeze the following decisions explicitly:
+The following decisions are frozen for this plan:
 
-- the lowering seam: whether backend IR lowers from `LinkedSemanticProgram` directly or from the current executable/lowered semantic form during migration
-- constructor representation: whether constructors are modeled as one backend callable or as distinct wrapper/init-helper callables, and what each callable returns
-- stable ID policy: the exact ordinal assignment rules for registers, blocks, instructions, and the canonical sort order for callable IDs
-- runtime call ownership: whether backend lowering may only emit runtime calls from the existing runtime metadata registry and how `BackendEffects` are derived from that registry
-- JSON dump contract details still left implicit, especially source-span encoding, path normalization, and floating-point literal encoding
-- phase-1 CLI contract: whether dump and `--stop-after backend-ir` support must work from the full checked CLI path immediately or whether fixture-only plumbing is sufficient in phase 1
-- target backend interface: the minimal interface and options object that later `x86-64 SysV` and `aarch64` backends must satisfy
-- non-SSA join convention: whether merge copies live only as ordinary block instructions and whether critical-edge splitting is required before later SSA work
+- lowering seam: backend IR lowers from `LinkedSemanticProgram` directly. The current executable/lowered semantic form may remain temporarily as a legacy-backend compatibility artifact during migration, but it is not the source contract for backend IR.
+- constructor representation: backend IR models one logical init-style constructor callable per `ConstructorId`. Separate wrapper or init-helper symbols, if still useful, are target-lowering details below backend IR rather than backend IR callables.
+- stable ID policy: callables are ordered by canonical callable ID sort order. Within one callable, registers are assigned in deterministic creation order as receiver, parameters, semantic locals, helper locals, then synthetic temporaries; the entry block is always `b0`; remaining blocks follow CFG construction order; instructions follow lowering order within each block; data blobs follow deterministic pooled first-encounter order.
+- runtime call ownership: backend lowering may emit only runtime calls present in the repository runtime metadata registry. The backend IR copies registry-owned reference-argument and GC/safepoint metadata into serialized call sites; remaining effect fields stay conservative annotations until the registry owns them explicitly.
+- JSON dump contract: canonical JSON uses project-root-relative paths with `/` separators when possible, preserves synthetic paths verbatim, preserves zero-based `offset` plus one-based `line` and `column`, and serializes doubles as raw IEEE-754 binary64 bits in lower-case hexadecimal rather than JSON numbers.
+- phase-1 CLI contract: phase 1 freezes the CLI flag names and argument shapes for backend IR dumping and stop-after behavior, but full checked-path `--dump-backend-ir` and `--stop-after backend-ir` execution is only required once backend lowering exists in phase 2. Phase 1 may rely on fixture-only plumbing plus limited CLI validation.
+- target backend interface: each target backend consumes verified backend IR plus a target options object and produces target assembly text. Targets own ABI lowering, legality, frame layout, call lowering, and emission. Shared backend analyses remain outside target packages.
+- non-SSA join convention: merge copies are represented as ordinary backend instructions. When per-edge copies are required, critical edges are split and the copies live in predecessor or edge-split blocks. Backend IR v1 introduces no special edge-transfer instruction family.
 
 ## Phase 1: Establish The Backend IR Contract And Migration Seam
 
 ### Purpose
 
 Create the new backend package, freeze the backend IR v1 shape, and add serialization/inspection tooling before any feature migration begins.
+
+The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE1_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE1_IMPLEMENTATION_PLAN.md).
 
 ### Deliverables
 
@@ -368,15 +370,15 @@ Create the new backend package, freeze the backend IR v1 shape, and add serializ
 - JSON serializer and parser exist.
 - human-readable text dumper exists.
 - backend IR verifier exists.
-- CLI dump plumbing exists behind non-default flags.
+- CLI flag names and argument shapes for backend IR dump and stop-after behavior are reserved behind non-default flags, even if full checked-path execution is deferred until phase 2.
 - current legacy backend path remains the default and only production path.
 
-### Key Decisions In This Phase
+### Key Work In This Phase
 
-- Choose the backend IR data model.
-- Choose canonical JSON schema and versioning.
-- Decide stable IDs for functions, blocks, instructions, and virtual registers.
-- Decide the target backend interface that later `x86-64 SysV` and `aarch64` implementations will satisfy.
+- Implement the frozen backend IR data model.
+- Implement canonical JSON schema and versioning.
+- Implement deterministic stable ID assignment rules.
+- Implement the shared target backend interface scaffold that later `x86-64 SysV` and `aarch64` backends will satisfy.
 
 ### Test Plan
 
@@ -386,25 +388,25 @@ Add focused tests under new paths such as:
 - `tests/compiler/backend/ir/test_serialize.py`
 - `tests/compiler/backend/ir/test_text.py`
 - `tests/compiler/backend/ir/test_verify.py`
-- `tests/compiler/integration/test_cli_backend_ir_dump.py`
+- `tests/compiler/integration/test_cli_backend_ir_flags.py`
 
 Concrete validation:
 
 1. serializer round-trip tests for small programs
 2. deterministic JSON/text snapshot tests
 3. verifier tests for malformed CFGs, invalid operand references, missing terminators, and bad type uses
-4. CLI tests for dump flags and `--stop-after backend-ir`
+4. CLI tests for flag parsing, help text, and reserved backend IR flag behavior without requiring full checked-path lowering yet
 
 Phase gate:
 
 - all new backend IR unit tests pass
-- legacy compiler output is unchanged when dump flags are not used
+- legacy compiler output is unchanged when backend IR flags are not used
 
 ## Phase 2: Lower Linked Semantic Programs To Backend IR CFG
 
 ### Purpose
 
-Build a complete lowering path from the current linked/executable semantic program into backend IR without changing the production assembly path yet.
+Build a complete lowering path from `LinkedSemanticProgram` into backend IR without changing the production assembly path yet.
 
 ### Deliverables
 
@@ -414,19 +416,22 @@ Build a complete lowering path from the current linked/executable semantic progr
 - explicit terminators replace structured control flow
 - spans and source locations are preserved on blocks/instructions
 - call/dispatch forms are represented in backend IR
+- full checked-path `--dump-backend-ir` and `--stop-after backend-ir` behavior exists once backend lowering is wired
 
 ### Scope Notes
 
-This phase should consume the current linked/executable semantic form as its source.
+This phase should consume `LinkedSemanticProgram` directly.
 
 That keeps the semantic/backend boundary stable during the transition. The semantic IR remains semantic. The backend IR becomes the new execution-oriented representation.
+
+The existing executable/lowered semantic form may remain temporarily as the legacy backend input during migration, but it is no longer the planned source form for the new backend path.
 
 ### Key Decisions In This Phase
 
 - how current helper locals map to backend virtual registers
 - how `if`, `while`, and lowered `for in` forms become CFG blocks
 - how calls, dispatches, casts, array operations, and runtime-backed operations appear in backend IR
-- how constructors and constructor-init flows are represented
+- how source-level constructor flows lower into the chosen single-callable init-style constructor representation
 
 ### Test Plan
 
@@ -437,6 +442,7 @@ Add focused lowering tests such as:
 - `tests/compiler/backend/lowering/test_calls.py`
 - `tests/compiler/backend/lowering/test_arrays.py`
 - `tests/compiler/backend/lowering/test_objects.py`
+- `tests/compiler/integration/test_cli_backend_ir_dump.py`
 
 Concrete validation:
 
@@ -451,6 +457,7 @@ Concrete validation:
    - casts and type tests
 2. verifier runs over every lowered fixture
 3. cross-check that all current function-like bodies lower to valid backend IR
+4. CLI integration tests for `--dump-backend-ir` and `--stop-after backend-ir` once lowering is wired
 
 Phase gate:
 
