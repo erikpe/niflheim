@@ -32,7 +32,7 @@ Use these rules for every phase-2 patch:
 
 1. [x] PR 1: Add the backend lowering entrypoint, shared lowering context, and top-level declaration lowering.
 2. [x] PR 2: Lower straight-line scalar bodies, locals, and direct or static call shapes.
-3. [ ] PR 3: Lower structured control flow to explicit CFG blocks and merge copies.
+3. [x] PR 3: Lower structured control flow to explicit CFG blocks and merge copies.
 4. [ ] PR 4: Lower receiver-aware bodies, constructors, object allocation, field access, and dispatch calls.
 5. [ ] PR 5: Lower arrays, slices, collection dispatch, casts, type tests, safety checks, and data blobs.
 6. [ ] PR 6: Wire checked-path CLI backend IR dump and stop-after behavior to the real lowering path.
@@ -299,11 +299,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/lowering/test_control_flow
 
 ### Checklist
 
-- [ ] Add `compiler/backend/lowering/control_flow.py`.
-- [ ] Lower `if`, `while`, `break`, and `continue` to explicit backend blocks.
-- [ ] Implement deterministic join-copy insertion and critical-edge splitting where needed.
-- [ ] Add CFG snapshot coverage for nested branches and loops.
-- [ ] Keep CFG cleanup passes deferred to phase 3.
+- [x] Add `compiler/backend/lowering/control_flow.py`.
+- [x] Lower `if`, `while`, `break`, and `continue` to explicit backend blocks.
+- [x] Implement deterministic join-copy insertion and critical-edge splitting where needed.
+- [x] Add CFG snapshot coverage for nested branches and loops.
+- [x] Keep CFG cleanup passes deferred to phase 3.
 
 ## PR 4: Receiver-Aware Bodies, Constructors, Objects, And Dispatch Calls
 

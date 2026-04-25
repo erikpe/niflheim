@@ -427,6 +427,7 @@ def _compute_callable_must_state(
     reachable_block_ids: set[ir_model.BackendBlockId],
 ) -> _CallableMustState:
     block_by_id = {block.block_id: block for block in callable_decl.blocks}
+    entry_block = block_by_id[callable_decl.entry_block_id]
     predecessor_by_block = {
         block_id: []
         for block_id in reachable_block_ids
@@ -439,6 +440,7 @@ def _compute_callable_must_state(
     entry_defs = set(callable_decl.param_regs)
     if callable_decl.receiver_reg is not None:
         entry_defs.add(callable_decl.receiver_reg)
+    entry_defined = frozenset(entry_defs | _block_defined_registers(entry_block))
 
     in_defined = {block_id: frozenset() for block_id in reachable_block_ids}
     out_defined = {block_id: frozenset() for block_id in reachable_block_ids}
@@ -459,7 +461,7 @@ def _compute_callable_must_state(
                 next_in_nonnull = frozenset()
                 next_in_bounds = frozenset()
             else:
-                next_in_defined = _intersect_sets(out_defined[pred] for pred in predecessors)
+                next_in_defined = entry_defined | _intersect_sets(out_defined[pred] for pred in predecessors)
                 next_in_nonnull = _intersect_sets(out_nonnull[pred] for pred in predecessors)
                 next_in_bounds = _intersect_sets(out_bounds[pred] for pred in predecessors)
 
