@@ -35,7 +35,7 @@ Use these rules for every phase-2 patch:
 3. [x] PR 3: Lower structured control flow to explicit CFG blocks and merge copies.
 4. [x] PR 4: Lower receiver-aware bodies, constructors, object allocation, field access, and dispatch calls.
 5. [x] PR 5: Lower arrays, slices, collection dispatch, casts, type tests, safety checks, and data blobs.
-6. [ ] PR 6: Wire checked-path CLI backend IR dump and stop-after behavior to the real lowering path.
+6. [x] PR 6: Wire checked-path CLI backend IR dump and stop-after behavior to the real lowering path.
 
 ## PR 1: Lowering Entrypoint, Shared Context, And Top-Level Declarations
 
@@ -564,28 +564,28 @@ pytest -n auto --dist loadfile tests/compiler/backend/lowering tests/compiler/ba
 
 ### Checklist
 
-- [ ] Wire the CLI to lower and verify backend IR on demand.
-- [ ] Implement real `--dump-backend-ir` and `--stop-after backend-ir` behavior.
-- [ ] Keep `backend-ir-passes` intentionally reserved until phase 3.
-- [ ] Add deterministic whole-program dump file behavior.
-- [ ] Add CLI integration coverage for the real backend IR path.
-- [ ] Re-run existing CLI coverage to prove default codegen behavior is unchanged.
+- [x] Wire the CLI to lower and verify backend IR on demand.
+- [x] Implement real `--dump-backend-ir` and `--stop-after backend-ir` behavior.
+- [x] Keep `backend-ir-passes` intentionally reserved until phase 3.
+- [x] Add deterministic whole-program dump file behavior.
+- [x] Add CLI integration coverage for the real backend IR path.
+- [x] Re-run existing CLI coverage to prove default codegen behavior is unchanged.
 
 ## Phase 2 Gate Checklist
 
 Use this checklist when phase 2 is believed to be complete.
 
-- [ ] `compiler/backend/lowering/` exposes a stable `lower_to_backend_ir()` entrypoint.
-- [ ] Backend lowering consumes `LinkedSemanticProgram` directly.
-- [ ] Representative functions, methods, and constructors lower to verified backend IR.
-- [ ] Straight-line expressions and direct call shapes lower correctly.
-- [ ] Structured control flow lowers to explicit CFG blocks and terminators.
-- [ ] Receiver-aware calls, constructors, fields, and dispatch forms lower correctly.
-- [ ] Arrays, slices, `for in`, casts, type tests, and runtime-backed collection operations lower correctly.
-- [ ] Constant byte payloads lower to deterministic backend data blobs where required.
-- [ ] `--dump-backend-ir` and `--stop-after backend-ir` work on the checked CLI path.
-- [ ] `--stop-after backend-ir-passes` still fails clearly and intentionally until phase 3.
-- [ ] The default checked assembly path remains unchanged when backend IR flags are not used.
+- [x] `compiler/backend/lowering/` exposes a stable `lower_to_backend_ir()` entrypoint.
+- [x] Backend lowering consumes `LinkedSemanticProgram` directly.
+- [x] Representative functions, methods, and constructors lower to verified backend IR.
+- [x] Straight-line expressions and direct call shapes lower correctly.
+- [x] Structured control flow lowers to explicit CFG blocks and terminators.
+- [x] Receiver-aware calls, constructors, fields, and dispatch forms lower correctly.
+- [x] Arrays, slices, `for in`, casts, type tests, and runtime-backed collection operations lower correctly.
+- [x] Constant byte payloads lower to deterministic backend data blobs where required.
+- [x] `--dump-backend-ir` and `--stop-after backend-ir` work on the checked CLI path.
+- [x] `--stop-after backend-ir-passes` still fails clearly and intentionally until phase 3.
+- [x] The default checked assembly path remains unchanged when backend IR flags are not used.
 
 Recommended phase gate command:
 

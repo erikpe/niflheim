@@ -5,6 +5,9 @@ import sys
 from pathlib import Path
 from time import perf_counter
 
+from compiler.backend.ir.serialize import dump_backend_program_json
+from compiler.backend.ir.text import dump_backend_program_text
+from compiler.backend.lowering import lower_to_backend_ir
 from compiler.common.logging import LOG_LEVEL_NAMES, configure_logging, get_logger, resolve_log_settings
 from compiler.codegen.generator import emit_asm
 from compiler.frontend.tokens import Token
@@ -32,22 +35,34 @@ def _requested_backend_ir_surface(args: argparse.Namespace) -> tuple[str, ...]:
     return tuple(requested)
 
 
-def _backend_ir_reserved_error(requested: tuple[str, ...]) -> str:
-    requested_summary = ", ".join(requested)
-    return (
-        "Backend IR CLI surface is reserved for phase 2 because backend lowering "
-        "is not wired into the checked compiler path yet; "
-        f"unsupported request(s): {requested_summary}. "
-        "Phase 1 only freezes the flag names and stop phases."
-    )
+def _requested_backend_ir_dump_format(args: argparse.Namespace) -> str | None:
+    if args.dump_backend_ir is not None:
+        return args.dump_backend_ir
+    if args.dump_backend_ir_dir is not None or args.stop_after == "backend-ir":
+        return "text"
+    return None
 
 
-def _reject_reserved_backend_ir_surface(args: argparse.Namespace) -> None:
+def _uses_backend_ir_surface(args: argparse.Namespace) -> bool:
+    return bool(_requested_backend_ir_surface(args))
+
+
+def _validate_backend_ir_surface(args: argparse.Namespace) -> None:
     requested = _requested_backend_ir_surface(args)
     if not requested:
         return
 
-    raise ValueError(_backend_ir_reserved_error(requested))
+    if args.stop_after == "backend-ir-passes":
+        raise ValueError(
+            "Backend IR passes are not wired into the checked compiler path yet; "
+            "--stop-after backend-ir-passes remains reserved for phase 3."
+        )
+
+    if args.stop_after != "backend-ir" and args.dump_backend_ir is not None and args.dump_backend_ir_dir is None:
+        raise ValueError(
+            "Continuing past backend IR with --dump-backend-ir requires --dump-backend-ir-dir "
+            "so backend IR output does not mix with assembly on stdout."
+        )
 
 
 def _format_token(token: Token) -> str:
@@ -114,6 +129,46 @@ def _emit_assembly_phase(logger, linked_program, *, runtime_trace_enabled: bool)
     return asm
 
 
+def _lower_backend_ir_phase(logger, linked_program):
+    logger.info("Lowering backend IR")
+    start = perf_counter()
+    backend_program = lower_to_backend_ir(linked_program)
+    duration_ms = (perf_counter() - start) * 1000.0
+    logger.debugv(1, "Lowered and verified backend IR in %.2f ms", duration_ms)
+    return backend_program
+
+
+def _backend_ir_dump_project_root(input_path: Path, project_root: str | None) -> Path:
+    return input_path.parent if project_root is None else Path(project_root)
+
+
+def _render_backend_ir_dump(backend_program, *, dump_format: str, project_root: Path) -> str:
+    if dump_format == "text":
+        return dump_backend_program_text(backend_program)
+    if dump_format == "json":
+        return dump_backend_program_json(backend_program, project_root=project_root)
+    raise ValueError(f"Unsupported backend IR dump format '{dump_format}'")
+
+
+def _write_backend_ir_dump(
+    backend_program,
+    *,
+    input_path: Path,
+    dump_dir: str,
+    dump_format: str,
+    project_root: Path,
+) -> Path:
+    output_dir = Path(dump_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    suffix = ".txt" if dump_format == "text" else ".json"
+    dump_path = output_dir / f"{input_path.stem}.backend-ir{suffix}"
+    dump_path.write_text(
+        _render_backend_ir_dump(backend_program, dump_format=dump_format, project_root=project_root),
+        encoding="utf-8",
+    )
+    return dump_path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="nifc", description="Niflheim stage-0 compiler (default: type check and emit assembly)."
@@ -126,12 +181,12 @@ def main() -> int:
     output_group.add_argument(
         "--dump-backend-ir",
         choices=BACKEND_IR_DUMP_FORMATS,
-        help="Reserved backend IR dump format; rejected until backend lowering lands",
+        help="Dump verified backend IR in the selected format",
     )
     output_group.add_argument(
         "--dump-backend-ir-dir",
         metavar="DIR",
-        help="Reserved backend IR dump directory; rejected until backend lowering lands",
+        help="Directory for deterministic whole-program backend IR dumps",
     )
 
     logging_group = parser.add_argument_group("Logging")
@@ -168,7 +223,7 @@ def main() -> int:
     logger = get_logger(__name__)
 
     try:
-        _reject_reserved_backend_ir_surface(args)
+        _validate_backend_ir_surface(args)
 
         input_path = Path(args.input)
 
@@ -180,6 +235,32 @@ def main() -> int:
         require_main_function(linked_program)
         if args.stop_after == "check":
             return 0
+
+        if _uses_backend_ir_surface(args):
+            backend_program = _lower_backend_ir_phase(logger, linked_program)
+            dump_format = _requested_backend_ir_dump_format(args)
+            dump_project_root = _backend_ir_dump_project_root(input_path, args.project_root)
+
+            if dump_format is not None:
+                if args.dump_backend_ir_dir is not None:
+                    dump_path = _write_backend_ir_dump(
+                        backend_program,
+                        input_path=input_path,
+                        dump_dir=args.dump_backend_ir_dir,
+                        dump_format=dump_format,
+                        project_root=dump_project_root,
+                    )
+                    logger.infov(1, "Wrote backend IR to %s", dump_path)
+                elif args.stop_after == "backend-ir":
+                    rendered = _render_backend_ir_dump(
+                        backend_program,
+                        dump_format=dump_format,
+                        project_root=dump_project_root,
+                    )
+                    print(rendered, end="" if rendered.endswith("\n") else "\n")
+
+            if args.stop_after == "backend-ir":
+                return 0
 
         asm = _emit_assembly_phase(logger, linked_program, runtime_trace_enabled=not args.omit_runtime_trace)
         if args.output:

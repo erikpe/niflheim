@@ -7,7 +7,7 @@ import pytest
 from tests.compiler.integration.helpers import run_cli, write
 
 
-def test_cli_help_lists_reserved_backend_ir_flags(monkeypatch, capsys) -> None:
+def test_cli_help_lists_backend_ir_flags(monkeypatch, capsys) -> None:
     with pytest.raises(SystemExit) as exc_info:
         run_cli(monkeypatch, ["nifc", "-h"])
     captured = capsys.readouterr()
@@ -19,17 +19,8 @@ def test_cli_help_lists_reserved_backend_ir_flags(monkeypatch, capsys) -> None:
     assert "backend-ir-passes" in captured.out
 
 
-@pytest.mark.parametrize(
-    ("extra_args", "expected_markers"),
-    [
-        (["--dump-backend-ir", "text"], ["--dump-backend-ir"]),
-        (["--dump-backend-ir", "json", "--dump-backend-ir-dir", "ir-out"], ["--dump-backend-ir", "--dump-backend-ir-dir"]),
-        (["--stop-after", "backend-ir"], ["--stop-after backend-ir"]),
-        (["--stop-after", "backend-ir-passes"], ["--stop-after backend-ir-passes"]),
-    ],
-)
-def test_cli_backend_ir_surface_is_reserved(
-    tmp_path: Path, monkeypatch, capsys, extra_args: list[str], expected_markers: list[str]
+def test_cli_backend_ir_dump_requires_directory_when_continuing_to_codegen(
+    tmp_path: Path, monkeypatch, capsys
 ) -> None:
     entry = tmp_path / "main.nif"
     write(
@@ -41,13 +32,27 @@ def test_cli_backend_ir_surface_is_reserved(
         """,
     )
 
-    rc = run_cli(monkeypatch, ["nifc", str(entry), *extra_args])
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--dump-backend-ir", "text"])
     captured = capsys.readouterr()
 
     assert rc == 1
-    assert "Backend IR CLI surface is reserved for phase 2" in captured.err
-    assert "backend lowering is not wired into the checked compiler path yet" in captured.err
-    assert "unsupported request(s):" in captured.err
-    assert "Phase 1 only freezes the flag names and stop phases." in captured.err
-    for marker in expected_markers:
-        assert marker in captured.err
+    assert "Continuing past backend IR with --dump-backend-ir requires --dump-backend-ir-dir" in captured.err
+
+
+def test_cli_backend_ir_passes_stop_phase_remains_reserved(tmp_path: Path, monkeypatch, capsys) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--stop-after", "backend-ir-passes"])
+    captured = capsys.readouterr()
+
+    assert rc == 1
+    assert "Backend IR passes are not wired into the checked compiler path yet" in captured.err
+    assert "--stop-after backend-ir-passes remains reserved for phase 3." in captured.err
