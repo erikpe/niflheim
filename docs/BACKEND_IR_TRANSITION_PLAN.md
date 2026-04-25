@@ -408,6 +408,8 @@ Phase gate:
 
 Build a complete lowering path from `LinkedSemanticProgram` into backend IR without changing the production assembly path yet.
 
+The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE2_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE2_IMPLEMENTATION_PLAN.md).
+
 ### Deliverables
 
 - backend IR lowering entrypoint exists
