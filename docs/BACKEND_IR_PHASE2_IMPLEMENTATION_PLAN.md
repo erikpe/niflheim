@@ -33,7 +33,7 @@ Use these rules for every phase-2 patch:
 1. [x] PR 1: Add the backend lowering entrypoint, shared lowering context, and top-level declaration lowering.
 2. [x] PR 2: Lower straight-line scalar bodies, locals, and direct or static call shapes.
 3. [x] PR 3: Lower structured control flow to explicit CFG blocks and merge copies.
-4. [ ] PR 4: Lower receiver-aware bodies, constructors, object allocation, field access, and dispatch calls.
+4. [x] PR 4: Lower receiver-aware bodies, constructors, object allocation, field access, and dispatch calls.
 5. [ ] PR 5: Lower arrays, slices, collection dispatch, casts, type tests, safety checks, and data blobs.
 6. [ ] PR 6: Wire checked-path CLI backend IR dump and stop-after behavior to the real lowering path.
 
@@ -381,11 +381,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/lowering/test_backend_call
 
 ### Checklist
 
-- [ ] Lower receiver allocation and receiver-first call argument layout.
-- [ ] Lower constructor call and init flows through the frozen constructor convention.
-- [ ] Lower field loads and stores with explicit null checks.
-- [ ] Lower virtual and interface dispatch metadata faithfully.
-- [ ] Add focused object and dispatch lowering coverage.
+- [x] Lower receiver allocation and receiver-first call argument layout.
+- [x] Lower constructor call and init flows through the frozen constructor convention.
+- [x] Lower field loads and stores with explicit null checks.
+- [x] Lower virtual and interface dispatch metadata faithfully.
+- [x] Add focused object and dispatch lowering coverage.
 
 ## PR 5: Arrays, Collection Dispatch, Casts, Safety Checks, And Data Blobs
 

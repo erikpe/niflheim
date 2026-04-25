@@ -18,9 +18,15 @@ from compiler.semantic.ir import (
     CallExprS,
     CallableValueCallTarget,
     ClassRefExpr,
+    ConstructorCallTarget,
+    ConstructorInitCallTarget,
+    FieldLValue,
+    FieldReadExpr,
     FunctionCallTarget,
     FunctionRefExpr,
     IndexLValue,
+    InstanceMethodCallTarget,
+    InterfaceMethodCallTarget,
     LocalLValue,
     LocalRefExpr,
     MethodRefExpr,
@@ -39,8 +45,9 @@ from compiler.semantic.ir import (
     SliceLValue,
     StaticMethodCallTarget,
     UnaryExprS,
+    VirtualMethodCallTarget,
 )
-from compiler.semantic.symbols import LocalId
+from compiler.semantic.symbols import ClassId, LocalId
 from compiler.semantic.types import (
     SemanticTypeRef,
     semantic_type_callable_params,
@@ -237,6 +244,82 @@ class _CallableCFGBuilder:
             )
         )
 
+    def emit_alloc_object(
+        self,
+        state: _ControlFlowState,
+        *,
+        dest: ir_model.BackendRegId,
+        class_id: ClassId,
+        effects: ir_model.BackendEffects,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendAllocObjectInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                class_id=class_id,
+                effects=effects,
+                span=span,
+            )
+        )
+
+    def emit_field_load(
+        self,
+        state: _ControlFlowState,
+        *,
+        dest: ir_model.BackendRegId,
+        object_ref: ir_model.BackendOperand,
+        owner_class_id: ClassId,
+        field_name: str,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendFieldLoadInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                object_ref=object_ref,
+                owner_class_id=owner_class_id,
+                field_name=field_name,
+                span=span,
+            )
+        )
+
+    def emit_field_store(
+        self,
+        state: _ControlFlowState,
+        *,
+        object_ref: ir_model.BackendOperand,
+        owner_class_id: ClassId,
+        field_name: str,
+        value: ir_model.BackendOperand,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendFieldStoreInst(
+                inst_id=self._next_inst_id(),
+                object_ref=object_ref,
+                owner_class_id=owner_class_id,
+                field_name=field_name,
+                value=value,
+                span=span,
+            )
+        )
+
+    def emit_null_check(
+        self,
+        state: _ControlFlowState,
+        *,
+        value: ir_model.BackendOperand,
+        span: SourceSpan,
+    ) -> None:
+        self._active_block_for(state).instructions.append(
+            ir_model.BackendNullCheckInst(
+                inst_id=self._next_inst_id(),
+                value=value,
+                span=span,
+            )
+        )
+
     def terminate_with_jump(
         self,
         block_id: ir_model.BackendBlockId,
@@ -400,15 +483,34 @@ def _lower_stmt(
         return state
 
     if isinstance(stmt, SemanticAssign):
-        if not isinstance(stmt.target, LocalLValue):
+        if isinstance(stmt.target, LocalLValue):
+            dest_reg_id = _assignment_dest_reg(builder, state, stmt.target.local_id, stmt.target.type_ref, stmt.span)
+            _materialize_expr_into(builder, state, dest_reg_id=dest_reg_id, expr=stmt.value, span=stmt.span)
+            if stmt.target.local_id in state.merge_local_ids:
+                state.reg_by_local_id[stmt.target.local_id] = dest_reg_id
+            return state
+
+        if isinstance(stmt.target, FieldLValue):
+            receiver_operand = _lower_receiver_operand(builder, state, stmt.target.receiver, span=stmt.target.span)
+            builder.emit_null_check(state, value=receiver_operand, span=stmt.target.span)
+            value_operand = _lower_expression_to_operand(builder, state, stmt.value)
+            builder.emit_field_store(
+                state,
+                object_ref=receiver_operand,
+                owner_class_id=stmt.target.owner_class_id,
+                field_name=stmt.target.field_name,
+                value=value_operand,
+                span=stmt.span,
+            )
+            return state
+
+        if not isinstance(stmt.target, (IndexLValue, SliceLValue)):
             raise NotImplementedError(
                 f"Backend lowering does not support assignment target '{type(stmt.target).__name__}' yet"
             )
-        dest_reg_id = _assignment_dest_reg(builder, state, stmt.target.local_id, stmt.target.type_ref, stmt.span)
-        _materialize_expr_into(builder, state, dest_reg_id=dest_reg_id, expr=stmt.value, span=stmt.span)
-        if stmt.target.local_id in state.merge_local_ids:
-            state.reg_by_local_id[stmt.target.local_id] = dest_reg_id
-        return state
+        raise NotImplementedError(
+            f"Backend lowering does not support assignment target '{type(stmt.target).__name__}' yet"
+        )
 
     if isinstance(stmt, SemanticExprStmt):
         _lower_expression_statement(builder, state, stmt.expr, stmt.span)
@@ -694,6 +796,16 @@ def _materialize_expr_into(
     if isinstance(expr, CallExprS):
         _emit_call_expression(builder, state, expr=expr, dest_reg_id=dest_reg_id)
         return
+    if isinstance(expr, FieldReadExpr):
+        field_reg_id = _emit_field_read(builder, state, expr)
+        if field_reg_id != dest_reg_id:
+            builder.emit_copy(
+                state,
+                dest=dest_reg_id,
+                source=ir_model.BackendRegOperand(reg_id=field_reg_id),
+                span=span,
+            )
+        return
 
     operand = _lower_expression_to_operand(builder, state, expr)
     if isinstance(operand, ir_model.BackendRegOperand):
@@ -756,6 +868,8 @@ def _lower_expression_to_operand(
         dest_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="tmp")
         _materialize_expr_into(builder, state, dest_reg_id=dest_reg_id, expr=expr, span=expr.span)
         return ir_model.BackendRegOperand(reg_id=dest_reg_id)
+    if isinstance(expr, FieldReadExpr):
+        return ir_model.BackendRegOperand(reg_id=_emit_field_read(builder, state, expr))
     if isinstance(expr, CallExprS):
         return _lower_call_expression(builder, state, expr)
     if isinstance(expr, (FunctionRefExpr, MethodRefExpr, ClassRefExpr)):
@@ -789,8 +903,83 @@ def _emit_call_expression(
     dest_reg_id: ir_model.BackendRegId | None,
 ) -> None:
     signature = _call_signature(builder, expr)
-    args = tuple(_lower_expression_to_operand(builder, state, argument) for argument in expr.args)
     target = expr.target
+
+    if isinstance(target, ConstructorCallTarget):
+        if dest_reg_id is None:
+            raise ValueError("Constructor call lowering requires a destination register")
+        args = tuple(_lower_expression_to_operand(builder, state, argument) for argument in expr.args)
+        builder.emit_alloc_object(
+            state,
+            dest=dest_reg_id,
+            class_id=_class_id_for_constructor_target(target),
+            effects=_conservative_alloc_effects(),
+            span=expr.span,
+        )
+        builder.emit_call(
+            state,
+            dest=dest_reg_id,
+            target=ir_model.BackendDirectCallTarget(callable_id=target.constructor_id),
+            args=(ir_model.BackendRegOperand(reg_id=dest_reg_id), *args),
+            signature=signature,
+            span=expr.span,
+        )
+        return
+
+    if isinstance(target, ConstructorInitCallTarget):
+        args = tuple(_lower_expression_to_operand(builder, state, argument) for argument in expr.args)
+        receiver_operand = _lower_receiver_operand(builder, state, target.access.receiver, span=target.access.receiver.span)
+        builder.emit_call(
+            state,
+            dest=dest_reg_id,
+            target=ir_model.BackendDirectCallTarget(callable_id=target.constructor_id),
+            args=(receiver_operand, *args),
+            signature=signature,
+            span=expr.span,
+        )
+        return
+
+    if isinstance(target, InstanceMethodCallTarget):
+        args = _lower_call_args_with_receiver(builder, state, receiver=target.access.receiver, extra_args=expr.args)
+        builder.emit_call(
+            state,
+            dest=dest_reg_id,
+            target=ir_model.BackendDirectCallTarget(callable_id=target.method_id),
+            args=args,
+            signature=signature,
+            span=expr.span,
+        )
+        return
+
+    if isinstance(target, VirtualMethodCallTarget):
+        args = _lower_call_args_with_receiver(builder, state, receiver=target.access.receiver, extra_args=expr.args)
+        builder.emit_call(
+            state,
+            dest=dest_reg_id,
+            target=ir_model.BackendVirtualCallTarget(
+                slot_owner_class_id=target.slot_owner_class_id,
+                method_name=target.slot_method_name,
+                selected_method_id=target.selected_method_id,
+            ),
+            args=args,
+            signature=signature,
+            span=expr.span,
+        )
+        return
+
+    if isinstance(target, InterfaceMethodCallTarget):
+        args = _lower_call_args_with_receiver(builder, state, receiver=target.access.receiver, extra_args=expr.args)
+        builder.emit_call(
+            state,
+            dest=dest_reg_id,
+            target=ir_model.BackendInterfaceCallTarget(interface_id=target.interface_id, method_id=target.method_id),
+            args=args,
+            signature=signature,
+            span=expr.span,
+        )
+        return
+
+    args = tuple(_lower_expression_to_operand(builder, state, argument) for argument in expr.args)
 
     if isinstance(target, FunctionCallTarget):
         builder.emit_call(
@@ -840,6 +1029,23 @@ def _call_signature(builder: _CallableCFGBuilder, expr: CallExprS) -> ir_model.B
         if surface.expects_receiver:
             raise NotImplementedError("Backend lowering only supports static method direct calls in this slice")
         return surface.signature
+    if isinstance(target, InstanceMethodCallTarget):
+        surface = builder.require_callable_surface(target.method_id)
+        if not surface.expects_receiver:
+            raise TypeError("InstanceMethodCallTarget requires a receiver-aware callable surface")
+        return surface.signature
+    if isinstance(target, VirtualMethodCallTarget):
+        surface = builder.require_callable_surface(target.selected_method_id)
+        if not surface.expects_receiver:
+            raise TypeError("VirtualMethodCallTarget requires a receiver-aware callable surface")
+        return surface.signature
+    if isinstance(target, InterfaceMethodCallTarget):
+        return ir_model.BackendSignature(
+            param_types=tuple(argument.type_ref for argument in expr.args),
+            return_type=backend_signature_return_type(expr.type_ref),
+        )
+    if isinstance(target, (ConstructorCallTarget, ConstructorInitCallTarget)):
+        return builder.require_callable_surface(target.constructor_id).signature
     if isinstance(target, CallableValueCallTarget):
         callee_type_ref = target.callee.type_ref
         if not semantic_type_is_callable(callee_type_ref):
@@ -888,6 +1094,59 @@ def _unreachable_state(state: _ControlFlowState) -> _ControlFlowState:
 
 def _backend_return_type_for_expr(expr: SemanticExpr) -> SemanticTypeRef | None:
     return backend_signature_return_type(expr.type_ref)
+
+
+def _emit_field_read(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    expr: FieldReadExpr,
+) -> ir_model.BackendRegId:
+    receiver_operand = _lower_receiver_operand(builder, state, expr.receiver, span=expr.span)
+    builder.emit_null_check(state, value=receiver_operand, span=expr.span)
+    dest_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="field")
+    builder.emit_field_load(
+        state,
+        dest=dest_reg_id,
+        object_ref=receiver_operand,
+        owner_class_id=expr.owner_class_id,
+        field_name=expr.field_name,
+        span=expr.span,
+    )
+    return dest_reg_id
+
+
+def _lower_receiver_operand(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    receiver: SemanticExpr,
+    *,
+    span: SourceSpan,
+) -> ir_model.BackendOperand:
+    operand = _lower_expression_to_operand(builder, state, receiver)
+    if isinstance(operand, ir_model.BackendRegOperand):
+        return operand
+    temp_reg_id = builder.allocate_temp(type_ref=receiver.type_ref, span=span, debug_hint="recv")
+    _materialize_expr_into(builder, state, dest_reg_id=temp_reg_id, expr=receiver, span=span)
+    return ir_model.BackendRegOperand(reg_id=temp_reg_id)
+
+
+def _lower_call_args_with_receiver(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    *,
+    receiver: SemanticExpr,
+    extra_args: list[SemanticExpr],
+) -> tuple[ir_model.BackendOperand, ...]:
+    receiver_operand = _lower_receiver_operand(builder, state, receiver, span=receiver.span)
+    return (receiver_operand, *(_lower_expression_to_operand(builder, state, argument) for argument in extra_args))
+
+
+def _class_id_for_constructor_target(target: ConstructorCallTarget) -> ClassId:
+    return ClassId(module_path=target.constructor_id.module_path, name=target.constructor_id.class_name)
+
+
+def _conservative_alloc_effects() -> ir_model.BackendEffects:
+    return ir_model.BackendEffects(writes_memory=True, may_gc=True, may_trap=True)
 
 
 def _conservative_user_call_effects() -> ir_model.BackendEffects:
