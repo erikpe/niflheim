@@ -441,7 +441,7 @@ Add focused lowering tests such as:
 
 - `tests/compiler/backend/lowering/test_basics.py`
 - `tests/compiler/backend/lowering/test_control_flow.py`
-- `tests/compiler/backend/lowering/test_calls.py`
+- `tests/compiler/backend/lowering/test_backend_calls.py`
 - `tests/compiler/backend/lowering/test_arrays.py`
 - `tests/compiler/backend/lowering/test_objects.py`
 - `tests/compiler/integration/test_cli_backend_ir_dump.py`

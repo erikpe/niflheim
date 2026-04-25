@@ -31,7 +31,7 @@ Use these rules for every phase-2 patch:
 ## Ordered PR Checklist
 
 1. [x] PR 1: Add the backend lowering entrypoint, shared lowering context, and top-level declaration lowering.
-2. [ ] PR 2: Lower straight-line scalar bodies, locals, and direct or static call shapes.
+2. [x] PR 2: Lower straight-line scalar bodies, locals, and direct or static call shapes.
 3. [ ] PR 3: Lower structured control flow to explicit CFG blocks and merge copies.
 4. [ ] PR 4: Lower receiver-aware bodies, constructors, object allocation, field access, and dispatch calls.
 5. [ ] PR 5: Lower arrays, slices, collection dispatch, casts, type tests, safety checks, and data blobs.
@@ -147,7 +147,7 @@ This slice should make the backend lowerer useful for arithmetic-heavy and direc
 
 New files:
 
-- `tests/compiler/backend/lowering/test_calls.py`
+- `tests/compiler/backend/lowering/test_backend_calls.py`
 
 Existing files:
 
@@ -202,13 +202,13 @@ Focused commands:
 
 ```text
 pytest tests/compiler/backend/lowering/test_basics.py -q
-pytest tests/compiler/backend/lowering/test_calls.py -q
+pytest tests/compiler/backend/lowering/test_backend_calls.py -q
 ```
 
 Recommended gate command for this slice:
 
 ```text
-pytest -n auto --dist loadfile tests/compiler/backend/lowering/test_basics.py tests/compiler/backend/lowering/test_calls.py tests/compiler/backend/ir/test_text.py tests/compiler/backend/ir/test_verify.py -q
+pytest -n auto --dist loadfile tests/compiler/backend/lowering/test_basics.py tests/compiler/backend/lowering/test_backend_calls.py tests/compiler/backend/ir/test_text.py tests/compiler/backend/ir/test_verify.py -q
 ```
 
 ### Expected Outcome
@@ -219,11 +219,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/lowering/test_basics.py te
 
 ### Checklist
 
-- [ ] Lower local declarations, local assignments, expression statements, and returns.
-- [ ] Lower scalar literal, null, unary, and binary expressions.
-- [ ] Lower direct function and static method calls.
-- [ ] Add deterministic nested-expression snapshot coverage.
-- [ ] Keep structured CFG constructs deferred to the next slice.
+- [x] Lower local declarations, local assignments, expression statements, and returns.
+- [x] Lower scalar literal, null, unary, and binary expressions.
+- [x] Lower direct function and static method calls.
+- [x] Add deterministic nested-expression snapshot coverage.
+- [x] Keep structured CFG constructs deferred to the next slice.
 
 ## PR 3: Structured Control Flow To CFG Blocks And Merge Copies
 
@@ -244,7 +244,7 @@ Existing files:
 - `compiler/backend/lowering/expressions.py`
 - `tests/compiler/backend/lowering/helpers.py`
 - `tests/compiler/backend/lowering/test_basics.py`
-- `tests/compiler/backend/lowering/test_calls.py`
+- `tests/compiler/backend/lowering/test_backend_calls.py`
 
 ### What To Change
 
@@ -324,7 +324,7 @@ Existing files:
 - `compiler/backend/lowering/expressions.py`
 - `compiler/backend/lowering/control_flow.py`
 - `tests/compiler/backend/lowering/helpers.py`
-- `tests/compiler/backend/lowering/test_calls.py`
+- `tests/compiler/backend/lowering/test_backend_calls.py`
 
 ### What To Change
 
@@ -363,14 +363,14 @@ Existing files:
 Focused commands:
 
 ```text
-pytest tests/compiler/backend/lowering/test_calls.py -q
+pytest tests/compiler/backend/lowering/test_backend_calls.py -q
 pytest tests/compiler/backend/lowering/test_objects.py -q
 ```
 
 Recommended gate command for this slice:
 
 ```text
-pytest -n auto --dist loadfile tests/compiler/backend/lowering/test_calls.py tests/compiler/backend/lowering/test_objects.py tests/compiler/backend/ir/test_verify.py -q
+pytest -n auto --dist loadfile tests/compiler/backend/lowering/test_backend_calls.py tests/compiler/backend/lowering/test_objects.py tests/compiler/backend/ir/test_verify.py -q
 ```
 
 ### Expected Outcome

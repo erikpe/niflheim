@@ -1,18 +1,34 @@
-"""Callable lowering helpers for phase-2 PR1 backend lowering."""
+"""Callable lowering helpers for the phase-2 backend lowerer."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from compiler.backend.ir import model as ir_model
-from compiler.backend.lowering.expressions import lower_smoke_expression_to_operand
+from compiler.backend.lowering.expressions import (
+    backend_signature_return_type,
+    lower_literal_expression_to_operand,
+    lower_null_operand,
+    lower_unit_operand,
+)
 from compiler.common.span import SourceSpan
 from compiler.semantic.ir import (
+    BinaryExprS,
+    CallExprS,
+    CallableValueCallTarget,
+    ClassRefExpr,
+    FunctionCallTarget,
+    FunctionRefExpr,
+    LocalRefExpr,
     LocalLValue,
+    MethodRefExpr,
+    NullExprS,
     SemanticAssign,
     SemanticBlock,
     SemanticConstructor,
     SemanticExprStmt,
+    SemanticExpr,
     SemanticField,
     SemanticFunction,
     SemanticFunctionLike,
@@ -23,9 +39,19 @@ from compiler.semantic.ir import (
     SemanticStmt,
     SemanticVarDecl,
     SemanticWhile,
+    StaticMethodCallTarget,
+    UnaryExprS,
 )
+from compiler.semantic.linker import LinkedSemanticProgram
 from compiler.semantic.symbols import ClassId, ConstructorId, LocalId, MethodId
-from compiler.semantic.types import SemanticTypeRef, semantic_type_ref_for_class_id
+from compiler.semantic.types import (
+    SemanticTypeRef,
+    semantic_type_callable_params,
+    semantic_type_callable_return,
+    semantic_type_canonical_name,
+    semantic_type_is_callable,
+    semantic_type_ref_for_class_id,
+)
 
 
 @dataclass(frozen=True)
@@ -43,6 +69,12 @@ class _RegisterLayout:
     next_ordinal: int
 
 
+@dataclass(frozen=True)
+class CallableSurface:
+    signature: ir_model.BackendSignature
+    expects_receiver: bool
+
+
 @dataclass
 class _CallableBodyBuilder:
     callable_id: ir_model.BackendCallableId
@@ -50,9 +82,14 @@ class _CallableBodyBuilder:
     signature: ir_model.BackendSignature
     receiver_reg: ir_model.BackendRegId | None
     reg_id_by_local_id: dict[LocalId, ir_model.BackendRegId]
+    registers: list[ir_model.BackendRegister]
+    register_by_id: dict[ir_model.BackendRegId, ir_model.BackendRegister]
+    call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface]
     block_span: SourceSpan
     instructions: list[ir_model.BackendInstruction]
+    next_reg_ordinal: int
     next_inst_ordinal: int = 0
+    next_temp_index: int = 0
     terminator: ir_model.BackendTerminator | None = None
 
     def emit_const(self, *, dest: ir_model.BackendRegId, constant: ir_model.BackendConstant, span: SourceSpan) -> None:
@@ -75,17 +112,130 @@ class _CallableBodyBuilder:
             )
         )
 
+    def emit_unary(
+        self,
+        *,
+        dest: ir_model.BackendRegId,
+        op,
+        operand: ir_model.BackendOperand,
+        span: SourceSpan,
+    ) -> None:
+        self.instructions.append(
+            ir_model.BackendUnaryInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                op=op,
+                operand=operand,
+                span=span,
+            )
+        )
+
+    def emit_binary(
+        self,
+        *,
+        dest: ir_model.BackendRegId,
+        op,
+        left: ir_model.BackendOperand,
+        right: ir_model.BackendOperand,
+        span: SourceSpan,
+    ) -> None:
+        self.instructions.append(
+            ir_model.BackendBinaryInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                op=op,
+                left=left,
+                right=right,
+                span=span,
+            )
+        )
+
+    def emit_call(
+        self,
+        *,
+        dest: ir_model.BackendRegId | None,
+        target: ir_model.BackendCallTarget,
+        args: tuple[ir_model.BackendOperand, ...],
+        signature: ir_model.BackendSignature,
+        span: SourceSpan,
+    ) -> None:
+        self.instructions.append(
+            ir_model.BackendCallInst(
+                inst_id=self._next_inst_id(),
+                dest=dest,
+                target=target,
+                args=args,
+                signature=signature,
+                effects=_conservative_user_call_effects(),
+                span=span,
+            )
+        )
+
+    def allocate_temp(self, *, type_ref: SemanticTypeRef, span: SourceSpan, debug_hint: str = "tmp") -> ir_model.BackendRegId:
+        reg_id = ir_model.BackendRegId(owner_id=self.callable_id, ordinal=self.next_reg_ordinal)
+        self.next_reg_ordinal += 1
+        debug_name = f"{debug_hint}{self.next_temp_index}"
+        self.next_temp_index += 1
+        register = ir_model.BackendRegister(
+            reg_id=reg_id,
+            type_ref=type_ref,
+            debug_name=debug_name,
+            origin_kind="temp",
+            semantic_local_id=None,
+            span=span,
+        )
+        self.registers.append(register)
+        self.register_by_id[reg_id] = register
+        return reg_id
+
+    def require_register_type(self, reg_id: ir_model.BackendRegId) -> SemanticTypeRef:
+        register = self.register_by_id.get(reg_id)
+        if register is None:
+            raise KeyError(f"Missing backend register metadata for {reg_id}")
+        return register.type_ref
+
+    def require_callable_surface(self, callable_id: ir_model.BackendCallableId) -> CallableSurface:
+        surface = self.call_surface_by_id.get(callable_id)
+        if surface is None:
+            raise KeyError(f"Missing backend callable surface for {callable_id}")
+        return surface
+
     def _next_inst_id(self) -> ir_model.BackendInstId:
         inst_id = ir_model.BackendInstId(owner_id=self.callable_id, ordinal=self.next_inst_ordinal)
         self.next_inst_ordinal += 1
         return inst_id
 
 
-def lower_function_callable(function: SemanticFunction) -> LoweredCallable:
-    signature = ir_model.BackendSignature(
-        param_types=tuple(param.type_ref for param in function.params),
-        return_type=function.return_type_ref,
-    )
+def build_callable_surface_by_id(program: LinkedSemanticProgram) -> dict[ir_model.BackendCallableId, CallableSurface]:
+    call_surface_by_id: dict[ir_model.BackendCallableId, CallableSurface] = {}
+
+    for function in program.functions:
+        call_surface_by_id[function.function_id] = CallableSurface(
+            signature=_function_signature(function),
+            expects_receiver=False,
+        )
+
+    for class_decl in program.classes:
+        for method in class_decl.methods:
+            call_surface_by_id[method.method_id] = CallableSurface(
+                signature=_method_signature(method),
+                expects_receiver=not method.is_static,
+            )
+        for constructor in class_decl.constructors:
+            call_surface_by_id[constructor.constructor_id] = CallableSurface(
+                signature=_constructor_signature(class_decl.class_id, constructor),
+                expects_receiver=True,
+            )
+
+    return call_surface_by_id
+
+
+def lower_function_callable(
+    function: SemanticFunction,
+    *,
+    call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
+) -> LoweredCallable:
+    signature = _function_signature(function)
     layout = _allocate_register_layout(
         callable_id=function.function_id,
         params=function.params,
@@ -104,16 +254,19 @@ def lower_function_callable(function: SemanticFunction) -> LoweredCallable:
             is_private=None,
             body=function.body,
             layout=layout,
+            call_surface_by_id=call_surface_by_id,
         ),
         reg_id_by_local_id=dict(layout.reg_id_by_local_id),
     )
 
 
-def lower_method_callable(owner_class_id: ClassId, method: SemanticMethod) -> LoweredCallable:
-    signature = ir_model.BackendSignature(
-        param_types=tuple(param.type_ref for param in method.params),
-        return_type=method.return_type_ref,
-    )
+def lower_method_callable(
+    owner_class_id: ClassId,
+    method: SemanticMethod,
+    *,
+    call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
+) -> LoweredCallable:
+    signature = _method_signature(method)
     receiver_type_ref = None if method.is_static else semantic_type_ref_for_class_id(owner_class_id)
     layout = _allocate_register_layout(
         callable_id=method.method_id,
@@ -133,17 +286,20 @@ def lower_method_callable(owner_class_id: ClassId, method: SemanticMethod) -> Lo
             is_private=method.is_private,
             body=method.body,
             layout=layout,
+            call_surface_by_id=call_surface_by_id,
         ),
         reg_id_by_local_id=dict(layout.reg_id_by_local_id),
     )
 
 
-def lower_constructor_callable(owner_class_id: ClassId, constructor: SemanticConstructor) -> LoweredCallable:
+def lower_constructor_callable(
+    owner_class_id: ClassId,
+    constructor: SemanticConstructor,
+    *,
+    call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
+) -> LoweredCallable:
     receiver_type_ref = semantic_type_ref_for_class_id(owner_class_id)
-    signature = ir_model.BackendSignature(
-        param_types=tuple(param.type_ref for param in constructor.params),
-        return_type=receiver_type_ref,
-    )
+    signature = _constructor_signature(owner_class_id, constructor)
     layout = _allocate_register_layout(
         callable_id=constructor.constructor_id,
         params=constructor.params,
@@ -163,6 +319,7 @@ def lower_constructor_callable(owner_class_id: ClassId, constructor: SemanticCon
             is_private=constructor.is_private,
             body=body,
             layout=layout,
+            call_surface_by_id=call_surface_by_id,
         ),
         reg_id_by_local_id=dict(layout.reg_id_by_local_id),
     )
@@ -267,6 +424,7 @@ def _lower_callable_decl(
     is_private: bool | None,
     body: SemanticBlock | None,
     layout: _RegisterLayout,
+    call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
 ) -> ir_model.BackendCallableDecl:
     if is_extern:
         return ir_model.BackendCallableDecl(
@@ -293,12 +451,16 @@ def _lower_callable_decl(
         signature=signature,
         receiver_reg=layout.receiver_reg,
         reg_id_by_local_id=layout.reg_id_by_local_id,
+        registers=list(layout.registers),
+        register_by_id={register.reg_id: register for register in layout.registers},
+        call_surface_by_id=call_surface_by_id,
         block_span=block_span,
         instructions=[],
+        next_reg_ordinal=layout.next_ordinal,
     )
 
     if body is not None:
-        _lower_smoke_block(builder, body)
+        _lower_straight_line_block(builder, body)
 
     if builder.terminator is None:
         if kind == "constructor":
@@ -329,7 +491,7 @@ def _lower_callable_decl(
         is_extern=False,
         is_static=is_static,
         is_private=is_private,
-        registers=tuple(layout.registers),
+        registers=tuple(builder.registers),
         param_regs=tuple(layout.param_regs),
         receiver_reg=layout.receiver_reg,
         entry_block_id=entry_block_id,
@@ -338,16 +500,16 @@ def _lower_callable_decl(
     )
 
 
-def _lower_smoke_block(builder: _CallableBodyBuilder, block: SemanticBlock) -> None:
+def _lower_straight_line_block(builder: _CallableBodyBuilder, block: SemanticBlock) -> None:
     for statement in block.statements:
         if builder.terminator is not None:
-            raise NotImplementedError("Backend lowering smoke path does not support statements after return yet")
-        _lower_smoke_stmt(builder, statement)
+            raise NotImplementedError("Backend lowering does not support statements after return yet")
+        _lower_straight_line_stmt(builder, statement)
 
 
-def _lower_smoke_stmt(builder: _CallableBodyBuilder, stmt: SemanticStmt) -> None:
+def _lower_straight_line_stmt(builder: _CallableBodyBuilder, stmt: SemanticStmt) -> None:
     if isinstance(stmt, SemanticBlock):
-        _lower_smoke_block(builder, stmt)
+        _lower_straight_line_block(builder, stmt)
         return
     if isinstance(stmt, SemanticVarDecl):
         if stmt.initializer is None:
@@ -358,24 +520,38 @@ def _lower_smoke_stmt(builder: _CallableBodyBuilder, stmt: SemanticStmt) -> None
     if isinstance(stmt, SemanticAssign):
         if not isinstance(stmt.target, LocalLValue):
             raise NotImplementedError(
-                f"Backend lowering smoke path does not support assignment target '{type(stmt.target).__name__}' yet"
+                f"Backend lowering does not support assignment target '{type(stmt.target).__name__}' yet"
             )
         dest_reg_id = _require_local_reg(builder, stmt.target.local_id)
         _materialize_expr_into(builder, dest_reg_id=dest_reg_id, expr=stmt.value, span=stmt.span)
         return
     if isinstance(stmt, SemanticExprStmt):
-        lower_smoke_expression_to_operand(stmt.expr, reg_id_by_local_id=builder.reg_id_by_local_id)
+        _lower_expression_statement(builder, stmt.expr, stmt.span)
         return
     if isinstance(stmt, SemanticReturn):
-        _lower_smoke_return(builder, stmt)
+        _lower_return_stmt(builder, stmt)
         return
     if isinstance(stmt, (SemanticIf, SemanticWhile)):
         raise NotImplementedError(
-            f"Backend lowering smoke path does not support statement '{type(stmt).__name__}' yet"
+            f"Backend lowering does not support statement '{type(stmt).__name__}' yet"
         )
     raise NotImplementedError(
-        f"Backend lowering smoke path does not support statement '{type(stmt).__name__}' yet"
+        f"Backend lowering does not support statement '{type(stmt).__name__}' yet"
     )
+
+
+def _lower_expression_statement(builder: _CallableBodyBuilder, expr: SemanticExpr, span: SourceSpan) -> None:
+    if _is_unit_typed(expr.type_ref):
+        _lower_expression_to_operand(builder, expr)
+        return
+    if isinstance(expr, (LocalRefExpr, NullExprS)):
+        _lower_expression_to_operand(builder, expr)
+        return
+    if hasattr(expr, "constant"):
+        _lower_expression_to_operand(builder, expr)
+        return
+    discard_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=span, debug_hint="discard")
+    _materialize_expr_into(builder, dest_reg_id=discard_reg_id, expr=expr, span=span)
 
 
 def _materialize_expr_into(
@@ -385,21 +561,39 @@ def _materialize_expr_into(
     expr,
     span: SourceSpan,
 ) -> None:
-    operand = lower_smoke_expression_to_operand(expr, reg_id_by_local_id=builder.reg_id_by_local_id)
+    if isinstance(expr, UnaryExprS):
+        operand = _lower_expression_to_operand(builder, expr.operand)
+        builder.emit_unary(dest=dest_reg_id, op=expr.op, operand=operand, span=expr.span)
+        return
+    if isinstance(expr, BinaryExprS):
+        left = _lower_expression_to_operand(builder, expr.left)
+        right = _lower_expression_to_operand(builder, expr.right)
+        builder.emit_binary(dest=dest_reg_id, op=expr.op, left=left, right=right, span=expr.span)
+        return
+    if isinstance(expr, CallExprS):
+        _emit_call_expression(builder, expr=expr, dest_reg_id=dest_reg_id)
+        return
+    operand = _lower_expression_to_operand(builder, expr)
     if isinstance(operand, ir_model.BackendRegOperand):
         if operand.reg_id == dest_reg_id:
             return
         builder.emit_copy(dest=dest_reg_id, source=operand, span=span)
         return
     if isinstance(operand, ir_model.BackendConstOperand):
+        if isinstance(operand.constant, ir_model.BackendNullConst) and not _is_null_typed(builder.require_register_type(dest_reg_id)):
+            raise NotImplementedError(
+                "Backend lowering does not materialize null into reference-typed locals yet"
+            )
+        if isinstance(operand.constant, ir_model.BackendUnitConst):
+            raise NotImplementedError("Backend lowering cannot materialize unit-valued expressions into registers")
         builder.emit_const(dest=dest_reg_id, constant=operand.constant, span=span)
         return
     raise NotImplementedError(
-        f"Backend lowering smoke path does not support materializing operand '{type(operand).__name__}' yet"
+        f"Backend lowering does not support materializing operand '{type(operand).__name__}' yet"
     )
 
 
-def _lower_smoke_return(builder: _CallableBodyBuilder, stmt: SemanticReturn) -> None:
+def _lower_return_stmt(builder: _CallableBodyBuilder, stmt: SemanticReturn) -> None:
     if stmt.value is None:
         value = None
         if builder.kind == "constructor":
@@ -410,8 +604,152 @@ def _lower_smoke_return(builder: _CallableBodyBuilder, stmt: SemanticReturn) -> 
         return
     builder.terminator = ir_model.BackendReturnTerminator(
         span=stmt.span,
-        value=lower_smoke_expression_to_operand(stmt.value, reg_id_by_local_id=builder.reg_id_by_local_id),
+        value=_lower_expression_to_operand(builder, stmt.value),
     )
+
+
+def _lower_expression_to_operand(builder: _CallableBodyBuilder, expr: SemanticExpr) -> ir_model.BackendOperand:
+    if isinstance(expr, LocalRefExpr):
+        reg_id = builder.reg_id_by_local_id.get(expr.local_id)
+        if reg_id is None:
+            raise KeyError(f"Missing backend register for semantic local {expr.local_id}")
+        return ir_model.BackendRegOperand(reg_id=reg_id)
+    if isinstance(expr, NullExprS):
+        return lower_null_operand()
+    if hasattr(expr, "constant"):
+        return lower_literal_expression_to_operand(expr)
+    if isinstance(expr, UnaryExprS):
+        dest_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="tmp")
+        _materialize_expr_into(builder, dest_reg_id=dest_reg_id, expr=expr, span=expr.span)
+        return ir_model.BackendRegOperand(reg_id=dest_reg_id)
+    if isinstance(expr, BinaryExprS):
+        dest_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="tmp")
+        _materialize_expr_into(builder, dest_reg_id=dest_reg_id, expr=expr, span=expr.span)
+        return ir_model.BackendRegOperand(reg_id=dest_reg_id)
+    if isinstance(expr, CallExprS):
+        return _lower_call_expression(builder, expr)
+    if isinstance(expr, (FunctionRefExpr, MethodRefExpr, ClassRefExpr)):
+        raise NotImplementedError(
+            f"Backend lowering does not materialize first-class reference '{type(expr).__name__}' yet"
+        )
+    raise NotImplementedError(
+        f"Backend lowering does not support expression type '{type(expr).__name__}' yet"
+    )
+
+
+def _lower_call_expression(builder: _CallableBodyBuilder, expr: CallExprS) -> ir_model.BackendOperand:
+    dest_reg_id = None
+    if _backend_return_type_for_expr(expr) is not None:
+        dest_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="call")
+    _emit_call_expression(builder, expr=expr, dest_reg_id=dest_reg_id)
+    if dest_reg_id is None:
+        return lower_unit_operand()
+    return ir_model.BackendRegOperand(reg_id=dest_reg_id)
+
+
+def _emit_call_expression(
+    builder: _CallableBodyBuilder,
+    *,
+    expr: CallExprS,
+    dest_reg_id: ir_model.BackendRegId | None,
+) -> None:
+    signature = _call_signature(builder, expr)
+    args = tuple(_lower_expression_to_operand(builder, argument) for argument in expr.args)
+    target = expr.target
+
+    if isinstance(target, FunctionCallTarget):
+        builder.emit_call(
+            dest=dest_reg_id,
+            target=ir_model.BackendDirectCallTarget(callable_id=target.function_id),
+            args=args,
+            signature=signature,
+            span=expr.span,
+        )
+        return
+
+    if isinstance(target, StaticMethodCallTarget):
+        builder.emit_call(
+            dest=dest_reg_id,
+            target=ir_model.BackendDirectCallTarget(callable_id=target.method_id),
+            args=args,
+            signature=signature,
+            span=expr.span,
+        )
+        return
+
+    if isinstance(target, CallableValueCallTarget):
+        callee = _lower_expression_to_operand(builder, target.callee)
+        builder.emit_call(
+            dest=dest_reg_id,
+            target=ir_model.BackendIndirectCallTarget(callee=callee),
+            args=args,
+            signature=signature,
+            span=expr.span,
+        )
+        return
+
+    raise NotImplementedError(
+        f"Backend lowering does not support call target '{type(target).__name__}' yet"
+    )
+
+
+def _call_signature(builder: _CallableBodyBuilder, expr: CallExprS) -> ir_model.BackendSignature:
+    target = expr.target
+    if isinstance(target, FunctionCallTarget):
+        return builder.require_callable_surface(target.function_id).signature
+    if isinstance(target, StaticMethodCallTarget):
+        surface = builder.require_callable_surface(target.method_id)
+        if surface.expects_receiver:
+            raise NotImplementedError("Backend lowering only supports static method direct calls in this slice")
+        return surface.signature
+    if isinstance(target, CallableValueCallTarget):
+        callee_type_ref = target.callee.type_ref
+        if not semantic_type_is_callable(callee_type_ref):
+            raise TypeError("CallableValueCallTarget requires a callable semantic type")
+        return ir_model.BackendSignature(
+            param_types=semantic_type_callable_params(callee_type_ref),
+            return_type=backend_signature_return_type(semantic_type_callable_return(callee_type_ref)),
+        )
+    raise NotImplementedError(
+        f"Backend lowering does not support call target '{type(target).__name__}' yet"
+    )
+
+
+def _function_signature(function: SemanticFunction) -> ir_model.BackendSignature:
+    return ir_model.BackendSignature(
+        param_types=tuple(param.type_ref for param in function.params),
+        return_type=backend_signature_return_type(function.return_type_ref),
+    )
+
+
+def _method_signature(method: SemanticMethod) -> ir_model.BackendSignature:
+    return ir_model.BackendSignature(
+        param_types=tuple(param.type_ref for param in method.params),
+        return_type=backend_signature_return_type(method.return_type_ref),
+    )
+
+
+def _constructor_signature(owner_class_id: ClassId, constructor: SemanticConstructor) -> ir_model.BackendSignature:
+    return ir_model.BackendSignature(
+        param_types=tuple(param.type_ref for param in constructor.params),
+        return_type=semantic_type_ref_for_class_id(owner_class_id),
+    )
+
+
+def _backend_return_type_for_expr(expr: SemanticExpr) -> SemanticTypeRef | None:
+    return backend_signature_return_type(expr.type_ref)
+
+
+def _conservative_user_call_effects() -> ir_model.BackendEffects:
+    return ir_model.BackendEffects(reads_memory=True, writes_memory=True, may_gc=True, may_trap=True)
+
+
+def _is_unit_typed(type_ref: SemanticTypeRef) -> bool:
+    return semantic_type_canonical_name(type_ref) == "unit"
+
+
+def _is_null_typed(type_ref: SemanticTypeRef) -> bool:
+    return semantic_type_canonical_name(type_ref) == "null"
 
 
 def _require_local_reg(builder: _CallableBodyBuilder, local_id: LocalId) -> ir_model.BackendRegId:

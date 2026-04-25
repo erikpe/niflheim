@@ -8,6 +8,7 @@ from compiler.backend.ir import model as ir_model
 from compiler.backend.ir._ordering import callable_id_sort_key, class_id_sort_key, interface_id_sort_key, interface_method_id_sort_key
 from compiler.backend.ir.verify import verify_backend_program
 from compiler.backend.lowering.functions import (
+    build_callable_surface_by_id,
     lower_constructor_callable,
     lower_field_decl,
     lower_function_callable,
@@ -36,6 +37,7 @@ class ProgramLoweringContext:
 def lower_to_backend_ir(program: LinkedSemanticProgram) -> ir_model.BackendProgram:
     require_main_function(program)
     context = ProgramLoweringContext(program=program)
+    call_surface_by_id = build_callable_surface_by_id(program)
 
     interfaces = [_lower_interface_decl(interface) for interface in _iter_interfaces(program)]
     for interface_decl in interfaces:
@@ -47,7 +49,7 @@ def lower_to_backend_ir(program: LinkedSemanticProgram) -> ir_model.BackendProgr
 
     callable_decls = [
         lowered_callable.callable_decl
-        for lowered_callable in _iter_lowered_callables(program)
+        for lowered_callable in _iter_lowered_callables(program, call_surface_by_id=call_surface_by_id)
     ]
     for callable_decl in callable_decls:
         context.callable_decl_by_id[callable_decl.callable_id] = callable_decl
@@ -96,14 +98,18 @@ def _lower_class_decl(class_decl: SemanticClass) -> ir_model.BackendClassDecl:
     )
 
 
-def _iter_lowered_callables(program: LinkedSemanticProgram):
+def _iter_lowered_callables(
+    program: LinkedSemanticProgram,
+    *,
+    call_surface_by_id,
+):
     for function in program.functions:
-        yield lower_function_callable(function)
+        yield lower_function_callable(function, call_surface_by_id=call_surface_by_id)
     for class_decl in program.classes:
         for method in class_decl.methods:
-            yield lower_method_callable(class_decl.class_id, method)
+            yield lower_method_callable(class_decl.class_id, method, call_surface_by_id=call_surface_by_id)
         for constructor in class_decl.constructors:
-            yield lower_constructor_callable(class_decl.class_id, constructor)
+            yield lower_constructor_callable(class_decl.class_id, constructor, call_surface_by_id=call_surface_by_id)
 
 
 __all__ = ["ProgramLoweringContext", "lower_to_backend_ir"]
