@@ -31,7 +31,7 @@ Use these rules for every phase-1 patch:
 ## Ordered PR Checklist
 
 1. [x] PR 1: Create the backend package skeleton, target API scaffold, and reserve the CLI flag surface.
-2. [ ] PR 2: Implement the backend IR core model and test fixture helpers.
+2. [x] PR 2: Implement the backend IR core model and test fixture helpers.
 3. [ ] PR 3: Implement canonical JSON serialization and parsing.
 4. [ ] PR 4: Implement the deterministic human-readable text dump.
 5. [ ] PR 5: Implement the backend IR verifier and malformed-fixture coverage.
@@ -202,11 +202,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/ir/test_model.py -q
 
 ### Checklist
 
-- [ ] Add `compiler/backend/ir/model.py` with the phase-1 node set.
-- [ ] Add `tests/compiler/backend/ir/helpers.py` with reusable builders.
-- [ ] Add model construction coverage for function, method, and constructor shapes.
-- [ ] Keep model-layer validation narrow and defer cross-node checks to the verifier.
-- [ ] Export a narrow public surface from `compiler/backend/ir/__init__.py`.
+- [x] Add `compiler/backend/ir/model.py` with the phase-1 node set.
+- [x] Add `tests/compiler/backend/ir/helpers.py` with reusable builders.
+- [x] Add model construction coverage for function, method, and constructor shapes.
+- [x] Keep model-layer validation narrow and defer cross-node checks to the verifier.
+- [x] Export a narrow public surface from `compiler/backend/ir/__init__.py`.
 
 ## PR 3: Canonical JSON Serialization And Parsing
 
