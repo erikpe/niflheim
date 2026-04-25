@@ -30,7 +30,7 @@ Use these rules for every phase-2 patch:
 
 ## Ordered PR Checklist
 
-1. [ ] PR 1: Add the backend lowering entrypoint, shared lowering context, and top-level declaration lowering.
+1. [x] PR 1: Add the backend lowering entrypoint, shared lowering context, and top-level declaration lowering.
 2. [ ] PR 2: Lower straight-line scalar bodies, locals, and direct or static call shapes.
 3. [ ] PR 3: Lower structured control flow to explicit CFG blocks and merge copies.
 4. [ ] PR 4: Lower receiver-aware bodies, constructors, object allocation, field access, and dispatch calls.
@@ -128,12 +128,12 @@ pytest -n auto --dist loadfile tests/compiler/backend/lowering/test_basics.py te
 
 ### Checklist
 
-- [ ] Add `compiler/backend/lowering/program.py` with the public lowering entrypoint.
-- [ ] Add a shared lowering context and deterministic allocators.
-- [ ] Lower interfaces, classes, fields, and callable signatures.
-- [ ] Lower extern declarations and minimal concrete smoke bodies.
-- [ ] Add reusable backend lowering test helpers.
-- [ ] Add focused declaration and smoke lowering coverage.
+- [x] Add `compiler/backend/lowering/program.py` with the public lowering entrypoint.
+- [x] Add a shared lowering context and deterministic allocators.
+- [x] Lower interfaces, classes, fields, and callable signatures.
+- [x] Lower extern declarations and minimal concrete smoke bodies.
+- [x] Add reusable backend lowering test helpers.
+- [x] Add focused declaration and smoke lowering coverage.
 
 ## PR 2: Straight-Line Scalar Bodies, Locals, And Direct Or Static Calls
 
