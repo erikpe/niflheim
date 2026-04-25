@@ -1,6 +1,6 @@
 # Backend IR Phase 1 Implementation Plan
 
-Status: in progress.
+Status: phase 1 complete.
 
 This document expands phase 1 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
@@ -34,7 +34,7 @@ Use these rules for every phase-1 patch:
 2. [x] PR 2: Implement the backend IR core model and test fixture helpers.
 3. [x] PR 3: Implement canonical JSON serialization and parsing.
 4. [x] PR 4: Implement the deterministic human-readable text dump.
-5. [ ] PR 5: Implement the backend IR verifier and malformed-fixture coverage.
+5. [x] PR 5: Implement the backend IR verifier and malformed-fixture coverage.
 
 ## PR 1: Backend Package Skeleton, Target API, And Reserved CLI Surface
 
@@ -437,25 +437,25 @@ pytest -n auto --dist loadfile tests/compiler/backend/ir tests/compiler/integrat
 
 ### Checklist
 
-- [ ] Add `compiler/backend/ir/verify.py` and a dedicated verification error type.
-- [ ] Validate constructor-specific and receiver-specific rules.
-- [ ] Validate runtime calls against [compiler/codegen/abi/runtime.py](../compiler/codegen/abi/runtime.py).
-- [ ] Add positive and negative verifier coverage.
-- [ ] Run the full phase-1 backend IR test slice.
+- [x] Add `compiler/backend/ir/verify.py` and a dedicated verification error type.
+- [x] Validate constructor-specific and receiver-specific rules.
+- [x] Validate runtime calls against [compiler/codegen/abi/runtime.py](../compiler/codegen/abi/runtime.py).
+- [x] Add positive and negative verifier coverage.
+- [x] Run the full phase-1 backend IR test slice.
 
 ## Phase 1 Gate Checklist
 
 Use this checklist when phase 1 is believed to be complete.
 
-- [ ] `compiler/backend/` exists and imports cleanly.
-- [ ] The target API scaffold exists without pulling in target-specific implementation logic.
-- [ ] The backend IR model matches the frozen schema.
-- [ ] Canonical JSON serialization and parsing are stable.
-- [ ] The human-readable text dump is stable.
-- [ ] The verifier enforces the phase-1 IR contract.
-- [ ] Reserved CLI flags and stop phases exist.
-- [ ] Using reserved backend IR flags before lowering exists fails clearly and intentionally.
-- [ ] The default checked compiler path remains unchanged when backend IR flags are not used.
+- [x] `compiler/backend/` exists and imports cleanly.
+- [x] The target API scaffold exists without pulling in target-specific implementation logic.
+- [x] The backend IR model matches the frozen schema.
+- [x] Canonical JSON serialization and parsing are stable.
+- [x] The human-readable text dump is stable.
+- [x] The verifier enforces the phase-1 IR contract.
+- [x] Reserved CLI flags and stop phases exist.
+- [x] Using reserved backend IR flags before lowering exists fails clearly and intentionally.
+- [x] The default checked compiler path remains unchanged when backend IR flags are not used.
 
 Recommended phase gate command:
 

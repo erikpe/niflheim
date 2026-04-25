@@ -145,6 +145,10 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
 }
 
 
+def has_runtime_call_metadata(name: str) -> bool:
+    return name in _RUNTIME_CALL_METADATA_BY_NAME
+
+
 def runtime_call_metadata(name: str) -> RuntimeCallMetadata:
     metadata = _RUNTIME_CALL_METADATA_BY_NAME.get(name)
     if metadata is not None:
