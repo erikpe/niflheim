@@ -33,7 +33,7 @@ Use these rules for every phase-1 patch:
 1. [x] PR 1: Create the backend package skeleton, target API scaffold, and reserve the CLI flag surface.
 2. [x] PR 2: Implement the backend IR core model and test fixture helpers.
 3. [x] PR 3: Implement canonical JSON serialization and parsing.
-4. [ ] PR 4: Implement the deterministic human-readable text dump.
+4. [x] PR 4: Implement the deterministic human-readable text dump.
 5. [ ] PR 5: Implement the backend IR verifier and malformed-fixture coverage.
 
 ## PR 1: Backend Package Skeleton, Target API, And Reserved CLI Surface
@@ -359,11 +359,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/ir/test_model.py tests/com
 
 ### Checklist
 
-- [ ] Add `compiler/backend/ir/text.py`.
-- [ ] Match the spec's callable, register, block, instruction, and terminator formatting.
-- [ ] Reuse deterministic ordering in the dump path.
-- [ ] Add text snapshots for function, method, and constructor fixtures.
-- [ ] Keep optional analysis rendering opt-in.
+- [x] Add `compiler/backend/ir/text.py`.
+- [x] Match the spec's callable, register, block, instruction, and terminator formatting.
+- [x] Reuse deterministic ordering in the dump path.
+- [x] Add text snapshots for function, method, and constructor fixtures.
+- [x] Keep optional analysis rendering opt-in.
 
 ## PR 5: Backend IR Verifier And Malformed-Fixture Coverage
 

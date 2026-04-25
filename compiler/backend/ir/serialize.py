@@ -7,6 +7,16 @@ import struct
 from collections.abc import Mapping
 from pathlib import Path
 
+from compiler.backend.ir._ordering import (
+    block_sort_key,
+    callable_id_sort_key,
+    class_id_sort_key,
+    data_blob_sort_key,
+    instruction_sort_key,
+    interface_id_sort_key,
+    reg_id_sort_key,
+    register_sort_key,
+)
 from compiler.backend.ir import model as ir_model
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.span import SourcePos, SourceSpan
@@ -51,18 +61,18 @@ def backend_program_to_dict(
     return {
         "schema_version": program.schema_version,
         "entry_callable_id": _serialize_function_id(program.entry_callable_id),
-        "data_blobs": [_serialize_data_blob(blob) for blob in sorted(program.data_blobs, key=_data_id_sort_key)],
+        "data_blobs": [_serialize_data_blob(blob) for blob in sorted(program.data_blobs, key=data_blob_sort_key)],
         "interfaces": [
             _serialize_interface_decl(interface_decl)
-            for interface_decl in sorted(program.interfaces, key=lambda decl: _interface_id_sort_key(decl.interface_id))
+            for interface_decl in sorted(program.interfaces, key=lambda decl: interface_id_sort_key(decl.interface_id))
         ],
         "classes": [
             _serialize_class_decl(class_decl)
-            for class_decl in sorted(program.classes, key=lambda decl: _class_id_sort_key(decl.class_id))
+            for class_decl in sorted(program.classes, key=lambda decl: class_id_sort_key(decl.class_id))
         ],
         "callables": [
             _serialize_callable_decl(callable_decl, project_root=root)
-            for callable_decl in sorted(program.callables, key=lambda decl: _callable_id_sort_key(decl.callable_id))
+            for callable_decl in sorted(program.callables, key=lambda decl: callable_id_sort_key(decl.callable_id))
         ],
     }
 
@@ -162,16 +172,16 @@ def _serialize_callable_decl(
         "is_private": callable_decl.is_private,
         "registers": [
             _serialize_register(register, project_root=project_root)
-            for register in sorted(callable_decl.registers, key=lambda register: register.reg_id.ordinal)
+            for register in sorted(callable_decl.registers, key=register_sort_key)
         ],
-        "param_regs": [_serialize_reg_id(reg_id) for reg_id in sorted(callable_decl.param_regs, key=lambda reg_id: reg_id.ordinal)],
+        "param_regs": [_serialize_reg_id(reg_id) for reg_id in sorted(callable_decl.param_regs, key=reg_id_sort_key)],
         "receiver_reg": None if callable_decl.receiver_reg is None else _serialize_reg_id(callable_decl.receiver_reg),
         "entry_block_id": None
         if callable_decl.entry_block_id is None
         else _serialize_block_id(callable_decl.entry_block_id),
         "blocks": [
             _serialize_block(block, project_root=project_root)
-            for block in sorted(callable_decl.blocks, key=lambda block: block.block_id.ordinal)
+            for block in sorted(callable_decl.blocks, key=block_sort_key)
         ],
         "span": _serialize_source_span(callable_decl.span, project_root=project_root),
     }
@@ -203,7 +213,7 @@ def _serialize_block(block: ir_model.BackendBlock, *, project_root: Path | None)
         "debug_name": block.debug_name,
         "instructions": [
             _serialize_instruction(instruction, project_root=project_root)
-            for instruction in sorted(block.instructions, key=lambda instruction: instruction.inst_id.ordinal)
+            for instruction in sorted(block.instructions, key=instruction_sort_key)
         ],
         "terminator": _serialize_terminator(block.terminator, project_root=project_root),
         "span": _serialize_source_span(block.span, project_root=project_root),
@@ -1286,26 +1296,6 @@ def _double_value_bits(value: float) -> int:
 
 def _float_from_binary64_bits(bits: int) -> float:
     return struct.unpack("<d", struct.pack("<Q", bits))[0]
-
-
-def _data_id_sort_key(blob: ir_model.BackendDataBlob) -> int:
-    return blob.data_id.ordinal
-
-
-def _class_id_sort_key(class_id: ClassId) -> tuple[tuple[str, ...], str]:
-    return class_id.module_path, class_id.name
-
-
-def _interface_id_sort_key(interface_id: InterfaceId) -> tuple[tuple[str, ...], str]:
-    return interface_id.module_path, interface_id.name
-
-
-def _callable_id_sort_key(callable_id: ir_model.BackendCallableId) -> tuple[tuple[str, ...], int, str, str, int]:
-    if isinstance(callable_id, FunctionId):
-        return callable_id.module_path, 0, callable_id.name, "", -1
-    if isinstance(callable_id, MethodId):
-        return callable_id.module_path, 1, callable_id.class_name, callable_id.name, -1
-    return callable_id.module_path, 2, callable_id.class_name, "", callable_id.ordinal
 
 
 def _expect_object(value: object, context: str) -> Mapping[str, object]:
