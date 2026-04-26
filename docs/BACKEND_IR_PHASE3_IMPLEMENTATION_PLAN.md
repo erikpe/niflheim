@@ -36,7 +36,7 @@ Use these rules for every phase-3 patch:
 1. [x] PR 1: Add CFG indexing utilities, analysis fixtures, and shared pass entrypoints.
 2. [x] PR 2: Implement unreachable-block elimination and basic CFG simplification.
 3. [x] PR 3: Implement virtual-register liveness analysis.
-4. [ ] PR 4: Implement safepoint and reference liveness analysis.
+4. [x] PR 4: Implement safepoint and reference liveness analysis.
 5. [ ] PR 5: Implement named root-slot planning from backend safepoint liveness.
 6. [ ] PR 6: Implement stack-home planning for backend registers and temporaries.
 7. [ ] PR 7: Implement deterministic block ordering, the backend pass pipeline, and checked-path `backend-ir-passes` CLI wiring.
@@ -361,10 +361,10 @@ pytest -n auto --dist loadfile tests/compiler/backend/analysis/test_liveness.py 
 
 ### Checklist
 
-- [ ] Add `compiler/backend/analysis/safepoints.py`.
-- [ ] Define safepoints from backend `effects` and call metadata only.
-- [ ] Port or mirror the legacy root-liveness regression surface.
-- [ ] Add explicit loop-carried reference coverage.
+- [x] Add `compiler/backend/analysis/safepoints.py`.
+- [x] Define safepoints from backend `effects` and call metadata only.
+- [x] Port or mirror the legacy root-liveness regression surface.
+- [x] Add explicit loop-carried reference coverage.
 
 ## PR 5: Named Root-Slot Planning From Backend Safepoint Liveness
 

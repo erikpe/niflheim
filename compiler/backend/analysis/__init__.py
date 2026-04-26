@@ -22,6 +22,14 @@ from compiler.backend.analysis.liveness import (
 	transfer_instruction_live_set,
 	transfer_terminator_live_set,
 )
+from compiler.backend.analysis.safepoints import (
+	BackendCallableSafepoints,
+	analyze_callable_safepoints,
+	instruction_effects,
+	instruction_is_safepoint,
+	register_is_gc_reference,
+	safepoint_live_regs_for_instruction,
+)
 from compiler.backend.analysis.simplify_cfg import (
 	eliminate_unreachable_blocks,
 	simplify_callable_cfg,
@@ -44,9 +52,15 @@ __all__ = [
 	"reachable_block_ids",
 	"reverse_postorder_block_ids",
 	"BackendCallableLiveness",
+	"BackendCallableSafepoints",
 	"analyze_callable_liveness",
+	"analyze_callable_safepoints",
 	"simplify_callable_cfg",
 	"simplify_trivial_jump_blocks",
+	"instruction_effects",
+	"instruction_is_safepoint",
+	"register_is_gc_reference",
+	"safepoint_live_regs_for_instruction",
 	"terminator_use_regs",
 	"transfer_instruction_live_set",
 	"transfer_terminator_live_set",
