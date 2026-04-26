@@ -475,6 +475,8 @@ Replace the current tree-walking backend analyses with CFG-based backend IR anal
 
 This is the phase that removes the largest architectural risk in the current backend.
 
+The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE3_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE3_IMPLEMENTATION_PLAN.md).
+
 ### Deliverables
 
 - CFG indexing utilities
