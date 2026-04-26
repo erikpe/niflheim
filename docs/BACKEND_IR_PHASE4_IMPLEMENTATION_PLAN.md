@@ -31,7 +31,7 @@ Use these rules for every phase-4 patch:
 ## Ordered PR Checklist
 
 1. [x] PR 1: Add the `x86_64_sysv` target package, target entrypoint, ABI descriptor, legality checker, and assembly helpers.
-2. [ ] PR 2: Implement reduced-scope frame planning, stack-home materialization, and prologue or epilogue emission.
+2. [x] PR 2: Implement reduced-scope frame planning, stack-home materialization, and prologue or epilogue emission.
 3. [ ] PR 3: Implement straight-line scalar instruction selection and return emission.
 4. [ ] PR 4: Implement branch, loop, label, and block-layout emission.
 5. [ ] PR 5: Implement direct-call lowering for the reduced SysV scalar slice.
@@ -221,11 +221,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv/test_a
 
 ### Checklist
 
-- [ ] Add `compiler/backend/targets/x86_64_sysv/frame.py`.
-- [ ] Map symbolic stack homes to deterministic frame slots.
-- [ ] Emit a shared prologue and epilogue shape.
-- [ ] Reject unsupported root-slot-requiring callables cleanly.
-- [ ] Add focused frame and prologue or epilogue coverage.
+- [x] Add `compiler/backend/targets/x86_64_sysv/frame.py`.
+- [x] Map symbolic stack homes to deterministic frame slots.
+- [x] Emit a shared prologue and epilogue shape.
+- [x] Reject unsupported root-slot-requiring callables cleanly.
+- [x] Add focused frame and prologue or epilogue coverage.
 
 ## PR 3: Straight-Line Scalar Instruction Selection And Return Emission
 

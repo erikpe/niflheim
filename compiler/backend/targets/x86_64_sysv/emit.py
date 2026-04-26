@@ -20,6 +20,7 @@ from compiler.backend.ir import (
     BackendIndirectCallTarget,
     BackendInterfaceCallTarget,
     BackendNullCheckInst,
+    BackendReturnTerminator,
     BackendTrapTerminator,
     BackendTypeTestInst,
     BackendVirtualCallTarget,
@@ -32,7 +33,9 @@ from compiler.backend.targets import (
     BackendTargetOptions,
 )
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI
-from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder
+from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
+from compiler.backend.targets.x86_64_sysv.frame import plan_callable_frame_layout
+from compiler.codegen.symbols import epilogue_label, mangle_function_symbol
 from compiler.semantic.symbols import ConstructorId, FunctionId, MethodId
 
 
@@ -53,14 +56,26 @@ class X86_64SysVTarget:
 def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTargetOptions) -> BackendEmitResult:
     check_x86_64_sysv_legality(target_input)
 
-    if any(not callable_decl.is_extern and callable_decl.blocks for callable_decl in target_input.program.callables):
-        raise BackendTargetLoweringError(
-            "x86_64_sysv target scaffold is present, but frame and instruction emission land in later phase-4 slices"
+    builder = X86AsmBuilder(emit_debug_comments=options.emit_debug_comments)
+    builder.blank()
+    builder.directive(".text")
+
+    for callable_decl in target_input.program.callables:
+        if callable_decl.is_extern:
+            continue
+        builder.blank()
+        frame_layout = plan_callable_frame_layout(target_input, callable_decl)
+        _emit_callable_body(
+            builder,
+            callable_decl,
+            frame_layout=frame_layout,
+            entry_callable_id=target_input.program.entry_callable_id,
+            emit_debug_comments=options.emit_debug_comments,
         )
 
-    builder = X86AsmBuilder(emit_debug_comments=options.emit_debug_comments)
-    if options.emit_debug_comments:
-        builder.comment("x86_64_sysv target scaffold validated an extern-only program")
+    builder.blank()
+    builder.directive('.section .note.GNU-stack,"",@progbits')
+    builder.blank()
     return BackendEmitResult(assembly_text=builder.build(), diagnostics=())
 
 
@@ -175,6 +190,86 @@ def _check_instruction_legality(callable_decl, block: BackendBlock, instruction:
                 instruction,
                 f"call return type '{instruction.signature.return_type.display_name}' is not supported in reduced phase-4 x86_64_sysv",
             )
+
+
+def _emit_callable_body(builder, callable_decl, *, frame_layout, entry_callable_id, emit_debug_comments: bool) -> None:
+    target_label, alias_labels, global_symbol = _callable_symbol_info(callable_decl, entry_callable_id=entry_callable_id)
+    epilogue = epilogue_label(target_label)
+
+    if global_symbol:
+        builder.global_symbol(target_label)
+    builder.label(target_label)
+    for alias_label in alias_labels:
+        builder.label(alias_label)
+
+    builder.instruction("push", "rbp")
+    builder.instruction("mov", "rbp", "rsp")
+    if frame_layout.stack_size > 0:
+        builder.instruction("sub", "rsp", str(frame_layout.stack_size))
+
+    _emit_param_spills(builder, callable_decl, frame_layout=frame_layout)
+    if emit_debug_comments:
+        for slot in frame_layout.slots:
+            builder.comment(f"{slot.home_name} -> {format_stack_slot_operand('rbp', slot.byte_offset)}")
+
+    _emit_reduced_callable_body(builder, callable_decl, epilogue_label_text=epilogue)
+
+    builder.label(epilogue)
+    builder.instruction("mov", "rsp", "rbp")
+    builder.instruction("pop", "rbp")
+    builder.instruction("ret")
+
+
+def _emit_param_spills(builder, callable_decl, *, frame_layout) -> None:
+    arg_locations = X86_64_SYSV_ABI.plan_argument_locations(callable_decl.signature.param_types)
+    for reg_id, arg_location in zip(callable_decl.param_regs, arg_locations, strict=True):
+        slot = frame_layout.for_reg(reg_id)
+        if slot is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv frame layout is missing a home for parameter register 'r{reg_id.ordinal}'"
+            )
+        stack_operand = format_stack_slot_operand("rbp", slot.byte_offset)
+        if arg_location.kind == "int_reg":
+            assert arg_location.register_name is not None
+            builder.instruction("mov", stack_operand, arg_location.register_name)
+            continue
+        if arg_location.kind == "stack":
+            assert arg_location.stack_slot_index is not None
+            incoming_offset = X86_64_SYSV_ABI.incoming_stack_arg_byte_offset(arg_location.stack_slot_index)
+            builder.instruction("mov", "rax", f"qword ptr [rbp + {incoming_offset}]")
+            builder.instruction("mov", stack_operand, "rax")
+            continue
+        raise BackendTargetLoweringError(f"unsupported reduced-scope parameter location kind '{arg_location.kind}'")
+
+
+def _emit_reduced_callable_body(builder, callable_decl, *, epilogue_label_text: str) -> None:
+    if len(callable_decl.blocks) != 1 or callable_decl.entry_block_id != callable_decl.blocks[0].block_id:
+        raise BackendTargetLoweringError(
+            "x86_64_sysv control-flow emission lands in later phase-4 slices; PR2 only supports single-block callables"
+        )
+
+    block = callable_decl.blocks[0]
+    if block.instructions:
+        raise BackendTargetLoweringError(
+            "x86_64_sysv straight-line instruction emission lands in later phase-4 slices; PR2 only emits frame skeletons"
+        )
+    if not isinstance(block.terminator, BackendReturnTerminator):
+        raise BackendTargetLoweringError(
+            "x86_64_sysv terminator emission lands in later phase-4 slices; PR2 only supports return terminators"
+        )
+    if block.terminator.value is not None:
+        raise BackendTargetLoweringError(
+            "x86_64_sysv return-value emission lands in later phase-4 slices; PR2 only supports unit-return skeletons"
+        )
+    builder.instruction("jmp", epilogue_label_text)
+
+
+def _callable_symbol_info(callable_decl, *, entry_callable_id) -> tuple[str, tuple[str, ...], bool]:
+    callable_id = callable_decl.callable_id
+    mangled_label = mangle_function_symbol(callable_id.module_path, callable_id.name)
+    if callable_id == entry_callable_id and callable_id.name == "main":
+        return ("main", (mangled_label,), True)
+    return (mangled_label, (), callable_decl.is_export)
 
 
 def _callable_error(callable_decl, message: str) -> None:

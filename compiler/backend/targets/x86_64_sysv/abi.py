@@ -23,6 +23,7 @@ class X86_64SysVAbi:
     stack_pointer_register: str = "rsp"
     stack_alignment_bytes: int = 16
     stack_slot_size_bytes: int = 8
+    incoming_stack_arg_base_offset: int = 16
     supported_scalar_type_names: frozenset[str] = frozenset({TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_BOOL})
 
     def supports_scalar_type(self, type_ref: SemanticTypeRef | None) -> bool:
@@ -65,6 +66,11 @@ class X86_64SysVAbi:
         if remainder == 0:
             return byte_count
         return byte_count + (self.stack_alignment_bytes - remainder)
+
+    def incoming_stack_arg_byte_offset(self, stack_slot_index: int) -> int:
+        if stack_slot_index < 0:
+            raise ValueError("Incoming stack argument slot index must be non-negative")
+        return self.incoming_stack_arg_base_offset + (stack_slot_index * self.stack_slot_size_bytes)
 
 
 X86_64_SYSV_ABI = X86_64SysVAbi()
