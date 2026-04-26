@@ -178,5 +178,8 @@ def test_asm_helpers_render_stable_text() -> None:
 
 
 def test_entrypoint_validates_legality_before_emission() -> None:
-    with pytest.raises(RuntimeError, match="straight-line instruction emission lands in later phase-4 slices"):
-        emit_x86_64_sysv_asm(make_target_input(one_function_backend_program()), options=BackendTargetOptions())
+    asm = emit_x86_64_sysv_asm(make_target_input(one_function_backend_program()), options=BackendTargetOptions()).assembly_text
+
+    assert ".globl main" in asm
+    assert "    mov rax, 0" in asm
+    assert "    jmp .Lmain_epilogue" in asm

@@ -32,7 +32,7 @@ Use these rules for every phase-4 patch:
 
 1. [x] PR 1: Add the `x86_64_sysv` target package, target entrypoint, ABI descriptor, legality checker, and assembly helpers.
 2. [x] PR 2: Implement reduced-scope frame planning, stack-home materialization, and prologue or epilogue emission.
-3. [ ] PR 3: Implement straight-line scalar instruction selection and return emission.
+3. [x] PR 3: Implement straight-line scalar instruction selection and return emission.
 4. [ ] PR 4: Implement branch, loop, label, and block-layout emission.
 5. [ ] PR 5: Implement direct-call lowering for the reduced SysV scalar slice.
 6. [ ] PR 6: Wire an explicit non-default checked-path backend selector, add reduced-path integration coverage, and run the reduced golden gate.
@@ -305,11 +305,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv/test_e
 
 ### Checklist
 
-- [ ] Add reduced-scope scalar instruction selection.
-- [ ] Emit deterministic load, compute, and store sequences through stack homes.
-- [ ] Lower returns through the shared SysV epilogue path.
-- [ ] Reject unsupported instruction families clearly.
-- [ ] Add straight-line assembly and execution coverage.
+- [x] Add reduced-scope scalar instruction selection.
+- [x] Emit deterministic load, compute, and store sequences through stack homes.
+- [x] Lower returns through the shared SysV epilogue path.
+- [x] Reject unsupported instruction families clearly.
+- [x] Add straight-line assembly and execution coverage.
 
 ## PR 4: Branch, Loop, Label, And Block-Layout Emission
 

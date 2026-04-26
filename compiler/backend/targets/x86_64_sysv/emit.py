@@ -20,7 +20,6 @@ from compiler.backend.ir import (
     BackendIndirectCallTarget,
     BackendInterfaceCallTarget,
     BackendNullCheckInst,
-    BackendReturnTerminator,
     BackendTrapTerminator,
     BackendTypeTestInst,
     BackendVirtualCallTarget,
@@ -35,6 +34,7 @@ from compiler.backend.targets import (
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
 from compiler.backend.targets.x86_64_sysv.frame import plan_callable_frame_layout
+from compiler.backend.targets.x86_64_sysv.instruction_selection import emit_straight_line_callable_body
 from compiler.codegen.symbols import epilogue_label, mangle_function_symbol
 from compiler.semantic.symbols import ConstructorId, FunctionId, MethodId
 
@@ -167,13 +167,6 @@ def _check_instruction_legality(callable_decl, block: BackendBlock, instruction:
                 instruction,
                 f"call target '{type(instruction.target).__name__}' is not supported in reduced phase-4 x86_64_sysv",
             )
-        if instruction.effects != type(instruction.effects)():
-            _instruction_error(
-                callable_decl,
-                block,
-                instruction,
-                "call effects must be empty in reduced phase-4 x86_64_sysv",
-            )
         for param_type in instruction.signature.param_types:
             if not X86_64_SYSV_ABI.supports_scalar_type(param_type):
                 _instruction_error(
@@ -212,7 +205,12 @@ def _emit_callable_body(builder, callable_decl, *, frame_layout, entry_callable_
         for slot in frame_layout.slots:
             builder.comment(f"{slot.home_name} -> {format_stack_slot_operand('rbp', slot.byte_offset)}")
 
-    _emit_reduced_callable_body(builder, callable_decl, epilogue_label_text=epilogue)
+    emit_straight_line_callable_body(
+        builder,
+        callable_decl,
+        frame_layout=frame_layout,
+        epilogue_label_text=epilogue,
+    )
 
     builder.label(epilogue)
     builder.instruction("mov", "rsp", "rbp")
@@ -240,28 +238,6 @@ def _emit_param_spills(builder, callable_decl, *, frame_layout) -> None:
             builder.instruction("mov", stack_operand, "rax")
             continue
         raise BackendTargetLoweringError(f"unsupported reduced-scope parameter location kind '{arg_location.kind}'")
-
-
-def _emit_reduced_callable_body(builder, callable_decl, *, epilogue_label_text: str) -> None:
-    if len(callable_decl.blocks) != 1 or callable_decl.entry_block_id != callable_decl.blocks[0].block_id:
-        raise BackendTargetLoweringError(
-            "x86_64_sysv control-flow emission lands in later phase-4 slices; PR2 only supports single-block callables"
-        )
-
-    block = callable_decl.blocks[0]
-    if block.instructions:
-        raise BackendTargetLoweringError(
-            "x86_64_sysv straight-line instruction emission lands in later phase-4 slices; PR2 only emits frame skeletons"
-        )
-    if not isinstance(block.terminator, BackendReturnTerminator):
-        raise BackendTargetLoweringError(
-            "x86_64_sysv terminator emission lands in later phase-4 slices; PR2 only supports return terminators"
-        )
-    if block.terminator.value is not None:
-        raise BackendTargetLoweringError(
-            "x86_64_sysv return-value emission lands in later phase-4 slices; PR2 only supports unit-return skeletons"
-        )
-    builder.instruction("jmp", epilogue_label_text)
 
 
 def _callable_symbol_info(callable_decl, *, entry_callable_id) -> tuple[str, tuple[str, ...], bool]:

@@ -7,7 +7,14 @@ from compiler.backend.targets.x86_64_sysv import X86_64_SYSV_ABI, X86_64SysVFram
 from compiler.codegen.symbols import epilogue_label, mangle_function_symbol
 from tests.compiler.backend.analysis.helpers import lower_source_to_backend_callable_fixture
 from tests.compiler.backend.ir.helpers import FIXTURE_ENTRY_FUNCTION_ID, callable_by_id, one_function_backend_program
-from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_program, make_target_input, unit_function_backend_program, with_root_slot
+from tests.compiler.backend.targets.x86_64_sysv.helpers import (
+    compile_and_run_source,
+    emit_program,
+    emit_source_asm,
+    make_target_input,
+    unit_function_backend_program,
+    with_root_slot,
+)
 
 
 def test_plan_callable_frame_layout_assigns_deterministic_offsets_from_stack_homes(tmp_path) -> None:
@@ -100,6 +107,104 @@ def test_emit_program_handles_empty_unit_callable_without_stack_reserve() -> Non
     assert "    sub rsp" not in asm
 
 
-def test_emit_program_rejects_nonempty_body_before_instruction_selection() -> None:
-    with pytest.raises(RuntimeError, match="straight-line instruction emission lands in later phase-4 slices"):
-        emit_program(one_function_backend_program(), options=BackendTargetOptions())
+def test_emit_source_asm_emits_straight_line_scalar_sequences_and_return_register(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn main() -> i64 {
+            var base: i64 = 8;
+            var neg: i64 = -base;
+            var sum: i64 = neg + 50;
+            var same: i64 = sum;
+            same = same + 100;
+            return same;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert "    mov rax, 8" in asm
+    assert "    mov qword ptr [rbp - 8], rax" in asm
+    assert "    mov rax, qword ptr [rbp - 8]" in asm
+    assert "    neg rax" in asm
+    assert "    mov rcx, 50" in asm
+    assert "    add rax, rcx" in asm
+    assert "    mov qword ptr [rbp - 32], rax" in asm
+    assert "    mov rax, qword ptr [rbp - 32]" in asm
+    assert "    jmp .Lmain_epilogue" in asm
+
+
+def test_emit_source_asm_emits_integer_comparison_sequences(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn compare(a: i64, b: i64) -> i64 {
+            var same: bool = a == b;
+            var less: bool = a < b;
+            return 0;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        skip_optimize=True,
+    )
+    compare_label = mangle_function_symbol(("main",), "compare")
+    compare_body = asm[asm.index(f"{compare_label}:") : asm.index(f"{epilogue_label(compare_label)}:")]
+
+    assert "    cmp rax, rcx" in compare_body
+    assert "    sete al" in compare_body
+    assert "    setl al" in compare_body
+    assert "    movzx rax, al" in compare_body
+
+
+def test_emit_source_asm_is_byte_stable_across_repeated_runs(tmp_path) -> None:
+    source = """
+    fn main() -> i64 {
+        var value: i64 = 5;
+        value = value * 3;
+        return value;
+    }
+    """
+
+    first_asm = emit_source_asm(tmp_path / "run_a", source, skip_optimize=True)
+    second_asm = emit_source_asm(tmp_path / "run_b", source, skip_optimize=True)
+
+    assert first_asm == second_asm
+
+
+def test_emit_source_asm_rejects_direct_calls_before_pr5(tmp_path) -> None:
+    with pytest.raises(RuntimeError, match="direct-call lowering lands in later phase-4 slices"):
+        emit_source_asm(
+            tmp_path,
+            """
+            fn helper(value: i64) -> i64 {
+                return value + 1;
+            }
+
+            fn main() -> i64 {
+                return helper(41);
+            }
+            """,
+            skip_optimize=True,
+        )
+
+
+def test_emit_source_asm_can_execute_straight_line_arithmetic_program(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        fn main() -> i64 {
+            var base: i64 = 8;
+            var neg: i64 = -base;
+            var sum: i64 = neg + 50;
+            var same: i64 = sum;
+            same = same + 100;
+            return same;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert run.returncode == 142
