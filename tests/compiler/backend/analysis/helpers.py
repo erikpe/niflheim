@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -102,4 +102,14 @@ def make_backend_program(
         interfaces=(),
         classes=(),
         callables=tuple(callables),
+    )
+
+
+def replace_callable(program: BackendProgram, updated_callable: BackendCallableDecl) -> BackendProgram:
+    return replace(
+        program,
+        callables=tuple(
+            updated_callable if callable_decl.callable_id == updated_callable.callable_id else callable_decl
+            for callable_decl in program.callables
+        ),
     )
