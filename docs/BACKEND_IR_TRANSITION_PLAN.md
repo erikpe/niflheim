@@ -538,6 +538,8 @@ Phase gate:
 
 Prove the end-to-end backend IR path by emitting real `x86-64 SysV` assembly for a smaller feature slice before broadening to full parity.
 
+The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE4_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE4_IMPLEMENTATION_PLAN.md).
+
 ### Deliverables
 
 - target backend package `compiler/backend/targets/x86_64_sysv/`
@@ -596,6 +598,8 @@ Phase gate:
 ### Purpose
 
 Complete the `x86-64 SysV` backend so the new backend IR path covers the current supported language/runtime surface.
+
+The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE5_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE5_IMPLEMENTATION_PLAN.md).
 
 ### Deliverables
 
@@ -659,6 +663,8 @@ Phase gate:
 ### Purpose
 
 Make backend IR the only backend input and remove the legacy tree-to-assembly backend path.
+
+The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE6_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE6_IMPLEMENTATION_PLAN.md).
 
 ### Deliverables
 
