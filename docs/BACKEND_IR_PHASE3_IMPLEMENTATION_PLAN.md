@@ -33,7 +33,7 @@ Use these rules for every phase-3 patch:
 
 ## Ordered PR Checklist
 
-1. [ ] PR 1: Add CFG indexing utilities, analysis fixtures, and shared pass entrypoints.
+1. [x] PR 1: Add CFG indexing utilities, analysis fixtures, and shared pass entrypoints.
 2. [ ] PR 2: Implement unreachable-block elimination and basic CFG simplification.
 3. [ ] PR 3: Implement virtual-register liveness analysis.
 4. [ ] PR 4: Implement safepoint and reference liveness analysis.
@@ -123,10 +123,10 @@ pytest -n auto --dist loadfile tests/compiler/backend/analysis/test_cfg.py tests
 
 ### Checklist
 
-- [ ] Add `compiler/backend/analysis/cfg.py`.
-- [ ] Add reusable backend-analysis test helpers.
-- [ ] Add deterministic predecessor, successor, reachability, and traversal coverage.
-- [ ] Keep IR mutation deferred to the next slice.
+- [x] Add `compiler/backend/analysis/cfg.py`.
+- [x] Add reusable backend-analysis test helpers.
+- [x] Add deterministic predecessor, successor, reachability, and traversal coverage.
+- [x] Keep IR mutation deferred to the next slice.
 
 ## PR 2: Unreachable-Block Elimination And Basic CFG Simplification
 
