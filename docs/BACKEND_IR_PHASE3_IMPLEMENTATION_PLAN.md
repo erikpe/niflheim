@@ -39,7 +39,7 @@ Use these rules for every phase-3 patch:
 4. [x] PR 4: Implement safepoint and reference liveness analysis.
 5. [x] PR 5: Implement named root-slot planning from backend safepoint liveness.
 6. [x] PR 6: Implement stack-home planning for backend registers and temporaries.
-7. [ ] PR 7: Implement deterministic block ordering, the backend pass pipeline, and checked-path `backend-ir-passes` CLI wiring.
+7. [x] PR 7: Implement deterministic block ordering, the backend pass pipeline, and checked-path `backend-ir-passes` CLI wiring.
 
 ## PR 1: CFG Indexing Utilities, Analysis Fixtures, And Shared Pass Entrypoints
 
@@ -612,26 +612,26 @@ pytest -n auto --dist loadfile tests/compiler/backend/lowering tests/compiler/ba
 
 ### Checklist
 
-- [ ] Add `compiler/backend/analysis/block_order.py`.
-- [ ] Add `compiler/backend/analysis/pipeline.py`.
-- [ ] Wire `--stop-after backend-ir-passes` to the real pass pipeline.
-- [ ] Add CLI integration coverage for post-pass backend IR dumps.
-- [ ] Re-run existing CLI coverage to prove default checked codegen is unchanged.
+- [x] Add `compiler/backend/analysis/block_order.py`.
+- [x] Add `compiler/backend/analysis/pipeline.py`.
+- [x] Wire `--stop-after backend-ir-passes` to the real pass pipeline.
+- [x] Add CLI integration coverage for post-pass backend IR dumps.
+- [x] Re-run existing CLI coverage to prove default checked codegen is unchanged.
 
 ## Phase 3 Gate Checklist
 
 Use this checklist when phase 3 is believed to be complete.
 
-- [ ] `compiler/backend/analysis/` exposes stable CFG indexing utilities.
-- [ ] Unreachable-block elimination and basic CFG simplification run on backend IR callables.
-- [ ] Virtual-register liveness is computed from backend CFG, not semantic statements.
-- [ ] Safepoint live-reference sets are computed from backend effects and register types.
-- [ ] Loop-carried reference regressions pass without relying on the legacy loop-clearing workaround.
-- [ ] Root-slot planning is driven by backend-register safepoint liveness.
-- [ ] Stack-home planning exists for backend registers and temporaries.
-- [ ] Deterministic block ordering exists for later target emission.
-- [ ] `--stop-after backend-ir-passes` works on the checked CLI path.
-- [ ] The default checked assembly path remains unchanged when backend-IR flags are not used.
+- [x] `compiler/backend/analysis/` exposes stable CFG indexing utilities.
+- [x] Unreachable-block elimination and basic CFG simplification run on backend IR callables.
+- [x] Virtual-register liveness is computed from backend CFG, not semantic statements.
+- [x] Safepoint live-reference sets are computed from backend effects and register types.
+- [x] Loop-carried reference regressions pass without relying on the legacy loop-clearing workaround.
+- [x] Root-slot planning is driven by backend-register safepoint liveness.
+- [x] Stack-home planning exists for backend registers and temporaries.
+- [x] Deterministic block ordering exists for later target emission.
+- [x] `--stop-after backend-ir-passes` works on the checked CLI path.
+- [x] The default checked assembly path remains unchanged when backend-IR flags are not used.
 
 Recommended phase gate command:
 

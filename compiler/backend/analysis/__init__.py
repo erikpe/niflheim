@@ -12,6 +12,10 @@ from compiler.backend.analysis.cfg import (
 	reachable_block_ids,
 	reverse_postorder_block_ids,
 )
+from compiler.backend.analysis.block_order import (
+	order_callable_blocks,
+	ordered_block_ids_for_callable,
+)
 from compiler.backend.analysis.liveness import (
 	BackendCallableLiveness,
 	analyze_callable_liveness,
@@ -40,6 +44,11 @@ from compiler.backend.analysis.stack_homes import (
 	analyze_callable_stack_homes,
 	stack_home_name_for_register,
 )
+from compiler.backend.analysis.pipeline import (
+	BackendPipelineCallableAnalysis,
+	BackendPipelineResult,
+	run_backend_ir_pipeline,
+)
 from compiler.backend.analysis.simplify_cfg import (
 	eliminate_unreachable_blocks,
 	simplify_callable_cfg,
@@ -49,6 +58,8 @@ from compiler.backend.analysis.simplify_cfg import (
 __all__ = [
 	"BackendCallableCfg",
 	"BackendCfgError",
+	"BackendPipelineCallableAnalysis",
+	"BackendPipelineResult",
 	"build_block_index",
 	"build_predecessor_map",
 	"build_successor_map",
@@ -59,6 +70,8 @@ __all__ = [
 	"iter_block_instructions",
 	"iter_callable_instructions",
 	"operand_use_regs",
+	"order_callable_blocks",
+	"ordered_block_ids_for_callable",
 	"reachable_block_ids",
 	"reverse_postorder_block_ids",
 	"BackendCallableLiveness",
@@ -70,6 +83,7 @@ __all__ = [
 	"analyze_callable_stack_homes",
 	"analyze_callable_safepoints",
 	"build_root_slot_plan_from_live_reg_sets",
+	"run_backend_ir_pipeline",
 	"simplify_callable_cfg",
 	"simplify_trivial_jump_blocks",
 	"stack_home_name_for_register",

@@ -42,6 +42,7 @@ def dump_backend_program_text(
         ir_model.BackendCallableId, ir_model.BackendFunctionAnalysisDump
     ]
     | None = None,
+    preserve_block_order: bool = False,
 ) -> str:
     analysis_lookup = {} if analysis_by_callable is None else analysis_by_callable
     sections = [f"backend_ir {program.schema_version} entry={_format_function_id(program.entry_callable_id)}"]
@@ -64,6 +65,7 @@ def dump_backend_program_text(
                 _format_callable_lines(
                     callable_decl,
                     analysis_dump=analysis_lookup.get(callable_decl.callable_id),
+                    preserve_block_order=preserve_block_order,
                 )
             )
         )
@@ -153,6 +155,7 @@ def _format_callable_lines(
     callable_decl: ir_model.BackendCallableDecl,
     *,
     analysis_dump: ir_model.BackendFunctionAnalysisDump | None,
+    preserve_block_order: bool,
 ) -> list[str]:
     register_lookup = {register.reg_id: register for register in callable_decl.registers}
     lines = [_format_callable_header(callable_decl, register_lookup)]
@@ -165,7 +168,7 @@ def _format_callable_lines(
     else:
         lines.append("    <none>")
 
-    blocks = sorted(callable_decl.blocks, key=block_sort_key)
+    blocks = list(callable_decl.blocks) if preserve_block_order else sorted(callable_decl.blocks, key=block_sort_key)
     if blocks:
         lines.append("")
         for index, block in enumerate(blocks):

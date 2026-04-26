@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from time import perf_counter
 
+from compiler.backend.analysis import run_backend_ir_pipeline
 from compiler.backend.ir.serialize import dump_backend_program_json
 from compiler.backend.ir.text import dump_backend_program_text
 from compiler.backend.lowering import lower_to_backend_ir
@@ -38,7 +39,7 @@ def _requested_backend_ir_surface(args: argparse.Namespace) -> tuple[str, ...]:
 def _requested_backend_ir_dump_format(args: argparse.Namespace) -> str | None:
     if args.dump_backend_ir is not None:
         return args.dump_backend_ir
-    if args.dump_backend_ir_dir is not None or args.stop_after == "backend-ir":
+    if args.dump_backend_ir_dir is not None or args.stop_after in BACKEND_IR_STOP_PHASES:
         return "text"
     return None
 
@@ -52,13 +53,7 @@ def _validate_backend_ir_surface(args: argparse.Namespace) -> None:
     if not requested:
         return
 
-    if args.stop_after == "backend-ir-passes":
-        raise ValueError(
-            "Backend IR passes are not wired into the checked compiler path yet; "
-            "--stop-after backend-ir-passes remains reserved for phase 3."
-        )
-
-    if args.stop_after != "backend-ir" and args.dump_backend_ir is not None and args.dump_backend_ir_dir is None:
+    if args.stop_after not in BACKEND_IR_STOP_PHASES and args.dump_backend_ir is not None and args.dump_backend_ir_dir is None:
         raise ValueError(
             "Continuing past backend IR with --dump-backend-ir requires --dump-backend-ir-dir "
             "so backend IR output does not mix with assembly on stdout."
@@ -138,15 +133,44 @@ def _lower_backend_ir_phase(logger, linked_program):
     return backend_program
 
 
+def _run_backend_ir_passes_phase(logger, linked_program):
+    backend_program = _lower_backend_ir_phase(logger, linked_program)
+    logger.info("Running backend IR passes")
+    start = perf_counter()
+    pipeline_result = run_backend_ir_pipeline(backend_program)
+    duration_ms = (perf_counter() - start) * 1000.0
+    logger.debugv(1, "Ran backend IR pass pipeline in %.2f ms", duration_ms)
+    return pipeline_result
+
+
 def _backend_ir_dump_project_root(input_path: Path, project_root: str | None) -> Path:
     return input_path.parent if project_root is None else Path(project_root)
 
 
 def _render_backend_ir_dump(backend_program, *, dump_format: str, project_root: Path) -> str:
+    return _render_backend_ir_dump_with_options(
+        backend_program,
+        dump_format=dump_format,
+        project_root=project_root,
+        preserve_block_order=False,
+    )
+
+
+def _render_backend_ir_dump_with_options(
+    backend_program,
+    *,
+    dump_format: str,
+    project_root: Path,
+    preserve_block_order: bool,
+) -> str:
     if dump_format == "text":
-        return dump_backend_program_text(backend_program)
+        return dump_backend_program_text(backend_program, preserve_block_order=preserve_block_order)
     if dump_format == "json":
-        return dump_backend_program_json(backend_program, project_root=project_root)
+        return dump_backend_program_json(
+            backend_program,
+            project_root=project_root,
+            preserve_block_order=preserve_block_order,
+        )
     raise ValueError(f"Unsupported backend IR dump format '{dump_format}'")
 
 
@@ -157,13 +181,19 @@ def _write_backend_ir_dump(
     dump_dir: str,
     dump_format: str,
     project_root: Path,
+    preserve_block_order: bool = False,
 ) -> Path:
     output_dir = Path(dump_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     suffix = ".txt" if dump_format == "text" else ".json"
     dump_path = output_dir / f"{input_path.stem}.backend-ir{suffix}"
     dump_path.write_text(
-        _render_backend_ir_dump(backend_program, dump_format=dump_format, project_root=project_root),
+        _render_backend_ir_dump_with_options(
+            backend_program,
+            dump_format=dump_format,
+            project_root=project_root,
+            preserve_block_order=preserve_block_order,
+        ),
         encoding="utf-8",
     )
     return dump_path
@@ -237,9 +267,14 @@ def main() -> int:
             return 0
 
         if _uses_backend_ir_surface(args):
-            backend_program = _lower_backend_ir_phase(logger, linked_program)
+            if args.stop_after == "backend-ir-passes":
+                pipeline_result = _run_backend_ir_passes_phase(logger, linked_program)
+                backend_program = pipeline_result.program
+            else:
+                backend_program = _lower_backend_ir_phase(logger, linked_program)
             dump_format = _requested_backend_ir_dump_format(args)
             dump_project_root = _backend_ir_dump_project_root(input_path, args.project_root)
+            preserve_block_order = args.stop_after == "backend-ir-passes"
 
             if dump_format is not None:
                 if args.dump_backend_ir_dir is not None:
@@ -249,17 +284,19 @@ def main() -> int:
                         dump_dir=args.dump_backend_ir_dir,
                         dump_format=dump_format,
                         project_root=dump_project_root,
+                        preserve_block_order=preserve_block_order,
                     )
                     logger.infov(1, "Wrote backend IR to %s", dump_path)
-                elif args.stop_after == "backend-ir":
-                    rendered = _render_backend_ir_dump(
+                elif args.stop_after in BACKEND_IR_STOP_PHASES:
+                    rendered = _render_backend_ir_dump_with_options(
                         backend_program,
                         dump_format=dump_format,
                         project_root=dump_project_root,
+                        preserve_block_order=preserve_block_order,
                     )
                     print(rendered, end="" if rendered.endswith("\n") else "\n")
 
-            if args.stop_after == "backend-ir":
+            if args.stop_after in BACKEND_IR_STOP_PHASES:
                 return 0
 
         asm = _emit_assembly_phase(logger, linked_program, runtime_trace_enabled=not args.omit_runtime_trace)

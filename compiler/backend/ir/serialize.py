@@ -55,7 +55,10 @@ _LOWER_HEX_DIGITS = frozenset("0123456789abcdef")
 
 
 def backend_program_to_dict(
-    program: ir_model.BackendProgram, *, project_root: str | Path | None = None
+    program: ir_model.BackendProgram,
+    *,
+    project_root: str | Path | None = None,
+    preserve_block_order: bool = False,
 ) -> dict[str, object]:
     root = None if project_root is None else Path(project_root).resolve()
     return {
@@ -71,7 +74,11 @@ def backend_program_to_dict(
             for class_decl in sorted(program.classes, key=lambda decl: class_id_sort_key(decl.class_id))
         ],
         "callables": [
-            _serialize_callable_decl(callable_decl, project_root=root)
+            _serialize_callable_decl(
+                callable_decl,
+                project_root=root,
+                preserve_block_order=preserve_block_order,
+            )
             for callable_decl in sorted(program.callables, key=lambda decl: callable_id_sort_key(decl.callable_id))
         ],
     }
@@ -102,9 +109,19 @@ def backend_program_from_dict(data: Mapping[str, object]) -> ir_model.BackendPro
 
 
 def dump_backend_program_json(
-    program: ir_model.BackendProgram, *, project_root: str | Path | None = None
+    program: ir_model.BackendProgram,
+    *,
+    project_root: str | Path | None = None,
+    preserve_block_order: bool = False,
 ) -> str:
-    return json.dumps(backend_program_to_dict(program, project_root=project_root), indent=2)
+    return json.dumps(
+        backend_program_to_dict(
+            program,
+            project_root=project_root,
+            preserve_block_order=preserve_block_order,
+        ),
+        indent=2,
+    )
 
 
 def load_backend_program_json(text: str) -> ir_model.BackendProgram:
@@ -160,8 +177,12 @@ def _serialize_class_decl(class_decl: ir_model.BackendClassDecl) -> dict[str, ob
 
 
 def _serialize_callable_decl(
-    callable_decl: ir_model.BackendCallableDecl, *, project_root: Path | None
+    callable_decl: ir_model.BackendCallableDecl,
+    *,
+    project_root: Path | None,
+    preserve_block_order: bool,
 ) -> dict[str, object]:
+    blocks = callable_decl.blocks if preserve_block_order else tuple(sorted(callable_decl.blocks, key=block_sort_key))
     return {
         "callable_id": _serialize_callable_id(callable_decl.callable_id),
         "kind": callable_decl.kind,
@@ -179,10 +200,7 @@ def _serialize_callable_decl(
         "entry_block_id": None
         if callable_decl.entry_block_id is None
         else _serialize_block_id(callable_decl.entry_block_id),
-        "blocks": [
-            _serialize_block(block, project_root=project_root)
-            for block in sorted(callable_decl.blocks, key=block_sort_key)
-        ],
+        "blocks": [_serialize_block(block, project_root=project_root) for block in blocks],
         "span": _serialize_source_span(callable_decl.span, project_root=project_root),
     }
 
