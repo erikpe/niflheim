@@ -35,7 +35,7 @@ Use these rules for every phase-3 patch:
 
 1. [x] PR 1: Add CFG indexing utilities, analysis fixtures, and shared pass entrypoints.
 2. [x] PR 2: Implement unreachable-block elimination and basic CFG simplification.
-3. [ ] PR 3: Implement virtual-register liveness analysis.
+3. [x] PR 3: Implement virtual-register liveness analysis.
 4. [ ] PR 4: Implement safepoint and reference liveness analysis.
 5. [ ] PR 5: Implement named root-slot planning from backend safepoint liveness.
 6. [ ] PR 6: Implement stack-home planning for backend registers and temporaries.
@@ -277,10 +277,10 @@ pytest -n auto --dist loadfile tests/compiler/backend/analysis/test_liveness.py 
 
 ### Checklist
 
-- [ ] Add `compiler/backend/analysis/liveness.py`.
-- [ ] Define deterministic def-use handling for all instruction and terminator kinds.
-- [ ] Add branch, loop, merge, and dead-temp liveness coverage.
-- [ ] Keep results target-neutral and non-SSA.
+- [x] Add `compiler/backend/analysis/liveness.py`.
+- [x] Define deterministic def-use handling for all instruction and terminator kinds.
+- [x] Add branch, loop, merge, and dead-temp liveness coverage.
+- [x] Keep results target-neutral and non-SSA.
 
 ## PR 4: Safepoint And Reference Liveness Analysis
 
