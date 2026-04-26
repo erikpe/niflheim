@@ -1,6 +1,6 @@
 # Backend IR Phase 4 Implementation Plan
 
-Status: proposed.
+Status: in progress.
 
 This document expands phase 4 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
@@ -30,7 +30,7 @@ Use these rules for every phase-4 patch:
 
 ## Ordered PR Checklist
 
-1. [ ] PR 1: Add the `x86_64_sysv` target package, target entrypoint, ABI descriptor, legality checker, and assembly helpers.
+1. [x] PR 1: Add the `x86_64_sysv` target package, target entrypoint, ABI descriptor, legality checker, and assembly helpers.
 2. [ ] PR 2: Implement reduced-scope frame planning, stack-home materialization, and prologue or epilogue emission.
 3. [ ] PR 3: Implement straight-line scalar instruction selection and return emission.
 4. [ ] PR 4: Implement branch, loop, label, and block-layout emission.
@@ -137,11 +137,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv/test_a
 
 ### Checklist
 
-- [ ] Add `compiler/backend/targets/x86_64_sysv/` with a public target entrypoint.
-- [ ] Define the reduced-scope SysV ABI surface.
-- [ ] Add a legality checker for unsupported phase-4 backend IR shapes.
-- [ ] Add deterministic assembly-text helpers.
-- [ ] Add focused ABI and legality coverage.
+- [x] Add `compiler/backend/targets/x86_64_sysv/` with a public target entrypoint.
+- [x] Define the reduced-scope SysV ABI surface.
+- [x] Add a legality checker for unsupported phase-4 backend IR shapes.
+- [x] Add deterministic assembly-text helpers.
+- [x] Add focused ABI and legality coverage.
 
 ## PR 2: Frame Planning, Stack-Home Materialization, And Prologue Or Epilogue Emission
 
