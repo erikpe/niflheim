@@ -35,6 +35,11 @@ from compiler.backend.analysis.root_slots import (
 	analyze_callable_root_slots,
 	build_root_slot_plan_from_live_reg_sets,
 )
+from compiler.backend.analysis.stack_homes import (
+	BackendCallableStackHomes,
+	analyze_callable_stack_homes,
+	stack_home_name_for_register,
+)
 from compiler.backend.analysis.simplify_cfg import (
 	eliminate_unreachable_blocks,
 	simplify_callable_cfg,
@@ -58,13 +63,16 @@ __all__ = [
 	"reverse_postorder_block_ids",
 	"BackendCallableLiveness",
 	"BackendCallableRootSlots",
+	"BackendCallableStackHomes",
 	"BackendCallableSafepoints",
 	"analyze_callable_liveness",
 	"analyze_callable_root_slots",
+	"analyze_callable_stack_homes",
 	"analyze_callable_safepoints",
 	"build_root_slot_plan_from_live_reg_sets",
 	"simplify_callable_cfg",
 	"simplify_trivial_jump_blocks",
+	"stack_home_name_for_register",
 	"instruction_effects",
 	"instruction_is_safepoint",
 	"register_is_gc_reference",

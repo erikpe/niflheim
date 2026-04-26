@@ -38,7 +38,7 @@ Use these rules for every phase-3 patch:
 3. [x] PR 3: Implement virtual-register liveness analysis.
 4. [x] PR 4: Implement safepoint and reference liveness analysis.
 5. [x] PR 5: Implement named root-slot planning from backend safepoint liveness.
-6. [ ] PR 6: Implement stack-home planning for backend registers and temporaries.
+6. [x] PR 6: Implement stack-home planning for backend registers and temporaries.
 7. [ ] PR 7: Implement deterministic block ordering, the backend pass pipeline, and checked-path `backend-ir-passes` CLI wiring.
 
 ## PR 1: CFG Indexing Utilities, Analysis Fixtures, And Shared Pass Entrypoints
@@ -518,10 +518,10 @@ pytest -n auto --dist loadfile tests/compiler/backend/analysis/test_stack_homes.
 
 ### Checklist
 
-- [ ] Add `compiler/backend/analysis/stack_homes.py`.
-- [ ] Assign deterministic symbolic homes to stored registers and temporaries.
-- [ ] Keep root-slot and stack-home planning as separate maps.
-- [ ] Port or mirror the relevant legacy layout regression coverage.
+- [x] Add `compiler/backend/analysis/stack_homes.py`.
+- [x] Assign deterministic symbolic homes to stored registers and temporaries.
+- [x] Keep root-slot and stack-home planning as separate maps.
+- [x] Port or mirror the relevant legacy layout regression coverage.
 
 ## PR 7: Deterministic Block Ordering, Backend Pass Pipeline, And Checked-Path `backend-ir-passes` Wiring
 
