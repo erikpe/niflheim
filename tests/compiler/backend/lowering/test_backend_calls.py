@@ -187,3 +187,43 @@ def test_lower_to_backend_ir_preserves_static_method_calls_without_receiver_argu
     assert call_inst.target.callable_id.class_name == "Math"
     assert len(call_inst.args) == len(call_inst.signature.param_types)
     assert call_inst.target.callable_id == callable_by_suffix(program, "main.Math.add").callable_id
+
+
+def test_lower_to_backend_ir_preserves_mixed_scalar_call_signatures_with_double_types(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        fn mix(a: i64, b: double, c: u64, d: double, e: bool) -> double {
+            if e {
+                return b + d;
+            }
+            return b;
+        }
+
+        fn main() -> i64 {
+            var out: double = mix(2, 0.5, 3u, 0.25, true);
+            if out == 0.75 {
+                return 0;
+            }
+            return 1;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    main_callable = callable_by_name(program, "main")
+    mix_call = next(
+        instruction for instruction in block_by_ordinal(main_callable, 0).instructions if isinstance(instruction, BackendCallInst)
+    )
+
+    assert isinstance(mix_call.target, BackendDirectCallTarget)
+    assert mix_call.target.callable_id.name == "mix"
+    assert [param_type.canonical_name for param_type in mix_call.signature.param_types] == [
+        "i64",
+        "double",
+        "u64",
+        "double",
+        "bool",
+    ]
+    assert mix_call.signature.return_type is not None
+    assert mix_call.signature.return_type.canonical_name == "double"

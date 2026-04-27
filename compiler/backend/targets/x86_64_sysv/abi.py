@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
-from compiler.semantic.types import SemanticTypeRef, semantic_type_is_primitive
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
+from compiler.semantic.types import SemanticTypeRef, semantic_type_canonical_name, semantic_type_is_primitive
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,7 +16,9 @@ class X86_64SysVArgLocation:
 @dataclass(frozen=True, slots=True)
 class X86_64SysVAbi:
     int_arg_registers: tuple[str, ...] = ("rdi", "rsi", "rdx", "rcx", "r8", "r9")
+    float_arg_registers: tuple[str, ...] = ("xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7")
     int_return_register: str = "rax"
+    float_return_register: str = "xmm0"
     caller_saved_registers: tuple[str, ...] = ("rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11")
     callee_saved_registers: tuple[str, ...] = ("rbx", "r12", "r13", "r14", "r15")
     frame_pointer_register: str = "rbp"
@@ -24,34 +26,49 @@ class X86_64SysVAbi:
     stack_alignment_bytes: int = 16
     stack_slot_size_bytes: int = 8
     incoming_stack_arg_base_offset: int = 16
-    supported_scalar_type_names: frozenset[str] = frozenset({TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_BOOL})
+    supported_scalar_type_names: frozenset[str] = frozenset({TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_BOOL, TYPE_NAME_DOUBLE})
 
     def supports_scalar_type(self, type_ref: SemanticTypeRef | None) -> bool:
         if type_ref is None:
             return True
         return semantic_type_is_primitive(type_ref) and type_ref.canonical_name in self.supported_scalar_type_names
 
+    def is_float_type(self, type_ref: SemanticTypeRef | None) -> bool:
+        return type_ref is not None and semantic_type_canonical_name(type_ref) == TYPE_NAME_DOUBLE
+
     def plan_argument_locations(self, param_types: tuple[SemanticTypeRef, ...]) -> tuple[X86_64SysVArgLocation, ...]:
         locations: list[X86_64SysVArgLocation] = []
-        for index, param_type in enumerate(param_types):
+        int_arg_index = 0
+        float_arg_index = 0
+        stack_slot_index = 0
+        for param_type in param_types:
             if not self.supports_scalar_type(param_type):
-                raise ValueError(f"Unsupported reduced-scope SysV parameter type '{param_type.display_name}'")
-            if index < len(self.int_arg_registers):
-                locations.append(X86_64SysVArgLocation(kind="int_reg", register_name=self.int_arg_registers[index]))
+                raise ValueError(f"Unsupported SysV scalar parameter type '{param_type.display_name}'")
+            if self.is_float_type(param_type):
+                if float_arg_index < len(self.float_arg_registers):
+                    locations.append(
+                        X86_64SysVArgLocation(kind="float_reg", register_name=self.float_arg_registers[float_arg_index])
+                    )
+                    float_arg_index += 1
+                    continue
+                locations.append(X86_64SysVArgLocation(kind="stack", stack_slot_index=stack_slot_index))
+                stack_slot_index += 1
                 continue
-            locations.append(
-                X86_64SysVArgLocation(
-                    kind="stack",
-                    stack_slot_index=index - len(self.int_arg_registers),
-                )
-            )
+            if int_arg_index < len(self.int_arg_registers):
+                locations.append(X86_64SysVArgLocation(kind="int_reg", register_name=self.int_arg_registers[int_arg_index]))
+                int_arg_index += 1
+                continue
+            locations.append(X86_64SysVArgLocation(kind="stack", stack_slot_index=stack_slot_index))
+            stack_slot_index += 1
         return tuple(locations)
 
     def return_register_for_type(self, type_ref: SemanticTypeRef | None) -> str | None:
         if type_ref is None:
             return None
         if not self.supports_scalar_type(type_ref):
-            raise ValueError(f"Unsupported reduced-scope SysV return type '{type_ref.display_name}'")
+            raise ValueError(f"Unsupported SysV scalar return type '{type_ref.display_name}'")
+        if self.is_float_type(type_ref):
+            return self.float_return_register
         return self.int_return_register
 
     def stack_size_is_aligned(self, byte_count: int) -> bool:
@@ -72,10 +89,8 @@ class X86_64SysVAbi:
             raise ValueError("Incoming stack argument slot index must be non-negative")
         return self.incoming_stack_arg_base_offset + (stack_slot_index * self.stack_slot_size_bytes)
 
-    def outgoing_stack_arg_slot_count(self, argument_count: int) -> int:
-        if argument_count < 0:
-            raise ValueError("Argument count must be non-negative")
-        return max(0, argument_count - len(self.int_arg_registers))
+    def outgoing_stack_arg_slot_count(self, param_types: tuple[SemanticTypeRef, ...]) -> int:
+        return sum(1 for location in self.plan_argument_locations(param_types) if location.kind == "stack")
 
     def call_stack_reservation_bytes(self, stack_arg_slot_count: int) -> int:
         if stack_arg_slot_count < 0:

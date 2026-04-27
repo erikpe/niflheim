@@ -148,10 +148,6 @@ def _check_callable_analysis(target_input: BackendTargetInput, callable_decl) ->
 
 
 def _check_instruction_legality(callable_decl, block: BackendBlock, instruction: object) -> None:
-    if isinstance(instruction, BackendConstInst) and isinstance(instruction.constant, BackendDoubleConst):
-        _instruction_error(callable_decl, block, instruction, "double constants are not supported in reduced phase-4 x86_64_sysv")
-        return
-
     unsupported_types = (
         BackendCastInst,
         BackendTypeTestInst,
@@ -344,6 +340,10 @@ def _emit_param_spills(builder, callable_decl, *, frame_layout) -> None:
         if arg_location.kind == "int_reg":
             assert arg_location.register_name is not None
             builder.instruction("mov", stack_operand, arg_location.register_name)
+            continue
+        if arg_location.kind == "float_reg":
+            assert arg_location.register_name is not None
+            builder.instruction("movq", stack_operand, arg_location.register_name)
             continue
         if arg_location.kind == "stack":
             assert arg_location.stack_slot_index is not None

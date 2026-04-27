@@ -1,13 +1,17 @@
 """Straight-line scalar instruction selection for the reduced x86-64 SysV target.
 
-Scratch register discipline for phase 4 PR3:
+Scratch register discipline for scalar x86-64 SysV emission:
 - `rax` is the primary load, compute, and return register.
 - `rcx` is the secondary operand register for binary instructions.
+- `xmm0` is the primary floating-point load, compute, and return register.
+- `xmm1` is the secondary floating-point scratch register.
+- `rdx` / `dl` are reserved for float-comparison NaN handling and bit moves.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
+import struct
 
 from compiler.backend.ir import (
     BackendBinaryInst,
@@ -18,6 +22,7 @@ from compiler.backend.ir import (
     BackendConstInst,
     BackendConstOperand,
     BackendCopyInst,
+    BackendDoubleConst,
     BackendIntConst,
     BackendJumpTerminator,
     BackendOperand,
@@ -28,7 +33,7 @@ from compiler.backend.ir import (
 from compiler.backend.targets import BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
 from compiler.backend.targets.x86_64_sysv.frame import X86_64SysVFrameLayout
-from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_U8, TYPE_NAME_U64
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U8, TYPE_NAME_U64
 from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, UnaryOpFlavor, UnaryOpKind
 from compiler.semantic.types import semantic_type_canonical_name
 
@@ -37,6 +42,10 @@ _PRIMARY_REGISTER = "rax"
 _PRIMARY_BYTE_REGISTER = "al"
 _SECONDARY_REGISTER = "rcx"
 _SECONDARY_BYTE_REGISTER = "cl"
+_TERTIARY_REGISTER = "rdx"
+_TERTIARY_BYTE_REGISTER = "dl"
+_PRIMARY_FLOAT_REGISTER = "xmm0"
+_SECONDARY_FLOAT_REGISTER = "xmm1"
 _UNSIGNED_TYPE_NAMES = frozenset({TYPE_NAME_U64, TYPE_NAME_U8})
 
 
@@ -74,15 +83,25 @@ def emit_return_terminator(
     register_type_name_by_reg_id: dict,
     epilogue_label_text: str,
 ) -> None:
+    return_type_name = None if terminator.value is None else _operand_type_name(terminator.value, register_type_name_by_reg_id)
     if terminator.value is not None:
-        emit_load_operand(
-            builder,
-            terminator.value,
-            target_register=_PRIMARY_REGISTER,
-            target_byte_register=_PRIMARY_BYTE_REGISTER,
-            frame_layout=frame_layout,
-            register_type_name_by_reg_id=register_type_name_by_reg_id,
-        )
+        if return_type_name == TYPE_NAME_DOUBLE:
+            emit_load_float_operand(
+                builder,
+                terminator.value,
+                target_float_register=_PRIMARY_FLOAT_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+        else:
+            emit_load_operand(
+                builder,
+                terminator.value,
+                target_register=_PRIMARY_REGISTER,
+                target_byte_register=_PRIMARY_BYTE_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
     builder.instruction("jmp", epilogue_label_text)
 
 
@@ -157,56 +176,108 @@ def _emit_instruction(
     call_emitter: Callable[[BackendCallInst], None] | None = None,
 ) -> None:
     if isinstance(instruction, BackendConstInst):
-        _emit_load_constant(builder, instruction.constant, target_register=_PRIMARY_REGISTER)
-        emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+        if isinstance(instruction.constant, BackendDoubleConst):
+            emit_load_float_operand(
+                builder,
+                BackendConstOperand(constant=instruction.constant),
+                target_float_register=_PRIMARY_FLOAT_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
+        else:
+            _emit_load_constant(builder, instruction.constant, target_register=_PRIMARY_REGISTER)
+            emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
 
     if isinstance(instruction, BackendCopyInst):
-        emit_load_operand(
-            builder,
-            instruction.source,
-            target_register=_PRIMARY_REGISTER,
-            target_byte_register=_PRIMARY_BYTE_REGISTER,
-            frame_layout=frame_layout,
-            register_type_name_by_reg_id=register_type_name_by_reg_id,
-        )
-        emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+        if _operand_type_name(instruction.source, register_type_name_by_reg_id) == TYPE_NAME_DOUBLE:
+            emit_load_float_operand(
+                builder,
+                instruction.source,
+                target_float_register=_PRIMARY_FLOAT_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
+        else:
+            emit_load_operand(
+                builder,
+                instruction.source,
+                target_register=_PRIMARY_REGISTER,
+                target_byte_register=_PRIMARY_BYTE_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
 
     if isinstance(instruction, BackendUnaryInst):
-        emit_load_operand(
-            builder,
-            instruction.operand,
-            target_register=_PRIMARY_REGISTER,
-            target_byte_register=_PRIMARY_BYTE_REGISTER,
-            frame_layout=frame_layout,
-            register_type_name_by_reg_id=register_type_name_by_reg_id,
-        )
         operand_type_name = _operand_type_name(instruction.operand, register_type_name_by_reg_id)
-        _emit_unary_operation(builder, instruction, operand_type_name=operand_type_name)
-        emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+        if operand_type_name == TYPE_NAME_DOUBLE:
+            emit_load_float_operand(
+                builder,
+                instruction.operand,
+                target_float_register=_PRIMARY_FLOAT_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            _emit_float_unary_operation(builder, instruction)
+            emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
+        else:
+            emit_load_operand(
+                builder,
+                instruction.operand,
+                target_register=_PRIMARY_REGISTER,
+                target_byte_register=_PRIMARY_BYTE_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            _emit_unary_operation(builder, instruction, operand_type_name=operand_type_name)
+            emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
 
     if isinstance(instruction, BackendBinaryInst):
-        emit_load_operand(
-            builder,
-            instruction.left,
-            target_register=_PRIMARY_REGISTER,
-            target_byte_register=_PRIMARY_BYTE_REGISTER,
-            frame_layout=frame_layout,
-            register_type_name_by_reg_id=register_type_name_by_reg_id,
-        )
-        emit_load_operand(
-            builder,
-            instruction.right,
-            target_register=_SECONDARY_REGISTER,
-            target_byte_register=_SECONDARY_BYTE_REGISTER,
-            frame_layout=frame_layout,
-            register_type_name_by_reg_id=register_type_name_by_reg_id,
-        )
         operand_type_name = _operand_type_name(instruction.left, register_type_name_by_reg_id)
-        _emit_binary_operation(builder, instruction, operand_type_name=operand_type_name)
-        emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+        if operand_type_name == TYPE_NAME_DOUBLE:
+            emit_load_float_operand(
+                builder,
+                instruction.left,
+                target_float_register=_PRIMARY_FLOAT_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            emit_load_float_operand(
+                builder,
+                instruction.right,
+                target_float_register=_SECONDARY_FLOAT_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            _emit_float_binary_operation(builder, instruction)
+            if instruction.op.flavor == BinaryOpFlavor.FLOAT_COMPARISON:
+                emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+            else:
+                emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
+        else:
+            emit_load_operand(
+                builder,
+                instruction.left,
+                target_register=_PRIMARY_REGISTER,
+                target_byte_register=_PRIMARY_BYTE_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            emit_load_operand(
+                builder,
+                instruction.right,
+                target_register=_SECONDARY_REGISTER,
+                target_byte_register=_SECONDARY_BYTE_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            _emit_binary_operation(builder, instruction, operand_type_name=operand_type_name)
+            emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
 
     if isinstance(instruction, BackendCallInst):
@@ -238,6 +309,17 @@ def _emit_unary_operation(builder: X86AsmBuilder, instruction: BackendUnaryInst,
         return
     raise BackendTargetLoweringError(
         f"x86_64_sysv unary operator '{instruction.op.kind.value}' with flavor '{instruction.op.flavor.value}' is not supported in PR3"
+    )
+
+
+def _emit_float_unary_operation(builder: X86AsmBuilder, instruction: BackendUnaryInst) -> None:
+    if instruction.op.flavor == UnaryOpFlavor.FLOAT and instruction.op.kind == UnaryOpKind.NEGATE:
+        builder.instruction("xorpd", _SECONDARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+        builder.instruction("subsd", _SECONDARY_FLOAT_REGISTER, _PRIMARY_FLOAT_REGISTER)
+        builder.instruction("movapd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+        return
+    raise BackendTargetLoweringError(
+        f"x86_64_sysv floating unary operator '{instruction.op.kind.value}' is not supported in the current scalar slice"
     )
 
 
@@ -278,6 +360,61 @@ def _emit_binary_operation(builder: X86AsmBuilder, instruction: BackendBinaryIns
     raise BackendTargetLoweringError(
         f"x86_64_sysv binary operator '{instruction.op.kind.value}' with flavor '{instruction.op.flavor.value}' is not supported in PR3"
     )
+
+
+def _emit_float_binary_operation(builder: X86AsmBuilder, instruction: BackendBinaryInst) -> None:
+    if instruction.op.flavor == BinaryOpFlavor.FLOAT:
+        if instruction.op.kind == BinaryOpKind.ADD:
+            builder.instruction("addsd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            return
+        if instruction.op.kind == BinaryOpKind.SUBTRACT:
+            builder.instruction("subsd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            return
+        if instruction.op.kind == BinaryOpKind.MULTIPLY:
+            builder.instruction("mulsd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            return
+        if instruction.op.kind == BinaryOpKind.DIVIDE:
+            builder.instruction("divsd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            return
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv floating operator '{instruction.op.kind.value}' is not supported in the current scalar slice"
+        )
+
+    if instruction.op.flavor != BinaryOpFlavor.FLOAT_COMPARISON:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv floating binary operator flavor '{instruction.op.flavor.value}' is not supported in the current scalar slice"
+        )
+
+    builder.instruction("ucomisd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+    if instruction.op.kind == BinaryOpKind.EQUAL:
+        builder.instruction("sete", _PRIMARY_BYTE_REGISTER)
+        builder.instruction("setnp", _TERTIARY_BYTE_REGISTER)
+        builder.instruction("and", _PRIMARY_BYTE_REGISTER, _TERTIARY_BYTE_REGISTER)
+    elif instruction.op.kind == BinaryOpKind.NOT_EQUAL:
+        builder.instruction("setne", _PRIMARY_BYTE_REGISTER)
+        builder.instruction("setp", _TERTIARY_BYTE_REGISTER)
+        builder.instruction("or", _PRIMARY_BYTE_REGISTER, _TERTIARY_BYTE_REGISTER)
+    elif instruction.op.kind == BinaryOpKind.LESS_THAN:
+        builder.instruction("setb", _PRIMARY_BYTE_REGISTER)
+        builder.instruction("setnp", _TERTIARY_BYTE_REGISTER)
+        builder.instruction("and", _PRIMARY_BYTE_REGISTER, _TERTIARY_BYTE_REGISTER)
+    elif instruction.op.kind == BinaryOpKind.LESS_EQUAL:
+        builder.instruction("setbe", _PRIMARY_BYTE_REGISTER)
+        builder.instruction("setnp", _TERTIARY_BYTE_REGISTER)
+        builder.instruction("and", _PRIMARY_BYTE_REGISTER, _TERTIARY_BYTE_REGISTER)
+    elif instruction.op.kind == BinaryOpKind.GREATER_THAN:
+        builder.instruction("seta", _PRIMARY_BYTE_REGISTER)
+        builder.instruction("setnp", _TERTIARY_BYTE_REGISTER)
+        builder.instruction("and", _PRIMARY_BYTE_REGISTER, _TERTIARY_BYTE_REGISTER)
+    elif instruction.op.kind == BinaryOpKind.GREATER_EQUAL:
+        builder.instruction("setae", _PRIMARY_BYTE_REGISTER)
+        builder.instruction("setnp", _TERTIARY_BYTE_REGISTER)
+        builder.instruction("and", _PRIMARY_BYTE_REGISTER, _TERTIARY_BYTE_REGISTER)
+    else:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv floating comparison operator '{instruction.op.kind.value}' is not supported in the current scalar slice"
+        )
+    builder.instruction("movzx", _PRIMARY_REGISTER, _PRIMARY_BYTE_REGISTER)
 
 
 def _emit_integer_binary_operation(builder: X86AsmBuilder, kind: BinaryOpKind, *, operand_type_name: str) -> None:
@@ -361,6 +498,37 @@ def emit_load_operand(
     )
 
 
+def emit_load_float_operand(
+    builder: X86AsmBuilder,
+    operand: BackendOperand,
+    *,
+    target_float_register: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> None:
+    if isinstance(operand, BackendRegOperand):
+        slot = frame_layout.for_reg(operand.reg_id)
+        if slot is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv frame layout is missing a home for register 'r{operand.reg_id.ordinal}'"
+            )
+        if register_type_name_by_reg_id[operand.reg_id] != TYPE_NAME_DOUBLE:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv expected a double-typed register for floating load, got '{register_type_name_by_reg_id[operand.reg_id]}'"
+            )
+        builder.instruction("movq", target_float_register, format_stack_slot_operand("rbp", slot.byte_offset))
+        return
+
+    if isinstance(operand, BackendConstOperand) and isinstance(operand.constant, BackendDoubleConst):
+        builder.instruction("mov", _PRIMARY_REGISTER, f"0x{_double_value_bits(operand.constant.value):016x}")
+        builder.instruction("movq", target_float_register, _PRIMARY_REGISTER)
+        return
+
+    raise BackendTargetLoweringError(
+        f"x86_64_sysv cannot load floating operand '{type(operand).__name__}' in the current scalar slice"
+    )
+
+
 def _emit_load_constant(builder: X86AsmBuilder, constant: object, *, target_register: str) -> None:
     if isinstance(constant, BackendIntConst):
         builder.instruction("mov", target_register, str(constant.value))
@@ -388,6 +556,21 @@ def emit_store_result(
     builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), source_register)
 
 
+def emit_store_float_result(
+    builder: X86AsmBuilder,
+    dest_reg_id,
+    *,
+    frame_layout: X86_64SysVFrameLayout,
+    source_float_register: str = _PRIMARY_FLOAT_REGISTER,
+) -> None:
+    slot = frame_layout.for_reg(dest_reg_id)
+    if slot is None:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv frame layout is missing a home for destination register 'r{dest_reg_id.ordinal}'"
+        )
+    builder.instruction("movq", format_stack_slot_operand("rbp", slot.byte_offset), source_float_register)
+
+
 def _operand_type_name(operand: BackendOperand, register_type_name_by_reg_id: dict) -> str:
     if isinstance(operand, BackendRegOperand):
         return register_type_name_by_reg_id[operand.reg_id]
@@ -396,9 +579,15 @@ def _operand_type_name(operand: BackendOperand, register_type_name_by_reg_id: di
             return operand.constant.type_name
         if isinstance(operand.constant, BackendBoolConst):
             return TYPE_NAME_BOOL
+        if isinstance(operand.constant, BackendDoubleConst):
+            return TYPE_NAME_DOUBLE
     raise BackendTargetLoweringError(
         f"x86_64_sysv cannot infer operand type for '{type(operand).__name__}' in PR3"
     )
+
+
+def _double_value_bits(value: float) -> int:
+    return struct.unpack("<Q", struct.pack("<d", value))[0]
 
 
 def _normalize_bool_register(builder: X86AsmBuilder, register_name: str, byte_register_name: str) -> None:
@@ -416,8 +605,10 @@ __all__ = [
     "emit_block_instructions",
     "emit_branch_terminator",
     "emit_jump_terminator",
+    "emit_load_float_operand",
     "emit_load_operand",
     "emit_return_terminator",
+    "emit_store_float_result",
     "emit_store_result",
     "emit_straight_line_callable_body",
     "register_type_name_by_reg_id",

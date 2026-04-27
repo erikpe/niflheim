@@ -60,6 +60,38 @@ def test_reduced_sysv_abi_plans_integer_like_arguments_and_returns() -> None:
     assert X86_64_SYSV_ABI.return_register_for_type(None) is None
 
 
+def test_sysv_abi_plans_mixed_integer_and_double_arguments_and_returns() -> None:
+    param_types = tuple(
+        semantic_primitive_type_ref(type_name)
+        for type_name in (
+            TYPE_NAME_I64,
+            TYPE_NAME_DOUBLE,
+            TYPE_NAME_U64,
+            TYPE_NAME_DOUBLE,
+            TYPE_NAME_U8,
+            TYPE_NAME_DOUBLE,
+            TYPE_NAME_BOOL,
+            TYPE_NAME_DOUBLE,
+            TYPE_NAME_I64,
+            TYPE_NAME_DOUBLE,
+            TYPE_NAME_U64,
+            TYPE_NAME_I64,
+        )
+    )
+
+    locations = X86_64_SYSV_ABI.plan_argument_locations(param_types)
+
+    assert locations[0] == (type(locations[0]))(kind="int_reg", register_name="rdi")
+    assert locations[1] == (type(locations[1]))(kind="float_reg", register_name="xmm0")
+    assert locations[7] == (type(locations[7]))(kind="float_reg", register_name="xmm3")
+    assert locations[8] == (type(locations[8]))(kind="int_reg", register_name="r8")
+    assert locations[9] == (type(locations[9]))(kind="float_reg", register_name="xmm4")
+    assert locations[10] == (type(locations[10]))(kind="int_reg", register_name="r9")
+    assert locations[11].kind == "stack"
+    assert locations[11].stack_slot_index == 0
+    assert X86_64_SYSV_ABI.return_register_for_type(semantic_primitive_type_ref(TYPE_NAME_DOUBLE)) == "xmm0"
+
+
 def test_reduced_sysv_alignment_helpers_are_stable() -> None:
     assert X86_64_SYSV_ABI.stack_alignment_bytes == 16
     assert X86_64_SYSV_ABI.stack_size_is_aligned(0) is True
@@ -71,10 +103,32 @@ def test_reduced_sysv_alignment_helpers_are_stable() -> None:
 
 
 def test_reduced_sysv_call_stack_helpers_are_stable() -> None:
-    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(0) == 0
-    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(6) == 0
-    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(7) == 1
-    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(8) == 2
+    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(()) == 0
+    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(
+        tuple(semantic_primitive_type_ref(TYPE_NAME_I64) for _ in range(6))
+    ) == 0
+    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(
+        tuple(semantic_primitive_type_ref(TYPE_NAME_I64) for _ in range(7))
+    ) == 1
+    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(
+        tuple(semantic_primitive_type_ref(TYPE_NAME_DOUBLE) for _ in range(9))
+    ) == 1
+    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(
+        (
+            semantic_primitive_type_ref(TYPE_NAME_I64),
+            semantic_primitive_type_ref(TYPE_NAME_DOUBLE),
+            semantic_primitive_type_ref(TYPE_NAME_U64),
+            semantic_primitive_type_ref(TYPE_NAME_DOUBLE),
+            semantic_primitive_type_ref(TYPE_NAME_U8),
+            semantic_primitive_type_ref(TYPE_NAME_DOUBLE),
+            semantic_primitive_type_ref(TYPE_NAME_BOOL),
+            semantic_primitive_type_ref(TYPE_NAME_DOUBLE),
+            semantic_primitive_type_ref(TYPE_NAME_I64),
+            semantic_primitive_type_ref(TYPE_NAME_DOUBLE),
+            semantic_primitive_type_ref(TYPE_NAME_U64),
+            semantic_primitive_type_ref(TYPE_NAME_I64),
+        )
+    ) == 1
     assert X86_64_SYSV_ABI.call_stack_reservation_bytes(0) == 0
     assert X86_64_SYSV_ABI.call_stack_reservation_bytes(1) == 16
     assert X86_64_SYSV_ABI.call_stack_reservation_bytes(2) == 16
@@ -87,7 +141,7 @@ def test_legality_checker_rejects_receiver_aware_callables(builder) -> None:
         check_x86_64_sysv_legality(make_target_input(builder()))
 
 
-def test_legality_checker_rejects_double_types() -> None:
+def test_legality_checker_accepts_double_scalar_surface() -> None:
     program = one_function_backend_program()
     callable_decl = callable_by_id(program, FIXTURE_ENTRY_FUNCTION_ID)
     double_reg = replace(
@@ -114,8 +168,7 @@ def test_legality_checker_rejects_double_types() -> None:
     )
     updated_program = replace(program, callables=(updated_callable,))
 
-    with pytest.raises(X86_64SysVLegalityError, match="unsupported reduced-scope return type 'double'"):
-        check_x86_64_sysv_legality(make_target_input(updated_program))
+    check_x86_64_sysv_legality(make_target_input(updated_program))
 
 
 def test_legality_checker_rejects_unsupported_instruction_families() -> None:

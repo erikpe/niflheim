@@ -113,7 +113,7 @@ def _max_outgoing_stack_arg_slot_count(callable_decl: BackendCallableDecl, *, ab
                 continue
             max_stack_arg_slot_count = max(
                 max_stack_arg_slot_count,
-                abi.outgoing_stack_arg_slot_count(len(instruction.args)),
+                abi.outgoing_stack_arg_slot_count(instruction.signature.param_types),
             )
     return max_stack_arg_slot_count
 
