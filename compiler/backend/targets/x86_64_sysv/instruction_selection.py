@@ -10,12 +10,14 @@ from __future__ import annotations
 from compiler.backend.ir import (
     BackendBinaryInst,
     BackendBlock,
+    BackendBranchTerminator,
     BackendBoolConst,
     BackendCallInst,
     BackendConstInst,
     BackendConstOperand,
     BackendCopyInst,
     BackendIntConst,
+    BackendJumpTerminator,
     BackendOperand,
     BackendRegOperand,
     BackendReturnTerminator,
@@ -36,6 +38,76 @@ _SECONDARY_BYTE_REGISTER = "cl"
 _UNSIGNED_TYPE_NAMES = frozenset({TYPE_NAME_U64, TYPE_NAME_U8})
 
 
+def register_type_name_by_reg_id(callable_decl) -> dict:
+    return {
+        register.reg_id: semantic_type_canonical_name(register.type_ref)
+        for register in callable_decl.registers
+    }
+
+
+def emit_block_instructions(
+    builder: X86AsmBuilder,
+    block: BackendBlock,
+    *,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> None:
+    for instruction in block.instructions:
+        _emit_instruction(
+            builder,
+            instruction,
+            block=block,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+
+
+def emit_return_terminator(
+    builder: X86AsmBuilder,
+    terminator: BackendReturnTerminator,
+    *,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+    epilogue_label_text: str,
+) -> None:
+    if terminator.value is not None:
+        _emit_load_operand(
+            builder,
+            terminator.value,
+            target_register=_PRIMARY_REGISTER,
+            target_byte_register=_PRIMARY_BYTE_REGISTER,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+    builder.instruction("jmp", epilogue_label_text)
+
+
+def emit_branch_terminator(
+    builder: X86AsmBuilder,
+    terminator: BackendBranchTerminator,
+    *,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+    true_label: str,
+    false_label: str,
+) -> None:
+    _emit_load_operand(
+        builder,
+        terminator.condition,
+        target_register=_PRIMARY_REGISTER,
+        target_byte_register=_PRIMARY_BYTE_REGISTER,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    builder.instruction("cmp", _PRIMARY_REGISTER, "0")
+    builder.instruction("je", false_label)
+    builder.instruction("jmp", true_label)
+
+
+def emit_jump_terminator(builder: X86AsmBuilder, terminator: BackendJumpTerminator, *, target_label: str) -> None:
+    builder.instruction("jmp", target_label)
+
+
 def emit_straight_line_callable_body(
     builder: X86AsmBuilder,
     callable_decl,
@@ -49,35 +121,26 @@ def emit_straight_line_callable_body(
         )
 
     block = callable_decl.blocks[0]
-    register_type_name_by_reg_id = {
-        register.reg_id: semantic_type_canonical_name(register.type_ref)
-        for register in callable_decl.registers
-    }
-
-    for instruction in block.instructions:
-        _emit_instruction(
-            builder,
-            instruction,
-            block=block,
-            frame_layout=frame_layout,
-            register_type_name_by_reg_id=register_type_name_by_reg_id,
-        )
+    resolved_type_names = register_type_name_by_reg_id(callable_decl)
+    emit_block_instructions(
+        builder,
+        block,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=resolved_type_names,
+    )
 
     if not isinstance(block.terminator, BackendReturnTerminator):
         raise BackendTargetLoweringError(
             "x86_64_sysv terminator emission lands in later phase-4 slices; PR3 only supports return terminators"
         )
 
-    if block.terminator.value is not None:
-        _emit_load_operand(
-            builder,
-            block.terminator.value,
-            target_register=_PRIMARY_REGISTER,
-            target_byte_register=_PRIMARY_BYTE_REGISTER,
-            frame_layout=frame_layout,
-            register_type_name_by_reg_id=register_type_name_by_reg_id,
-        )
-    builder.instruction("jmp", epilogue_label_text)
+    emit_return_terminator(
+        builder,
+        block.terminator,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=resolved_type_names,
+        epilogue_label_text=epilogue_label_text,
+    )
 
 
 def _emit_instruction(
@@ -335,4 +398,11 @@ def _mask_u8_result_if_needed(builder: X86AsmBuilder, operand_type_name: str) ->
         builder.instruction("and", _PRIMARY_REGISTER, "255")
 
 
-__all__ = ["emit_straight_line_callable_body"]
+__all__ = [
+    "emit_block_instructions",
+    "emit_branch_terminator",
+    "emit_jump_terminator",
+    "emit_return_terminator",
+    "emit_straight_line_callable_body",
+    "register_type_name_by_reg_id",
+]

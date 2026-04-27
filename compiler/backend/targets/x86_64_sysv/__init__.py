@@ -12,7 +12,14 @@ from compiler.backend.targets.x86_64_sysv.frame import (
     X86_64SysVFrameSlot,
     plan_callable_frame_layout,
 )
-from compiler.backend.targets.x86_64_sysv.instruction_selection import emit_straight_line_callable_body
+from compiler.backend.targets.x86_64_sysv.instruction_selection import (
+    emit_block_instructions,
+    emit_branch_terminator,
+    emit_jump_terminator,
+    emit_return_terminator,
+    emit_straight_line_callable_body,
+    register_type_name_by_reg_id,
+)
 from compiler.backend.targets.x86_64_sysv.emit import (
     TARGET_NAME,
     X86_64_SYSV_TARGET,
@@ -35,8 +42,13 @@ __all__ = [
     "X86_64SysVLegalityError",
     "X86_64SysVTarget",
     "check_x86_64_sysv_legality",
+    "emit_block_instructions",
+    "emit_branch_terminator",
+    "emit_jump_terminator",
+    "emit_return_terminator",
     "emit_straight_line_callable_body",
     "emit_x86_64_sysv_asm",
     "format_stack_slot_operand",
     "plan_callable_frame_layout",
+    "register_type_name_by_reg_id",
 ]

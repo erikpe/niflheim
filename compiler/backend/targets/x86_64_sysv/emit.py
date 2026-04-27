@@ -9,6 +9,7 @@ from compiler.backend.ir import (
     BackendArraySliceStoreInst,
     BackendArrayStoreInst,
     BackendBlock,
+    BackendBranchTerminator,
     BackendBoundsCheckInst,
     BackendCallInst,
     BackendCastInst,
@@ -19,7 +20,9 @@ from compiler.backend.ir import (
     BackendFieldStoreInst,
     BackendIndirectCallTarget,
     BackendInterfaceCallTarget,
+    BackendJumpTerminator,
     BackendNullCheckInst,
+    BackendReturnTerminator,
     BackendTrapTerminator,
     BackendTypeTestInst,
     BackendVirtualCallTarget,
@@ -34,7 +37,13 @@ from compiler.backend.targets import (
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
 from compiler.backend.targets.x86_64_sysv.frame import plan_callable_frame_layout
-from compiler.backend.targets.x86_64_sysv.instruction_selection import emit_straight_line_callable_body
+from compiler.backend.targets.x86_64_sysv.instruction_selection import (
+    emit_block_instructions,
+    emit_branch_terminator,
+    emit_jump_terminator,
+    emit_return_terminator,
+    register_type_name_by_reg_id,
+)
 from compiler.codegen.symbols import epilogue_label, mangle_function_symbol
 from compiler.semantic.symbols import ConstructorId, FunctionId, MethodId
 
@@ -69,6 +78,7 @@ def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTa
             builder,
             callable_decl,
             frame_layout=frame_layout,
+            ordered_block_ids=target_input.analysis_for_callable(callable_decl.callable_id).ordered_block_ids,
             entry_callable_id=target_input.program.entry_callable_id,
             emit_debug_comments=options.emit_debug_comments,
         )
@@ -185,9 +195,23 @@ def _check_instruction_legality(callable_decl, block: BackendBlock, instruction:
             )
 
 
-def _emit_callable_body(builder, callable_decl, *, frame_layout, entry_callable_id, emit_debug_comments: bool) -> None:
+def _emit_callable_body(
+    builder,
+    callable_decl,
+    *,
+    frame_layout,
+    ordered_block_ids,
+    entry_callable_id,
+    emit_debug_comments: bool,
+) -> None:
     target_label, alias_labels, global_symbol = _callable_symbol_info(callable_decl, entry_callable_id=entry_callable_id)
     epilogue = epilogue_label(target_label)
+    ordered_blocks = _ordered_blocks_for_callable(callable_decl, ordered_block_ids=ordered_block_ids)
+    block_label_by_id = {
+        block.block_id: _block_label(target_label, block.block_id.ordinal)
+        for block in ordered_blocks
+    }
+    resolved_type_names = register_type_name_by_reg_id(callable_decl)
 
     if global_symbol:
         builder.global_symbol(target_label)
@@ -205,17 +229,78 @@ def _emit_callable_body(builder, callable_decl, *, frame_layout, entry_callable_
         for slot in frame_layout.slots:
             builder.comment(f"{slot.home_name} -> {format_stack_slot_operand('rbp', slot.byte_offset)}")
 
-    emit_straight_line_callable_body(
-        builder,
-        callable_decl,
-        frame_layout=frame_layout,
-        epilogue_label_text=epilogue,
-    )
+    for block in ordered_blocks:
+        builder.label(block_label_by_id[block.block_id])
+        emit_block_instructions(
+            builder,
+            block,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=resolved_type_names,
+        )
+        _emit_terminator(
+            builder,
+            block,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=resolved_type_names,
+            block_label_by_id=block_label_by_id,
+            epilogue_label_text=epilogue,
+        )
 
     builder.label(epilogue)
     builder.instruction("mov", "rsp", "rbp")
     builder.instruction("pop", "rbp")
     builder.instruction("ret")
+
+
+def _emit_terminator(
+    builder,
+    block: BackendBlock,
+    *,
+    frame_layout,
+    register_type_name_by_reg_id: dict,
+    block_label_by_id: dict,
+    epilogue_label_text: str,
+) -> None:
+    terminator = block.terminator
+    if isinstance(terminator, BackendReturnTerminator):
+        emit_return_terminator(
+            builder,
+            terminator,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+            epilogue_label_text=epilogue_label_text,
+        )
+        return
+    if isinstance(terminator, BackendJumpTerminator):
+        emit_jump_terminator(builder, terminator, target_label=block_label_by_id[terminator.target_block_id])
+        return
+    if isinstance(terminator, BackendBranchTerminator):
+        emit_branch_terminator(
+            builder,
+            terminator,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+            true_label=block_label_by_id[terminator.true_block_id],
+            false_label=block_label_by_id[terminator.false_block_id],
+        )
+        return
+    raise BackendTargetLoweringError(
+        f"x86_64_sysv terminator '{type(terminator).__name__}' is not supported in PR4 control-flow emission"
+    )
+
+
+def _ordered_blocks_for_callable(callable_decl, *, ordered_block_ids) -> tuple[BackendBlock, ...]:
+    block_by_id = {block.block_id: block for block in callable_decl.blocks}
+    try:
+        return tuple(block_by_id[block_id] for block_id in ordered_block_ids)
+    except KeyError as exc:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv ordered block sequence references undeclared block '{exc.args[0]}'"
+        ) from exc
+
+
+def _block_label(target_label: str, block_ordinal: int) -> str:
+    return f".L{target_label}_b{block_ordinal}"
 
 
 def _emit_param_spills(builder, callable_decl, *, frame_layout) -> None:
