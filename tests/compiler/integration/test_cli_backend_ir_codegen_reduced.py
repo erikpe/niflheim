@@ -69,13 +69,10 @@ def test_cli_experimental_backend_selector_reports_reduced_slice_limitations(tmp
     write(
         entry,
         """
-        class Box {
-            value: i64;
-        }
-
         fn main() -> i64 {
-            var box: Box = Box(7);
-            return box.value;
+            var values: i64[] = i64[](2u);
+            values[0] = 7;
+            return values[0];
         }
         """,
     )
@@ -85,7 +82,7 @@ def test_cli_experimental_backend_selector_reports_reduced_slice_limitations(tmp
 
     assert rc == 1
     assert "Backend target 'x86_64_sysv'" in captured.err
-    assert "unsupported reduced-scope type 'Box'" in captured.err
+    assert "BackendArrayAllocInst" in captured.err
 
 
 def test_cli_experimental_backend_selector_can_compile_and_run_reduced_scope_program(tmp_path: Path, monkeypatch) -> None:

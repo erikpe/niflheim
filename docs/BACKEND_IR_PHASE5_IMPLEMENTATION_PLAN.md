@@ -32,7 +32,7 @@ Use these rules for every phase-5 patch:
 
 1. [x] PR 1: Add program-global backend context, symbols, class-hierarchy indexing, and metadata preparation for the new backend path.
 2. [x] PR 2: Add full scalar ABI coverage for doubles, mixed signatures, and remaining call or return legality.
-3. [ ] PR 3: Implement constructors, object allocation, field access, and object-metadata-backed emission.
+3. [x] PR 3: Implement constructors, object allocation, field access, and object-metadata-backed emission.
 4. [ ] PR 4: Implement arrays, slices, string flows, and lowered `for in` collection paths.
 5. [ ] PR 5: Implement virtual, interface, and runtime-backed dispatch plus interface metadata sections.
 6. [ ] PR 6: Implement casts, type tests, runtime trace hooks, extern/export/entrypoint handling, and multimodule parity.
@@ -288,11 +288,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv/test_m
 
 ### Checklist
 
-- [ ] Implement object allocation lowering from backend IR.
-- [ ] Implement constructor callable and constructor call-site emission.
-- [ ] Implement field load and field store emission from prepared layout metadata.
-- [ ] Preserve clear failures for still-missing dispatch families.
-- [ ] Add focused object and constructor coverage.
+- [x] Implement object allocation lowering from backend IR.
+- [x] Implement constructor callable and constructor call-site emission.
+- [x] Implement field load and field store emission from prepared layout metadata.
+- [x] Preserve clear failures for still-missing dispatch families.
+- [x] Add focused object and constructor coverage.
 
 ## PR 4: Arrays, Slices, String Flows, And Lowered `for in` Collection Paths
 

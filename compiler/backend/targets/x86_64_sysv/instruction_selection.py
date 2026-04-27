@@ -22,9 +22,11 @@ from compiler.backend.ir import (
     BackendConstInst,
     BackendConstOperand,
     BackendCopyInst,
+    BackendDataOperand,
     BackendDoubleConst,
     BackendIntConst,
     BackendJumpTerminator,
+    BackendNullConst,
     BackendOperand,
     BackendRegOperand,
     BackendReturnTerminator,
@@ -66,6 +68,25 @@ def emit_block_instructions(
 ) -> None:
     for instruction in block.instructions:
         _emit_instruction(
+            builder,
+            instruction,
+            block=block,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+            call_emitter=call_emitter,
+        )
+
+
+def emit_instruction(
+    builder: X86AsmBuilder,
+    instruction: object,
+    *,
+    block: BackendBlock,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+    call_emitter: Callable[[BackendCallInst], None] | None = None,
+) -> None:
+    _emit_instruction(
             builder,
             instruction,
             block=block,
@@ -493,6 +514,9 @@ def emit_load_operand(
         _emit_load_constant(builder, operand.constant, target_register=target_register)
         return
 
+    if isinstance(operand, BackendDataOperand):
+        raise BackendTargetLoweringError("x86_64_sysv data operands land in the later string slice")
+
     raise BackendTargetLoweringError(
         f"x86_64_sysv cannot load operand '{type(operand).__name__}' in PR3"
     )
@@ -535,6 +559,9 @@ def _emit_load_constant(builder: X86AsmBuilder, constant: object, *, target_regi
         return
     if isinstance(constant, BackendBoolConst):
         builder.instruction("mov", target_register, "1" if constant.value else "0")
+        return
+    if isinstance(constant, BackendNullConst):
+        builder.instruction("mov", target_register, "0")
         return
     raise BackendTargetLoweringError(
         f"x86_64_sysv constant '{type(constant).__name__}' is not supported in PR3 straight-line scalar mode"
@@ -581,6 +608,8 @@ def _operand_type_name(operand: BackendOperand, register_type_name_by_reg_id: di
             return TYPE_NAME_BOOL
         if isinstance(operand.constant, BackendDoubleConst):
             return TYPE_NAME_DOUBLE
+        if isinstance(operand.constant, BackendNullConst):
+            return "Obj"
     raise BackendTargetLoweringError(
         f"x86_64_sysv cannot infer operand type for '{type(operand).__name__}' in PR3"
     )
@@ -605,6 +634,7 @@ __all__ = [
     "emit_block_instructions",
     "emit_branch_terminator",
     "emit_jump_terminator",
+    "emit_instruction",
     "emit_load_float_operand",
     "emit_load_operand",
     "emit_return_terminator",

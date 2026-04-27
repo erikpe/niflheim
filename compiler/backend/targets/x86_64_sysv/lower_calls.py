@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from compiler.backend.ir import BackendCallInst, BackendDirectCallTarget
+from compiler.backend.program.symbols import BackendProgramSymbolTable
 from compiler.backend.targets import BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
@@ -40,7 +41,8 @@ def emit_direct_call_instruction(
     *,
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
-    resolve_direct_call_target_symbol: Callable[[object], str],
+    callable_decl_by_id: dict,
+    program_symbols: BackendProgramSymbolTable,
     abi: X86_64SysVAbi = X86_64_SYSV_ABI,
 ) -> None:
     if not isinstance(instruction.target, BackendDirectCallTarget):
@@ -48,13 +50,27 @@ def emit_direct_call_instruction(
             f"x86_64_sysv reduced call lowering does not support target '{type(instruction.target).__name__}'"
         )
 
-    arg_locations = abi.plan_argument_locations(instruction.signature.param_types)
+    callee_decl = callable_decl_by_id.get(instruction.target.callable_id)
+    if callee_decl is None:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv direct call lowering could not resolve callable '{instruction.target.callable_id}'"
+        )
+
+    includes_receiver = len(instruction.args) == len(instruction.signature.param_types) + 1
+
+    arg_locations = abi.plan_argument_locations(
+        instruction.signature.param_types,
+        includes_receiver=includes_receiver,
+    )
     if len(arg_locations) != len(instruction.args):
         raise BackendTargetLoweringError(
             "x86_64_sysv direct call lowering requires argument count to match the lowered call signature"
         )
 
-    stack_arg_slot_count = abi.outgoing_stack_arg_slot_count(instruction.signature.param_types)
+    stack_arg_slot_count = abi.outgoing_stack_arg_slot_count(
+        instruction.signature.param_types,
+        includes_receiver=includes_receiver,
+    )
     if stack_arg_slot_count > len(frame_layout.outgoing_stack_arg_offsets):
         raise BackendTargetLoweringError(
             "x86_64_sysv frame layout does not reserve enough outgoing stack-argument slots for this call"
@@ -64,10 +80,14 @@ def emit_direct_call_instruction(
     if call_stack_reservation_bytes > 0:
         builder.instruction("sub", "rsp", str(call_stack_reservation_bytes))
 
+    argument_param_types = instruction.signature.param_types
+    if includes_receiver:
+        argument_param_types = (None, *argument_param_types)
+
     for operand, arg_location, param_type in zip(
         instruction.args,
         arg_locations,
-        instruction.signature.param_types,
+        argument_param_types,
         strict=True,
     ):
         if arg_location.kind == "int_reg":
@@ -121,7 +141,7 @@ def emit_direct_call_instruction(
             f"x86_64_sysv direct call lowering does not support argument location kind '{arg_location.kind}'"
         )
 
-    builder.instruction("call", resolve_direct_call_target_symbol(instruction.target.callable_id))
+    builder.instruction("call", _direct_call_target_symbol(program_symbols, callee_decl, includes_receiver=includes_receiver))
 
     if call_stack_reservation_bytes > 0:
         builder.instruction("add", "rsp", str(call_stack_reservation_bytes))
@@ -150,6 +170,17 @@ def _byte_register_name(register_name: str) -> str:
         raise BackendTargetLoweringError(
             f"x86_64_sysv direct call lowering does not know the byte register for '{register_name}'"
         ) from exc
+
+
+def _direct_call_target_symbol(program_symbols: BackendProgramSymbolTable, callee_decl, *, includes_receiver: bool) -> str:
+    callable_symbols = program_symbols.callable(callee_decl.callable_id)
+    if callee_decl.kind == "constructor" and includes_receiver:
+        if callable_symbols.constructor_init_symbol is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv constructor '{callee_decl.callable_id}' is missing an init symbol"
+            )
+        return callable_symbols.constructor_init_symbol
+    return callable_symbols.direct_call_symbol
 
 
 __all__ = ["emit_direct_call_instruction"]

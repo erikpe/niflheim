@@ -111,9 +111,13 @@ def _max_outgoing_stack_arg_slot_count(callable_decl: BackendCallableDecl, *, ab
         for instruction in block.instructions:
             if not isinstance(instruction, BackendCallInst):
                 continue
+            includes_receiver = len(instruction.args) == len(instruction.signature.param_types) + 1
             max_stack_arg_slot_count = max(
                 max_stack_arg_slot_count,
-                abi.outgoing_stack_arg_slot_count(instruction.signature.param_types),
+                abi.outgoing_stack_arg_slot_count(
+                    instruction.signature.param_types,
+                    includes_receiver=includes_receiver,
+                ),
             )
     return max_stack_arg_slot_count
 

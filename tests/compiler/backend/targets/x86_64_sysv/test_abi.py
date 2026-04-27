@@ -136,9 +136,8 @@ def test_reduced_sysv_call_stack_helpers_are_stable() -> None:
 
 
 @pytest.mark.parametrize("builder", [one_method_backend_program, one_constructor_backend_program])
-def test_legality_checker_rejects_receiver_aware_callables(builder) -> None:
-    with pytest.raises(X86_64SysVLegalityError, match="only supports plain functions"):
-        check_x86_64_sysv_legality(make_target_input(builder()))
+def test_legality_checker_accepts_receiver_aware_callables_in_pr3(builder) -> None:
+    check_x86_64_sysv_legality(make_target_input(builder()))
 
 
 def test_legality_checker_accepts_double_scalar_surface() -> None:

@@ -92,6 +92,7 @@ class BackendCallableSymbol:
     emitted_label: str | None
     alias_labels: tuple[str, ...]
     global_label: str | None
+    constructor_init_symbol: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,6 +169,7 @@ def build_backend_program_symbol_table(program: BackendProgram) -> BackendProgra
                 emitted_label=None,
                 alias_labels=(),
                 global_label=None,
+                constructor_init_symbol=None,
             )
             continue
 
@@ -180,16 +182,19 @@ def build_backend_program_symbol_table(program: BackendProgram) -> BackendProgra
                 emitted_label="main",
                 alias_labels=(internal_symbol,),
                 global_label="main",
+                constructor_init_symbol=None,
             )
             continue
 
         global_label = internal_symbol if callable_decl.is_export else None
+        constructor_init_symbol = mangle_constructor_init_symbol(callable_id) if isinstance(callable_id, ConstructorId) else None
         callable_symbols_by_id[callable_id] = BackendCallableSymbol(
             callable_id=callable_id,
             direct_call_symbol=internal_symbol,
             emitted_label=internal_symbol,
             alias_labels=(),
             global_label=global_label,
+            constructor_init_symbol=constructor_init_symbol,
         )
 
     class_symbols_by_id: dict[ClassId, BackendClassSymbols] = {}
