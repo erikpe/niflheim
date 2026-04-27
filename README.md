@@ -96,6 +96,7 @@ For quick local workflows, use scripts under `scripts/`:
 - Default CLI compilation now uses the semantic-lowering backend when type checking is enabled.
 - `--source-ast-codegen` is no longer supported on the checked CLI path.
 - `nifc --stop-after backend-ir-passes` is now a checked debugging seam: it lowers to backend IR, runs the phase-3 cleanup and analysis pipeline, and prints or writes the post-pass backend IR without continuing to assembly emission.
+- `nifc --experimental-backend backend-ir-x86_64_sysv` runs the reduced backend-IR x86-64 SysV path behind an explicit non-default selector; the default checked backend remains unchanged when the flag is absent.
 - The default checked codegen path is unchanged unless backend-IR dump or stop flags are requested explicitly.
 
 - `scripts/build.sh <input.nif> [output-executable] [--] [nifc-args...]`
@@ -137,6 +138,7 @@ Run the runner:
 - `./scripts/golden.sh`
 - `./scripts/golden.sh --jobs 8`
 - `./scripts/golden.sh --filter 'arithmetic/**'`
+- `./scripts/golden.sh --filter 'backend_ir_reduced/**' -- --experimental-backend backend-ir-x86_64_sysv`
 
 Spec format:
 

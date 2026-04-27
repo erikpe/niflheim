@@ -9,6 +9,8 @@ from compiler.backend.analysis import run_backend_ir_pipeline
 from compiler.backend.ir.serialize import dump_backend_program_json
 from compiler.backend.ir.text import dump_backend_program_text
 from compiler.backend.lowering import lower_to_backend_ir
+from compiler.backend.targets import BackendTargetInput, BackendTargetOptions
+from compiler.backend.targets.x86_64_sysv import emit_x86_64_sysv_asm
 from compiler.common.logging import LOG_LEVEL_NAMES, configure_logging, get_logger, resolve_log_settings
 from compiler.codegen.generator import emit_asm
 from compiler.frontend.tokens import Token
@@ -23,6 +25,8 @@ from compiler.typecheck.api import typecheck_program
 BACKEND_IR_DUMP_FORMATS = ["text", "json"]
 BACKEND_IR_STOP_PHASES = frozenset({"backend-ir", "backend-ir-passes"})
 STOP_PHASES = ["check", *sorted(BACKEND_IR_STOP_PHASES), "codegen"]
+EXPERIMENTAL_BACKEND_BACKEND_IR_X86_64_SYSV = "backend-ir-x86_64_sysv"
+EXPERIMENTAL_BACKEND_CHOICES = [EXPERIMENTAL_BACKEND_BACKEND_IR_X86_64_SYSV]
 
 
 def _requested_backend_ir_surface(args: argparse.Namespace) -> tuple[str, ...]:
@@ -46,6 +50,10 @@ def _requested_backend_ir_dump_format(args: argparse.Namespace) -> str | None:
 
 def _uses_backend_ir_surface(args: argparse.Namespace) -> bool:
     return bool(_requested_backend_ir_surface(args))
+
+
+def _uses_experimental_backend(args: argparse.Namespace) -> bool:
+    return args.experimental_backend is not None
 
 
 def _validate_backend_ir_surface(args: argparse.Namespace) -> None:
@@ -122,6 +130,30 @@ def _emit_assembly_phase(logger, linked_program, *, runtime_trace_enabled: bool)
     duration_ms = (perf_counter() - start) * 1000.0
     logger.debugv(1, "Emitted %d assembly lines in %.2f ms", len(asm.splitlines()), duration_ms)
     return asm
+
+
+def _emit_experimental_backend_assembly_phase(
+    logger,
+    linked_program,
+    *,
+    experimental_backend: str,
+    runtime_trace_enabled: bool,
+) -> str:
+    if experimental_backend != EXPERIMENTAL_BACKEND_BACKEND_IR_X86_64_SYSV:
+        raise ValueError(f"Unsupported experimental backend '{experimental_backend}'")
+
+    logger.info("Emitting assembly via experimental backend %s", experimental_backend)
+    start = perf_counter()
+    pipeline_result = _run_backend_ir_passes_phase(logger, linked_program)
+    emit_result = emit_x86_64_sysv_asm(
+        BackendTargetInput.from_pipeline_result(pipeline_result),
+        options=BackendTargetOptions(runtime_trace_enabled=runtime_trace_enabled),
+    )
+    duration_ms = (perf_counter() - start) * 1000.0
+    for diagnostic in emit_result.diagnostics:
+        logger.warning("%s", diagnostic)
+    logger.debugv(1, "Emitted %d assembly lines in %.2f ms", len(emit_result.assembly_text.splitlines()), duration_ms)
+    return emit_result.assembly_text
 
 
 def _lower_backend_ir_phase(logger, linked_program):
@@ -246,6 +278,11 @@ def main() -> int:
         action="store_true",
         help="Skip semantic optimization and continue from lowered semantic IR",
     )
+    compilation_group.add_argument(
+        "--experimental-backend",
+        choices=EXPERIMENTAL_BACKEND_CHOICES,
+        help="Use a non-default checked-path backend instead of the legacy semantic-lowering codegen path",
+    )
 
     args = parser.parse_args()
     log_settings = resolve_log_settings(args.log_level, args.verbose, args.quiet)
@@ -299,7 +336,15 @@ def main() -> int:
             if args.stop_after in BACKEND_IR_STOP_PHASES:
                 return 0
 
-        asm = _emit_assembly_phase(logger, linked_program, runtime_trace_enabled=not args.omit_runtime_trace)
+        if _uses_experimental_backend(args):
+            asm = _emit_experimental_backend_assembly_phase(
+                logger,
+                linked_program,
+                experimental_backend=args.experimental_backend,
+                runtime_trace_enabled=not args.omit_runtime_trace,
+            )
+        else:
+            asm = _emit_assembly_phase(logger, linked_program, runtime_trace_enabled=not args.omit_runtime_trace)
         if args.output:
             Path(args.output).write_text(asm, encoding="utf-8")
             logger.infov(1, "Wrote assembly to %s", args.output)

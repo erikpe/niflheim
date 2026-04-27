@@ -375,10 +375,15 @@ def test_main_prints_one_row_per_spec_by_default(tmp_path: Path, monkeypatch: py
     ]
 
     def _fake_run_spec(
-        spec_path_arg: Path, spec_tests: list[runner.GoldenTest], runtime_archive: Path | None = None
+        spec_path_arg: Path,
+        spec_tests: list[runner.GoldenTest],
+        runtime_archive: Path | None = None,
+        *,
+        extra_build_args: list[str] | None = None,
     ) -> runner.SpecResult:
         assert spec_path_arg == spec_path
         assert spec_tests == tests
+        assert extra_build_args == []
         return runner.SpecResult(
             spec_path=spec_path,
             test_results=[
@@ -451,10 +456,15 @@ def test_main_prints_per_run_rows_for_run_and_compile_fail_tests(
     ]
 
     def _fake_run_spec(
-        spec_path_arg: Path, spec_tests: list[runner.GoldenTest], runtime_archive: Path | None = None
+        spec_path_arg: Path,
+        spec_tests: list[runner.GoldenTest],
+        runtime_archive: Path | None = None,
+        *,
+        extra_build_args: list[str] | None = None,
     ) -> runner.SpecResult:
         assert spec_path_arg == spec_path
         assert spec_tests == tests
+        assert extra_build_args == []
         return runner.SpecResult(
             spec_path=spec_path,
             test_results=[

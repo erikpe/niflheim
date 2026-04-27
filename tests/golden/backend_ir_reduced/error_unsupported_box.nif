@@ -1,0 +1,8 @@
+class Box {
+    value: i64;
+}
+
+fn main() -> i64 {
+    var box: Box = Box(7);
+    return box.value;
+}

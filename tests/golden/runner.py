@@ -363,17 +363,23 @@ def _prepare_runtime_archive() -> tuple[bool, str | None, Path]:
     return True, None, archive_path
 
 
-def _compile_run_test(test: GoldenTest, runtime_archive: Path | None = None) -> tuple[bool, str | None, Path]:
+def _compile_run_test(
+    test: GoldenTest,
+    runtime_archive: Path | None = None,
+    *,
+    extra_build_args: list[str] | None = None,
+) -> tuple[bool, str | None, Path]:
     output_path = _build_output_path(test)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_build_args = [*test.build_args, *(extra_build_args or [])]
 
     cmd = [
         str(REPO_ROOT / "scripts" / "build.sh"),
         str(test.source_path.relative_to(REPO_ROOT)),
         str(output_path.relative_to(REPO_ROOT)),
     ]
-    if test.build_args:
-        cmd.extend(["--", *test.build_args])
+    if resolved_build_args:
+        cmd.extend(["--", *resolved_build_args])
     env = os.environ.copy()
     if runtime_archive is not None:
         env[PREBUILT_RUNTIME_ENV_VAR] = str(runtime_archive)
@@ -386,9 +392,10 @@ def _compile_run_test(test: GoldenTest, runtime_archive: Path | None = None) -> 
     return True, None, output_path
 
 
-def _compile_fail_test(test: GoldenTest) -> tuple[bool, str | None]:
+def _compile_fail_test(test: GoldenTest, *, extra_build_args: list[str] | None = None) -> tuple[bool, str | None]:
     asm_path = _build_output_path(test).with_suffix(".s")
     asm_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_build_args = [*test.build_args, *(extra_build_args or [])]
 
     cmd = [
         "python3",
@@ -399,7 +406,7 @@ def _compile_fail_test(test: GoldenTest) -> tuple[bool, str | None]:
         str(asm_path),
         "--project-root",
         str(REPO_ROOT),
-        *test.build_args,
+        *resolved_build_args,
     ]
     proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
     output_text = "\n".join(part for part in [proc.stderr.strip(), proc.stdout.strip()] if part).strip()
@@ -494,9 +501,14 @@ def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
     return RunResult(name=run.name, ok=len(errors) == 0, details=errors)
 
 
-def _run_test(test: GoldenTest, runtime_archive: Path | None = None) -> TestResult:
+def _run_test(
+    test: GoldenTest,
+    runtime_archive: Path | None = None,
+    *,
+    extra_build_args: list[str] | None = None,
+) -> TestResult:
     if test.mode == "compile-fail":
-        compile_ok, compile_error = _compile_fail_test(test)
+        compile_ok, compile_error = _compile_fail_test(test, extra_build_args=extra_build_args)
         return TestResult(
             name=test.name,
             mode=test.mode,
@@ -507,7 +519,11 @@ def _run_test(test: GoldenTest, runtime_archive: Path | None = None) -> TestResu
             run_results=[],
         )
 
-    compile_ok, compile_error, output_path = _compile_run_test(test, runtime_archive)
+    compile_ok, compile_error, output_path = _compile_run_test(
+        test,
+        runtime_archive,
+        extra_build_args=extra_build_args,
+    )
     if not compile_ok:
         return TestResult(
             name=test.name,
@@ -531,9 +547,18 @@ def _run_test(test: GoldenTest, runtime_archive: Path | None = None) -> TestResu
     )
 
 
-def _run_spec(spec_path: Path, tests: list[GoldenTest], runtime_archive: Path | None = None) -> SpecResult:
+def _run_spec(
+    spec_path: Path,
+    tests: list[GoldenTest],
+    runtime_archive: Path | None = None,
+    *,
+    extra_build_args: list[str] | None = None,
+) -> SpecResult:
     del spec_path
-    return SpecResult(spec_path=tests[0].spec_path, test_results=[_run_test(test, runtime_archive) for test in tests])
+    return SpecResult(
+        spec_path=tests[0].spec_path,
+        test_results=[_run_test(test, runtime_archive, extra_build_args=extra_build_args) for test in tests],
+    )
 
 
 def _print_result_per_spec(result: SpecResult) -> None:
@@ -597,7 +622,15 @@ def main() -> int:
         action="store_true",
         help="Print one PASS/FAIL line per run case and compile-fail test instead of per spec file",
     )
+    parser.add_argument(
+        "build_args",
+        nargs=argparse.REMAINDER,
+        help="Additional compiler arguments forwarded to every selected golden test after '--'",
+    )
     args = parser.parse_args()
+    extra_build_args = list(args.build_args)
+    if extra_build_args and extra_build_args[0] == "--":
+        extra_build_args = extra_build_args[1:]
 
     try:
         tests = _discover_tests(args.filter)
@@ -621,7 +654,10 @@ def main() -> int:
     specs = _group_tests_by_spec(tests)
     spec_results: list[SpecResult] = []
     with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        futures = [pool.submit(_run_spec, spec_path, spec_tests, runtime_archive) for spec_path, spec_tests in specs]
+        futures = [
+            pool.submit(_run_spec, spec_path, spec_tests, runtime_archive, extra_build_args=extra_build_args)
+            for spec_path, spec_tests in specs
+        ]
         for future in as_completed(futures):
             result = future.result()
             spec_results.append(result)

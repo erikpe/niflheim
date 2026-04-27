@@ -1,6 +1,6 @@
 # Backend IR Phase 4 Implementation Plan
 
-Status: in progress.
+Status: complete.
 
 This document expands phase 4 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
@@ -35,7 +35,7 @@ Use these rules for every phase-4 patch:
 3. [x] PR 3: Implement straight-line scalar instruction selection and return emission.
 4. [x] PR 4: Implement branch, loop, label, and block-layout emission.
 5. [x] PR 5: Implement direct-call lowering for the reduced SysV scalar slice.
-6. [ ] PR 6: Wire an explicit non-default checked-path backend selector, add reduced-path integration coverage, and run the reduced golden gate.
+6. [x] PR 6: Wire an explicit non-default checked-path backend selector, add reduced-path integration coverage, and run the reduced golden gate.
 
 ## PR 1: Target Package, ABI Descriptor, Legality Checker, And Assembly Helpers
 
@@ -551,7 +551,7 @@ pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv tests/
 Recommended reduced golden command once the selector is plumbed through:
 
 ```text
-./scripts/golden.sh --filter 'arithmetic/**' -- --experimental-backend backend-ir-x86_64_sysv
+./scripts/golden.sh --filter 'backend_ir_reduced/**' -- --experimental-backend backend-ir-x86_64_sysv
 ```
 
 ### Expected Outcome
@@ -562,11 +562,11 @@ Recommended reduced golden command once the selector is plumbed through:
 
 ### Checklist
 
-- [ ] Add an explicit non-default backend selector for the reduced backend IR path.
-- [ ] Wire the selector through the checked CLI without changing the default backend.
-- [ ] Add reduced-path integration coverage for compile and run behavior.
-- [ ] Add deterministic unsupported-slice diagnostics.
-- [ ] Run a filtered reduced golden gate through the new backend path.
+- [x] Add an explicit non-default backend selector for the reduced backend IR path.
+- [x] Wire the selector through the checked CLI without changing the default backend.
+- [x] Add reduced-path integration coverage for compile and run behavior.
+- [x] Add deterministic unsupported-slice diagnostics.
+- [x] Run a filtered reduced golden gate through the new backend path.
 
 ## Phase 4 Gate Checklist
 
@@ -579,15 +579,15 @@ Use this checklist when phase 4 is believed to be complete.
 - [x] Straight-line scalar backend IR lowers to correct assembly.
 - [x] Branches and loops emit directly from backend CFG block order.
 - [x] Direct scalar calls lower with correct SysV argument, return, and alignment behavior.
-- [ ] An explicit non-default checked-path selector can run the reduced backend IR path end to end.
-- [ ] Reduced-scope integration tests pass through the new backend path.
-- [ ] A filtered reduced golden slice passes while the default checked backend remains unchanged.
+- [x] An explicit non-default checked-path selector can run the reduced backend IR path end to end.
+- [x] Reduced-scope integration tests pass through the new backend path.
+- [x] A filtered reduced golden slice passes while the default checked backend remains unchanged.
 
 Recommended phase gate commands:
 
 ```text
 pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py tests/compiler/integration/test_cli_codegen.py tests/compiler/integration/test_cli_errors.py -q
-./scripts/golden.sh --filter 'arithmetic/**' -- --experimental-backend backend-ir-x86_64_sysv
+./scripts/golden.sh --filter 'backend_ir_reduced/**' -- --experimental-backend backend-ir-x86_64_sysv
 ```
 
 Expected phase gate outcome:

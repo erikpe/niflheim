@@ -17,6 +17,7 @@ def test_cli_help_lists_backend_ir_flags(monkeypatch, capsys) -> None:
     assert exc_info.value.code == 0
     assert "--dump-backend-ir {text,json}" in captured.out
     assert "--dump-backend-ir-dir DIR" in captured.out
+    assert "--experimental-backend {backend-ir-x86_64_sysv}" in captured.out
     assert "backend-ir" in captured.out
     assert "backend-ir-passes" in captured.out
 
