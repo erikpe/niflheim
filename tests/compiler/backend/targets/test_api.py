@@ -62,6 +62,8 @@ def test_backend_target_input_preserves_pipeline_result_shape() -> None:
 
     assert target_input.program == pipeline_result.program
     assert target_input.analysis_by_callable_id == pipeline_result.analysis_by_callable_id
+    assert target_input.program_context.symbols.callable(pipeline_result.program.entry_callable_id).emitted_label == "main"
+    assert target_input.program_context.metadata.classes == ()
 
 
 def test_backend_target_input_rejects_missing_callable_analysis() -> None:

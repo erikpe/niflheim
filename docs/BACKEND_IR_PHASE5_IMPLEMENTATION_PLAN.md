@@ -1,6 +1,6 @@
 # Backend IR Phase 5 Implementation Plan
 
-Status: proposed.
+Status: in progress.
 
 This document expands phase 5 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
@@ -30,7 +30,7 @@ Use these rules for every phase-5 patch:
 
 ## Ordered PR Checklist
 
-1. [ ] PR 1: Add program-global backend context, symbols, class-hierarchy indexing, and metadata preparation for the new backend path.
+1. [x] PR 1: Add program-global backend context, symbols, class-hierarchy indexing, and metadata preparation for the new backend path.
 2. [ ] PR 2: Add full scalar ABI coverage for doubles, mixed signatures, and remaining call or return legality.
 3. [ ] PR 3: Implement constructors, object allocation, field access, and object-metadata-backed emission.
 4. [ ] PR 4: Implement arrays, slices, string flows, and lowered `for in` collection paths.
@@ -122,11 +122,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv/test_m
 
 ### Checklist
 
-- [ ] Add `compiler/backend/program/symbols.py`, `class_hierarchy.py`, and `metadata.py`.
-- [ ] Define one deterministic backend-global context object.
-- [ ] Preserve required symbol and metadata label contracts.
-- [ ] Thread the global context into the target backend.
-- [ ] Add focused metadata and symbol coverage.
+- [x] Add `compiler/backend/program/symbols.py`, `class_hierarchy.py`, and `metadata.py`.
+- [x] Define one deterministic backend-global context object.
+- [x] Preserve required symbol and metadata label contracts.
+- [x] Thread the global context into the target backend.
+- [x] Add focused metadata and symbol coverage.
 
 ## PR 2: Doubles, Mixed Signatures, And Full Scalar ABI Coverage
 

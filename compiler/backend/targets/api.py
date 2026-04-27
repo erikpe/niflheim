@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from compiler.backend.analysis.pipeline import BackendPipelineCallableAnalysis, BackendPipelineResult
 from compiler.backend.ir import BackendCallableId, BackendProgram
+from compiler.backend.program import BackendProgramContext, build_backend_program_context
 from compiler.semantic.symbols import ConstructorId, FunctionId, MethodId
 
 __all__ = [
@@ -46,6 +47,7 @@ class BackendTargetInput:
 
     program: BackendProgram
     analysis_by_callable_id: Mapping[BackendCallableId, BackendPipelineCallableAnalysis]
+    program_context: BackendProgramContext = field(init=False)
 
     def __post_init__(self) -> None:
         missing_callable_names = tuple(
@@ -59,6 +61,7 @@ class BackendTargetInput:
                 "Backend target input is missing phase-3 analysis for callables: "
                 f"{missing_rendered}"
             )
+        object.__setattr__(self, "program_context", build_backend_program_context(self.program))
 
     @classmethod
     def from_pipeline_result(cls, pipeline_result: BackendPipelineResult) -> "BackendTargetInput":

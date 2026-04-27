@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from compiler.codegen.symbols import epilogue_label, mangle_function_symbol
+from compiler.backend.program.symbols import epilogue_label, mangle_function_symbol
 from tests.compiler.backend.targets.x86_64_sysv.helpers import compile_and_run_source, emit_source_asm
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from compiler.backend.program.symbols import epilogue_label
 from compiler.backend.ir import (
     BackendAllocObjectInst,
     BackendArrayAllocInst,
@@ -45,7 +46,6 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     register_type_name_by_reg_id,
 )
 from compiler.backend.targets.x86_64_sysv.lower_calls import emit_direct_call_instruction
-from compiler.codegen.symbols import epilogue_label, mangle_function_symbol, mangle_method_symbol
 from compiler.semantic.symbols import ConstructorId, FunctionId, MethodId
 
 
@@ -79,10 +79,10 @@ def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTa
         _emit_callable_body(
             builder,
             callable_decl,
+            target_input=target_input,
             frame_layout=frame_layout,
             ordered_block_ids=target_input.analysis_for_callable(callable_decl.callable_id).ordered_block_ids,
             callable_by_id=callable_by_id,
-            entry_callable_id=target_input.program.entry_callable_id,
             emit_debug_comments=options.emit_debug_comments,
         )
 
@@ -206,13 +206,20 @@ def _emit_callable_body(
     builder,
     callable_decl,
     *,
+    target_input,
     frame_layout,
     ordered_block_ids,
     callable_by_id,
-    entry_callable_id,
     emit_debug_comments: bool,
 ) -> None:
-    target_label, alias_labels, global_symbol = _callable_symbol_info(callable_decl, entry_callable_id=entry_callable_id)
+    callable_symbols = target_input.program_context.symbols.callable(callable_decl.callable_id)
+    if callable_symbols.emitted_label is None:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv backend program context is missing an emitted label for '{_format_callable_id(callable_decl.callable_id)}'"
+        )
+    target_label = callable_symbols.emitted_label
+    alias_labels = callable_symbols.alias_labels
+    global_symbol = callable_symbols.global_label is not None
     epilogue = epilogue_label(target_label)
     ordered_blocks = _ordered_blocks_for_callable(callable_decl, ordered_block_ids=ordered_block_ids)
     block_label_by_id = {
@@ -228,6 +235,7 @@ def _emit_callable_body(
             frame_layout=frame_layout,
             register_type_name_by_reg_id=resolved_type_names,
             resolve_direct_call_target_symbol=lambda target_callable_id: _direct_call_target_symbol(
+                target_input,
                 callable_by_id,
                 target_callable_id,
             ),
@@ -346,38 +354,13 @@ def _emit_param_spills(builder, callable_decl, *, frame_layout) -> None:
         raise BackendTargetLoweringError(f"unsupported reduced-scope parameter location kind '{arg_location.kind}'")
 
 
-def _callable_symbol_info(callable_decl, *, entry_callable_id) -> tuple[str, tuple[str, ...], bool]:
-    callable_id = callable_decl.callable_id
-    emitted_label = _callable_internal_symbol(callable_decl)
-    if callable_id == entry_callable_id and isinstance(callable_id, FunctionId) and callable_id.name == "main":
-        return ("main", (emitted_label,), True)
-    return (emitted_label, (), callable_decl.is_export)
-
-
-def _direct_call_target_symbol(callable_by_id: dict, callable_id) -> str:
+def _direct_call_target_symbol(target_input, callable_by_id: dict, callable_id) -> str:
     target_callable = callable_by_id.get(callable_id)
     if target_callable is None:
         raise BackendTargetLoweringError(
             f"x86_64_sysv direct call lowering could not resolve callable '{_format_callable_id(callable_id)}'"
         )
-    if target_callable.is_extern:
-        if isinstance(callable_id, FunctionId):
-            return callable_id.name
-        raise BackendTargetLoweringError(
-            "x86_64_sysv reduced direct-call lowering only supports extern plain functions"
-        )
-    return _callable_internal_symbol(target_callable)
-
-
-def _callable_internal_symbol(callable_decl) -> str:
-    callable_id = callable_decl.callable_id
-    if isinstance(callable_id, FunctionId):
-        return mangle_function_symbol(callable_id.module_path, callable_id.name)
-    if isinstance(callable_id, MethodId):
-        return mangle_method_symbol(f"{'.'.join(callable_id.module_path)}::{callable_id.class_name}", callable_id.name)
-    raise BackendTargetLoweringError(
-        f"x86_64_sysv reduced emission does not support callable kind '{type(callable_id).__name__}'"
-    )
+    return target_input.program_context.symbols.callable(callable_id).direct_call_symbol
 
 
 def _callable_error(callable_decl, message: str) -> None:
