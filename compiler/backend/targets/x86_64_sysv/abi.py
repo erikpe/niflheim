@@ -72,6 +72,18 @@ class X86_64SysVAbi:
             raise ValueError("Incoming stack argument slot index must be non-negative")
         return self.incoming_stack_arg_base_offset + (stack_slot_index * self.stack_slot_size_bytes)
 
+    def outgoing_stack_arg_slot_count(self, argument_count: int) -> int:
+        if argument_count < 0:
+            raise ValueError("Argument count must be non-negative")
+        return max(0, argument_count - len(self.int_arg_registers))
+
+    def call_stack_reservation_bytes(self, stack_arg_slot_count: int) -> int:
+        if stack_arg_slot_count < 0:
+            raise ValueError("Outgoing stack argument slot count must be non-negative")
+        if stack_arg_slot_count == 0:
+            return 0
+        return self.align_stack_size(stack_arg_slot_count * self.stack_slot_size_bytes)
+
 
 X86_64_SYSV_ABI = X86_64SysVAbi()
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.backend.ir import BackendCallableDecl, BackendRegId
+from compiler.backend.ir import BackendCallInst, BackendCallableDecl, BackendRegId
 from compiler.backend.targets import BackendTargetInput, BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
 
@@ -45,10 +45,15 @@ def plan_callable_frame_layout(
     callable_decl: BackendCallableDecl,
     *,
     abi: X86_64SysVAbi = X86_64_SYSV_ABI,
-    outgoing_stack_arg_slot_count: int = 0,
+    outgoing_stack_arg_slot_count: int | None = None,
     scratch_slot_count: int = 0,
 ) -> X86_64SysVFrameLayout:
-    if outgoing_stack_arg_slot_count < 0:
+    resolved_outgoing_stack_arg_slot_count = (
+        _max_outgoing_stack_arg_slot_count(callable_decl, abi=abi)
+        if outgoing_stack_arg_slot_count is None
+        else outgoing_stack_arg_slot_count
+    )
+    if resolved_outgoing_stack_arg_slot_count < 0:
         raise ValueError("Outgoing stack argument slot count must be non-negative")
     if scratch_slot_count < 0:
         raise ValueError("Scratch slot count must be non-negative")
@@ -85,10 +90,10 @@ def plan_callable_frame_layout(
     next_offset -= scratch_slot_count * abi.stack_slot_size_bytes
     outgoing_stack_arg_offsets = tuple(
         next_offset - (index * abi.stack_slot_size_bytes)
-        for index in range(1, outgoing_stack_arg_slot_count + 1)
+        for index in range(1, resolved_outgoing_stack_arg_slot_count + 1)
     )
 
-    frame_bytes = (len(slots) + scratch_slot_count + outgoing_stack_arg_slot_count) * abi.stack_slot_size_bytes
+    frame_bytes = (len(slots) + scratch_slot_count + resolved_outgoing_stack_arg_slot_count) * abi.stack_slot_size_bytes
     return X86_64SysVFrameLayout(
         callable_decl=callable_decl,
         slots=tuple(slots),
@@ -98,6 +103,19 @@ def plan_callable_frame_layout(
         scratch_slot_offsets=scratch_slot_offsets,
         stack_size=abi.align_stack_size(frame_bytes),
     )
+
+
+def _max_outgoing_stack_arg_slot_count(callable_decl: BackendCallableDecl, *, abi: X86_64SysVAbi) -> int:
+    max_stack_arg_slot_count = 0
+    for block in callable_decl.blocks:
+        for instruction in block.instructions:
+            if not isinstance(instruction, BackendCallInst):
+                continue
+            max_stack_arg_slot_count = max(
+                max_stack_arg_slot_count,
+                abi.outgoing_stack_arg_slot_count(len(instruction.args)),
+            )
+    return max_stack_arg_slot_count
 
 
 def _frame_error(callable_decl: BackendCallableDecl, message: str) -> None:

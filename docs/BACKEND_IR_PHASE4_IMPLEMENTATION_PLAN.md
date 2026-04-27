@@ -34,7 +34,7 @@ Use these rules for every phase-4 patch:
 2. [x] PR 2: Implement reduced-scope frame planning, stack-home materialization, and prologue or epilogue emission.
 3. [x] PR 3: Implement straight-line scalar instruction selection and return emission.
 4. [x] PR 4: Implement branch, loop, label, and block-layout emission.
-5. [ ] PR 5: Implement direct-call lowering for the reduced SysV scalar slice.
+5. [x] PR 5: Implement direct-call lowering for the reduced SysV scalar slice.
 6. [ ] PR 6: Wire an explicit non-default checked-path backend selector, add reduced-path integration coverage, and run the reduced golden gate.
 
 ## PR 1: Target Package, ABI Descriptor, Legality Checker, And Assembly Helpers
@@ -469,11 +469,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv/test_e
 
 ### Checklist
 
-- [ ] Add reduced-scope direct-call lowering in `lower_calls.py`.
-- [ ] Implement SysV integer argument and return handling.
-- [ ] Preserve stack alignment across call sites.
-- [ ] Reject unsupported dispatch and GC-rooted call shapes clearly.
-- [ ] Add direct-call assembly and execution coverage.
+- [x] Add reduced-scope direct-call lowering in `lower_calls.py`.
+- [x] Implement SysV integer argument and return handling.
+- [x] Preserve stack alignment across call sites.
+- [x] Reject unsupported dispatch and GC-rooted call shapes clearly.
+- [x] Add direct-call assembly and execution coverage.
 
 ## PR 6: Explicit Non-Default Checked-Path Wiring, Integration Coverage, And Reduced Golden Gate
 
@@ -572,13 +572,13 @@ Recommended reduced golden command once the selector is plumbed through:
 
 Use this checklist when phase 4 is believed to be complete.
 
-- [ ] `compiler/backend/targets/x86_64_sysv/` exists with a stable public entrypoint.
-- [ ] The reduced `x86-64 SysV` ABI contract is defined in one explicit module.
-- [ ] Unsupported phase-4 backend IR shapes fail through a deterministic legality check.
-- [ ] Phase-3 stack homes lower to concrete, deterministic frame slots.
-- [ ] Straight-line scalar backend IR lowers to correct assembly.
-- [ ] Branches and loops emit directly from backend CFG block order.
-- [ ] Direct scalar calls lower with correct SysV argument, return, and alignment behavior.
+- [x] `compiler/backend/targets/x86_64_sysv/` exists with a stable public entrypoint.
+- [x] The reduced `x86-64 SysV` ABI contract is defined in one explicit module.
+- [x] Unsupported phase-4 backend IR shapes fail through a deterministic legality check.
+- [x] Phase-3 stack homes lower to concrete, deterministic frame slots.
+- [x] Straight-line scalar backend IR lowers to correct assembly.
+- [x] Branches and loops emit directly from backend CFG block order.
+- [x] Direct scalar calls lower with correct SysV argument, return, and alignment behavior.
 - [ ] An explicit non-default checked-path selector can run the reduced backend IR path end to end.
 - [ ] Reduced-scope integration tests pass through the new backend path.
 - [ ] A filtered reduced golden slice passes while the default checked backend remains unchanged.

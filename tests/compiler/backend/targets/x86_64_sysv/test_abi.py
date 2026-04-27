@@ -70,6 +70,17 @@ def test_reduced_sysv_alignment_helpers_are_stable() -> None:
     assert X86_64_SYSV_ABI.align_stack_size(17) == 32
 
 
+def test_reduced_sysv_call_stack_helpers_are_stable() -> None:
+    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(0) == 0
+    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(6) == 0
+    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(7) == 1
+    assert X86_64_SYSV_ABI.outgoing_stack_arg_slot_count(8) == 2
+    assert X86_64_SYSV_ABI.call_stack_reservation_bytes(0) == 0
+    assert X86_64_SYSV_ABI.call_stack_reservation_bytes(1) == 16
+    assert X86_64_SYSV_ABI.call_stack_reservation_bytes(2) == 16
+    assert X86_64_SYSV_ABI.call_stack_reservation_bytes(3) == 32
+
+
 @pytest.mark.parametrize("builder", [one_method_backend_program, one_constructor_backend_program])
 def test_legality_checker_rejects_receiver_aware_callables(builder) -> None:
     with pytest.raises(X86_64SysVLegalityError, match="only supports plain functions"):

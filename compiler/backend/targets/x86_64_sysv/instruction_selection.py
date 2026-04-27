@@ -7,6 +7,8 @@ Scratch register discipline for phase 4 PR3:
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from compiler.backend.ir import (
     BackendBinaryInst,
     BackendBlock,
@@ -51,6 +53,7 @@ def emit_block_instructions(
     *,
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
+    call_emitter: Callable[[BackendCallInst], None] | None = None,
 ) -> None:
     for instruction in block.instructions:
         _emit_instruction(
@@ -59,6 +62,7 @@ def emit_block_instructions(
             block=block,
             frame_layout=frame_layout,
             register_type_name_by_reg_id=register_type_name_by_reg_id,
+            call_emitter=call_emitter,
         )
 
 
@@ -71,7 +75,7 @@ def emit_return_terminator(
     epilogue_label_text: str,
 ) -> None:
     if terminator.value is not None:
-        _emit_load_operand(
+        emit_load_operand(
             builder,
             terminator.value,
             target_register=_PRIMARY_REGISTER,
@@ -91,7 +95,7 @@ def emit_branch_terminator(
     true_label: str,
     false_label: str,
 ) -> None:
-    _emit_load_operand(
+    emit_load_operand(
         builder,
         terminator.condition,
         target_register=_PRIMARY_REGISTER,
@@ -150,14 +154,15 @@ def _emit_instruction(
     block: BackendBlock,
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
+    call_emitter: Callable[[BackendCallInst], None] | None = None,
 ) -> None:
     if isinstance(instruction, BackendConstInst):
         _emit_load_constant(builder, instruction.constant, target_register=_PRIMARY_REGISTER)
-        _emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+        emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
 
     if isinstance(instruction, BackendCopyInst):
-        _emit_load_operand(
+        emit_load_operand(
             builder,
             instruction.source,
             target_register=_PRIMARY_REGISTER,
@@ -165,11 +170,11 @@ def _emit_instruction(
             frame_layout=frame_layout,
             register_type_name_by_reg_id=register_type_name_by_reg_id,
         )
-        _emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+        emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
 
     if isinstance(instruction, BackendUnaryInst):
-        _emit_load_operand(
+        emit_load_operand(
             builder,
             instruction.operand,
             target_register=_PRIMARY_REGISTER,
@@ -179,11 +184,11 @@ def _emit_instruction(
         )
         operand_type_name = _operand_type_name(instruction.operand, register_type_name_by_reg_id)
         _emit_unary_operation(builder, instruction, operand_type_name=operand_type_name)
-        _emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+        emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
 
     if isinstance(instruction, BackendBinaryInst):
-        _emit_load_operand(
+        emit_load_operand(
             builder,
             instruction.left,
             target_register=_PRIMARY_REGISTER,
@@ -191,7 +196,7 @@ def _emit_instruction(
             frame_layout=frame_layout,
             register_type_name_by_reg_id=register_type_name_by_reg_id,
         )
-        _emit_load_operand(
+        emit_load_operand(
             builder,
             instruction.right,
             target_register=_SECONDARY_REGISTER,
@@ -201,10 +206,13 @@ def _emit_instruction(
         )
         operand_type_name = _operand_type_name(instruction.left, register_type_name_by_reg_id)
         _emit_binary_operation(builder, instruction, operand_type_name=operand_type_name)
-        _emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+        emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
 
     if isinstance(instruction, BackendCallInst):
+        if call_emitter is not None:
+            call_emitter(instruction)
+            return
         raise BackendTargetLoweringError(
             "x86_64_sysv direct-call lowering lands in later phase-4 slices; PR3 only supports straight-line scalar instructions"
         )
@@ -324,7 +332,7 @@ def _emit_integer_comparison(builder: X86AsmBuilder, kind: BinaryOpKind, *, oper
     builder.instruction("movzx", _PRIMARY_REGISTER, _PRIMARY_BYTE_REGISTER)
 
 
-def _emit_load_operand(
+def emit_load_operand(
     builder: X86AsmBuilder,
     operand: BackendOperand,
     *,
@@ -365,13 +373,19 @@ def _emit_load_constant(builder: X86AsmBuilder, constant: object, *, target_regi
     )
 
 
-def _emit_store_result(builder: X86AsmBuilder, dest_reg_id, *, frame_layout: X86_64SysVFrameLayout) -> None:
+def emit_store_result(
+    builder: X86AsmBuilder,
+    dest_reg_id,
+    *,
+    frame_layout: X86_64SysVFrameLayout,
+    source_register: str = _PRIMARY_REGISTER,
+) -> None:
     slot = frame_layout.for_reg(dest_reg_id)
     if slot is None:
         raise BackendTargetLoweringError(
             f"x86_64_sysv frame layout is missing a home for destination register 'r{dest_reg_id.ordinal}'"
         )
-    builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), _PRIMARY_REGISTER)
+    builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), source_register)
 
 
 def _operand_type_name(operand: BackendOperand, register_type_name_by_reg_id: dict) -> str:
@@ -402,7 +416,9 @@ __all__ = [
     "emit_block_instructions",
     "emit_branch_terminator",
     "emit_jump_terminator",
+    "emit_load_operand",
     "emit_return_terminator",
+    "emit_store_result",
     "emit_straight_line_callable_body",
     "register_type_name_by_reg_id",
 ]

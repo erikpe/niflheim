@@ -174,23 +174,6 @@ def test_emit_source_asm_is_byte_stable_across_repeated_runs(tmp_path) -> None:
     assert first_asm == second_asm
 
 
-def test_emit_source_asm_rejects_direct_calls_before_pr5(tmp_path) -> None:
-    with pytest.raises(RuntimeError, match="direct-call lowering lands in later phase-4 slices"):
-        emit_source_asm(
-            tmp_path,
-            """
-            fn helper(value: i64) -> i64 {
-                return value + 1;
-            }
-
-            fn main() -> i64 {
-                return helper(41);
-            }
-            """,
-            skip_optimize=True,
-        )
-
-
 def test_emit_source_asm_can_execute_straight_line_arithmetic_program(tmp_path) -> None:
     run = compile_and_run_source(
         tmp_path,
