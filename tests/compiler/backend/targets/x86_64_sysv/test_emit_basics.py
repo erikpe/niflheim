@@ -53,19 +53,32 @@ def test_plan_callable_frame_layout_assigns_deterministic_offsets_from_stack_hom
         assert first_layout.for_home_name(home_name) == slot
 
 
-def test_plan_callable_frame_layout_rejects_root_slot_requirements() -> None:
+def test_plan_callable_frame_layout_allocates_inline_root_frame_for_root_slots() -> None:
     target_input = make_target_input(one_function_backend_program())
     callable_decl = callable_by_id(target_input.program, FIXTURE_ENTRY_FUNCTION_ID)
 
-    with pytest.raises(X86_64SysVFrameError, match="does not yet support GC root-slot setup"):
-        plan_callable_frame_layout(
-            with_root_slot(
-                target_input,
-                callable_id=FIXTURE_ENTRY_FUNCTION_ID,
-                reg_id=callable_decl.registers[0].reg_id,
-            ),
-            callable_decl,
-        )
+    layout = plan_callable_frame_layout(
+        with_root_slot(
+            target_input,
+            callable_id=FIXTURE_ENTRY_FUNCTION_ID,
+            reg_id=callable_decl.registers[0].reg_id,
+        ),
+        callable_decl,
+    )
+
+    home_slot = layout.for_reg(callable_decl.registers[0].reg_id)
+    root_slot = layout.root_slot_for_reg(callable_decl.registers[0].reg_id)
+
+    assert home_slot is not None
+    assert layout.has_root_frame is True
+    assert layout.root_slot_count == 1
+    assert layout.thread_state_offset is not None
+    assert layout.root_frame_offset is not None
+    assert root_slot is not None
+    assert layout.thread_state_offset < home_slot.byte_offset
+    assert layout.root_frame_offset < layout.thread_state_offset
+    assert root_slot.byte_offset < layout.root_frame_offset
+    assert layout.stack_size % 16 == 0
 
 
 def test_emit_program_emits_prologue_epilogue_and_param_spills_for_unit_function() -> None:

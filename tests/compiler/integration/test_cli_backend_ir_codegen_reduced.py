@@ -4,7 +4,7 @@ from pathlib import Path
 
 import compiler.cli as cli
 
-from tests.compiler.integration.helpers import compile_and_run, compile_to_asm, run_cli, write
+from tests.compiler.integration.helpers import compile_and_run, compile_to_asm, write
 
 
 _EXPERIMENTAL_BACKEND_ARGS = ["--experimental-backend", "backend-ir-x86_64_sysv"]
@@ -64,29 +64,58 @@ def test_cli_default_codegen_path_does_not_use_experimental_backend_without_sele
     assert asm_path.exists()
 
 
-def test_cli_experimental_backend_selector_reports_root_slot_limitations(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_cli_experimental_backend_selector_can_compile_and_run_rooted_program(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
         """
-        class Box {
-            value: i64;
+        extern fn rt_gc_collect() -> unit;
+
+        class FirstMarker {}
+        class MiddleMarker {}
+
+        fn choose_last(left: Obj, right: Obj) -> Obj {
+            rt_gc_collect();
+            return right;
         }
 
         fn main() -> i64 {
-            var first: Box = Box(7);
-            var second: Box = Box(8);
-            return first.value + second.value;
+            var i: i64 = 0;
+            while i < 50 {
+                var first: Obj = (Obj)FirstMarker();
+                var middle: Obj = (Obj)MiddleMarker();
+                var last: Obj = first;
+
+                rt_gc_collect();
+                last = first;
+                rt_gc_collect();
+
+                var kept: Obj = choose_last(middle, last);
+                if !(kept is FirstMarker) {
+                    return 10;
+                }
+
+                rt_gc_collect();
+                if !(last is FirstMarker) {
+                    return 11;
+                }
+
+                i = i + 1;
+            }
+
+            return 0;
         }
         """,
     )
 
-    rc = run_cli(monkeypatch, ["nifc", str(entry), *list(_EXPERIMENTAL_BACKEND_ARGS)])
-    captured = capsys.readouterr()
+    run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
 
-    assert rc == 1
-    assert "Backend target 'x86_64_sysv'" in captured.err
-    assert "GC root-slot setup" in captured.err
+    assert run.returncode == 0, run.stderr
 
 
 def test_cli_experimental_backend_selector_can_compile_and_run_reduced_scope_program(tmp_path: Path, monkeypatch) -> None:
@@ -154,3 +183,50 @@ def test_cli_experimental_backend_selector_can_omit_runtime_trace_calls(tmp_path
     assert "rt_trace_push" not in asm
     assert "rt_trace_pop" not in asm
     assert "rt_trace_set_location" not in asm
+
+
+def test_cli_experimental_backend_selector_runs_reference_array_iteration_across_gc(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        extern fn rt_gc_collect() -> unit;
+
+        class LeftMarker {}
+        class RightMarker {}
+
+        fn main() -> i64 {
+            var left: LeftMarker = LeftMarker();
+            var right: RightMarker = RightMarker();
+            var values: Obj[] = Obj[](2u);
+            values[0] = left;
+            values[1] = right;
+
+            var sum: i64 = 0;
+            for value in values {
+                rt_gc_collect();
+                if value is LeftMarker {
+                    sum = sum + 4;
+                } else if value is RightMarker {
+                    sum = sum + 6;
+                } else {
+                    return 1;
+                }
+            }
+
+            if sum == 10 {
+                return 0;
+            }
+            return 2;
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+
+    assert run.returncode == 0, run.stderr

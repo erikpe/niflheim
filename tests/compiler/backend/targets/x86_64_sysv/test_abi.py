@@ -203,18 +203,17 @@ def test_legality_checker_accepts_scalar_cast_instruction_family() -> None:
     check_x86_64_sysv_legality(make_target_input(updated_program))
 
 
-def test_legality_checker_rejects_root_slot_requirements() -> None:
+def test_legality_checker_accepts_root_slot_requirements() -> None:
     target_input = make_target_input(one_function_backend_program())
     callable_decl = callable_by_id(target_input.program, FIXTURE_ENTRY_FUNCTION_ID)
 
-    with pytest.raises(X86_64SysVLegalityError, match="does not yet support GC root-slot setup"):
-        check_x86_64_sysv_legality(
-            with_root_slot(
-                target_input,
-                callable_id=FIXTURE_ENTRY_FUNCTION_ID,
-                reg_id=callable_decl.registers[0].reg_id,
-            )
+    check_x86_64_sysv_legality(
+        with_root_slot(
+            target_input,
+            callable_id=FIXTURE_ENTRY_FUNCTION_ID,
+            reg_id=callable_decl.registers[0].reg_id,
         )
+    )
 
 
 def test_asm_helpers_render_stable_text() -> None:

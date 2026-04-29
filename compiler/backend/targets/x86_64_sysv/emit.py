@@ -40,6 +40,13 @@ from compiler.backend.targets import (
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
 from compiler.backend.targets.x86_64_sysv.frame import plan_callable_frame_layout
+from compiler.backend.targets.x86_64_sysv.root_codegen import (
+    emit_root_frame_pop,
+    emit_root_frame_setup,
+    emit_root_slot_reload,
+    emit_root_slot_sync,
+    emit_zero_root_slots,
+)
 from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     emit_branch_terminator,
     emit_instruction,
@@ -194,12 +201,7 @@ def _check_callable_register_types(callable_decl) -> None:
 
 
 def _check_callable_analysis(target_input: BackendTargetInput, callable_decl) -> None:
-    callable_analysis = target_input.analysis_for_callable(callable_decl.callable_id)
-    if callable_analysis.root_slots.root_slot_by_reg:
-        _callable_error(
-            callable_decl,
-            "x86_64_sysv does not yet support GC root-slot setup",
-        )
+    target_input.analysis_for_callable(callable_decl.callable_id)
 
 
 def _check_instruction_legality(callable_decl, block: BackendBlock, instruction: object) -> None:
@@ -258,6 +260,7 @@ def _emit_callable_body(
     trace_record,
     runtime_trace_enabled: bool,
 ) -> None:
+    callable_analysis = target_input.analysis_for_callable(callable_decl.callable_id)
     callable_symbols = target_input.program_context.symbols.callable(callable_decl.callable_id)
     if callable_symbols.emitted_label is None:
         raise BackendTargetLoweringError(
@@ -275,6 +278,19 @@ def _emit_callable_body(
     def emit_location_hook(*, line: int, column: int) -> None:
         emit_trace_location(builder, line=line, column=column)
 
+    def emit_safepoint_preamble(instruction) -> None:
+        if frame_layout.has_root_frame:
+            live_reg_ids = callable_analysis.safepoints.live_regs_for_instruction(instruction.inst_id)
+            emit_root_slot_sync(builder, frame_layout=frame_layout, live_reg_ids=live_reg_ids)
+        if runtime_trace_enabled and instruction.effects.needs_safepoint_hooks:
+            emit_location_hook(line=instruction.span.start.line, column=instruction.span.start.column)
+
+    def emit_safepoint_postamble(instruction) -> None:
+        if not frame_layout.has_root_frame:
+            return
+        live_reg_ids = callable_analysis.safepoints.live_regs_for_instruction(instruction.inst_id)
+        emit_root_slot_reload(builder, frame_layout=frame_layout, live_reg_ids=live_reg_ids)
+
     def emit_call_instruction(instruction: BackendCallInst) -> None:
         emit_lowered_call_instruction(
             builder,
@@ -286,7 +302,8 @@ def _emit_callable_body(
             program_context=target_input.program_context,
             interface_method_slot_by_id=interface_method_slot_by_id,
             callable_label=callable_label_for_calls,
-            emit_trace_location=emit_location_hook if runtime_trace_enabled else None,
+            emit_safepoint_preamble=emit_safepoint_preamble,
+            emit_safepoint_postamble=emit_safepoint_postamble,
         )
 
     if callable_decl.kind == "constructor":
@@ -297,6 +314,7 @@ def _emit_callable_body(
             frame_layout=frame_layout,
             register_type_name_by_reg_id=resolved_type_names,
             emit_call_instruction=emit_call_instruction,
+            emit_location_hook=emit_location_hook if runtime_trace_enabled else None,
             trace_record=trace_record,
             runtime_trace_enabled=runtime_trace_enabled,
         )
@@ -329,6 +347,9 @@ def _emit_callable_body(
         builder.instruction("sub", "rsp", str(frame_layout.stack_size))
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout)
+    if frame_layout.has_root_frame:
+        emit_zero_root_slots(builder, frame_layout=frame_layout)
+        emit_root_frame_setup(builder, frame_layout=frame_layout)
     if runtime_trace_enabled and body_trace_record is not None:
         emit_trace_push(
             builder,
@@ -349,7 +370,8 @@ def _emit_callable_body(
                     instruction,
                     frame_layout=frame_layout,
                     program_context=target_input.program_context,
-                    emit_trace_location=emit_location_hook if runtime_trace_enabled else None,
+                    emit_safepoint_preamble=emit_safepoint_preamble,
+                    emit_safepoint_postamble=emit_safepoint_postamble,
                 )
                 continue
             if isinstance(instruction, BackendFieldLoadInst):
@@ -438,8 +460,12 @@ def _emit_callable_body(
         )
 
     builder.label(epilogue)
-    if runtime_trace_enabled and body_trace_record is not None:
-        _emit_trace_pop_preserving_return(builder, callable_decl)
+    _emit_runtime_epilogue_cleanup_preserving_return(
+        builder,
+        callable_decl,
+        frame_layout=frame_layout,
+        runtime_trace_enabled=runtime_trace_enabled and body_trace_record is not None,
+    )
     builder.instruction("mov", "rsp", "rbp")
     builder.instruction("pop", "rbp")
     builder.instruction("ret")
@@ -539,6 +565,7 @@ def _emit_constructor_entry_wrapper(
     frame_layout,
     register_type_name_by_reg_id: dict,
     emit_call_instruction,
+    emit_location_hook,
     trace_record,
     runtime_trace_enabled: bool,
 ) -> None:
@@ -561,6 +588,9 @@ def _emit_constructor_entry_wrapper(
         builder.instruction("sub", "rsp", str(frame_layout.stack_size))
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout, includes_receiver=False)
+    if frame_layout.has_root_frame:
+        emit_zero_root_slots(builder, frame_layout=frame_layout)
+        emit_root_frame_setup(builder, frame_layout=frame_layout)
     if runtime_trace_enabled and trace_record is not None:
         emit_trace_push(
             builder,
@@ -583,6 +613,11 @@ def _emit_constructor_entry_wrapper(
         ),
         frame_layout=frame_layout,
         program_context=target_input.program_context,
+        emit_safepoint_preamble=(
+            (lambda instruction: emit_location_hook(line=instruction.span.start.line, column=instruction.span.start.column))
+            if emit_location_hook is not None
+            else None
+        ),
     )
     init_call = BackendCallInst(
         inst_id=BackendInstId(owner_id=callable_decl.callable_id, ordinal=1),
@@ -604,8 +639,12 @@ def _emit_constructor_entry_wrapper(
     )
     builder.instruction("jmp", epilogue)
     builder.label(epilogue)
-    if runtime_trace_enabled and trace_record is not None:
-        _emit_trace_pop_preserving_return(builder, callable_decl)
+    _emit_runtime_epilogue_cleanup_preserving_return(
+        builder,
+        callable_decl,
+        frame_layout=frame_layout,
+        runtime_trace_enabled=runtime_trace_enabled and trace_record is not None,
+    )
     builder.instruction("mov", "rsp", "rbp")
     builder.instruction("pop", "rbp")
     builder.instruction("ret")
@@ -646,22 +685,37 @@ def _normalize_trace_file_path(source_path: str, *, source_root: Path | None) ->
     return path.as_posix()
 
 
-def _emit_trace_pop_preserving_return(builder, callable_decl) -> None:
+def _emit_runtime_epilogue_cleanup_preserving_return(
+    builder,
+    callable_decl,
+    *,
+    frame_layout,
+    runtime_trace_enabled: bool,
+) -> None:
     return_type = callable_decl.signature.return_type
     if return_type is None:
-        emit_trace_pop(builder)
+        if frame_layout.has_root_frame:
+            emit_root_frame_pop(builder, frame_layout=frame_layout)
+        if runtime_trace_enabled:
+            emit_trace_pop(builder)
         return
     return_type_name = semantic_type_canonical_name(return_type)
     if return_type_name == "double":
         builder.instruction("sub", "rsp", "16")
         builder.instruction("movq", "qword ptr [rsp]", "xmm0")
-        emit_trace_pop(builder)
+        if frame_layout.has_root_frame:
+            emit_root_frame_pop(builder, frame_layout=frame_layout)
+        if runtime_trace_enabled:
+            emit_trace_pop(builder)
         builder.instruction("movq", "xmm0", "qword ptr [rsp]")
         builder.instruction("add", "rsp", "16")
         return
     builder.instruction("sub", "rsp", "16")
     builder.instruction("mov", "qword ptr [rsp]", "rax")
-    emit_trace_pop(builder)
+    if frame_layout.has_root_frame:
+        emit_root_frame_pop(builder, frame_layout=frame_layout)
+    if runtime_trace_enabled:
+        emit_trace_pop(builder)
     builder.instruction("mov", "rax", "qword ptr [rsp]")
     builder.instruction("add", "rsp", "16")
 

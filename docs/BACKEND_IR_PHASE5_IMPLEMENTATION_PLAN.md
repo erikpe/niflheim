@@ -632,10 +632,10 @@ make -C runtime test-all
 
 ### Checklist
 
-- [ ] Implement GC root-frame setup and teardown from backend root-slot analysis.
-- [ ] Synchronize rooted values at safepoints without reintroducing legacy loop-clearing logic.
+- [x] Implement GC root-frame setup and teardown from backend root-slot analysis.
+- [x] Synchronize rooted values at safepoints without reintroducing legacy loop-clearing logic.
 - [ ] Broaden the explicit new backend selector to the full supported feature surface.
-- [ ] Pass the full backend and integration pytest gate.
+- [x] Pass the full backend and integration pytest gate.
 - [ ] Pass the full golden suite and runtime harnesses on the new backend path.
 
 ## Phase 5 Gate Checklist
@@ -648,9 +648,9 @@ Use this checklist when phase 5 is believed to be complete.
 - [ ] Arrays, slices, strings, and lowered `for in` collection paths work on the new backend path.
 - [ ] Virtual, interface, and runtime-backed dispatch work on the new backend path.
 - [ ] Casts, type tests, runtime trace hooks, externs, exports, and multimodule entry behavior match the legacy surface.
-- [ ] GC root frames and root-slot synchronization are driven by backend IR analyses rather than legacy tree walks.
+- [x] GC root frames and root-slot synchronization are driven by backend IR analyses rather than legacy tree walks.
 - [ ] The explicit new backend selector supports the full currently supported language surface.
-- [ ] Backend and integration pytest coverage pass under the new backend path.
+- [x] Backend and integration pytest coverage pass under the new backend path.
 - [ ] The full golden suite and runtime harnesses pass while the legacy backend remains available.
 
 Recommended phase gate commands:

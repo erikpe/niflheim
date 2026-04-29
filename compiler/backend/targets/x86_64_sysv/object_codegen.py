@@ -21,18 +21,21 @@ def emit_alloc_object_instruction(
     *,
     frame_layout: X86_64SysVFrameLayout,
     program_context: BackendProgramContext,
-    emit_trace_location=None,
+    emit_safepoint_preamble=None,
+    emit_safepoint_postamble=None,
 ) -> None:
     class_symbols = program_context.symbols.class_symbols(instruction.class_id)
     payload_bytes = program_context.class_hierarchy.payload_bytes(instruction.class_id)
 
-    if emit_trace_location is not None and instruction.effects.needs_safepoint_hooks:
-        emit_trace_location(line=instruction.span.start.line, column=instruction.span.start.column)
+    if emit_safepoint_preamble is not None and (instruction.effects.may_gc or instruction.effects.needs_safepoint_hooks):
+        emit_safepoint_preamble(instruction)
     builder.instruction("call", "rt_thread_state")
     builder.instruction("mov", "rdi", "rax")
     builder.instruction("lea", "rsi", f"[rip + {class_symbols.type_symbol}]")
     builder.instruction("mov", "rdx", str(payload_bytes))
     builder.instruction("call", "rt_alloc_obj")
+    if emit_safepoint_postamble is not None and instruction.effects.may_gc:
+        emit_safepoint_postamble(instruction)
     emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
 
 

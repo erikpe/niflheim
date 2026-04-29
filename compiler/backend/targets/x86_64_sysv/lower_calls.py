@@ -64,7 +64,8 @@ def emit_call_instruction(
     program_context: BackendProgramContext,
     interface_method_slot_by_id: dict,
     callable_label: str,
-    emit_trace_location=None,
+    emit_safepoint_preamble=None,
+    emit_safepoint_postamble=None,
     abi: X86_64SysVAbi = X86_64_SYSV_ABI,
 ) -> None:
     if not isinstance(
@@ -109,8 +110,8 @@ def emit_call_instruction(
             "x86_64_sysv frame layout does not reserve enough outgoing stack-argument slots for this call"
         )
 
-    if emit_trace_location is not None and instruction.effects.needs_safepoint_hooks:
-        emit_trace_location(line=instruction.span.start.line, column=instruction.span.start.column)
+    if emit_safepoint_preamble is not None and (instruction.effects.may_gc or instruction.effects.needs_safepoint_hooks):
+        emit_safepoint_preamble(instruction)
 
     call_stack_reservation_bytes = abi.call_stack_reservation_bytes(stack_arg_slot_count)
     if call_stack_reservation_bytes > 0:
@@ -197,6 +198,9 @@ def emit_call_instruction(
 
     if call_stack_reservation_bytes > 0:
         builder.instruction("add", "rsp", str(call_stack_reservation_bytes))
+
+    if emit_safepoint_postamble is not None and instruction.effects.may_gc:
+        emit_safepoint_postamble(instruction)
 
     if instruction.signature.return_type is None:
         if instruction.dest is not None:

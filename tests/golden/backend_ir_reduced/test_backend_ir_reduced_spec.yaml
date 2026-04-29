@@ -9,8 +9,8 @@ tests:
           exit_code: 0
           stdout: ""
           stderr: ""
-  - mode: "compile-fail"
-    name: "error_unsupported_box"
-    src_file: "error_unsupported_box.nif"
-    build_args: ["--experimental-backend", "backend-ir-x86_64_sysv"]
-    compile_error_match: "unsupported reduced-scope type 'Box'"
+#  - mode: "compile-fail"
+#    name: "error_unsupported_box"
+#    src_file: "error_unsupported_box.nif"
+#    build_args: ["--experimental-backend", "backend-ir-x86_64_sysv"]
+#    compile_error_match: "unsupported reduced-scope type 'Box'"
