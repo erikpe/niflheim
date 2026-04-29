@@ -19,6 +19,7 @@ from compiler.backend.ir import (
     BackendBranchTerminator,
     BackendBoolConst,
     BackendCallInst,
+    BackendCastInst,
     BackendConstInst,
     BackendConstOperand,
     BackendCopyInst,
@@ -36,7 +37,7 @@ from compiler.backend.targets import BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
 from compiler.backend.targets.x86_64_sysv.frame import X86_64SysVFrameLayout
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U8, TYPE_NAME_U64
-from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, UnaryOpFlavor, UnaryOpKind
+from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, CastSemanticsKind, UnaryOpFlavor, UnaryOpKind
 from compiler.semantic.types import semantic_type_canonical_name
 
 
@@ -301,6 +302,19 @@ def _emit_instruction(
             emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
 
+    if isinstance(instruction, BackendCastInst):
+        emit_load_operand(
+            builder,
+            instruction.operand,
+            target_register=_PRIMARY_REGISTER,
+            target_byte_register=_PRIMARY_BYTE_REGISTER,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+        _emit_scalar_cast(builder, instruction, source_type_name=_operand_type_name(instruction.operand, register_type_name_by_reg_id))
+        emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+        return
+
     if isinstance(instruction, BackendCallInst):
         if call_emitter is not None:
             call_emitter(instruction)
@@ -488,6 +502,15 @@ def _emit_integer_comparison(builder: X86AsmBuilder, kind: BinaryOpKind, *, oper
             f"x86_64_sysv integer comparison operator '{kind.value}' is not supported in PR3"
         )
     builder.instruction("movzx", _PRIMARY_REGISTER, _PRIMARY_BYTE_REGISTER)
+
+
+def _emit_scalar_cast(builder: X86AsmBuilder, instruction: BackendCastInst, *, source_type_name: str) -> None:
+    target_type_name = semantic_type_canonical_name(instruction.target_type_ref)
+    if instruction.cast_kind is CastSemanticsKind.TO_INTEGER and source_type_name == TYPE_NAME_U64 and target_type_name == TYPE_NAME_I64:
+        return
+    raise BackendTargetLoweringError(
+        f"x86_64_sysv cast '{instruction.cast_kind.value}' from '{source_type_name}' to '{target_type_name}' is not supported in PR4"
+    )
 
 
 def emit_load_operand(

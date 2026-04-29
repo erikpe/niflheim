@@ -14,7 +14,9 @@ from compiler.backend.ir import (
     BackendBoundsCheckInst,
     BackendCallInst,
     BackendCastInst,
+    BackendConstOperand,
     BackendDirectCallTarget,
+    BackendRuntimeCallTarget,
     BackendFieldLoadInst,
     BackendFieldStoreInst,
     BackendJumpTerminator,
@@ -40,7 +42,16 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     emit_return_terminator,
     register_type_name_by_reg_id,
 )
-from compiler.backend.targets.x86_64_sysv.lower_calls import emit_direct_call_instruction
+from compiler.backend.targets.x86_64_sysv.array_codegen import (
+    emit_array_alloc_instruction,
+    emit_array_length_instruction,
+    emit_array_load_instruction,
+    emit_array_slice_instruction,
+    emit_array_slice_store_instruction,
+    emit_array_store_instruction,
+    emit_bounds_check_instruction,
+)
+from compiler.backend.targets.x86_64_sysv.lower_calls import emit_call_instruction as emit_lowered_call_instruction
 from compiler.backend.targets.x86_64_sysv.object_codegen import (
     emit_alloc_object_instruction,
     emit_field_load_instruction,
@@ -50,6 +61,8 @@ from compiler.backend.targets.x86_64_sysv.object_codegen import (
 )
 from compiler.backend.ir import BackendEffects, BackendInstId, BackendRegOperand
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId
+from compiler.semantic.operations import CastSemanticsKind
+from compiler.semantic.types import semantic_type_canonical_name
 
 
 TARGET_NAME = "x86_64_sysv"
@@ -160,15 +173,7 @@ def _check_callable_analysis(target_input: BackendTargetInput, callable_decl) ->
 
 def _check_instruction_legality(callable_decl, block: BackendBlock, instruction: object) -> None:
     unsupported_types = (
-        BackendCastInst,
         BackendTypeTestInst,
-        BackendArrayAllocInst,
-        BackendArrayLengthInst,
-        BackendArrayLoadInst,
-        BackendArrayStoreInst,
-        BackendArraySliceInst,
-        BackendArraySliceStoreInst,
-        BackendBoundsCheckInst,
     )
     if isinstance(instruction, unsupported_types):
         _instruction_error(
@@ -179,8 +184,18 @@ def _check_instruction_legality(callable_decl, block: BackendBlock, instruction:
         )
         return
 
+    if isinstance(instruction, BackendCastInst):
+        if not _is_supported_pr4_cast(callable_decl, instruction):
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"instruction '{type(instruction).__name__}' is not supported in reduced phase-4 x86_64_sysv",
+            )
+        return
+
     if isinstance(instruction, BackendCallInst):
-        if not isinstance(instruction.target, BackendDirectCallTarget):
+        if not isinstance(instruction.target, (BackendDirectCallTarget, BackendRuntimeCallTarget)):
             _instruction_error(
                 callable_decl,
                 block,
@@ -224,7 +239,7 @@ def _emit_callable_body(
     resolved_type_names = register_type_name_by_reg_id(callable_decl)
 
     def emit_call_instruction(instruction: BackendCallInst) -> None:
-        emit_direct_call_instruction(
+        emit_lowered_call_instruction(
             builder,
             instruction,
             frame_layout=frame_layout,
@@ -310,6 +325,27 @@ def _emit_callable_body(
                     frame_layout=frame_layout,
                     register_type_name_by_reg_id=resolved_type_names,
                 )
+                continue
+            if isinstance(instruction, BackendArrayAllocInst):
+                emit_array_alloc_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                continue
+            if isinstance(instruction, BackendArrayLengthInst):
+                emit_array_length_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                continue
+            if isinstance(instruction, BackendArrayLoadInst):
+                emit_array_load_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                continue
+            if isinstance(instruction, BackendArrayStoreInst):
+                emit_array_store_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                continue
+            if isinstance(instruction, BackendArraySliceInst):
+                emit_array_slice_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                continue
+            if isinstance(instruction, BackendArraySliceStoreInst):
+                emit_array_slice_store_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                continue
+            if isinstance(instruction, BackendBoundsCheckInst):
+                emit_bounds_check_instruction(builder, instruction)
                 continue
             emit_instruction(
                 builder,
@@ -521,6 +557,25 @@ def _format_callable_id(callable_id) -> str:
     if isinstance(callable_id, ConstructorId):
         return f"{'.'.join(callable_id.module_path)}::{callable_id.class_name}#{callable_id.ordinal}"
     raise TypeError(f"Unsupported backend callable ID '{callable_id!r}'")
+
+
+def _is_supported_pr4_cast(callable_decl, instruction: BackendCastInst) -> bool:
+    if instruction.cast_kind is not CastSemanticsKind.TO_INTEGER:
+        return False
+    source_type_name = _operand_type_name(callable_decl, instruction.operand)
+    target_type_name = semantic_type_canonical_name(instruction.target_type_ref)
+    return source_type_name == "u64" and target_type_name == "i64"
+
+
+def _operand_type_name(callable_decl, operand) -> str:
+    if isinstance(operand, BackendRegOperand):
+        register_by_id = {register.reg_id: register for register in callable_decl.registers}
+        return semantic_type_canonical_name(register_by_id[operand.reg_id].type_ref)
+    if isinstance(operand, BackendConstOperand):
+        if hasattr(operand.constant, "type_name"):
+            return operand.constant.type_name
+        return "Obj"
+    raise TypeError(f"Unsupported backend operand '{operand!r}'")
 
 
 X86_64_SYSV_TARGET: BackendTarget = X86_64SysVTarget()

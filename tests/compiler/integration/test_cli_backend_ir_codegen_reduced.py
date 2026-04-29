@@ -69,10 +69,23 @@ def test_cli_experimental_backend_selector_reports_reduced_slice_limitations(tmp
     write(
         entry,
         """
+        class Box {
+            value: i64;
+
+            constructor(value: i64) {
+                __self.value = value;
+            }
+        }
+
+        fn bounce(value: Obj) -> Obj {
+            return value;
+        }
+
         fn main() -> i64 {
-            var values: i64[] = i64[](2u);
-            values[0] = 7;
-            return values[0];
+            var value: Box = Box(7);
+            var raw: Obj = bounce(value);
+            var box: Box = (Box)raw;
+            return box.value;
         }
         """,
     )
@@ -82,7 +95,7 @@ def test_cli_experimental_backend_selector_reports_reduced_slice_limitations(tmp
 
     assert rc == 1
     assert "Backend target 'x86_64_sysv'" in captured.err
-    assert "BackendArrayAllocInst" in captured.err
+    assert "BackendCastInst" in captured.err
 
 
 def test_cli_experimental_backend_selector_can_compile_and_run_reduced_scope_program(tmp_path: Path, monkeypatch) -> None:

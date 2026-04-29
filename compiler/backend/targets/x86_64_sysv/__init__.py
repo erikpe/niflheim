@@ -22,7 +22,7 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     emit_straight_line_callable_body,
     register_type_name_by_reg_id,
 )
-from compiler.backend.targets.x86_64_sysv.lower_calls import emit_direct_call_instruction
+from compiler.backend.targets.x86_64_sysv.lower_calls import emit_call_instruction, emit_direct_call_instruction
 from compiler.backend.targets.x86_64_sysv.emit import (
     TARGET_NAME,
     X86_64_SYSV_TARGET,
@@ -47,6 +47,7 @@ __all__ = [
     "check_x86_64_sysv_legality",
     "emit_block_instructions",
     "emit_branch_terminator",
+    "emit_call_instruction",
     "emit_direct_call_instruction",
     "emit_jump_terminator",
     "emit_load_operand",

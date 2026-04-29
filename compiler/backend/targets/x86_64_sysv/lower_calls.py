@@ -1,10 +1,8 @@
-"""Reduced-scope direct-call lowering for the x86-64 SysV backend target."""
+"""Call lowering for the x86-64 SysV backend target."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
-from compiler.backend.ir import BackendCallInst, BackendDirectCallTarget
+from compiler.backend.ir import BackendCallInst, BackendDataOperand, BackendDirectCallTarget, BackendRuntimeCallTarget
 from compiler.backend.program.symbols import BackendProgramSymbolTable
 from compiler.backend.targets import BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
@@ -35,7 +33,7 @@ _BYTE_REGISTER_BY_REGISTER = {
 }
 
 
-def emit_direct_call_instruction(
+def emit_call_instruction(
     builder: X86AsmBuilder,
     instruction: BackendCallInst,
     *,
@@ -45,18 +43,20 @@ def emit_direct_call_instruction(
     program_symbols: BackendProgramSymbolTable,
     abi: X86_64SysVAbi = X86_64_SYSV_ABI,
 ) -> None:
-    if not isinstance(instruction.target, BackendDirectCallTarget):
+    if not isinstance(instruction.target, (BackendDirectCallTarget, BackendRuntimeCallTarget)):
         raise BackendTargetLoweringError(
-            f"x86_64_sysv reduced call lowering does not support target '{type(instruction.target).__name__}'"
+            f"x86_64_sysv call lowering does not support target '{type(instruction.target).__name__}'"
         )
 
-    callee_decl = callable_decl_by_id.get(instruction.target.callable_id)
-    if callee_decl is None:
-        raise BackendTargetLoweringError(
-            f"x86_64_sysv direct call lowering could not resolve callable '{instruction.target.callable_id}'"
-        )
+    callee_decl = None
+    if isinstance(instruction.target, BackendDirectCallTarget):
+        callee_decl = callable_decl_by_id.get(instruction.target.callable_id)
+        if callee_decl is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv direct call lowering could not resolve callable '{instruction.target.callable_id}'"
+            )
 
-    includes_receiver = len(instruction.args) == len(instruction.signature.param_types) + 1
+    includes_receiver = isinstance(instruction.target, BackendDirectCallTarget) and len(instruction.args) == len(instruction.signature.param_types) + 1
 
     arg_locations = abi.plan_argument_locations(
         instruction.signature.param_types,
@@ -92,13 +92,14 @@ def emit_direct_call_instruction(
     ):
         if arg_location.kind == "int_reg":
             assert arg_location.register_name is not None
-            emit_load_operand(
+            _emit_load_call_operand(
                 builder,
                 operand,
                 target_register=arg_location.register_name,
                 target_byte_register=_byte_register_name(arg_location.register_name),
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
+                program_symbols=program_symbols,
             )
             continue
 
@@ -126,13 +127,14 @@ def emit_direct_call_instruction(
                 )
                 builder.instruction("movq", stack_operand, _CALL_TEMP_FLOAT_REGISTER)
             else:
-                emit_load_operand(
+                _emit_load_call_operand(
                     builder,
                     operand,
                     target_register=_CALL_TEMP_REGISTER,
                     target_byte_register=_CALL_TEMP_BYTE_REGISTER,
                     frame_layout=frame_layout,
                     register_type_name_by_reg_id=register_type_name_by_reg_id,
+                    program_symbols=program_symbols,
                 )
                 builder.instruction("mov", stack_operand, _CALL_TEMP_REGISTER)
             continue
@@ -141,7 +143,7 @@ def emit_direct_call_instruction(
             f"x86_64_sysv direct call lowering does not support argument location kind '{arg_location.kind}'"
         )
 
-    builder.instruction("call", _direct_call_target_symbol(program_symbols, callee_decl, includes_receiver=includes_receiver))
+    builder.instruction("call", _call_target_symbol(instruction, program_symbols, callee_decl, includes_receiver=includes_receiver))
 
     if call_stack_reservation_bytes > 0:
         builder.instruction("add", "rsp", str(call_stack_reservation_bytes))
@@ -172,7 +174,39 @@ def _byte_register_name(register_name: str) -> str:
         ) from exc
 
 
-def _direct_call_target_symbol(program_symbols: BackendProgramSymbolTable, callee_decl, *, includes_receiver: bool) -> str:
+def _emit_load_call_operand(
+    builder: X86AsmBuilder,
+    operand,
+    *,
+    target_register: str,
+    target_byte_register: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+    program_symbols: BackendProgramSymbolTable,
+) -> None:
+    if isinstance(operand, BackendDataOperand):
+        builder.instruction("lea", target_register, f"[rip + {program_symbols.data_blob_symbols(operand.data_id).symbol}]")
+        return
+    emit_load_operand(
+        builder,
+        operand,
+        target_register=target_register,
+        target_byte_register=target_byte_register,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+
+
+def _call_target_symbol(
+    instruction: BackendCallInst,
+    program_symbols: BackendProgramSymbolTable,
+    callee_decl,
+    *,
+    includes_receiver: bool,
+) -> str:
+    if isinstance(instruction.target, BackendRuntimeCallTarget):
+        return instruction.target.name
+    assert callee_decl is not None
     callable_symbols = program_symbols.callable(callee_decl.callable_id)
     if callee_decl.kind == "constructor" and includes_receiver:
         if callable_symbols.constructor_init_symbol is None:
@@ -183,4 +217,8 @@ def _direct_call_target_symbol(program_symbols: BackendProgramSymbolTable, calle
     return callable_symbols.direct_call_symbol
 
 
-__all__ = ["emit_direct_call_instruction"]
+def emit_direct_call_instruction(*args, **kwargs):
+    return emit_call_instruction(*args, **kwargs)
+
+
+__all__ = ["emit_call_instruction", "emit_direct_call_instruction"]
