@@ -81,6 +81,14 @@ def string_literal_symbol(data_id: BackendDataId | int) -> str:
     return f"__nif_str_lit_{ordinal}"
 
 
+def mangle_debug_function_symbol(target_label: str) -> str:
+    return f"__nif_debug_fn_{_mangle_fragment(target_label)}"
+
+
+def mangle_debug_file_symbol(target_label: str) -> str:
+    return f"__nif_debug_file_{_mangle_fragment(target_label)}"
+
+
 def epilogue_label(fn_name: str) -> str:
     return f".L{fn_name}_epilogue"
 
@@ -283,6 +291,8 @@ __all__ = [
     "mangle_class_vtable_symbol",
     "mangle_constructor_init_symbol",
     "mangle_constructor_symbol",
+    "mangle_debug_file_symbol",
+    "mangle_debug_function_symbol",
     "mangle_function_symbol",
     "mangle_interface_method_table_symbol",
     "mangle_interface_name_symbol",

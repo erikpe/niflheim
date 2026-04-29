@@ -64,28 +64,19 @@ def test_cli_default_codegen_path_does_not_use_experimental_backend_without_sele
     assert asm_path.exists()
 
 
-def test_cli_experimental_backend_selector_reports_reduced_slice_limitations(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_cli_experimental_backend_selector_reports_root_slot_limitations(tmp_path: Path, monkeypatch, capsys) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
         """
         class Box {
             value: i64;
-
-            constructor(value: i64) {
-                __self.value = value;
-            }
-        }
-
-        fn bounce(value: Obj) -> Obj {
-            return value;
         }
 
         fn main() -> i64 {
-            var value: Box = Box(7);
-            var raw: Obj = bounce(value);
-            var box: Box = (Box)raw;
-            return box.value;
+            var first: Box = Box(7);
+            var second: Box = Box(8);
+            return first.value + second.value;
         }
         """,
     )
@@ -95,7 +86,7 @@ def test_cli_experimental_backend_selector_reports_reduced_slice_limitations(tmp
 
     assert rc == 1
     assert "Backend target 'x86_64_sysv'" in captured.err
-    assert "BackendCastInst" in captured.err
+    assert "GC root-slot setup" in captured.err
 
 
 def test_cli_experimental_backend_selector_can_compile_and_run_reduced_scope_program(tmp_path: Path, monkeypatch) -> None:
@@ -129,3 +120,37 @@ def test_cli_experimental_backend_selector_can_compile_and_run_reduced_scope_pro
     )
 
     assert run.returncode == 4
+
+
+def test_cli_experimental_backend_selector_can_omit_runtime_trace_calls(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        class Box {
+            value: i64;
+        }
+
+        fn make() -> Box {
+            return Box(0);
+        }
+
+        fn main() -> i64 {
+            var box: Box = make();
+            return box.value;
+        }
+        """,
+    )
+
+    asm_path = compile_to_asm(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        out_path=tmp_path / "out.s",
+        extra_args=[*list(_EXPERIMENTAL_BACKEND_ARGS), "--omit-runtime-trace"],
+    )
+    asm = asm_path.read_text(encoding="utf-8")
+
+    assert "rt_trace_push" not in asm
+    assert "rt_trace_pop" not in asm
+    assert "rt_trace_set_location" not in asm

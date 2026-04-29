@@ -7,6 +7,8 @@ from compiler.backend.program.symbols import (
     mangle_class_vtable_symbol,
     mangle_constructor_init_symbol,
     mangle_constructor_symbol,
+    mangle_debug_file_symbol,
+    mangle_debug_function_symbol,
     mangle_function_symbol,
     mangle_interface_name_symbol,
     mangle_interface_symbol,
@@ -57,6 +59,8 @@ def test_backend_program_symbol_helpers_preserve_callable_and_metadata_contracts
     assert mangle_method_symbol(get_id) == "__nif_method_std__Box_get"
     assert mangle_constructor_symbol(ctor_id) == "__nif_ctor_std__Box__1"
     assert mangle_constructor_init_symbol(ctor_id) == "__nif_ctor_init_std__Box__1"
+    assert mangle_debug_function_symbol("main") == "__nif_debug_fn_main"
+    assert mangle_debug_file_symbol("__nif_fn_std__helper") == "__nif_debug_file___nif_fn_std__helper"
     assert mangle_class_vtable_symbol(box_id) == "__nif_vtable_std__Box"
     assert mangle_type_pointer_offsets_symbol(qualified_class_name(box_id)) == "__nif_type_name_std__Box__ptr_offsets"
     assert mangle_interface_symbol(hashable_id) == "__nif_interface_std__Hashable"

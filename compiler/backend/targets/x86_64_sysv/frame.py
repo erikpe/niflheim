@@ -62,7 +62,7 @@ def plan_callable_frame_layout(
     if callable_analysis.root_slots.root_slot_by_reg:
         _frame_error(
             callable_decl,
-            "reduced phase-4 x86_64_sysv does not yet support GC root-slot setup",
+            "x86_64_sysv does not yet support GC root-slot setup",
         )
 
     registers_by_reg_id = {register.reg_id: register for register in callable_decl.registers}

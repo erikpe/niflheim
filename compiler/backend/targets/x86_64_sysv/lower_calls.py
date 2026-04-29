@@ -64,6 +64,7 @@ def emit_call_instruction(
     program_context: BackendProgramContext,
     interface_method_slot_by_id: dict,
     callable_label: str,
+    emit_trace_location=None,
     abi: X86_64SysVAbi = X86_64_SYSV_ABI,
 ) -> None:
     if not isinstance(
@@ -107,6 +108,9 @@ def emit_call_instruction(
         raise BackendTargetLoweringError(
             "x86_64_sysv frame layout does not reserve enough outgoing stack-argument slots for this call"
         )
+
+    if emit_trace_location is not None and instruction.effects.needs_safepoint_hooks:
+        emit_trace_location(line=instruction.span.start.line, column=instruction.span.start.column)
 
     call_stack_reservation_bytes = abi.call_stack_reservation_bytes(stack_arg_slot_count)
     if call_stack_reservation_bytes > 0:

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from compiler.backend.program.symbols import epilogue_label
 from compiler.backend.ir import (
     BackendAllocObjectInst,
@@ -45,6 +48,11 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     emit_return_terminator,
     register_type_name_by_reg_id,
 )
+from compiler.backend.targets.x86_64_sysv.cast_codegen import (
+    emit_array_kind_name_literals,
+    emit_cast_instruction,
+    emit_type_test_instruction,
+)
 from compiler.backend.targets.x86_64_sysv.array_codegen import (
     emit_array_alloc_instruction,
     emit_array_length_instruction,
@@ -62,17 +70,24 @@ from compiler.backend.targets.x86_64_sysv.object_codegen import (
     emit_null_check_instruction,
     emit_program_metadata_sections,
 )
+from compiler.backend.targets.x86_64_sysv.trace_codegen import (
+    TraceDebugRecord,
+    emit_trace_debug_literals,
+    emit_trace_location,
+    emit_trace_pop,
+    emit_trace_push,
+)
 from compiler.backend.ir import BackendEffects, BackendInstId, BackendRegOperand
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId
-from compiler.semantic.operations import CastSemanticsKind
-from compiler.semantic.types import semantic_type_canonical_name
+from compiler.semantic.operations import CastSemanticsKind, TypeTestSemanticsKind
+from compiler.semantic.types import semantic_type_canonical_name, semantic_type_is_interface, semantic_type_is_reference
 
 
 TARGET_NAME = "x86_64_sysv"
 
 
 class X86_64SysVLegalityError(BackendTargetLoweringError):
-    """Raised when backend IR falls outside the reduced phase-4 x86-64 SysV slice."""
+    """Raised when backend IR falls outside the current x86-64 SysV experimental slice."""
 
 
 class X86_64SysVTarget:
@@ -87,6 +102,8 @@ def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTa
 
     builder = X86AsmBuilder(emit_debug_comments=options.emit_debug_comments)
     callable_by_id = {callable_decl.callable_id: callable_decl for callable_decl in target_input.program.callables}
+    trace_records: list[TraceDebugRecord] = []
+    source_root = _common_source_root(target_input)
     builder.blank()
     builder.directive(".text")
 
@@ -95,6 +112,13 @@ def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTa
             continue
         builder.blank()
         frame_layout = plan_callable_frame_layout(target_input, callable_decl)
+        trace_record = (
+            _trace_record_for_callable(target_input, callable_decl, source_root=source_root)
+            if options.runtime_trace_enabled
+            else None
+        )
+        if trace_record is not None:
+            trace_records.append(trace_record)
         _emit_callable_body(
             builder,
             callable_decl,
@@ -103,9 +127,13 @@ def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTa
             ordered_block_ids=target_input.analysis_for_callable(callable_decl.callable_id).ordered_block_ids,
             callable_by_id=callable_by_id,
             emit_debug_comments=options.emit_debug_comments,
+            trace_record=trace_record,
+            runtime_trace_enabled=options.runtime_trace_enabled,
         )
 
     emit_program_metadata_sections(builder, program_context=target_input.program_context)
+    emit_array_kind_name_literals(builder)
+    emit_trace_debug_literals(builder, records=tuple(trace_records))
 
     builder.blank()
     builder.directive('.section .note.GNU-stack,"",@progbits')
@@ -170,31 +198,17 @@ def _check_callable_analysis(target_input: BackendTargetInput, callable_decl) ->
     if callable_analysis.root_slots.root_slot_by_reg:
         _callable_error(
             callable_decl,
-            "reduced phase-4 x86_64_sysv does not yet support GC root-slot setup",
+            "x86_64_sysv does not yet support GC root-slot setup",
         )
 
 
 def _check_instruction_legality(callable_decl, block: BackendBlock, instruction: object) -> None:
-    unsupported_types = (
-        BackendTypeTestInst,
-    )
-    if isinstance(instruction, unsupported_types):
-        _instruction_error(
-            callable_decl,
-            block,
-            instruction,
-            f"instruction '{type(instruction).__name__}' is not supported in reduced phase-4 x86_64_sysv",
-        )
+    if isinstance(instruction, BackendTypeTestInst):
+        _check_type_test_instruction_legality(callable_decl, block, instruction)
         return
 
     if isinstance(instruction, BackendCastInst):
-        if not _is_supported_pr4_cast(callable_decl, instruction):
-            _instruction_error(
-                callable_decl,
-                block,
-                instruction,
-                f"instruction '{type(instruction).__name__}' is not supported in reduced phase-4 x86_64_sysv",
-            )
+        _check_cast_instruction_legality(callable_decl, block, instruction)
         return
 
     if isinstance(instruction, BackendCallInst):
@@ -241,6 +255,8 @@ def _emit_callable_body(
     ordered_block_ids,
     callable_by_id,
     emit_debug_comments: bool,
+    trace_record,
+    runtime_trace_enabled: bool,
 ) -> None:
     callable_symbols = target_input.program_context.symbols.callable(callable_decl.callable_id)
     if callable_symbols.emitted_label is None:
@@ -256,6 +272,9 @@ def _emit_callable_body(
     }
     callable_label_for_calls = callable_symbols.emitted_label or callable_symbols.direct_call_symbol
 
+    def emit_location_hook(*, line: int, column: int) -> None:
+        emit_trace_location(builder, line=line, column=column)
+
     def emit_call_instruction(instruction: BackendCallInst) -> None:
         emit_lowered_call_instruction(
             builder,
@@ -267,6 +286,7 @@ def _emit_callable_body(
             program_context=target_input.program_context,
             interface_method_slot_by_id=interface_method_slot_by_id,
             callable_label=callable_label_for_calls,
+            emit_trace_location=emit_location_hook if runtime_trace_enabled else None,
         )
 
     if callable_decl.kind == "constructor":
@@ -277,15 +297,19 @@ def _emit_callable_body(
             frame_layout=frame_layout,
             register_type_name_by_reg_id=resolved_type_names,
             emit_call_instruction=emit_call_instruction,
+            trace_record=trace_record,
+            runtime_trace_enabled=runtime_trace_enabled,
         )
         builder.blank()
         target_label = _constructor_init_label(target_input, callable_decl.callable_id)
         global_symbol = False
         alias_labels = ()
+        body_trace_record = None
     else:
         target_label = callable_symbols.emitted_label
         global_symbol = callable_symbols.global_label is not None
         alias_labels = callable_symbols.alias_labels
+        body_trace_record = trace_record
 
     epilogue = epilogue_label(target_label)
     block_label_by_id = {
@@ -305,6 +329,13 @@ def _emit_callable_body(
         builder.instruction("sub", "rsp", str(frame_layout.stack_size))
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout)
+    if runtime_trace_enabled and body_trace_record is not None:
+        emit_trace_push(
+            builder,
+            body_trace_record,
+            line=callable_decl.span.start.line,
+            column=callable_decl.span.start.column,
+        )
     if emit_debug_comments:
         for slot in frame_layout.slots:
             builder.comment(f"{slot.home_name} -> {format_stack_slot_operand('rbp', slot.byte_offset)}")
@@ -318,6 +349,7 @@ def _emit_callable_body(
                     instruction,
                     frame_layout=frame_layout,
                     program_context=target_input.program_context,
+                    emit_trace_location=emit_location_hook if runtime_trace_enabled else None,
                 )
                 continue
             if isinstance(instruction, BackendFieldLoadInst):
@@ -368,6 +400,26 @@ def _emit_callable_body(
             if isinstance(instruction, BackendBoundsCheckInst):
                 emit_bounds_check_instruction(builder, instruction)
                 continue
+            if isinstance(instruction, BackendCastInst):
+                emit_cast_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    program_context=target_input.program_context,
+                )
+                continue
+            if isinstance(instruction, BackendTypeTestInst):
+                emit_type_test_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    program_context=target_input.program_context,
+                )
+                continue
             emit_instruction(
                 builder,
                 instruction,
@@ -386,6 +438,8 @@ def _emit_callable_body(
         )
 
     builder.label(epilogue)
+    if runtime_trace_enabled and body_trace_record is not None:
+        _emit_trace_pop_preserving_return(builder, callable_decl)
     builder.instruction("mov", "rsp", "rbp")
     builder.instruction("pop", "rbp")
     builder.instruction("ret")
@@ -485,6 +539,8 @@ def _emit_constructor_entry_wrapper(
     frame_layout,
     register_type_name_by_reg_id: dict,
     emit_call_instruction,
+    trace_record,
+    runtime_trace_enabled: bool,
 ) -> None:
     callable_symbols = target_input.program_context.symbols.callable(callable_decl.callable_id)
     target_label = callable_symbols.emitted_label
@@ -505,6 +561,13 @@ def _emit_constructor_entry_wrapper(
         builder.instruction("sub", "rsp", str(frame_layout.stack_size))
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout, includes_receiver=False)
+    if runtime_trace_enabled and trace_record is not None:
+        emit_trace_push(
+            builder,
+            trace_record,
+            line=callable_decl.span.start.line,
+            column=callable_decl.span.start.column,
+        )
     receiver_reg = callable_decl.receiver_reg
     if receiver_reg is None:
         raise BackendTargetLoweringError("constructor wrapper emission requires a receiver register")
@@ -541,9 +604,66 @@ def _emit_constructor_entry_wrapper(
     )
     builder.instruction("jmp", epilogue)
     builder.label(epilogue)
+    if runtime_trace_enabled and trace_record is not None:
+        _emit_trace_pop_preserving_return(builder, callable_decl)
     builder.instruction("mov", "rsp", "rbp")
     builder.instruction("pop", "rbp")
     builder.instruction("ret")
+
+
+def _trace_record_for_callable(target_input: BackendTargetInput, callable_decl, *, source_root: Path | None) -> TraceDebugRecord | None:
+    callable_symbols = target_input.program_context.symbols.callable(callable_decl.callable_id)
+    if callable_symbols.emitted_label is None:
+        return None
+    return TraceDebugRecord(
+        target_label=callable_symbols.emitted_label,
+        function_name=_format_callable_id(callable_decl.callable_id),
+        file_path=_normalize_trace_file_path(callable_decl.span.start.path, source_root=source_root),
+    )
+
+
+def _common_source_root(target_input: BackendTargetInput) -> Path | None:
+    source_paths = [
+        Path(callable_decl.span.start.path)
+        for callable_decl in target_input.program.callables
+        if callable_decl.span.start.path
+    ]
+    if not source_paths:
+        return None
+    try:
+        return Path(os.path.commonpath([str(path) for path in source_paths]))
+    except ValueError:
+        return None
+
+
+def _normalize_trace_file_path(source_path: str, *, source_root: Path | None) -> str:
+    path = Path(source_path)
+    if source_root is not None:
+        try:
+            return path.relative_to(source_root).as_posix()
+        except ValueError:
+            pass
+    return path.as_posix()
+
+
+def _emit_trace_pop_preserving_return(builder, callable_decl) -> None:
+    return_type = callable_decl.signature.return_type
+    if return_type is None:
+        emit_trace_pop(builder)
+        return
+    return_type_name = semantic_type_canonical_name(return_type)
+    if return_type_name == "double":
+        builder.instruction("sub", "rsp", "16")
+        builder.instruction("movq", "qword ptr [rsp]", "xmm0")
+        emit_trace_pop(builder)
+        builder.instruction("movq", "xmm0", "qword ptr [rsp]")
+        builder.instruction("add", "rsp", "16")
+        return
+    builder.instruction("sub", "rsp", "16")
+    builder.instruction("mov", "qword ptr [rsp]", "rax")
+    emit_trace_pop(builder)
+    builder.instruction("mov", "rax", "qword ptr [rsp]")
+    builder.instruction("add", "rsp", "16")
 
 
 def _constructor_init_label(target_input: BackendTargetInput, callable_id: ConstructorId) -> str:
@@ -580,12 +700,72 @@ def _format_callable_id(callable_id) -> str:
     raise TypeError(f"Unsupported backend callable ID '{callable_id!r}'")
 
 
-def _is_supported_pr4_cast(callable_decl, instruction: BackendCastInst) -> bool:
-    if instruction.cast_kind is not CastSemanticsKind.TO_INTEGER:
-        return False
-    source_type_name = _operand_type_name(callable_decl, instruction.operand)
+def _check_cast_instruction_legality(callable_decl, block: BackendBlock, instruction: BackendCastInst) -> None:
     target_type_name = semantic_type_canonical_name(instruction.target_type_ref)
-    return source_type_name == "u64" and target_type_name == "i64"
+
+    if instruction.cast_kind is CastSemanticsKind.IDENTITY:
+        return
+    if instruction.cast_kind is CastSemanticsKind.TO_BOOL:
+        if target_type_name != "bool":
+            _instruction_error(callable_decl, block, instruction, "TO_BOOL casts must target 'bool'")
+        return
+    if instruction.cast_kind is CastSemanticsKind.TO_DOUBLE:
+        if target_type_name != "double":
+            _instruction_error(callable_decl, block, instruction, "TO_DOUBLE casts must target 'double'")
+        return
+    if instruction.cast_kind is CastSemanticsKind.TO_INTEGER:
+        if target_type_name not in {"i64", "u64", "u8"}:
+            _instruction_error(callable_decl, block, instruction, f"unsupported integer cast target '{target_type_name}'")
+        return
+    if instruction.cast_kind is CastSemanticsKind.REFERENCE_COMPATIBILITY:
+        if not (semantic_type_is_reference(instruction.target_type_ref) or semantic_type_is_interface(instruction.target_type_ref)):
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"reference casts require a reference or interface target, got '{instruction.target_type_ref.display_name}'",
+            )
+        return
+    _instruction_error(
+        callable_decl,
+        block,
+        instruction,
+        f"instruction '{type(instruction).__name__}' uses unsupported cast kind '{instruction.cast_kind.value}'",
+    )
+
+
+def _check_type_test_instruction_legality(callable_decl, block: BackendBlock, instruction: BackendTypeTestInst) -> None:
+    if instruction.test_kind is TypeTestSemanticsKind.INTERFACE_COMPATIBILITY:
+        if not semantic_type_is_interface(instruction.target_type_ref):
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"interface type tests require an interface target, got '{instruction.target_type_ref.display_name}'",
+            )
+        return
+    if instruction.test_kind is TypeTestSemanticsKind.CLASS_COMPATIBILITY:
+        if semantic_type_is_interface(instruction.target_type_ref):
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"class type tests cannot target interface type '{instruction.target_type_ref.display_name}'",
+            )
+        if not semantic_type_is_reference(instruction.target_type_ref):
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"class type tests require a reference target, got '{instruction.target_type_ref.display_name}'",
+            )
+        return
+    _instruction_error(
+        callable_decl,
+        block,
+        instruction,
+        f"instruction '{type(instruction).__name__}' uses unsupported test kind '{instruction.test_kind.value}'",
+    )
 
 
 def _operand_type_name(callable_decl, operand) -> str:

@@ -35,7 +35,7 @@ Use these rules for every phase-5 patch:
 3. [x] PR 3: Implement constructors, object allocation, field access, and object-metadata-backed emission.
 4. [x] PR 4: Implement arrays, slices, string flows, and lowered `for in` collection paths.
 5. [x] PR 5: Implement virtual, interface, and runtime-backed dispatch plus interface metadata sections.
-6. [ ] PR 6: Implement casts, type tests, runtime trace hooks, extern/export/entrypoint handling, and multimodule parity.
+6. [x] PR 6: Implement casts, type tests, runtime trace hooks, extern/export/entrypoint handling, and multimodule parity.
 7. [ ] PR 7: Implement GC root-frame setup and teardown from backend root-slot analysis and run the full parity validation gate.
 
 ## PR 1: Program-Global Backend Context, Symbols, Class Hierarchy, And Metadata Preparation
@@ -542,11 +542,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv/test_e
 
 ### Checklist
 
-- [ ] Implement remaining cast and type-test families.
-- [ ] Implement runtime trace-hook wiring under target options.
-- [ ] Complete extern, export, and entrypoint handling.
-- [ ] Validate multimodule parity through the explicit new backend selector.
-- [ ] Re-run CLI coverage to prove the default backend remains unchanged.
+- [x] Implement remaining cast and type-test families.
+- [x] Implement runtime trace-hook wiring under target options.
+- [x] Complete extern, export, and entrypoint handling.
+- [x] Validate multimodule parity through the explicit new backend selector.
+- [x] Re-run CLI coverage to prove the default backend remains unchanged.
 
 ## PR 7: GC Root Frames, Root-Slot Synchronization, And Full Parity Validation Gate
 

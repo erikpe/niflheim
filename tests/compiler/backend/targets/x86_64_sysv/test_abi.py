@@ -170,7 +170,7 @@ def test_legality_checker_accepts_double_scalar_surface() -> None:
     check_x86_64_sysv_legality(make_target_input(updated_program))
 
 
-def test_legality_checker_rejects_unsupported_instruction_families() -> None:
+def test_legality_checker_accepts_scalar_cast_instruction_family() -> None:
     program = one_function_backend_program()
     callable_decl = callable_by_id(program, FIXTURE_ENTRY_FUNCTION_ID)
     bool_reg = replace(
@@ -200,8 +200,7 @@ def test_legality_checker_rejects_unsupported_instruction_families() -> None:
     )
     updated_program = replace(program, callables=(updated_callable,))
 
-    with pytest.raises(X86_64SysVLegalityError, match="instruction 'BackendCastInst' is not supported"):
-        check_x86_64_sysv_legality(make_target_input(updated_program))
+    check_x86_64_sysv_legality(make_target_input(updated_program))
 
 
 def test_legality_checker_rejects_root_slot_requirements() -> None:

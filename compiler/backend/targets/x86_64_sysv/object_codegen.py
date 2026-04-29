@@ -21,10 +21,13 @@ def emit_alloc_object_instruction(
     *,
     frame_layout: X86_64SysVFrameLayout,
     program_context: BackendProgramContext,
+    emit_trace_location=None,
 ) -> None:
     class_symbols = program_context.symbols.class_symbols(instruction.class_id)
     payload_bytes = program_context.class_hierarchy.payload_bytes(instruction.class_id)
 
+    if emit_trace_location is not None and instruction.effects.needs_safepoint_hooks:
+        emit_trace_location(line=instruction.span.start.line, column=instruction.span.start.column)
     builder.instruction("call", "rt_thread_state")
     builder.instruction("mov", "rdi", "rax")
     builder.instruction("lea", "rsi", f"[rip + {class_symbols.type_symbol}]")
