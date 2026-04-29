@@ -441,9 +441,20 @@ def _compute_callable_must_state(
     if callable_decl.receiver_reg is not None:
         entry_defs.add(callable_decl.receiver_reg)
     entry_defined = frozenset(entry_defs | _block_defined_registers(entry_block))
+    declared_reg_ids = frozenset(register_by_id)
 
-    in_defined = {block_id: frozenset() for block_id in reachable_block_ids}
-    out_defined = {block_id: frozenset() for block_id in reachable_block_ids}
+    # Must-defined availability is a forward must analysis, so loop headers need
+    # optimistic non-entry initialization to converge to the greatest fixed point.
+    # Starting from the empty set causes backedges to permanently erase invariant
+    # preheader definitions from the entire loop SCC.
+    in_defined = {
+        block_id: (frozenset(entry_defs) if block_id == callable_decl.entry_block_id else declared_reg_ids)
+        for block_id in reachable_block_ids
+    }
+    out_defined = {
+        block_id: (entry_defined if block_id == callable_decl.entry_block_id else declared_reg_ids)
+        for block_id in reachable_block_ids
+    }
     in_nonnull = {block_id: frozenset() for block_id in reachable_block_ids}
     out_nonnull = {block_id: frozenset() for block_id in reachable_block_ids}
     in_bounds = {block_id: frozenset() for block_id in reachable_block_ids}
@@ -461,7 +472,7 @@ def _compute_callable_must_state(
                 next_in_nonnull = frozenset()
                 next_in_bounds = frozenset()
             else:
-                next_in_defined = entry_defined | _intersect_sets(out_defined[pred] for pred in predecessors)
+                next_in_defined = _intersect_sets(out_defined[pred] for pred in predecessors)
                 next_in_nonnull = _intersect_sets(out_nonnull[pred] for pred in predecessors)
                 next_in_bounds = _intersect_sets(out_bounds[pred] for pred in predecessors)
 
@@ -625,7 +636,7 @@ def _verify_instruction(
             register_by_id=register_by_id,
             available_defs=available_defs,
         )
-        if left_type != right_type:
+        if not _binary_operand_types_compatible(instruction.op, left_type, right_type, index=index):
             _instruction_error(
                 callable_decl,
                 block,
@@ -1633,6 +1644,47 @@ def _is_type_assignable(actual_type: SemanticTypeRef, expected_type: SemanticTyp
             return True
         if actual_type.class_id is not None:
             return _class_implements_interface(actual_type.class_id, expected_type.interface_id, index)
+    return False
+
+
+def _binary_operand_types_compatible(
+    op,
+    left_type: SemanticTypeRef,
+    right_type: SemanticTypeRef,
+    *,
+    index: _ProgramIndex,
+) -> bool:
+    if left_type == right_type:
+        return True
+    if op.flavor.value != "identity_comparison":
+        return False
+    return _identity_comparison_types_compatible(left_type, right_type, index=index)
+
+
+def _identity_comparison_types_compatible(
+    left_type: SemanticTypeRef,
+    right_type: SemanticTypeRef,
+    *,
+    index: _ProgramIndex,
+) -> bool:
+    if left_type == _NULL_TYPE_REF:
+        return is_reference_type_ref(right_type)
+    if right_type == _NULL_TYPE_REF:
+        return is_reference_type_ref(left_type)
+
+    if semantic_type_canonical_name(left_type) == TYPE_NAME_OBJ or semantic_type_canonical_name(right_type) == TYPE_NAME_OBJ:
+        return is_reference_type_ref(left_type) and is_reference_type_ref(right_type)
+
+    if left_type.interface_id is not None and right_type.interface_id is not None:
+        return True
+    if left_type.class_id is not None and right_type.class_id is not None:
+        return _is_same_or_subclass(left_type.class_id, right_type.class_id, index) or _is_same_or_subclass(
+            right_type.class_id, left_type.class_id, index
+        )
+    if left_type.class_id is not None and right_type.interface_id is not None:
+        return _class_implements_interface(left_type.class_id, right_type.interface_id, index)
+    if left_type.interface_id is not None and right_type.class_id is not None:
+        return _class_implements_interface(right_type.class_id, left_type.interface_id, index)
     return False
 
 

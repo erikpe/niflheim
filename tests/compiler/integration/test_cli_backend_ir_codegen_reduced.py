@@ -4,7 +4,7 @@ from pathlib import Path
 
 import compiler.cli as cli
 
-from tests.compiler.integration.helpers import compile_and_run, compile_to_asm, write
+from tests.compiler.integration.helpers import compile_and_run, compile_to_asm, install_std_modules, write
 
 
 _EXPERIMENTAL_BACKEND_ARGS = ["--experimental-backend", "backend-ir-x86_64_sysv"]
@@ -230,3 +230,74 @@ def test_cli_experimental_backend_selector_runs_reference_array_iteration_across
     )
 
     assert run.returncode == 0, run.stderr
+
+
+def test_cli_experimental_backend_selector_runs_identity_comparisons_for_refs_and_null(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        class Box {}
+
+        fn is_null(value: Obj) -> bool {
+            return value == null;
+        }
+
+        fn main() -> i64 {
+            var first: Box = Box();
+            var alias: Box = first;
+            var second: Box = Box();
+
+            if !(first == alias) {
+                return 1;
+            }
+            if first == second {
+                return 2;
+            }
+            if is_null((Obj)first) {
+                return 3;
+            }
+            if null != null {
+                return 4;
+            }
+            if !is_null(null) {
+                return 5;
+            }
+
+            return 0;
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+
+    assert run.returncode == 0, run.stderr
+
+
+def test_cli_experimental_backend_selector_runs_std_string_literal_len(tmp_path: Path, monkeypatch) -> None:
+    install_std_modules(tmp_path, ["str", "lang", "object", "vec", "error"])
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        import std.str;
+
+        fn main() -> i64 {
+            return (i64)"abc".len();
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+
+    assert run.returncode == 3, run.stderr

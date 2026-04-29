@@ -145,7 +145,7 @@ def _iter_lowered_callables(
             )
         for constructor in class_decl.constructors:
             yield lower_constructor_callable(
-                class_decl.class_id,
+                class_decl,
                 constructor,
                 call_surface_by_id=call_surface_by_id,
                 string_data_operand_for_literal=string_data_operand_for_literal,

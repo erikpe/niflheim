@@ -18,7 +18,7 @@ from compiler.backend.targets.x86_64_sysv import (
 )
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
 from compiler.semantic.operations import CastSemanticsKind
-from compiler.semantic.types import semantic_primitive_type_ref
+from compiler.semantic.types import SemanticTypeRef, semantic_primitive_type_ref
 from tests.compiler.backend.ir.helpers import (
     FIXTURE_ENTRY_FUNCTION_ID,
     callable_by_id,
@@ -58,6 +58,23 @@ def test_reduced_sysv_abi_plans_integer_like_arguments_and_returns() -> None:
     assert locations[6].stack_slot_index == 0
     assert X86_64_SYSV_ABI.return_register_for_type(semantic_primitive_type_ref(TYPE_NAME_BOOL)) == "rax"
     assert X86_64_SYSV_ABI.return_register_for_type(None) is None
+
+
+def test_reduced_sysv_abi_treats_callable_values_as_integer_like_arguments_and_returns() -> None:
+    callable_type = SemanticTypeRef(
+        kind="callable",
+        canonical_name="fn(Obj) -> bool",
+        display_name="fn(Obj) -> bool",
+        param_types=(SemanticTypeRef(kind="reference", canonical_name="Obj", display_name="Obj"),),
+        return_type=semantic_primitive_type_ref(TYPE_NAME_BOOL),
+    )
+
+    locations = X86_64_SYSV_ABI.plan_argument_locations((callable_type, semantic_primitive_type_ref(TYPE_NAME_I64)))
+
+    assert locations[0] == (type(locations[0]))(kind="int_reg", register_name="rdi")
+    assert locations[1] == (type(locations[1]))(kind="int_reg", register_name="rsi")
+    assert X86_64_SYSV_ABI.supports_passed_type(callable_type) is True
+    assert X86_64_SYSV_ABI.return_register_for_type(callable_type) == "rax"
 
 
 def test_sysv_abi_plans_mixed_integer_and_double_arguments_and_returns() -> None:

@@ -1347,6 +1347,19 @@ def _lower_expression_to_operand(
 ) -> ir_model.BackendOperand:
     if isinstance(expr, LocalRefExpr):
         reg_id = _require_local_reg(state, expr.local_id)
+        reg_type_ref = builder.require_register_type(reg_id)
+        if reg_type_ref != expr.type_ref:
+            dest_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="narrow")
+            builder.emit_cast(
+                state,
+                dest=dest_reg_id,
+                cast_kind=CastSemanticsKind.REFERENCE_COMPATIBILITY,
+                operand=ir_model.BackendRegOperand(reg_id=reg_id),
+                target_type_ref=expr.type_ref,
+                trap_on_failure=True,
+                span=expr.span,
+            )
+            return ir_model.BackendRegOperand(reg_id=dest_reg_id)
         return ir_model.BackendRegOperand(reg_id=reg_id)
     if isinstance(expr, NullExprS):
         return lower_null_operand()

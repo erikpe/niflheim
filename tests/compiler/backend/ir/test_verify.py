@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from compiler.backend.ir import (
+    BackendBinaryInst,
     BACKEND_IR_SCHEMA_VERSION,
     BackendBlock,
     BackendBlockId,
@@ -12,13 +13,16 @@ from compiler.backend.ir import (
     BackendBranchTerminator,
     BackendCallInst,
     BackendClassDecl,
+    BackendConstOperand,
     BackendConstInst,
+    BackendCopyInst,
     BackendDirectCallTarget,
     BackendEffects,
     BackendFieldLoadInst,
     BackendInstId,
     BackendIntConst,
     BackendJumpTerminator,
+    BackendNullConst,
     BackendNullCheckInst,
     BackendProgram,
     BackendRegId,
@@ -30,9 +34,10 @@ from compiler.backend.ir import (
 )
 from compiler.backend.ir.verify import BackendIRVerificationError, verify_backend_program
 from compiler.codegen.abi.runtime import ARRAY_LEN_RUNTIME_CALL
-from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_U64
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_OBJ, TYPE_NAME_U64
+from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, SemanticBinaryOp
 from compiler.semantic.symbols import FunctionId
-from compiler.semantic.types import semantic_primitive_type_ref, semantic_type_ref_for_class_id
+from compiler.semantic.types import SemanticTypeRef, semantic_primitive_type_ref, semantic_type_ref_for_class_id
 from tests.compiler.backend.ir.helpers import (
     FIXTURE_CLASS_ID,
     FIXTURE_CONSTRUCTOR_ID,
@@ -242,6 +247,14 @@ def test_verify_backend_program_rejects_receiver_carrying_call_arity_mismatches(
         match="Backend IR callable 'fixture.backend_ir::main' block 'b0' instruction 'i1': call expects 2 arguments including receiver, got 1",
     ):
         verify_backend_program(program)
+
+
+def test_verify_backend_program_accepts_loop_header_using_preheader_defined_invariant() -> None:
+    verify_backend_program(_program_with_loop_header_invariant_use())
+
+
+def test_verify_backend_program_accepts_identity_comparison_between_obj_and_null() -> None:
+    verify_backend_program(_program_with_obj_null_identity_comparison())
 
 
 def _replace_callable(
@@ -515,3 +528,204 @@ def _program_with_bad_method_call_arity() -> BackendProgram:
         ),
     )
     return _replace_callable(program, FIXTURE_ENTRY_FUNCTION_ID, updated_entry)
+
+
+def _program_with_loop_header_invariant_use() -> BackendProgram:
+    callable_id = FIXTURE_ENTRY_FUNCTION_ID
+    span = make_source_span(path="fixtures/verify_loop_header_invariant.nif")
+    limit_reg_id = BackendRegId(owner_id=callable_id, ordinal=0)
+    index_reg_id = BackendRegId(owner_id=callable_id, ordinal=1)
+    cond_reg_id = BackendRegId(owner_id=callable_id, ordinal=2)
+    next_index_reg_id = BackendRegId(owner_id=callable_id, ordinal=3)
+    entry_block_id = BackendBlockId(owner_id=callable_id, ordinal=0)
+    preheader_block_id = BackendBlockId(owner_id=callable_id, ordinal=1)
+    cond_block_id = BackendBlockId(owner_id=callable_id, ordinal=2)
+    body_block_id = BackendBlockId(owner_id=callable_id, ordinal=3)
+    continue_block_id = BackendBlockId(owner_id=callable_id, ordinal=4)
+    exit_block_id = BackendBlockId(owner_id=callable_id, ordinal=5)
+    updated_callable = replace(
+        callable_by_id(one_function_backend_program(), callable_id),
+        registers=(
+            BackendRegister(
+                reg_id=limit_reg_id,
+                type_ref=semantic_primitive_type_ref(TYPE_NAME_I64),
+                debug_name="limit",
+                origin_kind="temp",
+                semantic_local_id=None,
+                span=None,
+            ),
+            BackendRegister(
+                reg_id=index_reg_id,
+                type_ref=semantic_primitive_type_ref(TYPE_NAME_I64),
+                debug_name="index",
+                origin_kind="temp",
+                semantic_local_id=None,
+                span=None,
+            ),
+            BackendRegister(
+                reg_id=cond_reg_id,
+                type_ref=semantic_primitive_type_ref(TYPE_NAME_BOOL),
+                debug_name="cond",
+                origin_kind="temp",
+                semantic_local_id=None,
+                span=None,
+            ),
+            BackendRegister(
+                reg_id=next_index_reg_id,
+                type_ref=semantic_primitive_type_ref(TYPE_NAME_I64),
+                debug_name="next_index",
+                origin_kind="temp",
+                semantic_local_id=None,
+                span=None,
+            ),
+        ),
+        param_regs=(),
+        receiver_reg=None,
+        entry_block_id=entry_block_id,
+        blocks=(
+            BackendBlock(
+                block_id=entry_block_id,
+                debug_name="entry",
+                instructions=(),
+                terminator=BackendJumpTerminator(span=span, target_block_id=preheader_block_id),
+                span=span,
+            ),
+            BackendBlock(
+                block_id=preheader_block_id,
+                debug_name="loop.preheader",
+                instructions=(
+                    BackendConstInst(
+                        inst_id=BackendInstId(owner_id=callable_id, ordinal=0),
+                        dest=limit_reg_id,
+                        constant=BackendIntConst(type_name=TYPE_NAME_I64, value=4),
+                        span=span,
+                    ),
+                    BackendConstInst(
+                        inst_id=BackendInstId(owner_id=callable_id, ordinal=1),
+                        dest=index_reg_id,
+                        constant=BackendIntConst(type_name=TYPE_NAME_I64, value=0),
+                        span=span,
+                    ),
+                ),
+                terminator=BackendJumpTerminator(span=span, target_block_id=cond_block_id),
+                span=span,
+            ),
+            BackendBlock(
+                block_id=cond_block_id,
+                debug_name="loop.cond",
+                instructions=(
+                    BackendBinaryInst(
+                        inst_id=BackendInstId(owner_id=callable_id, ordinal=2),
+                        dest=cond_reg_id,
+                        op=SemanticBinaryOp(kind=BinaryOpKind.LESS_THAN, flavor=BinaryOpFlavor.INTEGER_COMPARISON),
+                        left=BackendRegOperand(reg_id=index_reg_id),
+                        right=BackendRegOperand(reg_id=limit_reg_id),
+                        span=span,
+                    ),
+                ),
+                terminator=BackendBranchTerminator(
+                    span=span,
+                    condition=BackendRegOperand(reg_id=cond_reg_id),
+                    true_block_id=body_block_id,
+                    false_block_id=exit_block_id,
+                ),
+                span=span,
+            ),
+            BackendBlock(
+                block_id=body_block_id,
+                debug_name="loop.body",
+                instructions=(
+                    BackendBinaryInst(
+                        inst_id=BackendInstId(owner_id=callable_id, ordinal=3),
+                        dest=next_index_reg_id,
+                        op=SemanticBinaryOp(kind=BinaryOpKind.ADD, flavor=BinaryOpFlavor.INTEGER),
+                        left=BackendRegOperand(reg_id=index_reg_id),
+                        right=BackendConstOperand(constant=BackendIntConst(type_name=TYPE_NAME_I64, value=1)),
+                        span=span,
+                    ),
+                ),
+                terminator=BackendJumpTerminator(span=span, target_block_id=continue_block_id),
+                span=span,
+            ),
+            BackendBlock(
+                block_id=continue_block_id,
+                debug_name="loop.continue",
+                instructions=(
+                    BackendCopyInst(
+                        inst_id=BackendInstId(owner_id=callable_id, ordinal=4),
+                        dest=index_reg_id,
+                        source=BackendRegOperand(reg_id=next_index_reg_id),
+                        span=span,
+                    ),
+                ),
+                terminator=BackendJumpTerminator(span=span, target_block_id=cond_block_id),
+                span=span,
+            ),
+            BackendBlock(
+                block_id=exit_block_id,
+                debug_name="loop.exit",
+                instructions=(),
+                terminator=BackendReturnTerminator(span=span, value=BackendRegOperand(reg_id=index_reg_id)),
+                span=span,
+            ),
+        ),
+        span=span,
+    )
+    return replace(one_function_backend_program(), callables=(updated_callable,))
+
+
+def _program_with_obj_null_identity_comparison() -> BackendProgram:
+    callable_id = FIXTURE_ENTRY_FUNCTION_ID
+    span = make_source_span(path="fixtures/verify_obj_null_identity.nif")
+    obj_type_ref = SemanticTypeRef(kind="reference", canonical_name=TYPE_NAME_OBJ, display_name=TYPE_NAME_OBJ)
+    object_reg_id = BackendRegId(owner_id=callable_id, ordinal=0)
+    result_reg_id = BackendRegId(owner_id=callable_id, ordinal=1)
+    block_id = BackendBlockId(owner_id=callable_id, ordinal=0)
+    updated_callable = replace(
+        callable_by_id(one_function_backend_program(), callable_id),
+        signature=BackendSignature(
+            param_types=(obj_type_ref,),
+            return_type=semantic_primitive_type_ref(TYPE_NAME_BOOL),
+        ),
+        registers=(
+            BackendRegister(
+                reg_id=object_reg_id,
+                type_ref=obj_type_ref,
+                debug_name="value",
+                origin_kind="param",
+                semantic_local_id=None,
+                span=None,
+            ),
+            BackendRegister(
+                reg_id=result_reg_id,
+                type_ref=semantic_primitive_type_ref(TYPE_NAME_BOOL),
+                debug_name="is_null",
+                origin_kind="temp",
+                semantic_local_id=None,
+                span=None,
+            ),
+        ),
+        param_regs=(object_reg_id,),
+        receiver_reg=None,
+        entry_block_id=block_id,
+        blocks=(
+            BackendBlock(
+                block_id=block_id,
+                debug_name="entry",
+                instructions=(
+                    BackendBinaryInst(
+                        inst_id=BackendInstId(owner_id=callable_id, ordinal=0),
+                        dest=result_reg_id,
+                        op=SemanticBinaryOp(kind=BinaryOpKind.EQUAL, flavor=BinaryOpFlavor.IDENTITY_COMPARISON),
+                        left=BackendRegOperand(reg_id=object_reg_id),
+                        right=BackendConstOperand(constant=BackendNullConst()),
+                        span=span,
+                    ),
+                ),
+                terminator=BackendReturnTerminator(span=span, value=BackendRegOperand(reg_id=result_reg_id)),
+                span=span,
+            ),
+        ),
+        span=span,
+    )
+    return replace(one_function_backend_program(), callables=(updated_callable,))

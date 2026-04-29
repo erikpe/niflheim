@@ -3,6 +3,7 @@
 Scratch register discipline for scalar x86-64 SysV emission:
 - `rax` is the primary load, compute, and return register.
 - `rcx` is the secondary operand register for binary instructions.
+- `r8` / `r9` are transient scratch registers for integer divide and remainder fixups.
 - `xmm0` is the primary floating-point load, compute, and return register.
 - `xmm1` is the secondary floating-point scratch register.
 - `rdx` / `dl` are reserved for float-comparison NaN handling and bit moves.
@@ -47,6 +48,9 @@ _SECONDARY_REGISTER = "rcx"
 _SECONDARY_BYTE_REGISTER = "cl"
 _TERTIARY_REGISTER = "rdx"
 _TERTIARY_BYTE_REGISTER = "dl"
+_QUATERNARY_REGISTER = "r8"
+_QUINARY_REGISTER = "r9"
+_QUINARY_BYTE_REGISTER = "r9b"
 _PRIMARY_FLOAT_REGISTER = "xmm0"
 _SECONDARY_FLOAT_REGISTER = "xmm1"
 _UNSIGNED_TYPE_NAMES = frozenset({TYPE_NAME_U64, TYPE_NAME_U8})
@@ -367,6 +371,10 @@ def _emit_binary_operation(builder: X86AsmBuilder, instruction: BackendBinaryIns
         _emit_integer_comparison(builder, instruction.op.kind, operand_type_name=operand_type_name)
         return
 
+    if instruction.op.flavor == BinaryOpFlavor.IDENTITY_COMPARISON:
+        _emit_identity_comparison(builder, instruction.op.kind)
+        return
+
     if instruction.op.flavor == BinaryOpFlavor.BOOL_LOGICAL:
         _normalize_bool_register(builder, _PRIMARY_REGISTER, _PRIMARY_BYTE_REGISTER)
         _normalize_bool_register(builder, _SECONDARY_REGISTER, _SECONDARY_BYTE_REGISTER)
@@ -465,6 +473,12 @@ def _emit_integer_binary_operation(builder: X86AsmBuilder, kind: BinaryOpKind, *
         builder.instruction("imul", _PRIMARY_REGISTER, _SECONDARY_REGISTER)
         _mask_u8_result_if_needed(builder, operand_type_name)
         return
+    if kind == BinaryOpKind.DIVIDE:
+        _emit_integer_divide_or_remainder(builder, operand_type_name=operand_type_name, emit_remainder=False)
+        return
+    if kind == BinaryOpKind.REMAINDER:
+        _emit_integer_divide_or_remainder(builder, operand_type_name=operand_type_name, emit_remainder=True)
+        return
     if kind == BinaryOpKind.BITWISE_AND:
         builder.instruction("and", _PRIMARY_REGISTER, _SECONDARY_REGISTER)
         _mask_u8_result_if_needed(builder, operand_type_name)
@@ -480,6 +494,35 @@ def _emit_integer_binary_operation(builder: X86AsmBuilder, kind: BinaryOpKind, *
     raise BackendTargetLoweringError(
         f"x86_64_sysv integer operator '{kind.value}' is not supported in PR3"
     )
+
+
+def _emit_integer_divide_or_remainder(
+    builder: X86AsmBuilder, *, operand_type_name: str, emit_remainder: bool
+) -> None:
+    if operand_type_name in _UNSIGNED_TYPE_NAMES:
+        builder.instruction("xor", _TERTIARY_REGISTER, _TERTIARY_REGISTER)
+        builder.instruction("div", _SECONDARY_REGISTER)
+        if emit_remainder:
+            builder.instruction("mov", _PRIMARY_REGISTER, _TERTIARY_REGISTER)
+        else:
+            _mask_u8_result_if_needed(builder, operand_type_name)
+        return
+
+    builder.instruction("cqo")
+    builder.instruction("idiv", _SECONDARY_REGISTER)
+    builder.instruction("mov", _QUATERNARY_REGISTER, _TERTIARY_REGISTER)
+    builder.instruction("xor", _QUATERNARY_REGISTER, _SECONDARY_REGISTER)
+    builder.instruction("shr", _QUATERNARY_REGISTER, "63")
+    builder.instruction("test", _TERTIARY_REGISTER, _TERTIARY_REGISTER)
+    builder.instruction("setne", _QUINARY_BYTE_REGISTER)
+    builder.instruction("movzx", _QUINARY_REGISTER, _QUINARY_BYTE_REGISTER)
+    builder.instruction("and", _QUATERNARY_REGISTER, _QUINARY_REGISTER)
+    if emit_remainder:
+        builder.instruction("imul", _QUATERNARY_REGISTER, _SECONDARY_REGISTER)
+        builder.instruction("add", _TERTIARY_REGISTER, _QUATERNARY_REGISTER)
+        builder.instruction("mov", _PRIMARY_REGISTER, _TERTIARY_REGISTER)
+        return
+    builder.instruction("sub", _PRIMARY_REGISTER, _QUATERNARY_REGISTER)
 
 
 def _emit_integer_comparison(builder: X86AsmBuilder, kind: BinaryOpKind, *, operand_type_name: str) -> None:
@@ -501,6 +544,16 @@ def _emit_integer_comparison(builder: X86AsmBuilder, kind: BinaryOpKind, *, oper
         raise BackendTargetLoweringError(
             f"x86_64_sysv integer comparison operator '{kind.value}' is not supported in PR3"
         )
+    builder.instruction("movzx", _PRIMARY_REGISTER, _PRIMARY_BYTE_REGISTER)
+
+
+def _emit_identity_comparison(builder: X86AsmBuilder, kind: BinaryOpKind) -> None:
+    if kind not in {BinaryOpKind.EQUAL, BinaryOpKind.NOT_EQUAL}:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv identity comparison operator '{kind.value}' is not supported"
+        )
+    builder.instruction("cmp", _PRIMARY_REGISTER, _SECONDARY_REGISTER)
+    builder.instruction("sete" if kind == BinaryOpKind.EQUAL else "setne", _PRIMARY_BYTE_REGISTER)
     builder.instruction("movzx", _PRIMARY_REGISTER, _PRIMARY_BYTE_REGISTER)
 
 

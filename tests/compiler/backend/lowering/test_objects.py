@@ -3,7 +3,9 @@ from __future__ import annotations
 from compiler.backend.ir import (
     BackendAllocObjectInst,
     BackendBinaryInst,
+    BackendCastInst,
     BackendCallInst,
+    BackendCopyInst,
     BackendDirectCallTarget,
     BackendFieldLoadInst,
     BackendFieldStoreInst,
@@ -12,6 +14,7 @@ from compiler.backend.ir import (
     BackendRegOperand,
     BackendVirtualCallTarget,
 )
+from compiler.backend.ir.verify import verify_backend_program
 from tests.compiler.backend.lowering.helpers import (
     block_by_ordinal,
     callable_by_name,
@@ -208,3 +211,76 @@ def test_lower_to_backend_ir_lowers_interface_calls_with_interface_metadata(tmp_
     assert interface_call.target.method_id.interface_name == "Metric"
     assert interface_call.target.method_id.name == "score"
     assert len(interface_call.args) == 1
+
+
+def test_lower_to_backend_ir_materializes_cast_for_narrowed_local_before_copy_and_field_read(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        class Box {
+            value: i64;
+        }
+
+        fn read(value: Obj) -> i64 {
+            if !(value is Box) {
+                return 0;
+            }
+            var alias: Box = (Box)value;
+            return alias.value;
+        }
+
+        fn main() -> i64 {
+            return read(Box(7));
+        }
+        """,
+    )
+
+    verify_backend_program(program)
+    read_callable = callable_by_name(program, "read")
+    instructions = [instruction for block in read_callable.blocks for instruction in block.instructions]
+
+    cast_inst = next(instruction for instruction in instructions if isinstance(instruction, BackendCastInst))
+    copy_inst = next(instruction for instruction in instructions if isinstance(instruction, BackendCopyInst))
+    field_load_inst = next(instruction for instruction in instructions if isinstance(instruction, BackendFieldLoadInst))
+
+    assert isinstance(copy_inst.source, BackendRegOperand)
+    assert copy_inst.source.reg_id == cast_inst.dest
+    assert isinstance(field_load_inst.object_ref, BackendRegOperand)
+    assert field_load_inst.object_ref.reg_id == copy_inst.dest
+
+
+def test_lower_to_backend_ir_synthesizes_compatibility_constructor_field_stores(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        class Base {
+            value: i64;
+        }
+
+        class Derived extends Base {
+            ready: bool = true;
+            extra: i64;
+        }
+
+        fn main() -> i64 {
+            var value: Derived = Derived(7, 9);
+            if !value.ready {
+                return 1;
+            }
+            return value.value + value.extra;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    verify_backend_program(program)
+    derived_ctor = callable_by_suffix(program, "main.Derived.#0")
+    instructions = list(block_by_ordinal(derived_ctor, 0).instructions)
+
+    super_call = next(instruction for instruction in instructions if isinstance(instruction, BackendCallInst))
+    field_stores = [instruction for instruction in instructions if isinstance(instruction, BackendFieldStoreInst)]
+
+    assert isinstance(super_call.target, BackendDirectCallTarget)
+    assert super_call.target.callable_id.class_name == "Base"
+    assert [instruction.field_name for instruction in field_stores] == ["ready", "extra"]
+

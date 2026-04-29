@@ -10,11 +10,19 @@ from compiler.backend.ir import model as ir_model
 from compiler.backend.lowering.control_flow import CallableSurface, lower_callable_body
 from compiler.backend.lowering.expressions import backend_signature_return_type
 from compiler.semantic.ir import (
+    BoundMemberAccess,
+    CallExprS,
+    ConstructorInitCallTarget,
+    FieldLValue,
+    LocalRefExpr,
+    SemanticAssign,
     SemanticBlock,
     SemanticConstructor,
+    SemanticExprStmt,
     SemanticField,
     SemanticFunction,
     SemanticFunctionLike,
+    SemanticClass,
     SemanticLocalInfo,
     SemanticMethod,
 )
@@ -132,14 +140,14 @@ def lower_method_callable(
 
 
 def lower_constructor_callable(
-    owner_class_id: ClassId,
+    owner_class: SemanticClass,
     constructor: SemanticConstructor,
     *,
     call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
     string_data_operand_for_literal: Callable[[str], tuple[ir_model.BackendDataOperand, int]],
 ) -> LoweredCallable:
-    receiver_type_ref = semantic_type_ref_for_class_id(owner_class_id)
-    signature = _constructor_signature(owner_class_id, constructor)
+    receiver_type_ref = semantic_type_ref_for_class_id(owner_class.class_id)
+    signature = _constructor_signature(owner_class.class_id, constructor)
     layout = _allocate_register_layout(
         callable_id=constructor.constructor_id,
         params=constructor.params,
@@ -147,6 +155,12 @@ def lower_constructor_callable(
         receiver_type_ref=receiver_type_ref,
     )
     body = constructor.body
+    if body is None:
+        body = _synthesize_compatibility_constructor_body(
+            owner_class,
+            constructor,
+            call_surface_by_id=call_surface_by_id,
+        )
     return LoweredCallable(
         callable_decl=_lower_callable_decl(
             owner=constructor,
@@ -164,6 +178,90 @@ def lower_constructor_callable(
         ),
         reg_id_by_local_id=dict(layout.reg_id_by_local_id),
     )
+
+
+def _synthesize_compatibility_constructor_body(
+    owner_class: SemanticClass,
+    constructor: SemanticConstructor,
+    *,
+    call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
+) -> SemanticBlock:
+    receiver_type_ref = semantic_type_ref_for_class_id(owner_class.class_id)
+    receiver_local_id = _require_receiver_local_id(constructor)
+    receiver_expr = LocalRefExpr(local_id=receiver_local_id, type_ref=receiver_type_ref, span=constructor.span)
+    access = BoundMemberAccess(receiver=receiver_expr, receiver_type_ref=receiver_type_ref)
+    param_expr_by_name = _constructor_param_expr_by_name(constructor)
+
+    statements = []
+    if constructor.super_constructor_id is not None:
+        try:
+            super_surface = call_surface_by_id[constructor.super_constructor_id]
+        except KeyError as exc:
+            raise KeyError(f"Missing callable surface for superclass constructor {constructor.super_constructor_id}") from exc
+        super_param_count = len(super_surface.signature.param_types)
+        super_class_id = ClassId(
+            module_path=constructor.super_constructor_id.module_path,
+            name=constructor.super_constructor_id.class_name,
+        )
+        statements.append(
+            SemanticExprStmt(
+                expr=CallExprS(
+                    target=ConstructorInitCallTarget(
+                        constructor_id=constructor.super_constructor_id,
+                        access=access,
+                    ),
+                    args=[param_expr_by_name[param.name] for param in constructor.params[:super_param_count]],
+                    type_ref=semantic_type_ref_for_class_id(super_class_id),
+                    span=constructor.span,
+                ),
+                span=constructor.span,
+            )
+        )
+
+    for field in owner_class.fields:
+        value_expr = param_expr_by_name.get(field.name, field.initializer)
+        if value_expr is None:
+            raise ValueError(
+                f"Compatibility constructor '{owner_class.class_id.name}' is missing an initializer for field '{field.name}'"
+            )
+        statements.append(
+            SemanticAssign(
+                target=FieldLValue(
+                    access=access,
+                    owner_class_id=owner_class.class_id,
+                    field_name=field.name,
+                    type_ref=field.type_ref,
+                    span=constructor.span,
+                ),
+                value=value_expr,
+                span=constructor.span,
+            )
+        )
+
+    return SemanticBlock(statements=statements, span=constructor.span)
+
+
+def _require_receiver_local_id(constructor: SemanticConstructor) -> LocalId:
+    for local_info in sorted(constructor.local_info_by_id.values(), key=lambda info: info.local_id.ordinal):
+        if local_info.binding_kind == "receiver":
+            return local_info.local_id
+    raise ValueError(f"Constructor '{constructor.constructor_id}' is missing receiver local metadata")
+
+
+def _constructor_param_expr_by_name(constructor: SemanticConstructor) -> dict[str, LocalRefExpr]:
+    param_local_infos = [
+        local_info
+        for local_info in sorted(constructor.local_info_by_id.values(), key=lambda info: info.local_id.ordinal)
+        if local_info.binding_kind == "param"
+    ]
+    if len(param_local_infos) != len(constructor.params):
+        raise ValueError(
+            f"Constructor '{constructor.constructor_id}' parameter locals do not match its parameter list"
+        )
+    return {
+        param.name: LocalRefExpr(local_id=local_info.local_id, type_ref=param.type_ref, span=param.span)
+        for param, local_info in zip(constructor.params, param_local_infos, strict=True)
+    }
 
 
 def lower_field_decl(owner_class_id: ClassId, field: SemanticField) -> ir_model.BackendFieldDecl:

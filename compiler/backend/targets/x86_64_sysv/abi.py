@@ -6,6 +6,7 @@ from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NA
 from compiler.semantic.types import (
     SemanticTypeRef,
     semantic_type_canonical_name,
+    semantic_type_is_callable,
     semantic_type_is_interface,
     semantic_type_is_primitive,
     semantic_type_is_reference,
@@ -44,7 +45,7 @@ class X86_64SysVAbi:
             return True
         if self.supports_scalar_type(type_ref):
             return True
-        return semantic_type_is_reference(type_ref) or semantic_type_is_interface(type_ref)
+        return semantic_type_is_reference(type_ref) or semantic_type_is_interface(type_ref) or semantic_type_is_callable(type_ref)
 
     def is_float_type(self, type_ref: SemanticTypeRef | None) -> bool:
         return type_ref is not None and semantic_type_canonical_name(type_ref) == TYPE_NAME_DOUBLE

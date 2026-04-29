@@ -114,3 +114,24 @@ def test_emit_source_asm_can_execute_reduced_scope_multi_function_program(tmp_pa
     )
 
     assert run.returncode == 28
+
+
+def test_emit_source_asm_emits_indirect_call_for_callable_parameter(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn apply(f: fn(i64) -> i64, value: i64) -> i64 {
+            return f(value);
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    apply_body = _body_for_label(asm, mangle_function_symbol(("main",), "apply"))
+
+    assert "    mov rdi, qword ptr [rbp - 16]" in apply_body or "    mov rdi, qword ptr [rbp - 24]" in apply_body
+    assert "    call r11" in apply_body
