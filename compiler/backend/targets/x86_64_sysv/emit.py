@@ -16,6 +16,8 @@ from compiler.backend.ir import (
     BackendCastInst,
     BackendConstOperand,
     BackendDirectCallTarget,
+    BackendIndirectCallTarget,
+    BackendInterfaceCallTarget,
     BackendRuntimeCallTarget,
     BackendFieldLoadInst,
     BackendFieldStoreInst,
@@ -23,6 +25,7 @@ from compiler.backend.ir import (
     BackendNullCheckInst,
     BackendReturnTerminator,
     BackendTypeTestInst,
+    BackendVirtualCallTarget,
 )
 from compiler.backend.targets import (
     BackendEmitResult,
@@ -195,7 +198,16 @@ def _check_instruction_legality(callable_decl, block: BackendBlock, instruction:
         return
 
     if isinstance(instruction, BackendCallInst):
-        if not isinstance(instruction.target, (BackendDirectCallTarget, BackendRuntimeCallTarget)):
+        if not isinstance(
+            instruction.target,
+            (
+                BackendDirectCallTarget,
+                BackendRuntimeCallTarget,
+                BackendIndirectCallTarget,
+                BackendVirtualCallTarget,
+                BackendInterfaceCallTarget,
+            ),
+        ):
             _instruction_error(
                 callable_decl,
                 block,
@@ -237,6 +249,12 @@ def _emit_callable_body(
         )
     ordered_blocks = _ordered_blocks_for_callable(callable_decl, ordered_block_ids=ordered_block_ids)
     resolved_type_names = register_type_name_by_reg_id(callable_decl)
+    interface_method_slot_by_id = {
+        method_id: slot_index
+        for interface_decl in target_input.program.interfaces
+        for slot_index, method_id in enumerate(interface_decl.methods)
+    }
+    callable_label_for_calls = callable_symbols.emitted_label or callable_symbols.direct_call_symbol
 
     def emit_call_instruction(instruction: BackendCallInst) -> None:
         emit_lowered_call_instruction(
@@ -246,6 +264,9 @@ def _emit_callable_body(
             register_type_name_by_reg_id=resolved_type_names,
             callable_decl_by_id=callable_by_id,
             program_symbols=target_input.program_context.symbols,
+            program_context=target_input.program_context,
+            interface_method_slot_by_id=interface_method_slot_by_id,
+            callable_label=callable_label_for_calls,
         )
 
     if callable_decl.kind == "constructor":

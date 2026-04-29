@@ -34,7 +34,7 @@ Use these rules for every phase-5 patch:
 2. [x] PR 2: Add full scalar ABI coverage for doubles, mixed signatures, and remaining call or return legality.
 3. [x] PR 3: Implement constructors, object allocation, field access, and object-metadata-backed emission.
 4. [x] PR 4: Implement arrays, slices, string flows, and lowered `for in` collection paths.
-5. [ ] PR 5: Implement virtual, interface, and runtime-backed dispatch plus interface metadata sections.
+5. [x] PR 5: Implement virtual, interface, and runtime-backed dispatch plus interface metadata sections.
 6. [ ] PR 6: Implement casts, type tests, runtime trace hooks, extern/export/entrypoint handling, and multimodule parity.
 7. [ ] PR 7: Implement GC root-frame setup and teardown from backend root-slot analysis and run the full parity validation gate.
 
@@ -455,11 +455,11 @@ pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv/test_m
 
 ### Checklist
 
-- [ ] Implement direct instance, virtual, and interface dispatch lowering.
-- [ ] Emit deterministic interface and virtual metadata sections.
-- [ ] Implement runtime-backed non-direct call families still present in backend IR.
-- [ ] Preserve nullable receiver and dispatch failure semantics.
-- [ ] Add focused dispatch and metadata coverage.
+- [x] Implement direct instance, virtual, and interface dispatch lowering.
+- [x] Emit deterministic interface and virtual metadata sections.
+- [x] Implement runtime-backed non-direct call families still present in backend IR.
+- [x] Preserve nullable receiver and dispatch failure semantics.
+- [x] Add focused dispatch and metadata coverage.
 
 ## PR 6: Casts, Type Tests, Runtime Trace Hooks, Extern, Export, And Entrypoint Handling, And Multimodule Parity
 

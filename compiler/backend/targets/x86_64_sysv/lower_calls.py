@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from compiler.backend.ir import BackendCallInst, BackendDataOperand, BackendDirectCallTarget, BackendRuntimeCallTarget
+from compiler.backend.ir import (
+    BackendCallInst,
+    BackendDataOperand,
+    BackendDirectCallTarget,
+    BackendIndirectCallTarget,
+    BackendInterfaceCallTarget,
+    BackendRuntimeCallTarget,
+    BackendVirtualCallTarget,
+)
+from compiler.backend.program import BackendProgramContext
 from compiler.backend.program.symbols import BackendProgramSymbolTable
 from compiler.backend.targets import BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
@@ -14,11 +23,22 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     emit_store_float_result,
     emit_store_result,
 )
+from compiler.backend.targets.x86_64_sysv.object_runtime import (
+    class_vtable_entry_operand,
+    class_vtable_operand,
+    interface_method_entry_operand,
+    interface_table_entry_operand,
+    interface_tables_operand,
+    object_type_operand,
+)
+from compiler.semantic.symbols import ClassId
 
 
 _CALL_TEMP_REGISTER = "rax"
 _CALL_TEMP_BYTE_REGISTER = "al"
 _CALL_TEMP_FLOAT_REGISTER = "xmm15"
+_CALL_TARGET_REGISTER = "r11"
+_CALL_TARGET_BYTE_REGISTER = "r11b"
 _BYTE_REGISTER_BY_REGISTER = {
     "rax": "al",
     "rbx": "bl",
@@ -41,9 +61,21 @@ def emit_call_instruction(
     register_type_name_by_reg_id: dict,
     callable_decl_by_id: dict,
     program_symbols: BackendProgramSymbolTable,
+    program_context: BackendProgramContext,
+    interface_method_slot_by_id: dict,
+    callable_label: str,
     abi: X86_64SysVAbi = X86_64_SYSV_ABI,
 ) -> None:
-    if not isinstance(instruction.target, (BackendDirectCallTarget, BackendRuntimeCallTarget)):
+    if not isinstance(
+        instruction.target,
+        (
+            BackendDirectCallTarget,
+            BackendRuntimeCallTarget,
+            BackendIndirectCallTarget,
+            BackendVirtualCallTarget,
+            BackendInterfaceCallTarget,
+        ),
+    ):
         raise BackendTargetLoweringError(
             f"x86_64_sysv call lowering does not support target '{type(instruction.target).__name__}'"
         )
@@ -56,7 +88,7 @@ def emit_call_instruction(
                 f"x86_64_sysv direct call lowering could not resolve callable '{instruction.target.callable_id}'"
             )
 
-    includes_receiver = isinstance(instruction.target, BackendDirectCallTarget) and len(instruction.args) == len(instruction.signature.param_types) + 1
+    includes_receiver = _call_includes_receiver(instruction)
 
     arg_locations = abi.plan_argument_locations(
         instruction.signature.param_types,
@@ -143,7 +175,21 @@ def emit_call_instruction(
             f"x86_64_sysv direct call lowering does not support argument location kind '{arg_location.kind}'"
         )
 
-    builder.instruction("call", _call_target_symbol(instruction, program_symbols, callee_decl, includes_receiver=includes_receiver))
+    if includes_receiver and _receiver_null_check_required(instruction, callee_decl):
+        _emit_receiver_null_check(builder, callable_label=callable_label, instruction=instruction)
+
+    _emit_call_target_invocation(
+        builder,
+        instruction,
+        callee_decl=callee_decl,
+        program_symbols=program_symbols,
+        program_context=program_context,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+        frame_layout=frame_layout,
+        interface_method_slot_by_id=interface_method_slot_by_id,
+        callable_label=callable_label,
+        includes_receiver=includes_receiver,
+    )
 
     if call_stack_reservation_bytes > 0:
         builder.instruction("add", "rsp", str(call_stack_reservation_bytes))
@@ -163,6 +209,136 @@ def emit_call_instruction(
             emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout, source_float_register=return_register)
         else:
             emit_store_result(builder, instruction.dest, frame_layout=frame_layout, source_register=return_register)
+
+
+def _call_includes_receiver(instruction: BackendCallInst) -> bool:
+    if isinstance(instruction.target, (BackendVirtualCallTarget, BackendInterfaceCallTarget)):
+        return True
+    if isinstance(instruction.target, (BackendDirectCallTarget, BackendIndirectCallTarget)):
+        return len(instruction.args) == len(instruction.signature.param_types) + 1
+    return False
+
+
+def _receiver_null_check_required(instruction: BackendCallInst, callee_decl) -> bool:
+    if isinstance(instruction.target, BackendDirectCallTarget):
+        return callee_decl is not None and callee_decl.kind == "method"
+    return isinstance(
+        instruction.target,
+        (
+            BackendIndirectCallTarget,
+            BackendVirtualCallTarget,
+            BackendInterfaceCallTarget,
+        ),
+    )
+
+
+def _emit_receiver_null_check(builder: X86AsmBuilder, *, callable_label: str, instruction: BackendCallInst) -> None:
+    non_null_label = f".L{callable_label}_i{instruction.inst_id.ordinal}_recv_nonnull"
+    builder.instruction("test", "rdi", "rdi")
+    builder.instruction("jne", non_null_label)
+    builder.instruction("call", "rt_panic_null_deref")
+    builder.label(non_null_label)
+
+
+def _emit_call_target_invocation(
+    builder: X86AsmBuilder,
+    instruction: BackendCallInst,
+    *,
+    callee_decl,
+    program_symbols: BackendProgramSymbolTable,
+    program_context: BackendProgramContext,
+    register_type_name_by_reg_id: dict,
+    frame_layout: X86_64SysVFrameLayout,
+    interface_method_slot_by_id: dict,
+    callable_label: str,
+    includes_receiver: bool,
+) -> None:
+    if isinstance(instruction.target, (BackendDirectCallTarget, BackendRuntimeCallTarget)):
+        builder.instruction("call", _call_target_symbol(instruction, program_symbols, callee_decl, includes_receiver=includes_receiver))
+        return
+
+    if isinstance(instruction.target, BackendIndirectCallTarget):
+        _emit_load_call_operand(
+            builder,
+            instruction.target.callee,
+            target_register=_CALL_TARGET_REGISTER,
+            target_byte_register=_CALL_TARGET_BYTE_REGISTER,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+            program_symbols=program_symbols,
+        )
+        builder.instruction("call", _CALL_TARGET_REGISTER)
+        return
+
+    if isinstance(instruction.target, BackendVirtualCallTarget):
+        _emit_virtual_call_target_lookup(builder, instruction=instruction, program_context=program_context)
+        builder.instruction("call", _CALL_TARGET_REGISTER)
+        return
+
+    if isinstance(instruction.target, BackendInterfaceCallTarget):
+        _emit_interface_call_target_lookup(
+            builder,
+            instruction=instruction,
+            program_context=program_context,
+            interface_method_slot_by_id=interface_method_slot_by_id,
+        )
+        builder.instruction("call", _CALL_TARGET_REGISTER)
+        return
+
+    raise BackendTargetLoweringError(
+        f"x86_64_sysv call lowering does not support target '{type(instruction.target).__name__}'"
+    )
+
+
+def _emit_virtual_call_target_lookup(
+    builder: X86AsmBuilder,
+    *,
+    instruction: BackendCallInst,
+    program_context: BackendProgramContext,
+) -> None:
+    assert isinstance(instruction.target, BackendVirtualCallTarget)
+    selected_method_class_id = ClassId(
+        module_path=instruction.target.selected_method_id.module_path,
+        name=instruction.target.selected_method_id.class_name,
+    )
+    slot_index = program_context.class_hierarchy.resolve_virtual_slot_index(
+        selected_method_class_id,
+        instruction.target.slot_owner_class_id,
+        instruction.target.method_name,
+    )
+    builder.instruction("mov", "rcx", object_type_operand("rdi"))
+    builder.instruction("mov", "rcx", class_vtable_operand("rcx"))
+    builder.instruction("mov", _CALL_TARGET_REGISTER, class_vtable_entry_operand("rcx", slot_index))
+
+
+def _emit_interface_call_target_lookup(
+    builder: X86AsmBuilder,
+    *,
+    instruction: BackendCallInst,
+    program_context: BackendProgramContext,
+    interface_method_slot_by_id: dict,
+) -> None:
+    assert isinstance(instruction.target, BackendInterfaceCallTarget)
+    slot_index = _interface_slot_index(program_context, instruction.target.interface_id)
+    try:
+        method_slot = interface_method_slot_by_id[instruction.target.method_id]
+    except KeyError as exc:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv backend program context is missing interface method slot metadata for '{instruction.target.method_id}'"
+        ) from exc
+    builder.instruction("mov", "rcx", object_type_operand("rdi"))
+    builder.instruction("mov", "rcx", interface_tables_operand("rcx"))
+    builder.instruction("mov", "rcx", interface_table_entry_operand("rcx", slot_index))
+    builder.instruction("mov", _CALL_TARGET_REGISTER, interface_method_entry_operand("rcx", method_slot))
+
+
+def _interface_slot_index(program_context: BackendProgramContext, interface_id) -> int:
+    for interface_record in program_context.metadata.interfaces:
+        if interface_record.interface_id == interface_id:
+            return interface_record.slot_index
+    raise BackendTargetLoweringError(
+        f"x86_64_sysv backend program context is missing interface metadata for '{interface_id}'"
+    )
 
 
 def _byte_register_name(register_name: str) -> str:
