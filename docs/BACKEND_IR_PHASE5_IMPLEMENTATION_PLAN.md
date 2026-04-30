@@ -1,6 +1,6 @@
 # Backend IR Phase 5 Implementation Plan
 
-Status: in progress.
+Status: complete.
 
 This document expands phase 5 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
@@ -36,7 +36,7 @@ Use these rules for every phase-5 patch:
 4. [x] PR 4: Implement arrays, slices, string flows, and lowered `for in` collection paths.
 5. [x] PR 5: Implement virtual, interface, and runtime-backed dispatch plus interface metadata sections.
 6. [x] PR 6: Implement casts, type tests, runtime trace hooks, extern/export/entrypoint handling, and multimodule parity.
-7. [ ] PR 7: Implement GC root-frame setup and teardown from backend root-slot analysis and run the full parity validation gate.
+7. [x] PR 7: Implement GC root-frame setup and teardown from backend root-slot analysis and run the full parity validation gate.
 
 ## PR 1: Program-Global Backend Context, Symbols, Class Hierarchy, And Metadata Preparation
 
@@ -634,24 +634,24 @@ make -C runtime test-all
 
 - [x] Implement GC root-frame setup and teardown from backend root-slot analysis.
 - [x] Synchronize rooted values at safepoints without reintroducing legacy loop-clearing logic.
-- [ ] Broaden the explicit new backend selector to the full supported feature surface.
+- [x] Broaden the explicit new backend selector to the full supported feature surface.
 - [x] Pass the full backend and integration pytest gate.
-- [ ] Pass the full golden suite and runtime harnesses on the new backend path.
+- [x] Pass the full golden suite and runtime harnesses on the new backend path.
 
 ## Phase 5 Gate Checklist
 
 Use this checklist when phase 5 is believed to be complete.
 
-- [ ] The new backend path owns program-global symbols, class hierarchy, metadata preparation, and string pooling.
-- [ ] The `x86-64 SysV` backend supports doubles and mixed integer or floating-point call signatures.
-- [ ] Constructors, object allocation, and field access work on the new backend path.
-- [ ] Arrays, slices, strings, and lowered `for in` collection paths work on the new backend path.
-- [ ] Virtual, interface, and runtime-backed dispatch work on the new backend path.
-- [ ] Casts, type tests, runtime trace hooks, externs, exports, and multimodule entry behavior match the legacy surface.
+- [x] The new backend path owns program-global symbols, class hierarchy, metadata preparation, and string pooling.
+- [x] The `x86-64 SysV` backend supports doubles and mixed integer or floating-point call signatures.
+- [x] Constructors, object allocation, and field access work on the new backend path.
+- [x] Arrays, slices, strings, and lowered `for in` collection paths work on the new backend path.
+- [x] Virtual, interface, and runtime-backed dispatch work on the new backend path.
+- [x] Casts, type tests, runtime trace hooks, externs, exports, and multimodule entry behavior match the legacy surface.
 - [x] GC root frames and root-slot synchronization are driven by backend IR analyses rather than legacy tree walks.
-- [ ] The explicit new backend selector supports the full currently supported language surface.
+- [x] The explicit new backend selector supports the full currently supported language surface.
 - [x] Backend and integration pytest coverage pass under the new backend path.
-- [ ] The full golden suite and runtime harnesses pass while the legacy backend remains available.
+- [x] The full golden suite and runtime harnesses pass while the legacy backend remains available.
 
 Recommended phase gate commands:
 
