@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.backend.analysis.cfg import iter_callable_instructions
-from compiler.backend.analysis.liveness import BackendCallableLiveness, analyze_callable_liveness, instruction_def_reg
+from compiler.backend.analysis.liveness import (
+    BackendCallableLiveness,
+    analyze_callable_liveness,
+    instruction_def_reg,
+    instruction_use_regs,
+)
 from compiler.backend.ir import (
     BackendAllocObjectInst,
     BackendArrayAllocInst,
@@ -86,6 +91,7 @@ def safepoint_live_regs_for_instruction(
     register_by_id: dict[BackendRegId, BackendRegister],
 ) -> tuple[BackendRegId, ...]:
     live_regs = set(liveness.instruction_live_after(instruction.inst_id))
+    live_regs.update(instruction_use_regs(instruction))
     destination = instruction_def_reg(instruction)
     if destination is not None:
         live_regs.discard(destination)

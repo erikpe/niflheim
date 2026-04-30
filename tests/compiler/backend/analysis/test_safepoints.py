@@ -73,7 +73,7 @@ def test_analyze_callable_safepoints_tracks_straight_line_live_reference_regs(tm
     assert safepoints.gc_reference_regs_needing_slots() == frozenset(_reg_ids(fixture.callable_decl, "keep"))
 
 
-def test_analyze_callable_safepoints_excludes_call_destinations_but_keeps_materialized_reference_continuations(tmp_path: Path) -> None:
+def test_analyze_callable_safepoints_excludes_call_destinations_but_keeps_reference_call_arguments_rooted(tmp_path: Path) -> None:
     fixture = lower_source_to_backend_callable_fixture(
         tmp_path,
         """
@@ -99,9 +99,18 @@ def test_analyze_callable_safepoints_excludes_call_destinations_but_keeps_materi
 
     safepoints = analyze_callable_safepoints(fixture.callable_decl)
     call_by_name = {_call_target_name(instruction): instruction for instruction in _call_instructions(fixture.callable_decl)}
+    inner_call = call_by_name["inner"]
+    outer_call = call_by_name["outer"]
 
-    assert safepoints.live_regs_for_instruction(call_by_name["inner"].inst_id) == _reg_ids(fixture.callable_decl, "b")
-    assert safepoints.live_regs_for_instruction(call_by_name["outer"].inst_id) == ()
+    assert isinstance(inner_call.args[0], BackendRegOperand)
+    assert isinstance(outer_call.args[0], BackendRegOperand)
+    assert isinstance(outer_call.args[1], BackendRegOperand)
+
+    assert safepoints.live_regs_for_instruction(inner_call.inst_id) == _reg_ids(fixture.callable_decl, "a", "b")
+    assert set(safepoints.live_regs_for_instruction(outer_call.inst_id)) == {
+        outer_call.args[0].reg_id,
+        outer_call.args[1].reg_id,
+    }
 
 
 def test_analyze_callable_safepoints_merges_branch_successors(tmp_path: Path) -> None:
@@ -186,7 +195,39 @@ def test_analyze_callable_safepoints_tracks_gc_capable_collection_write_calls(tm
     safepoints = analyze_callable_safepoints(fixture.callable_decl)
     slice_set_call = _call_instructions(fixture.callable_decl)[0]
 
-    assert safepoints.live_regs_for_instruction(slice_set_call.inst_id) == _reg_ids(fixture.callable_decl, "keep")
+    assert safepoints.live_regs_for_instruction(slice_set_call.inst_id) == _reg_ids(
+        fixture.callable_decl,
+        "buffer",
+        "keep",
+    )
+
+
+def test_analyze_callable_safepoints_keeps_dead_collection_slice_receivers_rooted(tmp_path: Path) -> None:
+    fixture = lower_source_to_backend_callable_fixture(
+        tmp_path,
+        """
+        interface Buffer {
+            fn slice_get(begin: i64, end: i64) -> Buffer;
+        }
+
+        fn f(buffer: Buffer) -> unit {
+            buffer[0:1];
+            return;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        callable_name="f",
+        disabled_passes=("copy_propagation", "dead_stmt_prune", "dead_store_elimination"),
+        skip_optimize=True,
+    )
+
+    safepoints = analyze_callable_safepoints(fixture.callable_decl)
+    slice_get_call = _call_instructions(fixture.callable_decl)[0]
+
+    assert safepoints.live_regs_for_instruction(slice_get_call.inst_id) == _reg_ids(fixture.callable_decl, "buffer")
 
 
 def test_analyze_callable_safepoints_keeps_for_in_collection_regs_live_for_dispatch_calls(tmp_path: Path) -> None:
