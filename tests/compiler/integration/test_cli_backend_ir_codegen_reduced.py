@@ -528,3 +528,31 @@ def test_cli_experimental_backend_selector_runs_qualified_imported_constructor_w
     )
 
     assert run.returncode == 18, run.stderr
+
+
+def test_cli_experimental_backend_selector_runs_static_method_refs_as_callable_values(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        class Math {
+            static fn times_three(v: i64) -> i64 {
+                return v * 3;
+            }
+        }
+
+        fn main() -> i64 {
+            var f: fn(i64) -> i64 = Math.times_three;
+            return f(14);
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+
+    assert run.returncode == 42, run.stderr

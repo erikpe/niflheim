@@ -16,7 +16,7 @@ from compiler.backend.ir import (
     BackendCopyInst,
     BackendFieldLoadInst,
     BackendFieldStoreInst,
-    BackendFunctionOperand,
+    BackendCallableOperand,
     BackendIndirectCallTarget,
     BackendInstruction,
     BackendInstId,
@@ -147,7 +147,7 @@ def analyze_callable_liveness(callable_decl: BackendCallableDecl) -> BackendCall
 def operand_use_regs(operand: BackendOperand) -> tuple[BackendRegId, ...]:
     if isinstance(operand, BackendRegOperand):
         return (operand.reg_id,)
-    if isinstance(operand, BackendFunctionOperand):
+    if isinstance(operand, BackendCallableOperand):
         return ()
     return ()
 

@@ -26,7 +26,7 @@ from compiler.backend.ir import (
     BackendCopyInst,
     BackendDataOperand,
     BackendDoubleConst,
-    BackendFunctionOperand,
+    BackendCallableOperand,
     BackendIntConst,
     BackendJumpTerminator,
     BackendNullConst,
@@ -619,10 +619,10 @@ def emit_load_operand(
 
     if isinstance(operand, BackendDataOperand):
         raise BackendTargetLoweringError("x86_64_sysv data operands land in the later string slice")
-    if isinstance(operand, BackendFunctionOperand):
+    if isinstance(operand, BackendCallableOperand):
         if program_symbols is None:
-            raise BackendTargetLoweringError("x86_64_sysv function operands require backend program symbols")
-        builder.instruction("lea", target_register, f"[rip + {program_symbols.callable(operand.function_id).direct_call_symbol}]")
+            raise BackendTargetLoweringError("x86_64_sysv callable operands require backend program symbols")
+        builder.instruction("lea", target_register, f"[rip + {program_symbols.callable(operand.callable_id).direct_call_symbol}]")
         return
 
     raise BackendTargetLoweringError(
@@ -718,7 +718,7 @@ def _operand_type_name(operand: BackendOperand, register_type_name_by_reg_id: di
             return TYPE_NAME_DOUBLE
         if isinstance(operand.constant, BackendNullConst):
             return "Obj"
-    if isinstance(operand, BackendFunctionOperand):
+    if isinstance(operand, BackendCallableOperand):
         return semantic_type_canonical_name(operand.type_ref)
     raise BackendTargetLoweringError(
         f"x86_64_sysv cannot infer operand type for '{type(operand).__name__}' in PR3"

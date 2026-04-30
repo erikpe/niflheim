@@ -1391,30 +1391,32 @@ def _operand_type(
                 f"data operand '{_format_data_id(operand.data_id)}' is not declared",
             )
         return _OPAQUE_DATA_TYPE_REF
-    if isinstance(operand, ir_model.BackendFunctionOperand):
-        function_decl = index.callable_by_id.get(operand.function_id)
-        if function_decl is None or function_decl.kind != "function":
+    if isinstance(operand, ir_model.BackendCallableOperand):
+        target_decl = index.callable_by_id.get(operand.callable_id)
+        if target_decl is None:
             _instruction_error(
                 callable_decl,
                 block,
                 instruction,
-                f"function operand '{_format_callable_id(operand.function_id)}' is not a declared function",
+                f"callable operand '{_format_callable_id(operand.callable_id)}' is not a declared callable",
             )
         if not semantic_type_is_callable(operand.type_ref):
-            _instruction_error(callable_decl, block, instruction, "function operands must carry a callable type")
-        if semantic_type_callable_params(operand.type_ref) != function_decl.signature.param_types:
+            _instruction_error(callable_decl, block, instruction, "callable operands must carry a callable type")
+        if semantic_type_callable_params(operand.type_ref) != target_decl.signature.param_types:
             _instruction_error(
                 callable_decl,
                 block,
                 instruction,
-                f"function operand '{_format_callable_id(operand.function_id)}' parameter types do not match operand callable type",
+                f"callable operand '{_format_callable_id(operand.callable_id)}' parameter types do not match operand callable type",
             )
-        if semantic_type_callable_return(operand.type_ref) != function_decl.signature.return_type:
+        operand_return_type = semantic_type_callable_return(operand.type_ref)
+        normalized_return_type = None if operand_return_type == _UNIT_TYPE_REF else operand_return_type
+        if normalized_return_type != target_decl.signature.return_type:
             _instruction_error(
                 callable_decl,
                 block,
                 instruction,
-                f"function operand '{_format_callable_id(operand.function_id)}' return type does not match operand callable type",
+                f"callable operand '{_format_callable_id(operand.callable_id)}' return type does not match operand callable type",
             )
         return operand.type_ref
     _instruction_error(callable_decl, block, instruction, f"unsupported operand type '{type(operand).__name__}'")

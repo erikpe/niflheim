@@ -1357,7 +1357,7 @@ def _materialize_expr_into(
             raise NotImplementedError("Backend lowering cannot materialize unit-valued expressions into registers")
         builder.emit_const(state, dest=dest_reg_id, constant=operand.constant, span=span)
         return
-    if isinstance(operand, ir_model.BackendFunctionOperand):
+    if isinstance(operand, ir_model.BackendCallableOperand):
         builder.emit_copy(state, dest=dest_reg_id, source=operand, span=span)
         return
     raise NotImplementedError(
@@ -1468,7 +1468,11 @@ def _lower_expression_to_operand(
             return ir_model.BackendRegOperand(reg_id=dest_reg_id)
         return ir_model.BackendRegOperand(reg_id=reg_id)
     if isinstance(expr, FunctionRefExpr):
-        return ir_model.BackendFunctionOperand(function_id=expr.function_id, type_ref=expr.type_ref)
+        return ir_model.BackendCallableOperand(callable_id=expr.function_id, type_ref=expr.type_ref)
+    if isinstance(expr, MethodRefExpr):
+        if expr.receiver is not None:
+            raise NotImplementedError("Backend lowering does not materialize bound method references yet")
+        return ir_model.BackendCallableOperand(callable_id=expr.method_id, type_ref=expr.type_ref)
     if isinstance(expr, NullExprS):
         return lower_null_operand()
     if hasattr(expr, "constant"):

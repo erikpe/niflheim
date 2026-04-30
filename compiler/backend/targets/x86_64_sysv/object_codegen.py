@@ -55,6 +55,7 @@ def emit_field_load_instruction(
         target_byte_register="al",
         frame_layout=frame_layout,
         register_type_name_by_reg_id=register_type_name_by_reg_id,
+        program_symbols=program_context.symbols,
     )
     if field_slot.type_ref.canonical_name == "double":
         builder.instruction("movq", "xmm0", format_stack_slot_operand("rax", field_slot.offset))
@@ -80,6 +81,7 @@ def emit_field_store_instruction(
         target_byte_register="cl",
         frame_layout=frame_layout,
         register_type_name_by_reg_id=register_type_name_by_reg_id,
+        program_symbols=program_context.symbols,
     )
     if field_slot.type_ref.canonical_name == "double":
         emit_load_float_operand(
@@ -98,6 +100,7 @@ def emit_field_store_instruction(
         target_byte_register="al",
         frame_layout=frame_layout,
         register_type_name_by_reg_id=register_type_name_by_reg_id,
+        program_symbols=program_context.symbols,
     )
     builder.instruction("mov", format_stack_slot_operand("rcx", field_slot.offset), "rax")
 

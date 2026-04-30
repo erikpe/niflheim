@@ -176,3 +176,48 @@ def test_emit_source_asm_can_execute_function_ref_callable_value_program(tmp_pat
     )
 
     assert run.returncode == 42
+
+
+def test_emit_source_asm_materializes_static_method_refs_as_callable_values(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        class Math {
+            static fn twice(value: i64) -> i64 {
+                return value * 2;
+            }
+        }
+
+        fn main() -> i64 {
+            var func: fn(i64) -> i64 = Math.twice;
+            return func(21);
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    main_body = _body_for_label(asm, "main")
+
+    assert "    lea rax, [rip + __nif_method_main__Math_twice]" in main_body
+    assert "    call r11" in main_body
+
+
+def test_emit_source_asm_can_execute_static_method_ref_callable_value_program(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        class Math {
+            static fn twice(value: i64) -> i64 {
+                return value * 2;
+            }
+        }
+
+        fn main() -> i64 {
+            var func: fn(i64) -> i64 = Math.twice;
+            return func(21);
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert run.returncode == 42

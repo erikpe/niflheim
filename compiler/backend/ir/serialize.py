@@ -479,10 +479,10 @@ def _serialize_operand(operand: ir_model.BackendOperand) -> dict[str, object]:
         return {"kind": "const", "constant": _serialize_constant(operand.constant)}
     if isinstance(operand, ir_model.BackendDataOperand):
         return {"kind": "data", "data_id": _serialize_data_id(operand.data_id)}
-    if isinstance(operand, ir_model.BackendFunctionOperand):
+    if isinstance(operand, ir_model.BackendCallableOperand):
         return {
-            "kind": "function",
-            "function_id": _serialize_function_id(operand.function_id),
+            "kind": "callable",
+            "callable_id": _serialize_callable_id(operand.callable_id),
             "type": _serialize_semantic_type_ref(operand.type_ref),
         }
     raise TypeError(f"Unsupported backend operand type: {type(operand).__name__}")
@@ -1081,13 +1081,13 @@ def _parse_operand(value: object, *, callable_id: ir_model.BackendCallableId) ->
         return ir_model.BackendDataOperand(
             data_id=_parse_data_id(_require_str(payload, "data_id", "data operand"), context="data operand data_id")
         )
-    if kind == "function":
-        return ir_model.BackendFunctionOperand(
-            function_id=_parse_function_id(
-                _require_object(payload, "function_id", "function operand"),
-                "function operand function_id",
+    if kind == "callable":
+        return ir_model.BackendCallableOperand(
+            callable_id=_parse_callable_id(
+                _require_object(payload, "callable_id", "callable operand"),
+                "callable operand callable_id",
             ),
-            type_ref=_parse_semantic_type_ref(_require_object(payload, "type", "function operand")),
+            type_ref=_parse_semantic_type_ref(_require_object(payload, "type", "callable operand")),
         )
     raise ValueError(f"Unsupported backend IR operand kind '{kind}'")
 
