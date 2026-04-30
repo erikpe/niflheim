@@ -124,3 +124,19 @@ def test_emit_source_asm_can_execute_direct_for_in_over_array(tmp_path) -> None:
     )
 
     assert run.returncode == 28
+
+
+def test_emit_source_asm_preserves_array_len_null_panic_shape(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        fn main() -> i64 {
+            var values: i64[] = null;
+            values.len();
+            return 0;
+        }
+        """,
+    )
+
+    assert run.returncode != 0
+    assert "panic: Array API called with null object" in run.stderr

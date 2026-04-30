@@ -39,6 +39,7 @@ _CALL_TEMP_BYTE_REGISTER = "al"
 _CALL_TEMP_FLOAT_REGISTER = "xmm15"
 _CALL_TARGET_REGISTER = "r11"
 _CALL_TARGET_BYTE_REGISTER = "r11b"
+_CALL_LOOKUP_SCRATCH_REGISTER = "r10"
 _BYTE_REGISTER_BY_REGISTER = {
     "rax": "al",
     "rbx": "bl",
@@ -314,9 +315,13 @@ def _emit_virtual_call_target_lookup(
         instruction.target.slot_owner_class_id,
         instruction.target.method_name,
     )
-    builder.instruction("mov", "rcx", object_type_operand("rdi"))
-    builder.instruction("mov", "rcx", class_vtable_operand("rcx"))
-    builder.instruction("mov", _CALL_TARGET_REGISTER, class_vtable_entry_operand("rcx", slot_index))
+    builder.instruction("mov", _CALL_LOOKUP_SCRATCH_REGISTER, object_type_operand("rdi"))
+    builder.instruction("mov", _CALL_LOOKUP_SCRATCH_REGISTER, class_vtable_operand(_CALL_LOOKUP_SCRATCH_REGISTER))
+    builder.instruction(
+        "mov",
+        _CALL_TARGET_REGISTER,
+        class_vtable_entry_operand(_CALL_LOOKUP_SCRATCH_REGISTER, slot_index),
+    )
 
 
 def _emit_interface_call_target_lookup(
@@ -334,10 +339,22 @@ def _emit_interface_call_target_lookup(
         raise BackendTargetLoweringError(
             f"x86_64_sysv backend program context is missing interface method slot metadata for '{instruction.target.method_id}'"
         ) from exc
-    builder.instruction("mov", "rcx", object_type_operand("rdi"))
-    builder.instruction("mov", "rcx", interface_tables_operand("rcx"))
-    builder.instruction("mov", "rcx", interface_table_entry_operand("rcx", slot_index))
-    builder.instruction("mov", _CALL_TARGET_REGISTER, interface_method_entry_operand("rcx", method_slot))
+    builder.instruction("mov", _CALL_LOOKUP_SCRATCH_REGISTER, object_type_operand("rdi"))
+    builder.instruction(
+        "mov",
+        _CALL_LOOKUP_SCRATCH_REGISTER,
+        interface_tables_operand(_CALL_LOOKUP_SCRATCH_REGISTER),
+    )
+    builder.instruction(
+        "mov",
+        _CALL_LOOKUP_SCRATCH_REGISTER,
+        interface_table_entry_operand(_CALL_LOOKUP_SCRATCH_REGISTER, slot_index),
+    )
+    builder.instruction(
+        "mov",
+        _CALL_TARGET_REGISTER,
+        interface_method_entry_operand(_CALL_LOOKUP_SCRATCH_REGISTER, method_slot),
+    )
 
 
 def _interface_slot_index(program_context: BackendProgramContext, interface_id) -> int:

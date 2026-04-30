@@ -808,7 +808,6 @@ def _verify_instruction(
             register_by_id=register_by_id,
             available_defs=available_defs,
         )
-        _require_explicit_null_check(callable_decl, block, instruction, instruction.array_ref, available_nonnull)
         _require_array_operand_type(callable_decl, block, instruction, array_type)
         if dest_type is not None and dest_type != _U64_TYPE_REF:
             _instruction_error(callable_decl, block, instruction, "array_len destinations must be u64-typed")

@@ -19,6 +19,7 @@ from compiler.backend.ir import (
 	BackendTypeTestInst,
 	BackendVirtualCallTarget,
 )
+from compiler.backend.ir.verify import verify_backend_program
 from compiler.codegen.abi.runtime import ARRAY_FROM_BYTES_U8_RUNTIME_CALL, runtime_call_metadata
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from tests.compiler.backend.lowering.helpers import block_by_ordinal, callable_by_name, lower_source_to_backend_program
@@ -62,7 +63,6 @@ def test_lower_to_backend_ir_lowers_array_instructions_and_explicit_checks(tmp_p
 		BackendBoundsCheckInst,
 		BackendBoundsCheckInst,
 		BackendArraySliceStoreInst,
-		BackendNullCheckInst,
 		BackendArrayLengthInst,
 	]
 	assert arrays_instructions[2].array_runtime_kind is ArrayRuntimeKind.I64
@@ -113,6 +113,38 @@ def test_lower_to_backend_ir_lowers_for_in_as_cfg_with_direct_array_fast_path(tm
 	assert isinstance(body_instructions[0], BackendNullCheckInst)
 	assert isinstance(body_instructions[1], BackendBoundsCheckInst)
 	assert isinstance(body_instructions[2], BackendArrayLoadInst)
+
+
+def test_lower_to_backend_ir_prunes_unreachable_for_in_step_after_early_return(tmp_path) -> None:
+	program = lower_source_to_backend_program(
+		tmp_path,
+		"""
+		class IterBase {
+			fn iter_len() -> u64 {
+				return 1u;
+			}
+
+			fn iter_get(index: i64) -> i64 {
+				return 42;
+			}
+		}
+
+		fn read(values: IterBase) -> i64 {
+			for item in values {
+				return item;
+			}
+			return 0;
+		}
+
+		fn main() -> i64 {
+			return read(IterBase());
+		}
+		""",
+	)
+
+	verify_backend_program(program)
+	read_callable = callable_by_name(program, "read")
+	assert "forin.step" not in [block.debug_name for block in read_callable.blocks]
 
 
 def test_lower_to_backend_ir_lowers_virtual_collection_dispatch_as_calls(tmp_path) -> None:

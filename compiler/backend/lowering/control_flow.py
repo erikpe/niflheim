@@ -586,8 +586,11 @@ class _CallableCFGBuilder:
         block.terminator = ir_model.BackendReturnTerminator(span=span, value=value)
 
     def freeze_blocks(self) -> tuple[ir_model.BackendBlock, ...]:
+        reachable_block_ids = _reachable_block_ids(self.blocks)
         frozen_blocks: list[ir_model.BackendBlock] = []
         for block in self.blocks:
+            if block.block_id not in reachable_block_ids:
+                continue
             if block.terminator is None:
                 raise ValueError(f"Backend block '{block.block_id}' is missing a terminator")
             frozen_blocks.append(
@@ -972,7 +975,6 @@ def _lower_for_in_stmt(
 
     collection_operand = ir_model.BackendRegOperand(reg_id=collection_reg_id)
     if _uses_direct_for_in_array_fast_path(stmt):
-        builder.emit_null_check(state, value=collection_operand, span=stmt.span)
         builder.emit_array_length(state, dest=length_reg_id, array_ref=collection_operand, span=stmt.span)
     else:
         _emit_dispatch_call(
@@ -1227,7 +1229,6 @@ def _materialize_expr_into(
         return
     if isinstance(expr, ArrayLenExpr):
         array_operand = _lower_receiver_operand(builder, state, expr.target, span=expr.span)
-        builder.emit_null_check(state, value=array_operand, span=expr.span)
         builder.emit_array_length(state, dest=dest_reg_id, array_ref=array_operand, span=expr.span)
         return
     if isinstance(expr, IndexReadExpr):
@@ -2004,6 +2005,32 @@ def _emit_string_literal_bytes_expr(
         effects=_runtime_call_effects(ARRAY_FROM_BYTES_U8_RUNTIME_CALL),
         span=expr.span,
     )
+
+
+def _reachable_block_ids(blocks: list[_MutableBlock]) -> set[ir_model.BackendBlockId]:
+    if not blocks:
+        return set()
+
+    block_by_id = {block.block_id: block for block in blocks}
+    reachable = {blocks[0].block_id}
+    worklist = [blocks[0].block_id]
+
+    while worklist:
+        block_id = worklist.pop()
+        terminator = block_by_id[block_id].terminator
+        if isinstance(terminator, ir_model.BackendJumpTerminator):
+            successors = (terminator.target_block_id,)
+        elif isinstance(terminator, ir_model.BackendBranchTerminator):
+            successors = (terminator.true_block_id, terminator.false_block_id)
+        else:
+            successors = ()
+        for successor in successors:
+            if successor in reachable:
+                continue
+            reachable.add(successor)
+            worklist.append(successor)
+
+    return reachable
 
 
 def _lower_receiver_operand(
