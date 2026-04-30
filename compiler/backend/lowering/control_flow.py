@@ -73,6 +73,10 @@ from compiler.semantic.types import (
     semantic_type_canonical_name,
     semantic_type_is_callable,
     semantic_type_is_array,
+    semantic_type_is_interface,
+    semantic_type_is_reference,
+    semantic_type_ref_for_class_id,
+    semantic_type_ref_for_interface_id,
 )
 
 
@@ -906,7 +910,7 @@ def _lower_while_stmt(
     )
     condition = _lower_expression_to_operand(builder, cond_state, stmt.condition)
     builder.terminate_with_branch(
-        cond_block_id,
+        cond_state.current_block_id,
         condition=condition,
         true_block_id=body_block_id,
         false_block_id=exit_block_id,
@@ -1180,6 +1184,12 @@ def _materialize_expr_into(
         builder.emit_unary(state, dest=dest_reg_id, op=expr.op, operand=operand, span=expr.span)
         return
     if isinstance(expr, BinaryExprS):
+        if expr.op.flavor == BinaryOpFlavor.BOOL_LOGICAL and expr.op.kind in {
+            BinaryOpKind.LOGICAL_AND,
+            BinaryOpKind.LOGICAL_OR,
+        }:
+            _materialize_short_circuit_bool_expr(builder, state, dest_reg_id=dest_reg_id, expr=expr)
+            return
         left = _lower_expression_to_operand(builder, state, expr.left)
         right = _lower_expression_to_operand(builder, state, expr.right)
         builder.emit_binary(state, dest=dest_reg_id, op=expr.op, left=left, right=right, span=expr.span)
@@ -1301,6 +1311,20 @@ def _materialize_expr_into(
 
     operand = _lower_expression_to_operand(builder, state, expr)
     if isinstance(operand, ir_model.BackendRegOperand):
+        source_type_ref = builder.require_register_type(operand.reg_id)
+        dest_type_ref = builder.require_register_type(dest_reg_id)
+        if source_type_ref != dest_type_ref:
+            if _supports_reference_compatibility_cast(source_type_ref, dest_type_ref):
+                builder.emit_cast(
+                    state,
+                    dest=dest_reg_id,
+                    cast_kind=CastSemanticsKind.REFERENCE_COMPATIBILITY,
+                    operand=operand,
+                    target_type_ref=dest_type_ref,
+                    trap_on_failure=True,
+                    span=span,
+                )
+                return
         if operand.reg_id == dest_reg_id:
             return
         builder.emit_copy(state, dest=dest_reg_id, source=operand, span=span)
@@ -1338,6 +1362,66 @@ def _lower_return_stmt(
         value=_lower_expression_to_operand(builder, state, stmt.value),
         span=stmt.span,
     )
+
+
+def _supports_reference_compatibility_cast(source_type_ref: SemanticTypeRef, dest_type_ref: SemanticTypeRef) -> bool:
+    return (semantic_type_is_reference(source_type_ref) or semantic_type_is_interface(source_type_ref)) and (
+        semantic_type_is_reference(dest_type_ref) or semantic_type_is_interface(dest_type_ref)
+    )
+
+
+def _materialize_short_circuit_bool_expr(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    *,
+    dest_reg_id: ir_model.BackendRegId,
+    expr: BinaryExprS,
+) -> None:
+    left_operand = _lower_expression_to_operand(builder, state, expr.left)
+
+    rhs_block_id = builder.create_block(debug_name="bool.rhs", span=expr.right.span)
+    short_block_id = builder.create_block(debug_name="bool.short", span=expr.span)
+    join_block_id = builder.create_block(debug_name="bool.end", span=expr.span)
+
+    short_value = expr.op.kind == BinaryOpKind.LOGICAL_OR
+    if expr.op.kind == BinaryOpKind.LOGICAL_AND:
+        true_block_id = rhs_block_id
+        false_block_id = short_block_id
+    else:
+        true_block_id = short_block_id
+        false_block_id = rhs_block_id
+
+    builder.terminate_with_branch(
+        state.current_block_id,
+        condition=left_operand,
+        true_block_id=true_block_id,
+        false_block_id=false_block_id,
+        span=expr.left.span,
+    )
+
+    short_state = _ControlFlowState(
+        current_block_id=short_block_id,
+        reg_by_local_id=dict(state.reg_by_local_id),
+        merge_local_ids=state.merge_local_ids,
+    )
+    builder.emit_const(
+        short_state,
+        dest=dest_reg_id,
+        constant=ir_model.BackendBoolConst(value=short_value),
+        span=expr.span,
+    )
+    builder.terminate_with_jump(short_block_id, target_block_id=join_block_id, span=expr.span)
+
+    rhs_state = _ControlFlowState(
+        current_block_id=rhs_block_id,
+        reg_by_local_id=dict(state.reg_by_local_id),
+        merge_local_ids=state.merge_local_ids,
+    )
+    _materialize_expr_into(builder, rhs_state, dest_reg_id=dest_reg_id, expr=expr.right, span=expr.right.span)
+    if rhs_state.current_block_id is not None:
+        builder.terminate_with_jump(rhs_state.current_block_id, target_block_id=join_block_id, span=expr.span)
+
+    state.current_block_id = join_block_id
 
 
 def _lower_expression_to_operand(
@@ -1445,7 +1529,12 @@ def _emit_call_expression(
 
     if isinstance(target, ConstructorInitCallTarget):
         args = tuple(_lower_expression_to_operand(builder, state, argument) for argument in expr.args)
-        receiver_operand = _lower_receiver_operand(builder, state, target.access.receiver, span=target.access.receiver.span)
+        receiver_operand = _lower_call_receiver(
+            builder,
+            state,
+            receiver=target.access.receiver,
+            expected_type_ref=semantic_type_ref_for_class_id(_class_id_for_constructor_target(target)),
+        )
         builder.emit_call(
             state,
             dest=dest_reg_id,
@@ -1457,7 +1546,15 @@ def _emit_call_expression(
         return
 
     if isinstance(target, InstanceMethodCallTarget):
-        args = _lower_call_args_with_receiver(builder, state, receiver=target.access.receiver, extra_args=expr.args)
+        args = _lower_call_args_with_receiver(
+            builder,
+            state,
+            receiver=target.access.receiver,
+            extra_args=expr.args,
+            expected_receiver_type_ref=semantic_type_ref_for_class_id(
+                ClassId(module_path=target.method_id.module_path, name=target.method_id.class_name)
+            ),
+        )
         builder.emit_call(
             state,
             dest=dest_reg_id,
@@ -1469,7 +1566,13 @@ def _emit_call_expression(
         return
 
     if isinstance(target, VirtualMethodCallTarget):
-        args = _lower_call_args_with_receiver(builder, state, receiver=target.access.receiver, extra_args=expr.args)
+        args = _lower_call_args_with_receiver(
+            builder,
+            state,
+            receiver=target.access.receiver,
+            extra_args=expr.args,
+            expected_receiver_type_ref=semantic_type_ref_for_class_id(target.slot_owner_class_id),
+        )
         builder.emit_call(
             state,
             dest=dest_reg_id,
@@ -1485,7 +1588,13 @@ def _emit_call_expression(
         return
 
     if isinstance(target, InterfaceMethodCallTarget):
-        args = _lower_call_args_with_receiver(builder, state, receiver=target.access.receiver, extra_args=expr.args)
+        args = _lower_call_args_with_receiver(
+            builder,
+            state,
+            receiver=target.access.receiver,
+            extra_args=expr.args,
+            expected_receiver_type_ref=semantic_type_ref_for_interface_id(target.interface_id),
+        )
         builder.emit_call(
             state,
             dest=dest_reg_id,
@@ -1842,9 +1951,43 @@ def _lower_call_args_with_receiver(
     *,
     receiver: SemanticExpr,
     extra_args: list[SemanticExpr],
+    expected_receiver_type_ref: SemanticTypeRef,
 ) -> tuple[ir_model.BackendOperand, ...]:
-    receiver_operand = _lower_receiver_operand(builder, state, receiver, span=receiver.span)
+    receiver_operand = _lower_call_receiver(
+        builder,
+        state,
+        receiver=receiver,
+        expected_type_ref=expected_receiver_type_ref,
+    )
     return (receiver_operand, *(_lower_expression_to_operand(builder, state, argument) for argument in extra_args))
+
+
+def _lower_call_receiver(
+    builder: _CallableCFGBuilder,
+    state: _ControlFlowState,
+    *,
+    receiver: SemanticExpr,
+    expected_type_ref: SemanticTypeRef,
+) -> ir_model.BackendOperand:
+    receiver_operand = _lower_receiver_operand(builder, state, receiver, span=receiver.span)
+    if not isinstance(receiver_operand, ir_model.BackendRegOperand):
+        return receiver_operand
+    receiver_type_ref = builder.require_register_type(receiver_operand.reg_id)
+    if receiver_type_ref == expected_type_ref:
+        return receiver_operand
+    if not (semantic_type_is_interface(receiver_type_ref) and semantic_type_is_reference(expected_type_ref)):
+        return receiver_operand
+    coerced_reg_id = builder.allocate_temp(type_ref=expected_type_ref, span=receiver.span, debug_hint="recv")
+    builder.emit_cast(
+        state,
+        dest=coerced_reg_id,
+        cast_kind=CastSemanticsKind.REFERENCE_COMPATIBILITY,
+        operand=receiver_operand,
+        target_type_ref=expected_type_ref,
+        trap_on_failure=False,
+        span=receiver.span,
+    )
+    return ir_model.BackendRegOperand(reg_id=coerced_reg_id)
 
 
 def _class_id_for_constructor_target(target: ConstructorCallTarget) -> ClassId:

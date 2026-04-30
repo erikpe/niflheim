@@ -249,6 +249,42 @@ def test_lower_to_backend_ir_materializes_cast_for_narrowed_local_before_copy_an
     assert field_load_inst.object_ref.reg_id == copy_inst.dest
 
 
+def test_lower_to_backend_ir_materializes_cast_for_interface_typed_local_initializers(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        interface Comparable {
+            fn compare_to(other: Obj) -> i64;
+        }
+
+        class Box implements Comparable {
+            value: i64;
+
+            constructor(value: i64) {
+                __self.value = value;
+            }
+
+            fn compare_to(other: Obj) -> i64 {
+                return __self.value - ((Box)other).value;
+            }
+        }
+
+        fn main() -> i64 {
+            var value: Box = Box(7);
+            var comparable: Comparable = value;
+            return comparable.compare_to((Obj)Box(7));
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    verify_backend_program(program)
+    main_callable = callable_by_name(program, "main")
+    casts = [instruction for block in main_callable.blocks for instruction in block.instructions if isinstance(instruction, BackendCastInst)]
+
+    assert any(cast.target_type_ref.interface_id is not None and cast.target_type_ref.interface_id.name == "Comparable" for cast in casts)
+
+
 def test_lower_to_backend_ir_synthesizes_compatibility_constructor_field_stores(tmp_path) -> None:
     program = lower_source_to_backend_program(
         tmp_path,

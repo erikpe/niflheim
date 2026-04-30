@@ -229,6 +229,59 @@ def test_emit_source_asm_emits_integer_divide_and_remainder_sequences(tmp_path) 
     assert "    mov rax, rdx" in umod_body
 
 
+def test_emit_source_asm_emits_checked_shift_sequences(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn lshift(a: u64, n: u64) -> u64 {
+            return a << n;
+        }
+
+        fn urshift(a: u64, n: u64) -> u64 {
+            return a >> n;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    lshift_body = _body_for_label(asm, mangle_function_symbol(("main",), "lshift"))
+    urshift_body = _body_for_label(asm, mangle_function_symbol(("main",), "urshift"))
+
+    assert "    cmp rcx, 64" in lshift_body
+    assert "    call rt_panic_invalid_shift_count" in lshift_body
+    assert "    shl rax, cl" in lshift_body
+
+    assert "    cmp rcx, 64" in urshift_body
+    assert "    shr rax, cl" in urshift_body
+
+
+def test_emit_source_asm_can_execute_shift_program(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        fn main() -> i64 {
+            var left: u64 = 3u << 4u;
+            var right: u64 = 240u >> 4u;
+
+            if (i64)left != 48 {
+                return 1;
+            }
+            if (i64)right != 15 {
+                return 2;
+            }
+            return 7;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert run.returncode == 7
+
+
 def test_emit_source_asm_is_byte_stable_across_repeated_runs(tmp_path) -> None:
     source = """
     fn main() -> i64 {

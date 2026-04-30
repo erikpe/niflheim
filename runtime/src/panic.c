@@ -39,6 +39,10 @@ void rt_panic_null_deref(void) {
     rt_panic("null dereference");
 }
 
+void rt_panic_invalid_shift_count(void) {
+    rt_panic("invalid shift count");
+}
+
 void rt_panic_bad_cast(const char* from_type, const char* to_type) {
     char message[256];
     snprintf(

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 
 import compiler.cli as cli
 
-from tests.compiler.integration.helpers import compile_and_run, compile_to_asm, install_std_modules, write
+from tests.compiler.integration.helpers import build_executable, compile_and_run, compile_to_asm, install_std_modules, write
 
 
 _EXPERIMENTAL_BACKEND_ARGS = ["--experimental-backend", "backend-ir-x86_64_sysv"]
@@ -301,3 +302,80 @@ def test_cli_experimental_backend_selector_runs_std_string_literal_len(tmp_path:
     )
 
     assert run.returncode == 3, run.stderr
+
+
+def test_cli_experimental_backend_selector_short_circuits_boolean_and_with_guarded_array_index(
+    tmp_path: Path, monkeypatch
+) -> None:
+    install_std_modules(tmp_path, ["io", "str", "lang", "object", "vec", "error"])
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        import std.io;
+        import std.str;
+
+        fn main() -> i64 {
+            var args: Str[] = read_program_args();
+            if args.len() > 2u && args[2].compare_to("len") == 0 {
+                return 1;
+            }
+            if args[1].compare_to("alpha") != 0 {
+                return 2;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    asm_path = compile_to_asm(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        out_path=tmp_path / "out.s",
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+    exe_path = build_executable(asm_path, exe_path=tmp_path / "out")
+    run = subprocess.run([str(exe_path), "alpha"], check=False, capture_output=True, text=True)
+
+    assert run.returncode == 0, run.stderr
+
+
+def test_cli_experimental_backend_selector_runs_interface_typed_local_initializers(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        interface Comparable {
+            fn compare_to(other: Obj) -> i64;
+        }
+
+        class Box implements Comparable {
+            value: i64;
+
+            constructor(value: i64) {
+                __self.value = value;
+            }
+
+            fn compare_to(other: Obj) -> i64 {
+                return __self.value - ((Box)other).value;
+            }
+        }
+
+        fn main() -> i64 {
+            var left: Box = Box(7);
+            var right: Box = Box(9);
+            var comparable: Comparable = left;
+            return comparable.compare_to((Obj)right);
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+
+    assert run.returncode == 254

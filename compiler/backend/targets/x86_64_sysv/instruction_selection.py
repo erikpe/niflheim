@@ -479,6 +479,9 @@ def _emit_integer_binary_operation(builder: X86AsmBuilder, kind: BinaryOpKind, *
     if kind == BinaryOpKind.REMAINDER:
         _emit_integer_divide_or_remainder(builder, operand_type_name=operand_type_name, emit_remainder=True)
         return
+    if kind in {BinaryOpKind.SHIFT_LEFT, BinaryOpKind.SHIFT_RIGHT}:
+        _emit_integer_shift(builder, kind, operand_type_name=operand_type_name)
+        return
     if kind == BinaryOpKind.BITWISE_AND:
         builder.instruction("and", _PRIMARY_REGISTER, _SECONDARY_REGISTER)
         _mask_u8_result_if_needed(builder, operand_type_name)
@@ -523,6 +526,22 @@ def _emit_integer_divide_or_remainder(
         builder.instruction("mov", _PRIMARY_REGISTER, _TERTIARY_REGISTER)
         return
     builder.instruction("sub", _PRIMARY_REGISTER, _QUATERNARY_REGISTER)
+
+
+def _emit_integer_shift(builder: X86AsmBuilder, kind: BinaryOpKind, *, operand_type_name: str) -> None:
+    max_shift = "8" if operand_type_name == TYPE_NAME_U8 else "64"
+    builder.instruction("cmp", _SECONDARY_REGISTER, max_shift)
+    builder.instruction("jb", "1f")
+    builder.instruction("call", "rt_panic_invalid_shift_count")
+    builder.label("1")
+    if kind == BinaryOpKind.SHIFT_LEFT:
+        builder.instruction("shl", _PRIMARY_REGISTER, _SECONDARY_BYTE_REGISTER)
+        _mask_u8_result_if_needed(builder, operand_type_name)
+        return
+    if operand_type_name in _UNSIGNED_TYPE_NAMES:
+        builder.instruction("shr", _PRIMARY_REGISTER, _SECONDARY_BYTE_REGISTER)
+        return
+    builder.instruction("sar", _PRIMARY_REGISTER, _SECONDARY_BYTE_REGISTER)
 
 
 def _emit_integer_comparison(builder: X86AsmBuilder, kind: BinaryOpKind, *, operand_type_name: str) -> None:
