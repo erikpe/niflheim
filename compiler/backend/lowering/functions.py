@@ -161,6 +161,8 @@ def lower_constructor_callable(
             constructor,
             call_surface_by_id=call_surface_by_id,
         )
+    else:
+        body = _inject_explicit_constructor_field_initializers(owner_class, constructor, body)
     return LoweredCallable(
         callable_decl=_lower_callable_decl(
             owner=constructor,
@@ -186,10 +188,7 @@ def _synthesize_compatibility_constructor_body(
     *,
     call_surface_by_id: Mapping[ir_model.BackendCallableId, CallableSurface],
 ) -> SemanticBlock:
-    receiver_type_ref = semantic_type_ref_for_class_id(owner_class.class_id)
-    receiver_local_id = _require_receiver_local_id(constructor)
-    receiver_expr = LocalRefExpr(local_id=receiver_local_id, type_ref=receiver_type_ref, span=constructor.span)
-    access = BoundMemberAccess(receiver=receiver_expr, receiver_type_ref=receiver_type_ref)
+    access = _constructor_receiver_access(owner_class.class_id, constructor)
     param_expr_by_name = _constructor_param_expr_by_name(constructor)
 
     statements = []
@@ -239,6 +238,61 @@ def _synthesize_compatibility_constructor_body(
         )
 
     return SemanticBlock(statements=statements, span=constructor.span)
+
+
+def _inject_explicit_constructor_field_initializers(
+    owner_class: SemanticClass,
+    constructor: SemanticConstructor,
+    body: SemanticBlock,
+) -> SemanticBlock:
+    initializer_statements = _constructor_field_initializer_assignments(owner_class, constructor)
+    if not initializer_statements:
+        return body
+    if not body.statements:
+        return SemanticBlock(statements=initializer_statements, span=body.span)
+    if _is_super_init_stmt(body.statements[0]):
+        return SemanticBlock(
+            statements=[body.statements[0], *initializer_statements, *body.statements[1:]],
+            span=body.span,
+        )
+    return SemanticBlock(statements=[*initializer_statements, *body.statements], span=body.span)
+
+
+def _constructor_field_initializer_assignments(
+    owner_class: SemanticClass,
+    constructor: SemanticConstructor,
+) -> list[SemanticAssign]:
+    access = _constructor_receiver_access(owner_class.class_id, constructor)
+    return [
+        SemanticAssign(
+            target=FieldLValue(
+                access=access,
+                owner_class_id=owner_class.class_id,
+                field_name=field.name,
+                type_ref=field.type_ref,
+                span=constructor.span,
+            ),
+            value=field.initializer,
+            span=constructor.span,
+        )
+        for field in owner_class.fields
+        if field.initializer is not None
+    ]
+
+
+def _constructor_receiver_access(owner_class_id: ClassId, constructor: SemanticConstructor) -> BoundMemberAccess:
+    receiver_type_ref = semantic_type_ref_for_class_id(owner_class_id)
+    receiver_local_id = _require_receiver_local_id(constructor)
+    receiver_expr = LocalRefExpr(local_id=receiver_local_id, type_ref=receiver_type_ref, span=constructor.span)
+    return BoundMemberAccess(receiver=receiver_expr, receiver_type_ref=receiver_type_ref)
+
+
+def _is_super_init_stmt(stmt) -> bool:
+    return (
+        isinstance(stmt, SemanticExprStmt)
+        and isinstance(stmt.expr, CallExprS)
+        and isinstance(stmt.expr.target, ConstructorInitCallTarget)
+    )
 
 
 def _require_receiver_local_id(constructor: SemanticConstructor) -> LocalId:

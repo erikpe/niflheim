@@ -71,13 +71,23 @@ def test_lower_to_backend_ir_lowers_constructor_alloc_and_super_init_calls(tmp_p
     derived_instructions = list(block_by_ordinal(derived_ctor, 0).instructions)
     super_call = next(instruction for instruction in derived_instructions if isinstance(instruction, BackendCallInst))
     extra_store = next(instruction for instruction in derived_instructions if isinstance(instruction, BackendFieldStoreInst))
+    receiver_casts = [
+        instruction
+        for instruction in derived_instructions
+        if isinstance(instruction, BackendCastInst)
+        and instruction.target_type_ref.class_id is not None
+        and instruction.target_type_ref.class_id.name == "Base"
+    ]
 
     assert derived_ctor.receiver_reg is not None
     assert isinstance(super_call.target, BackendDirectCallTarget)
     assert super_call.target.callable_id.class_name == "Base"
     assert len(super_call.args) == 2
     assert isinstance(super_call.args[0], BackendRegOperand)
-    assert super_call.args[0].reg_id == derived_ctor.receiver_reg
+    assert receiver_casts
+    assert isinstance(receiver_casts[0].operand, BackendRegOperand)
+    assert receiver_casts[0].operand.reg_id == derived_ctor.receiver_reg
+    assert super_call.args[0].reg_id == receiver_casts[0].dest
     assert extra_store.owner_class_id.name == "Derived"
     assert extra_store.field_name == "extra"
 
@@ -445,4 +455,79 @@ def test_lower_to_backend_ir_synthesizes_compatibility_constructor_field_stores(
     assert isinstance(super_call.target, BackendDirectCallTarget)
     assert super_call.target.callable_id.class_name == "Base"
     assert [instruction.field_name for instruction in field_stores] == ["ready", "extra"]
+
+
+def test_lower_to_backend_ir_injects_default_field_stores_into_explicit_constructor(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        class Config {
+            code: i64;
+            enabled: bool = true;
+
+            constructor() {
+                __self.code = 42;
+            }
+        }
+
+        fn main() -> i64 {
+            var cfg: Config = Config();
+            if !cfg.enabled {
+                return 1;
+            }
+            return cfg.code - 42;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    verify_backend_program(program)
+    ctor = callable_by_suffix(program, "main.Config.#0")
+    instructions = list(block_by_ordinal(ctor, 0).instructions)
+    field_stores = [instruction for instruction in instructions if isinstance(instruction, BackendFieldStoreInst)]
+
+    assert [instruction.field_name for instruction in field_stores] == ["enabled", "code"]
+
+
+def test_lower_to_backend_ir_injects_default_field_stores_after_explicit_super_call(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        class Base {
+            value: i64;
+
+            constructor(value: i64) {
+                __self.value = value;
+            }
+        }
+
+        class Derived extends Base {
+            marker: i64 = 9;
+            extra: i64;
+
+            constructor(value: i64, extra: i64) {
+                super(value);
+                __self.extra = extra;
+            }
+        }
+
+        fn main() -> i64 {
+            var derived: Derived = Derived(3, 7);
+            return derived.value + derived.marker + derived.extra;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    verify_backend_program(program)
+    ctor = callable_by_suffix(program, "main.Derived.#0")
+    instructions = list(block_by_ordinal(ctor, 0).instructions)
+
+    super_call_index = next(index for index, instruction in enumerate(instructions) if isinstance(instruction, BackendCallInst))
+    field_stores = [instruction for instruction in instructions if isinstance(instruction, BackendFieldStoreInst)]
+    marker_store_index = next(index for index, instruction in enumerate(instructions) if isinstance(instruction, BackendFieldStoreInst) and instruction.field_name == "marker")
+    extra_store_index = next(index for index, instruction in enumerate(instructions) if isinstance(instruction, BackendFieldStoreInst) and instruction.field_name == "extra")
+
+    assert [instruction.field_name for instruction in field_stores] == ["marker", "extra"]
+    assert super_call_index < marker_store_index < extra_store_index
 

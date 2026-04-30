@@ -212,3 +212,31 @@ def test_lower_to_backend_ir_verifies_tiny_function_method_and_constructor_smoke
     assert isinstance(helper_callable.blocks[0].terminator.value, BackendRegOperand)
     assert isinstance(method_callable.blocks[0].terminator.value, BackendConstOperand)
     assert isinstance(constructor_callable.blocks[0].terminator.value, BackendRegOperand)
+
+
+def test_lower_to_backend_ir_handles_short_circuit_bool_return_expressions(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        class Flag {
+            enabled: bool;
+
+            fn visible(other: bool) -> bool {
+                return __self.enabled && other;
+            }
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    verify_backend_program(program)
+    visible_callable = callable_by_suffix(program, "main.Flag.visible")
+    debug_names = [block.debug_name for block in visible_callable.blocks]
+
+    assert debug_names == ["entry", "bool.rhs", "bool.short", "bool.end"]
+    assert isinstance(visible_callable.blocks[-1].terminator, BackendReturnTerminator)
+    assert isinstance(visible_callable.blocks[-1].terminator.value, BackendRegOperand)

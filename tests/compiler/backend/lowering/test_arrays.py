@@ -12,7 +12,9 @@ from compiler.backend.ir import (
 	BackendCastInst,
 	BackendConstOperand,
 	BackendDataOperand,
+	BackendDirectCallTarget,
 	BackendNullCheckInst,
+	BackendRegOperand,
 	BackendRuntimeCallTarget,
 	BackendTypeTestInst,
 	BackendVirtualCallTarget,
@@ -166,6 +168,62 @@ def test_lower_to_backend_ir_lowers_virtual_collection_dispatch_as_calls(tmp_pat
 		"slice_get",
 		"slice_set",
 	]
+
+
+def test_lower_to_backend_ir_coerces_interface_typed_for_in_receiver_for_devirtualized_dispatch(tmp_path) -> None:
+	program = lower_source_to_backend_program(
+		tmp_path,
+		"""
+		interface IterSeq {
+			fn iter_len() -> u64;
+			fn iter_get(index: i64) -> i64;
+		}
+
+		class InterfaceSeq implements IterSeq {
+			values: i64[];
+
+			fn iter_len() -> u64 {
+				return __self.values.len();
+			}
+
+			fn iter_get(index: i64) -> i64 {
+				return __self.values[index];
+			}
+		}
+
+		fn sum(values: IterSeq) -> i64 {
+			var total: i64 = 0;
+			for item in values {
+				total = total + item;
+			}
+			return total;
+		}
+
+		fn main() -> i64 {
+			var raw: i64[] = i64[](1u);
+			raw[0] = 7;
+			return sum((IterSeq)InterfaceSeq(raw));
+		}
+		""",
+	)
+
+	sum_callable = callable_by_name(program, "sum")
+	instructions = [instruction for block in sum_callable.blocks for instruction in block.instructions]
+	calls = [instruction for instruction in instructions if isinstance(instruction, BackendCallInst)]
+	casts = [instruction for instruction in instructions if isinstance(instruction, BackendCastInst)]
+
+	assert len(calls) == 2
+	assert all(isinstance(call.target, BackendDirectCallTarget) for call in calls)
+	assert [call.target.callable_id.name for call in calls] == ["iter_len", "iter_get"]
+
+	interface_seq_cast_dests = {
+		cast.dest
+		for cast in casts
+		if cast.target_type_ref.class_id is not None and cast.target_type_ref.class_id.name == "InterfaceSeq"
+	}
+	assert interface_seq_cast_dests
+	assert all(isinstance(call.args[0], BackendRegOperand) for call in calls)
+	assert all(call.args[0].reg_id in interface_seq_cast_dests for call in calls)
 
 
 def test_lower_to_backend_ir_lowers_casts_and_pools_string_literal_byte_blobs(tmp_path) -> None:
