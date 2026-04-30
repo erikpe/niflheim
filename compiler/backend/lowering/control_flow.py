@@ -1293,7 +1293,30 @@ def _materialize_expr_into(
         )
         return
     if isinstance(expr, CallExprS):
-        _emit_call_expression(builder, state, expr=expr, dest_reg_id=dest_reg_id)
+        call_return_type = _exact_call_result_type(builder, expr)
+        dest_type_ref = builder.require_register_type(dest_reg_id)
+        if call_return_type is None or call_return_type == dest_type_ref:
+            _emit_call_expression(builder, state, expr=expr, dest_reg_id=dest_reg_id)
+            return
+
+        temp_reg_id = builder.allocate_temp(type_ref=call_return_type, span=expr.span, debug_hint="call")
+        _emit_call_expression(builder, state, expr=expr, dest_reg_id=temp_reg_id)
+        if _supports_reference_compatibility_cast(call_return_type, dest_type_ref):
+            builder.emit_cast(
+                state,
+                dest=dest_reg_id,
+                cast_kind=CastSemanticsKind.REFERENCE_COMPATIBILITY,
+                operand=ir_model.BackendRegOperand(reg_id=temp_reg_id),
+                target_type_ref=dest_type_ref,
+                trap_on_failure=True,
+                span=expr.span,
+            )
+            return
+        raise NotImplementedError(
+            "Backend lowering does not materialize call results of type "
+            f"'{semantic_type_canonical_name(call_return_type)}' into destination type "
+            f"'{semantic_type_canonical_name(dest_type_ref)}' yet"
+        )
         return
     if isinstance(expr, FieldReadExpr):
         field_reg_id = _emit_field_read(builder, state, expr)
@@ -1330,10 +1353,6 @@ def _materialize_expr_into(
         builder.emit_copy(state, dest=dest_reg_id, source=operand, span=span)
         return
     if isinstance(operand, ir_model.BackendConstOperand):
-        if isinstance(operand.constant, ir_model.BackendNullConst) and not _is_null_typed(builder.require_register_type(dest_reg_id)):
-            raise NotImplementedError(
-                "Backend lowering does not materialize null into reference-typed locals yet"
-            )
         if isinstance(operand.constant, ir_model.BackendUnitConst):
             raise NotImplementedError("Backend lowering cannot materialize unit-valued expressions into registers")
         builder.emit_const(state, dest=dest_reg_id, constant=operand.constant, span=span)
@@ -1493,11 +1512,31 @@ def _lower_call_expression(
     expr: CallExprS,
 ) -> ir_model.BackendOperand:
     dest_reg_id = None
-    if _backend_return_type_for_expr(expr) is not None:
-        dest_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="call")
+    call_return_type = _exact_call_result_type(builder, expr)
+    if call_return_type is not None:
+        dest_reg_id = builder.allocate_temp(type_ref=call_return_type, span=expr.span, debug_hint="call")
     _emit_call_expression(builder, state, expr=expr, dest_reg_id=dest_reg_id)
     if dest_reg_id is None:
         return lower_unit_operand()
+    if builder.require_register_type(dest_reg_id) != expr.type_ref:
+        widened_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="call")
+        source_operand = ir_model.BackendRegOperand(reg_id=dest_reg_id)
+        if _supports_reference_compatibility_cast(builder.require_register_type(dest_reg_id), expr.type_ref):
+            builder.emit_cast(
+                state,
+                dest=widened_reg_id,
+                cast_kind=CastSemanticsKind.REFERENCE_COMPATIBILITY,
+                operand=source_operand,
+                target_type_ref=expr.type_ref,
+                trap_on_failure=True,
+                span=expr.span,
+            )
+            return ir_model.BackendRegOperand(reg_id=widened_reg_id)
+        raise NotImplementedError(
+            "Backend lowering does not materialize call operands of type "
+            f"'{semantic_type_canonical_name(builder.require_register_type(dest_reg_id))}' into "
+            f"'{semantic_type_canonical_name(expr.type_ref)}' yet"
+        )
     return ir_model.BackendRegOperand(reg_id=dest_reg_id)
 
 
@@ -1725,6 +1764,10 @@ def _unreachable_state(state: _ControlFlowState) -> _ControlFlowState:
 
 def _backend_return_type_for_expr(expr: SemanticExpr) -> SemanticTypeRef | None:
     return backend_signature_return_type(expr.type_ref)
+
+
+def _exact_call_result_type(builder: _CallableCFGBuilder, expr: CallExprS) -> SemanticTypeRef | None:
+    return _call_signature(builder, expr).return_type
 
 
 def _emit_field_read(

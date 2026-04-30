@@ -573,7 +573,11 @@ def _verify_instruction(
 
     if isinstance(instruction, ir_model.BackendConstInst):
         constant_type = _constant_type(instruction.constant)
-        if dest_type is not None and dest_type != constant_type:
+        if isinstance(instruction.constant, ir_model.BackendNullConst):
+            is_compatible = dest_type is None or _is_type_assignable(constant_type, dest_type, index)
+        else:
+            is_compatible = dest_type is None or dest_type == constant_type
+        if not is_compatible:
             _instruction_error(
                 callable_decl,
                 block,

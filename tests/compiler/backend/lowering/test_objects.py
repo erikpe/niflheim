@@ -5,11 +5,13 @@ from compiler.backend.ir import (
     BackendBinaryInst,
     BackendCastInst,
     BackendCallInst,
+    BackendConstInst,
     BackendCopyInst,
     BackendDirectCallTarget,
     BackendFieldLoadInst,
     BackendFieldStoreInst,
     BackendInterfaceCallTarget,
+    BackendNullConst,
     BackendNullCheckInst,
     BackendRegOperand,
     BackendVirtualCallTarget,
@@ -19,6 +21,7 @@ from tests.compiler.backend.lowering.helpers import (
     block_by_ordinal,
     callable_by_name,
     callable_by_suffix,
+    lower_project_to_backend_program,
     lower_source_to_backend_program,
 )
 
@@ -283,6 +286,129 @@ def test_lower_to_backend_ir_materializes_cast_for_interface_typed_local_initial
     casts = [instruction for block in main_callable.blocks for instruction in block.instructions if isinstance(instruction, BackendCastInst)]
 
     assert any(cast.target_type_ref.interface_id is not None and cast.target_type_ref.interface_id.name == "Comparable" for cast in casts)
+
+
+def test_lower_to_backend_ir_materializes_constructor_results_into_concrete_temp_before_widening(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        interface Metric {
+            fn score() -> i64;
+        }
+
+        class Counter implements Metric {
+            value: i64;
+
+            constructor(value: i64) {
+                __self.value = value;
+            }
+
+            fn score() -> i64 {
+                return __self.value;
+            }
+        }
+
+        fn main() -> i64 {
+            var metric: Metric = Counter(7);
+            var obj: Obj = Counter(9);
+            return metric.score() + ((Counter)obj).score();
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    verify_backend_program(program)
+    main_callable = callable_by_name(program, "main")
+    instructions = [instruction for block in main_callable.blocks for instruction in block.instructions]
+
+    allocs = [instruction for instruction in instructions if isinstance(instruction, BackendAllocObjectInst)]
+    casts = [instruction for instruction in instructions if isinstance(instruction, BackendCastInst)]
+
+    assert len(allocs) >= 2
+    assert all(main_callable.registers[instruction.dest.ordinal].type_ref.class_id is not None for instruction in allocs)
+    assert any(cast.target_type_ref.interface_id is not None and cast.target_type_ref.interface_id.name == "Metric" for cast in casts)
+
+
+def test_lower_to_backend_ir_uses_qualified_constructor_identity_when_local_class_shadows_leaf_name(tmp_path) -> None:
+    program = lower_project_to_backend_program(
+        tmp_path,
+        {
+            "main.nif": """
+            import util.shadow as shadow;
+
+            class Token {
+                value: i64;
+
+                fn read() -> i64 {
+                    return __self.value;
+                }
+            }
+
+            fn main() -> i64 {
+                return shadow.Token(11).read() + Token(7).read();
+            }
+            """,
+            "util/shadow.nif": """
+            export class Token {
+                value: i64;
+
+                fn read() -> i64 {
+                    return __self.value;
+                }
+            }
+            """,
+        },
+        skip_optimize=True,
+    )
+
+    verify_backend_program(program)
+    main_callable = callable_by_name(program, "main")
+    allocs = [instruction for block in main_callable.blocks for instruction in block.instructions if isinstance(instruction, BackendAllocObjectInst)]
+
+    assert len(allocs) == 2
+    assert {main_callable.registers[instruction.dest.ordinal].type_ref.class_id.module_path for instruction in allocs} == {
+        ("main",),
+        ("util", "shadow"),
+    }
+
+
+def test_lower_to_backend_ir_materializes_null_into_reference_and_interface_locals(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        fn main() -> i64 {
+            var value: Obj = null;
+            var hashable: Hashable = (Hashable)null;
+            if value == hashable {
+                return 0;
+            }
+            return 1;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    verify_backend_program(program)
+    main_callable = callable_by_name(program, "main")
+    null_consts = [
+        instruction
+        for block in main_callable.blocks
+        for instruction in block.instructions
+        if isinstance(instruction, BackendConstInst) and isinstance(instruction.constant, BackendNullConst)
+    ]
+    casts = [
+        instruction
+        for block in main_callable.blocks
+        for instruction in block.instructions
+        if isinstance(instruction, BackendCastInst)
+    ]
+
+    assert len(null_consts) >= 1
+    assert any(cast.target_type_ref.interface_id is not None and cast.target_type_ref.interface_id.name == "Hashable" for cast in casts)
 
 
 def test_lower_to_backend_ir_synthesizes_compatibility_constructor_field_stores(tmp_path) -> None:

@@ -409,3 +409,122 @@ def test_cli_experimental_backend_selector_runs_callable_value_local_from_functi
     )
 
     assert run.returncode == 42, run.stderr
+
+
+def test_cli_experimental_backend_selector_runs_null_reference_and_interface_locals(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        interface Hashable {
+            fn hash_code() -> u64;
+        }
+
+        fn main() -> i64 {
+            var obj: Obj = null;
+            var hashable: Hashable = (Hashable)null;
+
+            if obj != hashable {
+                return 1;
+            }
+            if hashable != null {
+                return 2;
+            }
+            return 0;
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+
+    assert run.returncode == 0, run.stderr
+
+
+def test_cli_experimental_backend_selector_runs_constructor_results_stored_in_interface_and_obj_locals(
+    tmp_path: Path, monkeypatch
+) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        interface Metric {
+            fn score() -> i64;
+        }
+
+        class Counter implements Metric {
+            value: i64;
+
+            constructor(value: i64) {
+                __self.value = value;
+            }
+
+            fn score() -> i64 {
+                return __self.value;
+            }
+        }
+
+        fn main() -> i64 {
+            var metric: Metric = Counter(7);
+            var obj: Obj = Counter(9);
+            return metric.score() + ((Counter)obj).score();
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+
+    assert run.returncode == 16, run.stderr
+
+
+def test_cli_experimental_backend_selector_runs_qualified_imported_constructor_with_shadowed_local_class(
+    tmp_path: Path, monkeypatch
+) -> None:
+    write(
+        tmp_path / "main.nif",
+        """
+        import util.shadow as shadow;
+
+        class Token {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+
+        fn main() -> i64 {
+            return shadow.Token(11).read() + Token(7).read();
+        }
+        """,
+    )
+    write(
+        tmp_path / "util/shadow.nif",
+        """
+        export class Token {
+            value: i64;
+
+            fn read() -> i64 {
+                return __self.value;
+            }
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch,
+        tmp_path / "main.nif",
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+
+    assert run.returncode == 18, run.stderr

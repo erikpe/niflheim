@@ -233,6 +233,53 @@ def test_resolution_helpers_classify_alias_qualified_module_member_values(tmp_pa
     assert class_target.constructor_id.class_name == "Box"
 
 
+def test_resolution_helpers_prefer_local_class_value_over_imported_class_with_same_leaf_name(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "util" / "shadow.nif",
+        """
+        export class Token {
+            value: i64;
+        }
+        """,
+    )
+    _write(
+        tmp_path / "main.nif",
+        """
+        import util.shadow as shadow;
+
+        class Token {
+            value: i64;
+        }
+
+        fn main() -> i64 {
+            var local: Token = Token(7);
+            var imported: shadow.Token = shadow.Token(11);
+            return 0;
+        }
+        """,
+    )
+
+    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
+    contexts = build_typecheck_contexts(program)
+    symbol_index = build_program_symbol_index(program)
+    statements = program.modules[("main",)].ast.functions[0].body.statements
+
+    local_decl = statements[0]
+    imported_decl = statements[1]
+    assert isinstance(local_decl, VarDeclStmt)
+    assert isinstance(imported_decl, VarDeclStmt)
+    assert isinstance(local_decl.initializer, CallExpr)
+    assert isinstance(imported_decl.initializer, CallExpr)
+
+    local_target = resolve_call_target(contexts[("main",)], symbol_index, local_decl.initializer)
+    imported_target = resolve_call_target(contexts[("main",)], symbol_index, imported_decl.initializer)
+
+    assert isinstance(local_target, ResolvedConstructorCallTarget)
+    assert local_target.constructor_id == ConstructorId(module_path=("main",), class_name="Token", ordinal=0)
+    assert isinstance(imported_target, ResolvedConstructorCallTarget)
+    assert imported_target.constructor_id == ConstructorId(module_path=("util", "shadow"), class_name="Token", ordinal=0)
+
+
 def test_resolution_helpers_reject_legacy_leaf_alias_module_member_values_after_alias_migration(tmp_path: Path) -> None:
     _write(
         tmp_path / "util" / "math.nif",

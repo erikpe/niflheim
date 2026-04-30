@@ -113,9 +113,15 @@ def resolve_identifier_value_target(
             function_id=function_id_for_imported_name(typecheck_ctx, symbol_index, expr.name)
         )
 
+    if expr.name in typecheck_ctx.classes:
+        return ResolvedClassValueTarget(
+            class_id=class_id_from_type_name(typecheck_ctx.module_path, expr.name),
+            constructor_id=constructor_id_from_type_name(typecheck_ctx.module_path, expr.name),
+        )
+
     imported_class_name = resolve_imported_class_name(typecheck_ctx, expr.name, expr.span)
-    if expr.name in typecheck_ctx.classes or imported_class_name is not None:
-        type_name = expr.name if imported_class_name is None else imported_class_name
+    if imported_class_name is not None:
+        type_name = imported_class_name
         return ResolvedClassValueTarget(
             class_id=class_id_from_type_name(typecheck_ctx.module_path, type_name),
             constructor_id=constructor_id_from_type_name(typecheck_ctx.module_path, type_name),
