@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from compiler.backend.ir import BackendAllocObjectInst, BackendFieldLoadInst, BackendFieldStoreInst, BackendNullCheckInst
+from compiler.backend.ir import BackendAllocObjectInst, BackendFieldLoadInst, BackendFieldStoreInst, BackendNullCheckInst, BackendRegOperand
 from compiler.backend.program import BackendProgramContext
 from compiler.backend.program.symbols import mangle_type_name_symbol, mangle_type_symbol
 from compiler.backend.targets import BackendTargetLoweringError
@@ -115,6 +115,11 @@ def emit_null_check_instruction(
     register_type_name_by_reg_id: dict,
 ) -> None:
     non_null_label = f".L{callable_label}_i{instruction.inst_id.ordinal}_nonnull"
+    panic_symbol = "rt_panic_null_deref"
+    if isinstance(instruction.value, BackendRegOperand):
+        type_name = register_type_name_by_reg_id[instruction.value.reg_id]
+        if type_name.endswith("[]"):
+            panic_symbol = "rt_panic_array_api_null_object"
     emit_load_operand(
         builder,
         instruction.value,
@@ -125,7 +130,7 @@ def emit_null_check_instruction(
     )
     builder.instruction("test", "rax", "rax")
     builder.instruction("jne", non_null_label)
-    builder.instruction("call", "rt_panic_null_deref")
+    builder.instruction("call", panic_symbol)
     builder.label(non_null_label)
 
 

@@ -6,11 +6,16 @@ from compiler.common.collection_protocols import ArrayRuntimeKind
 
 ARRAY_FROM_BYTES_U8_RUNTIME_CALL = "rt_array_from_bytes_u8"
 ARRAY_LEN_RUNTIME_CALL = "rt_array_len"
+ARRAY_NULL_PANIC_RUNTIME_CALL = "rt_panic_array_api_null_object"
+ARRAY_GET_OOB_PANIC_RUNTIME_CALL = "rt_panic_array_get_out_of_bounds"
+ARRAY_SET_OOB_PANIC_RUNTIME_CALL = "rt_panic_array_set_out_of_bounds"
 
 # These constants mirror runtime/src/array.c and runtime/include/runtime.h.
 RT_OBJ_HEADER_SIZE_BYTES = 24
 RT_ARRAY_LEN_OFFSET = RT_OBJ_HEADER_SIZE_BYTES
 RT_ARRAY_ELEMENT_KIND_OFFSET = RT_ARRAY_LEN_OFFSET + 8
+RT_ARRAY_ELEMENT_SIZE_OFFSET = RT_ARRAY_ELEMENT_KIND_OFFSET + 8
+RT_ARRAY_DATA_OFFSET = RT_ARRAY_ELEMENT_SIZE_OFFSET + 8
 
 RT_ARRAY_KIND_I64 = 1
 RT_ARRAY_KIND_U64 = 2
@@ -86,9 +91,57 @@ ARRAY_RUNTIME_KIND_DISPLAY_NAMES: dict[int, str] = {
     RT_ARRAY_KIND_REF: "Obj[]",
 }
 
+DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES: dict[ArrayRuntimeKind, int] = {
+    ArrayRuntimeKind.I64: 8,
+    ArrayRuntimeKind.U64: 8,
+    ArrayRuntimeKind.U8: 1,
+    ArrayRuntimeKind.BOOL: 8,
+    ArrayRuntimeKind.DOUBLE: 8,
+}
+
 
 def array_element_kind_operand(array_register: str) -> str:
     return format_stack_slot_operand(array_register, RT_ARRAY_ELEMENT_KIND_OFFSET)
+
+
+def array_length_operand(array_register: str) -> str:
+    return format_stack_slot_operand(array_register, RT_ARRAY_LEN_OFFSET)
+
+
+def array_data_index_address(array_register: str, index_register: str, *, element_size: int) -> str:
+    if element_size not in {1, 8}:
+        raise ValueError(f"unsupported direct array element size: {element_size}")
+    if element_size == 1:
+        return f"[{array_register} + {index_register} + {RT_ARRAY_DATA_OFFSET}]"
+    return f"[{array_register} + {index_register} * {element_size} + {RT_ARRAY_DATA_OFFSET}]"
+
+
+def is_direct_primitive_array_runtime_kind(runtime_kind: ArrayRuntimeKind | None) -> bool:
+    return runtime_kind in DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES
+
+
+def direct_primitive_array_element_size(runtime_kind: ArrayRuntimeKind) -> int:
+    element_size = DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES.get(runtime_kind)
+    if element_size is None:
+        raise ValueError(f"unsupported direct primitive array runtime kind: {runtime_kind}")
+    return element_size
+
+
+def direct_primitive_array_store_operand(
+    array_register: str, index_register: str, *, runtime_kind: ArrayRuntimeKind
+) -> str:
+    address = array_data_index_address(
+        array_register,
+        index_register,
+        element_size=direct_primitive_array_element_size(runtime_kind),
+    )
+    if runtime_kind is ArrayRuntimeKind.U8:
+        return f"byte ptr {address}"
+    return f"qword ptr {address}"
+
+
+def direct_ref_array_store_operand(array_register: str, index_register: str) -> str:
+    return f"qword ptr {array_data_index_address(array_register, index_register, element_size=8)}"
 
 
 def array_runtime_kind_tag(runtime_kind: ArrayRuntimeKind) -> int:
@@ -102,25 +155,37 @@ def array_runtime_kind_display_name_for_tag(kind_tag: int) -> str:
 __all__ = [
     "ARRAY_CONSTRUCTOR_RUNTIME_CALLS",
     "ARRAY_FROM_BYTES_U8_RUNTIME_CALL",
+    "ARRAY_GET_OOB_PANIC_RUNTIME_CALL",
     "ARRAY_INDEX_GET_RUNTIME_CALLS",
     "ARRAY_INDEX_SET_RUNTIME_CALLS",
     "ARRAY_LEN_RUNTIME_CALL",
+    "ARRAY_NULL_PANIC_RUNTIME_CALL",
     "ARRAY_RUNTIME_KIND_DISPLAY_NAMES",
     "ARRAY_RUNTIME_KIND_TAGS",
+    "ARRAY_SET_OOB_PANIC_RUNTIME_CALL",
     "ARRAY_SLICE_GET_RUNTIME_CALLS",
     "ARRAY_SLICE_SET_RUNTIME_CALLS",
+    "DIRECT_PRIMITIVE_ARRAY_ELEMENT_SIZES",
     "RT_ARRAY_ELEMENT_KIND_OFFSET",
+    "RT_ARRAY_DATA_OFFSET",
     "RT_ARRAY_KIND_BOOL",
     "RT_ARRAY_KIND_DOUBLE",
     "RT_ARRAY_KIND_I64",
     "RT_ARRAY_KIND_REF",
     "RT_ARRAY_KIND_U64",
     "RT_ARRAY_KIND_U8",
+    "RT_ARRAY_ELEMENT_SIZE_OFFSET",
     "RT_ARRAY_LEN_OFFSET",
     "RT_ARRAY_PRIMITIVE_TYPE_SYMBOL",
     "RT_ARRAY_REFERENCE_TYPE_SYMBOL",
     "RT_OBJ_HEADER_SIZE_BYTES",
+    "array_data_index_address",
     "array_element_kind_operand",
+    "array_length_operand",
     "array_runtime_kind_display_name_for_tag",
     "array_runtime_kind_tag",
+    "direct_primitive_array_element_size",
+    "direct_primitive_array_store_operand",
+    "direct_ref_array_store_operand",
+    "is_direct_primitive_array_runtime_kind",
 ]

@@ -130,6 +130,7 @@ def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTa
             builder,
             callable_decl,
             target_input=target_input,
+            options=options,
             frame_layout=frame_layout,
             ordered_block_ids=target_input.analysis_for_callable(callable_decl.callable_id).ordered_block_ids,
             callable_by_id=callable_by_id,
@@ -253,6 +254,7 @@ def _emit_callable_body(
     callable_decl,
     *,
     target_input,
+    options: BackendTargetOptions,
     frame_layout,
     ordered_block_ids,
     callable_by_id,
@@ -411,13 +413,37 @@ def _emit_callable_body(
                 emit_array_alloc_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
                 continue
             if isinstance(instruction, BackendArrayLengthInst):
-                emit_array_length_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                emit_array_length_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    emit_call_instruction=emit_call_instruction,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    options=options,
+                )
                 continue
             if isinstance(instruction, BackendArrayLoadInst):
-                emit_array_load_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                emit_array_load_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    emit_call_instruction=emit_call_instruction,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    options=options,
+                )
                 continue
             if isinstance(instruction, BackendArrayStoreInst):
-                emit_array_store_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                emit_array_store_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    emit_call_instruction=emit_call_instruction,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    options=options,
+                )
                 continue
             if isinstance(instruction, BackendArraySliceInst):
                 emit_array_slice_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)

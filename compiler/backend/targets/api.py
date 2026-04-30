@@ -29,6 +29,7 @@ class BackendTargetOptions:
     """Checked-path switches forwarded into a concrete backend target."""
 
     runtime_trace_enabled: bool = True
+    collection_fast_paths_enabled: bool = True
     emit_debug_comments: bool = False
     extra_flags: tuple[str, ...] = ()
 

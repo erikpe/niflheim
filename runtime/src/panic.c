@@ -3,6 +3,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+enum {
+    RT_ARRAY_KIND_I64 = 1u,
+    RT_ARRAY_KIND_U64 = 2u,
+    RT_ARRAY_KIND_U8 = 3u,
+    RT_ARRAY_KIND_BOOL = 4u,
+    RT_ARRAY_KIND_DOUBLE = 5u,
+    RT_ARRAY_KIND_REF = 6u,
+};
+
 static void rt_print_stacktrace(void) {
     RtThreadState* ts = rt_thread_state();
     if (ts->trace_size == 0u || ts->trace_frames == NULL) {
@@ -65,6 +74,41 @@ void rt_panic_null_term_array(const void* array_obj) {
         rt_panic("rt_panic_null_term_array: array data pointer is null");
     }
     rt_panic(message);
+}
+
+static const char* rt_array_kind_suffix(uint64_t kind_tag) {
+    switch (kind_tag) {
+        case RT_ARRAY_KIND_I64:
+            return "i64";
+        case RT_ARRAY_KIND_U64:
+            return "u64";
+        case RT_ARRAY_KIND_U8:
+            return "u8";
+        case RT_ARRAY_KIND_BOOL:
+            return "bool";
+        case RT_ARRAY_KIND_DOUBLE:
+            return "double";
+        case RT_ARRAY_KIND_REF:
+            return "ref";
+        default:
+            return "unknown";
+    }
+}
+
+void rt_panic_array_api_null_object(void) {
+    rt_panic("Array API called with null object");
+}
+
+void rt_panic_array_get_out_of_bounds(uint64_t kind_tag) {
+    char message[128];
+    snprintf(message, sizeof(message), "rt_array_get_%s: index out of bounds", rt_array_kind_suffix(kind_tag));
+    rt_abort_with_message(message);
+}
+
+void rt_panic_array_set_out_of_bounds(uint64_t kind_tag) {
+    char message[128];
+    snprintf(message, sizeof(message), "rt_array_set_%s: index out of bounds", rt_array_kind_suffix(kind_tag));
+    rt_abort_with_message(message);
 }
 
 void rt_panic_oom(void) {
