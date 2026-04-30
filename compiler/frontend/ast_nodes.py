@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from compiler.common.literals import IntLiteralKind
-from compiler.common.span import SourceSpan
+from compiler.common.span import SourcePos, SourceSpan
 
 
 @dataclass(frozen=True)
@@ -205,12 +205,33 @@ class CallExpr:
     arguments: list["Expression"]
     span: SourceSpan
 
+    @property
+    def callee_span(self) -> SourceSpan:
+        if isinstance(self.callee, FieldAccessExpr):
+            return self.callee.member_span
+        return self.callee.span
+
 
 @dataclass(frozen=True)
 class FieldAccessExpr:
     object_expr: "Expression"
     field_name: str
     span: SourceSpan
+
+    @property
+    def member_span(self) -> SourceSpan:
+        field_name_width = len(self.field_name)
+        if self.span.end.offset - self.object_expr.span.end.offset < field_name_width:
+            return self.span
+        return SourceSpan(
+            start=SourcePos(
+                path=self.span.end.path,
+                offset=self.span.end.offset - field_name_width,
+                line=self.span.end.line,
+                column=self.span.end.column - field_name_width,
+            ),
+            end=self.span.end,
+        )
 
 
 @dataclass(frozen=True)

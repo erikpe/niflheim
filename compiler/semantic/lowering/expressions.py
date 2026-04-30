@@ -164,6 +164,7 @@ def lower_call_expr(
             args=args,
             type_ref=result_type_ref,
             span=expr.span,
+            callee_span=expr.callee_span,
         )
 
     if isinstance(resolved_target, ResolvedConstructorCallTarget):
@@ -172,6 +173,7 @@ def lower_call_expr(
             args=args,
             type_ref=result_type_ref,
             span=expr.span,
+            callee_span=expr.callee_span,
         )
 
     if isinstance(resolved_target, ResolvedStaticMethodCallTarget):
@@ -180,6 +182,7 @@ def lower_call_expr(
             args=args,
             type_ref=result_type_ref,
             span=expr.span,
+            callee_span=expr.callee_span,
         )
 
     if isinstance(resolved_target, ResolvedInstanceMethodCallTarget):
@@ -194,6 +197,7 @@ def lower_call_expr(
             args=args,
             type_ref=result_type_ref,
             span=expr.span,
+            callee_span=expr.callee_span,
         )
 
     if isinstance(resolved_target, ResolvedVirtualMethodCallTarget):
@@ -210,6 +214,7 @@ def lower_call_expr(
             args=args,
             type_ref=result_type_ref,
             span=expr.span,
+            callee_span=expr.callee_span,
         )
 
     if isinstance(resolved_target, ResolvedInterfaceMethodCallTarget):
@@ -225,6 +230,7 @@ def lower_call_expr(
             args=args,
             type_ref=result_type_ref,
             span=expr.span,
+            callee_span=expr.callee_span,
         )
 
     return CallExprS(
@@ -234,6 +240,7 @@ def lower_call_expr(
         args=args,
         type_ref=result_type_ref,
         span=expr.span,
+        callee_span=expr.callee_span,
     )
 
 

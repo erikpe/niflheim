@@ -266,6 +266,49 @@ def test_lower_to_backend_ir_materializes_function_refs_for_callable_value_calls
     assert isinstance(indirect_call.target, BackendIndirectCallTarget)
 
 
+def test_lower_to_backend_ir_uses_member_call_span_for_chained_virtual_calls(tmp_path) -> None:
+    source = """
+        class Leaf {
+            fn read() -> i64 {
+                return 7;
+            }
+        }
+
+        class Mid {
+            fn leaf() -> Leaf {
+                return Leaf();
+            }
+        }
+
+        class Root {
+            fn mid() -> Mid {
+                return Mid();
+            }
+        }
+
+        fn main() -> i64 {
+            var root: Root = Root();
+            return root.mid().leaf().read();
+        }
+        """
+    program = lower_source_to_backend_program(tmp_path, source, skip_optimize=True)
+    source_lines = source.strip().splitlines()
+    return_line = source_lines.index("            return root.mid().leaf().read();") + 1
+    return_text = source_lines[return_line - 1]
+
+    main_callable = callable_by_name(program, "main")
+    calls = [instruction for instruction in block_by_ordinal(main_callable, 0).instructions if isinstance(instruction, BackendCallInst)]
+    method_calls = [call for call in calls if hasattr(call.target, "method_name")]
+
+    assert [call.target.method_name for call in method_calls] == ["mid", "leaf", "read"]
+    assert [call.span.start.line for call in method_calls] == [return_line, return_line, return_line]
+    assert [call.span.start.column for call in method_calls] == [
+        return_text.index("mid") + 1,
+        return_text.index("leaf") + 1,
+        return_text.index("read") + 1,
+    ]
+
+
 def test_lower_to_backend_ir_materializes_static_method_refs_for_callable_value_calls(tmp_path) -> None:
     program = lower_source_to_backend_program(
         tmp_path,

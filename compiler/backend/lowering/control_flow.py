@@ -1553,6 +1553,7 @@ def _emit_call_expression(
     expr: CallExprS,
     dest_reg_id: ir_model.BackendRegId | None,
 ) -> None:
+    call_span = expr.call_span
     signature = _call_signature(builder, expr)
     target = expr.target
 
@@ -1573,7 +1574,7 @@ def _emit_call_expression(
             target=ir_model.BackendDirectCallTarget(callable_id=target.constructor_id),
             args=(ir_model.BackendRegOperand(reg_id=dest_reg_id), *args),
             signature=signature,
-            span=expr.span,
+            span=call_span,
         )
         return
 
@@ -1591,7 +1592,7 @@ def _emit_call_expression(
             target=ir_model.BackendDirectCallTarget(callable_id=target.constructor_id),
             args=(receiver_operand, *args),
             signature=signature,
-            span=expr.span,
+            span=call_span,
         )
         return
 
@@ -1611,7 +1612,7 @@ def _emit_call_expression(
             target=ir_model.BackendDirectCallTarget(callable_id=target.method_id),
             args=args,
             signature=signature,
-            span=expr.span,
+            span=call_span,
         )
         return
 
@@ -1633,7 +1634,7 @@ def _emit_call_expression(
             ),
             args=args,
             signature=signature,
-            span=expr.span,
+            span=call_span,
         )
         return
 
@@ -1651,7 +1652,7 @@ def _emit_call_expression(
             target=ir_model.BackendInterfaceCallTarget(interface_id=target.interface_id, method_id=target.method_id),
             args=args,
             signature=signature,
-            span=expr.span,
+            span=call_span,
         )
         return
 
@@ -1664,7 +1665,7 @@ def _emit_call_expression(
             target=ir_model.BackendDirectCallTarget(callable_id=target.function_id),
             args=args,
             signature=signature,
-            span=expr.span,
+            span=call_span,
         )
         return
 
@@ -1675,7 +1676,7 @@ def _emit_call_expression(
             target=ir_model.BackendDirectCallTarget(callable_id=target.method_id),
             args=args,
             signature=signature,
-            span=expr.span,
+            span=call_span,
         )
         return
 
@@ -1687,7 +1688,7 @@ def _emit_call_expression(
             target=ir_model.BackendIndirectCallTarget(callee=callee),
             args=args,
             signature=signature,
-            span=expr.span,
+            span=call_span,
         )
         return
 

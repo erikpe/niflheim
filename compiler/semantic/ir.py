@@ -528,6 +528,11 @@ class CallExprS:
     args: list["SemanticExpr"]
     type_ref: SemanticTypeRef
     span: SourceSpan
+    callee_span: SourceSpan | None = None
+
+    @property
+    def call_span(self) -> SourceSpan:
+        return self.callee_span if self.callee_span is not None else self.span
 
 
 @dataclass(frozen=True)

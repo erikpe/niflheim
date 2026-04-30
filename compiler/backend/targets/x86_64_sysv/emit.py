@@ -282,7 +282,11 @@ def _emit_callable_body(
         if frame_layout.has_root_frame:
             live_reg_ids = callable_analysis.safepoints.live_regs_for_instruction(instruction.inst_id)
             emit_root_slot_sync(builder, frame_layout=frame_layout, live_reg_ids=live_reg_ids)
-        if runtime_trace_enabled and instruction.effects.needs_safepoint_hooks:
+        if (
+            runtime_trace_enabled
+            and not isinstance(instruction, BackendCallInst)
+            and instruction.effects.needs_safepoint_hooks
+        ):
             emit_location_hook(line=instruction.span.start.line, column=instruction.span.start.column)
 
     def emit_safepoint_postamble(instruction) -> None:
@@ -292,6 +296,8 @@ def _emit_callable_body(
         emit_root_slot_reload(builder, frame_layout=frame_layout, live_reg_ids=live_reg_ids)
 
     def emit_call_instruction(instruction: BackendCallInst) -> None:
+        if runtime_trace_enabled:
+            emit_location_hook(line=instruction.span.start.line, column=instruction.span.start.column)
         emit_lowered_call_instruction(
             builder,
             instruction,

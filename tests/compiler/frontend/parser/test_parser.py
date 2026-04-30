@@ -218,6 +218,16 @@ fn main() -> unit {
     assert for_stmt.index_temp_name.startswith("__nif_sugar_for_i_")
 
 
+def test_parse_chained_method_call_tracks_member_callee_span() -> None:
+    expr = parse_expression(lex("read_stdin().splitlines()", source_path="examples/chained_call.nif"))
+
+    assert isinstance(expr, CallExpr)
+    assert expr.callee_span.start.path == "examples/chained_call.nif"
+    assert expr.callee_span.start.line == 1
+    assert expr.callee_span.start.column == 14
+    assert expr.callee_span.end.column == 24
+
+
 def test_parse_static_method_in_class_body() -> None:
     source = """
 class Counter {

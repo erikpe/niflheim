@@ -138,7 +138,55 @@ def test_emit_source_asm_emits_runtime_trace_hooks_by_default(tmp_path) -> None:
     assert "    call rt_trace_pop" in asm
     assert "__nif_debug_fn_main:" in asm
     assert "__nif_debug_file_main:" in asm
-    assert "    call rt_trace_set_location" not in main_body
+    assert "    call rt_trace_set_location" in main_body
+
+
+def test_emit_source_asm_stacktrace_uses_caller_call_site_location(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        fn crash() -> i64 {
+            var values: i64[] = null;
+            return values[0];
+        }
+
+        fn main() -> i64 {
+            return crash();
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert run.returncode != 0
+    assert "stacktrace:" in run.stderr
+    assert "at main::crash (" in run.stderr
+    assert "at main::main (.:7:" in run.stderr
+
+
+def test_emit_source_asm_stacktrace_uses_chained_member_call_site_location(tmp_path) -> None:
+    source = """
+fn make_box() -> Box {
+    return Box();
+}
+
+class Box {
+    fn crash() -> i64 {
+        var values: i64[] = null;
+        return values[0];
+    }
+}
+
+fn main() -> i64 {
+    return make_box().crash();
+}
+"""
+    run = compile_and_run_source(tmp_path, source, skip_optimize=True)
+
+    main_line = source.strip().splitlines().index("    return make_box().crash();") + 1
+    expected_column = source.strip().splitlines()[main_line - 1].index("crash") + 1
+
+    assert run.returncode != 0
+    assert f"at main::main (.:{main_line}:{expected_column})" in run.stderr
 
 
 def test_emit_source_asm_can_omit_runtime_trace_hooks(tmp_path) -> None:

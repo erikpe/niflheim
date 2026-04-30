@@ -61,7 +61,7 @@ def _infer_identifier_call_type(ctx: TypeCheckContext, expr: CallExpr) -> TypeIn
         _check_call_arguments(ctx, fn_sig.params, expr.arguments, expr.span)
         return fn_sig.return_type
 
-    imported_fn_sig = resolve_imported_function_sig(ctx, name, expr.callee.span)
+    imported_fn_sig = resolve_imported_function_sig(ctx, name, expr.callee_span)
     if imported_fn_sig is not None:
         _check_call_arguments(ctx, imported_fn_sig.params, expr.arguments, expr.span)
         return imported_fn_sig.return_type
@@ -72,13 +72,13 @@ def _infer_identifier_call_type(ctx: TypeCheckContext, expr: CallExpr) -> TypeIn
             ctx, class_info, expr.arguments, expr.span, TypeInfo(name=class_info.name, kind="reference")
         )
 
-    imported_class_name = resolve_imported_class_name(ctx, name, expr.callee.span)
+    imported_class_name = resolve_imported_class_name(ctx, name, expr.callee_span)
     if imported_class_name is None:
         return None
 
     imported_class_info = lookup_class_by_type_name(ctx, imported_class_name)
     if imported_class_info is None:
-        raise TypeCheckError(f"Unknown type '{imported_class_name}'", expr.callee.span)
+        raise TypeCheckError(f"Unknown type '{imported_class_name}'", expr.callee_span)
     return _infer_constructor_call_type(
         ctx, imported_class_info, expr.arguments, expr.span, TypeInfo(name=imported_class_name, kind="reference")
     )
@@ -109,7 +109,7 @@ def _infer_module_member_call_type(ctx: TypeCheckContext, expr: CallExpr) -> Typ
             TypeInfo(name=f"{owner_dotted}::{class_info.name}", kind="reference"),
         )
 
-    raise TypeCheckError("Module values are not callable", expr.callee.span)
+    raise TypeCheckError("Module values are not callable", expr.callee_span)
 
 
 def _infer_class_callable_method_call_type(ctx: TypeCheckContext, expr: CallExpr, class_type_name: str) -> TypeInfo:
@@ -152,7 +152,7 @@ def _infer_instance_field_call_type(
         _check_call_arguments(ctx, qualified_field_type.callable_params, expr.arguments, expr.span)
         return qualified_field_type.callable_return
 
-    raise TypeCheckError(f"Expression of type '{qualified_field_type.name}' is not callable", expr.callee.span)
+    raise TypeCheckError(f"Expression of type '{qualified_field_type.name}' is not callable", expr.callee_span)
 
 
 def _infer_instance_method_call_type(
@@ -255,7 +255,7 @@ def _infer_callable_value_call_type(ctx: TypeCheckContext, expr: CallExpr) -> Ty
     ):
         _check_call_arguments(ctx, callee_type.callable_params, expr.arguments, expr.span)
         return callee_type.callable_return
-    raise TypeCheckError(f"Expression of type '{callee_type.name}' is not callable", expr.callee.span)
+    raise TypeCheckError(f"Expression of type '{callee_type.name}' is not callable", expr.callee_span)
 
 
 def infer_call_type(ctx: TypeCheckContext, expr: CallExpr) -> TypeInfo:

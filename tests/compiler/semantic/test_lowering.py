@@ -730,9 +730,7 @@ def test_lower_program_assigns_imported_canonical_ids_to_refs_and_calls(tmp_path
 
 
 def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Path) -> None:
-    _write(
-        tmp_path / "main.nif",
-        """
+    source = """
         class Leaf {
             value: i64;
 
@@ -757,8 +755,11 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
             var root: Root = Root();
             return root.mid().leaf().read();
         }
-        """,
-    )
+        """
+    _write(tmp_path / "main.nif", source)
+    source_lines = source.strip().splitlines()
+    return_line = source_lines.index("            return root.mid().leaf().read();") + 1
+    return_text = source_lines[return_line - 1]
 
     program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
     semantic = lower_program(program)
@@ -773,6 +774,9 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     assert semantic_call_target_display_name(read_target, current_module_path=("main",)) == "Leaf.read"
     assert read_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Leaf")
     assert return_stmt.value.type_ref.canonical_name == "i64"
+    assert return_stmt.value.callee_span is not None
+    assert return_stmt.value.callee_span.start.line == return_line
+    assert return_stmt.value.callee_span.start.column == return_text.index("read") + 1
 
     leaf_call = read_target.access.receiver
     leaf_target = _assert_call_target(leaf_call, VirtualMethodCallTarget)
@@ -782,6 +786,9 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     assert semantic_bound_member_receiver_display_name(leaf_target.access, current_module_path=("main",)) == "Mid"
     assert semantic_call_target_display_name(leaf_target, current_module_path=("main",)) == "Mid.leaf"
     assert leaf_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Mid")
+    assert leaf_call.callee_span is not None
+    assert leaf_call.callee_span.start.line == return_line
+    assert leaf_call.callee_span.start.column == return_text.index("leaf") + 1
 
     mid_call = leaf_target.access.receiver
     mid_target = _assert_call_target(mid_call, VirtualMethodCallTarget)
@@ -792,6 +799,9 @@ def test_lower_program_preserves_nested_instance_method_call_chains(tmp_path: Pa
     assert semantic_call_target_display_name(mid_target, current_module_path=("main",)) == "Root.mid"
     assert mid_target.access.receiver_type_ref.class_id == ClassId(module_path=("main",), name="Root")
     assert isinstance(mid_target.access.receiver, LocalRefExpr)
+    assert mid_call.callee_span is not None
+    assert mid_call.callee_span.start.line == return_line
+    assert mid_call.callee_span.start.column == return_text.index("mid") + 1
     assert (
         semantic_local_display_name(semantic.modules[("main",)].functions[0], mid_target.access.receiver.local_id)
         == "root"
