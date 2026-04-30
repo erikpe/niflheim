@@ -13,6 +13,7 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     emit_store_result,
 )
 from compiler.backend.targets.x86_64_sysv.object_runtime import RT_TYPE_FLAG_HAS_REFS
+from compiler.common.byte_strings import escape_bytes_for_c_string
 
 
 def emit_alloc_object_instruction(
@@ -242,6 +243,9 @@ def _emit_blob(builder: X86AsmBuilder, blob) -> None:
     builder.label(blob.symbol)
     if blob.byte_length == 0:
         builder.directive(".byte 0")
+        return
+    if blob.content_kind == "string":
+        builder.directive(f'.asciz "{escape_bytes_for_c_string(bytes.fromhex(blob.bytes_hex))}"')
         return
     byte_values = ", ".join(f"0x{blob.bytes_hex[index:index + 2]}" for index in range(0, len(blob.bytes_hex), 2))
     builder.directive(f".byte {byte_values}")

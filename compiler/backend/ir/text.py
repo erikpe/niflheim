@@ -20,6 +20,7 @@ from compiler.backend.ir._ordering import (
     reg_id_sort_key,
     register_sort_key,
 )
+from compiler.common.byte_strings import escape_bytes_for_c_string
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_UNIT
 from compiler.semantic.types import SemanticTypeRef, semantic_type_display_name
@@ -82,9 +83,15 @@ def _format_data_section(data_blobs: tuple[ir_model.BackendDataBlob, ...]) -> st
         readonly_text = "readonly" if blob.readonly else "mutable"
         lines.append(
             f"  {_format_data_id(blob.data_id)} {json.dumps(blob.debug_name)} "
-            f"align={blob.alignment} {readonly_text} bytes={blob.bytes_hex}"
+            f"align={blob.alignment} {readonly_text} {_format_data_blob_contents(blob)}"
         )
     return "\n".join(lines)
+
+
+def _format_data_blob_contents(blob: ir_model.BackendDataBlob) -> str:
+    if blob.content_kind == "string":
+        return f'string="{escape_bytes_for_c_string(bytes.fromhex(blob.bytes_hex))}"'
+    return f"bytes={blob.bytes_hex}"
 
 
 def _format_interfaces_section(interfaces: tuple[ir_model.BackendInterfaceDecl, ...]) -> str | None:

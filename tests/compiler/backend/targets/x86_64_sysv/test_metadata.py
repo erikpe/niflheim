@@ -144,6 +144,7 @@ def test_backend_program_context_prepares_class_interface_and_string_metadata(tm
     assert metadata.data_blobs[0].symbol == "__nif_str_lit_0"
     assert metadata.data_blobs[0].bytes_hex == "6869"
     assert metadata.data_blobs[0].byte_length == 2
+    assert metadata.data_blobs[0].content_kind == "string"
 
 
 def test_backend_program_context_keeps_multimodule_order_and_duplicate_leaf_symbols_stable(tmp_path: Path) -> None:

@@ -322,4 +322,5 @@ def test_lower_to_backend_ir_lowers_casts_and_pools_string_literal_byte_blobs(tm
 	assert bytes2_call.args[0].data_id == bytes1_call.args[0].data_id
 
 	assert len(program.data_blobs) == 1
+	assert program.data_blobs[0].content_kind == "string"
 	assert program.data_blobs[0].bytes_hex == "6869"

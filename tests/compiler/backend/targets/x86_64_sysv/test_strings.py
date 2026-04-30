@@ -32,6 +32,7 @@ def test_emit_source_asm_emits_pooled_string_literal_bytes_and_runtime_helper(tm
 
     assert asm.count("__nif_str_lit_0:") == 1
     assert "__nif_str_lit_1:" not in asm
+    assert '.asciz "hi"' in asm
     assert asm.count("    lea rdi, [rip + __nif_str_lit_0]") == 2
     assert asm.count("    call rt_array_from_bytes_u8") == 2
     assert asm.count("    call __nif_method_main__Str_from_u8_array") == 2
@@ -80,3 +81,24 @@ def test_emit_source_asm_can_execute_string_helper_flow(tmp_path) -> None:
     )
 
     assert run.returncode == 0
+
+
+def test_emit_source_asm_escapes_embedded_nul_and_control_bytes_in_string_blob(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        class Str {
+            static fn from_u8_array(value: u8[]) -> Str {
+                return null;
+            }
+        }
+
+        fn main() -> i64 {
+            var value: Str = "A\\x00B\\n\\xff";
+            return 0;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert '.asciz "A\\000B\\n\\377"' in asm

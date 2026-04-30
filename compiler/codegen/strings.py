@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from compiler.common.byte_strings import escape_bytes_for_c_string
 from compiler.common.literals import decode_string_literal
 import compiler.codegen.symbols as codegen_symbols
 
@@ -9,23 +10,7 @@ from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
 
 
 def escape_asm_string_bytes(data: bytes) -> str:
-    pieces: list[str] = []
-    for byte in data:
-        if byte == 0x22:
-            pieces.append('\\"')
-        elif byte == 0x5C:
-            pieces.append("\\\\")
-        elif byte == 0x0A:
-            pieces.append("\\n")
-        elif byte == 0x0D:
-            pieces.append("\\r")
-        elif byte == 0x09:
-            pieces.append("\\t")
-        elif 0x20 <= byte <= 0x7E:
-            pieces.append(chr(byte))
-        else:
-            pieces.append(f"\\{byte:03o}")
-    return "".join(pieces)
+    return escape_bytes_for_c_string(data)
 
 
 def escape_c_string(text: str) -> str:

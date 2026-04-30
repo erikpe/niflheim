@@ -413,6 +413,7 @@ def test_backend_program_to_dict_canonicalizes_data_callable_register_block_and_
     payload = backend_program_to_dict(program)
 
     assert [blob["id"] for blob in payload["data_blobs"]] == ["d0", "d1", "d2"]
+    assert [blob["content_kind"] for blob in payload["data_blobs"]] == ["raw", "raw", "raw"]
     assert [callable_data["callable_id"]["name"] for callable_data in payload["callables"]] == ["aaa", "sort_demo"]
     assert [register["id"] for register in payload["callables"][1]["registers"]] == ["r0", "r1", "r2"]
     assert [block["id"] for block in payload["callables"][1]["blocks"]] == ["b0", "b1"]

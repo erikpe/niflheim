@@ -218,6 +218,30 @@ def test_dump_backend_program_text_canonicalizes_data_callable_register_block_an
     assert dumped.index("    i0 r0 = const.i64 1") < dumped.index("    i1 r1 = const.i64 2")
 
 
+def test_dump_backend_program_text_renders_string_blobs_readably() -> None:
+    program = BackendProgram(
+        schema_version=BACKEND_IR_SCHEMA_VERSION,
+        entry_callable_id=FIXTURE_ENTRY_FUNCTION_ID,
+        data_blobs=(
+            BackendDataBlob(
+                data_id=BackendDataId(ordinal=0),
+                debug_name="string_bytes_0",
+                alignment=1,
+                bytes_hex="68690a00ff",
+                readonly=True,
+                content_kind="string",
+            ),
+        ),
+        interfaces=(),
+        classes=(),
+        callables=one_function_backend_program().callables,
+    )
+
+    dumped = dump_backend_program_text(program)
+
+    assert '  d0 "string_bytes_0" align=1 readonly string="hi\\n\\000\\377"' in dumped
+
+
 def test_dump_backend_program_text_formats_direct_and_runtime_calls_readably() -> None:
     program = one_function_backend_program()
     callable_decl = program.callables[0]

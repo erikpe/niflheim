@@ -139,6 +139,7 @@ def _serialize_data_blob(blob: ir_model.BackendDataBlob) -> dict[str, object]:
         "alignment": blob.alignment,
         "bytes_hex": blob.bytes_hex,
         "readonly": blob.readonly,
+        "content_kind": blob.content_kind,
     }
 
 
@@ -654,6 +655,7 @@ def _parse_data_blob(value: object) -> ir_model.BackendDataBlob:
         alignment=_require_int(payload, "alignment", "data blob"),
         bytes_hex=_require_str(payload, "bytes_hex", "data blob"),
         readonly=_require_bool(payload, "readonly", "data blob"),
+        content_kind=_require_str(payload, "content_kind", "data blob") if "content_kind" in payload else "raw",
     )
 
 

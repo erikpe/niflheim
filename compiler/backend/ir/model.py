@@ -28,8 +28,10 @@ BackendCallableKind = Literal["function", "method", "constructor"]
 BackendRegisterOriginKind = Literal["receiver", "param", "local", "helper", "temp", "synthetic"]
 BackendIntTypeName = Literal["i64", "u64", "u8"]
 BackendTrapKind = Literal["bad_cast", "bounds", "null_deref", "panic", "unreachable"]
+BackendDataBlobContentKind = Literal["raw", "string"]
 
 _BACKEND_INT_TYPE_NAMES = frozenset({TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8})
+_BACKEND_DATA_BLOB_CONTENT_KINDS = frozenset({"raw", "string"})
 _LOWER_HEX_DIGITS = frozenset("0123456789abcdef")
 
 
@@ -57,6 +59,11 @@ def _validate_bytes_hex(bytes_hex: str) -> None:
         raise ValueError("Backend data blob bytes_hex must contain an even number of hexadecimal digits")
     if any(ch not in _LOWER_HEX_DIGITS for ch in bytes_hex):
         raise ValueError("Backend data blob bytes_hex must use lower-case hexadecimal digits without separators")
+
+
+def _validate_data_blob_content_kind(content_kind: str) -> None:
+    if content_kind not in _BACKEND_DATA_BLOB_CONTENT_KINDS:
+        raise ValueError(f"Unsupported backend data blob content_kind '{content_kind}'")
 
 
 @dataclass(frozen=True)
@@ -101,10 +108,12 @@ class BackendDataBlob:
     alignment: int
     bytes_hex: str
     readonly: bool
+    content_kind: BackendDataBlobContentKind = "raw"
 
     def __post_init__(self) -> None:
         _validate_alignment(self.alignment)
         _validate_bytes_hex(self.bytes_hex)
+        _validate_data_blob_content_kind(self.content_kind)
 
 
 @dataclass(frozen=True)

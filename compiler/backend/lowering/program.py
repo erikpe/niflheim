@@ -47,6 +47,7 @@ class ProgramLoweringContext:
                     alignment=1,
                     bytes_hex=data.hex(),
                     readonly=True,
+                    content_kind="string",
                 )
             )
             cached = (data_id, len(data))

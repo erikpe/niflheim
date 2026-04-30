@@ -77,6 +77,7 @@ class BackendDataBlobMetadataRecord:
     bytes_hex: str
     readonly: bool
     byte_length: int
+    content_kind: ir_model.BackendDataBlobContentKind = "raw"
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +199,7 @@ def build_backend_program_metadata(
             bytes_hex=blob.bytes_hex,
             readonly=blob.readonly,
             byte_length=len(blob.bytes_hex) // 2,
+            content_kind=blob.content_kind,
         )
         for blob in sorted(program.data_blobs, key=data_blob_sort_key)
     )
