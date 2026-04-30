@@ -257,6 +257,10 @@ def test_verify_backend_program_accepts_identity_comparison_between_obj_and_null
     verify_backend_program(_program_with_obj_null_identity_comparison())
 
 
+def test_verify_backend_program_accepts_shift_with_u64_count_for_u8_value() -> None:
+    verify_backend_program(_program_with_u8_shift_by_u64())
+
+
 def _replace_callable(
     program: BackendProgram,
     target_callable_id,
@@ -269,6 +273,66 @@ def _replace_callable(
             for callable_decl in program.callables
         ),
     )
+
+
+def _program_with_u8_shift_by_u64() -> BackendProgram:
+    program = one_function_backend_program()
+    callable_decl = callable_by_id(program, FIXTURE_ENTRY_FUNCTION_ID)
+    value_reg = replace(
+        callable_decl.registers[0],
+        reg_id=BackendRegId(owner_id=FIXTURE_ENTRY_FUNCTION_ID, ordinal=0),
+        type_ref=semantic_primitive_type_ref("u8"),
+        debug_name="value0",
+    )
+    count_reg = replace(
+        callable_decl.registers[0],
+        reg_id=BackendRegId(owner_id=FIXTURE_ENTRY_FUNCTION_ID, ordinal=1),
+        type_ref=semantic_primitive_type_ref(TYPE_NAME_U64),
+        debug_name="count1",
+    )
+    result_reg = replace(
+        callable_decl.registers[0],
+        reg_id=BackendRegId(owner_id=FIXTURE_ENTRY_FUNCTION_ID, ordinal=2),
+        type_ref=semantic_primitive_type_ref("u8"),
+        debug_name="result2",
+    )
+    span = make_source_span(path="fixtures/verify_shift_u8_u64.nif")
+    updated_callable = replace(
+        callable_decl,
+        signature=BackendSignature(param_types=(), return_type=semantic_primitive_type_ref("u8")),
+        registers=(value_reg, count_reg, result_reg),
+        blocks=(
+            replace(
+                callable_decl.blocks[0],
+                instructions=(
+                    BackendConstInst(
+                        inst_id=BackendInstId(owner_id=FIXTURE_ENTRY_FUNCTION_ID, ordinal=0),
+                        dest=value_reg.reg_id,
+                        constant=BackendIntConst(type_name="u8", value=1),
+                        span=span,
+                    ),
+                    BackendConstInst(
+                        inst_id=BackendInstId(owner_id=FIXTURE_ENTRY_FUNCTION_ID, ordinal=1),
+                        dest=count_reg.reg_id,
+                        constant=BackendIntConst(type_name=TYPE_NAME_U64, value=1),
+                        span=span,
+                    ),
+                    BackendBinaryInst(
+                        inst_id=BackendInstId(owner_id=FIXTURE_ENTRY_FUNCTION_ID, ordinal=2),
+                        dest=result_reg.reg_id,
+                        op=SemanticBinaryOp(kind=BinaryOpKind.SHIFT_LEFT, flavor=BinaryOpFlavor.INTEGER),
+                        left=BackendRegOperand(reg_id=value_reg.reg_id),
+                        right=BackendRegOperand(reg_id=count_reg.reg_id),
+                        span=span,
+                    ),
+                ),
+                terminator=BackendReturnTerminator(span=span, value=BackendRegOperand(reg_id=result_reg.reg_id)),
+                span=span,
+            ),
+        ),
+        span=span,
+    )
+    return _replace_callable(program, FIXTURE_ENTRY_FUNCTION_ID, updated_callable)
 
 
 def _program_with_invalid_jump_target() -> BackendProgram:

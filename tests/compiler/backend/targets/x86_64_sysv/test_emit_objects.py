@@ -163,3 +163,36 @@ def test_emit_source_asm_can_execute_object_construction_and_field_access(tmp_pa
     )
 
     assert run.returncode == 16
+
+
+def test_emit_source_asm_can_execute_constructor_wrapper_with_stack_passed_init_arg(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        class Record {
+            a: i64;
+            b: i64;
+            c: i64;
+            d: i64;
+            e: i64;
+            f: i64;
+
+            constructor(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) {
+                __self.a = a;
+                __self.b = b;
+                __self.c = c;
+                __self.d = d;
+                __self.e = e;
+                __self.f = f;
+            }
+        }
+
+        fn main() -> i64 {
+            var value: Record = Record(1, 2, 3, 4, 5, 6);
+            return value.a + value.b + value.c + value.d + value.e + value.f;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert run.returncode == 21

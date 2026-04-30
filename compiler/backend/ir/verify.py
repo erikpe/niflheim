@@ -9,7 +9,8 @@ from compiler.backend.ir._ordering import block_sort_key, callable_id_sort_key, 
 from compiler.codegen.abi.runtime import has_runtime_call_metadata, runtime_call_metadata
 from compiler.codegen.types import array_element_runtime_kind_for_type_ref, is_reference_type_ref
 from compiler.common.collection_protocols import ArrayRuntimeKind
-from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_OBJ, TYPE_NAME_U64, TYPE_NAME_UNIT
+from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_OBJ, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_UNIT
+from compiler.semantic.operations import BinaryOpKind
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, MethodId
 from compiler.semantic.types import (
     SemanticTypeRef,
@@ -1690,6 +1691,10 @@ def _binary_operand_types_compatible(
 ) -> bool:
     if left_type == right_type:
         return True
+    if op.kind in {BinaryOpKind.SHIFT_LEFT, BinaryOpKind.SHIFT_RIGHT}:
+        left_type_name = semantic_type_canonical_name(left_type)
+        right_type_name = semantic_type_canonical_name(right_type)
+        return left_type_name in {TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8} and right_type_name == TYPE_NAME_U64
     if op.flavor.value != "identity_comparison":
         return False
     return _identity_comparison_types_compatible(left_type, right_type, index=index)

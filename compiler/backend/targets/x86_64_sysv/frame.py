@@ -151,6 +151,11 @@ def plan_callable_frame_layout(
 
 def _max_outgoing_stack_arg_slot_count(callable_decl: BackendCallableDecl, *, abi: X86_64SysVAbi) -> int:
     max_stack_arg_slot_count = 0
+    if callable_decl.kind == "constructor" and callable_decl.receiver_reg is not None:
+        max_stack_arg_slot_count = abi.outgoing_stack_arg_slot_count(
+            callable_decl.signature.param_types,
+            includes_receiver=True,
+        )
     for block in callable_decl.blocks:
         for instruction in block.instructions:
             if not isinstance(instruction, BackendCallInst):
