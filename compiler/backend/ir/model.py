@@ -232,7 +232,13 @@ class BackendDataOperand:
     data_id: BackendDataId
 
 
-BackendOperand = BackendRegOperand | BackendConstOperand | BackendDataOperand
+@dataclass(frozen=True)
+class BackendFunctionOperand:
+    function_id: FunctionId
+    type_ref: SemanticTypeRef
+
+
+BackendOperand = BackendRegOperand | BackendConstOperand | BackendDataOperand | BackendFunctionOperand
 
 
 @dataclass(frozen=True)
@@ -528,6 +534,7 @@ __all__ = [
     "BackendFieldDecl",
     "BackendFieldLoadInst",
     "BackendFieldStoreInst",
+    "BackendFunctionOperand",
     "BackendFunctionAnalysisDump",
     "BackendIndirectCallTarget",
     "BackendInstId",

@@ -26,6 +26,7 @@ from compiler.backend.ir import (
     BackendCopyInst,
     BackendDataOperand,
     BackendDoubleConst,
+    BackendFunctionOperand,
     BackendIntConst,
     BackendJumpTerminator,
     BackendNullConst,
@@ -90,6 +91,7 @@ def emit_instruction(
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
     call_emitter: Callable[[BackendCallInst], None] | None = None,
+    program_symbols=None,
 ) -> None:
     _emit_instruction(
             builder,
@@ -98,6 +100,7 @@ def emit_instruction(
             frame_layout=frame_layout,
             register_type_name_by_reg_id=register_type_name_by_reg_id,
             call_emitter=call_emitter,
+            program_symbols=program_symbols,
         )
 
 
@@ -108,6 +111,7 @@ def emit_return_terminator(
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
     epilogue_label_text: str,
+    program_symbols=None,
 ) -> None:
     return_type_name = None if terminator.value is None else _operand_type_name(terminator.value, register_type_name_by_reg_id)
     if terminator.value is not None:
@@ -127,6 +131,7 @@ def emit_return_terminator(
                 target_byte_register=_PRIMARY_BYTE_REGISTER,
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
+                program_symbols=program_symbols,
             )
     builder.instruction("jmp", epilogue_label_text)
 
@@ -200,6 +205,7 @@ def _emit_instruction(
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
     call_emitter: Callable[[BackendCallInst], None] | None = None,
+    program_symbols=None,
 ) -> None:
     if isinstance(instruction, BackendConstInst):
         if isinstance(instruction.constant, BackendDoubleConst):
@@ -234,6 +240,7 @@ def _emit_instruction(
                 target_byte_register=_PRIMARY_BYTE_REGISTER,
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
+                program_symbols=program_symbols,
             )
             emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
         return
@@ -593,6 +600,7 @@ def emit_load_operand(
     target_byte_register: str,
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
+    program_symbols=None,
 ) -> None:
     if isinstance(operand, BackendRegOperand):
         slot = frame_layout.for_reg(operand.reg_id)
@@ -611,6 +619,11 @@ def emit_load_operand(
 
     if isinstance(operand, BackendDataOperand):
         raise BackendTargetLoweringError("x86_64_sysv data operands land in the later string slice")
+    if isinstance(operand, BackendFunctionOperand):
+        if program_symbols is None:
+            raise BackendTargetLoweringError("x86_64_sysv function operands require backend program symbols")
+        builder.instruction("lea", target_register, f"[rip + {program_symbols.callable(operand.function_id).direct_call_symbol}]")
+        return
 
     raise BackendTargetLoweringError(
         f"x86_64_sysv cannot load operand '{type(operand).__name__}' in PR3"
@@ -705,6 +718,8 @@ def _operand_type_name(operand: BackendOperand, register_type_name_by_reg_id: di
             return TYPE_NAME_DOUBLE
         if isinstance(operand.constant, BackendNullConst):
             return "Obj"
+    if isinstance(operand, BackendFunctionOperand):
+        return semantic_type_canonical_name(operand.type_ref)
     raise BackendTargetLoweringError(
         f"x86_64_sysv cannot infer operand type for '{type(operand).__name__}' in PR3"
     )

@@ -15,9 +15,12 @@ from compiler.semantic.types import (
     SemanticTypeRef,
     semantic_null_type_ref,
     semantic_primitive_type_ref,
+    semantic_type_callable_params,
+    semantic_type_callable_return,
     semantic_type_canonical_name,
     semantic_type_display_name,
     semantic_type_is_array,
+    semantic_type_is_callable,
     semantic_type_ref_for_class_id,
     semantic_type_ref_for_interface_id,
 )
@@ -1384,6 +1387,32 @@ def _operand_type(
                 f"data operand '{_format_data_id(operand.data_id)}' is not declared",
             )
         return _OPAQUE_DATA_TYPE_REF
+    if isinstance(operand, ir_model.BackendFunctionOperand):
+        function_decl = index.callable_by_id.get(operand.function_id)
+        if function_decl is None or function_decl.kind != "function":
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"function operand '{_format_callable_id(operand.function_id)}' is not a declared function",
+            )
+        if not semantic_type_is_callable(operand.type_ref):
+            _instruction_error(callable_decl, block, instruction, "function operands must carry a callable type")
+        if semantic_type_callable_params(operand.type_ref) != function_decl.signature.param_types:
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"function operand '{_format_callable_id(operand.function_id)}' parameter types do not match operand callable type",
+            )
+        if semantic_type_callable_return(operand.type_ref) != function_decl.signature.return_type:
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"function operand '{_format_callable_id(operand.function_id)}' return type does not match operand callable type",
+            )
+        return operand.type_ref
     _instruction_error(callable_decl, block, instruction, f"unsupported operand type '{type(operand).__name__}'")
 
 

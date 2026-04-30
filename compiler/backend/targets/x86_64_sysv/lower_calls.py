@@ -378,6 +378,7 @@ def _emit_load_call_operand(
         target_byte_register=target_byte_register,
         frame_layout=frame_layout,
         register_type_name_by_reg_id=register_type_name_by_reg_id,
+        program_symbols=program_symbols,
     )
 
 

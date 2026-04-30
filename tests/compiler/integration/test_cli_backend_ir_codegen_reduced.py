@@ -379,3 +379,33 @@ def test_cli_experimental_backend_selector_runs_interface_typed_local_initialize
     )
 
     assert run.returncode == 254
+
+
+def test_cli_experimental_backend_selector_runs_callable_value_local_from_function_ref(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        fn inc(value: i64) -> i64 {
+            return value + 1;
+        }
+
+        fn apply(f: fn(i64) -> i64, value: i64) -> i64 {
+            return f(value);
+        }
+
+        fn main() -> i64 {
+            var func: fn(i64) -> i64 = inc;
+            return apply(func, 41);
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch,
+        entry,
+        project_root=tmp_path,
+        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
+    )
+
+    assert run.returncode == 42, run.stderr

@@ -449,6 +449,7 @@ def _emit_callable_body(
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=resolved_type_names,
                 call_emitter=emit_call_instruction,
+                program_symbols=target_input.program_context.symbols,
             )
         _emit_terminator(
             builder,
@@ -457,6 +458,7 @@ def _emit_callable_body(
             register_type_name_by_reg_id=resolved_type_names,
             block_label_by_id=block_label_by_id,
             epilogue_label_text=epilogue,
+            program_symbols=target_input.program_context.symbols,
         )
 
     builder.label(epilogue)
@@ -479,6 +481,7 @@ def _emit_terminator(
     register_type_name_by_reg_id: dict,
     block_label_by_id: dict,
     epilogue_label_text: str,
+    program_symbols,
 ) -> None:
     terminator = block.terminator
     if isinstance(terminator, BackendReturnTerminator):
@@ -488,6 +491,7 @@ def _emit_terminator(
             frame_layout=frame_layout,
             register_type_name_by_reg_id=register_type_name_by_reg_id,
             epilogue_label_text=epilogue_label_text,
+            program_symbols=program_symbols,
         )
         return
     if isinstance(terminator, BackendJumpTerminator):

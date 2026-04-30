@@ -6,6 +6,8 @@ from compiler.backend.ir import (
     BackendConstOperand,
     BackendCopyInst,
     BackendDirectCallTarget,
+    BackendFunctionOperand,
+    BackendIndirectCallTarget,
     BackendNullConst,
     BackendReturnTerminator,
     BackendUnaryInst,
@@ -227,3 +229,38 @@ def test_lower_to_backend_ir_preserves_mixed_scalar_call_signatures_with_double_
     ]
     assert mix_call.signature.return_type is not None
     assert mix_call.signature.return_type.canonical_name == "double"
+
+
+def test_lower_to_backend_ir_materializes_function_refs_for_callable_value_calls(tmp_path) -> None:
+    program = lower_source_to_backend_program(
+        tmp_path,
+        """
+        fn inc(value: i64) -> i64 {
+            return value + 1;
+        }
+
+        fn apply(f: fn(i64) -> i64, value: i64) -> i64 {
+            return f(value);
+        }
+
+        fn main() -> i64 {
+            var func: fn(i64) -> i64 = inc;
+            return apply(func, 41);
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    main_callable = callable_by_name(program, "main")
+    main_block = block_by_ordinal(main_callable, 0)
+    function_copy = next(instruction for instruction in main_block.instructions if isinstance(instruction, BackendCopyInst))
+    apply_call = next(instruction for instruction in main_block.instructions if isinstance(instruction, BackendCallInst))
+
+    assert isinstance(function_copy.source, BackendFunctionOperand)
+    assert function_copy.source.function_id.name == "inc"
+    assert isinstance(apply_call.target, BackendDirectCallTarget)
+
+    apply_callable = callable_by_name(program, "apply")
+    indirect_call = next(instruction for instruction in block_by_ordinal(apply_callable, 0).instructions if isinstance(instruction, BackendCallInst))
+
+    assert isinstance(indirect_call.target, BackendIndirectCallTarget)

@@ -135,3 +135,44 @@ def test_emit_source_asm_emits_indirect_call_for_callable_parameter(tmp_path) ->
 
     assert "    mov rdi, qword ptr [rbp - 16]" in apply_body or "    mov rdi, qword ptr [rbp - 24]" in apply_body
     assert "    call r11" in apply_body
+
+
+def test_emit_source_asm_materializes_function_refs_as_callable_values(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn inc(value: i64) -> i64 {
+            return value + 1;
+        }
+
+        fn main() -> i64 {
+            var func: fn(i64) -> i64 = inc;
+            return func(41);
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    main_body = _body_for_label(asm, "main")
+
+    assert f"    lea rax, [rip + {mangle_function_symbol(('main',), 'inc')}]" in main_body
+    assert "    call r11" in main_body
+
+
+def test_emit_source_asm_can_execute_function_ref_callable_value_program(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        fn inc(value: i64) -> i64 {
+            return value + 1;
+        }
+
+        fn main() -> i64 {
+            var func: fn(i64) -> i64 = inc;
+            return func(41);
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert run.returncode == 42

@@ -388,6 +388,8 @@ def _format_operand(operand: ir_model.BackendOperand) -> str:
         return _format_constant(operand.constant)
     if isinstance(operand, ir_model.BackendDataOperand):
         return _format_data_id(operand.data_id)
+    if isinstance(operand, ir_model.BackendFunctionOperand):
+        return f"function {_format_function_id(operand.function_id)}"
     raise TypeError(f"Unsupported backend operand type: {type(operand).__name__}")
 
 
