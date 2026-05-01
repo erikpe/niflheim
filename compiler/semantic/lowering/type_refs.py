@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from compiler.semantic.types import SemanticTypeRef, semantic_type_ref_from_type_info
+from compiler.resolver import ModulePath
 from compiler.typecheck.context import TypeCheckContext
 from compiler.typecheck.model import TypeInfo
 
@@ -49,7 +50,49 @@ def _qualified_nominal_name(typecheck_ctx: TypeCheckContext, type_info: TypeInfo
     if type_info.kind == "interface" and "::" not in type_info.name and type_info.name in typecheck_ctx.interfaces:
         return f"{'.'.join(typecheck_ctx.module_path)}::{type_info.name}"
 
+    if type_info.kind == "reference" and "::" not in type_info.name:
+        imported_name = _qualified_imported_nominal_name(typecheck_ctx, type_info.name, symbol_kind="class")
+        if imported_name is not None:
+            return imported_name
+
+    if type_info.kind == "interface" and "::" not in type_info.name:
+        imported_name = _qualified_imported_nominal_name(typecheck_ctx, type_info.name, symbol_kind="interface")
+        if imported_name is not None:
+            return imported_name
+
     return None
+
+
+def _qualified_imported_nominal_name(
+    typecheck_ctx: TypeCheckContext,
+    type_name: str,
+    *,
+    symbol_kind: str,
+) -> str | None:
+    if typecheck_ctx.modules is None or typecheck_ctx.module_path is None:
+        return None
+
+    current_module = typecheck_ctx.modules.get(typecheck_ctx.module_path)
+    if current_module is None:
+        return None
+
+    matches: set[ModulePath] = set()
+    for import_info in current_module.imports.values():
+        imported_module = typecheck_ctx.modules.get(import_info.module_path)
+        if imported_module is None:
+            continue
+        symbol = imported_module.exported_symbols.get(type_name)
+        if symbol is not None and symbol.kind == symbol_kind:
+            matches.add(symbol.owner_module_path)
+
+    if not matches:
+        return None
+    if len(matches) > 1:
+        matches_rendered = ", ".join(sorted(".".join(module_path) for module_path in matches))
+        raise ValueError(f"Ambiguous imported {symbol_kind} '{type_name}' during semantic lowering ({matches_rendered})")
+
+    owner_module = next(iter(matches))
+    return f"{'.'.join(owner_module)}::{type_name}"
 
 
 def _merge_display_names(canonical_ref: SemanticTypeRef, display_ref: SemanticTypeRef) -> SemanticTypeRef:

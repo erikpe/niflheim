@@ -19,10 +19,10 @@ def test_cli_stop_after_backend_ir_prints_text_dump_by_default(tmp_path: Path, m
         """,
     )
 
-    def _unexpected_emit_asm(*args, **kwargs):
+    def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir")
 
-    monkeypatch.setattr(cli, "emit_asm", _unexpected_emit_asm)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "--stop-after", "backend-ir"])
     captured = capsys.readouterr()
@@ -43,10 +43,10 @@ def test_cli_stop_after_backend_ir_can_print_json_dump(tmp_path: Path, monkeypat
         """,
     )
 
-    def _unexpected_emit_asm(*args, **kwargs):
+    def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir")
 
-    monkeypatch.setattr(cli, "emit_asm", _unexpected_emit_asm)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -106,10 +106,10 @@ def test_cli_stop_after_backend_ir_can_write_json_dump_file(tmp_path: Path, monk
         """,
     )
 
-    def _unexpected_emit_asm(*args, **kwargs):
+    def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir")
 
-    monkeypatch.setattr(cli, "emit_asm", _unexpected_emit_asm)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
 
     rc = run_cli(
         monkeypatch,

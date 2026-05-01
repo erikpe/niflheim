@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from compiler.backend.program.symbols import mangle_constructor_init_symbol
 from compiler.codegen.symbols import mangle_function_symbol, mangle_method_symbol, mangle_constructor_symbol
+from compiler.semantic.symbols import ConstructorId
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write_project
 
 
@@ -59,7 +61,8 @@ def test_cli_codegen_imported_constructor_call_lowers(tmp_path: Path, monkeypatc
     entry = tmp_path / "main.nif"
     out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
-    assert f"    call {mangle_constructor_symbol('util::Box')}" in asm
+    assert f"{mangle_constructor_symbol('util::Box')}:" in asm
+    assert f"    call {mangle_constructor_init_symbol(ConstructorId(module_path=('util',), class_name='Box'))}" in asm
 
 
 def test_cli_codegen_imported_static_method_call_lowers(tmp_path: Path, monkeypatch) -> None:
@@ -127,8 +130,10 @@ def test_cli_codegen_keeps_duplicate_leaf_class_constructors_and_methods_distinc
     out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
-    assert f"    call {mangle_constructor_symbol('left::Key')}" in asm
-    assert f"    call {mangle_constructor_symbol('right::Key')}" in asm
+    assert f"{mangle_constructor_symbol('left::Key')}:" in asm
+    assert f"{mangle_constructor_symbol('right::Key')}:" in asm
+    assert f"    call {mangle_constructor_init_symbol(ConstructorId(module_path=('left',), class_name='Key'))}" in asm
+    assert f"    call {mangle_constructor_init_symbol(ConstructorId(module_path=('right',), class_name='Key'))}" in asm
     assert f"    call {mangle_method_symbol('left::Key', 'read')}" in asm
     assert f"    call {mangle_method_symbol('right::Key', 'read')}" in asm
 

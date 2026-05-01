@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import compiler.cli as cli
+from compiler.backend.targets import BackendEmitResult
 
 from tests.compiler.integration.helpers import run_cli, write
 
@@ -28,11 +29,11 @@ def test_cli_stop_after_backend_ir_passes_prints_text_dump_and_runs_pipeline(
         seen["pipeline_calls"] += 1
         return real_run_backend_ir_pipeline(program)
 
-    def _unexpected_emit_asm(*args, **kwargs):
+    def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir-passes")
 
     monkeypatch.setattr(cli, "run_backend_ir_pipeline", _counting_pipeline)
-    monkeypatch.setattr(cli, "emit_asm", _unexpected_emit_asm)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "--stop-after", "backend-ir-passes"])
     captured = capsys.readouterr()
@@ -54,10 +55,10 @@ def test_cli_stop_after_backend_ir_passes_can_print_json_dump(tmp_path: Path, mo
         """,
     )
 
-    def _unexpected_emit_asm(*args, **kwargs):
+    def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir-passes")
 
-    monkeypatch.setattr(cli, "emit_asm", _unexpected_emit_asm)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -84,10 +85,10 @@ def test_cli_stop_after_backend_ir_passes_can_write_dump_file(tmp_path: Path, mo
         """,
     )
 
-    def _unexpected_emit_asm(*args, **kwargs):
+    def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir-passes")
 
-    monkeypatch.setattr(cli, "emit_asm", _unexpected_emit_asm)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -110,9 +111,7 @@ def test_cli_stop_after_backend_ir_passes_can_write_dump_file(tmp_path: Path, mo
     assert dump_path.read_text(encoding="utf-8").startswith("backend_ir niflheim.backend-ir.v1 entry=main::main\n")
 
 
-def test_cli_default_codegen_does_not_invoke_backend_ir_pipeline_without_backend_ir_flags(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_cli_default_checked_path_invokes_backend_ir_pipeline(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     asm_path = tmp_path / "out.s"
     write(
@@ -124,12 +123,21 @@ def test_cli_default_codegen_does_not_invoke_backend_ir_pipeline_without_backend
         """,
     )
 
-    def _unexpected_pipeline(*args, **kwargs):
-        raise AssertionError("backend IR pass pipeline should not run on the default checked codegen path")
+    seen = {"pipeline_calls": 0}
+    real_run_backend_ir_pipeline = cli.run_backend_ir_pipeline
 
-    monkeypatch.setattr(cli, "run_backend_ir_pipeline", _unexpected_pipeline)
+    def _counting_pipeline(program):
+        seen["pipeline_calls"] += 1
+        return real_run_backend_ir_pipeline(program)
+
+    def _fake_emit_backend(*args, **kwargs):
+        return BackendEmitResult(assembly_text="; backend-ir target selected\n")
+
+    monkeypatch.setattr(cli, "run_backend_ir_pipeline", _counting_pipeline)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "-o", str(asm_path)])
 
     assert rc == 0
+    assert seen["pipeline_calls"] == 1
     assert asm_path.exists()

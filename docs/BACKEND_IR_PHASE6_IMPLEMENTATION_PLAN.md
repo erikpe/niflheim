@@ -30,7 +30,7 @@ Use these rules for every phase-6 patch:
 
 ## Ordered PR Checklist
 
-1. [ ] PR 1: Make backend IR plus `x86_64_sysv` the default checked CLI backend while preserving backend IR dump and stop-after seams.
+1. [x] PR 1: Make backend IR plus `x86_64_sysv` the default checked CLI backend while preserving backend IR dump and stop-after seams.
 2. [ ] PR 2: Update scripts, integration helpers, and test harness defaults to assume backend IR as the checked path.
 3. [ ] PR 3: Remove legacy checked-path codegen entrypoints, dual-path CLI branches, and obsolete compatibility wrappers.
 4. [ ] PR 4: Remove legacy layout, root-liveness, root-slot, and tree-walk backend analyses from production use.
@@ -113,14 +113,15 @@ pytest -n auto --dist loadfile tests/compiler/integration/test_cli_codegen.py te
 - Backend IR plus `x86_64_sysv` is now the default checked backend path.
 - Backend IR debugging seams remain intact and usable.
 - The CLI surface reflects the actual post-transition checked pipeline.
+- `--experimental-backend backend-ir-x86_64_sysv` remains accepted as a temporary compatibility alias to the default checked backend for this slice.
 
 ### Checklist
 
-- [ ] Switch the default checked CLI path to backend IR plus `x86_64_sysv`.
-- [ ] Preserve backend IR dump and stop-after seams.
-- [ ] Resolve the explicit experimental selector behavior.
-- [ ] Update checked-path logging and diagnostics.
-- [ ] Re-run focused CLI coverage for the new default path.
+- [x] Switch the default checked CLI path to backend IR plus `x86_64_sysv`.
+- [x] Preserve backend IR dump and stop-after seams.
+- [x] Resolve the explicit experimental selector behavior.
+- [x] Update checked-path logging and diagnostics.
+- [x] Re-run focused CLI coverage for the new default path.
 
 ## PR 2: Script, Helper, And Harness Default Cutover
 
@@ -450,8 +451,8 @@ make -C runtime test-all
 
 Use this checklist when phase 6 is believed to be complete.
 
-- [ ] Backend IR plus `x86_64_sysv` is the default checked CLI backend path.
-- [ ] Backend IR dump and stop-after seams remain supported after cutover.
+- [x] Backend IR plus `x86_64_sysv` is the default checked CLI backend path.
+- [x] Backend IR dump and stop-after seams remain supported after cutover.
 - [ ] Repository scripts and test helpers assume backend IR as the checked backend path.
 - [ ] Legacy checked-path selection scaffolding is removed.
 - [ ] Legacy layout, root-liveness, and root-slot planning are removed from production use.

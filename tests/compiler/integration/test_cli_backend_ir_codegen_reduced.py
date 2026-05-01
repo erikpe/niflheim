@@ -11,7 +11,9 @@ from tests.compiler.integration.helpers import build_executable, compile_and_run
 _EXPERIMENTAL_BACKEND_ARGS = ["--experimental-backend", "backend-ir-x86_64_sysv"]
 
 
-def test_cli_experimental_backend_selector_emits_assembly_without_default_codegen(tmp_path: Path, monkeypatch) -> None:
+def test_cli_experimental_backend_selector_is_a_compatibility_alias_for_default_checked_path(
+    tmp_path: Path, monkeypatch
+) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
     write(
@@ -23,10 +25,14 @@ def test_cli_experimental_backend_selector_emits_assembly_without_default_codege
         """,
     )
 
-    def _unexpected_emit_asm(*args, **kwargs):
-        raise AssertionError("default checked codegen should not run when the reduced backend selector is enabled")
+    seen = {"target_calls": 0}
+    real_emit_backend = cli.emit_x86_64_sysv_asm
 
-    monkeypatch.setattr(cli, "emit_asm", _unexpected_emit_asm)
+    def _counting_emit_backend(*args, **kwargs):
+        seen["target_calls"] += 1
+        return real_emit_backend(*args, **kwargs)
+
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _counting_emit_backend)
 
     asm_path = compile_to_asm(
         monkeypatch,
@@ -41,9 +47,10 @@ def test_cli_experimental_backend_selector_emits_assembly_without_default_codege
     assert "main:" in asm
     assert "    mov rax, 0" in asm
     assert "    jmp .Lmain_epilogue" in asm
+    assert seen["target_calls"] == 1
 
 
-def test_cli_default_codegen_path_does_not_use_experimental_backend_without_selector(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_uses_backend_ir_target_without_selector(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
     write(
@@ -55,14 +62,19 @@ def test_cli_default_codegen_path_does_not_use_experimental_backend_without_sele
         """,
     )
 
-    def _unexpected_backend_target(*args, **kwargs):
-        raise AssertionError("experimental backend target should not run on the default checked codegen path")
+    seen = {"target_calls": 0}
+    real_emit_backend = cli.emit_x86_64_sysv_asm
 
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_backend_target)
+    def _counting_emit_backend(*args, **kwargs):
+        seen["target_calls"] += 1
+        return real_emit_backend(*args, **kwargs)
+
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _counting_emit_backend)
 
     asm_path = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=out_file)
 
     assert asm_path.exists()
+    assert seen["target_calls"] == 1
 
 
 def test_cli_experimental_backend_selector_can_compile_and_run_rooted_program(tmp_path: Path, monkeypatch) -> None:

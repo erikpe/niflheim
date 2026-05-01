@@ -6,17 +6,16 @@ from pathlib import Path
 from time import perf_counter
 
 from compiler.backend.analysis import run_backend_ir_pipeline
+from compiler.backend.analysis.pipeline import BackendPipelineResult
 from compiler.backend.ir.serialize import dump_backend_program_json
 from compiler.backend.ir.text import dump_backend_program_text
 from compiler.backend.lowering import lower_to_backend_ir
 from compiler.backend.targets import BackendTargetInput, BackendTargetOptions
-from compiler.backend.targets.x86_64_sysv import emit_x86_64_sysv_asm
+from compiler.backend.targets.x86_64_sysv import TARGET_NAME as X86_64_SYSV_TARGET_NAME, emit_x86_64_sysv_asm
 from compiler.common.logging import LOG_LEVEL_NAMES, configure_logging, get_logger, resolve_log_settings
-from compiler.codegen.generator import emit_asm
 from compiler.frontend.tokens import Token
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
-from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.pipeline import optimize_semantic_program
 from compiler.typecheck.api import typecheck_program
@@ -25,8 +24,8 @@ from compiler.typecheck.api import typecheck_program
 BACKEND_IR_DUMP_FORMATS = ["text", "json"]
 BACKEND_IR_STOP_PHASES = frozenset({"backend-ir", "backend-ir-passes"})
 STOP_PHASES = ["check", *sorted(BACKEND_IR_STOP_PHASES), "codegen"]
-EXPERIMENTAL_BACKEND_BACKEND_IR_X86_64_SYSV = "backend-ir-x86_64_sysv"
-EXPERIMENTAL_BACKEND_CHOICES = [EXPERIMENTAL_BACKEND_BACKEND_IR_X86_64_SYSV]
+COMPATIBILITY_BACKEND_ALIAS_BACKEND_IR_X86_64_SYSV = "backend-ir-x86_64_sysv"
+EXPERIMENTAL_BACKEND_CHOICES = [COMPATIBILITY_BACKEND_ALIAS_BACKEND_IR_X86_64_SYSV]
 
 
 def _requested_backend_ir_surface(args: argparse.Namespace) -> tuple[str, ...]:
@@ -46,10 +45,6 @@ def _requested_backend_ir_dump_format(args: argparse.Namespace) -> str | None:
     if args.dump_backend_ir_dir is not None or args.stop_after in BACKEND_IR_STOP_PHASES:
         return "text"
     return None
-
-
-def _uses_backend_ir_surface(args: argparse.Namespace) -> bool:
-    return bool(_requested_backend_ir_surface(args))
 
 
 def _uses_experimental_backend(args: argparse.Namespace) -> bool:
@@ -122,29 +117,14 @@ def _link_program_phase(logger, optimized_program):
     return linked_program
 
 
-def _emit_assembly_phase(logger, linked_program, *, runtime_trace_enabled: bool) -> str:
-    logger.info("Emitting assembly")
-    start = perf_counter()
-    lowered_linked_program = lower_linked_semantic_program(linked_program)
-    asm = emit_asm(lowered_linked_program, runtime_trace_enabled=runtime_trace_enabled)
-    duration_ms = (perf_counter() - start) * 1000.0
-    logger.debugv(1, "Emitted %d assembly lines in %.2f ms", len(asm.splitlines()), duration_ms)
-    return asm
-
-
-def _emit_experimental_backend_assembly_phase(
+def _emit_backend_target_assembly_phase(
     logger,
-    linked_program,
+    pipeline_result: BackendPipelineResult,
     *,
-    experimental_backend: str,
     runtime_trace_enabled: bool,
 ) -> str:
-    if experimental_backend != EXPERIMENTAL_BACKEND_BACKEND_IR_X86_64_SYSV:
-        raise ValueError(f"Unsupported experimental backend '{experimental_backend}'")
-
-    logger.info("Emitting assembly via experimental backend %s", experimental_backend)
+    logger.info("Emitting assembly via %s", X86_64_SYSV_TARGET_NAME)
     start = perf_counter()
-    pipeline_result = _run_backend_ir_passes_phase(logger, linked_program)
     emit_result = emit_x86_64_sysv_asm(
         BackendTargetInput.from_pipeline_result(pipeline_result),
         options=BackendTargetOptions(runtime_trace_enabled=runtime_trace_enabled),
@@ -167,6 +147,10 @@ def _lower_backend_ir_phase(logger, linked_program):
 
 def _run_backend_ir_passes_phase(logger, linked_program):
     backend_program = _lower_backend_ir_phase(logger, linked_program)
+    return _run_backend_ir_pipeline_phase(logger, backend_program)
+
+
+def _run_backend_ir_pipeline_phase(logger, backend_program):
     logger.info("Running backend IR passes")
     start = perf_counter()
     pipeline_result = run_backend_ir_pipeline(backend_program)
@@ -231,9 +215,46 @@ def _write_backend_ir_dump(
     return dump_path
 
 
+def _publish_backend_ir_dump(
+    logger,
+    backend_program,
+    *,
+    input_path: Path,
+    dump_format: str | None,
+    dump_dir: str | None,
+    project_root: Path,
+    preserve_block_order: bool = False,
+) -> None:
+    if dump_format is None:
+        return
+    if dump_dir is not None:
+        dump_path = _write_backend_ir_dump(
+            backend_program,
+            input_path=input_path,
+            dump_dir=dump_dir,
+            dump_format=dump_format,
+            project_root=project_root,
+            preserve_block_order=preserve_block_order,
+        )
+        logger.infov(1, "Wrote backend IR to %s", dump_path)
+        return
+
+    rendered = _render_backend_ir_dump_with_options(
+        backend_program,
+        dump_format=dump_format,
+        project_root=project_root,
+        preserve_block_order=preserve_block_order,
+    )
+    print(rendered, end="" if rendered.endswith("\n") else "\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        prog="nifc", description="Niflheim stage-0 compiler (default: type check and emit assembly)."
+        prog="nifc",
+        description=(
+            "Niflheim stage-0 compiler "
+            "(default: type check and emit assembly through backend IR plus x86_64_sysv)."
+        ),
     )
     parser.add_argument("input", help="Input .nif source file")
 
@@ -281,7 +302,10 @@ def main() -> int:
     compilation_group.add_argument(
         "--experimental-backend",
         choices=EXPERIMENTAL_BACKEND_CHOICES,
-        help="Use a non-default checked-path backend instead of the legacy semantic-lowering codegen path",
+        help=(
+            "Compatibility alias for the default checked backend during phase-6 cutover "
+            "(no longer selects a distinct codegen path)"
+        ),
     )
 
     args = parser.parse_args()
@@ -303,48 +327,57 @@ def main() -> int:
         if args.stop_after == "check":
             return 0
 
-        if _uses_backend_ir_surface(args):
-            if args.stop_after == "backend-ir-passes":
-                pipeline_result = _run_backend_ir_passes_phase(logger, linked_program)
-                backend_program = pipeline_result.program
-            else:
-                backend_program = _lower_backend_ir_phase(logger, linked_program)
-            dump_format = _requested_backend_ir_dump_format(args)
-            dump_project_root = _backend_ir_dump_project_root(input_path, args.project_root)
-            preserve_block_order = args.stop_after == "backend-ir-passes"
-
-            if dump_format is not None:
-                if args.dump_backend_ir_dir is not None:
-                    dump_path = _write_backend_ir_dump(
-                        backend_program,
-                        input_path=input_path,
-                        dump_dir=args.dump_backend_ir_dir,
-                        dump_format=dump_format,
-                        project_root=dump_project_root,
-                        preserve_block_order=preserve_block_order,
-                    )
-                    logger.infov(1, "Wrote backend IR to %s", dump_path)
-                elif args.stop_after in BACKEND_IR_STOP_PHASES:
-                    rendered = _render_backend_ir_dump_with_options(
-                        backend_program,
-                        dump_format=dump_format,
-                        project_root=dump_project_root,
-                        preserve_block_order=preserve_block_order,
-                    )
-                    print(rendered, end="" if rendered.endswith("\n") else "\n")
-
-            if args.stop_after in BACKEND_IR_STOP_PHASES:
-                return 0
-
         if _uses_experimental_backend(args):
-            asm = _emit_experimental_backend_assembly_phase(
-                logger,
-                linked_program,
-                experimental_backend=args.experimental_backend,
-                runtime_trace_enabled=not args.omit_runtime_trace,
+            logger.infov(
+                1,
+                "Treating --experimental-backend %s as a compatibility alias for the default checked backend",
+                args.experimental_backend,
             )
-        else:
-            asm = _emit_assembly_phase(logger, linked_program, runtime_trace_enabled=not args.omit_runtime_trace)
+
+        dump_format = _requested_backend_ir_dump_format(args)
+        dump_project_root = _backend_ir_dump_project_root(input_path, args.project_root)
+        backend_program = _lower_backend_ir_phase(logger, linked_program)
+
+        if args.stop_after == "backend-ir":
+            _publish_backend_ir_dump(
+                logger,
+                backend_program,
+                input_path=input_path,
+                dump_format=dump_format,
+                dump_dir=args.dump_backend_ir_dir,
+                project_root=dump_project_root,
+            )
+            return 0
+
+        if args.dump_backend_ir_dir is not None:
+            _publish_backend_ir_dump(
+                logger,
+                backend_program,
+                input_path=input_path,
+                dump_format=dump_format,
+                dump_dir=args.dump_backend_ir_dir,
+                project_root=dump_project_root,
+            )
+
+        pipeline_result = _run_backend_ir_pipeline_phase(logger, backend_program)
+
+        if args.stop_after == "backend-ir-passes":
+            _publish_backend_ir_dump(
+                logger,
+                pipeline_result.program,
+                input_path=input_path,
+                dump_format=dump_format,
+                dump_dir=args.dump_backend_ir_dir,
+                project_root=dump_project_root,
+                preserve_block_order=True,
+            )
+            return 0
+
+        asm = _emit_backend_target_assembly_phase(
+            logger,
+            pipeline_result,
+            runtime_trace_enabled=not args.omit_runtime_trace,
+        )
         if args.output:
             Path(args.output).write_text(asm, encoding="utf-8")
             logger.infov(1, "Wrote assembly to %s", args.output)

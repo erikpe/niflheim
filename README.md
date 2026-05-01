@@ -93,11 +93,10 @@ Runtime sources are split by responsibility:
 
 For quick local workflows, use scripts under `scripts/`:
 
-- Default CLI compilation now uses the semantic-lowering backend when type checking is enabled.
+- Default CLI compilation now lowers through backend IR, runs the backend IR pass pipeline, and emits assembly through `x86_64_sysv`.
 - `--source-ast-codegen` is no longer supported on the checked CLI path.
 - `nifc --stop-after backend-ir-passes` is now a checked debugging seam: it lowers to backend IR, runs the phase-3 cleanup and analysis pipeline, and prints or writes the post-pass backend IR without continuing to assembly emission.
-- `nifc --experimental-backend backend-ir-x86_64_sysv` runs the reduced backend-IR x86-64 SysV path behind an explicit non-default selector; the default checked backend remains unchanged when the flag is absent.
-- The default checked codegen path is unchanged unless backend-IR dump or stop flags are requested explicitly.
+- `nifc --experimental-backend backend-ir-x86_64_sysv` remains accepted as a temporary compatibility alias for the default checked backend during phase-6 cutover.
 
 - `scripts/build.sh <input.nif> [output-executable] [--] [nifc-args...]`
 	- Compiles to assembly at `<output-executable>.s`

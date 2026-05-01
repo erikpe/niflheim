@@ -1181,6 +1181,21 @@ def _materialize_expr_into(
     expr: SemanticExpr,
     span: SourceSpan,
 ) -> None:
+    dest_type_ref = builder.require_register_type(dest_reg_id)
+    if expr.type_ref != dest_type_ref and _supports_reference_compatibility_cast(expr.type_ref, dest_type_ref):
+        exact_reg_id = builder.allocate_temp(type_ref=expr.type_ref, span=expr.span, debug_hint="exact")
+        _materialize_expr_into(builder, state, dest_reg_id=exact_reg_id, expr=expr, span=expr.span)
+        builder.emit_cast(
+            state,
+            dest=dest_reg_id,
+            cast_kind=CastSemanticsKind.REFERENCE_COMPATIBILITY,
+            operand=ir_model.BackendRegOperand(reg_id=exact_reg_id),
+            target_type_ref=dest_type_ref,
+            trap_on_failure=True,
+            span=span,
+        )
+        return
+
     if isinstance(expr, UnaryExprS):
         operand = _lower_expression_to_operand(builder, state, expr.operand)
         builder.emit_unary(state, dest=dest_reg_id, op=expr.op, operand=operand, span=expr.span)
@@ -1295,7 +1310,6 @@ def _materialize_expr_into(
         return
     if isinstance(expr, CallExprS):
         call_return_type = _exact_call_result_type(builder, expr)
-        dest_type_ref = builder.require_register_type(dest_reg_id)
         if call_return_type is None or call_return_type == dest_type_ref:
             _emit_call_expression(builder, state, expr=expr, dest_reg_id=dest_reg_id)
             return

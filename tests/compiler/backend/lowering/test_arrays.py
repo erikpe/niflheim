@@ -76,6 +76,27 @@ def test_lower_to_backend_ir_lowers_array_instructions_and_explicit_checks(tmp_p
 	assert main_instructions[0].array_runtime_kind is ArrayRuntimeKind.I64
 
 
+def test_lower_to_backend_ir_materializes_array_ctor_before_widening_to_obj_local(tmp_path) -> None:
+	program = lower_source_to_backend_program(
+		tmp_path,
+		"""
+		fn main() -> i64 {
+			var value: Obj = u64[](2u);
+			return 0;
+		}
+		""",
+		skip_optimize=True,
+	)
+
+	main_callable = callable_by_name(program, "main")
+	main_instructions = list(block_by_ordinal(main_callable, 0).instructions)
+
+	assert isinstance(main_instructions[0], BackendArrayAllocInst)
+	assert main_callable.registers[main_instructions[0].dest.ordinal].type_ref.canonical_name == "u64[]"
+	assert isinstance(main_instructions[1], BackendCastInst)
+	assert main_instructions[1].target_type_ref.canonical_name == "Obj"
+
+
 def test_lower_to_backend_ir_lowers_for_in_as_cfg_with_direct_array_fast_path(tmp_path) -> None:
 	program = lower_source_to_backend_program(
 		tmp_path,

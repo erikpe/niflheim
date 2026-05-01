@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 
 import compiler.cli as cli
+from compiler.backend.targets import BackendEmitResult, BackendTargetInput
 
 from compiler.codegen.symbols import mangle_function_symbol
-from compiler.semantic.lowered_ir import LoweredLinkedSemanticProgram
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write, write_project
 
 
-def test_cli_defaults_to_codegen_path(tmp_path: Path, monkeypatch) -> None:
+def test_cli_defaults_to_backend_ir_x86_64_sysv_path(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
     write(
@@ -25,20 +25,22 @@ def test_cli_defaults_to_codegen_path(tmp_path: Path, monkeypatch) -> None:
 
     seen: dict[str, object] = {}
 
-    def _fake_emit_asm(program: LoweredLinkedSemanticProgram, *, runtime_trace_enabled: bool = True) -> str:
-        seen["program"] = program
-        seen["runtime_trace_enabled"] = runtime_trace_enabled
-        return "; codegen backend selected\n"
+    def _fake_emit_backend(target_input: BackendTargetInput, *, options) -> BackendEmitResult:
+        seen["target_input"] = target_input
+        seen["runtime_trace_enabled"] = options.runtime_trace_enabled
+        return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
-    monkeypatch.setattr(cli, "emit_asm", _fake_emit_asm)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "-o", str(out_file)])
 
     assert rc == 0
-    assert out_file.read_text(encoding="utf-8") == "; codegen backend selected\n"
-    program = seen["program"]
-    assert isinstance(program, LoweredLinkedSemanticProgram)
-    assert program.entry_module == ("main",)
+    assert out_file.read_text(encoding="utf-8") == "; backend-ir target selected\n"
+    target_input = seen["target_input"]
+    assert isinstance(target_input, BackendTargetInput)
+    assert target_input.program.entry_callable_id.module_path == ("main",)
+    assert target_input.program.entry_callable_id.name == "main"
+    assert target_input.analysis_by_callable_id
     assert seen["runtime_trace_enabled"] is True
 
 
@@ -56,17 +58,17 @@ def test_cli_can_omit_runtime_trace_calls(tmp_path: Path, monkeypatch) -> None:
 
     seen: dict[str, object] = {}
 
-    def _fake_emit_asm(program: LoweredLinkedSemanticProgram, *, runtime_trace_enabled: bool = True) -> str:
-        seen["program"] = program
-        seen["runtime_trace_enabled"] = runtime_trace_enabled
-        return "; codegen backend selected\n"
+    def _fake_emit_backend(target_input: BackendTargetInput, *, options) -> BackendEmitResult:
+        seen["target_input"] = target_input
+        seen["runtime_trace_enabled"] = options.runtime_trace_enabled
+        return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
-    monkeypatch.setattr(cli, "emit_asm", _fake_emit_asm)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "--omit-runtime-trace", "-o", str(out_file)])
 
     assert rc == 0
-    assert out_file.read_text(encoding="utf-8") == "; codegen backend selected\n"
+    assert out_file.read_text(encoding="utf-8") == "; backend-ir target selected\n"
     assert seen["runtime_trace_enabled"] is False
 
 
@@ -88,20 +90,20 @@ def test_cli_can_skip_optimization_phase(tmp_path: Path, monkeypatch) -> None:
         seen["optimize_called"] = True
         return lowered_program
 
-    def _fake_emit_asm(program: LoweredLinkedSemanticProgram, *, runtime_trace_enabled: bool = True) -> str:
-        seen["program"] = program
-        seen["runtime_trace_enabled"] = runtime_trace_enabled
-        return "; codegen backend selected\n"
+    def _fake_emit_backend(target_input: BackendTargetInput, *, options) -> BackendEmitResult:
+        seen["target_input"] = target_input
+        seen["runtime_trace_enabled"] = options.runtime_trace_enabled
+        return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
     monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
-    monkeypatch.setattr(cli, "emit_asm", _fake_emit_asm)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "--skip-optimize", "-o", str(out_file)])
 
     assert rc == 0
-    assert out_file.read_text(encoding="utf-8") == "; codegen backend selected\n"
+    assert out_file.read_text(encoding="utf-8") == "; backend-ir target selected\n"
     assert seen["optimize_called"] is False
-    assert isinstance(seen["program"], LoweredLinkedSemanticProgram)
+    assert isinstance(seen["target_input"], BackendTargetInput)
 
 
 def test_cli_source_ast_codegen_flag_is_rejected(tmp_path: Path, monkeypatch, capsys) -> None:
