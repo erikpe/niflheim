@@ -33,7 +33,7 @@ from compiler.backend.ir import (
     BackendSignature,
 )
 from compiler.backend.ir.verify import BackendIRVerificationError, verify_backend_program
-from compiler.codegen.abi.runtime import ARRAY_LEN_RUNTIME_CALL
+from compiler.backend.program.runtime import ARRAY_LEN_RUNTIME_CALL
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_OBJ, TYPE_NAME_U64
 from compiler.semantic.operations import BinaryOpFlavor, BinaryOpKind, SemanticBinaryOp
 from compiler.semantic.symbols import FunctionId

@@ -30,7 +30,7 @@ def _span_location(span: object | None) -> str | None:
     return None
 
 
-def raise_codegen_error(message: str, *, span: object | None = None) -> None:
+def raise_backend_type_error(message: str, *, span: object | None = None) -> None:
     location = _span_location(span)
     if location is not None:
         raise NotImplementedError(f"{message} at {location}")
@@ -55,7 +55,7 @@ def function_type_return_type_name(type_name: str, *, span: object | None = None
     try:
         return common_function_type_return_type_name(type_name)
     except ValueError as exc:
-        raise_codegen_error(str(exc), span=span)
+        raise_backend_type_error(str(exc), span=span)
 
 
 def is_array_type_name(type_name: str) -> bool:
@@ -66,7 +66,7 @@ def array_element_type_name(array_type_name: str, *, span: object | None = None)
     try:
         return common_array_element_type_name(array_type_name)
     except ValueError as exc:
-        raise_codegen_error(str(exc), span=span)
+        raise_backend_type_error(str(exc), span=span)
 
 
 def array_element_runtime_kind(element_type_name: str) -> str:

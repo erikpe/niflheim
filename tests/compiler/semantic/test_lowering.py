@@ -11,19 +11,6 @@ from compiler.semantic.display import (
     semantic_type_display_name_relative,
 )
 from compiler.semantic.ir import *
-from compiler.semantic.linker import link_semantic_program
-from compiler.semantic.lowered_ir import (
-    LoweredSemanticClass,
-    LoweredSemanticBlock,
-    LoweredSemanticField,
-    LoweredSemanticForIn,
-    LoweredSemanticForInStrategy,
-    LoweredSemanticFunction,
-    LoweredSemanticIf,
-    LoweredSemanticMethod,
-    LoweredSemanticWhile,
-)
-from compiler.semantic.lowering.executable import lower_linked_semantic_program
 from compiler.semantic.operations import (
     BinaryOpFlavor,
     BinaryOpKind,
@@ -408,11 +395,6 @@ def test_lower_program_tracks_superclass_ids_and_inherited_member_owners(tmp_pat
     assert isinstance(return_stmt, SemanticReturn)
     assert isinstance(return_stmt.value, FieldReadExpr)
     assert return_stmt.value.owner_class_id == ClassId(module_path=("main",), name="Base")
-
-    lowered = lower_linked_semantic_program(link_semantic_program(semantic))
-    lowered_derived = next(cls for cls in lowered.classes if cls.class_id.name == "Derived")
-    assert lowered_derived.superclass_id == ClassId(module_path=("main",), name="Base")
-    assert lowered_derived.methods == []
 
 
 def test_lower_program_builds_typed_semantic_constants_for_hex_literals(tmp_path: Path) -> None:
@@ -1682,84 +1664,6 @@ def test_lower_program_lowers_for_in_body_locals_and_preserves_following_return(
     assert local_type_name_for_owner(semantic.modules[("main",)].functions[0], return_stmt.value.local_id) == "bool"
 
 
-def test_lower_linked_semantic_program_materializes_for_in_helper_temps(tmp_path: Path) -> None:
-    _write(
-        tmp_path / "main.nif",
-        """
-        fn main(values: i64[]) -> i64 {
-            var total: i64 = 0;
-            for item in values {
-                total = total + item;
-            }
-            return total;
-        }
-        """,
-    )
-
-    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
-    lowered_program = lower_linked_semantic_program(link_semantic_program(lower_program(program)))
-    fn = lowered_program.functions[0]
-    loop_stmt = fn.body.statements[1]
-
-    assert isinstance(loop_stmt, LoweredSemanticForIn)
-    assert loop_stmt.collection_local_id.owner_id == fn.function_id
-    assert loop_stmt.length_local_id.owner_id == fn.function_id
-    assert loop_stmt.index_local_id.owner_id == fn.function_id
-    assert local_display_name_for_owner(fn, loop_stmt.collection_local_id) == "__for_in_collection"
-    assert local_type_name_for_owner(fn, loop_stmt.collection_local_id) == "i64[]"
-    assert local_display_name_for_owner(fn, loop_stmt.length_local_id) == "__for_in_length"
-    assert local_type_name_for_owner(fn, loop_stmt.length_local_id) == "u64"
-    assert local_display_name_for_owner(fn, loop_stmt.index_local_id) == "__for_in_index"
-    assert local_type_name_for_owner(fn, loop_stmt.index_local_id) == "i64"
-    assert loop_stmt.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT
-
-
-def test_lower_linked_semantic_program_preserves_for_in_iteration_strategy(tmp_path: Path) -> None:
-    _write(
-        tmp_path / "main.nif",
-        """
-        class Buffer {
-            values: i64[];
-
-            fn iter_len() -> u64 {
-                return __self.values.len();
-            }
-
-            fn iter_get(index: i64) -> i64 {
-                return __self.values[index];
-            }
-        }
-
-        fn main(buffer: Buffer, values: i64[]) -> i64 {
-            var total: i64 = 0;
-            for left in buffer {
-                total = total + left;
-            }
-            for right in values {
-                total = total + right;
-            }
-            return total;
-        }
-        """,
-    )
-
-    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
-    lowered_program = lower_linked_semantic_program(link_semantic_program(lower_program(program)))
-    fn = lowered_program.functions[0]
-
-    protocol_loop = fn.body.statements[1]
-    assert isinstance(protocol_loop, LoweredSemanticForIn)
-    assert protocol_loop.strategy is LoweredSemanticForInStrategy.COLLECTION_PROTOCOL_DISPATCH
-    assert isinstance(protocol_loop.iter_len_dispatch, VirtualMethodDispatch)
-    assert isinstance(protocol_loop.iter_get_dispatch, VirtualMethodDispatch)
-
-    array_loop = fn.body.statements[2]
-    assert isinstance(array_loop, LoweredSemanticForIn)
-    assert array_loop.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT
-    assert isinstance(array_loop.iter_len_dispatch, RuntimeDispatch)
-    assert isinstance(array_loop.iter_get_dispatch, RuntimeDispatch)
-
-
 def test_lower_program_structural_dispatch_uses_virtual_slot_metadata_for_base_typed_receivers(tmp_path: Path) -> None:
     _write(
         tmp_path / "main.nif",
@@ -1893,72 +1797,6 @@ def test_lower_program_lowers_imported_interface_typed_structural_sugar_to_inter
         op_kind=CollectionOpKind.ITER_GET,
         module_path=("contracts",),
     )
-
-
-def test_lower_linked_semantic_program_uses_explicit_lowered_control_flow_nodes(tmp_path: Path) -> None:
-    _write(
-        tmp_path / "main.nif",
-        """
-        fn main(flag: bool) -> i64 {
-            var total: i64 = 0;
-            if flag {
-                total = 1;
-            } else {
-                total = 2;
-            }
-            while flag {
-                return total;
-            }
-            return total;
-        }
-        """,
-    )
-
-    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
-    lowered_program = lower_linked_semantic_program(link_semantic_program(lower_program(program)))
-    fn = lowered_program.functions[0]
-
-    if_stmt = fn.body.statements[1]
-    while_stmt = fn.body.statements[2]
-
-    assert isinstance(if_stmt, LoweredSemanticIf)
-    assert isinstance(if_stmt.then_block, LoweredSemanticBlock)
-    assert isinstance(if_stmt.else_block, LoweredSemanticBlock)
-    assert isinstance(while_stmt, LoweredSemanticWhile)
-    assert isinstance(while_stmt.body, LoweredSemanticBlock)
-
-
-def test_lower_linked_semantic_program_uses_explicit_lowered_function_and_class_wrappers(tmp_path: Path) -> None:
-    _write(
-        tmp_path / "main.nif",
-        """
-        class Box {
-            value: i64;
-
-            fn read() -> i64 {
-                return __self.value;
-            }
-        }
-
-        fn main(box: Box) -> i64 {
-            return box.read();
-        }
-        """,
-    )
-
-    program = resolve_program(tmp_path / "main.nif", project_root=tmp_path)
-    lowered_program = lower_linked_semantic_program(link_semantic_program(lower_program(program)))
-
-    fn = lowered_program.functions[0]
-    cls = lowered_program.classes[0]
-    method = cls.methods[0]
-
-    assert isinstance(fn, LoweredSemanticFunction)
-    assert isinstance(fn.body, LoweredSemanticBlock)
-    assert isinstance(cls, LoweredSemanticClass)
-    assert isinstance(cls.fields[0], LoweredSemanticField)
-    assert isinstance(method, LoweredSemanticMethod)
-    assert isinstance(method.body, LoweredSemanticBlock)
 
 
 def test_lower_program_local_identity_is_stable_under_local_rename(tmp_path: Path) -> None:

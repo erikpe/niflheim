@@ -23,9 +23,6 @@ from compiler.semantic.ir import (
     SemanticWhile,
     VirtualMethodCallTarget,
 )
-from compiler.semantic.linker import link_semantic_program
-from compiler.semantic.lowering.executable import LoweredSemanticForInStrategy, lower_linked_semantic_program
-from compiler.semantic.lowered_ir import LoweredSemanticForIn
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.copy_propagation import copy_propagation
 from compiler.semantic.optimizations.constant_fold import constant_fold
@@ -953,10 +950,3 @@ def test_optimize_semantic_program_recovers_array_direct_for_in_after_dispatch_e
     assert loop_stmt.iter_len_dispatch.operation is CollectionOpKind.ITER_LEN
     assert isinstance(loop_stmt.iter_get_dispatch, RuntimeDispatch)
     assert loop_stmt.iter_get_dispatch.operation is CollectionOpKind.ITER_GET
-
-    lowered = lower_linked_semantic_program(link_semantic_program(optimized))
-    lowered_loop = next(stmt for stmt in lowered.functions[0].body.statements if isinstance(stmt, LoweredSemanticForIn))
-
-    assert lowered_loop.strategy is LoweredSemanticForInStrategy.ARRAY_DIRECT
-    assert isinstance(lowered_loop.iter_len_dispatch, RuntimeDispatch)
-    assert isinstance(lowered_loop.iter_get_dispatch, RuntimeDispatch)

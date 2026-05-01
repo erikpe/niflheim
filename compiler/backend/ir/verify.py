@@ -6,8 +6,8 @@ from dataclasses import dataclass
 
 from compiler.backend.ir import model as ir_model
 from compiler.backend.ir._ordering import block_sort_key, callable_id_sort_key, instruction_sort_key
-from compiler.codegen.abi.runtime import has_runtime_call_metadata, runtime_call_metadata
-from compiler.codegen.types import array_element_runtime_kind_for_type_ref, is_reference_type_ref
+from compiler.backend.program.runtime import has_runtime_call_metadata, runtime_call_metadata
+from compiler.backend.program.types import array_element_runtime_kind_for_type_ref, is_reference_type_ref
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_OBJ, TYPE_NAME_U64, TYPE_NAME_U8, TYPE_NAME_UNIT
 from compiler.semantic.operations import BinaryOpKind

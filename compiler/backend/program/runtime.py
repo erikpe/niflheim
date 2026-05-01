@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from compiler.common.collection_protocols import ArrayRuntimeKind
+from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
+from compiler.semantic.ir import RuntimeDispatch
 
 
 ARRAY_LEN_RUNTIME_CALL = "rt_array_len"
@@ -58,8 +59,6 @@ ARRAY_INDEX_SET_RUNTIME_CALLS: dict[ArrayRuntimeKind, str] = {
     ArrayRuntimeKind.U8: "rt_array_set_u8",
     ArrayRuntimeKind.BOOL: "rt_array_set_bool",
     ArrayRuntimeKind.DOUBLE: "rt_array_set_double",
-    # rt_array_set_ref remains the fallback/reference semantics baseline and the
-    # measurement fallback path even though structural ref[] writes may bypass it.
     ArrayRuntimeKind.REF: "rt_array_set_ref",
 }
 ARRAY_SLICE_GET_RUNTIME_CALLS: dict[ArrayRuntimeKind, str] = {
@@ -144,6 +143,16 @@ RUNTIME_REF_ARG_INDICES: dict[str, tuple[int, ...]] = {
     if metadata.ref_arg_indices
 }
 
+_RUNTIME_CALLS_BY_OPERATION: dict[CollectionOpKind, str | dict[ArrayRuntimeKind, str]] = {
+    CollectionOpKind.LEN: ARRAY_LEN_RUNTIME_CALL,
+    CollectionOpKind.ITER_LEN: ARRAY_LEN_RUNTIME_CALL,
+    CollectionOpKind.INDEX_GET: ARRAY_INDEX_GET_RUNTIME_CALLS,
+    CollectionOpKind.ITER_GET: ARRAY_INDEX_GET_RUNTIME_CALLS,
+    CollectionOpKind.INDEX_SET: ARRAY_INDEX_SET_RUNTIME_CALLS,
+    CollectionOpKind.SLICE_GET: ARRAY_SLICE_GET_RUNTIME_CALLS,
+    CollectionOpKind.SLICE_SET: ARRAY_SLICE_SET_RUNTIME_CALLS,
+}
+
 
 def has_runtime_call_metadata(name: str) -> bool:
     return name in _RUNTIME_CALL_METADATA_BY_NAME
@@ -156,3 +165,16 @@ def runtime_call_metadata(name: str) -> RuntimeCallMetadata:
     if not name.startswith("rt_"):
         raise ValueError(f"'{name}' is not a runtime call name")
     return RuntimeCallMetadata(name=name)
+
+
+def runtime_dispatch_call_name(dispatch: RuntimeDispatch) -> str:
+    target = _RUNTIME_CALLS_BY_OPERATION.get(dispatch.operation)
+    if target is None:
+        raise ValueError(f"Unsupported runtime dispatch operation '{dispatch.operation}'")
+    if isinstance(target, str):
+        return target
+
+    runtime_kind = dispatch.runtime_kind
+    if runtime_kind is None:
+        raise ValueError(f"Runtime dispatch for {dispatch.operation} requires an array runtime kind")
+    return target[runtime_kind]

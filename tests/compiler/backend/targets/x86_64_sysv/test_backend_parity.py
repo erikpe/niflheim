@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from compiler.backend.program.symbols import mangle_function_symbol
-from compiler.codegen.abi.array import direct_primitive_array_store_operand
-from compiler.codegen.abi.runtime import (
+from compiler.backend.targets.x86_64_sysv.array_runtime import direct_primitive_array_store_operand
+from compiler.backend.program.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
     ARRAY_INDEX_SET_RUNTIME_CALLS,

@@ -1,4 +1,4 @@
-from compiler.codegen.measurement import analyze_assembly_metrics, extract_function_asm
+from compiler.backend.measurement import analyze_assembly_metrics, extract_function_asm
 
 
 def test_analyze_assembly_metrics_counts_scaffolding_markers() -> None:

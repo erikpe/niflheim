@@ -12,8 +12,8 @@ from compiler.backend.lowering.expressions import (
     lower_null_operand,
     lower_unit_operand,
 )
-from compiler.codegen.abi.runtime import ARRAY_FROM_BYTES_U8_RUNTIME_CALL, runtime_call_metadata
-from compiler.codegen.runtime_calls import runtime_dispatch_call_name
+from compiler.backend.program.runtime import ARRAY_FROM_BYTES_U8_RUNTIME_CALL, runtime_call_metadata
+from compiler.backend.program.runtime import runtime_dispatch_call_name
 from compiler.common.collection_protocols import ArrayRuntimeKind, CollectionOpKind, array_runtime_kind_for_element_type_name
 from compiler.common.span import SourceSpan
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_OBJ, TYPE_NAME_U64

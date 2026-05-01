@@ -20,7 +20,7 @@ from compiler.backend.ir import (
     BackendRuntimeCallTarget,
     BackendSignature,
 )
-from compiler.codegen.abi.runtime import ARRAY_LEN_RUNTIME_CALL
+from compiler.backend.program.runtime import ARRAY_LEN_RUNTIME_CALL
 from compiler.common.span import SourcePos, SourceSpan
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64, TYPE_NAME_U64
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId

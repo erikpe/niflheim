@@ -20,7 +20,7 @@ from compiler.backend.ir import (
 	BackendVirtualCallTarget,
 )
 from compiler.backend.ir.verify import verify_backend_program
-from compiler.codegen.abi.runtime import ARRAY_FROM_BYTES_U8_RUNTIME_CALL, runtime_call_metadata
+from compiler.backend.program.runtime import ARRAY_FROM_BYTES_U8_RUNTIME_CALL, runtime_call_metadata
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from tests.compiler.backend.lowering.helpers import block_by_ordinal, callable_by_name, lower_source_to_backend_program
 

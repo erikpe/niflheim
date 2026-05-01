@@ -5,9 +5,8 @@ from pathlib import Path
 import pytest
 
 import compiler.cli as cli
+from compiler.backend.program.symbols import mangle_function_symbol
 from compiler.backend.targets import BackendEmitResult, BackendTargetInput
-
-from compiler.codegen.symbols import mangle_function_symbol
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write, write_project
 
 

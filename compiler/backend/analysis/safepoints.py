@@ -23,7 +23,7 @@ from compiler.backend.ir import (
     BackendRegister,
 )
 from compiler.backend.ir._ordering import inst_id_sort_key, reg_id_sort_key
-from compiler.codegen.types import is_reference_type_ref
+from compiler.backend.program.types import is_reference_type_ref
 
 
 @dataclass(frozen=True)
