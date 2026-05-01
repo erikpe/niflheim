@@ -23,6 +23,7 @@ def test_cli_log_level_info_emits_phase_logs_to_stderr(tmp_path: Path, monkeypat
     assert rc == 0
     assert "nifc: info: Resolving program graph" in captured.err
     assert "nifc: info: Lowering backend IR" in captured.err
+    assert "nifc: info: Optimizing backend IR" in captured.err
     assert "nifc: info: Running backend IR passes" in captured.err
     assert "nifc: info: Emitting assembly via x86_64_sysv" in captured.err
     assert captured.out == ""
@@ -98,6 +99,11 @@ def test_cli_debug_logs_respect_verbosity_threshold(tmp_path: Path, monkeypatch,
     assert "nifc: debug: Optimization pass unreachable_prune removed " in captured.err
     assert "nifc: debug: Optimization pass unreachable_prune completed in" in captured.err
     assert "nifc: info: Lowering backend IR" in captured.err
+    assert "nifc: debug: Backend optimization pass dead_pure_definition_elimination removed " in captured.err
+    assert "nifc: debug: Backend optimization pass dead_pure_definition_elimination completed in" in captured.err
+    assert "nifc: debug: Backend optimization pass simplify_cfg removed " in captured.err
+    assert "nifc: debug: Backend optimization pass simplify_cfg completed in" in captured.err
+    assert "nifc: debug: Optimized backend IR in" in captured.err
     assert "nifc: info: Running backend IR passes" in captured.err
     assert "nifc: info: Emitting assembly via x86_64_sysv" in captured.err
     assert "nifc: debug: Emitted" in captured.err
@@ -125,6 +131,7 @@ def test_cli_skip_optimize_suppresses_optimization_phase_logs(tmp_path: Path, mo
     assert "Optimization pass " not in captured.err
     assert "nifc: info: Linking semantic program" in captured.err
     assert "nifc: info: Lowering backend IR" in captured.err
+    assert "nifc: info: Optimizing backend IR" in captured.err
     assert "nifc: info: Running backend IR passes" in captured.err
     assert "nifc: info: Emitting assembly via x86_64_sysv" in captured.err
     assert "nifc: debug: Emitted" in captured.err

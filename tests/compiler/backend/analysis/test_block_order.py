@@ -20,6 +20,7 @@ from compiler.backend.ir import (
 )
 from compiler.backend.ir.text import dump_backend_program_text
 from compiler.backend.ir.verify import verify_backend_program
+from compiler.backend.optimizations import optimize_backend_ir_program
 from compiler.common.span import SourceSpan
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_I64
 from compiler.semantic.types import semantic_primitive_type_ref
@@ -81,7 +82,7 @@ def test_run_backend_ir_pipeline_simplifies_and_populates_analysis(tmp_path) -> 
         """
     )
 
-    result = run_backend_ir_pipeline(program)
+    result = run_backend_ir_pipeline(optimize_backend_ir_program(program))
     example_callable = next(
         callable_decl for callable_decl in result.program.callables if callable_decl.callable_id.name == "example"
     )

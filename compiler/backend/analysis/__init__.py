@@ -49,11 +49,6 @@ from compiler.backend.analysis.pipeline import (
 	BackendPipelineResult,
 	run_backend_ir_pipeline,
 )
-from compiler.backend.analysis.simplify_cfg import (
-	eliminate_unreachable_blocks,
-	simplify_callable_cfg,
-	simplify_trivial_jump_blocks,
-)
 
 __all__ = [
 	"BackendCallableCfg",
@@ -63,7 +58,6 @@ __all__ = [
 	"build_block_index",
 	"build_predecessor_map",
 	"build_successor_map",
-	"eliminate_unreachable_blocks",
 	"index_callable_cfg",
 	"instruction_def_reg",
 	"instruction_use_regs",
@@ -84,8 +78,6 @@ __all__ = [
 	"analyze_callable_safepoints",
 	"build_root_slot_plan_from_live_reg_sets",
 	"run_backend_ir_pipeline",
-	"simplify_callable_cfg",
-	"simplify_trivial_jump_blocks",
 	"stack_home_name_for_register",
 	"instruction_effects",
 	"instruction_is_safepoint",

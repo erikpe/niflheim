@@ -1,12 +1,41 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from compiler.backend.analysis.cfg import build_block_index, build_successor_map, reachable_block_ids
-from compiler.backend.ir import BackendBlock, BackendBranchTerminator, BackendCallableDecl, BackendJumpTerminator
+from compiler.backend.ir import BackendBlock, BackendBranchTerminator, BackendCallableDecl, BackendJumpTerminator, BackendProgram
+from compiler.common.logging import get_logger
 
 
-def eliminate_unreachable_blocks(callable_decl: BackendCallableDecl) -> BackendCallableDecl:
+@dataclass
+class _SimplifyCfgStats:
+    removed_unreachable_blocks: int = 0
+    removed_trivial_jump_blocks: int = 0
+    rewritten_terminators: int = 0
+    optimized_callables: int = 0
+
+
+def simplify_cfg(program: BackendProgram) -> BackendProgram:
+    logger = get_logger(__name__)
+    stats = _SimplifyCfgStats()
+    optimized_callables = tuple(simplify_callable_cfg(callable_decl, stats=stats) for callable_decl in program.callables)
+    optimized_program = replace(program, callables=optimized_callables)
+    logger.debugv(
+        1,
+        "Backend optimization pass simplify_cfg removed %d unreachable blocks, %d trivial jump blocks, rewrote %d terminators across %d callables",
+        stats.removed_unreachable_blocks,
+        stats.removed_trivial_jump_blocks,
+        stats.rewritten_terminators,
+        stats.optimized_callables,
+    )
+    return optimized_program
+
+
+def eliminate_unreachable_blocks(
+    callable_decl: BackendCallableDecl,
+    *,
+    stats: _SimplifyCfgStats | None = None,
+) -> BackendCallableDecl:
     """Drop blocks that are not reachable from the callable entry block.
 
     This pass preserves the original block and instruction ids of every surviving block.
@@ -26,13 +55,19 @@ def eliminate_unreachable_blocks(callable_decl: BackendCallableDecl) -> BackendC
     if len(reachable_ids) == len(callable_decl.blocks):
         return callable_decl
 
+    if stats is not None:
+        stats.removed_unreachable_blocks += len(callable_decl.blocks) - len(reachable_ids)
     return replace(
         callable_decl,
         blocks=tuple(block for block in callable_decl.blocks if block.block_id in reachable_ids),
     )
 
 
-def simplify_trivial_jump_blocks(callable_decl: BackendCallableDecl) -> BackendCallableDecl:
+def simplify_trivial_jump_blocks(
+    callable_decl: BackendCallableDecl,
+    *,
+    stats: _SimplifyCfgStats | None = None,
+) -> BackendCallableDecl:
     """Forward through empty non-entry jump blocks and collapse redundant branches.
 
     Only blocks with no instructions and a jump terminator are removed. Blocks carrying
@@ -49,30 +84,45 @@ def simplify_trivial_jump_blocks(callable_decl: BackendCallableDecl) -> BackendC
 
     rewritten_blocks: list[BackendBlock] = []
     changed = False
+    removed_jump_blocks = 0
+    rewritten_terminators = 0
     for block in callable_decl.blocks:
         if block.block_id in forward_target_by_block:
             changed = True
+            removed_jump_blocks += 1
             continue
         rewritten_terminator = _rewrite_terminator(block, forward_target_by_block)
         if rewritten_terminator != block.terminator:
             changed = True
+            rewritten_terminators += 1
             rewritten_blocks.append(replace(block, terminator=rewritten_terminator))
         else:
             rewritten_blocks.append(block)
 
     if not changed:
         return callable_decl
+    if stats is not None:
+        stats.removed_trivial_jump_blocks += removed_jump_blocks
+        stats.rewritten_terminators += rewritten_terminators
     return replace(callable_decl, blocks=tuple(rewritten_blocks))
 
 
-def simplify_callable_cfg(callable_decl: BackendCallableDecl) -> BackendCallableDecl:
-    """Run the conservative PR2 CFG simplifier to a fixed point."""
+def simplify_callable_cfg(
+    callable_decl: BackendCallableDecl,
+    *,
+    stats: _SimplifyCfgStats | None = None,
+) -> BackendCallableDecl:
+    """Run the conservative backend CFG simplifier to a fixed point."""
 
     current = callable_decl
+    changed = False
     while True:
-        next_callable = eliminate_unreachable_blocks(simplify_trivial_jump_blocks(current))
+        next_callable = eliminate_unreachable_blocks(simplify_trivial_jump_blocks(current, stats=stats), stats=stats)
         if next_callable == current:
+            if changed and stats is not None:
+                stats.optimized_callables += 1
             return current
+        changed = True
         current = next_callable
 
 
@@ -145,3 +195,11 @@ def _remap_target(block_id, forward_target_by_block):
         visited.add(current_block_id)
         current_block_id = forward_target_by_block[current_block_id]
     return current_block_id
+
+
+__all__ = [
+    "eliminate_unreachable_blocks",
+    "simplify_callable_cfg",
+    "simplify_cfg",
+    "simplify_trivial_jump_blocks",
+]

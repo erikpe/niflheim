@@ -9,6 +9,7 @@ from compiler.backend.analysis.pipeline import BackendPipelineResult
 from compiler.backend.ir.serialize import dump_backend_program_json
 from compiler.backend.ir.text import dump_backend_program_text
 from compiler.backend.lowering import lower_to_backend_ir
+from compiler.backend.optimizations import optimize_backend_ir_program
 from compiler.backend.targets import BackendTargetInput, BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv import TARGET_NAME as X86_64_SYSV_TARGET_NAME, emit_x86_64_sysv_asm
 from compiler.common.logging import LOG_LEVEL_NAMES, configure_logging, get_logger, resolve_log_settings
@@ -125,6 +126,15 @@ def _lower_backend_ir_phase(logger, linked_program):
     duration_ms = (perf_counter() - start) * 1000.0
     logger.debugv(1, "Lowered and verified backend IR in %.2f ms", duration_ms)
     return backend_program
+
+
+def _optimize_backend_ir_phase(logger, backend_program):
+    logger.info("Optimizing backend IR")
+    start = perf_counter()
+    optimized_program = optimize_backend_ir_program(backend_program)
+    duration_ms = (perf_counter() - start) * 1000.0
+    logger.debugv(1, "Optimized backend IR in %.2f ms", duration_ms)
+    return optimized_program
 
 
 def _run_backend_ir_pipeline_phase(logger, backend_program):
@@ -311,6 +321,7 @@ def main() -> int:
                 project_root=dump_project_root,
             )
 
+        backend_program = _optimize_backend_ir_phase(logger, backend_program)
         pipeline_result = _run_backend_ir_pipeline_phase(logger, backend_program)
 
         if args.stop_after == "backend-ir-passes":

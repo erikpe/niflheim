@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from compiler.backend.analysis import eliminate_unreachable_blocks, simplify_callable_cfg
+from compiler.backend.optimizations import eliminate_unreachable_blocks, simplify_callable_cfg
 from compiler.backend.ir import (
     BackendBlock,
     BackendBlockId,

@@ -7,7 +7,6 @@ from compiler.backend.analysis.cfg import BackendCallableCfg, index_callable_cfg
 from compiler.backend.analysis.liveness import BackendCallableLiveness, analyze_callable_liveness
 from compiler.backend.analysis.root_slots import BackendCallableRootSlots, analyze_callable_root_slots
 from compiler.backend.analysis.safepoints import BackendCallableSafepoints, analyze_callable_safepoints
-from compiler.backend.analysis.simplify_cfg import simplify_callable_cfg
 from compiler.backend.analysis.stack_homes import BackendCallableStackHomes, analyze_callable_stack_homes
 from compiler.backend.ir import BackendCallableDecl, BackendCallableId, BackendFunctionAnalysisDump, BackendProgram
 from compiler.backend.ir.verify import verify_backend_program
@@ -45,8 +44,7 @@ def run_backend_ir_pipeline(program: BackendProgram) -> BackendPipelineResult:
     analysis_by_callable_id: dict[BackendCallableId, BackendPipelineCallableAnalysis] = {}
 
     for callable_decl in program.callables:
-        simplified_callable = simplify_callable_cfg(callable_decl)
-        ordered_callable = order_callable_blocks(simplified_callable)
+        ordered_callable = order_callable_blocks(callable_decl)
         callable_analysis = _analyze_callable(ordered_callable)
         rewritten_callables.append(ordered_callable)
         analysis_by_callable_id[ordered_callable.callable_id] = callable_analysis
