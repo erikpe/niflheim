@@ -121,16 +121,6 @@ _BINARY_KIND_BY_TEXT = {text: kind for kind, text in _BINARY_OP_TEXT.items()}
 _INTEGER_TYPE_NAMES = {TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8}
 
 
-def unary_op_text(op: SemanticUnaryOp | UnaryOpKind) -> str:
-    kind = op.kind if isinstance(op, SemanticUnaryOp) else op
-    return _UNARY_OP_TEXT[kind]
-
-
-def binary_op_text(op: SemanticBinaryOp | BinaryOpKind) -> str:
-    kind = op.kind if isinstance(op, SemanticBinaryOp) else op
-    return _BINARY_OP_TEXT[kind]
-
-
 def semantic_unary_op_from_token(operator_text: str, operand_type_ref: SemanticTypeRef) -> SemanticUnaryOp:
     kind = _UNARY_KIND_BY_TEXT.get(operator_text)
     if kind is None:
@@ -198,22 +188,6 @@ def semantic_type_test_kind(target_type_ref: SemanticTypeRef) -> TypeTestSemanti
     raise ValueError(
         f"Semantic type-test target must be reference or interface, got '{semantic_type_canonical_name(target_type_ref)}'"
     )
-
-
-def binary_op_uses_u8_mask(kind: BinaryOpKind) -> bool:
-    return kind in {
-        BinaryOpKind.ADD,
-        BinaryOpKind.SUBTRACT,
-        BinaryOpKind.MULTIPLY,
-        BinaryOpKind.POWER,
-        BinaryOpKind.DIVIDE,
-        BinaryOpKind.REMAINDER,
-        BinaryOpKind.BITWISE_AND,
-        BinaryOpKind.BITWISE_OR,
-        BinaryOpKind.BITWISE_XOR,
-        BinaryOpKind.SHIFT_LEFT,
-        BinaryOpKind.SHIFT_RIGHT,
-    }
 
 
 def _semantic_type_name(type_ref: SemanticTypeRef) -> str:

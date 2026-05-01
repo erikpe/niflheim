@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.backend.ir import BackendCallableDecl, BackendFunctionAnalysisDump, BackendRegId, BackendRegister
-from compiler.backend.ir._ordering import reg_id_sort_key, register_sort_key
+from compiler.backend.ir._ordering import register_sort_key
 
 
 @dataclass(frozen=True)

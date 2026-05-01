@@ -3,7 +3,6 @@ from __future__ import annotations
 from compiler.frontend.ast_nodes import CallExpr, Expression, FieldAccessExpr, IdentifierExpr
 
 from compiler.typecheck.call_helpers import (
-    callable_type_from_signature,
     check_call_argument_types,
     class_type_name_from_callable,
     infer_constructor_call_type as infer_constructor_call_type_from_types,

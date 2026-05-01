@@ -166,11 +166,6 @@ def local_type_ref_for_owner(owner: SemanticFunctionLike, local_id: LocalId) -> 
     return require_local_info_for_owner(owner, local_id).type_ref
 
 
-def local_ref_expr_for_owner(owner: SemanticFunctionLike, local_id: LocalId, *, span: SourceSpan) -> "LocalRefExpr":
-    local_info = require_local_info_for_owner(owner, local_id)
-    return LocalRefExpr(local_id=local_id, type_ref=local_info.type_ref, span=span)
-
-
 @dataclass(frozen=True)
 class SemanticBlock:
     statements: list["SemanticStmt"]
@@ -491,29 +486,6 @@ SemanticCallTarget = (
     | ConstructorInitCallTarget
     | CallableValueCallTarget
 )
-
-
-CallDispatchMode = Literal[
-    "function", "static_method", "instance_method", "virtual_method", "interface_method", "constructor", "callable_value"
-]
-
-
-def call_target_dispatch_mode(target: SemanticCallTarget) -> CallDispatchMode:
-    if isinstance(target, FunctionCallTarget):
-        return "function"
-    if isinstance(target, StaticMethodCallTarget):
-        return "static_method"
-    if isinstance(target, InstanceMethodCallTarget):
-        return "instance_method"
-    if isinstance(target, VirtualMethodCallTarget):
-        return "virtual_method"
-    if isinstance(target, InterfaceMethodCallTarget):
-        return "interface_method"
-    if isinstance(target, ConstructorCallTarget):
-        return "constructor"
-    if isinstance(target, ConstructorInitCallTarget):
-        return "constructor"
-    return "callable_value"
 
 
 def call_target_receiver_access(target: SemanticCallTarget) -> BoundMemberAccess | None:

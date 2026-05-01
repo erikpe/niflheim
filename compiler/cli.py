@@ -12,7 +12,6 @@ from compiler.backend.lowering import lower_to_backend_ir
 from compiler.backend.targets import BackendTargetInput, BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv import TARGET_NAME as X86_64_SYSV_TARGET_NAME, emit_x86_64_sysv_asm
 from compiler.common.logging import LOG_LEVEL_NAMES, configure_logging, get_logger, resolve_log_settings
-from compiler.frontend.tokens import Token
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
 from compiler.semantic.lowering.orchestration import lower_program
@@ -54,16 +53,6 @@ def _validate_backend_ir_surface(args: argparse.Namespace) -> None:
             "Continuing past backend IR with --dump-backend-ir requires --dump-backend-ir-dir "
             "so backend IR output does not mix with assembly on stdout."
         )
-
-
-def _format_token(token: Token) -> str:
-    start = token.span.start
-    return f"{token.kind.name:<14} {token.lexeme!r:<18} {start.path}:{start.line}:{start.column}"
-
-
-def _print_tokens(tokens: list[Token]) -> None:
-    for token in tokens:
-        print(_format_token(token))
 
 
 def _resolve_program_graph(logger, input_path: Path, project_root: str | None):
@@ -138,11 +127,6 @@ def _lower_backend_ir_phase(logger, linked_program):
     return backend_program
 
 
-def _run_backend_ir_passes_phase(logger, linked_program):
-    backend_program = _lower_backend_ir_phase(logger, linked_program)
-    return _run_backend_ir_pipeline_phase(logger, backend_program)
-
-
 def _run_backend_ir_pipeline_phase(logger, backend_program):
     logger.info("Running backend IR passes")
     start = perf_counter()
@@ -154,15 +138,6 @@ def _run_backend_ir_pipeline_phase(logger, backend_program):
 
 def _backend_ir_dump_project_root(input_path: Path, project_root: str | None) -> Path:
     return input_path.parent if project_root is None else Path(project_root)
-
-
-def _render_backend_ir_dump(backend_program, *, dump_format: str, project_root: Path) -> str:
-    return _render_backend_ir_dump_with_options(
-        backend_program,
-        dump_format=dump_format,
-        project_root=project_root,
-        preserve_block_order=False,
-    )
 
 
 def _render_backend_ir_dump_with_options(

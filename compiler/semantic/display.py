@@ -17,12 +17,8 @@ from compiler.semantic.ir import (
     local_type_ref_for_owner,
 )
 from compiler.resolver import ModulePath
-from compiler.semantic.symbols import ConstructorId, FunctionId, InterfaceMethodId, LocalId, MethodId
-from compiler.semantic.types import (
-    SemanticTypeRef,
-    semantic_type_display_name,
-    semantic_type_display_name_relative,
-)
+from compiler.semantic.symbols import ConstructorId, FunctionId, LocalId, MethodId
+from compiler.semantic.types import semantic_type_display_name, semantic_type_display_name_relative
 
 
 def semantic_local_display_name(owner: SemanticFunctionLike, local_id: LocalId) -> str:
@@ -47,12 +43,6 @@ def semantic_function_display_name(function_id: FunctionId, *, current_module_pa
 
 def semantic_method_display_name(method_id: MethodId, *, current_module_path: ModulePath | None = None) -> str:
     return f"{_qualified_display_name(method_id.module_path, method_id.class_name, current_module_path=current_module_path)}.{method_id.name}"
-
-
-def semantic_interface_method_display_name(
-    method_id: InterfaceMethodId, *, current_module_path: ModulePath | None = None
-) -> str:
-    return f"{_qualified_display_name(method_id.module_path, method_id.interface_name, current_module_path=current_module_path)}.{method_id.name}"
 
 
 def semantic_constructor_display_name(

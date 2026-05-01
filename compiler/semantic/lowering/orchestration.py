@@ -364,9 +364,5 @@ def lower_param(typecheck_ctx: TypeCheckContext, param: ParamDecl) -> SemanticPa
     )
 
 
-def resolved_type_name(typecheck_ctx: TypeCheckContext, type_ref) -> str:
-    return resolve_type_ref(typecheck_ctx, type_ref).name
-
-
 def resolved_semantic_type_ref(typecheck_ctx: TypeCheckContext, type_ref) -> SemanticTypeRef:
     return semantic_type_ref_from_checked_type(typecheck_ctx, resolve_type_ref(typecheck_ctx, type_ref))

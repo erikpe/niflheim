@@ -72,7 +72,6 @@ from compiler.semantic.types import (
     semantic_type_callable_return,
     semantic_type_canonical_name,
     semantic_type_is_callable,
-    semantic_type_is_array,
     semantic_type_is_interface,
     semantic_type_is_reference,
     semantic_type_ref_for_class_id,
@@ -1783,10 +1782,6 @@ def _unreachable_state(state: _ControlFlowState) -> _ControlFlowState:
     )
 
 
-def _backend_return_type_for_expr(expr: SemanticExpr) -> SemanticTypeRef | None:
-    return backend_signature_return_type(expr.type_ref)
-
-
 def _exact_call_result_type(builder: _CallableCFGBuilder, expr: CallExprS) -> SemanticTypeRef | None:
     return _call_signature(builder, expr).return_type
 
@@ -2174,10 +2169,6 @@ def _cast_traps_on_failure(expr: CastExprS) -> bool:
 
 def _is_unit_typed(type_ref: SemanticTypeRef) -> bool:
     return semantic_type_canonical_name(type_ref) == "unit"
-
-
-def _is_null_typed(type_ref: SemanticTypeRef) -> bool:
-    return semantic_type_canonical_name(type_ref) == "null"
 
 
 def _sorted_local_ids(local_ids: set[LocalId] | frozenset[LocalId]) -> tuple[LocalId, ...]:

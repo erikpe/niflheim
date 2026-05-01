@@ -9,7 +9,6 @@ from compiler.frontend.ast_nodes import (
     ConstructorDecl,
     FunctionDecl,
     FunctionTypeRef,
-    InterfaceDecl,
     InterfaceMethodDecl,
     MethodDecl,
     TypeRef,
@@ -28,7 +27,6 @@ from compiler.typecheck.model import (
     TypeInfo,
 )
 from compiler.typecheck.module_lookup import (
-    lookup_class_by_type_name,
     lookup_interface_by_type_name,
     resolve_imported_class_name,
     resolve_imported_interface_name,
@@ -203,10 +201,6 @@ def _placeholder_interface_info(name: str) -> InterfaceInfo:
 
 def _lookup_module_classes(module_ast) -> dict[str, ClassDecl]:
     return {class_decl.name: class_decl for class_decl in module_ast.classes}
-
-
-def _lookup_module_interfaces(module_ast) -> set[str]:
-    return {interface_decl.name for interface_decl in module_ast.interfaces}
 
 
 def _lookup_context_for_module(ctx: TypeCheckContext, module_path):

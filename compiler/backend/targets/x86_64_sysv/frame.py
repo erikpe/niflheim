@@ -171,12 +171,6 @@ def _max_outgoing_stack_arg_slot_count(callable_decl: BackendCallableDecl, *, ab
     return max_stack_arg_slot_count
 
 
-def _frame_error(callable_decl: BackendCallableDecl, message: str) -> None:
-    raise X86_64SysVFrameError(
-        f"Backend target 'x86_64_sysv' callable '{_format_callable_id(callable_decl)}': {message}"
-    )
-
-
 def _format_callable_id(callable_decl: BackendCallableDecl) -> str:
     callable_id = callable_decl.callable_id
     if hasattr(callable_id, "class_name") and hasattr(callable_id, "ordinal"):

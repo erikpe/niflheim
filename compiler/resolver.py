@@ -38,12 +38,6 @@ class BoundImportInfo:
     span: SourceSpan
 
 
-def _iter_import_infos(
-    imports: dict[str, ImportInfo] | tuple[ImportInfo, ...] | list[ImportInfo],
-):
-    return imports.values() if isinstance(imports, dict) else imports
-
-
 def _iter_bound_import_infos(
     bindings: tuple[BoundImportInfo, ...] | list[BoundImportInfo],
 ):
