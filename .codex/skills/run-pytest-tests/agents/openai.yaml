@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run Pytest Tests"
+  short_description: "Run niflheim pytest suites correctly"
+  default_prompt: "Use $run-pytest-tests to run the relevant pytest scope for this niflheim change."

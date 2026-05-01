@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run Python"
+  short_description: "Run niflheim Python tooling safely"
+  default_prompt: "Use $run-python to execute this niflheim Python script or snippet with the repo's system Python conventions."

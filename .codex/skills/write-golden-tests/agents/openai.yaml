@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Golden Tests"
+  short_description: "Author niflheim golden test specs"
+  default_prompt: "Use $write-golden-tests to add focused golden coverage for this niflheim behavior."

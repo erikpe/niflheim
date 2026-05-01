@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run Golden Tests"
+  short_description: "Run niflheim golden tests with filters"
+  default_prompt: "Use $run-golden-tests to run the smallest relevant golden-test scope for this niflheim change."
