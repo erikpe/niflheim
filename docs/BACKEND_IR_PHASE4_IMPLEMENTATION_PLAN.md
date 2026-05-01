@@ -2,6 +2,8 @@
 
 Status: complete.
 
+Historical note: phase 6 PR 1 completed the default checked-path cutover. Selector-based commands in this document describe the phase-4 bring-up path, not the current repository default.
+
 This document expands phase 4 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
 It is intentionally limited to phase 4 work only:

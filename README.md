@@ -96,11 +96,12 @@ For quick local workflows, use scripts under `scripts/`:
 - Default CLI compilation now lowers through backend IR, runs the backend IR pass pipeline, and emits assembly through `x86_64_sysv`.
 - `--source-ast-codegen` is no longer supported on the checked CLI path.
 - `nifc --stop-after backend-ir-passes` is now a checked debugging seam: it lowers to backend IR, runs the phase-3 cleanup and analysis pipeline, and prints or writes the post-pass backend IR without continuing to assembly emission.
-- `nifc --experimental-backend backend-ir-x86_64_sysv` remains accepted as a temporary compatibility alias for the default checked backend during phase-6 cutover.
+- `nifc --experimental-backend backend-ir-x86_64_sysv` remains accepted as a temporary compatibility alias, but ordinary checked workflows should use the default selector-less path.
 
 - `scripts/build.sh <input.nif> [output-executable] [--] [nifc-args...]`
 	- Compiles to assembly at `<output-executable>.s`
 	- Links the runtime and emits `<output-executable>`
+	- If `NIF_PREBUILT_RUNTIME` points at a runtime archive, it reuses that archive instead of recompiling runtime sources
 	- Example: `./scripts/build.sh samples/arithmetic_loop.nif build/loopy`
 	- Example with compiler logging flags: `./scripts/build.sh samples/arithmetic_loop.nif -- --log-level info -v`
 - `scripts/run.sh <input.nif> [output-executable] [build-args...] [-- <program-args...>]`
@@ -112,7 +113,7 @@ For quick local workflows, use scripts under `scripts/`:
 ## Test Helper
 
 - `scripts/test.sh`
-	- Runs the full Python test suite (`pytest -q`)
+	- Runs the full Python test suite (`/bin/python3 -m pytest -n auto --dist loadfile`)
 	- Runs golden tests (`./scripts/golden.sh`)
 	- Runs runtime C harnesses (`make -C runtime test-all`)
 	- Example: `./scripts/test.sh`
@@ -137,7 +138,7 @@ Run the runner:
 - `./scripts/golden.sh`
 - `./scripts/golden.sh --jobs 8`
 - `./scripts/golden.sh --filter 'arithmetic/**'`
-- `./scripts/golden.sh --filter 'backend_ir_reduced/**' -- --experimental-backend backend-ir-x86_64_sysv`
+- `./scripts/golden.sh --filter 'backend_ir_reduced/**'`
 
 Spec format:
 

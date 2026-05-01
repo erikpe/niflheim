@@ -2,6 +2,8 @@
 
 Status: proposed.
 
+Historical note: phase 6 PR 1 already made backend IR plus `x86_64_sysv` the default checked compiler path. References below to selector-based bring-up describe migration sequencing, not the current default workflow.
+
 This document describes a phased plan for introducing a real backend IR and fully transitioning the compiler backend to use it.
 
 The concrete backend IR v1 schema is defined in [docs/BACKEND_IR_SPEC.md](BACKEND_IR_SPEC.md).

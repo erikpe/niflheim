@@ -37,10 +37,16 @@ fi
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 
+if [[ "$output" = /* ]]; then
+  executable_path="$output"
+else
+  executable_path="$repo_root/$output"
+fi
+
 "$script_dir/build.sh" "$input" "$output" "${build_args[@]}"
 
 set +e
-"$repo_root/$output" "$@"
+"$executable_path" "$@"
 run_exit=$?
 set -e
 

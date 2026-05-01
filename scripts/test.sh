@@ -6,23 +6,13 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 
 cd "$repo_root"
 
-echo "[1/6] Running Python tests (pytest)..."
-pytest -n auto --dist loadfile
+echo "[1/3] Running Python tests (pytest)..."
+/bin/python3 -m pytest -n auto --dist loadfile
 
-echo "[2/6] Running golden tests..."
+echo "[2/3] Running golden tests..."
 ./scripts/golden.sh
 
-echo "[3/6] Running runtime GC stress harness..."
-make -C runtime test
-
-echo "[4/6] Running runtime roots positive harness..."
-make -C runtime test-positive
-
-echo "[5/6] Running runtime roots negative harness (driver)..."
-make -C runtime test-negative
-
-echo "[6/6] Running runtime array harnesses (positive + negative driver)..."
-make -C runtime test-array
-make -C runtime test-array-negative
+echo "[3/3] Running runtime harnesses..."
+make -C runtime test-all
 
 echo "All tests passed."

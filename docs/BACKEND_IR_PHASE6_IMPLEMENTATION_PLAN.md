@@ -31,7 +31,7 @@ Use these rules for every phase-6 patch:
 ## Ordered PR Checklist
 
 1. [x] PR 1: Make backend IR plus `x86_64_sysv` the default checked CLI backend while preserving backend IR dump and stop-after seams.
-2. [ ] PR 2: Update scripts, integration helpers, and test harness defaults to assume backend IR as the checked path.
+2. [x] PR 2: Update scripts, integration helpers, and test harness defaults to assume backend IR as the checked path.
 3. [ ] PR 3: Remove legacy checked-path codegen entrypoints, dual-path CLI branches, and obsolete compatibility wrappers.
 4. [ ] PR 4: Remove legacy layout, root-liveness, root-slot, and tree-walk backend analyses from production use.
 5. [ ] PR 5: Remove obsolete legacy backend tests or rewrite them against the new backend surface, then run the full repository validation gate.
@@ -201,11 +201,11 @@ pytest -n auto --dist loadfile tests/compiler/integration tests/compiler/backend
 
 ### Checklist
 
-- [ ] Update scripts to rely on the new default checked backend path.
-- [ ] Update integration and test helpers to remove explicit new-backend opt-in.
-- [ ] Refresh README and transition-plan wording for the new default.
-- [ ] Re-run script and helper smoke tests.
-- [ ] Keep backend IR debugging workflows documented.
+- [x] Update scripts to rely on the new default checked backend path.
+- [x] Update integration and test helpers to remove explicit new-backend opt-in.
+- [x] Refresh README and transition-plan wording for the new default.
+- [x] Re-run script and helper smoke tests.
+- [x] Keep backend IR debugging workflows documented.
 
 ## PR 3: Remove Legacy Checked-Path Entrypoints, Dual-Path Branches, And Compatibility Wrappers
 
@@ -453,13 +453,13 @@ Use this checklist when phase 6 is believed to be complete.
 
 - [x] Backend IR plus `x86_64_sysv` is the default checked CLI backend path.
 - [x] Backend IR dump and stop-after seams remain supported after cutover.
-- [ ] Repository scripts and test helpers assume backend IR as the checked backend path.
+- [x] Repository scripts and test helpers assume backend IR as the checked backend path.
 - [ ] Legacy checked-path selection scaffolding is removed.
 - [ ] Legacy layout, root-liveness, and root-slot planning are removed from production use.
 - [ ] Obsolete legacy backend tests are removed or rewritten against the new surfaces.
-- [ ] The full pytest suite passes with backend IR as the only checked backend input.
-- [ ] The full golden suite passes on the cutover codebase.
-- [ ] Runtime harnesses pass on the cutover codebase.
+- [x] The full pytest suite passes with backend IR as the only checked backend input.
+- [x] The full golden suite passes on the cutover codebase.
+- [x] Runtime harnesses pass on the cutover codebase.
 - [ ] Repository docs describe backend IR as the canonical checked backend seam.
 
 Recommended phase gate commands:

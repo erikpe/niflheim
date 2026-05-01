@@ -37,6 +37,12 @@ fi
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 
+prebuilt_runtime_archive="${NIF_PREBUILT_RUNTIME:-}"
+if [[ -n "$prebuilt_runtime_archive" && ! -f "$prebuilt_runtime_archive" ]]; then
+  echo "build.sh: prebuilt runtime archive not found: $prebuilt_runtime_archive" >&2
+  exit 1
+fi
+
 output_dir="$(dirname "$output")"
 mkdir -p "$output_dir"
 
@@ -62,20 +68,32 @@ if [[ -n "${NIF_LD_ARGS:-}" ]]; then
   ld_args+=("${extra_ld_args[@]}")
 fi
 
-python3 -m compiler.main "$input" -o "$asm_out" --project-root "$repo_root" "${extra_nifc_args[@]}" "${cli_nifc_args[@]}"
+/bin/python3 -m compiler.main "$input" -o "$asm_out" --project-root "$repo_root" "${extra_nifc_args[@]}" "${cli_nifc_args[@]}"
+
+link_inputs=()
+if [[ -n "$prebuilt_runtime_archive" ]]; then
+  link_inputs=(
+    "$asm_out"
+    "$prebuilt_runtime_archive"
+  )
+else
+  link_inputs=(
+    "$repo_root/runtime/src/runtime.c"
+    "$repo_root/runtime/src/gc.c"
+    "$repo_root/runtime/src/gc_trace.c"
+    "$repo_root/runtime/src/gc_tracked_set.c"
+    "$repo_root/runtime/src/io.c"
+    "$repo_root/runtime/src/array.c"
+    "$repo_root/runtime/src/math.c"
+    "$repo_root/runtime/src/panic.c"
+    "$asm_out"
+  )
+fi
 
 cc \
   "${cc_args[@]}" \
   -I "$repo_root/runtime/include" \
-  "$repo_root/runtime/src/runtime.c" \
-  "$repo_root/runtime/src/gc.c" \
-  "$repo_root/runtime/src/gc_trace.c" \
-  "$repo_root/runtime/src/gc_tracked_set.c" \
-  "$repo_root/runtime/src/io.c" \
-  "$repo_root/runtime/src/array.c" \
-  "$repo_root/runtime/src/math.c" \
-  "$repo_root/runtime/src/panic.c" \
-  "$asm_out" \
+  "${link_inputs[@]}" \
   -lm \
   "${ld_args[@]}" \
   -o "$output"
