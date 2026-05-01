@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 from time import perf_counter
 
@@ -24,8 +23,6 @@ from compiler.typecheck.api import typecheck_program
 BACKEND_IR_DUMP_FORMATS = ["text", "json"]
 BACKEND_IR_STOP_PHASES = frozenset({"backend-ir", "backend-ir-passes"})
 STOP_PHASES = ["check", *sorted(BACKEND_IR_STOP_PHASES), "codegen"]
-COMPATIBILITY_BACKEND_ALIAS_BACKEND_IR_X86_64_SYSV = "backend-ir-x86_64_sysv"
-EXPERIMENTAL_BACKEND_CHOICES = [COMPATIBILITY_BACKEND_ALIAS_BACKEND_IR_X86_64_SYSV]
 
 
 def _requested_backend_ir_surface(args: argparse.Namespace) -> tuple[str, ...]:
@@ -45,10 +42,6 @@ def _requested_backend_ir_dump_format(args: argparse.Namespace) -> str | None:
     if args.dump_backend_ir_dir is not None or args.stop_after in BACKEND_IR_STOP_PHASES:
         return "text"
     return None
-
-
-def _uses_experimental_backend(args: argparse.Namespace) -> bool:
-    return args.experimental_backend is not None
 
 
 def _validate_backend_ir_surface(args: argparse.Namespace) -> None:
@@ -299,15 +292,6 @@ def main() -> int:
         action="store_true",
         help="Skip semantic optimization and continue from lowered semantic IR",
     )
-    compilation_group.add_argument(
-        "--experimental-backend",
-        choices=EXPERIMENTAL_BACKEND_CHOICES,
-        help=(
-            "Compatibility alias for the default checked backend during phase-6 cutover "
-            "(no longer selects a distinct codegen path)"
-        ),
-    )
-
     args = parser.parse_args()
     log_settings = resolve_log_settings(args.log_level, args.verbose, args.quiet)
     configure_logging(log_settings)
@@ -326,13 +310,6 @@ def main() -> int:
         require_main_function(linked_program)
         if args.stop_after == "check":
             return 0
-
-        if _uses_experimental_backend(args):
-            logger.infov(
-                1,
-                "Treating --experimental-backend %s as a compatibility alias for the default checked backend",
-                args.experimental_backend,
-            )
 
         dump_format = _requested_backend_ir_dump_format(args)
         dump_project_root = _backend_ir_dump_project_root(input_path, args.project_root)

@@ -8,48 +8,6 @@ import compiler.cli as cli
 from tests.compiler.integration.helpers import build_executable, compile_and_run, compile_to_asm, install_std_modules, write
 
 
-_EXPERIMENTAL_BACKEND_ARGS = ["--experimental-backend", "backend-ir-x86_64_sysv"]
-
-
-def test_cli_experimental_backend_selector_is_a_compatibility_alias_for_default_checked_path(
-    tmp_path: Path, monkeypatch
-) -> None:
-    entry = tmp_path / "main.nif"
-    out_file = tmp_path / "out.s"
-    write(
-        entry,
-        """
-        fn main() -> i64 {
-            return 0;
-        }
-        """,
-    )
-
-    seen = {"target_calls": 0}
-    real_emit_backend = cli.emit_x86_64_sysv_asm
-
-    def _counting_emit_backend(*args, **kwargs):
-        seen["target_calls"] += 1
-        return real_emit_backend(*args, **kwargs)
-
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _counting_emit_backend)
-
-    asm_path = compile_to_asm(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        out_path=out_file,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
-    asm = asm_path.read_text(encoding="utf-8")
-
-    assert ".intel_syntax noprefix" in asm
-    assert "main:" in asm
-    assert "    mov rax, 0" in asm
-    assert "    jmp .Lmain_epilogue" in asm
-    assert seen["target_calls"] == 1
-
-
 def test_cli_default_checked_path_uses_backend_ir_target_without_selector(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
@@ -77,7 +35,7 @@ def test_cli_default_checked_path_uses_backend_ir_target_without_selector(tmp_pa
     assert seen["target_calls"] == 1
 
 
-def test_cli_experimental_backend_selector_can_compile_and_run_rooted_program(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_can_compile_and_run_rooted_program(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
@@ -121,17 +79,12 @@ def test_cli_experimental_backend_selector_can_compile_and_run_rooted_program(tm
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 0, run.stderr
 
 
-def test_cli_experimental_backend_selector_can_compile_and_run_reduced_scope_program(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_can_compile_and_run_reduced_scope_program(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
@@ -154,17 +107,12 @@ def test_cli_experimental_backend_selector_can_compile_and_run_reduced_scope_pro
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 4
 
 
-def test_cli_experimental_backend_selector_can_omit_runtime_trace_calls(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_can_omit_runtime_trace_calls(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
@@ -189,7 +137,7 @@ def test_cli_experimental_backend_selector_can_omit_runtime_trace_calls(tmp_path
         entry,
         project_root=tmp_path,
         out_path=tmp_path / "out.s",
-        extra_args=[*list(_EXPERIMENTAL_BACKEND_ARGS), "--omit-runtime-trace"],
+        extra_args=["--omit-runtime-trace"],
     )
     asm = asm_path.read_text(encoding="utf-8")
 
@@ -198,7 +146,7 @@ def test_cli_experimental_backend_selector_can_omit_runtime_trace_calls(tmp_path
     assert "rt_trace_set_location" not in asm
 
 
-def test_cli_experimental_backend_selector_runs_reference_array_iteration_across_gc(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_runs_reference_array_iteration_across_gc(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
@@ -235,17 +183,12 @@ def test_cli_experimental_backend_selector_runs_reference_array_iteration_across
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 0, run.stderr
 
 
-def test_cli_experimental_backend_selector_runs_identity_comparisons_for_refs_and_null(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_runs_identity_comparisons_for_refs_and_null(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
@@ -282,17 +225,12 @@ def test_cli_experimental_backend_selector_runs_identity_comparisons_for_refs_an
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 0, run.stderr
 
 
-def test_cli_experimental_backend_selector_runs_std_string_literal_len(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_runs_std_string_literal_len(tmp_path: Path, monkeypatch) -> None:
     install_std_modules(tmp_path, ["str", "lang", "object", "vec", "error"])
     entry = tmp_path / "main.nif"
     write(
@@ -306,17 +244,12 @@ def test_cli_experimental_backend_selector_runs_std_string_literal_len(tmp_path:
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 3, run.stderr
 
 
-def test_cli_experimental_backend_selector_short_circuits_boolean_and_with_guarded_array_index(
+def test_cli_default_checked_path_short_circuits_boolean_and_with_guarded_array_index(
     tmp_path: Path, monkeypatch
 ) -> None:
     install_std_modules(tmp_path, ["io", "str", "lang", "object", "vec", "error"])
@@ -345,7 +278,6 @@ def test_cli_experimental_backend_selector_short_circuits_boolean_and_with_guard
         entry,
         project_root=tmp_path,
         out_path=tmp_path / "out.s",
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
     )
     exe_path = build_executable(asm_path, exe_path=tmp_path / "out")
     run = subprocess.run([str(exe_path), "alpha"], check=False, capture_output=True, text=True)
@@ -353,7 +285,7 @@ def test_cli_experimental_backend_selector_short_circuits_boolean_and_with_guard
     assert run.returncode == 0, run.stderr
 
 
-def test_cli_experimental_backend_selector_runs_interface_typed_local_initializers(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_runs_interface_typed_local_initializers(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
@@ -383,17 +315,12 @@ def test_cli_experimental_backend_selector_runs_interface_typed_local_initialize
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 254
 
 
-def test_cli_experimental_backend_selector_runs_callable_value_local_from_function_ref(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_runs_callable_value_local_from_function_ref(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
@@ -413,17 +340,12 @@ def test_cli_experimental_backend_selector_runs_callable_value_local_from_functi
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 42, run.stderr
 
 
-def test_cli_experimental_backend_selector_runs_null_reference_and_interface_locals(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_runs_null_reference_and_interface_locals(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
@@ -447,17 +369,12 @@ def test_cli_experimental_backend_selector_runs_null_reference_and_interface_loc
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 0, run.stderr
 
 
-def test_cli_experimental_backend_selector_runs_constructor_results_stored_in_interface_and_obj_locals(
+def test_cli_default_checked_path_runs_constructor_results_stored_in_interface_and_obj_locals(
     tmp_path: Path, monkeypatch
 ) -> None:
     entry = tmp_path / "main.nif"
@@ -488,17 +405,12 @@ def test_cli_experimental_backend_selector_runs_constructor_results_stored_in_in
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 16, run.stderr
 
 
-def test_cli_experimental_backend_selector_runs_qualified_imported_constructor_with_shadowed_local_class(
+def test_cli_default_checked_path_runs_qualified_imported_constructor_with_shadowed_local_class(
     tmp_path: Path, monkeypatch
 ) -> None:
     write(
@@ -532,17 +444,12 @@ def test_cli_experimental_backend_selector_runs_qualified_imported_constructor_w
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        tmp_path / "main.nif",
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, tmp_path / "main.nif", project_root=tmp_path)
 
     assert run.returncode == 18, run.stderr
 
 
-def test_cli_experimental_backend_selector_runs_static_method_refs_as_callable_values(tmp_path: Path, monkeypatch) -> None:
+def test_cli_default_checked_path_runs_static_method_refs_as_callable_values(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     write(
         entry,
@@ -560,11 +467,6 @@ def test_cli_experimental_backend_selector_runs_static_method_refs_as_callable_v
         """,
     )
 
-    run = compile_and_run(
-        monkeypatch,
-        entry,
-        project_root=tmp_path,
-        extra_args=list(_EXPERIMENTAL_BACKEND_ARGS),
-    )
+    run = compile_and_run(monkeypatch, entry, project_root=tmp_path)
 
     assert run.returncode == 42, run.stderr

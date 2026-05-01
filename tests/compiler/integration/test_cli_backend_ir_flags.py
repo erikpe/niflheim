@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 import compiler.cli as cli
-from compiler.backend.targets import BackendEmitResult
 
 from tests.compiler.integration.helpers import run_cli, write
 
@@ -18,7 +17,7 @@ def test_cli_help_lists_backend_ir_flags(monkeypatch, capsys) -> None:
     assert exc_info.value.code == 0
     assert "--dump-backend-ir {text,json}" in captured.out
     assert "--dump-backend-ir-dir DIR" in captured.out
-    assert "--experimental-backend {backend-ir-x86_64_sysv}" in captured.out
+    assert "--experimental-backend" not in captured.out
     assert "backend-ir" in captured.out
     assert "backend-ir-passes" in captured.out
 
@@ -70,40 +69,3 @@ def test_cli_backend_ir_passes_stop_phase_is_available(tmp_path: Path, monkeypat
     assert seen["pipeline_calls"] == 1
     assert captured.err == ""
     assert captured.out.startswith("backend_ir niflheim.backend-ir.v1 entry=main::main\n")
-
-
-def test_cli_experimental_backend_alias_selects_default_checked_backend(tmp_path: Path, monkeypatch) -> None:
-    entry = tmp_path / "main.nif"
-    out_file = tmp_path / "out.s"
-    write(
-        entry,
-        """
-        fn main() -> i64 {
-            return 0;
-        }
-        """,
-    )
-
-    seen = {"target_calls": 0}
-
-    def _fake_emit_backend(*args, **kwargs):
-        seen["target_calls"] += 1
-        return BackendEmitResult(assembly_text="; backend-ir target selected\n")
-
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
-
-    rc = run_cli(
-        monkeypatch,
-        [
-            "nifc",
-            str(entry),
-            "--experimental-backend",
-            "backend-ir-x86_64_sysv",
-            "-o",
-            str(out_file),
-        ],
-    )
-
-    assert rc == 0
-    assert seen["target_calls"] == 1
-    assert out_file.read_text(encoding="utf-8") == "; backend-ir target selected\n"

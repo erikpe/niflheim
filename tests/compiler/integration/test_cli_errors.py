@@ -135,6 +135,25 @@ def test_cli_error_rejects_removed_semantic_codegen_flag(tmp_path: Path, monkeyp
     assert "unrecognized arguments: --semantic-codegen" in captured.err
 
 
+def test_cli_error_rejects_removed_experimental_backend_flag(tmp_path: Path, monkeypatch, capsys) -> None:
+    source = tmp_path / "main.nif"
+    write(
+        source,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_cli(monkeypatch, ["nifc", str(source), "--experimental-backend", "backend-ir-x86_64_sysv"])
+    captured = capsys.readouterr()
+
+    assert exc_info.value.code == 2
+    assert "unrecognized arguments: --experimental-backend backend-ir-x86_64_sysv" in captured.err
+
+
 def test_cli_error_rejects_removed_skip_check_flag(tmp_path: Path, monkeypatch, capsys) -> None:
     source = tmp_path / "main.nif"
     write(

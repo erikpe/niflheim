@@ -32,7 +32,7 @@ Use these rules for every phase-6 patch:
 
 1. [x] PR 1: Make backend IR plus `x86_64_sysv` the default checked CLI backend while preserving backend IR dump and stop-after seams.
 2. [x] PR 2: Update scripts, integration helpers, and test harness defaults to assume backend IR as the checked path.
-3. [ ] PR 3: Remove legacy checked-path codegen entrypoints, dual-path CLI branches, and obsolete compatibility wrappers.
+3. [x] PR 3: Remove legacy checked-path codegen entrypoints, dual-path CLI branches, and obsolete compatibility wrappers.
 4. [ ] PR 4: Remove legacy layout, root-liveness, root-slot, and tree-walk backend analyses from production use.
 5. [ ] PR 5: Remove obsolete legacy backend tests or rewrite them against the new backend surface, then run the full repository validation gate.
 
@@ -240,6 +240,10 @@ Existing files:
 2. Retain only the pieces of legacy modules still needed for non-production or archival reasons if there is a clear justification.
    If a legacy module no longer serves tests, tools, or documentation, delete it instead of leaving it dormant.
 
+   Current repository measurement scripts and codegen-focused tests still depend on legacy
+   `LoweredLinkedSemanticProgram` assembly helpers, so this slice removes production checked-path
+   selector scaffolding first and defers broader legacy module retirement to later PRs.
+
 3. Keep import graphs clean after deletion.
    Remove dead imports, stale type references, and obsolete comments that still describe the pre-cutover dual-path design.
 
@@ -276,11 +280,11 @@ pytest -n auto --dist loadfile tests/compiler/integration tests/compiler/backend
 
 ### Checklist
 
-- [ ] Remove dual-path checked-backend CLI branches.
-- [ ] Remove obsolete checked-path compatibility wrappers.
-- [ ] Clean up dead imports, comments, and stale type references.
-- [ ] Update tests that asserted selector-era behavior.
-- [ ] Re-run integration coverage after code removal.
+- [x] Remove dual-path checked-backend CLI branches.
+- [x] Remove obsolete checked-path compatibility wrappers.
+- [x] Clean up dead imports, comments, and stale type references.
+- [x] Update tests that asserted selector-era behavior.
+- [x] Re-run integration coverage after code removal.
 
 ## PR 4: Remove Legacy Layout, Root-Liveness, Root-Slot, And Tree-Walk Backend Analyses From Production Use
 
@@ -454,7 +458,7 @@ Use this checklist when phase 6 is believed to be complete.
 - [x] Backend IR plus `x86_64_sysv` is the default checked CLI backend path.
 - [x] Backend IR dump and stop-after seams remain supported after cutover.
 - [x] Repository scripts and test helpers assume backend IR as the checked backend path.
-- [ ] Legacy checked-path selection scaffolding is removed.
+- [x] Legacy checked-path selection scaffolding is removed.
 - [ ] Legacy layout, root-liveness, and root-slot planning are removed from production use.
 - [ ] Obsolete legacy backend tests are removed or rewritten against the new surfaces.
 - [x] The full pytest suite passes with backend IR as the only checked backend input.

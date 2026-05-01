@@ -96,7 +96,6 @@ For quick local workflows, use scripts under `scripts/`:
 - Default CLI compilation now lowers through backend IR, runs the backend IR pass pipeline, and emits assembly through `x86_64_sysv`.
 - `--source-ast-codegen` is no longer supported on the checked CLI path.
 - `nifc --stop-after backend-ir-passes` is now a checked debugging seam: it lowers to backend IR, runs the phase-3 cleanup and analysis pipeline, and prints or writes the post-pass backend IR without continuing to assembly emission.
-- `nifc --experimental-backend backend-ir-x86_64_sysv` remains accepted as a temporary compatibility alias, but ordinary checked workflows should use the default selector-less path.
 
 - `scripts/build.sh <input.nif> [output-executable] [--] [nifc-args...]`
 	- Compiles to assembly at `<output-executable>.s`
