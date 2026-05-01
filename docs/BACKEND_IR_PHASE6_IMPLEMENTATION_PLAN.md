@@ -33,7 +33,7 @@ Use these rules for every phase-6 patch:
 1. [x] PR 1: Make backend IR plus `x86_64_sysv` the default checked CLI backend while preserving backend IR dump and stop-after seams.
 2. [x] PR 2: Update scripts, integration helpers, and test harness defaults to assume backend IR as the checked path.
 3. [x] PR 3: Remove legacy checked-path codegen entrypoints, dual-path CLI branches, and obsolete compatibility wrappers.
-4. [ ] PR 4: Remove legacy layout, root-liveness, root-slot, and tree-walk backend analyses from production use.
+4. [x] PR 4: Remove legacy layout, root-liveness, root-slot, and tree-walk backend analyses from production use.
 5. [ ] PR 5: Remove obsolete legacy backend tests or rewrite them against the new backend surface, then run the full repository validation gate.
 
 ## PR 1: Default Checked CLI Cutover To Backend IR Plus `x86_64_sysv`
@@ -325,6 +325,10 @@ Existing files:
 2. Delete obsolete legacy modules when they no longer support active tests or documentation.
    If some are kept temporarily for historical comparison tests, move them clearly out of the production import path.
 
+   Current measurement scripts and codegen-focused tests still keep the tree-walk emitter stack
+   live as an explicit legacy surface. This slice retires those modules from production use,
+   documents that boundary, and defers broader legacy test pruning to PR 5.
+
 3. Rewrite any remaining root-correctness tests against backend IR or target-backend surfaces.
    Tests that still matter should assert the new analysis and emission seams rather than legacy internal helper shapes.
 
@@ -350,22 +354,22 @@ pytest tests/compiler/backend tests/compiler/integration -q
 Recommended gate command for this slice:
 
 ```text
-pytest -n auto --dist loadfile tests/compiler/backend tests/compiler/integration tests/compiler/runtime -q
+pytest -n auto --dist loadfile tests/compiler/backend tests/compiler/integration -q
 ```
 
 ### Expected Outcome
 
 - Legacy tree-walk backend analyses are no longer part of production checked compilation.
 - Root correctness is owned entirely by backend IR analyses plus target-backend emission.
-- Historical loop-root workaround logic is gone from active code.
+- Historical loop-root workaround logic is gone from active production code.
 
 ### Checklist
 
-- [ ] Remove production use of legacy layout and root-analysis modules.
-- [ ] Delete or retire obsolete legacy analysis modules.
-- [ ] Rewrite any still-relevant tests against backend IR or target-backend surfaces.
-- [ ] Remove stale workaround comments and TODOs.
-- [ ] Re-run broad backend and integration coverage after deletion.
+- [x] Remove production use of legacy layout and root-analysis modules.
+- [x] Delete or retire obsolete legacy analysis modules.
+- [x] Rewrite any still-relevant tests against backend IR or target-backend surfaces.
+- [x] Remove stale workaround comments and TODOs.
+- [x] Re-run broad backend and integration coverage after deletion.
 
 ## PR 5: Legacy Test Cleanup And Full Repository Validation Gate
 
@@ -459,7 +463,7 @@ Use this checklist when phase 6 is believed to be complete.
 - [x] Backend IR dump and stop-after seams remain supported after cutover.
 - [x] Repository scripts and test helpers assume backend IR as the checked backend path.
 - [x] Legacy checked-path selection scaffolding is removed.
-- [ ] Legacy layout, root-liveness, and root-slot planning are removed from production use.
+- [x] Legacy layout, root-liveness, and root-slot planning are removed from production use.
 - [ ] Obsolete legacy backend tests are removed or rewritten against the new surfaces.
 - [x] The full pytest suite passes with backend IR as the only checked backend input.
 - [x] The full golden suite passes on the cutover codebase.

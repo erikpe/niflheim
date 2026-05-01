@@ -144,6 +144,41 @@ def test_emit_source_asm_syncs_live_reference_roots_before_ordinary_calls(tmp_pa
     assert sync_match is not None, caller_body
 
 
+def test_emit_source_asm_loop_carried_roots_do_not_emit_legacy_named_root_blocks(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        extern fn rt_gc_collect() -> unit;
+
+        fn keep(flag: bool, value: Obj) -> Obj {
+            var carried: Obj = value;
+            while flag {
+                rt_gc_collect();
+                if carried == null {
+                    return value;
+                }
+                flag = false;
+            }
+            return carried;
+        }
+
+        fn main() -> i64 {
+            keep(true, null);
+            return 0;
+        }
+        """,
+        skip_optimize=True,
+        disabled_passes=("copy_propagation", "dead_stmt_prune", "dead_store_elimination"),
+    )
+
+    keep_body = _body_for_label(asm, mangle_function_symbol(("main",), "keep"))
+
+    assert "    call rt_thread_state" in keep_body
+    assert "    call rt_gc_collect" in keep_body
+    assert "# mirror named reference slots into shadow-stack slots" not in asm
+    assert "# clear dead named reference shadow-stack slots" not in asm
+
+
 def test_emit_source_asm_runs_root_slot_reuse_across_forced_gc(tmp_path) -> None:
     run = compile_and_run_source(
         tmp_path,

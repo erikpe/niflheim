@@ -46,12 +46,11 @@ Stage-0 compiler implementation in Python.
 	- `expressions.py` - extracted non-call expression inference and field-assignability helpers.
 	- `statements.py` - extracted statement checking, return analysis, assignment-target validation, and visibility helpers.
 	- `engine.py` - lean internal typecheck engine adapter composed from the extracted helper modules.
-- `codegen/` - backend package entry point and internal code generation modules.
-	- `generator.py` - shared backend state and emission coordination.
-	- `model.py`, `metadata.py`, `class_hierarchy.py`, `layout.py`, `measurement.py`, `root_liveness.py`, `root_slot_plan.py`, `runtime_calls.py`, `strings.py`, `symbols.py`, `types.py`, `walk.py` - backend metadata, layout, liveness, runtime-call, and symbol helpers.
-	- `asm.py`, `ops_int.py`, `ops_float.py` - assembly building and operator instruction selection.
-	- `emitter_expr.py`, `emitter_stmt.py`, `emitter_fn.py`, `emitter_module.py` - layered expression, statement, function, and module emission.
-	- `abi/` - backend ABI and array-lowering helpers used by codegen.
+- `codegen/` - legacy tree-walk assembly backend plus shared helper modules.
+	- `generator.py`, `program_generator.py`, `layout.py`, `root_liveness.py`, `root_slot_plan.py`, `walk.py`, `measurement.py`, `emitter_expr.py`, `emitter_stmt.py`, `emitter_fn.py`, `emitter_module.py` - legacy statement-tree emission and analysis helpers retained for measurement scripts and codegen-focused tests; the checked CLI path no longer imports them.
+	- `model.py`, `metadata.py`, `class_hierarchy.py`, `runtime_calls.py`, `strings.py`, `symbols.py`, `types.py` - legacy backend support modules, with `runtime_calls.py`, `symbols.py`, and `types.py` still shared with the backend IR path.
+	- `asm.py`, `ops_int.py`, `ops_float.py` - assembly building and operator helpers used by the legacy backend.
+	- `abi/` - runtime and ABI helpers shared by the legacy backend; `abi/runtime.py` remains referenced by backend lowering and verification.
 - `cli.py` - minimal phase-oriented CLI scaffold.
 - `main.py` - package entry point.
 - `grammar/niflheim_v0_1.ebnf` - canonical grammar source.
