@@ -16,6 +16,7 @@ from compiler.backend.optimizations.simplify_cfg import (
     simplify_cfg,
     simplify_trivial_jump_blocks,
 )
+from compiler.backend.optimizations.trivial_copy_elimination import trivial_copy_elimination
 
 __all__ = [
     "BackendOptimization",
@@ -28,4 +29,5 @@ __all__ = [
     "simplify_callable_cfg",
     "simplify_cfg",
     "simplify_trivial_jump_blocks",
+    "trivial_copy_elimination",
 ]

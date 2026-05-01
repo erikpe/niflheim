@@ -10,6 +10,7 @@ from compiler.common.logging import get_logger
 
 from .dead_pure_definition_elimination import dead_pure_definition_elimination
 from .simplify_cfg import simplify_cfg
+from .trivial_copy_elimination import trivial_copy_elimination
 
 
 BackendOptimization = Callable[[BackendProgram], BackendProgram]
@@ -26,6 +27,7 @@ DEFAULT_BACKEND_OPTIMIZATION_PASSES: tuple[BackendOptimizationPass, ...] = (
         name="dead_pure_definition_elimination",
         transform=dead_pure_definition_elimination,
     ),
+    BackendOptimizationPass(name="trivial_copy_elimination", transform=trivial_copy_elimination),
     BackendOptimizationPass(name="simplify_cfg", transform=simplify_cfg),
 )
 
