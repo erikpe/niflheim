@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+from compiler.backend.program.symbols import mangle_function_symbol
+from compiler.codegen.abi.array import direct_primitive_array_store_operand
 from compiler.codegen.abi.runtime import (
     ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
     ARRAY_FROM_BYTES_U8_RUNTIME_CALL,
     ARRAY_INDEX_SET_RUNTIME_CALLS,
     ARRAY_SLICE_GET_RUNTIME_CALLS,
 )
-from compiler.codegen.abi.array import direct_primitive_array_store_operand
-from compiler.codegen.symbols import mangle_function_symbol
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_U8
-from tests.compiler.codegen.helpers import emit_source_asm
+from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm
 
 
-def test_backend_emits_expected_call_shapes(tmp_path) -> None:
+def test_emit_source_asm_emits_expected_call_shapes(tmp_path) -> None:
     source = """
     fn add(a: i64, b: i64) -> i64 {
         return a + b;
@@ -39,21 +39,17 @@ def test_backend_emits_expected_call_shapes(tmp_path) -> None:
     }
     """
 
-    asm = emit_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source, skip_optimize=True)
     main_body = asm[asm.index("main:") : asm.index(".Lmain_epilogue:")]
 
-    for expected in [
-        f'    call {mangle_function_symbol(("main",), "add")}',
-        "    call __nif_method_main__Math_inc",
-        "    call __nif_ctor_main__Box",
-    ]:
-        assert expected in asm
-    assert "    call __nif_method_main__Box_get" in main_body
+    assert f"    call {mangle_function_symbol(('main',), 'add')}" in asm
+    assert "    call __nif_method_main__Math_inc" in asm
+    assert "    call rt_alloc_obj" in main_body
+    assert "    call __nif_ctor_init_main__Box" in main_body
     assert "    mov rcx, qword ptr [rcx + 80]" not in main_body
-    assert "    call r11" not in main_body
 
 
-def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
+def test_emit_source_asm_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
     source = """
     class Str {
         _bytes: u8[];
@@ -104,7 +100,7 @@ def test_backend_emits_expected_arrays_strings_and_casts(tmp_path) -> None:
     assert "    call rt_array_get_u8" not in asm
 
 
-def test_backend_emits_expected_object_fields_and_control_flow(tmp_path) -> None:
+def test_emit_source_asm_emits_expected_object_fields_and_control_flow(tmp_path) -> None:
     source = """
     class Counter {
         value: i64;
@@ -124,19 +120,16 @@ def test_backend_emits_expected_object_fields_and_control_flow(tmp_path) -> None
     }
     """
 
-    asm = emit_source_asm(tmp_path, source)
+    asm = emit_source_asm(tmp_path, source, skip_optimize=True)
 
-    for expected in [
-        "    mov qword ptr [rcx + 24], rax",
-        "    mov rax, qword ptr [rax + 24]",
-        ".Lmain_while_start_",
-        ".Lmain_while_end_",
-        ".Lmain_if_else_",
-    ]:
-        assert expected in asm
+    assert "    mov qword ptr [rcx + 24], rax" in asm
+    assert "    mov rax, qword ptr [rax + 24]" in asm
+    assert ".Lmain_b" in asm
+    assert "    je .Lmain_b" in asm
+    assert "    jmp .Lmain_b" in asm
 
 
-def test_backend_emits_integer_binary_expr_shape(tmp_path) -> None:
+def test_emit_source_asm_emits_integer_binary_expr_shape(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,
         """
@@ -144,14 +137,16 @@ def test_backend_emits_integer_binary_expr_shape(tmp_path) -> None:
 
         fn main() -> i64 { return f(20, 22); }
         """,
+        skip_optimize=True,
         source_path="main.nif",
     )
 
-    assert "    push rax" in asm
+    assert "    mov rdi, 20" in asm
+    assert "    mov rsi, 22" in asm
     assert "    add rax, rcx" in asm
 
 
-def test_backend_emits_numeric_cast_conversion_shape(tmp_path) -> None:
+def test_emit_source_asm_emits_numeric_cast_conversion_shape(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,
         """
@@ -167,17 +162,18 @@ def test_backend_emits_numeric_cast_conversion_shape(tmp_path) -> None:
             return 1;
         }
         """,
+        skip_optimize=True,
     )
 
     assert "    cvtsi2sd xmm0, rax" in asm
-    assert "    movq rax, xmm0" in asm
-    assert "    movq xmm0, rax" in asm
+    assert "    movq qword ptr [rbp - " in asm
+    assert "    movq xmm0, qword ptr [rbp - " in asm
     assert "    ucomisd xmm0, xmm1" in asm
     assert "    setne al" in asm
     assert "    setp dl" in asm
 
 
-def test_backend_emits_checked_double_to_integer_and_unsigned_u64_to_double_cast_shape(tmp_path) -> None:
+def test_emit_source_asm_emits_checked_double_to_integer_and_unsigned_u64_to_double_cast_shape(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,
         """
@@ -189,13 +185,14 @@ def test_backend_emits_checked_double_to_integer_and_unsigned_u64_to_double_cast
             return to_i64(to_double(42u));
         }
         """,
+        skip_optimize=True,
     )
 
     assert "    call rt_cast_u64_to_double" in asm
     assert "    call rt_cast_double_to_i64" in asm
 
 
-def test_backend_emits_while_control_flow_shape(tmp_path) -> None:
+def test_emit_source_asm_emits_while_control_flow_shape(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,
         """
@@ -211,15 +208,16 @@ def test_backend_emits_while_control_flow_shape(tmp_path) -> None:
             return loop_to(4);
         }
         """,
+        skip_optimize=True,
     )
 
     loop_label = mangle_function_symbol(("main",), "loop_to")
-    assert f".L{loop_label}_while_start_" in asm
-    assert f".L{loop_label}_while_end_" in asm
-    assert f"    je .L{loop_label}_while_end_" in asm
+    assert f"{loop_label}:" in asm
+    assert f".L{loop_label}_b" in asm
+    assert f"    je .L{loop_label}_b" in asm
 
 
-def test_backend_emits_if_else_control_flow_shape(tmp_path) -> None:
+def test_emit_source_asm_emits_if_else_control_flow_shape(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,
         """
@@ -235,10 +233,11 @@ def test_backend_emits_if_else_control_flow_shape(tmp_path) -> None:
             return choose(true);
         }
         """,
+        skip_optimize=True,
     )
 
     choose_label = mangle_function_symbol(("main",), "choose")
-    assert f".L{choose_label}_if_else_" in asm
-    assert f".L{choose_label}_if_end_" in asm
-    assert f"    je .L{choose_label}_if_else_" in asm
-    assert f"    jmp .L{choose_label}_if_end_" in asm
+    assert f"{choose_label}:" in asm
+    assert f".L{choose_label}_b" in asm
+    assert f"    je .L{choose_label}_b" in asm
+    assert f"    jmp .L{choose_label}_b" in asm

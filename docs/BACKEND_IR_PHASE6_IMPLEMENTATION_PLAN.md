@@ -1,6 +1,6 @@
 # Backend IR Phase 6 Implementation Plan
 
-Status: proposed.
+Status: completed.
 
 This document expands phase 6 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
@@ -34,7 +34,7 @@ Use these rules for every phase-6 patch:
 2. [x] PR 2: Update scripts, integration helpers, and test harness defaults to assume backend IR as the checked path.
 3. [x] PR 3: Remove legacy checked-path codegen entrypoints, dual-path CLI branches, and obsolete compatibility wrappers.
 4. [x] PR 4: Remove legacy layout, root-liveness, root-slot, and tree-walk backend analyses from production use.
-5. [ ] PR 5: Remove obsolete legacy backend tests or rewrite them against the new backend surface, then run the full repository validation gate.
+5. [x] PR 5: Remove obsolete legacy backend tests or rewrite them against the new backend surface, then run the full repository validation gate.
 
 ## PR 1: Default Checked CLI Cutover To Backend IR Plus `x86_64_sysv`
 
@@ -446,14 +446,15 @@ make -C runtime test-all
 - Backend IR is the only checked backend input across the repository.
 - The full test, golden, and runtime gates pass on the cutover codebase.
 - Legacy backend implementation details are no longer represented as active checked-path tests.
+- Remaining `tests/compiler/codegen` coverage is limited to shared helper modules that still support the backend IR path or explicit legacy measurement tooling.
 
 ### Checklist
 
-- [ ] Remove or rewrite obsolete legacy-backend tests.
-- [ ] Update docs to describe backend IR as the canonical checked backend seam.
-- [ ] Pass the full compiler pytest suite.
-- [ ] Pass the full golden suite and runtime harness suite.
-- [ ] Pass the repository umbrella test driver.
+- [x] Remove or rewrite obsolete legacy-backend tests.
+- [x] Update docs to describe backend IR as the canonical checked backend seam.
+- [x] Pass the full compiler pytest suite.
+- [x] Pass the full golden suite and runtime harness suite.
+- [x] Pass the repository umbrella test driver.
 
 ## Phase 6 Gate Checklist
 
@@ -464,11 +465,11 @@ Use this checklist when phase 6 is believed to be complete.
 - [x] Repository scripts and test helpers assume backend IR as the checked backend path.
 - [x] Legacy checked-path selection scaffolding is removed.
 - [x] Legacy layout, root-liveness, and root-slot planning are removed from production use.
-- [ ] Obsolete legacy backend tests are removed or rewritten against the new surfaces.
+- [x] Obsolete legacy backend tests are removed or rewritten against the new surfaces.
 - [x] The full pytest suite passes with backend IR as the only checked backend input.
 - [x] The full golden suite passes on the cutover codebase.
 - [x] Runtime harnesses pass on the cutover codebase.
-- [ ] Repository docs describe backend IR as the canonical checked backend seam.
+- [x] Repository docs describe backend IR as the canonical checked backend seam.
 
 Recommended phase gate commands:
 

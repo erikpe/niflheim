@@ -37,7 +37,7 @@ Frontend for MVP v0.1 is largely implemented:
 - Program-level module import/export visibility checks are implemented.
 - Type checking includes explicit casts, `Obj` up/downcast typing rules, return-path checks, and module-aware type resolution.
 
-The end-to-end compiler pipeline is implemented: resolve, typecheck, semantic lowering/optimization, linking, and assembly emission all run through the default CLI path. Current work is mostly on optimization/runtime hot paths, diagnostics polish, and broadening the standard-library/runtime surface.
+The end-to-end compiler pipeline is implemented: resolve, typecheck, semantic lowering/optimization, linking, backend IR lowering, backend IR analysis, and assembly emission all run through the default CLI path. Backend IR is now the canonical checked backend seam; the legacy tree-walk backend remains only for explicit legacy measurement and archival utilities. Current work is mostly on optimization/runtime hot paths, diagnostics polish, and broadening the standard-library/runtime surface.
 
 Recent backend/runtime updates:
 - Full `double` lowering is implemented in codegen, including literals, arithmetic/comparisons, casts, and mixed integer/floating call signatures.
@@ -93,7 +93,7 @@ Runtime sources are split by responsibility:
 
 For quick local workflows, use scripts under `scripts/`:
 
-- Default CLI compilation now lowers through backend IR, runs the backend IR pass pipeline, and emits assembly through `x86_64_sysv`.
+- Backend IR is the canonical checked backend seam. Default CLI compilation lowers through backend IR, runs the backend IR pass pipeline, and emits assembly through `x86_64_sysv`.
 - `--source-ast-codegen` is no longer supported on the checked CLI path.
 - `nifc --stop-after backend-ir-passes` is now a checked debugging seam: it lowers to backend IR, runs the phase-3 cleanup and analysis pipeline, and prints or writes the post-pass backend IR without continuing to assembly emission.
 
