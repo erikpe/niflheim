@@ -13,6 +13,7 @@ from compiler.backend.optimizations.pipeline import (
 from compiler.backend.optimizations.simplify_cfg import (
     eliminate_unreachable_blocks,
     fold_constant_branches,
+    fold_same_target_branches,
     simplify_callable_cfg,
     simplify_cfg,
     simplify_trivial_jump_blocks,
@@ -26,6 +27,7 @@ __all__ = [
     "dead_pure_definition_elimination",
     "eliminate_unreachable_blocks",
     "fold_constant_branches",
+    "fold_same_target_branches",
     "instruction_is_dead_eliminable",
     "optimize_backend_ir_program",
     "simplify_callable_cfg",

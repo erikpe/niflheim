@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from compiler.backend.optimizations import eliminate_unreachable_blocks, fold_constant_branches, simplify_callable_cfg
+from compiler.backend.optimizations import (
+    eliminate_unreachable_blocks,
+    fold_constant_branches,
+    fold_same_target_branches,
+    simplify_callable_cfg,
+)
 from compiler.backend.ir import (
     BackendBlock,
     BackendBlockId,
@@ -168,6 +173,37 @@ def test_fold_constant_branches_rewrites_bool_const_branch_to_selected_jump() ->
     verify_backend_program(simplified_program)
 
     assert _block_ids(simplified_callable) == (0, 2)
+
+
+def test_fold_same_target_branches_rewrites_branch_to_jump_without_forwarding() -> None:
+    program = one_function_backend_program()
+    main_callable = program.callables[0]
+    span = make_source_span(path="fixtures/fold_same_target_branch.nif", start_offset=10, end_offset=20)
+    target_block = BackendBlock(
+        block_id=BackendBlockId(owner_id=main_callable.callable_id, ordinal=1),
+        debug_name="target",
+        instructions=main_callable.blocks[0].instructions,
+        terminator=main_callable.blocks[0].terminator,
+        span=span,
+    )
+    entry_block = replace(
+        main_callable.blocks[0],
+        instructions=(),
+        terminator=BackendBranchTerminator(
+            span=span,
+            condition=BackendConstOperand(constant=BackendBoolConst(value=True)),
+            true_block_id=target_block.block_id,
+            false_block_id=target_block.block_id,
+        ),
+    )
+    branch_callable = replace(main_callable, blocks=(entry_block, target_block))
+
+    folded_callable = fold_same_target_branches(branch_callable)
+    folded_program = make_backend_program(folded_callable, entry_callable_id=program.entry_callable_id)
+
+    verify_backend_program(folded_program)
+    assert isinstance(folded_callable.blocks[0].terminator, BackendJumpTerminator)
+    assert folded_callable.blocks[0].terminator.target_block_id == target_block.block_id
 
 
 def test_simplify_callable_cfg_preserves_merge_copy_blocks_from_lowered_if_join(tmp_path) -> None:
