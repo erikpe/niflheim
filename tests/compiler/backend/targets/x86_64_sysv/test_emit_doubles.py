@@ -59,9 +59,9 @@ def test_emit_source_asm_emits_double_comparison_and_negation_sequences(tmp_path
     ordered_label = mangle_function_symbol(("main",), "is_ordered")
     ordered_body = _body_for_label(asm, ordered_label)
 
-    assert "    xorpd xmm1, xmm1" in ordered_body
-    assert "    subsd xmm1, xmm0" in ordered_body
-    assert "    movapd xmm0, xmm1" in ordered_body
+    assert "    movabs rdx, 0x8000000000000000" in ordered_body
+    assert "    movq xmm1, rdx" in ordered_body
+    assert "    xorpd xmm0, xmm1" in ordered_body
     assert "    ucomisd xmm0, xmm1" in ordered_body
     assert "    setb al" in ordered_body
     assert "    setnp dl" in ordered_body

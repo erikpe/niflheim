@@ -360,9 +360,9 @@ def _emit_unary_operation(builder: X86AsmBuilder, instruction: BackendUnaryInst,
 
 def _emit_float_unary_operation(builder: X86AsmBuilder, instruction: BackendUnaryInst) -> None:
     if instruction.op.flavor == UnaryOpFlavor.FLOAT and instruction.op.kind == UnaryOpKind.NEGATE:
-        builder.instruction("xorpd", _SECONDARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
-        builder.instruction("subsd", _SECONDARY_FLOAT_REGISTER, _PRIMARY_FLOAT_REGISTER)
-        builder.instruction("movapd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+        builder.instruction("movabs", _TERTIARY_REGISTER, "0x8000000000000000")
+        builder.instruction("movq", _SECONDARY_FLOAT_REGISTER, _TERTIARY_REGISTER)
+        builder.instruction("xorpd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
         return
     raise BackendTargetLoweringError(
         f"x86_64_sysv floating unary operator '{instruction.op.kind.value}' is not supported in the current scalar slice"
