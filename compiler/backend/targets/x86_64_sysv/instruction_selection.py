@@ -480,6 +480,9 @@ def _emit_integer_binary_operation(builder: X86AsmBuilder, kind: BinaryOpKind, *
         builder.instruction("imul", _PRIMARY_REGISTER, _SECONDARY_REGISTER)
         _mask_u8_result_if_needed(builder, operand_type_name)
         return
+    if kind == BinaryOpKind.POWER:
+        _emit_integer_power(builder, operand_type_name=operand_type_name)
+        return
     if kind == BinaryOpKind.DIVIDE:
         _emit_integer_divide_or_remainder(builder, operand_type_name=operand_type_name, emit_remainder=False)
         return
@@ -504,6 +507,19 @@ def _emit_integer_binary_operation(builder: X86AsmBuilder, kind: BinaryOpKind, *
     raise BackendTargetLoweringError(
         f"x86_64_sysv integer operator '{kind.value}' is not supported in PR3"
     )
+
+
+def _emit_integer_power(builder: X86AsmBuilder, *, operand_type_name: str) -> None:
+    builder.instruction("mov", _QUATERNARY_REGISTER, "1")
+    builder.instruction("test", _SECONDARY_REGISTER, _SECONDARY_REGISTER)
+    builder.instruction("jz", "2f")
+    builder.label("1")
+    builder.instruction("imul", _QUATERNARY_REGISTER, _PRIMARY_REGISTER)
+    builder.instruction("dec", _SECONDARY_REGISTER)
+    builder.instruction("jnz", "1b")
+    builder.label("2")
+    builder.instruction("mov", _PRIMARY_REGISTER, _QUATERNARY_REGISTER)
+    _mask_u8_result_if_needed(builder, operand_type_name)
 
 
 def _emit_integer_divide_or_remainder(
