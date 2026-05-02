@@ -242,16 +242,19 @@ def test_asm_helpers_render_stable_text() -> None:
     builder.comment("entry")
     builder.instruction("mov", "rax", format_stack_slot_operand("rbp", -16))
 
-    assert builder.build() == "\n".join(
-        [
-            ".intel_syntax noprefix",
-            ".section .text",
-            ".globl demo",
-            "",
-            "demo:",
-            "    # entry",
-            "    mov rax, qword ptr [rbp - 16]",
-        ]
+    assert builder.build() == (
+        "\n".join(
+            [
+                ".intel_syntax noprefix",
+                ".section .text",
+                ".globl demo",
+                "",
+                "demo:",
+                "    # entry",
+                "    mov rax, qword ptr [rbp - 16]",
+            ]
+        )
+        + "\n"
     )
 
 

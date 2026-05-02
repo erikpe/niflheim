@@ -114,7 +114,9 @@ def test_cli_debug_logs_respect_verbosity_threshold(tmp_path: Path, monkeypatch,
     assert "nifc: info: Wrote assembly to" in captured.err
 
 
-def test_cli_skip_optimize_suppresses_optimization_phase_logs(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_cli_disable_all_optimization_suppresses_optimization_phase_logs(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
     write(
@@ -126,7 +128,7 @@ def test_cli_skip_optimize_suppresses_optimization_phase_logs(tmp_path: Path, mo
         """,
     )
 
-    rc = run_cli(monkeypatch, ["nifc", str(entry), "--skip-optimize", "--log-level", "debug", "-vv", "-o", str(out_file)])
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--disable-all-optimization", "--log-level", "debug", "-vv", "-o", str(out_file)])
     captured = capsys.readouterr()
 
     assert rc == 0
@@ -135,7 +137,8 @@ def test_cli_skip_optimize_suppresses_optimization_phase_logs(tmp_path: Path, mo
     assert "Optimization pass " not in captured.err
     assert "nifc: info: Linking semantic program" in captured.err
     assert "nifc: info: Lowering backend IR" in captured.err
-    assert "nifc: info: Optimizing backend IR" in captured.err
+    assert "nifc: info: Optimizing backend IR" not in captured.err
+    assert "Backend optimization pass " not in captured.err
     assert "nifc: info: Running backend IR passes" in captured.err
     assert "nifc: info: Emitting assembly via x86_64_sysv" in captured.err
     assert "nifc: debug: Emitted" in captured.err

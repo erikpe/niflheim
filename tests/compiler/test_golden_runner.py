@@ -122,7 +122,7 @@ def test_discover_tests_parses_build_args(tmp_path: Path, monkeypatch: pytest.Mo
         "  - mode: run\n"
         "    name: alpha\n"
         "    src_file: test_alpha.nif\n"
-        "    build_args: [\"--skip-optimize\", \"--omit-runtime-trace\"]\n"
+        "    build_args: [\"--disable-all-optimization\", \"--omit-runtime-trace\"]\n"
         "    runs:\n"
         "      - name: ok\n",
     )
@@ -132,7 +132,7 @@ def test_discover_tests_parses_build_args(tmp_path: Path, monkeypatch: pytest.Mo
     tests = runner._discover_tests(None)
 
     assert len(tests) == 1
-    assert tests[0].build_args == ["--skip-optimize", "--omit-runtime-trace"]
+    assert tests[0].build_args == ["--disable-all-optimization", "--omit-runtime-trace"]
 
 
 def test_build_output_path_flattens_spec_path_and_test_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -276,7 +276,7 @@ def test_compile_run_test_forwards_build_args_to_build_script(
         spec_path=spec_path,
         runs=[],
         compile_error_match=None,
-        build_args=["--skip-optimize", "--omit-runtime-trace"],
+        build_args=["--disable-all-optimization", "--omit-runtime-trace"],
     )
 
     ok, error, _output_path = runner._compile_run_test(test)
@@ -288,7 +288,7 @@ def test_compile_run_test_forwards_build_args_to_build_script(
         "tests/golden/suite/test_alpha.nif",
         "build/golden/__cases__/suite__test_alpha_spec__alpha",
         "--",
-        "--skip-optimize",
+        "--disable-all-optimization",
         "--omit-runtime-trace",
     ]
 
@@ -324,7 +324,7 @@ def test_compile_fail_test_forwards_build_args_to_compiler(
         spec_path=spec_path,
         runs=[],
         compile_error_match="boom",
-        build_args=["--skip-optimize"],
+        build_args=["--disable-all-optimization"],
     )
 
     ok, error = runner._compile_fail_test(test)
@@ -340,7 +340,7 @@ def test_compile_fail_test_forwards_build_args_to_compiler(
         str(build_root / runner.BUILD_CASES_DIRNAME / "suite__test_bad_spec__bad.s"),
         "--project-root",
         str(repo_root),
-        "--skip-optimize",
+        "--disable-all-optimization",
     ]
 
 

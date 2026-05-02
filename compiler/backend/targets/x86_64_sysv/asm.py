@@ -47,7 +47,7 @@ class X86AsmBuilder:
         rendered_lines = list(self._lines)
         while rendered_lines and rendered_lines[-1] == "":
             rendered_lines.pop()
-        return "\n".join(rendered_lines)
+        return "\n".join(rendered_lines) + "\n"
 
 
 __all__ = ["X86AsmBuilder", "format_stack_slot_operand"]

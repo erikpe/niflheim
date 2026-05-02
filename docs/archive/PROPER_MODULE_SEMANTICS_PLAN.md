@@ -152,7 +152,7 @@ In `compiler/semantic/linker.py`:
 
 Expected outcome:
 
-- `tests/golden/vm_benchmark/test_vm_benchmark_spec.yaml` can use `--skip-optimize` without tripping duplicate `main`
+- `tests/golden/vm_benchmark/test_vm_benchmark_spec.yaml` can use `--disable-all-optimization` without tripping duplicate `main`
 - same-name top-level functions and classes across modules are accepted
 - semantic identity no longer depends on optimization removing unreachable modules or functions
 
@@ -512,12 +512,12 @@ Goal: finish the remaining compatibility work and confirm the full compiler pipe
     Files:
     `tests/golden/runner.py` only as needed, `tests/golden/vm_benchmark/test_vm_benchmark_spec.yaml`, relevant integration and golden tests
     Expected outcome:
-    `--skip-optimize` and duplicate leaf names are safe in real linked programs, not just in isolated unit tests.
+    `--disable-all-optimization` and duplicate leaf names are safe in real linked programs, not just in isolated unit tests.
 
 Tests for phase 4:
 
 - [x] Run `tests/compiler/codegen/test_program_generator.py`.
-- [x] Run the VM benchmark golden with `build_args: ["--skip-optimize"]`.
+- [x] Run the VM benchmark golden with `build_args: ["--disable-all-optimization"]`.
 - [x] Run the full pytest suite.
 
 ## Suggested Test Sequence
@@ -532,7 +532,7 @@ Recommended validation order while implementing:
 6. `tests/compiler/codegen/test_symbols.py`
 7. focused `tests/compiler/codegen/` tests that mention raw top-level function labels
 8. `tests/compiler/codegen/test_program_generator.py`
-9. the VM benchmark golden with `--skip-optimize`
+9. the VM benchmark golden with `--disable-all-optimization`
 10. full pytest
 
 This order isolates syntax and migration fallout first, linker regressions second, and assembly-label fallout last.

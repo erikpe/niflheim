@@ -86,14 +86,16 @@ def _filter_optimization_passes(passes, disabled_pass_names: tuple[str, ...], *,
     disabled_names = set(disabled_pass_names)
     if not disabled_names:
         return passes
+    if "all" in disabled_names:
+        return ()
 
     known_names = {optimization_pass.name for optimization_pass in passes}
     unknown_names = sorted(disabled_names - known_names)
     if unknown_names:
         known_names_rendered = ", ".join(sorted(known_names))
-        unknown_names_rendered = ", ".join(unknown_names)
+        disabled_names_rendered = ", ".join(unknown_names)
         raise ValueError(
-            f"Unknown {label} optimization pass '{unknown_names_rendered}' (known: {known_names_rendered})"
+            f"Unknown {label} optimization pass '{disabled_names_rendered}' (known: {known_names_rendered})"
         )
 
     return tuple(optimization_pass for optimization_pass in passes if optimization_pass.name not in disabled_names)
@@ -300,9 +302,9 @@ def main() -> int:
         help="Do not emit rt_trace_push/pop/set_location calls in generated assembly",
     )
     compilation_group.add_argument(
-        "--skip-optimize",
+        "--disable-all-optimization",
         action="store_true",
-        help="Skip semantic optimization and continue from lowered semantic IR",
+        help="Disable all semantic and backend IR optimization phases",
     )
     compilation_group.add_argument(
         "--disable-semantic-optimization",
@@ -331,11 +333,9 @@ def main() -> int:
         program = _resolve_program_graph(logger, input_path, args.project_root)
         _typecheck_program_phase(logger, program)
         lowered_program = _lower_program_phase(logger, program)
-        if args.skip_optimize and args.disable_semantic_optimization:
-            raise ValueError("--skip-optimize cannot be combined with --disable-semantic-optimization")
         optimized_program = (
             lowered_program
-            if args.skip_optimize
+            if args.disable_all_optimization
             else _optimize_program_phase(
                 logger,
                 lowered_program,
@@ -372,11 +372,12 @@ def main() -> int:
                 project_root=dump_project_root,
             )
 
-        backend_program = _optimize_backend_ir_phase(
-            logger,
-            backend_program,
-            disabled_pass_names=tuple(args.disable_backend_optimization),
-        )
+        if not args.disable_all_optimization:
+            backend_program = _optimize_backend_ir_phase(
+                logger,
+                backend_program,
+                disabled_pass_names=tuple(args.disable_backend_optimization),
+            )
         pipeline_result = _run_backend_ir_pipeline_phase(logger, backend_program)
 
         if args.stop_after == "backend-ir-passes":

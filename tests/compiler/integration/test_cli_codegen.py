@@ -71,7 +71,7 @@ def test_cli_can_omit_runtime_trace_calls(tmp_path: Path, monkeypatch) -> None:
     assert seen["runtime_trace_enabled"] is False
 
 
-def test_cli_can_skip_optimization_phase(tmp_path: Path, monkeypatch) -> None:
+def test_cli_can_disable_all_optimization_phases(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
     write(
@@ -83,11 +83,15 @@ def test_cli_can_skip_optimization_phase(tmp_path: Path, monkeypatch) -> None:
         """,
     )
 
-    seen: dict[str, object] = {"optimize_called": False}
+    seen: dict[str, object] = {"semantic_optimize_called": False, "backend_optimize_called": False}
 
-    def _fake_optimize_program(lowered_program):
-        seen["optimize_called"] = True
+    def _fake_optimize_program(lowered_program, *, passes):
+        seen["semantic_optimize_called"] = True
         return lowered_program
+
+    def _fake_optimize_backend_program(backend_program, *, passes):
+        seen["backend_optimize_called"] = True
+        return backend_program
 
     def _fake_emit_backend(target_input: BackendTargetInput, *, options) -> BackendEmitResult:
         seen["target_input"] = target_input
@@ -95,14 +99,65 @@ def test_cli_can_skip_optimization_phase(tmp_path: Path, monkeypatch) -> None:
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
     monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
+    monkeypatch.setattr(cli, "optimize_backend_ir_program", _fake_optimize_backend_program)
     monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
 
-    rc = run_cli(monkeypatch, ["nifc", str(entry), "--skip-optimize", "-o", str(out_file)])
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--disable-all-optimization", "-o", str(out_file)])
 
     assert rc == 0
     assert out_file.read_text(encoding="utf-8") == "; backend-ir target selected\n"
-    assert seen["optimize_called"] is False
+    assert seen["semantic_optimize_called"] is False
+    assert seen["backend_optimize_called"] is False
     assert isinstance(seen["target_input"], BackendTargetInput)
+
+
+def test_cli_disable_all_optimization_overrides_named_disabled_passes(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    out_file = tmp_path / "out.s"
+    write(
+        entry,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    seen: dict[str, object] = {"semantic_optimize_called": False, "backend_optimize_called": False}
+
+    def _fake_optimize_program(lowered_program, *, passes):
+        seen["semantic_optimize_called"] = True
+        return lowered_program
+
+    def _fake_optimize_backend_program(backend_program, *, passes):
+        seen["backend_optimize_called"] = True
+        return backend_program
+
+    def _fake_emit_backend(target_input: BackendTargetInput, *, options) -> BackendEmitResult:
+        return BackendEmitResult(assembly_text="; backend-ir target selected\n")
+
+    monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
+    monkeypatch.setattr(cli, "optimize_backend_ir_program", _fake_optimize_backend_program)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+
+    rc = run_cli(
+        monkeypatch,
+        [
+            "nifc",
+            str(entry),
+            "--disable-all-optimization",
+            "--disable-semantic-optimization",
+            "constant_fold",
+            "--disable-backend-optimization",
+            "constant_fold",
+            "-o",
+            str(out_file),
+        ],
+    )
+
+    assert rc == 0
+    assert seen["semantic_optimize_called"] is False
+    assert seen["backend_optimize_called"] is False
 
 
 def test_cli_can_disable_named_semantic_optimization_pass(tmp_path: Path, monkeypatch) -> None:
@@ -139,6 +194,39 @@ def test_cli_can_disable_named_semantic_optimization_pass(tmp_path: Path, monkey
     assert "copy_propagation" in seen["pass_names"]
 
 
+def test_cli_can_disable_all_semantic_optimization_passes_by_name(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    out_file = tmp_path / "out.s"
+    write(
+        entry,
+        """
+        fn main() -> i64 {
+            return 1 + 2;
+        }
+        """,
+    )
+
+    seen: dict[str, object] = {}
+
+    def _fake_optimize_program(lowered_program, *, passes):
+        seen["pass_names"] = tuple(optimization_pass.name for optimization_pass in passes)
+        return lowered_program
+
+    def _fake_emit_backend(target_input: BackendTargetInput, *, options) -> BackendEmitResult:
+        return BackendEmitResult(assembly_text="; backend-ir target selected\n")
+
+    monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+
+    rc = run_cli(
+        monkeypatch,
+        ["nifc", str(entry), "--disable-semantic-optimization", "all", "-o", str(out_file)],
+    )
+
+    assert rc == 0
+    assert seen["pass_names"] == ()
+
+
 def test_cli_can_disable_named_backend_optimization_pass(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
@@ -171,6 +259,39 @@ def test_cli_can_disable_named_backend_optimization_pass(tmp_path: Path, monkeyp
     assert rc == 0
     assert "constant_fold" not in seen["pass_names"]
     assert "simplify_cfg" in seen["pass_names"]
+
+
+def test_cli_can_disable_all_backend_optimization_passes_by_name(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    out_file = tmp_path / "out.s"
+    write(
+        entry,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    seen: dict[str, object] = {}
+
+    def _fake_optimize_backend_program(backend_program, *, passes):
+        seen["pass_names"] = tuple(optimization_pass.name for optimization_pass in passes)
+        return backend_program
+
+    def _fake_emit_backend(target_input: BackendTargetInput, *, options) -> BackendEmitResult:
+        return BackendEmitResult(assembly_text="; backend-ir target selected\n")
+
+    monkeypatch.setattr(cli, "optimize_backend_ir_program", _fake_optimize_backend_program)
+    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+
+    rc = run_cli(
+        monkeypatch,
+        ["nifc", str(entry), "--disable-backend-optimization", "all", "-o", str(out_file)],
+    )
+
+    assert rc == 0
+    assert seen["pass_names"] == ()
 
 
 def test_cli_rejects_unknown_disabled_optimization_pass(tmp_path: Path, monkeypatch, capsys) -> None:

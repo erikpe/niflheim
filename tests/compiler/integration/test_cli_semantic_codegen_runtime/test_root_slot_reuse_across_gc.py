@@ -95,10 +95,10 @@ fn main() -> i64 {
     [
         [],
         ["--omit-runtime-trace"],
-        ["--skip-optimize"],
-        ["--omit-runtime-trace", "--skip-optimize"],
+        ["--disable-all-optimization"],
+        ["--omit-runtime-trace", "--disable-all-optimization"],
     ],
-    ids=["default", "no_trace", "skip_optimize", "no_trace_skip_optimize"],
+    ids=["default", "no_trace", "disable_all_optimization", "no_trace_disable_all_optimization"],
 )
 def test_cli_semantic_codegen_runs_root_slot_reuse_across_forced_gc(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extra_args: list[str]

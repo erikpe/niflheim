@@ -87,7 +87,17 @@ tests:
     build_args: ["--omit-runtime-trace"]
     runs: *test_vm_benchmark_runs
   - mode: "run"
-    name: "test_vm_benchmark_skip_optimize"
+    name: "test_vm_benchmark_disable_semantic_optimization"
     src_file: "test_vm_benchmark.nif"
-    build_args: ["--skip-optimize"]
+    build_args: ["--disable-semantic-optimization", "all"]
+    runs: *test_vm_benchmark_runs
+  - mode: "run"
+    name: "test_vm_benchmark_disable_backend_optimization"
+    src_file: "test_vm_benchmark.nif"
+    build_args: ["--disable-backend-optimization", "all"]
+    runs: *test_vm_benchmark_runs
+  - mode: "run"
+    name: "test_vm_benchmark_disable_all_optimization"
+    src_file: "test_vm_benchmark.nif"
+    build_args: ["--disable-all-optimization"]
     runs: *test_vm_benchmark_runs
