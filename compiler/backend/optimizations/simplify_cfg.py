@@ -3,7 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from compiler.backend.analysis.cfg import build_block_index, build_successor_map, reachable_block_ids
-from compiler.backend.ir import BackendBlock, BackendBranchTerminator, BackendCallableDecl, BackendJumpTerminator, BackendProgram
+from compiler.backend.ir import (
+    BackendBlock,
+    BackendBoolConst,
+    BackendBranchTerminator,
+    BackendCallableDecl,
+    BackendConstOperand,
+    BackendJumpTerminator,
+    BackendProgram,
+)
 from compiler.common.logging import get_logger
 
 
@@ -11,6 +19,7 @@ from compiler.common.logging import get_logger
 class _SimplifyCfgStats:
     removed_unreachable_blocks: int = 0
     removed_trivial_jump_blocks: int = 0
+    folded_constant_branches: int = 0
     rewritten_terminators: int = 0
     optimized_callables: int = 0
 
@@ -22,9 +31,10 @@ def simplify_cfg(program: BackendProgram) -> BackendProgram:
     optimized_program = replace(program, callables=optimized_callables)
     logger.debugv(
         1,
-        "Backend optimization pass simplify_cfg removed %d unreachable blocks, %d trivial jump blocks, rewrote %d terminators across %d callables",
+        "Backend optimization pass simplify_cfg removed %d unreachable blocks, %d trivial jump blocks, folded %d constant branches, rewrote %d terminators across %d callables",
         stats.removed_unreachable_blocks,
         stats.removed_trivial_jump_blocks,
+        stats.folded_constant_branches,
         stats.rewritten_terminators,
         stats.optimized_callables,
     )
@@ -107,6 +117,37 @@ def simplify_trivial_jump_blocks(
     return replace(callable_decl, blocks=tuple(rewritten_blocks))
 
 
+def fold_constant_branches(
+    callable_decl: BackendCallableDecl,
+    *,
+    stats: _SimplifyCfgStats | None = None,
+) -> BackendCallableDecl:
+    if callable_decl.is_extern or not callable_decl.blocks:
+        return callable_decl
+
+    rewritten_blocks: list[BackendBlock] = []
+    folded_count = 0
+    for block in callable_decl.blocks:
+        terminator = block.terminator
+        if not isinstance(terminator, BackendBranchTerminator):
+            rewritten_blocks.append(block)
+            continue
+        if not isinstance(terminator.condition, BackendConstOperand) or not isinstance(terminator.condition.constant, BackendBoolConst):
+            rewritten_blocks.append(block)
+            continue
+        target_block_id = terminator.true_block_id if terminator.condition.constant.value else terminator.false_block_id
+        rewritten_blocks.append(
+            replace(block, terminator=BackendJumpTerminator(span=terminator.span, target_block_id=target_block_id))
+        )
+        folded_count += 1
+
+    if folded_count == 0:
+        return callable_decl
+    if stats is not None:
+        stats.folded_constant_branches += folded_count
+    return replace(callable_decl, blocks=tuple(rewritten_blocks))
+
+
 def simplify_callable_cfg(
     callable_decl: BackendCallableDecl,
     *,
@@ -117,7 +158,10 @@ def simplify_callable_cfg(
     current = callable_decl
     changed = False
     while True:
-        next_callable = eliminate_unreachable_blocks(simplify_trivial_jump_blocks(current, stats=stats), stats=stats)
+        next_callable = eliminate_unreachable_blocks(
+            simplify_trivial_jump_blocks(fold_constant_branches(current, stats=stats), stats=stats),
+            stats=stats,
+        )
         if next_callable == current:
             if changed and stats is not None:
                 stats.optimized_callables += 1
@@ -199,6 +243,7 @@ def _remap_target(block_id, forward_target_by_block):
 
 __all__ = [
     "eliminate_unreachable_blocks",
+    "fold_constant_branches",
     "simplify_callable_cfg",
     "simplify_cfg",
     "simplify_trivial_jump_blocks",

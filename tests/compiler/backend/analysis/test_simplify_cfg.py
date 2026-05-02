@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from compiler.backend.optimizations import eliminate_unreachable_blocks, simplify_callable_cfg
+from compiler.backend.optimizations import eliminate_unreachable_blocks, fold_constant_branches, simplify_callable_cfg
 from compiler.backend.ir import (
     BackendBlock,
     BackendBlockId,
@@ -111,6 +111,63 @@ def test_simplify_callable_cfg_forwards_empty_jump_blocks_and_collapses_branch_t
     assert isinstance(simplified_callable.blocks[0].terminator, BackendJumpTerminator)
     assert simplified_callable.blocks[0].terminator.target_block_id == ret_block.block_id
     assert simplified_callable.blocks[1].instructions == ret_block.instructions
+
+
+def test_fold_constant_branches_rewrites_bool_const_branch_to_selected_jump() -> None:
+    program = one_function_backend_program()
+    main_callable = program.callables[0]
+    span = make_source_span(path="fixtures/fold_constant_branch.nif", start_offset=10, end_offset=20)
+    result_reg = main_callable.blocks[0].instructions[0].dest
+    true_block = BackendBlock(
+        block_id=BackendBlockId(owner_id=main_callable.callable_id, ordinal=1),
+        debug_name="true",
+        instructions=(
+            BackendConstInst(
+                inst_id=main_callable.blocks[0].instructions[0].inst_id,
+                dest=result_reg,
+                constant=BackendIntConst(type_name="i64", value=1),
+                span=span,
+            ),
+        ),
+        terminator=BackendReturnTerminator(span=span, value=BackendRegOperand(reg_id=result_reg)),
+        span=span,
+    )
+    false_block = BackendBlock(
+        block_id=BackendBlockId(owner_id=main_callable.callable_id, ordinal=2),
+        debug_name="false",
+        instructions=(
+            BackendConstInst(
+                inst_id=main_callable.blocks[0].instructions[0].inst_id,
+                dest=result_reg,
+                constant=BackendIntConst(type_name="i64", value=2),
+                span=span,
+            ),
+        ),
+        terminator=BackendReturnTerminator(span=span, value=BackendRegOperand(reg_id=result_reg)),
+        span=span,
+    )
+    entry_block = replace(
+        main_callable.blocks[0],
+        instructions=(),
+        terminator=BackendBranchTerminator(
+            span=span,
+            condition=BackendConstOperand(constant=BackendBoolConst(value=False)),
+            true_block_id=true_block.block_id,
+            false_block_id=false_block.block_id,
+        ),
+    )
+    branch_callable = replace(main_callable, blocks=(entry_block, true_block, false_block))
+
+    folded_callable = fold_constant_branches(branch_callable)
+
+    assert isinstance(folded_callable.blocks[0].terminator, BackendJumpTerminator)
+    assert folded_callable.blocks[0].terminator.target_block_id == false_block.block_id
+
+    simplified_callable = simplify_callable_cfg(branch_callable)
+    simplified_program = make_backend_program(simplified_callable, entry_callable_id=program.entry_callable_id)
+    verify_backend_program(simplified_program)
+
+    assert _block_ids(simplified_callable) == (0, 2)
 
 
 def test_simplify_callable_cfg_preserves_merge_copy_blocks_from_lowered_if_join(tmp_path) -> None:
