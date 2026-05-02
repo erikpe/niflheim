@@ -17,4 +17,4 @@ tests:
     name: "test_negation_backend_constant_fold"
     src_file: "test_negation.nif"
     runs: *test_negation_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

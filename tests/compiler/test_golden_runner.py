@@ -453,6 +453,10 @@ def test_main_forwards_disabled_optimization_flags_to_selected_tests(
         assert spec_tests == tests
         assert extra_build_args == [
             "--disable-semantic-optimization",
+            "algebraic_simplify",
+            "--disable-semantic-optimization",
+            "constant_fold",
+            "--disable-backend-optimization",
             "constant_fold",
             "--disable-backend-optimization",
             "simplify_cfg",
@@ -483,8 +487,10 @@ def test_main_forwards_disabled_optimization_flags_to_selected_tests(
             "--jobs",
             "1",
             "--disable-semantic-optimization",
+            "algebraic_simplify",
             "constant_fold",
             "--disable-backend-optimization",
+            "constant_fold",
             "simplify_cfg",
         ],
     )

@@ -14,4 +14,4 @@ tests:
     name: "test_arithmetic_edge_cases_backend_constant_fold"
     src_file: "test_arithmetic_edge_cases.nif"
     runs: *test_arithmetic_edge_cases_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

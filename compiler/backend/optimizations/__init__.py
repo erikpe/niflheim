@@ -1,5 +1,6 @@
 """Backend IR optimization public surface."""
 
+from compiler.backend.optimizations.algebraic_simplify import algebraic_simplify
 from compiler.backend.optimizations.constant_fold import constant_fold
 from compiler.backend.optimizations.dead_pure_definition_elimination import (
     dead_pure_definition_elimination,
@@ -25,6 +26,7 @@ __all__ = [
     "BackendOptimization",
     "BackendOptimizationPass",
     "DEFAULT_BACKEND_OPTIMIZATION_PASSES",
+    "algebraic_simplify",
     "constant_fold",
     "dead_pure_definition_elimination",
     "eliminate_unreachable_blocks",

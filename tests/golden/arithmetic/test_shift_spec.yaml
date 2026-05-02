@@ -37,4 +37,4 @@ tests:
     name: "test_shift_backend_constant_fold"
     src_file: "test_shift.nif"
     runs: *test_shift_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

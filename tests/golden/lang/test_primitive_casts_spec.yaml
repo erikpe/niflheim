@@ -62,4 +62,4 @@ tests:
     name: "test_primitive_casts_backend_constant_fold"
     src_file: "test_primitive_casts.nif"
     runs: *test_primitive_casts_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

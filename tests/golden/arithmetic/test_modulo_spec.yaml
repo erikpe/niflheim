@@ -23,4 +23,4 @@ tests:
     name: "test_modulo_backend_constant_fold"
     src_file: "test_modulo.nif"
     runs: *test_modulo_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

@@ -107,4 +107,4 @@ tests:
     name: "test_bitwise_backend_constant_fold"
     src_file: "test_bitwise.nif"
     runs: *test_bitwise_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

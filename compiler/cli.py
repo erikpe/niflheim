@@ -101,6 +101,10 @@ def _filter_optimization_passes(passes, disabled_pass_names: tuple[str, ...], *,
     return tuple(optimization_pass for optimization_pass in passes if optimization_pass.name not in disabled_names)
 
 
+def _flatten_disabled_optimization_names(disabled_pass_names: list[list[str]]) -> tuple[str, ...]:
+    return tuple(pass_name for pass_names in disabled_pass_names for pass_name in pass_names)
+
+
 def _optimize_program_phase(logger, lowered_program, *, disabled_pass_names: tuple[str, ...] = ()):
     logger.info("Optimizing semantic program")
     start = perf_counter()
@@ -309,16 +313,18 @@ def main() -> int:
     compilation_group.add_argument(
         "--disable-semantic-optimization",
         action="append",
+        nargs="+",
         default=[],
         metavar="PASS",
-        help="Disable every semantic optimization pass with this name; may be repeated",
+        help="Disable semantic optimization passes with these names; may be repeated; 'all' disables every pass",
     )
     compilation_group.add_argument(
         "--disable-backend-optimization",
         action="append",
+        nargs="+",
         default=[],
         metavar="PASS",
-        help="Disable every backend IR optimization pass with this name; may be repeated",
+        help="Disable backend IR optimization passes with these names; may be repeated; 'all' disables every pass",
     )
     args = parser.parse_args()
     log_settings = resolve_log_settings(args.log_level, args.verbose, args.quiet)
@@ -339,7 +345,7 @@ def main() -> int:
             else _optimize_program_phase(
                 logger,
                 lowered_program,
-                disabled_pass_names=tuple(args.disable_semantic_optimization),
+                disabled_pass_names=_flatten_disabled_optimization_names(args.disable_semantic_optimization),
             )
         )
         linked_program = _link_program_phase(logger, optimized_program)
@@ -376,7 +382,7 @@ def main() -> int:
             backend_program = _optimize_backend_ir_phase(
                 logger,
                 backend_program,
-                disabled_pass_names=tuple(args.disable_backend_optimization),
+                disabled_pass_names=_flatten_disabled_optimization_names(args.disable_backend_optimization),
             )
         pipeline_result = _run_backend_ir_pipeline_phase(logger, backend_program)
 

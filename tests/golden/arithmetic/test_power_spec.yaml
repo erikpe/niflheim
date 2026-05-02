@@ -63,4 +63,4 @@ tests:
     name: "test_power_backend_constant_fold"
     src_file: "test_power.nif"
     runs: *test_power_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

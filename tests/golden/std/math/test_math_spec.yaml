@@ -46,9 +46,9 @@ tests:
     name: "test_math_backend_constant_fold"
     src_file: "test_math.nif"
     runs: *test_math_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]
   - mode: "run"
     name: "test_math_no_constant_fold"
     src_file: "test_math.nif"
     runs: *test_math_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold", "--disable-backend-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify", "--disable-backend-optimization", "constant_fold", "algebraic_simplify"]

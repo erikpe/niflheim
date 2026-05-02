@@ -30,4 +30,4 @@ tests:
     name: "test_division_backend_constant_fold"
     src_file: "test_division.nif"
     runs: *test_division_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

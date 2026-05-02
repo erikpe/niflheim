@@ -12,4 +12,4 @@ tests:
     name: "test_addition_backend_constant_fold"
     src_file: "test_addition.nif"
     runs: *test_addition_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

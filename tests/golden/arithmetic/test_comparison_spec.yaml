@@ -27,4 +27,4 @@ tests:
     name: "test_comparison_backend_constant_fold"
     src_file: "test_comparison.nif"
     runs: *test_comparison_runs
-    build_args: ["--disable-semantic-optimization", "constant_fold"]
+    build_args: ["--disable-semantic-optimization", "constant_fold", "algebraic_simplify"]

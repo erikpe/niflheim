@@ -625,16 +625,18 @@ def main() -> int:
     parser.add_argument(
         "--disable-semantic-optimization",
         action="append",
+        nargs="+",
         default=[],
         metavar="PASS",
-        help="Forward --disable-semantic-optimization PASS to every selected golden test; may be repeated",
+        help="Forward --disable-semantic-optimization PASS... to every selected golden test; may be repeated",
     )
     parser.add_argument(
         "--disable-backend-optimization",
         action="append",
+        nargs="+",
         default=[],
         metavar="PASS",
-        help="Forward --disable-backend-optimization PASS to every selected golden test; may be repeated",
+        help="Forward --disable-backend-optimization PASS... to every selected golden test; may be repeated",
     )
     parser.add_argument(
         "build_args",
@@ -645,10 +647,12 @@ def main() -> int:
     extra_build_args = list(args.build_args)
     if extra_build_args and extra_build_args[0] == "--":
         extra_build_args = extra_build_args[1:]
-    for pass_name in args.disable_semantic_optimization:
-        extra_build_args.extend(["--disable-semantic-optimization", pass_name])
-    for pass_name in args.disable_backend_optimization:
-        extra_build_args.extend(["--disable-backend-optimization", pass_name])
+    for pass_names in args.disable_semantic_optimization:
+        for pass_name in pass_names:
+            extra_build_args.extend(["--disable-semantic-optimization", pass_name])
+    for pass_names in args.disable_backend_optimization:
+        for pass_name in pass_names:
+            extra_build_args.extend(["--disable-backend-optimization", pass_name])
 
     try:
         tests = _discover_tests(args.filter)

@@ -8,6 +8,7 @@ from compiler.backend.ir import BackendProgram
 from compiler.backend.ir.verify import verify_backend_program
 from compiler.common.logging import get_logger
 
+from .algebraic_simplify import algebraic_simplify
 from .constant_fold import constant_fold
 from .dead_pure_definition_elimination import dead_pure_definition_elimination
 from .simplify_cfg import simplify_cfg
@@ -27,6 +28,8 @@ DEFAULT_BACKEND_OPTIMIZATION_PASSES: tuple[BackendOptimizationPass, ...] = (
     BackendOptimizationPass(name="dead_pure_definition_elimination", transform=dead_pure_definition_elimination),
     BackendOptimizationPass(name="trivial_copy_elimination", transform=trivial_copy_elimination),
     BackendOptimizationPass(name="constant_fold", transform=constant_fold),
+    BackendOptimizationPass(name="algebraic_simplify", transform=algebraic_simplify),
+    BackendOptimizationPass(name="trivial_copy_elimination", transform=trivial_copy_elimination),
     BackendOptimizationPass(name="simplify_cfg", transform=simplify_cfg),
     BackendOptimizationPass(name="dead_pure_definition_elimination", transform=dead_pure_definition_elimination),
 )
