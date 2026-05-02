@@ -23,6 +23,19 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     register_type_name_by_reg_id,
 )
 from compiler.backend.targets.x86_64_sysv.lower_calls import emit_call_instruction, emit_direct_call_instruction
+from compiler.backend.targets.x86_64_sysv.locations import (
+    X86_64_SYSV_CALLEE_SAVED_GPRS,
+    X86_64_SYSV_CALLER_SAVED_GPRS,
+    X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
+    X86_64_SYSV_XMM_REGISTERS,
+    X86_64SysVPhysicalRegister,
+    X86_64SysVRegisterClass,
+    X86_64SysVRegisterLocation,
+    X86_64SysVStackLocation,
+    gpr_register,
+    register_class_for_type,
+    xmm_register,
+)
 from compiler.backend.targets.x86_64_sysv.emit import (
     TARGET_NAME,
     X86_64_SYSV_TARGET,
@@ -35,7 +48,11 @@ from compiler.backend.targets.x86_64_sysv.emit import (
 __all__ = [
     "TARGET_NAME",
     "X86_64_SYSV_ABI",
+    "X86_64_SYSV_CALLEE_SAVED_GPRS",
+    "X86_64_SYSV_CALLER_SAVED_GPRS",
+    "X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS",
     "X86_64_SYSV_TARGET",
+    "X86_64_SYSV_XMM_REGISTERS",
     "X86AsmBuilder",
     "X86_64SysVAbi",
     "X86_64SysVArgLocation",
@@ -43,6 +60,10 @@ __all__ = [
     "X86_64SysVFrameLayout",
     "X86_64SysVFrameSlot",
     "X86_64SysVLegalityError",
+    "X86_64SysVPhysicalRegister",
+    "X86_64SysVRegisterClass",
+    "X86_64SysVRegisterLocation",
+    "X86_64SysVStackLocation",
     "X86_64SysVTarget",
     "check_x86_64_sysv_legality",
     "emit_block_instructions",
@@ -56,6 +77,9 @@ __all__ = [
     "emit_straight_line_callable_body",
     "emit_x86_64_sysv_asm",
     "format_stack_slot_operand",
+    "gpr_register",
     "plan_callable_frame_layout",
     "register_type_name_by_reg_id",
+    "register_class_for_type",
+    "xmm_register",
 ]
