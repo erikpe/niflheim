@@ -608,19 +608,24 @@ Tests:
 ### What To Do
 
 1. Add an internal option such as `register_allocation_enabled`.
+   - Implemented as `BackendTargetOptions.register_allocation_enabled`, defaulting to enabled.
 2. Default the option to enabled only after slices 5 through 8 pass targeted tests.
+   - Slices 5 through 8 have focused coverage, so the normal x86_64 SysV path now allocates registers.
 3. Keep the disabled path as the old all-stack behavior for one or two follow-up slices.
+   - Passing `BackendTargetOptions(register_allocation_enabled=False)` returns the preliminary all-stack plan.
 4. Avoid adding a public CLI flag unless debugging experience shows it is needed.
+   - No CLI flag was added for this internal rollout switch.
 5. If a CLI flag is added, document it as temporary and testing-oriented.
 6. Record assembly-size and instruction-count observations for representative samples.
+   - A scalar sample now has distinct allocated and all-stack assembly in tests; the allocated path emits physical-register moves and callee-saved saves where needed, while the disabled path reloads from stack homes.
 
 ### Checklist
 
-- [ ] Add internal target option.
-- [ ] Keep all-stack fallback.
-- [ ] Default allocation on after focused tests are green.
-- [ ] Add tests for both enabled and disabled paths where practical.
-- [ ] Measure representative assembly output.
+- [x] Add internal target option.
+- [x] Keep all-stack fallback.
+- [x] Default allocation on after focused tests are green.
+- [x] Add tests for both enabled and disabled paths where practical.
+- [x] Measure representative assembly output.
 - [ ] Decide when the fallback can be removed.
 
 ### How To Test

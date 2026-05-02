@@ -195,6 +195,34 @@ def test_emit_source_asm_emits_straight_line_scalar_sequences_and_return_registe
     assert "    jmp .Lmain_epilogue" in asm
 
 
+def test_emit_source_asm_can_disable_register_allocation_for_all_stack_fallback(tmp_path) -> None:
+    source = """
+        fn main() -> i64 {
+            var base: i64 = 8;
+            var neg: i64 = -base;
+            return neg;
+        }
+        """
+
+    allocated_asm = emit_source_asm(tmp_path, source, skip_optimize=True)
+    stack_asm = emit_source_asm(
+        tmp_path,
+        source,
+        skip_optimize=True,
+        options=BackendTargetOptions(register_allocation_enabled=False),
+    )
+
+    assert allocated_asm != stack_asm
+    assert "    mov qword ptr [rbp - 8], rbx" in allocated_asm
+    assert "    mov rax, rbx" in allocated_asm
+    assert "    mov qword ptr [rbp - 16], r12" in allocated_asm
+
+    assert "    mov qword ptr [rbp - 8], rax" in stack_asm
+    assert "    mov rax, qword ptr [rbp - 8]" in stack_asm
+    assert "    mov qword ptr [rbp - 16], r12" not in stack_asm
+    assert "    mov rax, rbx" not in stack_asm
+
+
 def test_emit_source_asm_debug_comments_include_physical_register_assignments(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,

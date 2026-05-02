@@ -30,6 +30,7 @@ class BackendTargetOptions:
 
     runtime_trace_enabled: bool = True
     collection_fast_paths_enabled: bool = True
+    register_allocation_enabled: bool = True
     emit_debug_comments: bool = False
     extra_flags: tuple[str, ...] = ()
 

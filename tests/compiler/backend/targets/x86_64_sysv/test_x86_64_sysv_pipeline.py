@@ -31,6 +31,21 @@ def test_plan_x86_64_sysv_target_builds_allocation_aware_callable_plan() -> None
     assert callable_plan.frame_layout.slots == plan_callable_frame_layout(target_input, callable_decl).slots
 
 
+def test_plan_x86_64_sysv_target_can_disable_register_allocation() -> None:
+    target_input = make_target_input(one_function_backend_program())
+    callable_decl = callable_by_id(target_input.program, FIXTURE_ENTRY_FUNCTION_ID)
+
+    target_plan = plan_x86_64_sysv_target(
+        target_input,
+        options=BackendTargetOptions(register_allocation_enabled=False),
+    )
+    callable_plan = target_plan.plan_for_callable(FIXTURE_ENTRY_FUNCTION_ID)
+
+    assert callable_plan.allocation is None
+    assert callable_plan.frame_layout == plan_callable_frame_layout(target_input, callable_decl)
+    assert callable_plan.frame_layout.callee_saved_slots == ()
+
+
 def test_plan_x86_64_sysv_target_skips_extern_callables(tmp_path) -> None:
     program = lower_source_to_backend_program(
         tmp_path,

@@ -27,6 +27,8 @@ def test_backend_target_options_defaults_are_stable() -> None:
     options = BackendTargetOptions()
 
     assert options.runtime_trace_enabled is True
+    assert options.collection_fast_paths_enabled is True
+    assert options.register_allocation_enabled is True
     assert options.emit_debug_comments is False
     assert options.extra_flags == ()
 

@@ -60,7 +60,6 @@ def plan_x86_64_sysv_callable(
     *,
     options: BackendTargetOptions,
 ) -> X86_64SysVCallablePlan:
-    del options
     analysis = target_input.analysis_for_callable(callable_decl.callable_id)
     preliminary_plan = X86_64SysVCallablePlan(
         callable_decl=callable_decl,
@@ -69,6 +68,9 @@ def plan_x86_64_sysv_callable(
         frame_layout=plan_callable_frame_layout(target_input, callable_decl),
         ordered_block_ids=analysis.ordered_block_ids,
     )
+    if not options.register_allocation_enabled:
+        return preliminary_plan
+
     from compiler.backend.targets.x86_64_sysv.register_allocation import allocate_x86_64_sysv_registers
 
     allocation = allocate_x86_64_sysv_registers(preliminary_plan)
