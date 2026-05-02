@@ -1,0 +1,121 @@
+import std.io;
+import std.str;
+import std.test;
+
+fn test_literals() -> unit {
+    assert_false(false && false);
+    assert_false(false || false);
+    assert_true(false == false);
+    assert_false(false != false);
+
+    assert_false(false && true);
+    assert_true(false || true);
+    assert_false(false == true);
+    assert_true(false != true);
+
+    assert_false(true && false);
+    assert_true(true || false);
+    assert_false(true == false);
+    assert_true(true != false);
+
+    assert_true(true && true);
+    assert_true(true || true);
+    assert_true(true == true);
+    assert_false(true != true);
+
+    assert_true(!false);
+    assert_false(!true);
+    assert_true(!(false && true));
+    assert_true(!false || false);
+    assert_true(true && false || true);
+    assert_false(true && (false || false));
+}
+
+fn test_constants() -> unit {
+    var false_a: bool = false;
+    var false_b: bool = false;
+    var true_a: bool = true;
+    var true_b: bool = true;
+
+    assert_false(false_a && false_b);
+    assert_false(false_a || false_b);
+    assert_true(false_a == false_b);
+    assert_false(false_a != false_b);
+
+    assert_false(false_a && true_a);
+    assert_true(false_a || true_a);
+    assert_false(false_a == true_a);
+    assert_true(false_a != true_a);
+
+    assert_false(true_a && false_a);
+    assert_true(true_a || false_a);
+    assert_false(true_a == false_a);
+    assert_true(true_a != false_a);
+
+    assert_true(true_a && true_b);
+    assert_true(true_a || true_b);
+    assert_true(true_a == true_b);
+    assert_false(true_a != true_b);
+
+    assert_true(!false_a);
+    assert_false(!true_a);
+    assert_true(!(false_a && true_a));
+    assert_true(!false_a || false_b);
+    assert_true(true_a && false_a || true_b);
+    assert_false(true_a && (false_a || false_b));
+}
+
+fn test_args(input: Str[]) -> unit {
+    var false_a: bool = input[0].to_bool();
+    var false_b: bool = input[1].to_bool();
+    var true_a: bool = input[2].to_bool();
+    var true_b: bool = input[3].to_bool();
+
+    assert_false(false_a && false_b);
+    assert_false(false_a || false_b);
+    assert_true(false_a == false_b);
+    assert_false(false_a != false_b);
+
+    assert_false(false_a && true_a);
+    assert_true(false_a || true_a);
+    assert_false(false_a == true_a);
+    assert_true(false_a != true_a);
+
+    assert_false(true_a && false_a);
+    assert_true(true_a || false_a);
+    assert_false(true_a == false_a);
+    assert_true(true_a != false_a);
+
+    assert_true(true_a && true_b);
+    assert_true(true_a || true_b);
+    assert_true(true_a == true_b);
+    assert_false(true_a != true_b);
+
+    assert_true(!false_a);
+    assert_false(!true_a);
+    assert_true(!(false_a && true_a));
+    assert_true(!false_a || false_b);
+    assert_true(true_a && false_a || true_b);
+    assert_false(true_a && (false_a || false_b));
+}
+
+fn test_short_circuit_args(input: Str[]) -> unit {
+    var false_value: bool = input[0].to_bool();
+    var true_value: bool = input[1].to_bool();
+
+    assert_false(false_value && input[2].to_bool());
+    assert_true(true_value || input[3].to_bool());
+}
+
+fn main() -> i64 {
+    var args: Str[] = read_program_args();
+    var select: u64 = args[1].to_u64();
+
+    if select == 1u { test_literals(); return 0; }
+    if select == 2u { test_constants(); return 0; }
+    if select == 3u { test_args(args[2:]); return 0; }
+    if select == 4u { test_short_circuit_args(args[2:]); return 0; }
+
+    fail("bool golden: invalid selection");
+    return 1;
+}

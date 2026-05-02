@@ -1,0 +1,34 @@
+tests:
+  - mode: "run"
+    name: "test_comparison"
+    src_file: "test_comparison.nif"
+    runs: &test_comparison_runs
+      - {name: "comparison_i64_literals", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "comparison_i64_constants", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - name: "comparison_i64_args"
+        input:
+          args: ["3", "-9223372036854775808", "9223372036854775807", "-1", "-1", "9223372036854775807", "-9223372036854775808"]
+        expect:
+          exit_code: 0
+      - {name: "comparison_u64_literals", input: {args: ["4"]}, expect: {exit_code: 0}}
+      - {name: "comparison_u64_constants", input: {args: ["5"]}, expect: {exit_code: 0}}
+      - name: "comparison_u64_args"
+        input:
+          args: ["6", "0", "18446744073709551615", "9223372036854775808", "9223372036854775808", "18446744073709551615", "0"]
+        expect:
+          exit_code: 0
+      - {name: "comparison_u8_literals", input: {args: ["7"]}, expect: {exit_code: 0}}
+      - {name: "comparison_u8_constants", input: {args: ["8"]}, expect: {exit_code: 0}}
+      - {name: "comparison_u8_args", input: {args: ["9", "0", "255", "17", "17", "255", "0"]}, expect: {exit_code: 0}}
+      - {name: "comparison_double_literals", input: {args: ["10"]}, expect: {exit_code: 0}}
+      - {name: "comparison_double_constants", input: {args: ["11"]}, expect: {exit_code: 0}}
+      - name: "comparison_double_args"
+        input:
+          args: ["12", "-1.5", "0.0", "-0.0", "0.0", "123456.75", "-42.5"]
+        expect:
+          exit_code: 0
+  - mode: "run"
+    name: "test_comparison_backend_constant_fold"
+    src_file: "test_comparison.nif"
+    runs: *test_comparison_runs
+    build_args: ["--disable-semantic-optimization", "constant_fold"]
