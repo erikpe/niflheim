@@ -1,9 +1,8 @@
 tests:
-  - &test_primitive_casts
-    mode: "run"
+  - mode: "run"
     name: "test_primitive_casts"
     src_file: "test_primitive_casts.nif"
-    runs:
+    runs: &test_primitive_casts_runs
       - {name: "bool_to_bool", input: {args: ["1", "false", "true"]}, expect: {exit_code: 0}}
       - {name: "bool_to_i64", input: {args: ["2", "false", "true"]}, expect: {exit_code: 0}}
       - {name: "bool_to_u64", input: {args: ["3", "false", "true"]}, expect: {exit_code: 0}}
@@ -155,6 +154,8 @@ tests:
           args: ["43"]
         expect:
           panic: "numeric cast out of range (double -> u8)"
-  - <<: *test_primitive_casts
+  - mode: "run"
     name: "test_primitive_casts_backend_constant_fold"
+    src_file: "test_primitive_casts.nif"
+    runs: *test_primitive_casts_runs
     build_args: ["--disable-semantic-optimization", "constant_fold"]

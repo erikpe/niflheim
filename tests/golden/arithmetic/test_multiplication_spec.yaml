@@ -1,9 +1,8 @@
 tests:
-  - &test_multiplication
-    mode: "run"
+  - mode: "run"
     name: "test_multiplication"
     src_file: "test_multiplication.nif"
-    runs:
+    runs: &test_multiplication_runs
       - name: "multiplication_i64"
         input:
           args: ["1", "-9223372036854775808", "9223372036854775807", "0", "1", "-1", "123456789"]
@@ -20,6 +19,8 @@ tests:
           args: ["4", "-1.5", "0.0", "1.0", "1000000.25", "0.75"]
         expect:
           exit_code: 0
-  - <<: *test_multiplication
+  - mode: "run"
     name: "test_multiplication_backend_constant_fold"
+    src_file: "test_multiplication.nif"
+    runs: *test_multiplication_runs
     build_args: ["--disable-semantic-optimization", "constant_fold"]
