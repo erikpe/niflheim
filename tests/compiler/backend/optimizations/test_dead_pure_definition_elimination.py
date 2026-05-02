@@ -216,6 +216,8 @@ def test_optimize_backend_ir_program_reports_pass_statistics(capsys) -> None:
     assert "nifc: debug: Backend optimization pass dead_pure_definition_elimination completed in" in captured.err
     assert "nifc: debug: Backend optimization pass trivial_copy_elimination removed " in captured.err
     assert "nifc: debug: Backend optimization pass trivial_copy_elimination completed in" in captured.err
+    assert "nifc: debug: Backend optimization pass constant_fold folded " in captured.err
+    assert "nifc: debug: Backend optimization pass constant_fold completed in" in captured.err
     assert "nifc: debug: Backend optimization pass simplify_cfg removed " in captured.err
     assert "nifc: debug: Backend optimization pass simplify_cfg completed in" in captured.err
 
