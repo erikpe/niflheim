@@ -184,7 +184,7 @@ def allocate_x86_64_sysv_registers(
 
     for interval in resolved_intervals:
         active = _expire_inactive_intervals(active, current_start_position=interval.start_position)
-        if interval.register_class != "gpr":
+        if interval.register_class != "gpr" or interval.is_gc_reference:
             spilled_reg_ids.add(interval.reg_id)
             continue
 

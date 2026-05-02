@@ -353,6 +353,7 @@ def _emit_callable_body(
     _emit_callee_saved_spills(builder, frame_layout)
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout)
+    _emit_allocated_entry_register_loads(builder, callable_decl, frame_layout=frame_layout)
     if frame_layout.has_root_frame:
         emit_zero_root_slots(builder, frame_layout=frame_layout)
         emit_root_frame_setup(builder, frame_layout=frame_layout)
@@ -364,6 +365,7 @@ def _emit_callable_body(
             column=callable_decl.span.start.column,
         )
     if emit_debug_comments:
+        _emit_allocation_debug_comments(builder, frame_layout)
         for slot in frame_layout.slots:
             builder.comment(f"{slot.home_name} -> {format_stack_slot_operand('rbp', slot.byte_offset)}")
 
@@ -592,6 +594,39 @@ def _emit_param_spills(builder, callable_decl, *, frame_layout, includes_receive
         raise BackendTargetLoweringError(f"unsupported reduced-scope parameter location kind '{arg_location.kind}'")
 
 
+def _emit_allocated_entry_register_loads(builder, callable_decl, *, frame_layout, includes_receiver: bool | None = None) -> None:
+    allocation = frame_layout.allocation
+    if allocation is None:
+        return
+    resolved_includes_receiver = callable_decl.receiver_reg is not None if includes_receiver is None else includes_receiver
+    ordered_arg_regs = callable_decl.param_regs
+    if resolved_includes_receiver:
+        if callable_decl.receiver_reg is None:
+            raise BackendTargetLoweringError("x86_64_sysv allocated receiver loads require a receiver register")
+        ordered_arg_regs = (callable_decl.receiver_reg, *ordered_arg_regs)
+    for reg_id in ordered_arg_regs:
+        location = allocation.location_by_reg.get(reg_id)
+        if location is None or location.physical_register is None:
+            continue
+        slot = frame_layout.for_reg(reg_id)
+        if slot is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv frame layout is missing a home for allocated entry register 'r{reg_id.ordinal}'"
+            )
+        builder.instruction("mov", location.physical_register.name, format_stack_slot_operand("rbp", slot.byte_offset))
+
+
+def _emit_allocation_debug_comments(builder, frame_layout) -> None:
+    allocation = frame_layout.allocation
+    if allocation is None:
+        return
+    for reg_id in sorted(allocation.location_by_reg, key=lambda reg_id: reg_id.ordinal):
+        location = allocation.location_by_reg[reg_id]
+        if location.physical_register is None:
+            continue
+        builder.comment(f"r{reg_id.ordinal} -> {location.physical_register.name}")
+
+
 def _emit_constructor_entry_wrapper(
     builder,
     callable_decl,
@@ -624,6 +659,7 @@ def _emit_constructor_entry_wrapper(
     _emit_callee_saved_spills(builder, frame_layout)
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout, includes_receiver=False)
+    _emit_allocated_entry_register_loads(builder, callable_decl, frame_layout=frame_layout, includes_receiver=False)
     if frame_layout.has_root_frame:
         emit_zero_root_slots(builder, frame_layout=frame_layout)
         emit_root_frame_setup(builder, frame_layout=frame_layout)

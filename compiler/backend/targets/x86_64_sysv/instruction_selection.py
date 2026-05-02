@@ -619,6 +619,14 @@ def emit_load_operand(
     program_symbols=None,
 ) -> None:
     if isinstance(operand, BackendRegOperand):
+        physical_register = _physical_register_for_reg(frame_layout, operand.reg_id)
+        if physical_register is not None:
+            if physical_register.name != target_register:
+                builder.instruction("mov", target_register, physical_register.name)
+            if register_type_name_by_reg_id[operand.reg_id] == TYPE_NAME_BOOL:
+                _normalize_bool_register(builder, target_register, target_byte_register)
+            return
+
         slot = frame_layout.for_reg(operand.reg_id)
         if slot is None:
             raise BackendTargetLoweringError(
@@ -704,6 +712,12 @@ def emit_store_result(
         raise BackendTargetLoweringError(
             f"x86_64_sysv frame layout is missing a home for destination register 'r{dest_reg_id.ordinal}'"
         )
+    physical_register = _physical_register_for_reg(frame_layout, dest_reg_id)
+    if physical_register is not None:
+        if physical_register.name != source_register:
+            builder.instruction("mov", physical_register.name, source_register)
+        builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), physical_register.name)
+        return
     builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), source_register)
 
 
@@ -754,6 +768,16 @@ def _normalize_bool_register(builder: X86AsmBuilder, register_name: str, byte_re
 def _mask_u8_result_if_needed(builder: X86AsmBuilder, operand_type_name: str) -> None:
     if operand_type_name == TYPE_NAME_U8:
         builder.instruction("and", _PRIMARY_REGISTER, "255")
+
+
+def _physical_register_for_reg(frame_layout: X86_64SysVFrameLayout, reg_id) -> object | None:
+    allocation = frame_layout.allocation
+    if allocation is None:
+        return None
+    location = allocation.location_by_reg.get(reg_id)
+    if location is None or location.physical_register is None:
+        return None
+    return location.physical_register
 
 
 __all__ = [

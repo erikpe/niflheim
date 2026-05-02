@@ -30,7 +30,8 @@ def test_emit_source_asm_emits_register_argument_moves_call_and_return_store(tmp
     assert "    mov rdi, 20" in main_body
     assert "    mov rsi, 22" in main_body
     assert f"    call {mangle_function_symbol(('main',), 'add')}" in main_body
-    assert re.search(r"^\s+mov qword ptr \[rbp - \d+\], rax$", main_body, re.MULTILINE)
+    assert re.search(r"^\s+mov rbx, rax$", main_body, re.MULTILINE)
+    assert re.search(r"^\s+mov qword ptr \[rbp - \d+\], rbx$", main_body, re.MULTILINE)
 
 
 def test_emit_source_asm_emits_extern_direct_calls_to_bare_symbols(tmp_path) -> None:
@@ -133,7 +134,8 @@ def test_emit_source_asm_emits_indirect_call_for_callable_parameter(tmp_path) ->
 
     apply_body = _body_for_label(asm, mangle_function_symbol(("main",), "apply"))
 
-    assert "    mov rdi, qword ptr [rbp - 16]" in apply_body or "    mov rdi, qword ptr [rbp - 24]" in apply_body
+    assert "    mov rdi, r12" in apply_body
+    assert "    mov r11, rbx" in apply_body
     assert "    call r11" in apply_body
 
 

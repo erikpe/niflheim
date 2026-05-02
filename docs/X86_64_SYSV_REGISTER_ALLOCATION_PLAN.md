@@ -146,7 +146,7 @@ class X86_64SysVCallablePlan:
 3. [x] Slice 3: Build deterministic live intervals.
 4. [x] Slice 4: Implement conservative linear-scan allocation.
 5. [x] Slice 5: Thread allocation into frame layout.
-6. [ ] Slice 6: Make scalar instruction selection allocation-aware.
+6. [x] Slice 6: Make scalar instruction selection allocation-aware.
 7. [ ] Slice 7: Preserve GC root correctness for physical locations.
 8. [ ] Slice 8: Make call lowering allocation-aware.
 9. [ ] Slice 9: Enable allocation behind an internal target option.
@@ -458,13 +458,13 @@ Tests:
 
 ### Checklist
 
-- [ ] Add location resolution helpers.
-- [ ] Make integer loads allocation-aware.
-- [ ] Make integer stores allocation-aware.
-- [ ] Keep bool normalization correct for physical and stack sources.
-- [ ] Preserve float fallback behavior.
-- [ ] Add assembly tests that prove stack load/store counts decrease in simple scalar code.
-- [ ] Add tests that spilled values still use stack homes.
+- [x] Add location resolution helpers.
+- [x] Make integer loads allocation-aware.
+- [x] Make integer stores allocation-aware.
+- [x] Keep bool normalization correct for physical and stack sources.
+- [x] Preserve float fallback behavior.
+- [x] Add assembly tests that prove stack load/store counts decrease in simple scalar code.
+- [x] Add tests that spilled values still use stack homes.
 
 ### How To Test
 
