@@ -45,6 +45,8 @@ from compiler.backend.targets.x86_64_sysv.pipeline import (
 from compiler.backend.targets.x86_64_sysv.register_allocation import (
     X86_64SysVInstructionPositions,
     X86_64SysVLiveInterval,
+    X86_64SysVRegisterAllocation,
+    allocate_x86_64_sysv_registers,
     build_instruction_positions,
     build_live_intervals,
 )
@@ -76,11 +78,13 @@ __all__ = [
     "X86_64SysVLegalityError",
     "X86_64SysVLiveInterval",
     "X86_64SysVPhysicalRegister",
+    "X86_64SysVRegisterAllocation",
     "X86_64SysVRegisterClass",
     "X86_64SysVRegisterLocation",
     "X86_64SysVStackLocation",
     "X86_64SysVTarget",
     "X86_64SysVTargetPlan",
+    "allocate_x86_64_sysv_registers",
     "check_x86_64_sysv_legality",
     "build_instruction_positions",
     "build_live_intervals",

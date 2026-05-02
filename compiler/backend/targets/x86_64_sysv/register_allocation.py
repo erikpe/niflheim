@@ -12,7 +12,14 @@ from compiler.backend.ir import (
     BackendRegId,
 )
 from compiler.backend.ir._ordering import reg_id_sort_key
-from compiler.backend.targets.x86_64_sysv.locations import X86_64SysVRegisterClass, register_class_for_type
+from compiler.backend.targets.x86_64_sysv.locations import (
+    X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
+    X86_64SysVPhysicalRegister,
+    X86_64SysVRegisterClass,
+    X86_64SysVRegisterLocation,
+    X86_64SysVStackLocation,
+    register_class_for_type,
+)
 from compiler.backend.targets.x86_64_sysv.pipeline import X86_64SysVCallablePlan
 
 
@@ -37,6 +44,23 @@ class X86_64SysVLiveInterval:
     crosses_call: bool
     is_gc_reference: bool
     live_at_safepoint: bool
+
+
+@dataclass(frozen=True, slots=True)
+class X86_64SysVRegisterAllocation:
+    callable_decl: BackendCallableDecl
+    location_by_reg: dict[BackendRegId, X86_64SysVRegisterLocation]
+    used_callee_saved_registers: tuple[X86_64SysVPhysicalRegister, ...]
+    spilled_reg_ids: tuple[BackendRegId, ...]
+
+    def location_for_reg(self, reg_id: BackendRegId) -> X86_64SysVRegisterLocation:
+        return self.location_by_reg[reg_id]
+
+
+@dataclass(frozen=True, slots=True)
+class _ActiveInterval:
+    interval: X86_64SysVLiveInterval
+    physical_register: X86_64SysVPhysicalRegister
 
 
 def build_instruction_positions(callable_plan: X86_64SysVCallablePlan) -> X86_64SysVInstructionPositions:
@@ -146,6 +170,82 @@ def build_live_intervals(callable_plan: X86_64SysVCallablePlan) -> tuple[X86_64S
     )
 
 
+def allocate_x86_64_sysv_registers(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    intervals: tuple[X86_64SysVLiveInterval, ...] | None = None,
+    allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
+) -> X86_64SysVRegisterAllocation:
+    resolved_intervals = build_live_intervals(callable_plan) if intervals is None else intervals
+    interval_by_reg = {interval.reg_id: interval for interval in resolved_intervals}
+    physical_register_by_reg: dict[BackendRegId, X86_64SysVPhysicalRegister] = {}
+    spilled_reg_ids: set[BackendRegId] = set()
+    active: list[_ActiveInterval] = []
+
+    for interval in resolved_intervals:
+        active = _expire_inactive_intervals(active, current_start_position=interval.start_position)
+        if interval.register_class != "gpr":
+            spilled_reg_ids.add(interval.reg_id)
+            continue
+
+        used_register_names = {active_interval.physical_register.name for active_interval in active}
+        available_register = next(
+            (
+                physical_register
+                for physical_register in allocatable_gprs
+                if physical_register.name not in used_register_names
+            ),
+            None,
+        )
+        if available_register is not None:
+            physical_register_by_reg[interval.reg_id] = available_register
+            active.append(_ActiveInterval(interval=interval, physical_register=available_register))
+            active = _sorted_active_intervals(active)
+            continue
+
+        spill_candidate = _spill_candidate(active)
+        if spill_candidate is not None and spill_candidate.interval.end_position > interval.end_position:
+            spilled_reg_ids.add(spill_candidate.interval.reg_id)
+            physical_register_by_reg.pop(spill_candidate.interval.reg_id, None)
+            physical_register_by_reg[interval.reg_id] = spill_candidate.physical_register
+            active = [
+                active_interval
+                for active_interval in active
+                if active_interval.interval.reg_id != spill_candidate.interval.reg_id
+            ]
+            active.append(_ActiveInterval(interval=interval, physical_register=spill_candidate.physical_register))
+            active = _sorted_active_intervals(active)
+            continue
+
+        spilled_reg_ids.add(interval.reg_id)
+
+    location_by_reg: dict[BackendRegId, X86_64SysVRegisterLocation] = {}
+    for register in sorted(callable_plan.callable_decl.registers, key=lambda register: reg_id_sort_key(register.reg_id)):
+        physical_register = physical_register_by_reg.get(register.reg_id)
+        stack_location = None if physical_register is not None else _stack_location_for_reg(callable_plan, register.reg_id)
+        if register.reg_id not in interval_by_reg:
+            spilled_reg_ids.add(register.reg_id)
+        location_by_reg[register.reg_id] = X86_64SysVRegisterLocation(
+            reg_id=register.reg_id,
+            physical_register=physical_register,
+            stack_slot=stack_location,
+        )
+
+    used_callee_saved_registers = tuple(
+        physical_register
+        for physical_register in allocatable_gprs
+        if physical_register.preserved_by_callee
+        and any(assigned.name == physical_register.name for assigned in physical_register_by_reg.values())
+    )
+
+    return X86_64SysVRegisterAllocation(
+        callable_decl=callable_plan.callable_decl,
+        location_by_reg=location_by_reg,
+        used_callee_saved_registers=used_callee_saved_registers,
+        spilled_reg_ids=tuple(sorted(spilled_reg_ids, key=reg_id_sort_key)),
+    )
+
+
 def _call_crossing_reg_ids(callable_plan: X86_64SysVCallablePlan) -> frozenset[BackendRegId]:
     call_crossing: set[BackendRegId] = set()
     for block in callable_plan.callable_decl.blocks:
@@ -174,9 +274,58 @@ def _safepoint_live_reg_ids(callable_plan: X86_64SysVCallablePlan) -> frozenset[
     return frozenset(safepoint_live)
 
 
+def _expire_inactive_intervals(
+    active: list[_ActiveInterval],
+    *,
+    current_start_position: int,
+) -> list[_ActiveInterval]:
+    return [
+        active_interval
+        for active_interval in active
+        if active_interval.interval.end_position >= current_start_position
+    ]
+
+
+def _sorted_active_intervals(active: list[_ActiveInterval]) -> list[_ActiveInterval]:
+    return sorted(
+        active,
+        key=lambda active_interval: (
+            active_interval.interval.end_position,
+            reg_id_sort_key(active_interval.interval.reg_id),
+        ),
+    )
+
+
+def _spill_candidate(active: list[_ActiveInterval]) -> _ActiveInterval | None:
+    if not active:
+        return None
+    return max(
+        active,
+        key=lambda active_interval: (
+            active_interval.interval.end_position,
+            reg_id_sort_key(active_interval.interval.reg_id),
+        ),
+    )
+
+
+def _stack_location_for_reg(
+    callable_plan: X86_64SysVCallablePlan,
+    reg_id: BackendRegId,
+) -> X86_64SysVStackLocation | None:
+    frame_slot = callable_plan.frame_layout.for_reg(reg_id)
+    if frame_slot is None:
+        return None
+    return X86_64SysVStackLocation(
+        byte_offset=frame_slot.byte_offset,
+        debug_name=frame_slot.debug_name,
+    )
+
+
 __all__ = [
     "X86_64SysVInstructionPositions",
     "X86_64SysVLiveInterval",
+    "X86_64SysVRegisterAllocation",
+    "allocate_x86_64_sysv_registers",
     "build_instruction_positions",
     "build_live_intervals",
 ]

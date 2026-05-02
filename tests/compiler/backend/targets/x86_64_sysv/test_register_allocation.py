@@ -3,7 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from compiler.backend.targets import BackendTargetOptions
-from compiler.backend.targets.x86_64_sysv import build_instruction_positions, build_live_intervals, plan_x86_64_sysv_target
+from compiler.backend.targets.x86_64_sysv import (
+    X86_64SysVLiveInterval,
+    allocate_x86_64_sysv_registers,
+    build_instruction_positions,
+    build_live_intervals,
+    plan_x86_64_sysv_target,
+)
 from tests.compiler.backend.analysis.helpers import lower_source_to_backend_callable_fixture
 from tests.compiler.backend.targets.x86_64_sysv.helpers import make_target_input
 
@@ -34,6 +40,25 @@ def _interval_by_debug_name(callable_plan, debug_name: str):
         if interval.reg_id == reg_id:
             return interval
     raise KeyError(debug_name)
+
+
+def _test_interval(
+    callable_plan,
+    debug_name: str,
+    *,
+    start: int,
+    end: int,
+    register_class: str = "gpr",
+) -> X86_64SysVLiveInterval:
+    return X86_64SysVLiveInterval(
+        reg_id=_reg_id_by_debug_name(callable_plan, debug_name),
+        start_position=start,
+        end_position=end,
+        register_class=register_class,
+        crosses_call=False,
+        is_gc_reference=False,
+        live_at_safepoint=False,
+    )
 
 
 def test_build_instruction_positions_numbers_in_ordered_block_sequence(tmp_path) -> None:
@@ -171,3 +196,184 @@ def test_build_live_intervals_marks_gc_references_live_at_safepoints(tmp_path) -
     assert box_interval.crosses_call is True
     assert box_interval.is_gc_reference is True
     assert box_interval.live_at_safepoint is True
+
+
+def test_allocate_x86_64_sysv_registers_assigns_initial_callee_saved_gprs(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64) -> i64 {
+            return a;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=(
+            _test_interval(callable_plan, "a", start=0, end=2),
+            _test_interval(callable_plan, "b", start=0, end=2),
+        ),
+    )
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r12"
+    assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx", "r12")
+    assert allocation.spilled_reg_ids == ()
+
+
+def test_allocate_x86_64_sysv_registers_reuses_expired_registers(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64) -> i64 {
+            return a;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=(
+            _test_interval(callable_plan, "a", start=0, end=0),
+            _test_interval(callable_plan, "b", start=1, end=1),
+        ),
+    )
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rbx"
+    assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx",)
+
+
+def test_allocate_x86_64_sysv_registers_spills_xmm_intervals_to_stack_homes(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(value: double) -> double {
+            return value;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        callable_name="sample",
+    )
+    value_reg_id = _reg_id_by_debug_name(callable_plan, "value")
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=(_test_interval(callable_plan, "value", start=0, end=1, register_class="xmm"),),
+    )
+    value_location = allocation.location_for_reg(value_reg_id)
+
+    assert value_location.physical_register is None
+    assert value_location.stack_slot is not None
+    assert value_location.stack_slot.byte_offset == callable_plan.frame_layout.for_reg(value_reg_id).byte_offset
+    assert allocation.spilled_reg_ids == (value_reg_id,)
+
+
+def test_allocate_x86_64_sysv_registers_spills_when_gpr_pressure_exceeds_initial_pool(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) -> i64 {
+            return a;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2, 3, 4, 5, 6);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=tuple(
+            _test_interval(callable_plan, name, start=0, end=10)
+            for name in ("a", "b", "c", "d", "e", "f")
+        ),
+    )
+
+    assert tuple(
+        allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, name)).physical_register.name
+        for name in ("a", "b", "c", "d", "e")
+    ) == ("rbx", "r12", "r13", "r14", "r15")
+    f_reg_id = _reg_id_by_debug_name(callable_plan, "f")
+    assert allocation.location_for_reg(f_reg_id).physical_register is None
+    assert allocation.location_for_reg(f_reg_id).stack_slot is not None
+    assert allocation.spilled_reg_ids == (f_reg_id,)
+
+
+def test_allocate_x86_64_sysv_registers_spills_farthest_active_interval_when_useful(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) -> i64 {
+            return a;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2, 3, 4, 5, 6);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=(
+            _test_interval(callable_plan, "a", start=0, end=100),
+            _test_interval(callable_plan, "b", start=0, end=90),
+            _test_interval(callable_plan, "c", start=0, end=80),
+            _test_interval(callable_plan, "d", start=0, end=70),
+            _test_interval(callable_plan, "e", start=0, end=60),
+            _test_interval(callable_plan, "f", start=1, end=10),
+        ),
+    )
+    a_reg_id = _reg_id_by_debug_name(callable_plan, "a")
+
+    assert allocation.location_for_reg(a_reg_id).physical_register is None
+    assert allocation.location_for_reg(a_reg_id).stack_slot is not None
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "f")).physical_register.name == "rbx"
+    assert allocation.spilled_reg_ids == (a_reg_id,)
+
+
+def test_allocate_x86_64_sysv_registers_spills_current_interval_when_tied_with_active_candidate(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) -> i64 {
+            return a;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2, 3, 4, 5, 6);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=tuple(
+            _test_interval(callable_plan, name, start=0 if name != "f" else 1, end=100)
+            for name in ("a", "b", "c", "d", "e", "f")
+        ),
+    )
+    f_reg_id = _reg_id_by_debug_name(callable_plan, "f")
+
+    assert allocation.location_for_reg(f_reg_id).physical_register is None
+    assert allocation.location_for_reg(f_reg_id).stack_slot is not None
+    assert allocation.spilled_reg_ids == (f_reg_id,)

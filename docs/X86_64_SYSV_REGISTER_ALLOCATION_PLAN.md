@@ -144,7 +144,7 @@ class X86_64SysVCallablePlan:
 1. [x] Slice 1: Add target location and register-class model.
 2. [x] Slice 2: Add target planning pipeline shell.
 3. [x] Slice 3: Build deterministic live intervals.
-4. [ ] Slice 4: Implement conservative linear-scan allocation.
+4. [x] Slice 4: Implement conservative linear-scan allocation.
 5. [ ] Slice 5: Thread allocation into frame layout.
 6. [ ] Slice 6: Make scalar instruction selection allocation-aware.
 7. [ ] Slice 7: Preserve GC root correctness for physical locations.
@@ -354,13 +354,13 @@ Tests:
 
 ### Checklist
 
-- [ ] Implement active-set expiration.
-- [ ] Implement physical register assignment.
-- [ ] Implement deterministic spill choice.
-- [ ] Spill unsupported register classes.
-- [ ] Track used callee-saved registers.
-- [ ] Add unit tests for no-pressure, pressure, and spill cases.
-- [ ] Add unit tests for deterministic tie-breaking.
+- [x] Implement active-set expiration.
+- [x] Implement physical register assignment.
+- [x] Implement deterministic spill choice.
+- [x] Spill unsupported register classes.
+- [x] Track used callee-saved registers.
+- [x] Add unit tests for no-pressure, pressure, and spill cases.
+- [x] Add unit tests for deterministic tie-breaking.
 
 ### How To Test
 
