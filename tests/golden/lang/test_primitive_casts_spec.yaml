@@ -1,5 +1,6 @@
 tests:
-  - mode: "run"
+  - &test_primitive_casts
+    mode: "run"
     name: "test_primitive_casts"
     src_file: "test_primitive_casts.nif"
     runs:
@@ -154,3 +155,6 @@ tests:
           args: ["43"]
         expect:
           panic: "numeric cast out of range (double -> u8)"
+  - <<: *test_primitive_casts
+    name: "test_primitive_casts_backend_constant_fold"
+    build_args: ["--disable-semantic-optimization", "constant_fold"]

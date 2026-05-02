@@ -9,14 +9,14 @@ from compiler.backend.analysis.pipeline import BackendPipelineResult
 from compiler.backend.ir.serialize import dump_backend_program_json
 from compiler.backend.ir.text import dump_backend_program_text
 from compiler.backend.lowering import lower_to_backend_ir
-from compiler.backend.optimizations import optimize_backend_ir_program
+from compiler.backend.optimizations import DEFAULT_BACKEND_OPTIMIZATION_PASSES, optimize_backend_ir_program
 from compiler.backend.targets import BackendTargetInput, BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv import TARGET_NAME as X86_64_SYSV_TARGET_NAME, emit_x86_64_sysv_asm
 from compiler.common.logging import LOG_LEVEL_NAMES, configure_logging, get_logger, resolve_log_settings
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
 from compiler.semantic.lowering.orchestration import lower_program
-from compiler.semantic.optimizations.pipeline import optimize_semantic_program
+from compiler.semantic.optimizations.pipeline import DEFAULT_SEMANTIC_OPTIMIZATION_PASSES, optimize_semantic_program
 from compiler.typecheck.api import typecheck_program
 
 
@@ -82,10 +82,32 @@ def _lower_program_phase(logger, program):
     return lowered_program
 
 
-def _optimize_program_phase(logger, lowered_program):
+def _filter_optimization_passes(passes, disabled_pass_names: tuple[str, ...], *, label: str):
+    disabled_names = set(disabled_pass_names)
+    if not disabled_names:
+        return passes
+
+    known_names = {optimization_pass.name for optimization_pass in passes}
+    unknown_names = sorted(disabled_names - known_names)
+    if unknown_names:
+        known_names_rendered = ", ".join(sorted(known_names))
+        unknown_names_rendered = ", ".join(unknown_names)
+        raise ValueError(
+            f"Unknown {label} optimization pass '{unknown_names_rendered}' (known: {known_names_rendered})"
+        )
+
+    return tuple(optimization_pass for optimization_pass in passes if optimization_pass.name not in disabled_names)
+
+
+def _optimize_program_phase(logger, lowered_program, *, disabled_pass_names: tuple[str, ...] = ()):
     logger.info("Optimizing semantic program")
     start = perf_counter()
-    optimized_program = optimize_semantic_program(lowered_program)
+    passes = _filter_optimization_passes(
+        DEFAULT_SEMANTIC_OPTIMIZATION_PASSES,
+        disabled_pass_names,
+        label="semantic",
+    )
+    optimized_program = optimize_semantic_program(lowered_program, passes=passes)
     duration_ms = (perf_counter() - start) * 1000.0
     logger.debugv(1, "Optimized semantic program in %.2f ms", duration_ms)
     return optimized_program
@@ -128,10 +150,15 @@ def _lower_backend_ir_phase(logger, linked_program):
     return backend_program
 
 
-def _optimize_backend_ir_phase(logger, backend_program):
+def _optimize_backend_ir_phase(logger, backend_program, *, disabled_pass_names: tuple[str, ...] = ()):
     logger.info("Optimizing backend IR")
     start = perf_counter()
-    optimized_program = optimize_backend_ir_program(backend_program)
+    passes = _filter_optimization_passes(
+        DEFAULT_BACKEND_OPTIMIZATION_PASSES,
+        disabled_pass_names,
+        label="backend",
+    )
+    optimized_program = optimize_backend_ir_program(backend_program, passes=passes)
     duration_ms = (perf_counter() - start) * 1000.0
     logger.debugv(1, "Optimized backend IR in %.2f ms", duration_ms)
     return optimized_program
@@ -277,6 +304,20 @@ def main() -> int:
         action="store_true",
         help="Skip semantic optimization and continue from lowered semantic IR",
     )
+    compilation_group.add_argument(
+        "--disable-semantic-optimization",
+        action="append",
+        default=[],
+        metavar="PASS",
+        help="Disable every semantic optimization pass with this name; may be repeated",
+    )
+    compilation_group.add_argument(
+        "--disable-backend-optimization",
+        action="append",
+        default=[],
+        metavar="PASS",
+        help="Disable every backend IR optimization pass with this name; may be repeated",
+    )
     args = parser.parse_args()
     log_settings = resolve_log_settings(args.log_level, args.verbose, args.quiet)
     configure_logging(log_settings)
@@ -290,7 +331,17 @@ def main() -> int:
         program = _resolve_program_graph(logger, input_path, args.project_root)
         _typecheck_program_phase(logger, program)
         lowered_program = _lower_program_phase(logger, program)
-        optimized_program = lowered_program if args.skip_optimize else _optimize_program_phase(logger, lowered_program)
+        if args.skip_optimize and args.disable_semantic_optimization:
+            raise ValueError("--skip-optimize cannot be combined with --disable-semantic-optimization")
+        optimized_program = (
+            lowered_program
+            if args.skip_optimize
+            else _optimize_program_phase(
+                logger,
+                lowered_program,
+                disabled_pass_names=tuple(args.disable_semantic_optimization),
+            )
+        )
         linked_program = _link_program_phase(logger, optimized_program)
         require_main_function(linked_program)
         if args.stop_after == "check":
@@ -321,7 +372,11 @@ def main() -> int:
                 project_root=dump_project_root,
             )
 
-        backend_program = _optimize_backend_ir_phase(logger, backend_program)
+        backend_program = _optimize_backend_ir_phase(
+            logger,
+            backend_program,
+            disabled_pass_names=tuple(args.disable_backend_optimization),
+        )
         pipeline_result = _run_backend_ir_pipeline_phase(logger, backend_program)
 
         if args.stop_after == "backend-ir-passes":

@@ -1,5 +1,6 @@
 tests:
-  - mode: "run"
+  - &test_arithmetic_edge_cases
+    mode: "run"
     name: "test_arithmetic_edge_cases"
     src_file: "test_arithmetic_edge_cases.nif"
     runs:
@@ -10,3 +11,6 @@ tests:
           exit_code: 0
       - {name: "arithmetic_edge_cases_u8_narrowing", input: {args: ["2", "200", "2", "250"]}, expect: {exit_code: 0}}
       - {name: "arithmetic_edge_cases_precedence", input: {args: ["3", "1", "2", "6", "5", "1"]}, expect: {exit_code: 0}}
+  - <<: *test_arithmetic_edge_cases
+    name: "test_arithmetic_edge_cases_backend_constant_fold"
+    build_args: ["--disable-semantic-optimization", "constant_fold"]

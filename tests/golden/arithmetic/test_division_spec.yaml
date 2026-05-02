@@ -1,5 +1,6 @@
 tests:
-  - mode: "run"
+  - &test_division
+    mode: "run"
     name: "test_division"
     src_file: "test_division.nif"
     runs:
@@ -53,3 +54,6 @@ tests:
         expect:
           exit_code: 0
       - {name: "division_double", input: {args: ["6", "-8.0", "1.0", "2.0", "16.0", "0.5"]}, expect: {exit_code: 0}}
+  - <<: *test_division
+    name: "test_division_backend_constant_fold"
+    build_args: ["--disable-semantic-optimization", "constant_fold"]

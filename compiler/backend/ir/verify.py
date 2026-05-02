@@ -1691,6 +1691,10 @@ def _binary_operand_types_compatible(
 ) -> bool:
     if left_type == right_type:
         return True
+    if op.kind == BinaryOpKind.POWER:
+        left_type_name = semantic_type_canonical_name(left_type)
+        right_type_name = semantic_type_canonical_name(right_type)
+        return left_type_name in {TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8} and right_type_name == TYPE_NAME_U64
     if op.kind in {BinaryOpKind.SHIFT_LEFT, BinaryOpKind.SHIFT_RIGHT}:
         left_type_name = semantic_type_canonical_name(left_type)
         right_type_name = semantic_type_canonical_name(right_type)

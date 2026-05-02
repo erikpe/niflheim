@@ -419,6 +419,86 @@ def test_main_prints_one_row_per_spec_by_default(tmp_path: Path, monkeypatch: py
     ]
 
 
+def test_main_forwards_disabled_optimization_flags_to_selected_tests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    repo_root = tmp_path / "repo"
+    golden_root = repo_root / "tests" / "golden"
+    spec_path = golden_root / "arithmetic" / "test_addition_spec.yaml"
+    source_path = golden_root / "arithmetic" / "test_addition.nif"
+
+    monkeypatch.setattr(runner, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(runner, "GOLDEN_ROOT", golden_root)
+
+    tests = [
+        runner.GoldenTest(
+            name="test_addition",
+            mode="run",
+            source_path=source_path,
+            spec_path=spec_path,
+            runs=[runner.RunCase("addition_i64", runner.RunInput([], None), runner.RunExpect(None, None, None, None))],
+            compile_error_match=None,
+            build_args=[],
+        ),
+    ]
+
+    def _fake_run_spec(
+        spec_path_arg: Path,
+        spec_tests: list[runner.GoldenTest],
+        runtime_archive: Path | None = None,
+        *,
+        extra_build_args: list[str] | None = None,
+    ) -> runner.SpecResult:
+        assert spec_path_arg == spec_path
+        assert spec_tests == tests
+        assert extra_build_args == [
+            "--disable-semantic-optimization",
+            "constant_fold",
+            "--disable-backend-optimization",
+            "simplify_cfg",
+        ]
+        return runner.SpecResult(
+            spec_path=spec_path,
+            test_results=[
+                runner.TestResult(
+                    name="test_addition",
+                    mode="run",
+                    spec_path=spec_path,
+                    source_path=source_path,
+                    compile_ok=True,
+                    compile_error=None,
+                    run_results=[runner.RunResult(name="addition_i64", ok=True, details=[])],
+                )
+            ],
+        )
+
+    monkeypatch.setattr(runner, "_discover_tests", lambda filter_glob: tests)
+    monkeypatch.setattr(runner, "_prepare_runtime_archive", lambda: (True, None, repo_root / "build" / "runtime.a"))
+    monkeypatch.setattr(runner, "_run_spec", _fake_run_spec)
+    monkeypatch.setattr(
+        runner.sys,
+        "argv",
+        [
+            "golden-runner",
+            "--jobs",
+            "1",
+            "--disable-semantic-optimization",
+            "constant_fold",
+            "--disable-backend-optimization",
+            "simplify_cfg",
+        ],
+    )
+
+    exit_code = runner.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out.splitlines() == [
+        "PASS tests/golden/arithmetic/test_addition_spec.yaml",
+        "golden: 1/1 spec files passed; 1 runs total",
+    ]
+
+
 def test_main_prints_per_run_rows_for_run_and_compile_fail_tests(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
 ) -> None:
