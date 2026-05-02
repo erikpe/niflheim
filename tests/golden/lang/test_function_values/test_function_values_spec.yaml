@@ -10,11 +10,7 @@ tests:
       - {name: "function_value_in_class_field", input: {args: ["5"]}, expect: {exit_code: 0}}
       - {name: "imported_function_and_static_method_values", input: {args: ["7"]}, expect: {exit_code: 0}}
       - {name: "imported_helper_returns_function_value", input: {args: ["8"]}, expect: {exit_code: 0}}
-      - name: "panic_propagates_through_indirect_call"
-        input:
-          args: ["6"]
-        expect:
-          panic: "rt_array_get_i64: index out of bounds"
+      - {name: "panic_propagates_through_indirect_call", input: {args: ["6"]}, expect: {panic: "rt_array_get_i64: index out of bounds"}}
   - mode: "compile-fail"
     name: "instance_method_value_unsupported"
     src_file: "error_instance_method_value_unsupported.nif"

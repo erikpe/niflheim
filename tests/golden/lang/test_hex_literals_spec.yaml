@@ -3,6 +3,4 @@ tests:
     name: "test_hex_literals"
     src_file: "test_hex_literals.nif"
     runs:
-      - name: "hex_literals"
-        expect:
-          exit_code: 0
+      - {name: "hex_literals", expect: {exit_code: 0}}

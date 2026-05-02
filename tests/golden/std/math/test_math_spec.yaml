@@ -13,7 +13,11 @@ tests:
       - {name: "exp", input: {args: ["exp", "0.0", "1.0", "-1.0", "2.0", "-2.0", "inf", "-inf", "nan"]}, expect: {exit_code: 0}}
       - {name: "log", input: {args: ["log", "1.0", "2.718281828459045", "0.5", "10.0", "5.0", "0.0", "-1.0", "inf", "nan"]}, expect: {exit_code: 0}}
       - {name: "log10", input: {args: ["log10", "1.0", "10.0", "1000.0", "100.0", "0.1", "0.0", "-1.0", "inf", "nan"]}, expect: {exit_code: 0}}
-      - {name: "pow", input: {args: ["pow", "2.0", "10.0", "9.0", "0.5", "2.0", "3.0", "2.0", "-2.0", "-2.0", "3.0", "0.0", "0.0", "-1.0", "0.5"]}, expect: {exit_code: 0}}
+      - name: "pow"
+        input:
+          args: ["pow", "2.0", "10.0", "9.0", "0.5", "2.0", "3.0", "2.0", "-2.0", "-2.0", "3.0", "0.0", "0.0", "-1.0", "0.5"]
+        expect:
+          exit_code: 0
       - {name: "sqrt", input: {args: ["sqrt", "0.0", "9.0", "0.25", "144.0", "2.25", "inf", "-1.0", "nan"]}, expect: {exit_code: 0}}
       - {name: "cbrt", input: {args: ["cbrt", "0.0", "27.0", "-8.0", "64.0", "-125.0", "inf", "-inf", "nan"]}, expect: {exit_code: 0}}
       - {name: "floor", input: {args: ["floor", "1.75", "-1.25", "2.0", "7.99", "-7.01", "-0.0", "inf", "nan"]}, expect: {exit_code: 0}}
@@ -21,9 +25,21 @@ tests:
       - {name: "round", input: {args: ["round", "1.5", "-1.5", "1.49", "1.51", "-1.51", "-0.25", "inf", "nan"]}, expect: {exit_code: 0}}
       - {name: "trunc", input: {args: ["trunc", "1.75", "-1.75", "0.5", "7.99", "-7.99", "-0.25", "inf", "nan"]}, expect: {exit_code: 0}}
       - {name: "abs", input: {args: ["abs", "-3.5", "0.0", "-123.25", "-42.5", "7.0", "-0.0", "-inf", "nan"]}, expect: {exit_code: 0}}
-      - {name: "min", input: {args: ["min", "1.0", "2.0", "-4.0", "3.0", "7.0", "-2.0", "4.0", "-9.0", "3.0", "9.0", "-0.0", "0.0", "nan", "1.0"]}, expect: {exit_code: 0}}
-      - {name: "max", input: {args: ["max", "1.0", "2.0", "-4.0", "3.0", "7.0", "-2.0", "4.0", "-9.0", "3.0", "9.0", "-0.0", "0.0", "nan", "1.0"]}, expect: {exit_code: 0}}
-      - {name: "hypot", input: {args: ["hypot", "3.0", "4.0", "5.0", "12.0", "8.0", "15.0", "7.0", "24.0", "6.0", "8.0", "inf", "1.0", "nan", "1.0"]}, expect: {exit_code: 0}}
+      - name: "min"
+        input:
+          args: ["min", "1.0", "2.0", "-4.0", "3.0", "7.0", "-2.0", "4.0", "-9.0", "3.0", "9.0", "-0.0", "0.0", "nan", "1.0"]
+        expect:
+          exit_code: 0
+      - name: "max"
+        input:
+          args: ["max", "1.0", "2.0", "-4.0", "3.0", "7.0", "-2.0", "4.0", "-9.0", "3.0", "9.0", "-0.0", "0.0", "nan", "1.0"]
+        expect:
+          exit_code: 0
+      - name: "hypot"
+        input:
+          args: ["hypot", "3.0", "4.0", "5.0", "12.0", "8.0", "15.0", "7.0", "24.0", "6.0", "8.0", "inf", "1.0", "nan", "1.0"]
+        expect:
+          exit_code: 0
       - {name: "is_nan", input: {args: ["is_nan", "nan", "1.0", "-1.0", "0.0", "inf", "-inf"]}, expect: {exit_code: 0}}
       - {name: "is_infinite", input: {args: ["is_infinite", "inf", "-inf", "42.0", "1.0", "-7.0", "nan", "0.0"]}, expect: {exit_code: 0}}
   - mode: "run"

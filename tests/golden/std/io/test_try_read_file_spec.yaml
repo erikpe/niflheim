@@ -21,9 +21,4 @@ tests:
         expect:
           exit_code: 0
           stdout: "5000\n"
-      - name: "try_read_file_missing_file_returns_null"
-        input:
-          args: ["tests/golden/std/io/does_not_exist.txt"]
-        expect:
-          exit_code: 0
-          stdout: "missing\n"
+      - {name: "try_read_file_missing_file_returns_null", input: {args: ["tests/golden/std/io/does_not_exist.txt"]}, expect: {exit_code: 0, stdout: "missing\n"}}

@@ -22,11 +22,7 @@ tests:
       - {name: "comparison_u8_args", input: {args: ["9", "0", "255", "17", "17", "255", "0"]}, expect: {exit_code: 0}}
       - {name: "comparison_double_literals", input: {args: ["10"]}, expect: {exit_code: 0}}
       - {name: "comparison_double_constants", input: {args: ["11"]}, expect: {exit_code: 0}}
-      - name: "comparison_double_args"
-        input:
-          args: ["12", "-1.5", "0.0", "-0.0", "0.0", "123456.75", "-42.5"]
-        expect:
-          exit_code: 0
+      - {name: "comparison_double_args", input: {args: ["12", "-1.5", "0.0", "-0.0", "0.0", "123456.75", "-42.5"]}, expect: {exit_code: 0}}
   - mode: "run"
     name: "test_comparison_backend_constant_fold"
     src_file: "test_comparison.nif"

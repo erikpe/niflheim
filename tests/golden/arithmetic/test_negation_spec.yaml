@@ -7,34 +7,12 @@ tests:
       - {name: "negation_i64_constants", input: {args: ["2"]}, expect: {exit_code: 0}}
       - name: "negation_i64_args"
         input:
-          args:
-            - "3"
-            - "0"
-            - "1"
-            - "-1"
-            - "200"
-            - "-200"
-            - "9223372036854775807"
-            - "-9223372036854775808"
-            - "-9223372036854775807"
+          args: ["3", "0", "1", "-1", "200", "-200", "9223372036854775807", "-9223372036854775808", "-9223372036854775807"]
         expect:
           exit_code: 0
       - {name: "negation_double_literals", input: {args: ["4"]}, expect: {exit_code: 0}}
       - {name: "negation_double_constants", input: {args: ["5"]}, expect: {exit_code: 0}}
-      - name: "negation_double_args"
-        input:
-          args:
-            - "6"
-            - "0.0"
-            - "-0.0"
-            - "1.5"
-            - "-1.5"
-            - "2.5"
-            - "-2.5"
-            - "123456.75"
-            - "-123456.75"
-        expect:
-          exit_code: 0
+      - {name: "negation_double_args", input: {args: ["6", "0.0", "-0.0", "1.5", "-1.5", "2.5", "-2.5", "123456.75", "-123456.75"]}, expect: {exit_code: 0}}
   - mode: "run"
     name: "test_negation_backend_constant_fold"
     src_file: "test_negation.nif"

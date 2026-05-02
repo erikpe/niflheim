@@ -13,8 +13,8 @@ from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GOLDEN_ROOT = REPO_ROOT / "tests" / "golden"
-MAX_FLOW_SEQUENCE_LENGTH = 120
-MAX_FLOW_RUN_ENTRY_LENGTH = 120
+MAX_FLOW_SEQUENCE_LENGTH = 160
+MAX_FLOW_RUN_ENTRY_LENGTH = 160
 
 
 def _is_simple_scalar(value: Any) -> bool:

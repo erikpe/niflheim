@@ -8,41 +8,21 @@ tests:
           args: ["basic"]
         expect:
           exit_code: 0
-          stdout: |
-            Scene
-              Functions []
-              Statements
-                ExprStmt
-                  Binary PLUS_OP
-                    Const INT 17
-                    Const INT 23
-      - name: "constructs_dump"
-        input:
-          args: ["constructs"]
-        expect:
-          exit_code: 0
-          stdout_file: "test_parser_constructs_expected.txt"
-      - name: "fibonacci_preprocessed_file_parses"
-        input:
-          args: ["fibonacci"]
-        expect:
-          exit_code: 0
-          stdout: |
-            functions=1|statements=1|names=fib
+          stdout: "Scene\n  Functions []\n  Statements\n    ExprStmt\n      Binary PLUS_OP\n        Const INT 17\n        Const INT 23\n"
+      - {name: "constructs_dump", input: {args: ["constructs"]}, expect: {exit_code: 0, stdout_file: "test_parser_constructs_expected.txt"}}
+      - {name: "fibonacci_preprocessed_file_parses", input: {args: ["fibonacci"]}, expect: {exit_code: 0, stdout: "functions=1|statements=1|names=fib\n"}}
       - name: "prime_checker_file_parses"
         input:
           args: ["prime"]
         expect:
           exit_code: 0
-          stdout: |
-            functions=3|statements=0|names=floor,isDivisible,isPrime
+          stdout: "functions=3|statements=0|names=floor,isDivisible,isPrime\n"
       - name: "basic_shapes_preprocessed_file_parses"
         input:
           args: ["basic_shapes"]
         expect:
           exit_code: 0
-          stdout: |
-            functions=18|statements=6|first=roundedCylinder0_base
+          stdout: "functions=18|statements=6|first=roundedCylinder0_base\n"
       - name: "missing_semicolon_reports_parse_error"
         input:
           args: ["missing_semicolon"]

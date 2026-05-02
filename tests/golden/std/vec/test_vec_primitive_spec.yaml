@@ -10,10 +10,6 @@ tests:
       - {name: "vec_u8_get_oob_panics", input: {stdin: "5"}, expect: {panic: "VecU8.index_get: index out of bounds"}}
       - {name: "vec_i64_set_negative_wrap_oob_panics", input: {stdin: "6"}, expect: {panic: "VecI64.index_set: index out of bounds"}}
       - {name: "vec_u64_slice_oob_panics", input: {stdin: "7"}, expect: {panic: "VecU64.slice_get: invalid slice range"}}
-      - name: "vec_double_slice_write_length_mismatch_panics"
-        input:
-          stdin: "8"
-        expect:
-          panic: "VecDouble.slice_set: length mismatch"
+      - {name: "vec_double_slice_write_length_mismatch_panics", input: {stdin: "8"}, expect: {panic: "VecDouble.slice_set: length mismatch"}}
       - {name: "vec_primitives_clone_and_last", input: {stdin: "9"}, expect: {exit_code: 0}}
       - {name: "vec_u8_last_empty_panics", input: {stdin: "10"}, expect: {panic: "VecU8.last: empty vector"}}

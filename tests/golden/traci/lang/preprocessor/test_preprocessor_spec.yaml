@@ -8,56 +8,25 @@ tests:
           args: ["real_include"]
         expect:
           exit_code: 0
-          stdout: |
-            #line 1 "tests/golden/traci/testcode/a.traci" 1
-            17
-            #line 1 "tests/golden/traci/testcode/b.traci" 1
-            +
-             23
-            #line 2 "tests/golden/traci/testcode/a.traci" 2
-            ;
+          stdout: "#line 1 \"tests/golden/traci/testcode/a.traci\" 1\n17\n#line 1 \"tests/golden/traci/testcode/b.traci\" 1\n+\n 23\n#line 2 \"tests/golden/traci/testcode/a.traci\" 2\n;\n"
       - name: "include_guards_prevent_duplicate_content"
         input:
           args: ["guard"]
         expect:
           exit_code: 0
-          stdout: |-
-            #line 1 "tests/golden/traci/lang/preprocessor/pp_double_include_root.traci" 1
-            #line 1 "tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci" 1
-            
-            
-            17
-            #line 1 "tests/golden/traci/lang/preprocessor/pp_double_include_root.traci" 2
-            #line 1 "tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci" 1
-            
-            
-            
-            #line 2 "tests/golden/traci/lang/preprocessor/pp_double_include_root.traci" 2
-            VALUE;
+          stdout: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 1\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n17\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n\n#line 2 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\nVALUE;"
       - name: "fast_lego_macro_true_branch"
         input:
           args: ["fast_on"]
         expect:
           exit_code: 0
-          stdout: |+
-            #line 1 "tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci" 1
-            
-            
-            7
-            
-            
+          stdout: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci\" 1\n\n\n7\n\n\n"
       - name: "fast_lego_macro_false_branch"
         input:
           args: ["fast_off"]
         expect:
           exit_code: 0
-          stdout: |
-            #line 1 "tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci" 1
-            
-            
-            
-            
-            0
+          stdout: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci\" 1\n\n\n\n\n0\n"
       - name: "missing_include_reports_include_chain"
         input:
           args: ["missing"]
