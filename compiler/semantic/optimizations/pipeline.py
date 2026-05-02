@@ -7,6 +7,7 @@ from time import perf_counter
 from compiler.common.logging import get_logger
 from compiler.semantic.ir import SemanticProgram
 
+from .algebraic_simplify import algebraic_simplify
 from .constant_fold import constant_fold
 from .copy_propagation import copy_propagation
 from .dead_store_elimination import dead_store_elimination
@@ -29,6 +30,7 @@ class SemanticOptimizationPass:
 
 DEFAULT_SEMANTIC_OPTIMIZATION_PASSES: tuple[SemanticOptimizationPass, ...] = (
     SemanticOptimizationPass(name="constant_fold", transform=constant_fold),
+    SemanticOptimizationPass(name="algebraic_simplify", transform=algebraic_simplify),
     SemanticOptimizationPass(name="simplify_control_flow", transform=simplify_control_flow),
     SemanticOptimizationPass(name="copy_propagation", transform=copy_propagation),
     SemanticOptimizationPass(name="flow_sensitive_type_narrowing", transform=flow_sensitive_type_narrowing),
@@ -36,6 +38,7 @@ DEFAULT_SEMANTIC_OPTIMIZATION_PASSES: tuple[SemanticOptimizationPass, ...] = (
     SemanticOptimizationPass(name="redundant_cast_elimination", transform=redundant_cast_elimination),
     SemanticOptimizationPass(name="dead_store_elimination", transform=dead_store_elimination),
     SemanticOptimizationPass(name="constant_fold", transform=constant_fold),
+    SemanticOptimizationPass(name="algebraic_simplify", transform=algebraic_simplify),
     SemanticOptimizationPass(name="simplify_control_flow", transform=simplify_control_flow),
     SemanticOptimizationPass(name="dead_stmt_prune", transform=dead_stmt_prune),
     SemanticOptimizationPass(name="unreachable_prune", transform=unreachable_prune),

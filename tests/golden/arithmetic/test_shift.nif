@@ -242,6 +242,28 @@ fn test_i64_arg_oob_panics(input: Str[]) -> unit {
     var x: i64 = input[0].to_i64() >> input[1].to_u64();
 }
 
+fn test_integer_shift_identities(input: Str[]) -> unit {
+    var shift_zero: u64 = 0u;
+
+    var u64_value_arg: u64 = input[0].to_u64();
+    assert_eq_u64(u64_value_arg << 0u, u64_value_arg);
+    assert_eq_u64(u64_value_arg >> 0u, u64_value_arg);
+    assert_eq_u64(u64_value_arg << shift_zero, u64_value_arg);
+    assert_eq_u64(u64_value_arg >> shift_zero, u64_value_arg);
+
+    var i64_value_arg: i64 = input[1].to_i64();
+    assert_eq_i64(i64_value_arg << 0u, i64_value_arg);
+    assert_eq_i64(i64_value_arg >> 0u, i64_value_arg);
+    assert_eq_i64(i64_value_arg << shift_zero, i64_value_arg);
+    assert_eq_i64(i64_value_arg >> shift_zero, i64_value_arg);
+
+    var u8_value_arg: u8 = (u8)input[2].to_u64();
+    assert_eq_u8(u8_value_arg << 0u, u8_value_arg);
+    assert_eq_u8(u8_value_arg >> 0u, u8_value_arg);
+    assert_eq_u8(u8_value_arg << shift_zero, u8_value_arg);
+    assert_eq_u8(u8_value_arg >> shift_zero, u8_value_arg);
+}
+
 fn main() -> i64 {
     var args: Str[] = read_program_args();
     var select: u64 = args[1].to_u64();
@@ -263,6 +285,7 @@ fn main() -> i64 {
     if select == 15u { test_u64_literal_oob_panics(); return 0; }
     if select == 16u { test_u64_arg_oob_panics(args[2:]); return 0; }
     if select == 17u { test_i64_arg_oob_panics(args[2:]); return 0; }
+    if select == 18u { test_integer_shift_identities(args[2:]); return 0; }
 
     fail("shift golden: invalid selection");
     return 1;

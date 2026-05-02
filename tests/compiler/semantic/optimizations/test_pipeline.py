@@ -26,6 +26,7 @@ from compiler.semantic.ir import (
 from compiler.semantic.lowering.orchestration import lower_program
 from compiler.semantic.optimizations.copy_propagation import copy_propagation
 from compiler.semantic.optimizations.constant_fold import constant_fold
+from compiler.semantic.optimizations.algebraic_simplify import algebraic_simplify
 from compiler.semantic.optimizations.dead_store_elimination import dead_store_elimination
 from compiler.semantic.optimizations.dead_stmt_prune import dead_stmt_prune
 from compiler.semantic.optimizations.flow_sensitive_type_narrowing import flow_sensitive_type_narrowing
@@ -82,24 +83,23 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
     semantic = lower_program(resolve_program(tmp_path / "main.nif", project_root=tmp_path))
 
     optimized = optimize_semantic_program(semantic)
-    expected = unreachable_prune(
-        dead_stmt_prune(
-            simplify_control_flow(
-                constant_fold(
-                    dead_store_elimination(
-                        redundant_cast_elimination(
-                            interface_call_devirtualization(
-                                flow_sensitive_type_narrowing(copy_propagation(simplify_control_flow(constant_fold(semantic))))
-                            )
-                        )
-                    )
-                )
-            )
-        )
-    )
+    expected = constant_fold(semantic)
+    expected = algebraic_simplify(expected)
+    expected = simplify_control_flow(expected)
+    expected = copy_propagation(expected)
+    expected = flow_sensitive_type_narrowing(expected)
+    expected = interface_call_devirtualization(expected)
+    expected = redundant_cast_elimination(expected)
+    expected = dead_store_elimination(expected)
+    expected = constant_fold(expected)
+    expected = algebraic_simplify(expected)
+    expected = simplify_control_flow(expected)
+    expected = dead_stmt_prune(expected)
+    expected = unreachable_prune(expected)
 
     assert [optimization_pass.name for optimization_pass in DEFAULT_SEMANTIC_OPTIMIZATION_PASSES] == [
         "constant_fold",
+        "algebraic_simplify",
         "simplify_control_flow",
         "copy_propagation",
         "flow_sensitive_type_narrowing",
@@ -107,6 +107,7 @@ def test_optimize_semantic_program_uses_default_pass_pipeline(tmp_path: Path) ->
         "redundant_cast_elimination",
         "dead_store_elimination",
         "constant_fold",
+        "algebraic_simplify",
         "simplify_control_flow",
         "dead_stmt_prune",
         "unreachable_prune",

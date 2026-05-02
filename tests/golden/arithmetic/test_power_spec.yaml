@@ -58,6 +58,7 @@ tests:
       - {name: "power_precedence_literals", input: {args: ["10"]}, expect: {exit_code: 0}}
       - {name: "power_precedence_constants", input: {args: ["11"]}, expect: {exit_code: 0}}
       - {name: "power_precedence_args", input: {args: ["12", "2", "3", "4", "2", "3", "4"]}, expect: {exit_code: 0}}
+      - {name: "power_integer_identities", input: {args: ["13", "-987654321", "987654321", "201"]}, expect: {exit_code: 0}}
   - mode: "run"
     name: "test_power_backend_constant_fold"
     src_file: "test_power.nif"

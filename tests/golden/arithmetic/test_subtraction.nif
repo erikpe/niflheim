@@ -332,6 +332,26 @@ fn test_double(input: Str[]) -> unit {
     assert_eq_double(d_small_arg - d_small_arg, 0.0);
 }
 
+fn test_integer_subtraction_identities(input: Str[]) -> unit {
+    var i64_zero: i64 = 0;
+    var i64_value_arg: i64 = input[0].to_i64();
+
+    assert_eq_i64(i64_value_arg - 0, i64_value_arg);
+    assert_eq_i64(i64_value_arg - i64_zero, i64_value_arg);
+
+    var u64_zero: u64 = 0u;
+    var u64_value_arg: u64 = input[1].to_u64();
+
+    assert_eq_u64(u64_value_arg - 0u, u64_value_arg);
+    assert_eq_u64(u64_value_arg - u64_zero, u64_value_arg);
+
+    var u8_zero: u8 = 0u8;
+    var u8_value_arg: u8 = (u8)input[2].to_u64();
+
+    assert_eq_u8(u8_value_arg - 0u8, u8_value_arg);
+    assert_eq_u8(u8_value_arg - u8_zero, u8_value_arg);
+}
+
 fn main() -> i64 {
     var args: Str[] = read_program_args();
     var select: u64 = args[1].to_u64();
@@ -340,6 +360,7 @@ fn main() -> i64 {
     if select == 2u { test_u64(args[2:]); return 0; }
     if select == 3u { test_u8(args[2:]); return 0; }
     if select == 4u { test_double(args[2:]); return 0; }
+    if select == 5u { test_integer_subtraction_identities(args[2:]); return 0; }
 
     return 99;
 }

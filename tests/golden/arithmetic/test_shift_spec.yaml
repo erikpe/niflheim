@@ -32,6 +32,7 @@ tests:
       - {name: "shift_u64_literal_oob_panics", input: {args: ["15"]}, expect: {panic: "invalid shift count"}}
       - {name: "shift_u64_arg_oob_panics", input: {args: ["16", "1", "64"]}, expect: {panic: "invalid shift count"}}
       - {name: "shift_i64_arg_oob_panics", input: {args: ["17", "-1", "64"]}, expect: {panic: "invalid shift count"}}
+      - {name: "shift_integer_identities", input: {args: ["18", "987654321", "-987654321", "201"]}, expect: {exit_code: 0}}
   - mode: "run"
     name: "test_shift_backend_constant_fold"
     src_file: "test_shift.nif"

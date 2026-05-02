@@ -7,6 +7,7 @@ tests:
       - {name: "addition_u64", input: {args: ["2", "0", "1", "18446744073709551615", "1000000000", "4000000000000000000"]}, expect: {exit_code: 0}}
       - {name: "addition_u8", input: {args: ["3", "0", "1", "255", "17", "200"]}, expect: {exit_code: 0}}
       - {name: "addition_double", input: {args: ["4", "-1.5", "0.0", "1.0", "1000000.25", "0.75"]}, expect: {exit_code: 0}}
+      - {name: "addition_integer_identities", input: {args: ["5", "-987654321", "987654321", "201"]}, expect: {exit_code: 0}}
   - mode: "run"
     name: "test_addition_backend_constant_fold"
     src_file: "test_addition.nif"
