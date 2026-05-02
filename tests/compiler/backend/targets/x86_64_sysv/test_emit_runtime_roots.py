@@ -95,13 +95,16 @@ def test_emit_source_asm_syncs_live_reference_roots_before_gc_runtime_calls(tmp_
 
     keep_body = _body_for_label(asm, mangle_function_symbol(("main",), "keep"))
     sync_match = re.search(
-        r"    mov rax, qword ptr \[rbp - \d+\]\n"
-        r"    mov qword ptr \[rbp - \d+\], rax\n",
+        r"    mov r10, r12\n"
+        r"    mov qword ptr \[rbp - \d+\], r10\n"
+        r"    call rt_gc_collect\n"
+        r"    mov r10, qword ptr \[rbp - \d+\]\n"
+        r"    mov r12, r10\n"
+        r"    mov qword ptr \[rbp - \d+\], r10\n",
         keep_body,
     )
 
     assert sync_match is not None, keep_body
-    assert keep_body.find("    call rt_gc_collect", sync_match.end()) != -1
 
 
 def test_emit_source_asm_syncs_live_reference_roots_before_ordinary_calls(tmp_path) -> None:
@@ -134,9 +137,11 @@ def test_emit_source_asm_syncs_live_reference_roots_before_ordinary_calls(tmp_pa
     caller_body = _body_for_label(asm, caller_label)
     callee_label = mangle_function_symbol(("main",), "ping")
     sync_match = re.search(
-        r"    mov r10, qword ptr \[rbp - \d+\]\n"
+        r"    mov r10, r12\n"
         r"    mov qword ptr \[rbp - \d+\], r10\n"
-        r"(?:    mov rdi, qword ptr \[rbp - \d+\]\n)?"
+        r"    mov r10, r13\n"
+        r"    mov qword ptr \[rbp - \d+\], r10\n"
+        r"    mov rdi, r12\n"
         + fr"    call {re.escape(callee_label)}\n",
         caller_body,
     )

@@ -68,7 +68,11 @@ def emit_root_slot_sync(
             raise BackendTargetLoweringError(
                 f"x86_64_sysv root sync is missing a root slot for register 'r{reg_id.ordinal}'"
             )
-        builder.instruction("mov", "r10", format_stack_slot_operand("rbp", home_slot.byte_offset))
+        source_register = _physical_register_name_for_reg(frame_layout, reg_id)
+        if source_register is None:
+            builder.instruction("mov", "r10", format_stack_slot_operand("rbp", home_slot.byte_offset))
+        else:
+            builder.instruction("mov", "r10", source_register)
         builder.instruction("mov", format_stack_slot_operand("rbp", root_slot.byte_offset), "r10")
 
 
@@ -90,7 +94,20 @@ def emit_root_slot_reload(
                 f"x86_64_sysv root reload is missing a root slot for register 'r{reg_id.ordinal}'"
             )
         builder.instruction("mov", "r10", format_stack_slot_operand("rbp", root_slot.byte_offset))
+        target_register = _physical_register_name_for_reg(frame_layout, reg_id)
+        if target_register is not None:
+            builder.instruction("mov", target_register, "r10")
         builder.instruction("mov", format_stack_slot_operand("rbp", home_slot.byte_offset), "r10")
+
+
+def _physical_register_name_for_reg(frame_layout: X86_64SysVFrameLayout, reg_id: BackendRegId) -> str | None:
+    allocation = frame_layout.allocation
+    if allocation is None:
+        return None
+    location = allocation.location_by_reg.get(reg_id)
+    if location is None or location.physical_register is None:
+        return None
+    return location.physical_register.name
 
 
 __all__ = [

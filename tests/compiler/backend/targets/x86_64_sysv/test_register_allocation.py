@@ -198,7 +198,7 @@ def test_build_live_intervals_marks_gc_references_live_at_safepoints(tmp_path) -
     assert box_interval.live_at_safepoint is True
 
 
-def test_allocate_x86_64_sysv_registers_spills_gc_references_until_root_reload_is_location_aware(tmp_path) -> None:
+def test_allocate_x86_64_sysv_registers_can_assign_gc_references_after_root_reload_is_location_aware(tmp_path) -> None:
     callable_plan = _callable_plan(
         tmp_path,
         """
@@ -219,9 +219,10 @@ def test_allocate_x86_64_sysv_registers_spills_gc_references_until_root_reload_i
     allocation = allocate_x86_64_sysv_registers(callable_plan)
     box_location = allocation.location_for_reg(box_reg_id)
 
-    assert box_location.physical_register is None
-    assert box_location.stack_slot is not None
-    assert allocation.spilled_reg_ids == (box_reg_id,)
+    assert box_location.physical_register is not None
+    assert box_location.physical_register.name == "rbx"
+    assert box_location.stack_slot is None
+    assert allocation.spilled_reg_ids == ()
 
 
 def test_allocate_x86_64_sysv_registers_assigns_initial_callee_saved_gprs(tmp_path) -> None:

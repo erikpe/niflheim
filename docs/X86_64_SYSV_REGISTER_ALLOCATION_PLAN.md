@@ -147,7 +147,7 @@ class X86_64SysVCallablePlan:
 4. [x] Slice 4: Implement conservative linear-scan allocation.
 5. [x] Slice 5: Thread allocation into frame layout.
 6. [x] Slice 6: Make scalar instruction selection allocation-aware.
-7. [ ] Slice 7: Preserve GC root correctness for physical locations.
+7. [x] Slice 7: Preserve GC root correctness for physical locations.
 8. [ ] Slice 8: Make call lowering allocation-aware.
 9. [ ] Slice 9: Enable allocation behind an internal target option.
 10. [ ] Slice 10: Broaden allocation coverage and remove the temporary option if stable.
@@ -500,6 +500,7 @@ Tests:
 1. Decide the first-slice reference policy:
    - simplest safe policy: spill all GC-reference registers
    - better policy: allow physical reference registers and teach root sync/reload to copy from or to the physical register
+   Chosen policy: allow physical reference registers; root sync copies from the physical register when present, and root reload restores both the physical register and the stack home.
 2. If references can be physical, update `emit_root_slot_sync(...)`:
    - physical source: copy physical register to root slot
    - stack source: copy stack home to root slot as today
@@ -512,12 +513,12 @@ Tests:
 
 ### Checklist
 
-- [ ] Choose and document the initial reference allocation policy.
-- [ ] Update root sync for physical source locations or spill all references.
-- [ ] Update root reload for physical destination locations or spill all references.
-- [ ] Add tests for physical or deliberately-spilled references at safepoints.
-- [ ] Run runtime-root emission tests.
-- [ ] Run selected GC/runtime golden tests.
+- [x] Choose and document the initial reference allocation policy.
+- [x] Update root sync for physical source locations or spill all references.
+- [x] Update root reload for physical destination locations or spill all references.
+- [x] Add tests for physical or deliberately-spilled references at safepoints.
+- [x] Run runtime-root emission tests.
+- [x] Run selected GC/runtime golden tests.
 
 ### How To Test
 
