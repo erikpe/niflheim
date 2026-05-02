@@ -385,6 +385,8 @@ def _emit_load_call_operand(
     register_type_name_by_reg_id: dict,
     program_symbols: BackendProgramSymbolTable,
 ) -> None:
+    """Load a call operand through the shared allocation-aware scalar loader."""
+
     if isinstance(operand, BackendDataOperand):
         builder.instruction("lea", target_register, f"[rip + {program_symbols.data_blob_symbols(operand.data_id).symbol}]")
         return

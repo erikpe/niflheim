@@ -148,7 +148,7 @@ class X86_64SysVCallablePlan:
 5. [x] Slice 5: Thread allocation into frame layout.
 6. [x] Slice 6: Make scalar instruction selection allocation-aware.
 7. [x] Slice 7: Preserve GC root correctness for physical locations.
-8. [ ] Slice 8: Make call lowering allocation-aware.
+8. [x] Slice 8: Make call lowering allocation-aware.
 9. [ ] Slice 9: Enable allocation behind an internal target option.
 10. [ ] Slice 10: Broaden allocation coverage and remove the temporary option if stable.
 
@@ -567,13 +567,13 @@ Tests:
 
 ### Checklist
 
-- [ ] Make argument loading allocation-aware.
-- [ ] Make indirect call target loading allocation-aware.
-- [ ] Make call return storage allocation-aware.
-- [ ] Prove callee-saved allocated values survive calls.
-- [ ] Preserve receiver null-check behavior.
-- [ ] Preserve runtime trace location hooks.
-- [ ] Preserve safepoint preamble and postamble behavior.
+- [x] Make argument loading allocation-aware.
+- [x] Make indirect call target loading allocation-aware.
+- [x] Make call return storage allocation-aware.
+- [x] Prove callee-saved allocated values survive calls.
+- [x] Preserve receiver null-check behavior.
+- [x] Preserve runtime trace location hooks.
+- [x] Preserve safepoint preamble and postamble behavior.
 
 ### How To Test
 
