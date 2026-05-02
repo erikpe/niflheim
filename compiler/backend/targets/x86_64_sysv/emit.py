@@ -39,7 +39,6 @@ from compiler.backend.targets import (
 )
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
-from compiler.backend.targets.x86_64_sysv.frame import plan_callable_frame_layout
 from compiler.backend.targets.x86_64_sysv.root_codegen import (
     emit_root_frame_pop,
     emit_root_frame_setup,
@@ -70,6 +69,7 @@ from compiler.backend.targets.x86_64_sysv.array_codegen import (
     emit_bounds_check_instruction,
 )
 from compiler.backend.targets.x86_64_sysv.lower_calls import emit_call_instruction as emit_lowered_call_instruction
+from compiler.backend.targets.x86_64_sysv.pipeline import X86_64SysVCallablePlan, plan_x86_64_sysv_target
 from compiler.backend.targets.x86_64_sysv.object_codegen import (
     emit_alloc_object_instruction,
     emit_field_load_instruction,
@@ -106,6 +106,7 @@ class X86_64SysVTarget:
 
 def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTargetOptions) -> BackendEmitResult:
     check_x86_64_sysv_legality(target_input)
+    target_plan = plan_x86_64_sysv_target(target_input, options=options)
 
     builder = X86AsmBuilder(emit_debug_comments=options.emit_debug_comments)
     callable_by_id = {callable_decl.callable_id: callable_decl for callable_decl in target_input.program.callables}
@@ -114,11 +115,9 @@ def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTa
     builder.blank()
     builder.directive(".text")
 
-    for callable_decl in target_input.program.callables:
-        if callable_decl.is_extern:
-            continue
+    for callable_plan in target_plan.callable_plans:
+        callable_decl = callable_plan.callable_decl
         builder.blank()
-        frame_layout = plan_callable_frame_layout(target_input, callable_decl)
         trace_record = (
             _trace_record_for_callable(target_input, callable_decl, source_root=source_root)
             if options.runtime_trace_enabled
@@ -128,11 +127,9 @@ def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTa
             trace_records.append(trace_record)
         _emit_callable_body(
             builder,
-            callable_decl,
+            callable_plan,
             target_input=target_input,
             options=options,
-            frame_layout=frame_layout,
-            ordered_block_ids=target_input.analysis_for_callable(callable_decl.callable_id).ordered_block_ids,
             callable_by_id=callable_by_id,
             emit_debug_comments=options.emit_debug_comments,
             trace_record=trace_record,
@@ -251,24 +248,24 @@ def _check_instruction_legality(callable_decl, block: BackendBlock, instruction:
 
 def _emit_callable_body(
     builder,
-    callable_decl,
+    callable_plan: X86_64SysVCallablePlan,
     *,
     target_input,
     options: BackendTargetOptions,
-    frame_layout,
-    ordered_block_ids,
     callable_by_id,
     emit_debug_comments: bool,
     trace_record,
     runtime_trace_enabled: bool,
 ) -> None:
-    callable_analysis = target_input.analysis_for_callable(callable_decl.callable_id)
+    callable_decl = callable_plan.callable_decl
+    callable_analysis = callable_plan.analysis
+    frame_layout = callable_plan.frame_layout
     callable_symbols = target_input.program_context.symbols.callable(callable_decl.callable_id)
     if callable_symbols.emitted_label is None:
         raise BackendTargetLoweringError(
             f"x86_64_sysv backend program context is missing an emitted label for '{_format_callable_id(callable_decl.callable_id)}'"
         )
-    ordered_blocks = _ordered_blocks_for_callable(callable_decl, ordered_block_ids=ordered_block_ids)
+    ordered_blocks = _ordered_blocks_for_callable(callable_decl, ordered_block_ids=callable_plan.ordered_block_ids)
     resolved_type_names = register_type_name_by_reg_id(callable_decl)
     interface_method_slot_by_id = {
         method_id: slot_index

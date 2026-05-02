@@ -142,7 +142,7 @@ class X86_64SysVCallablePlan:
 ## Ordered Implementation Checklist
 
 1. [x] Slice 1: Add target location and register-class model.
-2. [ ] Slice 2: Add target planning pipeline shell.
+2. [x] Slice 2: Add target planning pipeline shell.
 3. [ ] Slice 3: Build deterministic live intervals.
 4. [ ] Slice 4: Implement conservative linear-scan allocation.
 5. [ ] Slice 5: Thread allocation into frame layout.
@@ -242,11 +242,11 @@ Tests:
 
 ### Checklist
 
-- [ ] Add target plan dataclasses.
-- [ ] Build one callable plan per non-extern callable.
-- [ ] Keep extern callables out of frame/allocation planning.
-- [ ] Route `emit.py` through the target plan.
-- [ ] Preserve existing output exactly or explain any deterministic debug-comment-only changes.
+- [x] Add target plan dataclasses.
+- [x] Build one callable plan per non-extern callable.
+- [x] Keep extern callables out of frame/allocation planning.
+- [x] Route `emit.py` through the target plan.
+- [x] Preserve existing output exactly or explain any deterministic debug-comment-only changes.
 
 ### How To Test
 

@@ -36,6 +36,12 @@ from compiler.backend.targets.x86_64_sysv.locations import (
     register_class_for_type,
     xmm_register,
 )
+from compiler.backend.targets.x86_64_sysv.pipeline import (
+    X86_64SysVCallablePlan,
+    X86_64SysVTargetPlan,
+    plan_x86_64_sysv_callable,
+    plan_x86_64_sysv_target,
+)
 from compiler.backend.targets.x86_64_sysv.emit import (
     TARGET_NAME,
     X86_64_SYSV_TARGET,
@@ -56,6 +62,7 @@ __all__ = [
     "X86AsmBuilder",
     "X86_64SysVAbi",
     "X86_64SysVArgLocation",
+    "X86_64SysVCallablePlan",
     "X86_64SysVFrameError",
     "X86_64SysVFrameLayout",
     "X86_64SysVFrameSlot",
@@ -65,6 +72,7 @@ __all__ = [
     "X86_64SysVRegisterLocation",
     "X86_64SysVStackLocation",
     "X86_64SysVTarget",
+    "X86_64SysVTargetPlan",
     "check_x86_64_sysv_legality",
     "emit_block_instructions",
     "emit_branch_terminator",
@@ -79,6 +87,8 @@ __all__ = [
     "format_stack_slot_operand",
     "gpr_register",
     "plan_callable_frame_layout",
+    "plan_x86_64_sysv_callable",
+    "plan_x86_64_sysv_target",
     "register_type_name_by_reg_id",
     "register_class_for_type",
     "xmm_register",
