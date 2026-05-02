@@ -42,6 +42,12 @@ from compiler.backend.targets.x86_64_sysv.pipeline import (
     plan_x86_64_sysv_callable,
     plan_x86_64_sysv_target,
 )
+from compiler.backend.targets.x86_64_sysv.register_allocation import (
+    X86_64SysVInstructionPositions,
+    X86_64SysVLiveInterval,
+    build_instruction_positions,
+    build_live_intervals,
+)
 from compiler.backend.targets.x86_64_sysv.emit import (
     TARGET_NAME,
     X86_64_SYSV_TARGET,
@@ -66,7 +72,9 @@ __all__ = [
     "X86_64SysVFrameError",
     "X86_64SysVFrameLayout",
     "X86_64SysVFrameSlot",
+    "X86_64SysVInstructionPositions",
     "X86_64SysVLegalityError",
+    "X86_64SysVLiveInterval",
     "X86_64SysVPhysicalRegister",
     "X86_64SysVRegisterClass",
     "X86_64SysVRegisterLocation",
@@ -74,6 +82,8 @@ __all__ = [
     "X86_64SysVTarget",
     "X86_64SysVTargetPlan",
     "check_x86_64_sysv_legality",
+    "build_instruction_positions",
+    "build_live_intervals",
     "emit_block_instructions",
     "emit_branch_terminator",
     "emit_call_instruction",

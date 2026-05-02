@@ -143,7 +143,7 @@ class X86_64SysVCallablePlan:
 
 1. [x] Slice 1: Add target location and register-class model.
 2. [x] Slice 2: Add target planning pipeline shell.
-3. [ ] Slice 3: Build deterministic live intervals.
+3. [x] Slice 3: Build deterministic live intervals.
 4. [ ] Slice 4: Implement conservative linear-scan allocation.
 5. [ ] Slice 5: Thread allocation into frame layout.
 6. [ ] Slice 6: Make scalar instruction selection allocation-aware.
@@ -295,12 +295,12 @@ Tests:
 
 ### Checklist
 
-- [ ] Add position numbering.
-- [ ] Add live interval builder.
-- [ ] Mark call-crossing intervals.
-- [ ] Mark safepoint-live intervals.
-- [ ] Add unit tests for straight-line and control-flow intervals.
-- [ ] Add unit tests for call-crossing intervals.
+- [x] Add position numbering.
+- [x] Add live interval builder.
+- [x] Mark call-crossing intervals.
+- [x] Mark safepoint-live intervals.
+- [x] Add unit tests for straight-line and control-flow intervals.
+- [x] Add unit tests for call-crossing intervals.
 
 ### How To Test
 
