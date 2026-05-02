@@ -4,7 +4,105 @@ tests:
     name: "test_bitwise"
     src_file: "test_bitwise.nif"
     runs:
-      - {name: "bitwise", expect: {exit_code: 0, stdout_file: "test_bitwise_expected.txt"}}
+      - {name: "bitwise_i64_literals", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "bitwise_i64_constants", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - name: "bitwise_i64_args"
+        input:
+          args:
+            - "3"
+            - "-1"
+            - "0"
+            - "-1"
+            - "1"
+            - "-1"
+            - "-1"
+            - "-2"
+            - "5"
+            - "-9223372036854775808"
+            - "9223372036854775807"
+            - "123456789"
+            - "-987654321"
+            - "0"
+            - "0"
+            - "0"
+            - "-1"
+            - "1085102592571150095"
+            - "3689348814741910323"
+            - "-1"
+            - "0"
+            - "1"
+            - "-2"
+            - "-9223372036854775808"
+            - "9223372036854775807"
+            - "123456789"
+        expect:
+          exit_code: 0
+      - {name: "bitwise_u64_literals", input: {args: ["4"]}, expect: {exit_code: 0}}
+      - {name: "bitwise_u64_constants", input: {args: ["5"]}, expect: {exit_code: 0}}
+      - name: "bitwise_u64_args"
+        input:
+          args:
+            - "6"
+            - "0"
+            - "0"
+            - "0"
+            - "18446744073709551615"
+            - "1"
+            - "18446744073709551615"
+            - "18446744073709551615"
+            - "18446744073709551615"
+            - "18446744073709551615"
+            - "1085102592571150095"
+            - "12297829382473034410"
+            - "6148914691236517205"
+            - "9223372036854775808"
+            - "1"
+            - "1311768467463790320"
+            - "1085102592571150095"
+            - "0"
+            - "1"
+            - "18446744073709551615"
+            - "1085102592571150095"
+            - "9223372036854775808"
+            - "12297829382473034410"
+        expect:
+          exit_code: 0
+      - {name: "bitwise_u8_literals", input: {args: ["7"]}, expect: {exit_code: 0}}
+      - {name: "bitwise_u8_constants", input: {args: ["8"]}, expect: {exit_code: 0}}
+      - name: "bitwise_u8_args"
+        input:
+          args:
+            - "9"
+            - "0"
+            - "0"
+            - "0"
+            - "255"
+            - "1"
+            - "255"
+            - "255"
+            - "255"
+            - "200"
+            - "15"
+            - "170"
+            - "85"
+            - "128"
+            - "1"
+            - "240"
+            - "15"
+            - "51"
+            - "204"
+            - "0"
+            - "1"
+            - "255"
+            - "200"
+            - "15"
+            - "128"
+            - "170"
+        expect:
+          exit_code: 0
+      - {name: "bitwise_precedence_literals", input: {args: ["10"]}, expect: {exit_code: 0}}
+      - {name: "bitwise_precedence_constants", input: {args: ["11"]}, expect: {exit_code: 0}}
+      - {name: "bitwise_precedence_args", input: {args: ["12", "12", "3", "5"]}, expect: {exit_code: 0}}
   - <<: *test_bitwise
     name: "test_bitwise_backend_constant_fold"
     build_args: ["--disable-semantic-optimization", "constant_fold"]

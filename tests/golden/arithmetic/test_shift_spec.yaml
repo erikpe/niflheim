@@ -4,9 +4,82 @@ tests:
     name: "test_shift"
     src_file: "test_shift.nif"
     runs:
-      - {name: "shift_success", input: {stdin: "1"}, expect: {exit_code: 0, stdout_file: "test_shift_expected.txt"}}
-      - {name: "shift_u8_oob_panics", input: {stdin: "2"}, expect: {panic: "invalid shift count"}}
-      - {name: "shift_u64_oob_panics", input: {stdin: "3"}, expect: {panic: "invalid shift count"}}
+      - {name: "shift_u64_literals", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "shift_u64_constants", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - name: "shift_u64_args"
+        input:
+          args:
+            - "3"
+            - "1"
+            - "0"
+            - "1"
+            - "1"
+            - "1"
+            - "63"
+            - "9223372036854775808"
+            - "63"
+            - "18446744073709551615"
+            - "1"
+            - "1311768467463790320"
+            - "4"
+        expect:
+          exit_code: 0
+      - {name: "shift_i64_literals", input: {args: ["4"]}, expect: {exit_code: 0}}
+      - {name: "shift_i64_constants", input: {args: ["5"]}, expect: {exit_code: 0}}
+      - name: "shift_i64_args"
+        input:
+          args:
+            - "6"
+            - "1"
+            - "0"
+            - "1"
+            - "62"
+            - "-1"
+            - "1"
+            - "-8"
+            - "1"
+            - "-8"
+            - "3"
+            - "-9223372036854775808"
+            - "63"
+            - "4611686018427387904"
+            - "1"
+            - "9223372036854775807"
+            - "1"
+        expect:
+          exit_code: 0
+      - {name: "shift_u8_literals", input: {args: ["7"]}, expect: {exit_code: 0}}
+      - {name: "shift_u8_constants", input: {args: ["8"]}, expect: {exit_code: 0}}
+      - name: "shift_u8_args"
+        input:
+          args:
+            - "9"
+            - "1"
+            - "0"
+            - "1"
+            - "1"
+            - "1"
+            - "7"
+            - "128"
+            - "7"
+            - "200"
+            - "1"
+            - "200"
+            - "3"
+            - "255"
+            - "1"
+            - "15"
+            - "4"
+        expect:
+          exit_code: 0
+      - {name: "shift_precedence_literals", input: {args: ["10"]}, expect: {exit_code: 0}}
+      - {name: "shift_precedence_constants", input: {args: ["11"]}, expect: {exit_code: 0}}
+      - {name: "shift_precedence_args", input: {args: ["12", "1", "2", "16"]}, expect: {exit_code: 0}}
+      - {name: "shift_u8_literal_oob_panics", input: {args: ["13"]}, expect: {panic: "invalid shift count"}}
+      - {name: "shift_u8_arg_oob_panics", input: {args: ["14", "1", "8"]}, expect: {panic: "invalid shift count"}}
+      - {name: "shift_u64_literal_oob_panics", input: {args: ["15"]}, expect: {panic: "invalid shift count"}}
+      - {name: "shift_u64_arg_oob_panics", input: {args: ["16", "1", "64"]}, expect: {panic: "invalid shift count"}}
+      - {name: "shift_i64_arg_oob_panics", input: {args: ["17", "-1", "64"]}, expect: {panic: "invalid shift count"}}
   - <<: *test_shift
     name: "test_shift_backend_constant_fold"
     build_args: ["--disable-semantic-optimization", "constant_fold"]

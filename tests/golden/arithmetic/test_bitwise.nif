@@ -1,38 +1,417 @@
 import std.io;
+import std.str;
+import std.test;
 
-fn test_u64_bitwise() -> unit {
-    var a: u64 = 18446744073709551615u;
-    var b: u64 = 1085102592571150095u;
+fn test_i64_literals() -> unit {
+    assert_eq_i64(-1 & 0, 0);
+    assert_eq_i64(-1 | 0, -1);
+    assert_eq_i64(-1 ^ 0, -1);
+    assert_eq_i64(-1 & 1, 1);
+    assert_eq_i64(-1 | 1, -1);
+    assert_eq_i64(-1 ^ 1, -2);
+    assert_eq_i64(-1 & -1, -1);
+    assert_eq_i64(-1 | -1, -1);
+    assert_eq_i64(-1 ^ -1, 0);
+    assert_eq_i64(-2 & 5, 4);
+    assert_eq_i64(-2 | 5, -1);
+    assert_eq_i64(-2 ^ 5, -5);
+    assert_eq_i64(-9223372036854775808 & 9223372036854775807, 0);
+    assert_eq_i64(-9223372036854775808 | 9223372036854775807, -1);
+    assert_eq_i64(-9223372036854775808 ^ 9223372036854775807, -1);
+    assert_eq_i64(123456789 & -987654321, 83985669);
+    assert_eq_i64(123456789 | -987654321, -948183201);
+    assert_eq_i64(123456789 ^ -987654321, -1032168870);
+    assert_eq_i64(0 & 0, 0);
+    assert_eq_i64(0 | 0, 0);
+    assert_eq_i64(0 ^ 0, 0);
+    assert_eq_i64(0 & -1, 0);
+    assert_eq_i64(0 | -1, -1);
+    assert_eq_i64(0 ^ -1, -1);
+    assert_eq_i64(1085102592571150095 & 3689348814741910323, 217020518514230019);
+    assert_eq_i64(1085102592571150095 | 3689348814741910323, 4557430888798830399);
+    assert_eq_i64(1085102592571150095 ^ 3689348814741910323, 4340410370284600380);
 
-    println_u64(a & b);
-    println_u64(a | b);
-    println_u64(a ^ b);
-    println_u64(~b);
+    assert_eq_i64(~-1, 0);
+    assert_eq_i64(~0, -1);
+    assert_eq_i64(~1, -2);
+    assert_eq_i64(~-2, 1);
+    assert_eq_i64(~-9223372036854775808, 9223372036854775807);
+    assert_eq_i64(~9223372036854775807, -9223372036854775808);
+    assert_eq_i64(~123456789, -123456790);
 }
 
-fn test_u8_bitwise() -> unit {
-    var a: u8 = 200u8;
-    var b: u8 = 15u8;
+fn test_i64_constants() -> unit {
+    var neg_one: i64 = -1;
+    var zero: i64 = 0;
+    var one: i64 = 1;
+    var neg_two: i64 = -2;
+    var five: i64 = 5;
+    var min: i64 = -9223372036854775808;
+    var max: i64 = 9223372036854775807;
+    var mid: i64 = 123456789;
+    var neg_mid: i64 = -987654321;
+    var pattern_a: i64 = 1085102592571150095;
+    var pattern_b: i64 = 3689348814741910323;
 
-    println_u8(a & b);
-    println_u8(a | b);
-    println_u8(a ^ b);
-    println_u8(~a);
+    assert_eq_i64(neg_one & zero, 0);
+    assert_eq_i64(neg_one | zero, -1);
+    assert_eq_i64(neg_one ^ zero, -1);
+    assert_eq_i64(neg_one & one, 1);
+    assert_eq_i64(neg_one | one, -1);
+    assert_eq_i64(neg_one ^ one, -2);
+    assert_eq_i64(neg_one & neg_one, -1);
+    assert_eq_i64(neg_one | neg_one, -1);
+    assert_eq_i64(neg_one ^ neg_one, 0);
+    assert_eq_i64(neg_two & five, 4);
+    assert_eq_i64(neg_two | five, -1);
+    assert_eq_i64(neg_two ^ five, -5);
+    assert_eq_i64(min & max, 0);
+    assert_eq_i64(min | max, -1);
+    assert_eq_i64(min ^ max, -1);
+    assert_eq_i64(mid & neg_mid, 83985669);
+    assert_eq_i64(mid | neg_mid, -948183201);
+    assert_eq_i64(mid ^ neg_mid, -1032168870);
+    assert_eq_i64(zero & zero, 0);
+    assert_eq_i64(zero | zero, 0);
+    assert_eq_i64(zero ^ zero, 0);
+    assert_eq_i64(zero & neg_one, 0);
+    assert_eq_i64(zero | neg_one, -1);
+    assert_eq_i64(zero ^ neg_one, -1);
+    assert_eq_i64(pattern_a & pattern_b, 217020518514230019);
+    assert_eq_i64(pattern_a | pattern_b, 4557430888798830399);
+    assert_eq_i64(pattern_a ^ pattern_b, 4340410370284600380);
+
+    assert_eq_i64(~neg_one, 0);
+    assert_eq_i64(~zero, -1);
+    assert_eq_i64(~one, -2);
+    assert_eq_i64(~neg_two, 1);
+    assert_eq_i64(~min, 9223372036854775807);
+    assert_eq_i64(~max, -9223372036854775808);
+    assert_eq_i64(~mid, -123456790);
 }
 
-fn test_i64_bitwise() -> unit {
-    var x: i64 = -2;
-    var y: i64 = 5;
+fn test_i64_args(input: Str[]) -> unit {
+    assert_eq_i64(input[0].to_i64() & input[1].to_i64(), 0);
+    assert_eq_i64(input[0].to_i64() | input[1].to_i64(), -1);
+    assert_eq_i64(input[0].to_i64() ^ input[1].to_i64(), -1);
+    assert_eq_i64(input[2].to_i64() & input[3].to_i64(), 1);
+    assert_eq_i64(input[2].to_i64() | input[3].to_i64(), -1);
+    assert_eq_i64(input[2].to_i64() ^ input[3].to_i64(), -2);
+    assert_eq_i64(input[4].to_i64() & input[5].to_i64(), -1);
+    assert_eq_i64(input[4].to_i64() | input[5].to_i64(), -1);
+    assert_eq_i64(input[4].to_i64() ^ input[5].to_i64(), 0);
+    assert_eq_i64(input[6].to_i64() & input[7].to_i64(), 4);
+    assert_eq_i64(input[6].to_i64() | input[7].to_i64(), -1);
+    assert_eq_i64(input[6].to_i64() ^ input[7].to_i64(), -5);
+    assert_eq_i64(input[8].to_i64() & input[9].to_i64(), 0);
+    assert_eq_i64(input[8].to_i64() | input[9].to_i64(), -1);
+    assert_eq_i64(input[8].to_i64() ^ input[9].to_i64(), -1);
+    assert_eq_i64(input[10].to_i64() & input[11].to_i64(), 83985669);
+    assert_eq_i64(input[10].to_i64() | input[11].to_i64(), -948183201);
+    assert_eq_i64(input[10].to_i64() ^ input[11].to_i64(), -1032168870);
+    assert_eq_i64(input[12].to_i64() & input[13].to_i64(), 0);
+    assert_eq_i64(input[12].to_i64() | input[13].to_i64(), 0);
+    assert_eq_i64(input[12].to_i64() ^ input[13].to_i64(), 0);
+    assert_eq_i64(input[14].to_i64() & input[15].to_i64(), 0);
+    assert_eq_i64(input[14].to_i64() | input[15].to_i64(), -1);
+    assert_eq_i64(input[14].to_i64() ^ input[15].to_i64(), -1);
+    assert_eq_i64(input[16].to_i64() & input[17].to_i64(), 217020518514230019);
+    assert_eq_i64(input[16].to_i64() | input[17].to_i64(), 4557430888798830399);
+    assert_eq_i64(input[16].to_i64() ^ input[17].to_i64(), 4340410370284600380);
 
-    println_i64(x & y);
-    println_i64(x | y);
-    println_i64(x ^ y);
-    println_i64(~x);
+    assert_eq_i64(~input[18].to_i64(), 0);
+    assert_eq_i64(~input[19].to_i64(), -1);
+    assert_eq_i64(~input[20].to_i64(), -2);
+    assert_eq_i64(~input[21].to_i64(), 1);
+    assert_eq_i64(~input[22].to_i64(), 9223372036854775807);
+    assert_eq_i64(~input[23].to_i64(), -9223372036854775808);
+    assert_eq_i64(~input[24].to_i64(), -123456790);
+}
+
+fn test_u64_literals() -> unit {
+    assert_eq_u64(0u & 0u, 0u);
+    assert_eq_u64(0u | 0u, 0u);
+    assert_eq_u64(0u ^ 0u, 0u);
+    assert_eq_u64(0u & 18446744073709551615u, 0u);
+    assert_eq_u64(0u | 18446744073709551615u, 18446744073709551615u);
+    assert_eq_u64(0u ^ 18446744073709551615u, 18446744073709551615u);
+    assert_eq_u64(1u & 18446744073709551615u, 1u);
+    assert_eq_u64(1u | 18446744073709551615u, 18446744073709551615u);
+    assert_eq_u64(1u ^ 18446744073709551615u, 18446744073709551614u);
+    assert_eq_u64(18446744073709551615u & 18446744073709551615u, 18446744073709551615u);
+    assert_eq_u64(18446744073709551615u | 18446744073709551615u, 18446744073709551615u);
+    assert_eq_u64(18446744073709551615u ^ 18446744073709551615u, 0u);
+    assert_eq_u64(18446744073709551615u & 1085102592571150095u, 1085102592571150095u);
+    assert_eq_u64(18446744073709551615u | 1085102592571150095u, 18446744073709551615u);
+    assert_eq_u64(18446744073709551615u ^ 1085102592571150095u, 17361641481138401520u);
+    assert_eq_u64(12297829382473034410u & 6148914691236517205u, 0u);
+    assert_eq_u64(12297829382473034410u | 6148914691236517205u, 18446744073709551615u);
+    assert_eq_u64(12297829382473034410u ^ 6148914691236517205u, 18446744073709551615u);
+    assert_eq_u64(9223372036854775808u & 1u, 0u);
+    assert_eq_u64(9223372036854775808u | 1u, 9223372036854775809u);
+    assert_eq_u64(9223372036854775808u ^ 1u, 9223372036854775809u);
+    assert_eq_u64(1311768467463790320u & 1085102592571150095u, 145247719580765696u);
+    assert_eq_u64(1311768467463790320u | 1085102592571150095u, 2251623340454174719u);
+    assert_eq_u64(1311768467463790320u ^ 1085102592571150095u, 2106375620873409023u);
+
+    assert_eq_u64(~0u, 18446744073709551615u);
+    assert_eq_u64(~1u, 18446744073709551614u);
+    assert_eq_u64(~18446744073709551615u, 0u);
+    assert_eq_u64(~1085102592571150095u, 17361641481138401520u);
+    assert_eq_u64(~9223372036854775808u, 9223372036854775807u);
+    assert_eq_u64(~12297829382473034410u, 6148914691236517205u);
+}
+
+fn test_u64_constants() -> unit {
+    var zero: u64 = 0u;
+    var one: u64 = 1u;
+    var max: u64 = 18446744073709551615u;
+    var pattern_lo: u64 = 1085102592571150095u;
+    var pattern_a: u64 = 12297829382473034410u;
+    var pattern_b: u64 = 6148914691236517205u;
+    var high_bit: u64 = 9223372036854775808u;
+    var mixed_a: u64 = 1311768467463790320u;
+
+    assert_eq_u64(zero & zero, 0u);
+    assert_eq_u64(zero | zero, 0u);
+    assert_eq_u64(zero ^ zero, 0u);
+    assert_eq_u64(zero & max, 0u);
+    assert_eq_u64(zero | max, 18446744073709551615u);
+    assert_eq_u64(zero ^ max, 18446744073709551615u);
+    assert_eq_u64(one & max, 1u);
+    assert_eq_u64(one | max, 18446744073709551615u);
+    assert_eq_u64(one ^ max, 18446744073709551614u);
+    assert_eq_u64(max & max, 18446744073709551615u);
+    assert_eq_u64(max | max, 18446744073709551615u);
+    assert_eq_u64(max ^ max, 0u);
+    assert_eq_u64(max & pattern_lo, 1085102592571150095u);
+    assert_eq_u64(max | pattern_lo, 18446744073709551615u);
+    assert_eq_u64(max ^ pattern_lo, 17361641481138401520u);
+    assert_eq_u64(pattern_a & pattern_b, 0u);
+    assert_eq_u64(pattern_a | pattern_b, 18446744073709551615u);
+    assert_eq_u64(pattern_a ^ pattern_b, 18446744073709551615u);
+    assert_eq_u64(high_bit & one, 0u);
+    assert_eq_u64(high_bit | one, 9223372036854775809u);
+    assert_eq_u64(high_bit ^ one, 9223372036854775809u);
+    assert_eq_u64(mixed_a & pattern_lo, 145247719580765696u);
+    assert_eq_u64(mixed_a | pattern_lo, 2251623340454174719u);
+    assert_eq_u64(mixed_a ^ pattern_lo, 2106375620873409023u);
+
+    assert_eq_u64(~zero, 18446744073709551615u);
+    assert_eq_u64(~one, 18446744073709551614u);
+    assert_eq_u64(~max, 0u);
+    assert_eq_u64(~pattern_lo, 17361641481138401520u);
+    assert_eq_u64(~high_bit, 9223372036854775807u);
+    assert_eq_u64(~pattern_a, 6148914691236517205u);
+}
+
+fn test_u64_args(input: Str[]) -> unit {
+    assert_eq_u64(input[0].to_u64() & input[1].to_u64(), 0u);
+    assert_eq_u64(input[0].to_u64() | input[1].to_u64(), 0u);
+    assert_eq_u64(input[0].to_u64() ^ input[1].to_u64(), 0u);
+    assert_eq_u64(input[2].to_u64() & input[3].to_u64(), 0u);
+    assert_eq_u64(input[2].to_u64() | input[3].to_u64(), 18446744073709551615u);
+    assert_eq_u64(input[2].to_u64() ^ input[3].to_u64(), 18446744073709551615u);
+    assert_eq_u64(input[4].to_u64() & input[5].to_u64(), 1u);
+    assert_eq_u64(input[4].to_u64() | input[5].to_u64(), 18446744073709551615u);
+    assert_eq_u64(input[4].to_u64() ^ input[5].to_u64(), 18446744073709551614u);
+    assert_eq_u64(input[6].to_u64() & input[7].to_u64(), 18446744073709551615u);
+    assert_eq_u64(input[6].to_u64() | input[7].to_u64(), 18446744073709551615u);
+    assert_eq_u64(input[6].to_u64() ^ input[7].to_u64(), 0u);
+    assert_eq_u64(input[8].to_u64() & input[9].to_u64(), 1085102592571150095u);
+    assert_eq_u64(input[8].to_u64() | input[9].to_u64(), 18446744073709551615u);
+    assert_eq_u64(input[8].to_u64() ^ input[9].to_u64(), 17361641481138401520u);
+    assert_eq_u64(input[10].to_u64() & input[11].to_u64(), 0u);
+    assert_eq_u64(input[10].to_u64() | input[11].to_u64(), 18446744073709551615u);
+    assert_eq_u64(input[10].to_u64() ^ input[11].to_u64(), 18446744073709551615u);
+    assert_eq_u64(input[12].to_u64() & input[13].to_u64(), 0u);
+    assert_eq_u64(input[12].to_u64() | input[13].to_u64(), 9223372036854775809u);
+    assert_eq_u64(input[12].to_u64() ^ input[13].to_u64(), 9223372036854775809u);
+    assert_eq_u64(input[14].to_u64() & input[15].to_u64(), 145247719580765696u);
+    assert_eq_u64(input[14].to_u64() | input[15].to_u64(), 2251623340454174719u);
+    assert_eq_u64(input[14].to_u64() ^ input[15].to_u64(), 2106375620873409023u);
+
+    assert_eq_u64(~input[16].to_u64(), 18446744073709551615u);
+    assert_eq_u64(~input[17].to_u64(), 18446744073709551614u);
+    assert_eq_u64(~input[18].to_u64(), 0u);
+    assert_eq_u64(~input[19].to_u64(), 17361641481138401520u);
+    assert_eq_u64(~input[20].to_u64(), 9223372036854775807u);
+    assert_eq_u64(~input[21].to_u64(), 6148914691236517205u);
+}
+
+fn test_u8_literals() -> unit {
+    assert_eq_u8(0u8 & 0u8, 0u8);
+    assert_eq_u8(0u8 | 0u8, 0u8);
+    assert_eq_u8(0u8 ^ 0u8, 0u8);
+    assert_eq_u8(0u8 & 255u8, 0u8);
+    assert_eq_u8(0u8 | 255u8, 255u8);
+    assert_eq_u8(0u8 ^ 255u8, 255u8);
+    assert_eq_u8(1u8 & 255u8, 1u8);
+    assert_eq_u8(1u8 | 255u8, 255u8);
+    assert_eq_u8(1u8 ^ 255u8, 254u8);
+    assert_eq_u8(255u8 & 255u8, 255u8);
+    assert_eq_u8(255u8 | 255u8, 255u8);
+    assert_eq_u8(255u8 ^ 255u8, 0u8);
+    assert_eq_u8(200u8 & 15u8, 8u8);
+    assert_eq_u8(200u8 | 15u8, 207u8);
+    assert_eq_u8(200u8 ^ 15u8, 199u8);
+    assert_eq_u8(170u8 & 85u8, 0u8);
+    assert_eq_u8(170u8 | 85u8, 255u8);
+    assert_eq_u8(170u8 ^ 85u8, 255u8);
+    assert_eq_u8(128u8 & 1u8, 0u8);
+    assert_eq_u8(128u8 | 1u8, 129u8);
+    assert_eq_u8(128u8 ^ 1u8, 129u8);
+    assert_eq_u8(240u8 & 15u8, 0u8);
+    assert_eq_u8(240u8 | 15u8, 255u8);
+    assert_eq_u8(240u8 ^ 15u8, 255u8);
+    assert_eq_u8(51u8 & 204u8, 0u8);
+    assert_eq_u8(51u8 | 204u8, 255u8);
+    assert_eq_u8(51u8 ^ 204u8, 255u8);
+
+    assert_eq_u8(~0u8, 255u8);
+    assert_eq_u8(~1u8, 254u8);
+    assert_eq_u8(~255u8, 0u8);
+    assert_eq_u8(~200u8, 55u8);
+    assert_eq_u8(~15u8, 240u8);
+    assert_eq_u8(~128u8, 127u8);
+    assert_eq_u8(~170u8, 85u8);
+}
+
+fn test_u8_constants() -> unit {
+    var zero: u8 = 0u8;
+    var one: u8 = 1u8;
+    var max: u8 = 255u8;
+    var two_hundred: u8 = 200u8;
+    var fifteen: u8 = 15u8;
+    var pattern_a: u8 = 170u8;
+    var pattern_b: u8 = 85u8;
+    var high_bit: u8 = 128u8;
+    var low_bit: u8 = 1u8;
+    var high_nibble: u8 = 240u8;
+    var stripe_a: u8 = 51u8;
+    var stripe_b: u8 = 204u8;
+
+    assert_eq_u8(zero & zero, 0u8);
+    assert_eq_u8(zero | zero, 0u8);
+    assert_eq_u8(zero ^ zero, 0u8);
+    assert_eq_u8(zero & max, 0u8);
+    assert_eq_u8(zero | max, 255u8);
+    assert_eq_u8(zero ^ max, 255u8);
+    assert_eq_u8(one & max, 1u8);
+    assert_eq_u8(one | max, 255u8);
+    assert_eq_u8(one ^ max, 254u8);
+    assert_eq_u8(max & max, 255u8);
+    assert_eq_u8(max | max, 255u8);
+    assert_eq_u8(max ^ max, 0u8);
+    assert_eq_u8(two_hundred & fifteen, 8u8);
+    assert_eq_u8(two_hundred | fifteen, 207u8);
+    assert_eq_u8(two_hundred ^ fifteen, 199u8);
+    assert_eq_u8(pattern_a & pattern_b, 0u8);
+    assert_eq_u8(pattern_a | pattern_b, 255u8);
+    assert_eq_u8(pattern_a ^ pattern_b, 255u8);
+    assert_eq_u8(high_bit & low_bit, 0u8);
+    assert_eq_u8(high_bit | low_bit, 129u8);
+    assert_eq_u8(high_bit ^ low_bit, 129u8);
+    assert_eq_u8(high_nibble & fifteen, 0u8);
+    assert_eq_u8(high_nibble | fifteen, 255u8);
+    assert_eq_u8(high_nibble ^ fifteen, 255u8);
+    assert_eq_u8(stripe_a & stripe_b, 0u8);
+    assert_eq_u8(stripe_a | stripe_b, 255u8);
+    assert_eq_u8(stripe_a ^ stripe_b, 255u8);
+
+    assert_eq_u8(~zero, 255u8);
+    assert_eq_u8(~one, 254u8);
+    assert_eq_u8(~max, 0u8);
+    assert_eq_u8(~two_hundred, 55u8);
+    assert_eq_u8(~fifteen, 240u8);
+    assert_eq_u8(~high_bit, 127u8);
+    assert_eq_u8(~pattern_a, 85u8);
+}
+
+fn test_u8_args(input: Str[]) -> unit {
+    assert_eq_u8((u8)input[0].to_u64() & (u8)input[1].to_u64(), 0u8);
+    assert_eq_u8((u8)input[0].to_u64() | (u8)input[1].to_u64(), 0u8);
+    assert_eq_u8((u8)input[0].to_u64() ^ (u8)input[1].to_u64(), 0u8);
+    assert_eq_u8((u8)input[2].to_u64() & (u8)input[3].to_u64(), 0u8);
+    assert_eq_u8((u8)input[2].to_u64() | (u8)input[3].to_u64(), 255u8);
+    assert_eq_u8((u8)input[2].to_u64() ^ (u8)input[3].to_u64(), 255u8);
+    assert_eq_u8((u8)input[4].to_u64() & (u8)input[5].to_u64(), 1u8);
+    assert_eq_u8((u8)input[4].to_u64() | (u8)input[5].to_u64(), 255u8);
+    assert_eq_u8((u8)input[4].to_u64() ^ (u8)input[5].to_u64(), 254u8);
+    assert_eq_u8((u8)input[6].to_u64() & (u8)input[7].to_u64(), 255u8);
+    assert_eq_u8((u8)input[6].to_u64() | (u8)input[7].to_u64(), 255u8);
+    assert_eq_u8((u8)input[6].to_u64() ^ (u8)input[7].to_u64(), 0u8);
+    assert_eq_u8((u8)input[8].to_u64() & (u8)input[9].to_u64(), 8u8);
+    assert_eq_u8((u8)input[8].to_u64() | (u8)input[9].to_u64(), 207u8);
+    assert_eq_u8((u8)input[8].to_u64() ^ (u8)input[9].to_u64(), 199u8);
+    assert_eq_u8((u8)input[10].to_u64() & (u8)input[11].to_u64(), 0u8);
+    assert_eq_u8((u8)input[10].to_u64() | (u8)input[11].to_u64(), 255u8);
+    assert_eq_u8((u8)input[10].to_u64() ^ (u8)input[11].to_u64(), 255u8);
+    assert_eq_u8((u8)input[12].to_u64() & (u8)input[13].to_u64(), 0u8);
+    assert_eq_u8((u8)input[12].to_u64() | (u8)input[13].to_u64(), 129u8);
+    assert_eq_u8((u8)input[12].to_u64() ^ (u8)input[13].to_u64(), 129u8);
+    assert_eq_u8((u8)input[14].to_u64() & (u8)input[15].to_u64(), 0u8);
+    assert_eq_u8((u8)input[14].to_u64() | (u8)input[15].to_u64(), 255u8);
+    assert_eq_u8((u8)input[14].to_u64() ^ (u8)input[15].to_u64(), 255u8);
+    assert_eq_u8((u8)input[16].to_u64() & (u8)input[17].to_u64(), 0u8);
+    assert_eq_u8((u8)input[16].to_u64() | (u8)input[17].to_u64(), 255u8);
+    assert_eq_u8((u8)input[16].to_u64() ^ (u8)input[17].to_u64(), 255u8);
+
+    assert_eq_u8(~(u8)input[18].to_u64(), 255u8);
+    assert_eq_u8(~(u8)input[19].to_u64(), 254u8);
+    assert_eq_u8(~(u8)input[20].to_u64(), 0u8);
+    assert_eq_u8(~(u8)input[21].to_u64(), 55u8);
+    assert_eq_u8(~(u8)input[22].to_u64(), 240u8);
+    assert_eq_u8(~(u8)input[23].to_u64(), 127u8);
+    assert_eq_u8(~(u8)input[24].to_u64(), 85u8);
+}
+
+fn test_precedence_literals() -> unit {
+    assert_eq_u64(12u | 3u & 5u, 13u);
+    assert_eq_u64((12u | 3u) & 5u, 5u);
+    assert_eq_u64(12u ^ 3u | 5u, 15u);
+    assert_eq_u64(12u & 3u ^ 5u, 5u);
+}
+
+fn test_precedence_constants() -> unit {
+    var twelve: u64 = 12u;
+    var three: u64 = 3u;
+    var five: u64 = 5u;
+
+    assert_eq_u64(twelve | three & five, 13u);
+    assert_eq_u64((twelve | three) & five, 5u);
+    assert_eq_u64(twelve ^ three | five, 15u);
+    assert_eq_u64(twelve & three ^ five, 5u);
+}
+
+fn test_precedence_args(input: Str[]) -> unit {
+    var twelve: u64 = input[0].to_u64();
+    var three: u64 = input[1].to_u64();
+    var five: u64 = input[2].to_u64();
+
+    assert_eq_u64(twelve | three & five, 13u);
+    assert_eq_u64((twelve | three) & five, 5u);
+    assert_eq_u64(twelve ^ three | five, 15u);
+    assert_eq_u64(twelve & three ^ five, 5u);
 }
 
 fn main() -> i64 {
-    test_u64_bitwise();
-    test_u8_bitwise();
-    test_i64_bitwise();
-    return 0;
+    var args: Str[] = read_program_args();
+    var select: u64 = args[1].to_u64();
+
+    if select == 1u { test_i64_literals(); return 0; }
+    if select == 2u { test_i64_constants(); return 0; }
+    if select == 3u { test_i64_args(args[2:]); return 0; }
+    if select == 4u { test_u64_literals(); return 0; }
+    if select == 5u { test_u64_constants(); return 0; }
+    if select == 6u { test_u64_args(args[2:]); return 0; }
+    if select == 7u { test_u8_literals(); return 0; }
+    if select == 8u { test_u8_constants(); return 0; }
+    if select == 9u { test_u8_args(args[2:]); return 0; }
+    if select == 10u { test_precedence_literals(); return 0; }
+    if select == 11u { test_precedence_constants(); return 0; }
+    if select == 12u { test_precedence_args(args[2:]); return 0; }
+
+    fail("bitwise golden: invalid selection");
+    return 1;
 }

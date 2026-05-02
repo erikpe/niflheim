@@ -4,7 +4,38 @@ tests:
     name: "test_negation"
     src_file: "test_negation.nif"
     runs:
-      - {name: "negation", expect: {exit_code: 0, stdout_file: "test_negation_expected.txt"}}
+      - {name: "negation_i64_literals", input: {args: ["1"]}, expect: {exit_code: 0}}
+      - {name: "negation_i64_constants", input: {args: ["2"]}, expect: {exit_code: 0}}
+      - name: "negation_i64_args"
+        input:
+          args:
+            - "3"
+            - "0"
+            - "1"
+            - "-1"
+            - "200"
+            - "-200"
+            - "9223372036854775807"
+            - "-9223372036854775808"
+            - "-9223372036854775807"
+        expect:
+          exit_code: 0
+      - {name: "negation_double_literals", input: {args: ["4"]}, expect: {exit_code: 0}}
+      - {name: "negation_double_constants", input: {args: ["5"]}, expect: {exit_code: 0}}
+      - name: "negation_double_args"
+        input:
+          args:
+            - "6"
+            - "0.0"
+            - "-0.0"
+            - "1.5"
+            - "-1.5"
+            - "2.5"
+            - "-2.5"
+            - "123456.75"
+            - "-123456.75"
+        expect:
+          exit_code: 0
   - <<: *test_negation
     name: "test_negation_backend_constant_fold"
     build_args: ["--disable-semantic-optimization", "constant_fold"]
