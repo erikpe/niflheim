@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from compiler.backend.ir import BackendCallInst, BackendCallableDecl, BackendRegId
 from compiler.backend.targets import BackendTargetInput, BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
+from compiler.backend.targets.x86_64_sysv.locations import X86_64SysVPhysicalRegister
 from compiler.backend.targets.x86_64_sysv.root_runtime import RT_ROOT_FRAME_SIZE_BYTES
+
+if TYPE_CHECKING:
+    from compiler.backend.targets.x86_64_sysv.register_allocation import X86_64SysVRegisterAllocation
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,11 +29,19 @@ class X86_64SysVRootSlot:
 
 
 @dataclass(frozen=True, slots=True)
+class X86_64SysVCalleeSavedSlot:
+    physical_register: X86_64SysVPhysicalRegister
+    byte_offset: int
+
+
+@dataclass(frozen=True, slots=True)
 class X86_64SysVFrameLayout:
     callable_decl: BackendCallableDecl
+    allocation: "X86_64SysVRegisterAllocation | None"
     slots: tuple[X86_64SysVFrameSlot, ...]
     slot_by_reg: dict[BackendRegId, X86_64SysVFrameSlot]
     slot_by_home_name: dict[str, X86_64SysVFrameSlot]
+    callee_saved_slots: tuple[X86_64SysVCalleeSavedSlot, ...]
     root_slots: tuple[X86_64SysVRootSlot, ...]
     root_slot_by_reg: dict[BackendRegId, X86_64SysVRootSlot]
     thread_state_offset: int | None
@@ -51,6 +64,10 @@ class X86_64SysVFrameLayout:
         return len(self.slots)
 
     @property
+    def callee_saved_count(self) -> int:
+        return len(self.callee_saved_slots)
+
+    @property
     def root_slot_count(self) -> int:
         return len(self.root_slots)
 
@@ -68,6 +85,7 @@ def plan_callable_frame_layout(
     callable_decl: BackendCallableDecl,
     *,
     abi: X86_64SysVAbi = X86_64_SYSV_ABI,
+    allocation: "X86_64SysVRegisterAllocation | None" = None,
     outgoing_stack_arg_slot_count: int | None = None,
     scratch_slot_count: int = 0,
 ) -> X86_64SysVFrameLayout:
@@ -101,6 +119,18 @@ def plan_callable_frame_layout(
         slot_by_home_name[home_name] = slot
 
     next_offset = -(len(slots) * abi.stack_slot_size_bytes)
+
+    callee_saved_slots: list[X86_64SysVCalleeSavedSlot] = []
+    if allocation is not None:
+        for physical_register in allocation.used_callee_saved_registers:
+            byte_offset = next_offset - abi.stack_slot_size_bytes
+            next_offset = byte_offset
+            callee_saved_slots.append(
+                X86_64SysVCalleeSavedSlot(
+                    physical_register=physical_register,
+                    byte_offset=byte_offset,
+                )
+            )
 
     thread_state_offset: int | None = None
     root_frame_offset: int | None = None
@@ -136,9 +166,11 @@ def plan_callable_frame_layout(
     frame_bytes = abs(next_offset) + (resolved_outgoing_stack_arg_slot_count * abi.stack_slot_size_bytes)
     return X86_64SysVFrameLayout(
         callable_decl=callable_decl,
+        allocation=allocation,
         slots=tuple(slots),
         slot_by_reg=slot_by_reg,
         slot_by_home_name=slot_by_home_name,
+        callee_saved_slots=tuple(callee_saved_slots),
         root_slots=tuple(root_slots),
         root_slot_by_reg=root_slot_by_reg,
         thread_state_offset=thread_state_offset,
@@ -182,6 +214,7 @@ def _format_callable_id(callable_decl: BackendCallableDecl) -> str:
 
 __all__ = [
     "X86_64SysVFrameError",
+    "X86_64SysVCalleeSavedSlot",
     "X86_64SysVFrameLayout",
     "X86_64SysVRootSlot",
     "X86_64SysVFrameSlot",

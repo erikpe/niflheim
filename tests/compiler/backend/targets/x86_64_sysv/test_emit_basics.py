@@ -4,7 +4,13 @@ import pytest
 
 from compiler.backend.program.symbols import epilogue_label, mangle_function_symbol
 from compiler.backend.targets import BackendTargetOptions
-from compiler.backend.targets.x86_64_sysv import X86_64_SYSV_ABI, X86_64SysVFrameError, plan_callable_frame_layout
+from compiler.backend.targets.x86_64_sysv import (
+    X86_64_SYSV_ABI,
+    X86_64SysVFrameError,
+    allocate_x86_64_sysv_registers,
+    plan_callable_frame_layout,
+    plan_x86_64_sysv_target,
+)
 from tests.compiler.backend.analysis.helpers import lower_source_to_backend_callable_fixture
 from tests.compiler.backend.ir.helpers import FIXTURE_ENTRY_FUNCTION_ID, callable_by_id, one_function_backend_program
 from tests.compiler.backend.targets.x86_64_sysv.helpers import (
@@ -57,6 +63,38 @@ def test_plan_callable_frame_layout_assigns_deterministic_offsets_from_stack_hom
         assert first_layout.for_home_name(home_name) == slot
 
 
+def test_plan_callable_frame_layout_reserves_callee_saved_register_slots(tmp_path) -> None:
+    fixture = lower_source_to_backend_callable_fixture(
+        tmp_path,
+        """
+        fn keep(x: i64, y: i64) -> unit {
+            return;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        callable_name="keep",
+        skip_optimize=True,
+    )
+    target_input = make_target_input(fixture.program)
+    preliminary_plan = plan_x86_64_sysv_target(target_input, options=BackendTargetOptions()).plan_for_callable(
+        fixture.callable_decl.callable_id
+    )
+    allocation = allocate_x86_64_sysv_registers(preliminary_plan)
+
+    layout = plan_callable_frame_layout(target_input, fixture.callable_decl, allocation=allocation)
+
+    assert tuple(slot.physical_register.name for slot in layout.callee_saved_slots) == ("rbx", "r12")
+    assert tuple(slot.byte_offset for slot in layout.callee_saved_slots) == (-24, -32)
+    assert layout.callee_saved_count == 2
+    assert layout.stack_size == X86_64_SYSV_ABI.align_stack_size(
+        (layout.home_count + layout.callee_saved_count) * X86_64_SYSV_ABI.stack_slot_size_bytes
+    )
+    assert layout.allocation == allocation
+
+
 def test_plan_callable_frame_layout_allocates_inline_root_frame_for_root_slots() -> None:
     target_input = make_target_input(one_function_backend_program())
     callable_decl = callable_by_id(target_input.program, FIXTURE_ENTRY_FUNCTION_ID)
@@ -96,11 +134,15 @@ def test_emit_program_emits_prologue_epilogue_and_param_spills_for_unit_function
     assert f"{keep_label}:" in asm
     assert "    push rbp" in asm
     assert "    mov rbp, rsp" in asm
-    assert "    sub rsp, 16" in asm
+    assert "    sub rsp, 32" in asm
+    assert "    mov qword ptr [rbp - 24], rbx" in asm
+    assert "    mov qword ptr [rbp - 32], r12" in asm
     assert "    mov qword ptr [rbp - 8], rdi" in asm
     assert "    mov qword ptr [rbp - 16], rsi" in asm
     assert f"    jmp {epilogue_label(keep_label)}" in asm
     assert f"{epilogue_label(keep_label)}:" in asm
+    assert "    mov r12, qword ptr [rbp - 32]" in asm
+    assert "    mov rbx, qword ptr [rbp - 24]" in asm
     assert "    mov rsp, rbp" in asm
     assert "    pop rbp" in asm
     assert "    ret" in asm

@@ -145,7 +145,7 @@ class X86_64SysVCallablePlan:
 2. [x] Slice 2: Add target planning pipeline shell.
 3. [x] Slice 3: Build deterministic live intervals.
 4. [x] Slice 4: Implement conservative linear-scan allocation.
-5. [ ] Slice 5: Thread allocation into frame layout.
+5. [x] Slice 5: Thread allocation into frame layout.
 6. [ ] Slice 6: Make scalar instruction selection allocation-aware.
 7. [ ] Slice 7: Preserve GC root correctness for physical locations.
 8. [ ] Slice 8: Make call lowering allocation-aware.
@@ -404,13 +404,13 @@ Tests:
 
 ### Checklist
 
-- [ ] Extend frame layout dataclasses.
-- [ ] Add used callee-saved save/restore planning.
-- [ ] Update stack-size calculation.
-- [ ] Emit callee-saved saves in the prologue.
-- [ ] Emit callee-saved restores in the epilogue.
-- [ ] Preserve stack alignment tests.
-- [ ] Preserve existing call stack-reservation behavior.
+- [x] Extend frame layout dataclasses.
+- [x] Add used callee-saved save/restore planning.
+- [x] Update stack-size calculation.
+- [x] Emit callee-saved saves in the prologue.
+- [x] Emit callee-saved restores in the epilogue.
+- [x] Preserve stack alignment tests.
+- [x] Preserve existing call stack-reservation behavior.
 
 ### How To Test
 

@@ -350,6 +350,7 @@ def _emit_callable_body(
     builder.instruction("mov", "rbp", "rsp")
     if frame_layout.stack_size > 0:
         builder.instruction("sub", "rsp", str(frame_layout.stack_size))
+    _emit_callee_saved_spills(builder, frame_layout)
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout)
     if frame_layout.has_root_frame:
@@ -497,6 +498,7 @@ def _emit_callable_body(
         frame_layout=frame_layout,
         runtime_trace_enabled=runtime_trace_enabled and body_trace_record is not None,
     )
+    _emit_callee_saved_reloads(builder, frame_layout)
     builder.instruction("mov", "rsp", "rbp")
     builder.instruction("pop", "rbp")
     builder.instruction("ret")
@@ -619,6 +621,7 @@ def _emit_constructor_entry_wrapper(
     builder.instruction("mov", "rbp", "rsp")
     if frame_layout.stack_size > 0:
         builder.instruction("sub", "rsp", str(frame_layout.stack_size))
+    _emit_callee_saved_spills(builder, frame_layout)
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout, includes_receiver=False)
     if frame_layout.has_root_frame:
@@ -678,6 +681,7 @@ def _emit_constructor_entry_wrapper(
         frame_layout=frame_layout,
         runtime_trace_enabled=runtime_trace_enabled and trace_record is not None,
     )
+    _emit_callee_saved_reloads(builder, frame_layout)
     builder.instruction("mov", "rsp", "rbp")
     builder.instruction("pop", "rbp")
     builder.instruction("ret")
@@ -692,6 +696,24 @@ def _trace_record_for_callable(target_input: BackendTargetInput, callable_decl, 
         function_name=_format_callable_id(callable_decl.callable_id),
         file_path=_normalize_trace_file_path(callable_decl.span.start.path, source_root=source_root),
     )
+
+
+def _emit_callee_saved_spills(builder: X86AsmBuilder, frame_layout) -> None:
+    for slot in frame_layout.callee_saved_slots:
+        builder.instruction(
+            "mov",
+            format_stack_slot_operand("rbp", slot.byte_offset),
+            slot.physical_register.name,
+        )
+
+
+def _emit_callee_saved_reloads(builder: X86AsmBuilder, frame_layout) -> None:
+    for slot in reversed(frame_layout.callee_saved_slots):
+        builder.instruction(
+            "mov",
+            slot.physical_register.name,
+            format_stack_slot_operand("rbp", slot.byte_offset),
+        )
 
 
 def _common_source_root(target_input: BackendTargetInput) -> Path | None:

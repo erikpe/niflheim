@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from compiler.backend.analysis.pipeline import BackendPipelineCallableAnalysis
 from compiler.backend.ir import BackendBlockId, BackendCallableDecl, BackendCallableId
 from compiler.backend.targets.api import BackendTargetInput, BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv.frame import X86_64SysVFrameLayout, plan_callable_frame_layout
 
+if TYPE_CHECKING:
+    from compiler.backend.targets.x86_64_sysv.register_allocation import X86_64SysVRegisterAllocation
+
 
 @dataclass(frozen=True, slots=True)
 class X86_64SysVCallablePlan:
     callable_decl: BackendCallableDecl
     analysis: BackendPipelineCallableAnalysis
+    allocation: "X86_64SysVRegisterAllocation | None"
     frame_layout: X86_64SysVFrameLayout
     ordered_block_ids: tuple[BackendBlockId, ...]
 
@@ -57,10 +62,21 @@ def plan_x86_64_sysv_callable(
 ) -> X86_64SysVCallablePlan:
     del options
     analysis = target_input.analysis_for_callable(callable_decl.callable_id)
+    preliminary_plan = X86_64SysVCallablePlan(
+        callable_decl=callable_decl,
+        analysis=analysis,
+        allocation=None,
+        frame_layout=plan_callable_frame_layout(target_input, callable_decl),
+        ordered_block_ids=analysis.ordered_block_ids,
+    )
+    from compiler.backend.targets.x86_64_sysv.register_allocation import allocate_x86_64_sysv_registers
+
+    allocation = allocate_x86_64_sysv_registers(preliminary_plan)
     return X86_64SysVCallablePlan(
         callable_decl=callable_decl,
         analysis=analysis,
-        frame_layout=plan_callable_frame_layout(target_input, callable_decl),
+        allocation=allocation,
+        frame_layout=plan_callable_frame_layout(target_input, callable_decl, allocation=allocation),
         ordered_block_ids=analysis.ordered_block_ids,
     )
 

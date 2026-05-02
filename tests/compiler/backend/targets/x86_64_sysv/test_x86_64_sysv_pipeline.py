@@ -12,7 +12,7 @@ from tests.compiler.backend.lowering.helpers import lower_source_to_backend_prog
 from tests.compiler.backend.targets.x86_64_sysv.helpers import make_target_input
 
 
-def test_plan_x86_64_sysv_target_builds_all_stack_callable_plan() -> None:
+def test_plan_x86_64_sysv_target_builds_allocation_aware_callable_plan() -> None:
     target_input = make_target_input(one_function_backend_program())
     callable_decl = callable_by_id(target_input.program, FIXTURE_ENTRY_FUNCTION_ID)
 
@@ -26,7 +26,9 @@ def test_plan_x86_64_sysv_target_builds_all_stack_callable_plan() -> None:
     assert callable_plan.callable_decl == callable_decl
     assert callable_plan.analysis == target_input.analysis_for_callable(FIXTURE_ENTRY_FUNCTION_ID)
     assert callable_plan.ordered_block_ids == callable_plan.analysis.ordered_block_ids
-    assert callable_plan.frame_layout == plan_callable_frame_layout(target_input, callable_decl)
+    assert callable_plan.allocation is not None
+    assert callable_plan.frame_layout.allocation == callable_plan.allocation
+    assert callable_plan.frame_layout.slots == plan_callable_frame_layout(target_input, callable_decl).slots
 
 
 def test_plan_x86_64_sysv_target_skips_extern_callables(tmp_path) -> None:

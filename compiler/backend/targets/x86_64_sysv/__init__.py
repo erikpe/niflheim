@@ -7,6 +7,7 @@ from compiler.backend.targets.x86_64_sysv.abi import (
 )
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
 from compiler.backend.targets.x86_64_sysv.frame import (
+    X86_64SysVCalleeSavedSlot,
     X86_64SysVFrameError,
     X86_64SysVFrameLayout,
     X86_64SysVFrameSlot,
@@ -71,6 +72,7 @@ __all__ = [
     "X86_64SysVAbi",
     "X86_64SysVArgLocation",
     "X86_64SysVCallablePlan",
+    "X86_64SysVCalleeSavedSlot",
     "X86_64SysVFrameError",
     "X86_64SysVFrameLayout",
     "X86_64SysVFrameSlot",
