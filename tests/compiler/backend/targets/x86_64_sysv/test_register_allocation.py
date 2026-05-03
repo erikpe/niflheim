@@ -258,8 +258,8 @@ def test_allocate_x86_64_sysv_registers_keeps_conservative_locations_while_recor
 
     allocation = allocate_x86_64_sysv_registers(callable_plan)
 
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r12"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "r10"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rbx"
     assert allocation.abi_constraints.clobbers_at_position(1)
     assert "r10" in _constraint_registers(allocation.abi_constraints.constraints, reason="call_lowering_scratch", kind="temporary")
 
@@ -312,12 +312,63 @@ def test_allocate_x86_64_sysv_registers_assigns_initial_callee_saved_gprs(tmp_pa
             _test_interval(callable_plan, "a", start=0, end=2),
             _test_interval(callable_plan, "b", start=0, end=2),
         ),
+        call_free_allocatable_gprs=(),
     )
 
     assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
     assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r12"
     assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx", "r12")
     assert allocation.spilled_reg_ids == ()
+
+
+def test_allocate_x86_64_sysv_registers_prefers_caller_saved_gprs_for_call_free_intervals(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64) -> i64 {
+            var c: i64 = a + b;
+            return c;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "r10"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r11"
+    assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx",)
+
+
+def test_allocate_x86_64_sysv_registers_keeps_call_overlapping_values_in_callee_saved_gprs(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn callee(value: i64) -> i64 {
+            return value + 1;
+        }
+
+        fn sample(a: i64, b: i64) -> i64 {
+            var keep: i64 = a;
+            var result: i64 = callee(b);
+            return keep + result;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "keep")).physical_register.name == "r12"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rbx"
 
 
 def test_allocate_x86_64_sysv_registers_reuses_expired_registers(tmp_path) -> None:
@@ -343,9 +394,9 @@ def test_allocate_x86_64_sysv_registers_reuses_expired_registers(tmp_path) -> No
         ),
     )
 
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rbx"
-    assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx",)
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "r10"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r10"
+    assert allocation.used_callee_saved_registers == ()
 
 
 def test_allocate_x86_64_sysv_registers_coalesces_non_overlapping_copy(tmp_path) -> None:
@@ -366,9 +417,9 @@ def test_allocate_x86_64_sysv_registers_coalesces_non_overlapping_copy(tmp_path)
 
     allocation = allocate_x86_64_sysv_registers(callable_plan)
 
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rbx"
-    assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx",)
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "r10"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r10"
+    assert allocation.used_callee_saved_registers == ()
     assert allocation.spilled_reg_ids == ()
 
 
@@ -390,8 +441,8 @@ def test_allocate_x86_64_sysv_registers_does_not_coalesce_overlapping_copy(tmp_p
 
     allocation = allocate_x86_64_sysv_registers(callable_plan)
 
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r12"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "r10"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r11"
     assert allocation.spilled_reg_ids == ()
 
 
@@ -444,6 +495,7 @@ def test_allocate_x86_64_sysv_registers_spills_when_gpr_pressure_exceeds_initial
             _test_interval(callable_plan, name, start=0, end=10)
             for name in ("a", "b", "c", "d", "e", "f")
         ),
+        call_free_allocatable_gprs=(),
     )
 
     assert tuple(
@@ -493,6 +545,7 @@ def test_allocate_x86_64_sysv_registers_spills_farthest_active_interval_when_use
             _test_interval(callable_plan, "e", start=0, end=60),
             _test_interval(callable_plan, "f", start=1, end=10),
         ),
+        call_free_allocatable_gprs=(),
     )
     a_reg_id = _reg_id_by_debug_name(callable_plan, "a")
 
@@ -523,6 +576,7 @@ def test_allocate_x86_64_sysv_registers_spills_current_interval_when_tied_with_a
             _test_interval(callable_plan, name, start=0 if name != "f" else 1, end=100)
             for name in ("a", "b", "c", "d", "e", "f")
         ),
+        call_free_allocatable_gprs=(),
     )
     f_reg_id = _reg_id_by_debug_name(callable_plan, "f")
 
@@ -553,6 +607,7 @@ def test_allocate_x86_64_sysv_registers_does_not_change_spill_behavior_for_overl
             _test_interval(callable_plan, name, start=0, end=100)
             for name in ("a", "b", "c", "d", "e", "f", "g")
         ),
+        call_free_allocatable_gprs=(),
     )
 
     assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"

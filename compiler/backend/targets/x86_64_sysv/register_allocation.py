@@ -19,6 +19,7 @@ from compiler.backend.ir import (
 from compiler.backend.ir._ordering import reg_id_sort_key
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
 from compiler.backend.targets.x86_64_sysv.locations import (
+    X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
     X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
     X86_64SysVPhysicalRegister,
     X86_64SysVRegisterClass,
@@ -290,6 +291,7 @@ def allocate_x86_64_sysv_registers(
     *,
     intervals: tuple[X86_64SysVLiveInterval, ...] | None = None,
     allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
+    call_free_allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
 ) -> X86_64SysVRegisterAllocation:
     resolved_intervals = build_live_intervals(callable_plan) if intervals is None else intervals
     abi_constraints = build_abi_constraints(callable_plan)
@@ -309,6 +311,13 @@ def allocate_x86_64_sysv_registers(
             spilled_reg_ids.add(interval.reg_id)
             continue
 
+        interval_register_pool = _register_pool_for_interval(
+            interval,
+            abi_constraints=abi_constraints,
+            callee_saved_gprs=allocatable_gprs,
+            call_free_gprs=call_free_allocatable_gprs,
+        )
+
         preferred_register, active_to_release = _preferred_register_for_interval(
             interval,
             active=active,
@@ -316,6 +325,7 @@ def allocate_x86_64_sysv_registers(
             interval_by_reg=interval_by_reg,
             physical_register_by_reg=physical_register_by_reg,
             spilled_reg_ids=spilled_reg_ids,
+            allowed_registers=interval_register_pool,
         )
         if preferred_register is not None:
             if active_to_release is not None:
@@ -333,7 +343,7 @@ def allocate_x86_64_sysv_registers(
         available_register = next(
             (
                 physical_register
-                for physical_register in allocatable_gprs
+                for physical_register in interval_register_pool
                 if physical_register.name not in used_register_names
             ),
             None,
@@ -344,7 +354,7 @@ def allocate_x86_64_sysv_registers(
             active = _sorted_active_intervals(active)
             continue
 
-        spill_candidate = _spill_candidate(active)
+        spill_candidate = _spill_candidate(active, allowed_registers=interval_register_pool)
         if spill_candidate is not None and spill_candidate.interval.end_position > interval.end_position:
             spilled_reg_ids.add(spill_candidate.interval.reg_id)
             physical_register_by_reg.pop(spill_candidate.interval.reg_id, None)
@@ -448,6 +458,39 @@ def _call_fixed_register_constraints(
         )
 
     return tuple(constraints)
+
+
+def _register_pool_for_interval(
+    interval: X86_64SysVLiveInterval,
+    *,
+    abi_constraints: X86_64SysVAbiConstraintPlan,
+    callee_saved_gprs: tuple[X86_64SysVPhysicalRegister, ...],
+    call_free_gprs: tuple[X86_64SysVPhysicalRegister, ...],
+) -> tuple[X86_64SysVPhysicalRegister, ...]:
+    if _interval_can_use_call_free_registers(interval, abi_constraints=abi_constraints):
+        return (*call_free_gprs, *callee_saved_gprs)
+    return callee_saved_gprs
+
+
+def _interval_can_use_call_free_registers(
+    interval: X86_64SysVLiveInterval,
+    *,
+    abi_constraints: X86_64SysVAbiConstraintPlan,
+) -> bool:
+    if interval.crosses_call or interval.live_at_safepoint or interval.is_gc_reference:
+        return False
+    return not any(
+        _constraint_overlaps_interval(constraint, interval)
+        for constraint in abi_constraints.constraints
+        if constraint.kind in {"clobber", "temporary"} or constraint.reason in {"call_argument", "call_return"}
+    )
+
+
+def _constraint_overlaps_interval(
+    constraint: X86_64SysVFixedRegisterConstraint,
+    interval: X86_64SysVLiveInterval,
+) -> bool:
+    return interval.start_position <= constraint.position <= interval.end_position
 
 
 def _binary_fixed_register_constraints(
@@ -600,9 +643,11 @@ def _preferred_register_for_interval(
     interval_by_reg: dict[BackendRegId, X86_64SysVLiveInterval],
     physical_register_by_reg: dict[BackendRegId, X86_64SysVPhysicalRegister],
     spilled_reg_ids: set[BackendRegId],
+    allowed_registers: tuple[X86_64SysVPhysicalRegister, ...],
 ) -> tuple[X86_64SysVPhysicalRegister | None, _ActiveInterval | None]:
     active_by_reg = {active_interval.interval.reg_id: active_interval for active_interval in active}
     used_register_names = {active_interval.physical_register.name for active_interval in active}
+    allowed_register_names = {register.name for register in allowed_registers}
 
     for preference in copy_preferences:
         source_interval = interval_by_reg.get(preference.source_reg_id)
@@ -613,6 +658,8 @@ def _preferred_register_for_interval(
 
         preferred_register = physical_register_by_reg.get(preference.source_reg_id)
         if preferred_register is None:
+            continue
+        if preferred_register.name not in allowed_register_names:
             continue
 
         active_source = active_by_reg.get(preference.source_reg_id)
@@ -677,11 +724,21 @@ def _sorted_active_intervals(active: list[_ActiveInterval]) -> list[_ActiveInter
     )
 
 
-def _spill_candidate(active: list[_ActiveInterval]) -> _ActiveInterval | None:
-    if not active:
+def _spill_candidate(
+    active: list[_ActiveInterval],
+    *,
+    allowed_registers: tuple[X86_64SysVPhysicalRegister, ...],
+) -> _ActiveInterval | None:
+    allowed_register_names = {register.name for register in allowed_registers}
+    candidates = [
+        active_interval
+        for active_interval in active
+        if active_interval.physical_register.name in allowed_register_names
+    ]
+    if not candidates:
         return None
     return max(
-        active,
+        candidates,
         key=lambda active_interval: (
             active_interval.interval.end_position,
             reg_id_sort_key(active_interval.interval.reg_id),

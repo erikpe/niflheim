@@ -203,8 +203,8 @@ def test_emit_source_asm_preserves_allocated_values_across_calls(tmp_path) -> No
     caller_body = _body_for_label(asm, mangle_function_symbol(("main",), "caller"))
 
     assert f"    call {mangle_function_symbol(('main',), 'callee')}" in caller_body
-    assert "    mov r13, rbx" in caller_body
-    assert "    add r13, r12" in caller_body
+    assert "    mov r10, rbx" in caller_body
+    assert "    add r10, r12" in caller_body
     assert "    mov rax, r12" not in caller_body
     assert "    mov rcx, r12" not in caller_body
 

@@ -140,11 +140,11 @@ def test_emit_source_asm_selects_simple_casts_into_allocated_destinations(tmp_pa
     )
     casts_body = _body_for_label(asm, mangle_function_symbol(("main",), "casts"))
 
-    assert "    mov r12, rbx" in casts_body
-    assert "    and rbx, 255" in casts_body
-    assert "    test r13, r13" in casts_body
-    assert "    setne r13b" in casts_body
-    assert "    movzx r13, r13b" in casts_body
+    assert "    mov r11, r10" in casts_body
+    assert "    and r10, 255" in casts_body
+    assert "    test rbx, rbx" in casts_body
+    assert "    setne bl" in casts_body
+    assert "    movzx rbx, bl" in casts_body
     assert "    and rax, 255" not in casts_body
     assert "    test rax, rax" not in casts_body
 

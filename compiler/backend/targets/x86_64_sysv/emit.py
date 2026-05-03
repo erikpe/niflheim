@@ -355,7 +355,6 @@ def _emit_callable_body(
     _emit_callee_saved_spills(builder, frame_layout)
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout)
-    _emit_allocated_entry_register_loads(builder, callable_decl, frame_layout=frame_layout)
     if frame_layout.has_root_frame:
         emit_zero_root_slots(builder, frame_layout=frame_layout)
         emit_root_frame_setup(builder, frame_layout=frame_layout)
@@ -366,6 +365,7 @@ def _emit_callable_body(
             line=callable_decl.span.start.line,
             column=callable_decl.span.start.column,
         )
+    _emit_allocated_entry_register_loads(builder, callable_decl, frame_layout=frame_layout)
     if emit_debug_comments:
         _emit_allocation_debug_comments(builder, frame_layout)
         for slot in frame_layout.slots:

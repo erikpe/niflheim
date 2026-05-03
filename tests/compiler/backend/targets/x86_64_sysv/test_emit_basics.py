@@ -86,9 +86,8 @@ def test_plan_callable_frame_layout_reserves_callee_saved_register_slots(tmp_pat
 
     layout = plan_callable_frame_layout(target_input, fixture.callable_decl, allocation=allocation)
 
-    assert tuple(slot.physical_register.name for slot in layout.callee_saved_slots) == ("rbx", "r12")
-    assert tuple(slot.byte_offset for slot in layout.callee_saved_slots) == (-24, -32)
-    assert layout.callee_saved_count == 2
+    assert layout.callee_saved_slots == ()
+    assert layout.callee_saved_count == 0
     assert layout.stack_size == X86_64_SYSV_ABI.align_stack_size(
         (layout.home_count + layout.callee_saved_count) * X86_64_SYSV_ABI.stack_slot_size_bytes
     )
@@ -134,15 +133,17 @@ def test_emit_program_emits_prologue_epilogue_and_param_spills_for_unit_function
     assert f"{keep_label}:" in asm
     assert "    push rbp" in asm
     assert "    mov rbp, rsp" in asm
-    assert "    sub rsp, 32" in asm
-    assert "    mov qword ptr [rbp - 24], rbx" in asm
-    assert "    mov qword ptr [rbp - 32], r12" in asm
+    assert "    sub rsp, 16" in asm
+    assert "    mov qword ptr [rbp - 24], rbx" not in asm
+    assert "    mov qword ptr [rbp - 32], r12" not in asm
     assert "    mov qword ptr [rbp - 8], rdi" in asm
     assert "    mov qword ptr [rbp - 16], rsi" in asm
+    assert "    mov r10, qword ptr [rbp - 8]" in asm
+    assert "    mov r11, qword ptr [rbp - 16]" in asm
     assert f"    jmp {epilogue_label(keep_label)}" in asm
     assert f"{epilogue_label(keep_label)}:" in asm
-    assert "    mov r12, qword ptr [rbp - 32]" in asm
-    assert "    mov rbx, qword ptr [rbp - 24]" in asm
+    assert "    mov r12, qword ptr [rbp - 32]" not in asm
+    assert "    mov rbx, qword ptr [rbp - 24]" not in asm
     assert "    mov rsp, rbp" in asm
     assert "    pop rbp" in asm
     assert "    ret" in asm
@@ -183,16 +184,16 @@ def test_emit_source_asm_emits_straight_line_scalar_sequences_and_return_registe
     )
 
     assert "    mov rax, 8" in asm
-    assert "    mov rbx, rax" in asm
-    assert "    mov r12, rbx" in asm
-    assert "    neg r12" in asm
+    assert "    mov r10, rax" in asm
+    assert "    mov r11, r10" in asm
+    assert "    neg r11" in asm
     assert "    mov rax, qword ptr [rbp - 8]" not in asm
     assert "    mov qword ptr [rbp - 8], rbx" not in asm
     assert "    mov rcx, 50" not in asm
-    assert "    add rbx, 50" in asm
+    assert "    add r10, 50" in asm
     assert "    mov qword ptr [rbp - 32], r12" not in asm
-    assert "    add rbx, 100" in asm
-    assert "    mov rax, rbx" in asm
+    assert "    add r10, 100" in asm
+    assert "    mov rax, r10" in asm
     assert "    jmp .Lmain_epilogue" in asm
 
 
@@ -215,12 +216,12 @@ def test_emit_source_asm_selects_simple_integer_ops_into_allocated_destinations(
     )
 
     assert "    mov rcx, 7" in asm
-    assert "    imul r12, rcx" in asm
-    assert "    sub rbx, 5" in asm
-    assert "    not r12" in asm
-    assert "    and rbx, 15" in asm
-    assert "    or r12, 2" in asm
-    assert "    xor rbx, 3" in asm
+    assert "    imul r11, rcx" in asm
+    assert "    sub r10, 5" in asm
+    assert "    not r11" in asm
+    assert "    and r10, 15" in asm
+    assert "    or r11, 2" in asm
+    assert "    xor r10, 3" in asm
     assert "    mov rcx, 5" not in asm
     assert "    mov rcx, 15" not in asm
     assert "    mov rcx, 2" not in asm
@@ -244,9 +245,9 @@ def test_emit_source_asm_omits_coalesced_non_overlapping_copy(tmp_path) -> None:
     )
     sample_body = _body_for_label(asm, mangle_function_symbol(("main",), "sample"))
 
-    assert "    mov rbx, qword ptr [rbp - 8]" in sample_body
-    assert "    mov r12, rbx" not in sample_body
-    assert "    mov rax, rbx" in sample_body
+    assert "    mov r10, qword ptr [rbp - 8]" in sample_body
+    assert "    mov r11, r10" not in sample_body
+    assert "    mov rax, r10" in sample_body
 
 
 def test_emit_source_asm_uses_scratch_for_large_integer_operands(tmp_path) -> None:
@@ -269,8 +270,8 @@ def test_emit_source_asm_uses_scratch_for_large_integer_operands(tmp_path) -> No
     calc_body = _body_for_label(asm, calc_label)
 
     assert "    mov rcx, 18446744073709551615" in calc_body
-    assert "    add r12, rcx" in calc_body
-    assert "    add r12, 18446744073709551615" not in calc_body
+    assert "    add r11, rcx" in calc_body
+    assert "    add r11, 18446744073709551615" not in calc_body
 
 
 def test_emit_source_asm_can_disable_register_allocation_for_all_stack_fallback(tmp_path) -> None:
@@ -291,10 +292,10 @@ def test_emit_source_asm_can_disable_register_allocation_for_all_stack_fallback(
     )
 
     assert allocated_asm != stack_asm
-    assert "    mov r12, rbx" in allocated_asm
-    assert "    neg r12" in allocated_asm
-    assert "    mov rax, rbx" not in allocated_asm
-    assert "    mov qword ptr [rbp - 8], rbx" not in allocated_asm
+    assert "    mov r11, r10" in allocated_asm
+    assert "    neg r11" in allocated_asm
+    assert "    mov rax, r10" not in allocated_asm
+    assert "    mov qword ptr [rbp - 8], r10" not in allocated_asm
     assert "    mov qword ptr [rbp - 16], r12" not in allocated_asm
 
     assert "    mov qword ptr [rbp - 8], rax" in stack_asm
@@ -316,7 +317,7 @@ def test_emit_source_asm_debug_comments_include_physical_register_assignments(tm
         options=BackendTargetOptions(emit_debug_comments=True),
     )
 
-    assert "    # r0 -> rbx" in asm
+    assert "    # r0 -> r10" in asm
 
 
 def test_emit_source_asm_emits_integer_comparison_sequences(tmp_path) -> None:
@@ -338,10 +339,10 @@ def test_emit_source_asm_emits_integer_comparison_sequences(tmp_path) -> None:
     compare_label = mangle_function_symbol(("main",), "compare")
     compare_body = asm[asm.index(f"{compare_label}:") : asm.index(f"{epilogue_label(compare_label)}:")]
 
-    assert "    cmp r12, r13" in compare_body
-    assert "    sete bl" in compare_body
-    assert "    setl bl" in compare_body
-    assert "    movzx rbx, bl" in compare_body
+    assert "    cmp r11, rbx" in compare_body
+    assert "    sete r10b" in compare_body
+    assert "    setl r10b" in compare_body
+    assert "    movzx r10, r10b" in compare_body
     assert "    cmp rax, rcx" not in compare_body
 
 
@@ -362,9 +363,9 @@ def test_emit_source_asm_selects_bool_comparison_into_allocated_destination(tmp_
     )
     bool_eq_body = _body_for_label(asm, mangle_function_symbol(("main",), "bool_eq"))
 
-    assert "    cmp r13, rcx" in bool_eq_body
-    assert "    sete r13b" in bool_eq_body
-    assert "    movzx r13, r13b" in bool_eq_body
+    assert "    cmp rbx, rcx" in bool_eq_body
+    assert "    sete bl" in bool_eq_body
+    assert "    movzx rbx, bl" in bool_eq_body
     assert "    sete al" not in bool_eq_body
 
 

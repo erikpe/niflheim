@@ -67,7 +67,7 @@ The broadening phase should reduce `register_copy_count`, reduce unnecessary cal
 ## Implementation Slices
 
 1. [x] Slice 1: Add explicit ABI interference and fixed-register constraints.
-2. [ ] Slice 2: Allocate caller-saved GPRs for call-free intervals.
+2. [x] Slice 2: Allocate caller-saved GPRs for call-free intervals.
 3. [ ] Slice 3: Allocate caller-saved GPRs across calls with targeted spill/reload.
 4. [ ] Slice 4: Make argument setup allocation-aware enough to avoid avoidable moves.
 5. [ ] Slice 5: Make return-value placement and return coalescing ABI-aware.
@@ -170,12 +170,43 @@ Tests:
 
 ### Checklist
 
-- [ ] Add caller-saved GPR pool.
-- [ ] Allocate call-free scalar intervals into caller-saved GPRs.
-- [ ] Preserve call-crossing conservative behavior.
-- [ ] Avoid callee-saved frame slots for caller-saved assignments.
-- [ ] Add focused allocation and emission tests.
-- [ ] Measure representative assembly statistics.
+- [x] Add caller-saved GPR pool.
+- [x] Allocate call-free scalar intervals into caller-saved GPRs.
+- [x] Preserve call-crossing conservative behavior.
+- [x] Avoid callee-saved frame slots for caller-saved assignments.
+- [x] Add focused allocation and emission tests.
+- [x] Measure representative assembly statistics.
+
+### Implementation Notes
+
+The allocator now has a small call-free caller-saved pool: `r10`, `r11`.
+
+This slice intentionally avoids `rax`, `rcx`, `rdx`, argument registers, and other caller-saved registers that still have broader fixed-register or lowering-scratch interactions. Caller-saved allocation is limited to GPR intervals that do not cross calls, do not overlap call clobbers or call argument/return constraints, are not live at safepoints, and are not GC references.
+
+Entry physical-register loads now happen after runtime trace/root setup calls so caller-saved entry values are not clobbered before the first backend block.
+
+### Observed Measurement
+
+Command:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+After this slice:
+
+```text
+metric                          without_ra  with_ra  delta
+instruction_count                    16368    17048   +680
+stack_memory_instruction_count        8417     5692  -2725
+stack_load_count                      4424     2427  -1997
+stack_store_count                     3720     2948   -772
+register_copy_count                    284     3875  +3591
+callee_saved_save_count                  0      377   +377
+callee_saved_restore_count               0      377   +377
+```
+
+Compared with the conservative cleanup baseline, emitted lines improved from `19256` to `19177`. Callee-saved save/restore counts improved from `424` each to `377` each.
 
 ### How To Test
 

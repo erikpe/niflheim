@@ -143,7 +143,7 @@ def test_emit_source_asm_emits_integer_binary_expr_shape(tmp_path) -> None:
 
     assert "    mov rdi, 20" in asm
     assert "    mov rsi, 22" in asm
-    assert "    add r13, r12" in asm
+    assert "    add rbx, r11" in asm
     assert "    add rax, rcx" not in asm
 
 
