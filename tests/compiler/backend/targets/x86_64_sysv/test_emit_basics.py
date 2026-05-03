@@ -190,7 +190,7 @@ def test_emit_source_asm_emits_straight_line_scalar_sequences_and_return_registe
     assert "    mov rax, qword ptr [rbp - 8]" not in asm
     assert "    mov qword ptr [rbp - 8], rbx" not in asm
     assert "    mov rcx, 50" not in asm
-    assert "    add r10, 50" in asm
+    assert "    add rax, 50" in asm
     assert "    mov qword ptr [rbp - 32], r12" not in asm
     assert "    add r10, 100" in asm
     assert "    mov rax, r10" in asm
@@ -248,6 +248,29 @@ def test_emit_source_asm_omits_coalesced_non_overlapping_copy(tmp_path) -> None:
     assert "    mov r10, qword ptr [rbp - 8]" in sample_body
     assert "    mov r11, r10" not in sample_body
     assert "    mov rax, r10" in sample_body
+
+
+def test_emit_source_asm_merges_return_register_across_copy_group(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn sample() -> i64 {
+            var a: i64 = 7;
+            var b: i64 = a;
+            return b;
+        }
+
+        fn main() -> i64 {
+            return sample();
+        }
+        """,
+        skip_optimize=True,
+    )
+    sample_body = _body_for_label(asm, mangle_function_symbol(("main",), "sample"))
+
+    assert "    mov rax, 7" in sample_body
+    assert "    mov r10, rax" not in sample_body
+    assert "    mov rax, r10" not in sample_body
 
 
 def test_emit_source_asm_uses_scratch_for_large_integer_operands(tmp_path) -> None:

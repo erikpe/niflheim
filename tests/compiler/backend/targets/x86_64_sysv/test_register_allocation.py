@@ -378,6 +378,29 @@ def test_allocate_x86_64_sysv_registers_coalesces_direct_returns_into_rax(tmp_pa
     assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "result")).physical_register.name == "rax"
 
 
+def test_allocate_x86_64_sysv_registers_merges_return_preferences_across_copy_groups(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample() -> i64 {
+            var a: i64 = 7;
+            var b: i64 = a;
+            return b;
+        }
+
+        fn main() -> i64 {
+            return sample();
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rax"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rax"
+
+
 def test_allocate_x86_64_sysv_registers_spills_single_call_crossing_caller_saved_gprs(tmp_path) -> None:
     callable_plan = _callable_plan(
         tmp_path,
@@ -451,6 +474,45 @@ def test_allocate_x86_64_sysv_registers_coalesces_dead_call_arguments_into_abi_g
         (reload.reg_id, reload.physical_register.name)
         for reload in allocation.call_argument_reloads_for_inst(call_instruction.inst_id)
     ) == ((a_reg_id, "rdi"), (b_reg_id, "rsi"))
+
+
+def test_allocate_x86_64_sysv_registers_merges_call_argument_preferences_across_copy_groups(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn callee(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        fn sample() -> i64 {
+            var value: i64 = 42;
+            var copied: i64 = value;
+            return callee(1, copied);
+        }
+
+        fn main() -> i64 {
+            return sample();
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+    call_instruction = next(
+        instruction
+        for block in callable_plan.callable_decl.blocks
+        for instruction in block.instructions
+        if isinstance(instruction, BackendCallInst)
+    )
+    value_reg_id = _reg_id_by_debug_name(callable_plan, "value")
+    copied_reg_id = _reg_id_by_debug_name(callable_plan, "copied")
+
+    assert allocation.location_for_reg(value_reg_id).physical_register.name == "rsi"
+    assert allocation.location_for_reg(copied_reg_id).physical_register.name == "rsi"
+    assert tuple(
+        (reload.reg_id, reload.physical_register.name)
+        for reload in allocation.call_argument_reloads_for_inst(call_instruction.inst_id)
+    ) == ((copied_reg_id, "rsi"),)
 
 
 def test_allocate_x86_64_sysv_registers_coalesces_dead_double_call_arguments_into_abi_xmms(tmp_path) -> None:

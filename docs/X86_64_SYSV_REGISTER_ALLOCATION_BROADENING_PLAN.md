@@ -645,13 +645,43 @@ Tests:
 
 ### Checklist
 
-- [ ] Build copy graph.
-- [ ] Add interval and liveness interference checks.
-- [ ] Add allocation groups.
-- [ ] Merge compatible physical-register preferences.
-- [ ] Preserve GC root correctness.
-- [ ] Add positive and negative coalescing tests.
-- [ ] Measure register-copy count.
+- [x] Build copy graph.
+- [x] Add interval and liveness interference checks.
+- [x] Add allocation groups.
+- [x] Merge compatible physical-register preferences.
+- [x] Preserve GC root correctness.
+- [x] Add positive and negative coalescing tests.
+- [x] Measure register-copy count.
+
+### Implementation Notes
+
+- Added allocator-local copy coalescing groups built from deterministic `BackendCopyInst` edges.
+- Coalescing only accepts same-class intervals, rejects GC references, rejects strict live-range interference, and checks instruction-level liveness at the copy.
+- Allocation now consults coalescing groups when choosing copy, call-argument, and return-register preferences, so compatible ABI preferences can propagate through copy chains.
+- Fixed-register constraints must be compatible across a group; copies that would merge different ABI homes are left uncoalesced.
+- Kept this as local machinery in `register_allocation.py`; a separate `coalescing.py` can still be introduced once interval splitting makes the model larger.
+
+### Measurement Notes
+
+Measured with:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+```text
+metric                          without_ra  with_ra  delta
+------------------------------  ----------  -------  -----
+instruction_count                    16368    17102   +734
+stack_memory_instruction_count        8417     5673  -2744
+stack_load_count                      4424     2429  -1995
+stack_store_count                     3720     2974   -746
+register_copy_count                    284     3914  +3630
+callee_saved_save_count                  0      366   +366
+callee_saved_restore_count               0      366   +366
+```
+
+Compared with the last recorded AoC measurement from slice 5, total instructions improved from `17116` to `17102`, and stack-memory instructions improved from `5708` to `5673`. The broad sample's register-copy count did not move yet; this slice primarily unlocks preference propagation through copy groups, while the larger remaining copy count still needs broader interval splitting and later copy-removal work.
 
 ### How To Test
 

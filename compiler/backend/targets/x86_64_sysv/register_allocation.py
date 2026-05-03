@@ -138,6 +138,14 @@ class _CopyPreference:
     position: int
 
 
+@dataclass(frozen=True, slots=True)
+class _CoalescingPlan:
+    group_members_by_reg: dict[BackendRegId, tuple[BackendRegId, ...]]
+
+    def group_members(self, reg_id: BackendRegId) -> tuple[BackendRegId, ...]:
+        return self.group_members_by_reg.get(reg_id, (reg_id,))
+
+
 def build_instruction_positions(callable_plan: X86_64SysVCallablePlan) -> X86_64SysVInstructionPositions:
     callable_decl = callable_plan.callable_decl
     if callable_decl.is_extern or not callable_decl.blocks:
@@ -357,6 +365,12 @@ def allocate_x86_64_sysv_registers(
         positions=build_instruction_positions(callable_plan),
         interval_by_reg=interval_by_reg,
     )
+    coalescing_plan = _build_copy_coalescing_plan(
+        callable_plan,
+        positions=build_instruction_positions(callable_plan),
+        interval_by_reg=interval_by_reg,
+        abi_constraints=abi_constraints,
+    )
     physical_register_by_reg: dict[BackendRegId, X86_64SysVPhysicalRegister] = {}
     spilled_reg_ids: set[BackendRegId] = set()
     active: list[_ActiveInterval] = []
@@ -383,13 +397,23 @@ def allocate_x86_64_sysv_registers(
             spilled_reg_ids.add(interval.reg_id)
             continue
 
-        preferred_return_register = _preferred_return_register_for_interval(
+        preferred_return_register, active_to_release = _preferred_return_register_for_interval(
             interval,
             active=active,
-            preferences=return_preferences_by_reg.get(interval.reg_id, ()),
+            preferences=_merged_physical_preferences(
+                coalescing_plan.group_members(interval.reg_id),
+                preferences_by_reg=return_preferences_by_reg,
+            ),
             abi_constraints=abi_constraints,
+            coalesced_reg_ids=coalescing_plan.group_members(interval.reg_id),
         )
         if preferred_return_register is not None:
+            if active_to_release is not None:
+                active = [
+                    active_interval
+                    for active_interval in active
+                    if active_interval.interval.reg_id != active_to_release.interval.reg_id
+                ]
             physical_register_by_reg[interval.reg_id] = preferred_return_register
             active.append(_ActiveInterval(interval=interval, physical_register=preferred_return_register))
             active = _sorted_active_intervals(active)
@@ -399,12 +423,22 @@ def allocate_x86_64_sysv_registers(
             spilled_reg_ids.add(interval.reg_id)
             continue
 
-        preferred_arg_register = _preferred_call_argument_register_for_interval(
+        preferred_arg_register, active_to_release = _preferred_call_argument_register_for_interval(
             interval,
             active=active,
-            preferences=call_argument_preferences_by_reg.get(interval.reg_id, ()),
+            preferences=_merged_physical_preferences(
+                coalescing_plan.group_members(interval.reg_id),
+                preferences_by_reg=call_argument_preferences_by_reg,
+            ),
+            coalesced_reg_ids=coalescing_plan.group_members(interval.reg_id),
         )
         if preferred_arg_register is not None:
+            if active_to_release is not None:
+                active = [
+                    active_interval
+                    for active_interval in active
+                    if active_interval.interval.reg_id != active_to_release.interval.reg_id
+                ]
             physical_register_by_reg[interval.reg_id] = preferred_arg_register
             active.append(_ActiveInterval(interval=interval, physical_register=preferred_arg_register))
             active = _sorted_active_intervals(active)
@@ -418,6 +452,7 @@ def allocate_x86_64_sysv_registers(
             physical_register_by_reg=physical_register_by_reg,
             spilled_reg_ids=spilled_reg_ids,
             allowed_registers=interval_register_pool,
+            coalescing_plan=coalescing_plan,
         )
         if preferred_register is not None:
             if active_to_release is not None:
@@ -814,27 +849,32 @@ def _preferred_return_register_for_interval(
     active: list[_ActiveInterval],
     preferences: tuple[X86_64SysVPhysicalRegister, ...],
     abi_constraints: X86_64SysVAbiConstraintPlan,
-) -> X86_64SysVPhysicalRegister | None:
+    coalesced_reg_ids: tuple[BackendRegId, ...],
+) -> tuple[X86_64SysVPhysicalRegister | None, _ActiveInterval | None]:
     if interval.register_class not in {"gpr", "xmm"} or interval.crosses_call or interval.is_gc_reference or interval.live_at_safepoint:
-        return None
+        return None, None
     if interval.end_position - interval.start_position > 1:
-        return None
+        return None, None
     if not preferences:
-        return None
+        return None, None
     used_register_names = {active_interval.physical_register.name for active_interval in active}
-    return next(
-        (
-            physical_register
-            for physical_register in preferences
-            if physical_register.name not in used_register_names
-            and _return_register_is_safe_for_interval(
-                interval,
-                physical_register=physical_register,
-                abi_constraints=abi_constraints,
-            )
-        ),
-        None,
-    )
+    for physical_register in preferences:
+        if not _return_register_is_safe_for_interval(
+            interval,
+            physical_register=physical_register,
+            abi_constraints=abi_constraints,
+        ):
+            continue
+        if physical_register.name not in used_register_names:
+            return physical_register, None
+        active_to_release = _active_coalesced_interval_using_register(
+            active,
+            physical_register=physical_register,
+            coalesced_reg_ids=coalesced_reg_ids,
+        )
+        if active_to_release is not None:
+            return physical_register, active_to_release
+    return None, None
 
 
 def _return_register_is_safe_for_interval(
@@ -865,18 +905,41 @@ def _preferred_call_argument_register_for_interval(
     *,
     active: list[_ActiveInterval],
     preferences: tuple[X86_64SysVPhysicalRegister, ...],
-) -> X86_64SysVPhysicalRegister | None:
+    coalesced_reg_ids: tuple[BackendRegId, ...],
+) -> tuple[X86_64SysVPhysicalRegister | None, _ActiveInterval | None]:
     if interval.register_class not in {"gpr", "xmm"} or interval.crosses_call or interval.is_gc_reference:
-        return None
+        return None, None
     if not preferences:
-        return None
+        return None, None
     used_register_names = {active_interval.physical_register.name for active_interval in active}
+    for physical_register in preferences:
+        if physical_register.register_class != interval.register_class:
+            continue
+        if physical_register.name not in used_register_names:
+            return physical_register, None
+        active_to_release = _active_coalesced_interval_using_register(
+            active,
+            physical_register=physical_register,
+            coalesced_reg_ids=coalesced_reg_ids,
+        )
+        if active_to_release is not None:
+            return physical_register, active_to_release
+    return None, None
+
+
+def _active_coalesced_interval_using_register(
+    active: list[_ActiveInterval],
+    *,
+    physical_register: X86_64SysVPhysicalRegister,
+    coalesced_reg_ids: tuple[BackendRegId, ...],
+) -> _ActiveInterval | None:
+    coalesced_reg_id_set = set(coalesced_reg_ids)
     return next(
         (
-            physical_register
-            for physical_register in preferences
-            if physical_register.name not in used_register_names
-            and physical_register.register_class == interval.register_class
+            active_interval
+            for active_interval in active
+            if active_interval.interval.reg_id in coalesced_reg_id_set
+            and active_interval.physical_register.name == physical_register.name
         ),
         None,
     )
@@ -951,6 +1014,179 @@ def _intervals_can_coalesce_at_copy(
     )
 
 
+def _build_copy_coalescing_plan(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    positions: X86_64SysVInstructionPositions,
+    interval_by_reg: dict[BackendRegId, X86_64SysVLiveInterval],
+    abi_constraints: X86_64SysVAbiConstraintPlan,
+) -> _CoalescingPlan:
+    register_by_id = {register.reg_id: register for register in callable_plan.callable_decl.registers}
+    parent: dict[BackendRegId, BackendRegId] = {reg_id: reg_id for reg_id in interval_by_reg}
+
+    def find(reg_id: BackendRegId) -> BackendRegId:
+        root = parent[reg_id]
+        if root != reg_id:
+            root = find(root)
+            parent[reg_id] = root
+        return root
+
+    def group_members(root: BackendRegId) -> tuple[BackendRegId, ...]:
+        resolved_root = find(root)
+        return tuple(
+            sorted(
+                (reg_id for reg_id in parent if find(reg_id) == resolved_root),
+                key=reg_id_sort_key,
+            )
+        )
+
+    def union(left: BackendRegId, right: BackendRegId) -> None:
+        left_root = find(left)
+        right_root = find(right)
+        if left_root == right_root:
+            return
+        if reg_id_sort_key(right_root) < reg_id_sort_key(left_root):
+            left_root, right_root = right_root, left_root
+        parent[right_root] = left_root
+
+    copy_edges: list[tuple[int, BackendRegId, BackendRegId]] = []
+    for block in callable_plan.callable_decl.blocks:
+        for instruction in block.instructions:
+            if not isinstance(instruction, BackendCopyInst) or not isinstance(instruction.source, BackendRegOperand):
+                continue
+            copy_edges.append(
+                (
+                    positions.instruction_position(instruction.inst_id),
+                    instruction.source.reg_id,
+                    instruction.dest,
+                )
+            )
+
+    for copy_position, source_reg_id, dest_reg_id in sorted(
+        copy_edges,
+        key=lambda edge: (edge[0], reg_id_sort_key(edge[1]), reg_id_sort_key(edge[2])),
+    ):
+        if source_reg_id not in parent or dest_reg_id not in parent:
+            continue
+        source_group = group_members(source_reg_id)
+        dest_group = group_members(dest_reg_id)
+        if source_group == dest_group:
+            continue
+        merged_group = tuple(sorted((*source_group, *dest_group), key=reg_id_sort_key))
+        if not _copy_groups_can_coalesce(
+            merged_group,
+            copied_reg_ids=(source_reg_id, dest_reg_id),
+            copy_position=copy_position,
+            callable_plan=callable_plan,
+            interval_by_reg=interval_by_reg,
+            register_by_id=register_by_id,
+            abi_constraints=abi_constraints,
+        ):
+            continue
+        union(source_reg_id, dest_reg_id)
+
+    groups_by_root: dict[BackendRegId, list[BackendRegId]] = {}
+    for reg_id in sorted(parent, key=reg_id_sort_key):
+        groups_by_root.setdefault(find(reg_id), []).append(reg_id)
+
+    return _CoalescingPlan(
+        group_members_by_reg={
+            reg_id: tuple(members)
+            for members in groups_by_root.values()
+            if len(members) > 1
+            for reg_id in members
+        }
+    )
+
+
+def _copy_groups_can_coalesce(
+    merged_group: tuple[BackendRegId, ...],
+    *,
+    copied_reg_ids: tuple[BackendRegId, BackendRegId],
+    copy_position: int,
+    callable_plan: X86_64SysVCallablePlan,
+    interval_by_reg: dict[BackendRegId, X86_64SysVLiveInterval],
+    register_by_id: dict[BackendRegId, object],
+    abi_constraints: X86_64SysVAbiConstraintPlan,
+) -> bool:
+    source_reg_id, dest_reg_id = copied_reg_ids
+    source_interval = interval_by_reg[source_reg_id]
+    dest_interval = interval_by_reg[dest_reg_id]
+    if source_interval.register_class != dest_interval.register_class:
+        return False
+    if any(register_is_gc_reference(register_by_id[reg_id]) for reg_id in merged_group):
+        return False
+    if not _fixed_register_constraints_are_compatible(merged_group, abi_constraints=abi_constraints):
+        return False
+
+    for index, left_reg_id in enumerate(merged_group):
+        left_interval = interval_by_reg[left_reg_id]
+        for right_reg_id in merged_group[index + 1 :]:
+            right_interval = interval_by_reg[right_reg_id]
+            if left_interval.register_class != right_interval.register_class:
+                return False
+            if _intervals_strictly_interfere(left_interval, right_interval):
+                return False
+
+    return _copy_liveness_allows_coalescing(
+        callable_plan,
+        source_reg_id=source_reg_id,
+        dest_reg_id=dest_reg_id,
+        copy_position=copy_position,
+    )
+
+
+def _intervals_strictly_interfere(left: X86_64SysVLiveInterval, right: X86_64SysVLiveInterval) -> bool:
+    return max(left.start_position, right.start_position) < min(left.end_position, right.end_position)
+
+
+def _copy_liveness_allows_coalescing(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    source_reg_id: BackendRegId,
+    dest_reg_id: BackendRegId,
+    copy_position: int,
+) -> bool:
+    for block in callable_plan.callable_decl.blocks:
+        for instruction in block.instructions:
+            if not isinstance(instruction, BackendCopyInst) or not isinstance(instruction.source, BackendRegOperand):
+                continue
+            if instruction.source.reg_id != source_reg_id or instruction.dest != dest_reg_id:
+                continue
+            live_after = set(callable_plan.analysis.liveness.instruction_live_after(instruction.inst_id))
+            if source_reg_id in live_after and dest_reg_id in live_after:
+                return False
+            return True
+    return copy_position >= 0
+
+
+def _fixed_register_constraints_are_compatible(
+    reg_ids: tuple[BackendRegId, ...],
+    *,
+    abi_constraints: X86_64SysVAbiConstraintPlan,
+) -> bool:
+    reg_id_set = set(reg_ids)
+    constrained_register_names = {
+        constraint.register_name
+        for constraint in abi_constraints.constraints
+        if constraint.reg_id in reg_id_set
+        and constraint.kind in {"definition", "use"}
+        and constraint.reason in {"incoming_argument", "call_argument", "call_return", "return_value"}
+    }
+    return len(constrained_register_names) <= 1
+
+
+def _merged_physical_preferences(
+    reg_ids: tuple[BackendRegId, ...],
+    *,
+    preferences_by_reg: dict[BackendRegId, tuple[X86_64SysVPhysicalRegister, ...]],
+) -> tuple[X86_64SysVPhysicalRegister, ...]:
+    preferences: list[X86_64SysVPhysicalRegister] = []
+    for reg_id in sorted(reg_ids, key=reg_id_sort_key):
+        preferences.extend(preferences_by_reg.get(reg_id, ()))
+    return tuple(dict.fromkeys(preferences))
+
+
 def _preferred_register_for_interval(
     interval: X86_64SysVLiveInterval,
     *,
@@ -960,10 +1196,25 @@ def _preferred_register_for_interval(
     physical_register_by_reg: dict[BackendRegId, X86_64SysVPhysicalRegister],
     spilled_reg_ids: set[BackendRegId],
     allowed_registers: tuple[X86_64SysVPhysicalRegister, ...],
+    coalescing_plan: _CoalescingPlan,
 ) -> tuple[X86_64SysVPhysicalRegister | None, _ActiveInterval | None]:
     active_by_reg = {active_interval.interval.reg_id: active_interval for active_interval in active}
     used_register_names = {active_interval.physical_register.name for active_interval in active}
     allowed_register_names = {register.name for register in allowed_registers}
+
+    for group_reg_id in coalescing_plan.group_members(interval.reg_id):
+        if group_reg_id == interval.reg_id or group_reg_id in spilled_reg_ids:
+            continue
+        preferred_register = physical_register_by_reg.get(group_reg_id)
+        if preferred_register is None or preferred_register.name not in allowed_register_names:
+            continue
+        active_group_member = active_by_reg.get(group_reg_id)
+        if active_group_member is not None:
+            if active_group_member.physical_register.name != preferred_register.name:
+                continue
+            return preferred_register, active_group_member
+        if preferred_register.name not in used_register_names:
+            return preferred_register, None
 
     for preference in copy_preferences:
         source_interval = interval_by_reg.get(preference.source_reg_id)
