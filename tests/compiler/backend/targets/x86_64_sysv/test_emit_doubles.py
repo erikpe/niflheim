@@ -32,8 +32,10 @@ def test_emit_source_asm_emits_double_constants_and_arithmetic_sequences(tmp_pat
     assert "0x3ff8000000000000" in asm
     assert "    movq qword ptr [rbp - 8], xmm0" in add_body
     assert "    movq qword ptr [rbp - 16], xmm1" in add_body
-    assert "    movq xmm0, qword ptr [rbp - 8]" in add_body
-    assert "    movq xmm1, qword ptr [rbp - 16]" in add_body
+    assert "    movq xmm2, qword ptr [rbp - 8]" in add_body
+    assert "    movq xmm3, qword ptr [rbp - 16]" in add_body
+    assert "    movq xmm0, xmm2" in add_body
+    assert "    movq xmm1, xmm3" in add_body
     assert "    addsd xmm0, xmm1" in add_body
     assert "    mulsd xmm0, xmm1" in add_body
 

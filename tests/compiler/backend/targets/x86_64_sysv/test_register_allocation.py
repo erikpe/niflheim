@@ -563,7 +563,44 @@ def test_allocate_x86_64_sysv_registers_does_not_coalesce_overlapping_copy(tmp_p
     assert allocation.spilled_reg_ids == ()
 
 
-def test_allocate_x86_64_sysv_registers_spills_xmm_intervals_to_stack_homes(tmp_path) -> None:
+def test_allocate_x86_64_sysv_registers_allocates_call_free_xmm_intervals(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(value: double) -> double {
+            var doubled: double = value + value;
+            return doubled;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        callable_name="sample",
+    )
+    value_reg_id = _reg_id_by_debug_name(callable_plan, "value")
+    doubled_reg_id = _reg_id_by_debug_name(callable_plan, "doubled")
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=(
+            _test_interval(callable_plan, "value", start=0, end=1, register_class="xmm"),
+            _test_interval(callable_plan, "doubled", start=1, end=1, register_class="xmm"),
+        ),
+    )
+    value_location = allocation.location_for_reg(value_reg_id)
+    doubled_location = allocation.location_for_reg(doubled_reg_id)
+
+    assert value_location.physical_register is not None
+    assert value_location.physical_register.name == "xmm2"
+    assert value_location.stack_slot is None
+    assert doubled_location.physical_register is not None
+    assert doubled_location.physical_register.name == "xmm3"
+    assert doubled_location.stack_slot is None
+    assert allocation.spilled_reg_ids == ()
+
+
+def test_allocate_x86_64_sysv_registers_spills_xmm_intervals_when_pool_is_empty(tmp_path) -> None:
     callable_plan = _callable_plan(
         tmp_path,
         """
@@ -582,6 +619,7 @@ def test_allocate_x86_64_sysv_registers_spills_xmm_intervals_to_stack_homes(tmp_
     allocation = allocate_x86_64_sysv_registers(
         callable_plan,
         intervals=(_test_interval(callable_plan, "value", start=0, end=1, register_class="xmm"),),
+        call_free_allocatable_xmms=(),
     )
     value_location = allocation.location_for_reg(value_reg_id)
 

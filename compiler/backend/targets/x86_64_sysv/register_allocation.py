@@ -21,6 +21,7 @@ from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysV
 from compiler.backend.targets.x86_64_sysv.locations import (
     X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS,
     X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
+    X86_64_SYSV_CALL_FREE_ALLOCATABLE_XMMS,
     X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
     X86_64_SYSV_RETURN_ALLOCATABLE_GPRS,
     X86_64SysVPhysicalRegister,
@@ -321,6 +322,7 @@ def allocate_x86_64_sysv_registers(
     intervals: tuple[X86_64SysVLiveInterval, ...] | None = None,
     allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
     call_free_allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
+    call_free_allocatable_xmms: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_CALL_FREE_ALLOCATABLE_XMMS,
     call_argument_allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS,
     return_allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_RETURN_ALLOCATABLE_GPRS,
 ) -> X86_64SysVRegisterAllocation:
@@ -354,18 +356,28 @@ def allocate_x86_64_sysv_registers(
 
     for interval in resolved_intervals:
         active = _expire_inactive_intervals(active, current_start_position=interval.start_position)
-        if interval.register_class != "gpr":
+        if interval.register_class == "gpr":
+            interval_register_pool = _register_pool_for_interval(
+                interval,
+                abi_constraints=abi_constraints,
+                callee_saved_gprs=allocatable_gprs,
+                call_free_gprs=call_free_allocatable_gprs,
+                call_crossing_count=call_crossing_count_by_reg.get(interval.reg_id, 0),
+                safepoint_crossing_count=safepoint_crossing_count_by_reg.get(interval.reg_id, 0),
+            )
+        elif interval.register_class == "xmm":
+            interval_register_pool = _xmm_register_pool_for_interval(
+                interval,
+                abi_constraints=abi_constraints,
+                call_free_xmms=call_free_allocatable_xmms,
+            )
+        else:
             spilled_reg_ids.add(interval.reg_id)
             continue
 
-        interval_register_pool = _register_pool_for_interval(
-            interval,
-            abi_constraints=abi_constraints,
-            callee_saved_gprs=allocatable_gprs,
-            call_free_gprs=call_free_allocatable_gprs,
-            call_crossing_count=call_crossing_count_by_reg.get(interval.reg_id, 0),
-            safepoint_crossing_count=safepoint_crossing_count_by_reg.get(interval.reg_id, 0),
-        )
+        if not interval_register_pool:
+            spilled_reg_ids.add(interval.reg_id)
+            continue
 
         preferred_return_register = _preferred_return_register_for_interval(
             interval,
@@ -590,6 +602,29 @@ def _interval_can_use_caller_saved_registers(
         for constraint in abi_constraints.constraints
         if constraint.kind in {"clobber", "temporary"} or constraint.reason in {"call_argument", "call_return"}
     )
+
+
+def _xmm_register_pool_for_interval(
+    interval: X86_64SysVLiveInterval,
+    *,
+    abi_constraints: X86_64SysVAbiConstraintPlan,
+    call_free_xmms: tuple[X86_64SysVPhysicalRegister, ...],
+) -> tuple[X86_64SysVPhysicalRegister, ...]:
+    if interval.crosses_call or interval.live_at_safepoint:
+        return ()
+    call_free_xmm_names = {register.name for register in call_free_xmms}
+    if any(
+        _constraint_overlaps_interval(constraint, interval)
+        for constraint in abi_constraints.constraints
+        if constraint.register_class == "xmm"
+        and constraint.register_name in call_free_xmm_names
+        and (
+            constraint.kind in {"clobber", "temporary"}
+            or constraint.reason in {"call_argument", "call_return", "return_value"}
+        )
+    ):
+        return ()
+    return call_free_xmms
 
 
 def _has_unsaved_caller_saved_conflict(

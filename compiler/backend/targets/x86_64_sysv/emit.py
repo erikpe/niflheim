@@ -636,7 +636,8 @@ def _emit_allocated_entry_register_loads(builder, callable_decl, *, frame_layout
             raise BackendTargetLoweringError(
                 f"x86_64_sysv frame layout is missing a home for allocated entry register 'r{reg_id.ordinal}'"
             )
-        builder.instruction("mov", location.physical_register.name, format_stack_slot_operand("rbp", slot.byte_offset))
+        opcode = "movq" if location.physical_register.register_class == "xmm" else "mov"
+        builder.instruction(opcode, location.physical_register.name, format_stack_slot_operand("rbp", slot.byte_offset))
 
 
 def _caller_saved_spills_for_call(instruction: BackendCallInst, *, frame_layout) -> tuple:

@@ -1076,14 +1076,23 @@ def emit_load_float_operand(
     register_type_name_by_reg_id: dict,
 ) -> None:
     if isinstance(operand, BackendRegOperand):
+        if register_type_name_by_reg_id[operand.reg_id] != TYPE_NAME_DOUBLE:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv expected a double-typed register for floating load, got '{register_type_name_by_reg_id[operand.reg_id]}'"
+            )
+        physical_register = _physical_register_for_reg(frame_layout, operand.reg_id)
+        if physical_register is not None:
+            if physical_register.register_class != "xmm":
+                raise BackendTargetLoweringError(
+                    f"x86_64_sysv expected an XMM register for double-typed register 'r{operand.reg_id.ordinal}'"
+                )
+            if physical_register.name != target_float_register:
+                builder.instruction("movq", target_float_register, physical_register.name)
+            return
         slot = frame_layout.for_reg(operand.reg_id)
         if slot is None:
             raise BackendTargetLoweringError(
                 f"x86_64_sysv frame layout is missing a home for register 'r{operand.reg_id.ordinal}'"
-            )
-        if register_type_name_by_reg_id[operand.reg_id] != TYPE_NAME_DOUBLE:
-            raise BackendTargetLoweringError(
-                f"x86_64_sysv expected a double-typed register for floating load, got '{register_type_name_by_reg_id[operand.reg_id]}'"
             )
         builder.instruction("movq", target_float_register, format_stack_slot_operand("rbp", slot.byte_offset))
         return
@@ -1140,6 +1149,15 @@ def emit_store_float_result(
     frame_layout: X86_64SysVFrameLayout,
     source_float_register: str = _PRIMARY_FLOAT_REGISTER,
 ) -> None:
+    physical_register = _physical_register_for_reg(frame_layout, dest_reg_id)
+    if physical_register is not None:
+        if physical_register.register_class != "xmm":
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv expected an XMM register for double-typed destination register 'r{dest_reg_id.ordinal}'"
+            )
+        if physical_register.name != source_float_register:
+            builder.instruction("movq", physical_register.name, source_float_register)
+        return
     slot = frame_layout.for_reg(dest_reg_id)
     if slot is None:
         raise BackendTargetLoweringError(

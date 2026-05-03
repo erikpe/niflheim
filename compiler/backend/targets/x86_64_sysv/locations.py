@@ -113,6 +113,10 @@ X86_64_SYSV_XMM_REGISTERS: tuple[X86_64SysVPhysicalRegister, ...] = tuple(
     xmm_register(f"xmm{ordinal}")
     for ordinal in range(16)
 )
+X86_64_SYSV_CALL_FREE_ALLOCATABLE_XMMS: tuple[X86_64SysVPhysicalRegister, ...] = tuple(
+    xmm_register(f"xmm{ordinal}")
+    for ordinal in range(2, 15)
+)
 
 # Slice-1 allocation is intentionally conservative. Scratch registers remain
 # outside this pool until call-clobber and scratch-conflict handling is explicit.
@@ -134,6 +138,7 @@ __all__ = [
     "X86_64_SYSV_CALLEE_SAVED_GPRS",
     "X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS",
     "X86_64_SYSV_CALLER_SAVED_GPRS",
+    "X86_64_SYSV_CALL_FREE_ALLOCATABLE_XMMS",
     "X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS",
     "X86_64_SYSV_RETURN_ALLOCATABLE_GPRS",
     "X86_64_SYSV_XMM_REGISTERS",

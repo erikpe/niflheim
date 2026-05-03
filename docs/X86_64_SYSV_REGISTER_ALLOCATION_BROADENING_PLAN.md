@@ -489,13 +489,43 @@ Tests:
 
 ### Checklist
 
-- [ ] Add XMM allocation pool usage.
-- [ ] Allocate call-free double intervals.
-- [ ] Preserve stack fallback for spilled doubles.
-- [ ] Avoid unnecessary double stack homes.
-- [ ] Add allocator tests for XMM assignment and spills.
-- [ ] Add double emission tests.
-- [ ] Measure double-heavy samples.
+- [x] Add XMM allocation pool usage.
+- [x] Allocate call-free double intervals.
+- [x] Preserve stack fallback for spilled doubles.
+- [x] Avoid unnecessary double stack homes.
+- [x] Add allocator tests for XMM assignment and spills.
+- [x] Add double emission tests.
+- [x] Measure double-heavy samples.
+
+### Implementation Notes
+
+- Added a conservative call-free XMM allocation pool, `xmm2` through `xmm14`, leaving `xmm0`, `xmm1`, and `xmm15` available for the current double lowering and call-lowering scratch conventions.
+- Allocated only double intervals that do not cross modeled calls or safepoints and do not overlap fixed XMM ABI constraints in the chosen pool.
+- Kept stack fallback for high-pressure or unsupported XMM intervals.
+- Updated floating load/store helpers and allocated entry loads so physical XMM locations are used directly when present, while spilled doubles still use frame slots.
+- Left ABI XMM argument/result coalescing to slice 7.
+
+### Measurement Notes
+
+Measured with:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/std/math/test_math.nif --omit-runtime-trace
+```
+
+```text
+metric                          without_ra  with_ra  delta
+------------------------------  ----------  -------  -----
+instruction_count                    21766    23801  +2035
+stack_memory_instruction_count       12938     9457  -3481
+stack_load_count                      5641     2686  -2955
+stack_store_count                     5098     4596   -502
+register_copy_count                    247     5829  +5582
+callee_saved_save_count                  0      233   +233
+callee_saved_restore_count               0      233   +233
+```
+
+This slice substantially reduces stack traffic in a double-heavy sample, while the remaining increase in total instructions is still dominated by register-copy traffic and callee-saved save/restore overhead.
 
 ### How To Test
 
