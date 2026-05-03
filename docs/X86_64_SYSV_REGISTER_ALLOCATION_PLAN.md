@@ -154,7 +154,7 @@ class X86_64SysVCallablePlan:
 11. [x] Slice 11: Select simple scalar operations directly into allocated destinations.
 12. [x] Slice 12: Extend direct scalar selection across comparisons, shifts, casts, and calls.
 13. [x] Slice 13: Add conservative copy coalescing in allocation.
-14. [ ] Slice 14: Add a tiny x86_64 SysV post-emission cleanup pass.
+14. [x] Slice 14: Add a tiny x86_64 SysV post-emission cleanup pass.
 15. [ ] Slice 15: Stabilize measurements and retire the temporary fallback if it no longer catches useful regressions.
 
 ## Slice 1: Target Location And Register-Class Model
@@ -1014,13 +1014,36 @@ Tests:
 
 ### Checklist
 
-- [ ] Add x86_64 SysV peephole module.
-- [ ] Remove `mov reg, reg`.
-- [ ] Remove exact adjacent duplicate safe register moves.
-- [ ] Avoid labels, calls, and memory rewrites.
-- [ ] Wire pass into target emission.
-- [ ] Add focused peephole tests.
-- [ ] Measure representative assembly statistics.
+- [x] Add x86_64 SysV peephole module.
+- [x] Remove `mov reg, reg`.
+- [x] Remove exact adjacent duplicate safe register moves.
+- [x] Avoid labels, calls, and memory rewrites.
+- [x] Wire pass into target emission.
+- [x] Add focused peephole tests.
+- [x] Measure representative assembly statistics.
+
+### Observed Measurement
+
+Command:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+After this slice:
+
+```text
+metric                          without_ra  with_ra  delta
+instruction_count                    16368    17127   +759
+stack_memory_instruction_count        8417     5871  -2546
+stack_load_count                      4424     2534  -1890
+stack_store_count                     3720     3009   -711
+register_copy_count                    284     3784  +3500
+callee_saved_save_count                  0      424   +424
+callee_saved_restore_count               0      424   +424
+```
+
+Compared with Slice 13, this representative sample is unchanged. The pass is still useful as a narrow cleanup net and regression guard for future allocation broadening.
 
 ### How To Test
 

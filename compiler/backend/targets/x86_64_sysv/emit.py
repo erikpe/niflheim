@@ -70,6 +70,7 @@ from compiler.backend.targets.x86_64_sysv.array_codegen import (
 )
 from compiler.backend.targets.x86_64_sysv.lower_calls import emit_call_instruction as emit_lowered_call_instruction
 from compiler.backend.targets.x86_64_sysv.pipeline import X86_64SysVCallablePlan, plan_x86_64_sysv_target
+from compiler.backend.targets.x86_64_sysv.peephole import cleanup_x86_64_sysv_assembly
 from compiler.backend.targets.x86_64_sysv.object_codegen import (
     emit_alloc_object_instruction,
     emit_field_load_instruction,
@@ -143,7 +144,8 @@ def emit_x86_64_sysv_asm(target_input: BackendTargetInput, *, options: BackendTa
     builder.blank()
     builder.directive('.section .note.GNU-stack,"",@progbits')
     builder.blank()
-    return BackendEmitResult(assembly_text=builder.build(), diagnostics=())
+    assembly_text = cleanup_x86_64_sysv_assembly(builder.build())
+    return BackendEmitResult(assembly_text=assembly_text, diagnostics=())
 
 
 def check_x86_64_sysv_legality(target_input: BackendTargetInput) -> None:
