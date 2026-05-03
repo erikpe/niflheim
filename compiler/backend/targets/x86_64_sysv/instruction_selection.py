@@ -233,6 +233,15 @@ def _emit_instruction(
             )
             emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
         else:
+            if _try_emit_direct_scalar_copy(
+                builder,
+                instruction.source,
+                instruction.dest,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+                program_symbols=program_symbols,
+            ):
+                return
             emit_load_operand(
                 builder,
                 instruction.source,
@@ -716,7 +725,6 @@ def emit_store_result(
     if physical_register is not None:
         if physical_register.name != source_register:
             builder.instruction("mov", physical_register.name, source_register)
-        builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), physical_register.name)
         return
     builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), source_register)
 
@@ -768,6 +776,121 @@ def _normalize_bool_register(builder: X86AsmBuilder, register_name: str, byte_re
 def _mask_u8_result_if_needed(builder: X86AsmBuilder, operand_type_name: str) -> None:
     if operand_type_name == TYPE_NAME_U8:
         builder.instruction("and", _PRIMARY_REGISTER, "255")
+
+
+def _try_emit_direct_scalar_copy(
+    builder: X86AsmBuilder,
+    source: BackendOperand,
+    dest_reg_id,
+    *,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+    program_symbols=None,
+) -> bool:
+    dest_physical_register = _physical_register_for_reg(frame_layout, dest_reg_id)
+    dest_stack_slot = frame_layout.for_reg(dest_reg_id)
+    if dest_stack_slot is None:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv frame layout is missing a home for destination register 'r{dest_reg_id.ordinal}'"
+        )
+
+    if isinstance(source, BackendRegOperand):
+        source_physical_register = _physical_register_for_reg(frame_layout, source.reg_id)
+        if dest_physical_register is not None and source_physical_register is not None:
+            if dest_physical_register.name != source_physical_register.name:
+                builder.instruction("mov", dest_physical_register.name, source_physical_register.name)
+            _normalize_direct_copy_bool_if_needed(
+                builder,
+                dest_reg_id,
+                dest_physical_register.name,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            return True
+        if dest_physical_register is not None:
+            source_stack_slot = frame_layout.for_reg(source.reg_id)
+            if source_stack_slot is None:
+                raise BackendTargetLoweringError(
+                    f"x86_64_sysv frame layout is missing a home for source register 'r{source.reg_id.ordinal}'"
+                )
+            builder.instruction(
+                "mov",
+                dest_physical_register.name,
+                format_stack_slot_operand("rbp", source_stack_slot.byte_offset),
+            )
+            _normalize_direct_copy_bool_if_needed(
+                builder,
+                dest_reg_id,
+                dest_physical_register.name,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            return True
+        if source_physical_register is not None:
+            builder.instruction(
+                "mov",
+                format_stack_slot_operand("rbp", dest_stack_slot.byte_offset),
+                source_physical_register.name,
+            )
+            return True
+        return False
+
+    if isinstance(source, BackendConstOperand) and dest_physical_register is not None:
+        _emit_load_constant(builder, source.constant, target_register=dest_physical_register.name)
+        _normalize_direct_copy_bool_if_needed(
+            builder,
+            dest_reg_id,
+            dest_physical_register.name,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+        return True
+
+    if isinstance(source, BackendCallableOperand) and dest_physical_register is not None:
+        if program_symbols is None:
+            raise BackendTargetLoweringError("x86_64_sysv callable operands require backend program symbols")
+        builder.instruction(
+            "lea",
+            dest_physical_register.name,
+            f"[rip + {program_symbols.callable(source.callable_id).direct_call_symbol}]",
+        )
+        return True
+
+    return False
+
+
+def _normalize_direct_copy_bool_if_needed(
+    builder: X86AsmBuilder,
+    dest_reg_id,
+    dest_register_name: str,
+    *,
+    register_type_name_by_reg_id: dict,
+) -> None:
+    if register_type_name_by_reg_id[dest_reg_id] != TYPE_NAME_BOOL:
+        return
+    _normalize_bool_register(builder, dest_register_name, _byte_register_name_for_register(dest_register_name))
+
+
+def _byte_register_name_for_register(register_name: str) -> str:
+    byte_register_by_register = {
+        "rax": "al",
+        "rbx": "bl",
+        "rcx": "cl",
+        "rdx": "dl",
+        "rsi": "sil",
+        "rdi": "dil",
+        "r8": "r8b",
+        "r9": "r9b",
+        "r10": "r10b",
+        "r11": "r11b",
+        "r12": "r12b",
+        "r13": "r13b",
+        "r14": "r14b",
+        "r15": "r15b",
+    }
+    try:
+        return byte_register_by_register[register_name]
+    except KeyError as exc:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv instruction selection does not know the byte register for '{register_name}'"
+        ) from exc
 
 
 def _physical_register_for_reg(frame_layout: X86_64SysVFrameLayout, reg_id) -> object | None:

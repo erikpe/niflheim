@@ -29,9 +29,11 @@ def test_emit_source_asm_emits_register_argument_moves_call_and_return_store(tmp
 
     assert "    mov rdi, 20" in main_body
     assert "    mov rsi, 22" in main_body
-    assert f"    call {mangle_function_symbol(('main',), 'add')}" in main_body
+    call_text = f"    call {mangle_function_symbol(('main',), 'add')}"
+    assert call_text in main_body
+    after_call_body = main_body[main_body.index(call_text) :]
     assert re.search(r"^\s+mov rbx, rax$", main_body, re.MULTILINE)
-    assert re.search(r"^\s+mov qword ptr \[rbp - \d+\], rbx$", main_body, re.MULTILINE)
+    assert not re.search(r"^\s+mov qword ptr \[rbp - \d+\], rbx$", after_call_body, re.MULTILINE)
 
 
 def test_emit_source_asm_loads_call_arguments_from_allocated_registers(tmp_path) -> None:
@@ -269,7 +271,7 @@ def test_emit_source_asm_materializes_function_refs_as_callable_values(tmp_path)
 
     main_body = _body_for_label(asm, "main")
 
-    assert f"    lea rax, [rip + {mangle_function_symbol(('main',), 'inc')}]" in main_body
+    assert f"    lea rbx, [rip + {mangle_function_symbol(('main',), 'inc')}]" in main_body
     assert "    call r11" in main_body
 
 
@@ -312,7 +314,7 @@ def test_emit_source_asm_materializes_static_method_refs_as_callable_values(tmp_
 
     main_body = _body_for_label(asm, "main")
 
-    assert "    lea rax, [rip + __nif_method_main__Math_twice]" in main_body
+    assert "    lea rbx, [rip + __nif_method_main__Math_twice]" in main_body
     assert "    call r11" in main_body
 
 

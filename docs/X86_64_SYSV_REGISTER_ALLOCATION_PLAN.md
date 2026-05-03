@@ -149,8 +149,13 @@ class X86_64SysVCallablePlan:
 6. [x] Slice 6: Make scalar instruction selection allocation-aware.
 7. [x] Slice 7: Preserve GC root correctness for physical locations.
 8. [x] Slice 8: Make call lowering allocation-aware.
-9. [ ] Slice 9: Enable allocation behind an internal target option.
-10. [ ] Slice 10: Broaden allocation coverage and remove the temporary option if stable.
+9. [x] Slice 9: Enable allocation behind an internal target option.
+10. [x] Slice 10: Tighten allocation cleanup and stack-home suppression.
+11. [ ] Slice 11: Select simple scalar operations directly into allocated destinations.
+12. [ ] Slice 12: Extend direct scalar selection across comparisons, shifts, casts, and calls.
+13. [ ] Slice 13: Add conservative copy coalescing in allocation.
+14. [ ] Slice 14: Add a tiny x86_64 SysV post-emission cleanup pass.
+15. [ ] Slice 15: Stabilize measurements and retire the temporary fallback if it no longer catches useful regressions.
 
 ## Slice 1: Target Location And Register-Class Model
 
@@ -637,67 +642,373 @@ pytest tests/compiler/integration -q
 ./scripts/golden.sh --filter 'std/math/**'
 ```
 
-## Slice 10: Broaden Coverage And Retire Temporary Fallbacks
+## Slice 10: Tighten Allocation Cleanup And Stack-Home Suppression
 
 ### Goal
 
-Expand register allocation beyond the conservative first slice and remove temporary migration switches once the path is stable.
+Reduce the code-size penalty from the conservative allocation rollout before expanding register coverage.
+
+The allocator already reduces stack loads, but early measurements showed that the win was hidden by immediate stack-home refreshes, register-register copy chains, and callee-saved traffic. This slice keeps the allocation surface narrow and makes the existing allocated path cheaper and easier to reason about.
 
 ### Where
 
 Existing files:
 
-- `compiler/backend/targets/x86_64_sysv/locations.py`
+- `compiler/backend/targets/x86_64_sysv/instruction_selection.py`
+- `compiler/backend/targets/x86_64_sysv/lower_calls.py` only if call-result storage needs cleanup
+- `compiler/backend/targets/x86_64_sysv/root_codegen.py` only for root-safety adjustments
+- `scripts/assembly_stats.py`
+
+Tests:
+
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py`
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py`
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py`
+- `tests/compiler/test_assembly_stats_script.py`
+
+### What To Do
+
+1. Stop immediately writing every physically allocated scalar result back to its stack home.
+   - Stack homes remain available for the disabled all-stack fallback and spilled values.
+   - Root synchronization continues to read allocated reference values from their physical register.
+2. Emit direct scalar copies when source and destination locations are already known.
+   - Physical-to-physical copies avoid the primary scratch register.
+   - Physical-to-same-physical copies emit nothing.
+   - Constants and callable values can materialize directly into an allocated destination register.
+3. Preserve stack stores for spilled destinations and stack-only fallback code.
+4. Keep root sync/reload behavior conservative for GC references.
+5. Measure a representative program before and after the cleanup.
+6. Leave caller-saved allocation, XMM allocation, and broader interval splitting for a separate future broadening plan.
+
+### Checklist
+
+- [x] Add assembly statistics helper for allocation comparisons.
+- [x] Stop stack-home refreshes for physically allocated scalar results.
+- [x] Add direct scalar copy emission for known source/destination locations.
+- [x] Preserve stack-only fallback behavior.
+- [x] Preserve GC root synchronization behavior.
+- [x] Update focused assembly assertions.
+- [x] Measure `tests/golden/aoc/2025/10/part2/test_solver.nif`.
+- [x] Confirm deeper copy coalescing and allocation-aware operation selection are still needed.
+
+### Observed Measurement
+
+Command:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+After this slice:
+
+```text
+metric                          without_ra  with_ra  delta
+instruction_count                    16368    17897  +1529
+stack_memory_instruction_count        8417     5873  -2544
+stack_load_count                      4424     2590  -1834
+stack_store_count                     3720     3010   -710
+register_copy_count                    284     4357  +4073
+callee_saved_save_count                  0      425   +425
+callee_saved_restore_count               0      425   +425
+```
+
+Compared with the first allocation-enabled measurement, emitted lines improved from `21250` to `20026`. The remaining instruction-count increase is now mostly register-copy traffic and callee-saved save/restore cost.
+
+### How To Test
+
+```text
+pytest tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py -q
+pytest tests/compiler/test_assembly_stats_script.py -q
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+## Slice 11: Select Simple Scalar Operations Directly Into Allocated Destinations
+
+### Goal
+
+Reduce register-copy traffic by making integer unary and simple integer binary instruction selection write directly into allocated destination registers.
+
+The current scalar lowering often computes through fixed scratch registers (`rax` and `rcx`) and then copies the result into the allocated physical register. This slice keeps the same allocation decisions but teaches instruction selection to choose the destination register as the computation register when that is legal.
+
+### Where
+
+Existing files:
+
+- `compiler/backend/targets/x86_64_sysv/instruction_selection.py`
+- `scripts/assembly_stats.py`
+
+Tests:
+
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py`
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py`
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py`
+
+### What To Do
+
+1. Add small location-query helpers for scalar instruction selection.
+   - destination physical register name
+   - source physical register name
+   - stack slot operand for spilled values
+   - byte-register name for boolean normalization
+2. Add direct unary lowering for allocated GPR destinations.
+   - `dest = -operand`
+   - `dest = ~operand`
+   - load operand directly into `dest` when needed
+   - skip the load when `operand` is already in `dest`
+3. Add direct binary lowering for safe integer GPR operations.
+   - `add`
+   - `sub`
+   - `imul`
+   - `and`
+   - `or`
+   - `xor`
+4. Use immediate operands directly when the right operand is an integer constant and x86 allows it.
+5. For commutative operations, prefer an operand already in the destination register.
+6. Keep division, remainder, comparisons, shifts, floats, and GC-sensitive reference operations on the existing conservative path in this slice.
+7. Keep the stack-only fallback behavior unchanged.
+8. Measure `tests/golden/aoc/2025/10/part2/test_solver.nif` before and after.
+
+### Checklist
+
+- [ ] Add reusable scalar location helpers.
+- [ ] Implement direct unary `neg` and `not` lowering.
+- [ ] Implement direct binary `add`, `sub`, `imul`, `and`, `or`, and `xor` lowering.
+- [ ] Support immediate right operands where legal.
+- [ ] Preserve existing divide, remainder, comparison, shift, float, and fallback paths.
+- [ ] Add focused assembly tests for reduced copies.
+- [ ] Measure representative assembly statistics.
+
+### How To Test
+
+```text
+pytest tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py -q
+pytest tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py -q
+pytest tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py -q
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+## Slice 12: Extend Direct Selection Across Remaining Conservative Scalar Paths
+
+### Goal
+
+Cover the rest of the scalar operations currently pursued by this register-allocation plan without broadening the allocator itself.
+
+This slice should reduce scratch-register traffic for operations that were deliberately skipped in Slice 11 because they have special x86 constraints or interact with booleans and type conversions.
+
+### Where
+
+Existing files:
+
+- `compiler/backend/targets/x86_64_sysv/instruction_selection.py`
+- `compiler/backend/targets/x86_64_sysv/cast_codegen.py`
+- `compiler/backend/targets/x86_64_sysv/lower_calls.py`
+- `scripts/assembly_stats.py`
+
+Tests:
+
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py`
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py`
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py`
+
+### What To Do
+
+1. Add direct destination lowering for integer comparisons.
+   - compare operands without unnecessary result-register shuttling
+   - write boolean results directly into the allocated destination register when available
+2. Add direct destination lowering for boolean logical and boolean comparison operations.
+3. Add direct destination lowering for shifts where `rcx/cl` is still required for the count.
+   - keep the target value in the allocated destination where practical
+   - use `cl` only for the shift count
+4. Review casts currently emitted through `rax`.
+   - keep no-op casts as no-ops when source and destination coalesce or direct-copy cleanly
+   - write cast results directly into allocated destinations where safe
+5. Review call return storage.
+   - avoid `rax -> allocated -> rax` churn around immediate returns
+   - keep ABI return register behavior correct
+6. Keep division and remainder conservative unless a small, obviously correct cleanup exists.
+7. Measure the same representative sample and compare against Slice 11.
+
+### Checklist
+
+- [ ] Reduce comparison result copies.
+- [ ] Reduce boolean operation result copies.
+- [ ] Reduce shift result copies while preserving `cl` count requirements.
+- [ ] Reduce cast result copies.
+- [ ] Reduce call-return result copies where safe.
+- [ ] Preserve ABI return behavior.
+- [ ] Preserve all-stack fallback behavior.
+- [ ] Measure representative assembly statistics.
+
+### How To Test
+
+```text
+pytest tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py -q
+pytest tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py -q
+pytest tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py -q
+pytest tests/compiler/backend/targets/x86_64_sysv -q
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+## Slice 13: Add Conservative Copy Coalescing In Allocation
+
+### Goal
+
+Reduce physical-register copies by assigning copy-related virtual registers to the same physical register when their live intervals do not interfere.
+
+This is still a cleanup slice. It must not introduce caller-saved allocation, XMM allocation, interval splitting, or new spill/reload insertion.
+
+### Where
+
+Existing files:
+
 - `compiler/backend/targets/x86_64_sysv/register_allocation.py`
 - `compiler/backend/targets/x86_64_sysv/instruction_selection.py`
-- `compiler/backend/targets/x86_64_sysv/lower_calls.py`
-- `compiler/backend/targets/x86_64_sysv/frame.py`
+- `scripts/assembly_stats.py`
+
+Tests:
+
+- `tests/compiler/backend/targets/x86_64_sysv/test_register_allocation.py`
+- `tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py`
+
+### What To Do
+
+1. Collect copy preferences from `BackendCopyInst` instructions.
+2. Restrict coalescing candidates to GPR intervals that:
+   - both have live intervals
+   - do not overlap
+   - have compatible register classes
+   - do not require conflicting physical-register constraints
+3. Prefer assigning the destination interval to the source interval's physical register when the register is free at the destination start.
+4. Keep the linear-scan allocation deterministic.
+5. Do not coalesce across spilled values unless the behavior is already naturally handled by existing stack fallback.
+6. Add tests proving:
+   - non-overlapping copies can share a physical register
+   - overlapping copies do not share a physical register
+   - coalescing does not change spill behavior under pressure
+7. Measure copy-count changes after coalescing.
+
+### Checklist
+
+- [ ] Build copy-preference metadata.
+- [ ] Add non-overlap checks for coalescing candidates.
+- [ ] Apply preferences deterministically during allocation.
+- [ ] Preserve spill decisions under pressure.
+- [ ] Add allocator unit tests.
+- [ ] Add focused emission tests.
+- [ ] Measure representative assembly statistics.
+
+### How To Test
+
+```text
+pytest tests/compiler/backend/targets/x86_64_sysv/test_register_allocation.py -q
+pytest tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py -q
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+## Slice 14: Add A Tiny X86_64 SysV Post-Emission Cleanup Pass
+
+### Goal
+
+Remove mechanical assembly redundancies that remain after instruction selection and allocation cleanup.
+
+This pass should be intentionally small. It is a final cleanup net, not the primary mechanism for making register allocation good.
+
+### Where
+
+New file:
+
+- `compiler/backend/targets/x86_64_sysv/peephole.py`
+
+Existing files:
+
+- `compiler/backend/targets/x86_64_sysv/emit.py`
+- `scripts/assembly_stats.py`
+
+Tests:
+
+- `tests/compiler/backend/targets/x86_64_sysv/test_peephole.py`
+- focused emission tests as needed
+
+### What To Do
+
+1. Add a text-level or instruction-line-level cleanup helper for x86_64 SysV assembly.
+2. Keep transformations local and obviously safe:
+   - remove `mov reg, reg`
+   - remove adjacent duplicate `mov dest, src` instructions
+   - remove immediately overwritten register copies only when both lines are simple register-register moves and no labels/calls/memory intervene
+3. Do not rewrite across labels.
+4. Do not rewrite across calls.
+5. Do not rewrite memory operations except exact duplicate adjacent lines when that is proven safe; default to not touching memory.
+6. Run the pass at the end of x86_64 SysV emission.
+7. Measure the representative sample and confirm no behavioral tests regress.
+
+### Checklist
+
+- [ ] Add x86_64 SysV peephole module.
+- [ ] Remove `mov reg, reg`.
+- [ ] Remove exact adjacent duplicate safe register moves.
+- [ ] Avoid labels, calls, and memory rewrites.
+- [ ] Wire pass into target emission.
+- [ ] Add focused peephole tests.
+- [ ] Measure representative assembly statistics.
+
+### How To Test
+
+```text
+pytest tests/compiler/backend/targets/x86_64_sysv/test_peephole.py -q
+pytest tests/compiler/backend/targets/x86_64_sysv -q
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+## Slice 15: Stabilize Measurements And Retire Temporary Fallback If Appropriate
+
+### Goal
+
+Decide whether the temporary all-stack fallback is still useful after the cleanup slices, and record the performance/code-size shape of the conservative allocator.
+
+### Where
+
+Existing files:
+
 - `compiler/backend/targets/api.py`
-- `compiler/cli.py` if a temporary debug flag was added
+- `compiler/backend/targets/x86_64_sysv/pipeline.py`
+- `docs/X86_64_SYSV_REGISTER_ALLOCATION_PLAN.md`
+- `scripts/assembly_stats.py`
 
 Tests:
 
 - full backend target suite
 - full integration suite
-- full golden suite
+- golden suite
 
 ### What To Do
 
-1. Consider allocating short-lived values into caller-saved GPRs.
-2. Add call-clobber handling before using caller-saved registers for values live across calls.
-3. Consider XMM allocation for double values.
-4. Add explicit spill/reload insertion or split intervals if caller-saved and XMM allocation need it.
-5. Add copy coalescing only after the basic allocator is stable.
-6. Remove the temporary all-stack fallback option once it no longer catches useful regressions.
-7. Update docs to describe register allocation as part of the normal x86_64 SysV target backend.
+1. Measure representative samples with and without register allocation.
+2. Record the final cleanup-slice statistics in this plan.
+3. Decide whether `register_allocation_enabled=False` still catches useful regressions.
+4. If not useful, remove the temporary fallback option and related disabled-path tests.
+5. If still useful, document it as an intentional internal debugging switch.
+6. Keep the next broadening work out of this plan.
+
+Out of scope for this plan:
+
+- caller-saved GPR allocation
+- XMM allocation
+- broader interval splitting
+- explicit spill/reload insertion for caller-saved or XMM registers
+
+Those deserve a separate broadening plan after the conservative allocated path is clean and measured.
 
 ### Checklist
 
-- [ ] Evaluate caller-saved GPR allocation.
-- [ ] Add call-clobber handling if caller-saved registers are used.
-- [ ] Evaluate XMM allocation.
-- [ ] Add interval splitting if needed.
-- [ ] Add copy coalescing only if tests show clear value.
-- [ ] Remove temporary fallback switches.
+- [ ] Measure representative samples.
+- [ ] Record final statistics.
+- [ ] Decide whether to remove the fallback option.
+- [ ] Remove or explicitly document fallback behavior.
 - [ ] Update repository docs.
 - [ ] Run the full validation gate.
 
 ### How To Test
-
-Focused tests:
-
-```text
-pytest tests/compiler/backend/targets/x86_64_sysv -q
-pytest tests/compiler/integration -q
-```
-
-Golden tests:
-
-```text
-./scripts/golden.sh
-```
-
-Recommended full gate:
 
 ```text
 pytest -n auto --dist loadfile tests/compiler tests/runtime -q

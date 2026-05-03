@@ -184,13 +184,13 @@ def test_emit_source_asm_emits_straight_line_scalar_sequences_and_return_registe
 
     assert "    mov rax, 8" in asm
     assert "    mov rbx, rax" in asm
-    assert "    mov qword ptr [rbp - 8], rbx" in asm
     assert "    mov rax, rbx" in asm
     assert "    mov rax, qword ptr [rbp - 8]" not in asm
+    assert "    mov qword ptr [rbp - 8], rbx" not in asm
     assert "    neg rax" in asm
     assert "    mov rcx, 50" in asm
     assert "    add rax, rcx" in asm
-    assert "    mov qword ptr [rbp - 32], r12" in asm
+    assert "    mov qword ptr [rbp - 32], r12" not in asm
     assert "    mov rax, r12" in asm
     assert "    jmp .Lmain_epilogue" in asm
 
@@ -213,9 +213,9 @@ def test_emit_source_asm_can_disable_register_allocation_for_all_stack_fallback(
     )
 
     assert allocated_asm != stack_asm
-    assert "    mov qword ptr [rbp - 8], rbx" in allocated_asm
     assert "    mov rax, rbx" in allocated_asm
-    assert "    mov qword ptr [rbp - 16], r12" in allocated_asm
+    assert "    mov qword ptr [rbp - 8], rbx" not in allocated_asm
+    assert "    mov qword ptr [rbp - 16], r12" not in allocated_asm
 
     assert "    mov qword ptr [rbp - 8], rax" in stack_asm
     assert "    mov rax, qword ptr [rbp - 8]" in stack_asm
