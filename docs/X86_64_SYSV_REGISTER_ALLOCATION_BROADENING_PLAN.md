@@ -411,13 +411,44 @@ Tests:
 
 ### Checklist
 
-- [ ] Collect return-register preferences.
-- [ ] Coalesce direct scalar returns with `rax`.
-- [ ] Coalesce direct double returns with `xmm0`.
-- [ ] Reduce call-result-to-return copies.
-- [ ] Preserve trace epilogue return preservation.
-- [ ] Add focused emission and execution tests.
-- [ ] Measure register-copy count around returns.
+- [x] Collect return-register preferences.
+- [x] Coalesce direct scalar returns with `rax`.
+- [x] Coalesce direct double returns with `xmm0`.
+- [x] Reduce call-result-to-return copies.
+- [x] Preserve trace epilogue return preservation.
+- [x] Add focused emission and execution tests.
+- [x] Measure register-copy count around returns.
+
+### Implementation Notes
+
+- Added an explicit return-only GPR pool containing `rax`.
+- Added return-register preferences for GPR intervals returned directly.
+- Chose `rax` before ordinary caller-saved/callee-saved pools for short return-producing intervals, including call results returned immediately and simple arithmetic values produced directly for return.
+- Kept long-lived values out of `rax`; this avoids clobbering loop-carried values in array/object fast paths that use `rax` as target scratch.
+- Preserved runtime trace epilogue behavior; return values in `rax` are still saved around `rt_trace_pop`.
+- Direct double expressions already flow through `xmm0`; full XMM interval coalescing remains with slice 6.
+
+### Measurement Notes
+
+Measured with:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+```text
+metric                          without_ra  with_ra  delta
+------------------------------  ----------  -------  -----
+instruction_count                    16368    17116   +748
+stack_memory_instruction_count        8417     5708  -2709
+stack_load_count                      4424     2429  -1995
+stack_store_count                     3720     2974   -746
+register_copy_count                    284     3914  +3630
+callee_saved_save_count                  0      366   +366
+callee_saved_restore_count               0      366   +366
+```
+
+Compared with slice 4, total instructions improved from `17159` to `17116`, register copies improved from `3953` to `3914`, and callee-saved save/restore counts improved from `368` each to `366` each.
 
 ### How To Test
 

@@ -353,7 +353,29 @@ def test_allocate_x86_64_sysv_registers_prefers_caller_saved_gprs_for_call_free_
 
     assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "r10"
     assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r11"
-    assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx",)
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "c")).physical_register.name == "rax"
+    assert allocation.used_callee_saved_registers == ()
+
+
+def test_allocate_x86_64_sysv_registers_coalesces_direct_returns_into_rax(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64) -> i64 {
+            var result: i64 = a + b;
+            return result;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "result")).physical_register.name == "rax"
 
 
 def test_allocate_x86_64_sysv_registers_spills_single_call_crossing_caller_saved_gprs(tmp_path) -> None:
@@ -513,7 +535,7 @@ def test_allocate_x86_64_sysv_registers_coalesces_non_overlapping_copy(tmp_path)
     allocation = allocate_x86_64_sysv_registers(callable_plan)
 
     assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "r10"
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r10"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rax"
     assert allocation.used_callee_saved_registers == ()
     assert allocation.spilled_reg_ids == ()
 

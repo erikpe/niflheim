@@ -221,7 +221,7 @@ def test_emit_source_asm_selects_simple_integer_ops_into_allocated_destinations(
     assert "    not r11" in asm
     assert "    and r10, 15" in asm
     assert "    or r11, 2" in asm
-    assert "    xor r10, 3" in asm
+    assert "    xor rax, 3" in asm
     assert "    mov rcx, 5" not in asm
     assert "    mov rcx, 15" not in asm
     assert "    mov rcx, 2" not in asm
@@ -270,8 +270,8 @@ def test_emit_source_asm_uses_scratch_for_large_integer_operands(tmp_path) -> No
     calc_body = _body_for_label(asm, calc_label)
 
     assert "    mov rcx, 18446744073709551615" in calc_body
-    assert "    add r11, rcx" in calc_body
-    assert "    add r11, 18446744073709551615" not in calc_body
+    assert "    add rax, rcx" in calc_body
+    assert "    add rax, 18446744073709551615" not in calc_body
 
 
 def test_emit_source_asm_can_disable_register_allocation_for_all_stack_fallback(tmp_path) -> None:
@@ -292,9 +292,8 @@ def test_emit_source_asm_can_disable_register_allocation_for_all_stack_fallback(
     )
 
     assert allocated_asm != stack_asm
-    assert "    mov r11, r10" in allocated_asm
-    assert "    neg r11" in allocated_asm
-    assert "    mov rax, r10" not in allocated_asm
+    assert "    mov rax, r10" in allocated_asm
+    assert "    neg rax" in allocated_asm
     assert "    mov qword ptr [rbp - 8], r10" not in allocated_asm
     assert "    mov qword ptr [rbp - 16], r12" not in allocated_asm
 
@@ -317,7 +316,7 @@ def test_emit_source_asm_debug_comments_include_physical_register_assignments(tm
         options=BackendTargetOptions(emit_debug_comments=True),
     )
 
-    assert "    # r0 -> r10" in asm
+    assert "    # r0 -> rax" in asm
 
 
 def test_emit_source_asm_emits_integer_comparison_sequences(tmp_path) -> None:
@@ -363,10 +362,9 @@ def test_emit_source_asm_selects_bool_comparison_into_allocated_destination(tmp_
     )
     bool_eq_body = _body_for_label(asm, mangle_function_symbol(("main",), "bool_eq"))
 
-    assert "    cmp rbx, rcx" in bool_eq_body
-    assert "    sete bl" in bool_eq_body
-    assert "    movzx rbx, bl" in bool_eq_body
-    assert "    sete al" not in bool_eq_body
+    assert "    cmp rax, rcx" in bool_eq_body
+    assert "    sete al" in bool_eq_body
+    assert "    movzx rax, al" in bool_eq_body
 
 
 def test_emit_source_asm_emits_integer_divide_and_remainder_sequences(tmp_path) -> None:
@@ -446,12 +444,10 @@ def test_emit_source_asm_emits_checked_shift_sequences(tmp_path) -> None:
 
     assert "    cmp rcx, 64" in lshift_body
     assert "    call rt_panic_invalid_shift_count" in lshift_body
-    assert "    shl r13, cl" in lshift_body
-    assert "    shl rax, cl" not in lshift_body
+    assert "    shl rax, cl" in lshift_body
 
     assert "    cmp rcx, 64" in urshift_body
-    assert "    shr r13, cl" in urshift_body
-    assert "    shr rax, cl" not in urshift_body
+    assert "    shr rax, cl" in urshift_body
 
 
 def test_emit_source_asm_can_execute_shift_program(tmp_path) -> None:

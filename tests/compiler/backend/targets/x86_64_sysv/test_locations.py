@@ -8,6 +8,7 @@ from compiler.backend.targets.x86_64_sysv import (
     X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
     X86_64_SYSV_CALLER_SAVED_GPRS,
     X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
+    X86_64_SYSV_RETURN_ALLOCATABLE_GPRS,
     X86_64_SYSV_XMM_REGISTERS,
     gpr_register,
     register_class_for_type,
@@ -83,6 +84,7 @@ def test_register_pools_are_deterministic_and_distinct() -> None:
         "r8",
         "r9",
     )
+    assert tuple(register.name for register in X86_64_SYSV_RETURN_ALLOCATABLE_GPRS) == ("rax",)
     assert tuple(register.name for register in X86_64_SYSV_XMM_REGISTERS[:4]) == ("xmm0", "xmm1", "xmm2", "xmm3")
     assert tuple(register.name for register in X86_64_SYSV_XMM_REGISTERS[-2:]) == ("xmm14", "xmm15")
 

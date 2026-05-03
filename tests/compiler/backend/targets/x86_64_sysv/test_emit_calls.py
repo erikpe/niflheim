@@ -32,7 +32,7 @@ def test_emit_source_asm_emits_register_argument_moves_call_and_return_store(tmp
     call_text = f"    call {mangle_function_symbol(('main',), 'add')}"
     assert call_text in main_body
     after_call_body = main_body[main_body.index(call_text) :]
-    assert re.search(r"^\s+mov rbx, rax$", main_body, re.MULTILINE)
+    assert not re.search(r"^\s+mov rbx, rax$", main_body, re.MULTILINE)
     assert not re.search(r"^\s+mov qword ptr \[rbp - \d+\], rbx$", after_call_body, re.MULTILINE)
 
 
@@ -62,7 +62,7 @@ def test_emit_source_asm_loads_call_arguments_from_allocated_registers(tmp_path)
     assert "    mov qword ptr [rbp - 8], rdi" in caller_body
     assert "    mov qword ptr [rbp - 16], rsi" in caller_body
     assert f"    call {mangle_function_symbol(('main',), 'callee')}" in caller_body
-    assert re.search(r"^\s+mov rbx, rax$", caller_body, re.MULTILINE)
+    assert not re.search(r"^\s+mov rbx, rax$", caller_body, re.MULTILINE)
 
 
 def test_emit_source_asm_emits_extern_direct_calls_to_bare_symbols(tmp_path) -> None:
@@ -213,7 +213,7 @@ def test_emit_source_asm_preserves_allocated_values_across_calls(tmp_path) -> No
     assert caller_body.index(save_text) < caller_body.index(trace_text)
     assert caller_body.index(trace_text) < caller_body.index(reload_text)
     assert caller_body.rindex(reload_text) > caller_body.index(call_text)
-    assert "    add r11, rbx" in caller_body
+    assert "    add rax, rbx" in caller_body
     assert "    mov rax, r12" not in caller_body
     assert "    mov rcx, r12" not in caller_body
 
