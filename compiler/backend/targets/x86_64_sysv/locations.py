@@ -102,6 +102,10 @@ X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS: tuple[X86_64SysVPhysicalRegister, ...] =
     gpr_register(name, preserved_by_callee=False)
     for name in ("r10", "r11")
 )
+X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS: tuple[X86_64SysVPhysicalRegister, ...] = tuple(
+    gpr_register(name, preserved_by_callee=False)
+    for name in ("rdi", "rsi", "rdx", "rcx", "r8", "r9")
+)
 X86_64_SYSV_XMM_REGISTERS: tuple[X86_64SysVPhysicalRegister, ...] = tuple(
     xmm_register(f"xmm{ordinal}")
     for ordinal in range(16)
@@ -123,6 +127,7 @@ def register_class_for_type(type_ref: SemanticTypeRef) -> X86_64SysVRegisterClas
 
 
 __all__ = [
+    "X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS",
     "X86_64_SYSV_CALLEE_SAVED_GPRS",
     "X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS",
     "X86_64_SYSV_CALLER_SAVED_GPRS",

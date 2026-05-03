@@ -298,7 +298,15 @@ def _emit_callable_body(
 
     def emit_call_instruction(instruction: BackendCallInst) -> None:
         caller_saved_spills = _caller_saved_spills_for_call(instruction, frame_layout=frame_layout)
+        call_argument_reloads = _call_argument_reloads_for_call(instruction, frame_layout=frame_layout)
+        pre_call_reload_required = _pre_call_reload_required(
+            instruction,
+            frame_layout=frame_layout,
+            runtime_trace_enabled=runtime_trace_enabled,
+        )
         _emit_caller_saved_spills(builder, caller_saved_spills, frame_layout=frame_layout)
+        if pre_call_reload_required:
+            _emit_call_argument_spills(builder, call_argument_reloads, frame_layout=frame_layout)
         if runtime_trace_enabled:
             emit_location_hook(line=instruction.span.start.line, column=instruction.span.start.column)
         emit_lowered_call_instruction(
@@ -315,12 +323,13 @@ def _emit_callable_body(
             emit_safepoint_postamble=emit_safepoint_postamble,
             emit_before_call_setup=(
                 (lambda _: _emit_caller_saved_reloads(builder, caller_saved_spills, frame_layout=frame_layout))
-                if _caller_saved_pre_call_reload_required(
-                    instruction,
-                    frame_layout=frame_layout,
-                    runtime_trace_enabled=runtime_trace_enabled,
-                )
+                if pre_call_reload_required and caller_saved_spills
                 else None
+            ),
+            force_stack_reload_arg_reg_ids=(
+                frozenset(reload.reg_id for reload in call_argument_reloads)
+                if pre_call_reload_required
+                else frozenset()
             ),
         )
         _emit_caller_saved_reloads(builder, caller_saved_spills, frame_layout=frame_layout)
@@ -637,7 +646,14 @@ def _caller_saved_spills_for_call(instruction: BackendCallInst, *, frame_layout)
     return allocation.caller_saved_spills_for_inst(instruction.inst_id)
 
 
-def _caller_saved_pre_call_reload_required(
+def _call_argument_reloads_for_call(instruction: BackendCallInst, *, frame_layout) -> tuple:
+    allocation = frame_layout.allocation
+    if allocation is None:
+        return ()
+    return allocation.call_argument_reloads_for_inst(instruction.inst_id)
+
+
+def _pre_call_reload_required(
     instruction: BackendCallInst,
     *,
     frame_layout,
@@ -666,6 +682,16 @@ def _emit_caller_saved_reloads(builder, spills: tuple, *, frame_layout) -> None:
                 f"x86_64_sysv caller-saved reload is missing a stack home for register 'r{spill.reg_id.ordinal}'"
             )
         builder.instruction("mov", spill.physical_register.name, format_stack_slot_operand("rbp", slot.byte_offset))
+
+
+def _emit_call_argument_spills(builder, reloads: tuple, *, frame_layout) -> None:
+    for reload in reloads:
+        slot = frame_layout.for_reg(reload.reg_id)
+        if slot is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv call argument spill is missing a stack home for register 'r{reload.reg_id.ordinal}'"
+            )
+        builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), reload.physical_register.name)
 
 
 def _emit_allocation_debug_comments(builder, frame_layout) -> None:

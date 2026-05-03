@@ -333,12 +333,44 @@ Tests:
 
 ### Checklist
 
-- [ ] Collect call argument register preferences.
-- [ ] Coalesce dead-at-call arguments into ABI GPRs.
-- [ ] Handle overlapping argument moves deterministically.
-- [ ] Preserve stack argument behavior.
-- [ ] Add focused call-lowering tests.
-- [ ] Measure register-copy count around calls.
+- [x] Collect call argument register preferences.
+- [x] Coalesce dead-at-call arguments into ABI GPRs.
+- [x] Handle overlapping argument moves deterministically.
+- [x] Preserve stack argument behavior.
+- [x] Add focused call-lowering tests.
+- [x] Measure register-copy count around calls.
+
+### Implementation Notes
+
+- Added an explicit ABI argument GPR pool: `rdi`, `rsi`, `rdx`, `rcx`, `r8`, and `r9`.
+- Added call-argument preferences for non-reference GPR operands that die at the call.
+- Recorded call-argument reload metadata for values assigned directly to their ABI argument register.
+- Saved coalesced argument registers to their stack homes before runtime trace/root hooks when those hooks can clobber the register.
+- Forced call argument setup to reload those values from the stack home after hooks, preserving correctness while still removing ordinary register-to-register argument moves when no hook intervenes.
+- Kept stack-passed arguments unchanged.
+- Rejected argument-register coalescing for values live across non-call safepoint helpers, such as object allocation before constructor initialization.
+
+### Measurement Notes
+
+Measured with:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+```text
+metric                          without_ra  with_ra  delta
+------------------------------  ----------  -------  -----
+instruction_count                    16368    17159   +791
+stack_memory_instruction_count        8417     5712  -2705
+stack_load_count                      4424     2431  -1993
+stack_store_count                     3720     2976   -744
+register_copy_count                    284     3953  +3669
+callee_saved_save_count                  0      368   +368
+callee_saved_restore_count               0      368   +368
+```
+
+Compared with slice 3, callee-saved save/restore counts improved from `376` each to `368` each. Total instructions rose from `17131` to `17159`; this slice trades some extra stack-home sync around instrumented calls for fewer callee-saved allocations and fewer ordinary argument-register copies. Later coalescing and trace-aware cleanup can make that tradeoff sharper.
 
 ### How To Test
 

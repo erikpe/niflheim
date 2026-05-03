@@ -1029,10 +1029,11 @@ def emit_load_operand(
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
     program_symbols=None,
+    force_stack_reload_reg_ids=frozenset(),
 ) -> None:
     if isinstance(operand, BackendRegOperand):
         physical_register = _physical_register_for_reg(frame_layout, operand.reg_id)
-        if physical_register is not None:
+        if physical_register is not None and operand.reg_id not in force_stack_reload_reg_ids:
             if physical_register.name != target_register:
                 builder.instruction("mov", target_register, physical_register.name)
             if register_type_name_by_reg_id[operand.reg_id] == TYPE_NAME_BOOL:

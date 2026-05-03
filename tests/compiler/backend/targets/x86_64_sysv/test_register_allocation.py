@@ -258,9 +258,20 @@ def test_allocate_x86_64_sysv_registers_keeps_conservative_locations_while_recor
     )
 
     allocation = allocate_x86_64_sysv_registers(callable_plan)
+    call_instruction = next(
+        instruction
+        for block in callable_plan.callable_decl.blocks
+        for instruction in block.instructions
+        if isinstance(instruction, BackendCallInst)
+    )
+    b_reg_id = _reg_id_by_debug_name(callable_plan, "b")
 
     assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "r10"
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rbx"
+    assert allocation.location_for_reg(b_reg_id).physical_register.name == "rdi"
+    assert tuple(
+        (reload.reg_id, reload.physical_register.name)
+        for reload in allocation.call_argument_reloads_for_inst(call_instruction.inst_id)
+    ) == ((b_reg_id, "rdi"),)
     assert allocation.abi_constraints.clobbers_at_position(1)
     assert "r10" in _constraint_registers(allocation.abi_constraints.constraints, reason="call_lowering_scratch", kind="temporary")
 
@@ -376,11 +387,48 @@ def test_allocate_x86_64_sysv_registers_spills_single_call_crossing_caller_saved
     keep_reg_id = _reg_id_by_debug_name(callable_plan, "keep")
 
     assert allocation.location_for_reg(keep_reg_id).physical_register.name == "r10"
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rbx"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rdi"
     assert tuple(
         (spill.reg_id, spill.physical_register.name)
         for spill in allocation.caller_saved_spills_for_inst(call_instruction.inst_id)
     ) == ((keep_reg_id, "r10"),)
+
+
+def test_allocate_x86_64_sysv_registers_coalesces_dead_call_arguments_into_abi_gprs(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn callee(a: i64, b: i64) -> i64 {
+            return a + b;
+        }
+
+        fn sample(a: i64, b: i64) -> i64 {
+            return callee(a, b);
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+    call_instruction = next(
+        instruction
+        for block in callable_plan.callable_decl.blocks
+        for instruction in block.instructions
+        if isinstance(instruction, BackendCallInst)
+    )
+    a_reg_id = _reg_id_by_debug_name(callable_plan, "a")
+    b_reg_id = _reg_id_by_debug_name(callable_plan, "b")
+
+    assert allocation.location_for_reg(a_reg_id).physical_register.name == "rdi"
+    assert allocation.location_for_reg(b_reg_id).physical_register.name == "rsi"
+    assert tuple(
+        (reload.reg_id, reload.physical_register.name)
+        for reload in allocation.call_argument_reloads_for_inst(call_instruction.inst_id)
+    ) == ((a_reg_id, "rdi"), (b_reg_id, "rsi"))
 
 
 def test_allocate_x86_64_sysv_registers_keeps_multi_call_crossing_values_in_callee_saved_gprs(tmp_path) -> None:

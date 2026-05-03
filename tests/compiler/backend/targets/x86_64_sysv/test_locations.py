@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from compiler.backend.targets.x86_64_sysv import (
+    X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS,
     X86_64_SYSV_CALLEE_SAVED_GPRS,
     X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
     X86_64_SYSV_CALLER_SAVED_GPRS,
@@ -74,6 +75,14 @@ def test_register_pools_are_deterministic_and_distinct() -> None:
         "r11",
     )
     assert tuple(register.name for register in X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS) == ("r10", "r11")
+    assert tuple(register.name for register in X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS) == (
+        "rdi",
+        "rsi",
+        "rdx",
+        "rcx",
+        "r8",
+        "r9",
+    )
     assert tuple(register.name for register in X86_64_SYSV_XMM_REGISTERS[:4]) == ("xmm0", "xmm1", "xmm2", "xmm3")
     assert tuple(register.name for register in X86_64_SYSV_XMM_REGISTERS[-2:]) == ("xmm14", "xmm15")
 

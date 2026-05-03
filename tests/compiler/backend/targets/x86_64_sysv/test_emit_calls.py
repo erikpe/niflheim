@@ -57,12 +57,12 @@ def test_emit_source_asm_loads_call_arguments_from_allocated_registers(tmp_path)
 
     caller_body = _body_for_label(asm, mangle_function_symbol(("main",), "caller"))
 
-    assert "    mov rbx, qword ptr [rbp - 8]" in caller_body
-    assert "    mov r12, qword ptr [rbp - 16]" in caller_body
-    assert "    mov rdi, rbx" in caller_body
-    assert "    mov rsi, r12" in caller_body
+    assert "    mov rdi, qword ptr [rbp - 8]" in caller_body
+    assert "    mov rsi, qword ptr [rbp - 16]" in caller_body
+    assert "    mov qword ptr [rbp - 8], rdi" in caller_body
+    assert "    mov qword ptr [rbp - 16], rsi" in caller_body
     assert f"    call {mangle_function_symbol(('main',), 'callee')}" in caller_body
-    assert re.search(r"^\s+mov r13, rax$", caller_body, re.MULTILINE)
+    assert re.search(r"^\s+mov rbx, rax$", caller_body, re.MULTILINE)
 
 
 def test_emit_source_asm_emits_extern_direct_calls_to_bare_symbols(tmp_path) -> None:
@@ -129,13 +129,13 @@ def test_emit_source_asm_loads_mixed_register_and_stack_call_arguments_from_loca
 
     caller_body = _body_for_label(asm, mangle_function_symbol(("main",), "caller"))
 
-    assert "    mov rdi, rbx" in caller_body
-    assert "    mov rsi, r12" in caller_body
-    assert "    mov rdx, r13" in caller_body
-    assert "    mov rcx, r14" in caller_body
-    assert "    mov r8, r15" in caller_body
+    assert "    mov rdi, qword ptr [rbp - 8]" in caller_body
+    assert "    mov rsi, qword ptr [rbp - 16]" in caller_body
+    assert "    mov rdx, qword ptr [rbp - 24]" in caller_body
+    assert "    mov rcx, qword ptr [rbp - 32]" in caller_body
+    assert "    mov r8, qword ptr [rbp - 40]" in caller_body
     assert "    mov r9, qword ptr [rbp - 48]" in caller_body
-    assert "    mov rax, qword ptr [rbp - 56]" in caller_body
+    assert "    mov rax, rbx" in caller_body
     assert "    mov qword ptr [rsp], rax" in caller_body
 
 
@@ -242,6 +242,29 @@ def test_emit_source_asm_can_execute_allocated_value_live_across_call(tmp_path) 
     assert run.returncode == 42
 
 
+def test_emit_source_asm_can_execute_constructor_argument_after_allocation_helper(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        class Box {
+            value: i64;
+        }
+
+        fn main() -> i64 {
+            var value: i64 = 30;
+            var box: Box = Box(value);
+            if box.value == 30 {
+                return 0;
+            }
+            return 1;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert run.returncode == 0
+
+
 def test_emit_source_asm_emits_indirect_call_for_callable_parameter(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,
@@ -259,7 +282,7 @@ def test_emit_source_asm_emits_indirect_call_for_callable_parameter(tmp_path) ->
 
     apply_body = _body_for_label(asm, mangle_function_symbol(("main",), "apply"))
 
-    assert "    mov rdi, r12" in apply_body
+    assert "    mov rdi, qword ptr [rbp - 16]" in apply_body
     assert "    mov r11, rbx" in apply_body
     assert "    call r11" in apply_body
 

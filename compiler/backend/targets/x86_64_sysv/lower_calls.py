@@ -68,6 +68,7 @@ def emit_call_instruction(
     emit_safepoint_preamble=None,
     emit_safepoint_postamble=None,
     emit_before_call_setup=None,
+    force_stack_reload_arg_reg_ids=frozenset(),
     abi: X86_64SysVAbi = X86_64_SYSV_ABI,
 ) -> None:
     if not isinstance(
@@ -142,6 +143,7 @@ def emit_call_instruction(
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
                 program_symbols=program_symbols,
+                force_stack_reload_reg_ids=force_stack_reload_arg_reg_ids,
             )
             continue
 
@@ -177,6 +179,7 @@ def emit_call_instruction(
                     frame_layout=frame_layout,
                     register_type_name_by_reg_id=register_type_name_by_reg_id,
                     program_symbols=program_symbols,
+                    force_stack_reload_reg_ids=force_stack_reload_arg_reg_ids,
                 )
                 builder.instruction("mov", stack_operand, _CALL_TEMP_REGISTER)
             continue
@@ -388,6 +391,7 @@ def _emit_load_call_operand(
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
     program_symbols: BackendProgramSymbolTable,
+    force_stack_reload_reg_ids=frozenset(),
 ) -> None:
     """Load a call operand through the shared allocation-aware scalar loader."""
 
@@ -402,6 +406,7 @@ def _emit_load_call_operand(
         frame_layout=frame_layout,
         register_type_name_by_reg_id=register_type_name_by_reg_id,
         program_symbols=program_symbols,
+        force_stack_reload_reg_ids=force_stack_reload_reg_ids,
     )
 
 

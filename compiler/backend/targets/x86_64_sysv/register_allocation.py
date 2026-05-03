@@ -19,6 +19,7 @@ from compiler.backend.ir import (
 from compiler.backend.ir._ordering import reg_id_sort_key
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
 from compiler.backend.targets.x86_64_sysv.locations import (
+    X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS,
     X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
     X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
     X86_64SysVPhysicalRegister,
@@ -94,6 +95,12 @@ class X86_64SysVCallerSavedSpillPoint:
 
 
 @dataclass(frozen=True, slots=True)
+class X86_64SysVCallArgumentReload:
+    reg_id: BackendRegId
+    physical_register: X86_64SysVPhysicalRegister
+
+
+@dataclass(frozen=True, slots=True)
 class X86_64SysVRegisterAllocation:
     callable_decl: BackendCallableDecl
     location_by_reg: dict[BackendRegId, X86_64SysVRegisterLocation]
@@ -101,6 +108,7 @@ class X86_64SysVRegisterAllocation:
     spilled_reg_ids: tuple[BackendRegId, ...]
     abi_constraints: X86_64SysVAbiConstraintPlan
     caller_saved_spills_by_inst: dict[BackendInstId, X86_64SysVCallerSavedSpillPoint]
+    call_argument_reloads_by_inst: dict[BackendInstId, tuple[X86_64SysVCallArgumentReload, ...]]
 
     def location_for_reg(self, reg_id: BackendRegId) -> X86_64SysVRegisterLocation:
         return self.location_by_reg[reg_id]
@@ -108,6 +116,9 @@ class X86_64SysVRegisterAllocation:
     def caller_saved_spills_for_inst(self, inst_id: BackendInstId) -> tuple[X86_64SysVCallerSavedSpill, ...]:
         spill_point = self.caller_saved_spills_by_inst.get(inst_id)
         return () if spill_point is None else spill_point.spills
+
+    def call_argument_reloads_for_inst(self, inst_id: BackendInstId) -> tuple[X86_64SysVCallArgumentReload, ...]:
+        return self.call_argument_reloads_by_inst.get(inst_id, ())
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,12 +320,18 @@ def allocate_x86_64_sysv_registers(
     intervals: tuple[X86_64SysVLiveInterval, ...] | None = None,
     allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
     call_free_allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
+    call_argument_allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS,
 ) -> X86_64SysVRegisterAllocation:
     resolved_intervals = build_live_intervals(callable_plan) if intervals is None else intervals
     abi_constraints = build_abi_constraints(callable_plan)
     interval_by_reg = {interval.reg_id: interval for interval in resolved_intervals}
     call_crossing_count_by_reg = _call_crossing_count_by_reg_id(callable_plan)
     safepoint_crossing_count_by_reg = _safepoint_crossing_count_by_reg_id(callable_plan)
+    call_argument_preferences_by_reg = _call_argument_preferences_by_reg_id(
+        callable_plan,
+        abi=X86_64_SYSV_ABI,
+        argument_gprs=call_argument_allocatable_gprs,
+    )
     copy_preference_by_dest = _copy_preferences_by_dest(
         callable_plan,
         positions=build_instruction_positions(callable_plan),
@@ -338,6 +355,17 @@ def allocate_x86_64_sysv_registers(
             call_crossing_count=call_crossing_count_by_reg.get(interval.reg_id, 0),
             safepoint_crossing_count=safepoint_crossing_count_by_reg.get(interval.reg_id, 0),
         )
+
+        preferred_arg_register = _preferred_call_argument_register_for_interval(
+            interval,
+            active=active,
+            preferences=call_argument_preferences_by_reg.get(interval.reg_id, ()),
+        )
+        if preferred_arg_register is not None:
+            physical_register_by_reg[interval.reg_id] = preferred_arg_register
+            active.append(_ActiveInterval(interval=interval, physical_register=preferred_arg_register))
+            active = _sorted_active_intervals(active)
+            continue
 
         preferred_register, active_to_release = _preferred_register_for_interval(
             interval,
@@ -415,6 +443,12 @@ def allocate_x86_64_sysv_registers(
         physical_register_by_reg=physical_register_by_reg,
         caller_saved_gprs=call_free_allocatable_gprs,
     )
+    call_argument_reloads_by_inst = _call_argument_reloads_by_inst(
+        callable_plan,
+        physical_register_by_reg=physical_register_by_reg,
+        argument_gprs=call_argument_allocatable_gprs,
+        abi=X86_64_SYSV_ABI,
+    )
 
     return X86_64SysVRegisterAllocation(
         callable_decl=callable_plan.callable_decl,
@@ -423,6 +457,7 @@ def allocate_x86_64_sysv_registers(
         spilled_reg_ids=tuple(sorted(spilled_reg_ids, key=reg_id_sort_key)),
         abi_constraints=abi_constraints,
         caller_saved_spills_by_inst=caller_saved_spills_by_inst,
+        call_argument_reloads_by_inst=call_argument_reloads_by_inst,
     )
 
 
@@ -626,6 +661,72 @@ def _call_includes_receiver(instruction: BackendCallInst) -> bool:
     return len(instruction.args) == len(instruction.signature.param_types) + 1
 
 
+def _call_argument_preferences_by_reg_id(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    abi: X86_64SysVAbi,
+    argument_gprs: tuple[X86_64SysVPhysicalRegister, ...],
+) -> dict[BackendRegId, tuple[X86_64SysVPhysicalRegister, ...]]:
+    argument_register_by_name = {register.name: register for register in argument_gprs}
+    register_by_id = {register.reg_id: register for register in callable_plan.callable_decl.registers}
+    non_call_safepoint_count_by_reg = _non_call_safepoint_crossing_count_by_reg_id(callable_plan)
+    preferences_by_reg: dict[BackendRegId, list[X86_64SysVPhysicalRegister]] = {}
+
+    for block in callable_plan.callable_decl.blocks:
+        for instruction in block.instructions:
+            if not isinstance(instruction, BackendCallInst):
+                continue
+            live_after = set(callable_plan.analysis.liveness.instruction_live_after(instruction.inst_id))
+            if instruction.dest is not None:
+                live_after.discard(instruction.dest)
+            arg_locations = abi.plan_argument_locations(
+                instruction.signature.param_types,
+                includes_receiver=_call_includes_receiver(instruction),
+            )
+            for operand, arg_location in zip(instruction.args, arg_locations, strict=True):
+                if arg_location.kind != "int_reg" or arg_location.register_name is None:
+                    continue
+                if not isinstance(operand, BackendRegOperand):
+                    continue
+                if operand.reg_id in live_after:
+                    continue
+                if non_call_safepoint_count_by_reg.get(operand.reg_id, 0) > 0:
+                    continue
+                register = register_by_id.get(operand.reg_id)
+                if register is None or register_is_gc_reference(register):
+                    continue
+                physical_register = argument_register_by_name.get(arg_location.register_name)
+                if physical_register is None:
+                    continue
+                preferences_by_reg.setdefault(operand.reg_id, []).append(physical_register)
+
+    return {
+        reg_id: tuple(dict.fromkeys(preferences))
+        for reg_id, preferences in preferences_by_reg.items()
+    }
+
+
+def _preferred_call_argument_register_for_interval(
+    interval: X86_64SysVLiveInterval,
+    *,
+    active: list[_ActiveInterval],
+    preferences: tuple[X86_64SysVPhysicalRegister, ...],
+) -> X86_64SysVPhysicalRegister | None:
+    if interval.register_class != "gpr" or interval.crosses_call or interval.is_gc_reference:
+        return None
+    if not preferences:
+        return None
+    used_register_names = {active_interval.physical_register.name for active_interval in active}
+    return next(
+        (
+            physical_register
+            for physical_register in preferences
+            if physical_register.name not in used_register_names
+        ),
+        None,
+    )
+
+
 def _copy_preferences_by_dest(
     callable_plan: X86_64SysVCallablePlan,
     *,
@@ -789,6 +890,52 @@ def _caller_saved_spills_by_inst(
     return spill_points
 
 
+def _call_argument_reloads_by_inst(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    physical_register_by_reg: dict[BackendRegId, X86_64SysVPhysicalRegister],
+    argument_gprs: tuple[X86_64SysVPhysicalRegister, ...],
+    abi: X86_64SysVAbi,
+) -> dict[BackendInstId, tuple[X86_64SysVCallArgumentReload, ...]]:
+    argument_register_names = {register.name for register in argument_gprs}
+    reloads_by_inst: dict[BackendInstId, tuple[X86_64SysVCallArgumentReload, ...]] = {}
+
+    for block in callable_plan.callable_decl.blocks:
+        for instruction in block.instructions:
+            if not isinstance(instruction, BackendCallInst):
+                continue
+            live_after = set(callable_plan.analysis.liveness.instruction_live_after(instruction.inst_id))
+            if instruction.dest is not None:
+                live_after.discard(instruction.dest)
+            arg_locations = abi.plan_argument_locations(
+                instruction.signature.param_types,
+                includes_receiver=_call_includes_receiver(instruction),
+            )
+            reloads: list[X86_64SysVCallArgumentReload] = []
+            for operand, arg_location in zip(instruction.args, arg_locations, strict=True):
+                if arg_location.kind != "int_reg" or arg_location.register_name is None:
+                    continue
+                if not isinstance(operand, BackendRegOperand) or operand.reg_id in live_after:
+                    continue
+                physical_register = physical_register_by_reg.get(operand.reg_id)
+                if physical_register is None:
+                    continue
+                if physical_register.name != arg_location.register_name:
+                    continue
+                if physical_register.name not in argument_register_names:
+                    continue
+                reloads.append(
+                    X86_64SysVCallArgumentReload(
+                        reg_id=operand.reg_id,
+                        physical_register=physical_register,
+                    )
+                )
+            if reloads:
+                reloads_by_inst[instruction.inst_id] = tuple(reloads)
+
+    return reloads_by_inst
+
+
 def _safepoint_live_reg_ids(callable_plan: X86_64SysVCallablePlan) -> frozenset[BackendRegId]:
     return frozenset(_safepoint_crossing_count_by_reg_id(callable_plan))
 
@@ -798,6 +945,22 @@ def _safepoint_crossing_count_by_reg_id(callable_plan: X86_64SysVCallablePlan) -
     for block in callable_plan.callable_decl.blocks:
         for instruction in block.instructions:
             if not instruction_is_safepoint(instruction):
+                continue
+            live_regs = set(callable_plan.analysis.liveness.instruction_live_after(instruction.inst_id))
+            live_regs.update(instruction_use_regs(instruction))
+            destination = instruction_def_reg(instruction)
+            if destination is not None:
+                live_regs.discard(destination)
+            for reg_id in live_regs:
+                safepoint_crossing_count_by_reg[reg_id] = safepoint_crossing_count_by_reg.get(reg_id, 0) + 1
+    return safepoint_crossing_count_by_reg
+
+
+def _non_call_safepoint_crossing_count_by_reg_id(callable_plan: X86_64SysVCallablePlan) -> dict[BackendRegId, int]:
+    safepoint_crossing_count_by_reg: dict[BackendRegId, int] = {}
+    for block in callable_plan.callable_decl.blocks:
+        for instruction in block.instructions:
+            if isinstance(instruction, BackendCallInst) or not instruction_is_safepoint(instruction):
                 continue
             live_regs = set(callable_plan.analysis.liveness.instruction_live_after(instruction.inst_id))
             live_regs.update(instruction_use_regs(instruction))
@@ -868,6 +1031,7 @@ def _stack_location_for_reg(
 
 __all__ = [
     "X86_64SysVAbiConstraintPlan",
+    "X86_64SysVCallArgumentReload",
     "X86_64SysVCallerSavedSpill",
     "X86_64SysVCallerSavedSpillPoint",
     "X86_64SysVFixedRegisterConstraint",
