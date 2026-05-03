@@ -188,12 +188,11 @@ def test_emit_source_asm_emits_straight_line_scalar_sequences_and_return_registe
     assert "    neg r12" in asm
     assert "    mov rax, qword ptr [rbp - 8]" not in asm
     assert "    mov qword ptr [rbp - 8], rbx" not in asm
-    assert "    mov rax, rbx" not in asm
     assert "    mov rcx, 50" not in asm
     assert "    add rbx, 50" in asm
     assert "    mov qword ptr [rbp - 32], r12" not in asm
-    assert "    add r12, 100" in asm
-    assert "    mov rax, r12" in asm
+    assert "    add rbx, 100" in asm
+    assert "    mov rax, rbx" in asm
     assert "    jmp .Lmain_epilogue" in asm
 
 
@@ -226,6 +225,28 @@ def test_emit_source_asm_selects_simple_integer_ops_into_allocated_destinations(
     assert "    mov rcx, 15" not in asm
     assert "    mov rcx, 2" not in asm
     assert "    mov rcx, 3" not in asm
+
+
+def test_emit_source_asm_omits_coalesced_non_overlapping_copy(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn sample(a: i64) -> i64 {
+            var b: i64 = a;
+            return b;
+        }
+
+        fn main() -> i64 {
+            return sample(7);
+        }
+        """,
+        skip_optimize=True,
+    )
+    sample_body = _body_for_label(asm, mangle_function_symbol(("main",), "sample"))
+
+    assert "    mov rbx, qword ptr [rbp - 8]" in sample_body
+    assert "    mov r12, rbx" not in sample_body
+    assert "    mov rax, rbx" in sample_body
 
 
 def test_emit_source_asm_uses_scratch_for_large_integer_operands(tmp_path) -> None:

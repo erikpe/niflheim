@@ -95,11 +95,11 @@ def test_emit_source_asm_syncs_live_reference_roots_before_gc_runtime_calls(tmp_
 
     keep_body = _body_for_label(asm, mangle_function_symbol(("main",), "keep"))
     sync_match = re.search(
-        r"    mov r10, r12\n"
+        r"    mov r10, rbx\n"
         r"    mov qword ptr \[rbp - \d+\], r10\n"
         r"    call rt_gc_collect\n"
         r"    mov r10, qword ptr \[rbp - \d+\]\n"
-        r"    mov r12, r10\n"
+        r"    mov rbx, r10\n"
         r"    mov qword ptr \[rbp - \d+\], r10\n",
         keep_body,
     )
@@ -139,7 +139,7 @@ def test_emit_source_asm_syncs_live_reference_roots_before_ordinary_calls(tmp_pa
     sync_match = re.search(
         r"    mov r10, r12\n"
         r"    mov qword ptr \[rbp - \d+\], r10\n"
-        r"    mov r10, r13\n"
+        r"    mov r10, rbx\n"
         r"    mov qword ptr \[rbp - \d+\], r10\n"
         r"    mov rdi, r12\n"
         + fr"    call {re.escape(callee_label)}\n",

@@ -282,6 +282,53 @@ def test_allocate_x86_64_sysv_registers_reuses_expired_registers(tmp_path) -> No
     assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx",)
 
 
+def test_allocate_x86_64_sysv_registers_coalesces_non_overlapping_copy(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64) -> i64 {
+            var b: i64 = a;
+            return b;
+        }
+
+        fn main() -> i64 {
+            return sample(1);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rbx"
+    assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx",)
+    assert allocation.spilled_reg_ids == ()
+
+
+def test_allocate_x86_64_sysv_registers_does_not_coalesce_overlapping_copy(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64) -> i64 {
+            var b: i64 = a;
+            return a + b;
+        }
+
+        fn main() -> i64 {
+            return sample(1);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r12"
+    assert allocation.spilled_reg_ids == ()
+
+
 def test_allocate_x86_64_sysv_registers_spills_xmm_intervals_to_stack_homes(tmp_path) -> None:
     callable_plan = _callable_plan(
         tmp_path,
@@ -404,3 +451,39 @@ def test_allocate_x86_64_sysv_registers_spills_current_interval_when_tied_with_a
     assert allocation.location_for_reg(f_reg_id).physical_register is None
     assert allocation.location_for_reg(f_reg_id).stack_slot is not None
     assert allocation.spilled_reg_ids == (f_reg_id,)
+
+
+def test_allocate_x86_64_sysv_registers_does_not_change_spill_behavior_for_overlapping_copy(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) -> i64 {
+            var g: i64 = a;
+            return a;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2, 3, 4, 5, 6);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=tuple(
+            _test_interval(callable_plan, name, start=0, end=100)
+            for name in ("a", "b", "c", "d", "e", "f", "g")
+        ),
+    )
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "g")).physical_register is None
+    assert tuple(
+        allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, name)).physical_register.name
+        for name in ("a", "b", "c", "d", "e")
+    ) == ("rbx", "r12", "r13", "r14", "r15")
+    assert allocation.spilled_reg_ids == (
+        _reg_id_by_debug_name(callable_plan, "f"),
+        _reg_id_by_debug_name(callable_plan, "g"),
+    )
