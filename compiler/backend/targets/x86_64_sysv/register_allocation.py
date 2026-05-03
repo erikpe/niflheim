@@ -20,10 +20,12 @@ from compiler.backend.ir._ordering import reg_id_sort_key
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
 from compiler.backend.targets.x86_64_sysv.locations import (
     X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS,
+    X86_64_SYSV_ARGUMENT_ALLOCATABLE_XMMS,
     X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
     X86_64_SYSV_CALL_FREE_ALLOCATABLE_XMMS,
     X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
     X86_64_SYSV_RETURN_ALLOCATABLE_GPRS,
+    X86_64_SYSV_RETURN_ALLOCATABLE_XMMS,
     X86_64SysVPhysicalRegister,
     X86_64SysVRegisterClass,
     X86_64SysVRegisterLocation,
@@ -324,17 +326,21 @@ def allocate_x86_64_sysv_registers(
     call_free_allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
     call_free_allocatable_xmms: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_CALL_FREE_ALLOCATABLE_XMMS,
     call_argument_allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS,
+    call_argument_allocatable_xmms: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_ARGUMENT_ALLOCATABLE_XMMS,
     return_allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_RETURN_ALLOCATABLE_GPRS,
+    return_allocatable_xmms: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_RETURN_ALLOCATABLE_XMMS,
 ) -> X86_64SysVRegisterAllocation:
     resolved_intervals = build_live_intervals(callable_plan) if intervals is None else intervals
     abi_constraints = build_abi_constraints(callable_plan)
     interval_by_reg = {interval.reg_id: interval for interval in resolved_intervals}
     call_crossing_count_by_reg = _call_crossing_count_by_reg_id(callable_plan)
     safepoint_crossing_count_by_reg = _safepoint_crossing_count_by_reg_id(callable_plan)
+    non_call_safepoint_crossing_count_by_reg = _non_call_safepoint_crossing_count_by_reg_id(callable_plan)
     call_argument_preferences_by_reg = _call_argument_preferences_by_reg_id(
         callable_plan,
         abi=X86_64_SYSV_ABI,
         argument_gprs=call_argument_allocatable_gprs,
+        argument_xmms=call_argument_allocatable_xmms,
     )
     return_preferences_by_reg = (
         {}
@@ -343,6 +349,7 @@ def allocate_x86_64_sysv_registers(
             callable_plan,
             abi=X86_64_SYSV_ABI,
             return_gprs=return_allocatable_gprs,
+            return_xmms=return_allocatable_xmms,
         )
     )
     copy_preference_by_dest = _copy_preferences_by_dest(
@@ -370,12 +377,9 @@ def allocate_x86_64_sysv_registers(
                 interval,
                 abi_constraints=abi_constraints,
                 call_free_xmms=call_free_allocatable_xmms,
+                non_call_safepoint_crossing_count=non_call_safepoint_crossing_count_by_reg.get(interval.reg_id, 0),
             )
         else:
-            spilled_reg_ids.add(interval.reg_id)
-            continue
-
-        if not interval_register_pool:
             spilled_reg_ids.add(interval.reg_id)
             continue
 
@@ -389,6 +393,10 @@ def allocate_x86_64_sysv_registers(
             physical_register_by_reg[interval.reg_id] = preferred_return_register
             active.append(_ActiveInterval(interval=interval, physical_register=preferred_return_register))
             active = _sorted_active_intervals(active)
+            continue
+
+        if not interval_register_pool:
+            spilled_reg_ids.add(interval.reg_id)
             continue
 
         preferred_arg_register = _preferred_call_argument_register_for_interval(
@@ -482,6 +490,7 @@ def allocate_x86_64_sysv_registers(
         callable_plan,
         physical_register_by_reg=physical_register_by_reg,
         argument_gprs=call_argument_allocatable_gprs,
+        argument_xmms=call_argument_allocatable_xmms,
         abi=X86_64_SYSV_ABI,
     )
 
@@ -609,8 +618,9 @@ def _xmm_register_pool_for_interval(
     *,
     abi_constraints: X86_64SysVAbiConstraintPlan,
     call_free_xmms: tuple[X86_64SysVPhysicalRegister, ...],
+    non_call_safepoint_crossing_count: int,
 ) -> tuple[X86_64SysVPhysicalRegister, ...]:
-    if interval.crosses_call or interval.live_at_safepoint:
+    if interval.crosses_call or non_call_safepoint_crossing_count > 0:
         return ()
     call_free_xmm_names = {register.name for register in call_free_xmms}
     if any(
@@ -620,7 +630,11 @@ def _xmm_register_pool_for_interval(
         and constraint.register_name in call_free_xmm_names
         and (
             constraint.kind in {"clobber", "temporary"}
-            or constraint.reason in {"call_argument", "call_return", "return_value"}
+            and not (
+                constraint.position == interval.end_position
+                and constraint.reason in {"call_clobber", "call_lowering_scratch"}
+            )
+            or constraint.reason in {"call_return", "return_value"}
         )
     ):
         return ()
@@ -724,8 +738,10 @@ def _call_argument_preferences_by_reg_id(
     *,
     abi: X86_64SysVAbi,
     argument_gprs: tuple[X86_64SysVPhysicalRegister, ...],
+    argument_xmms: tuple[X86_64SysVPhysicalRegister, ...],
 ) -> dict[BackendRegId, tuple[X86_64SysVPhysicalRegister, ...]]:
     argument_register_by_name = {register.name: register for register in argument_gprs}
+    argument_register_by_name.update({register.name: register for register in argument_xmms})
     register_by_id = {register.reg_id: register for register in callable_plan.callable_decl.registers}
     non_call_safepoint_count_by_reg = _non_call_safepoint_crossing_count_by_reg_id(callable_plan)
     preferences_by_reg: dict[BackendRegId, list[X86_64SysVPhysicalRegister]] = {}
@@ -742,7 +758,7 @@ def _call_argument_preferences_by_reg_id(
                 includes_receiver=_call_includes_receiver(instruction),
             )
             for operand, arg_location in zip(instruction.args, arg_locations, strict=True):
-                if arg_location.kind != "int_reg" or arg_location.register_name is None:
+                if arg_location.kind not in {"int_reg", "float_reg"} or arg_location.register_name is None:
                     continue
                 if not isinstance(operand, BackendRegOperand):
                     continue
@@ -769,8 +785,9 @@ def _return_preferences_by_reg_id(
     *,
     abi: X86_64SysVAbi,
     return_gprs: tuple[X86_64SysVPhysicalRegister, ...],
+    return_xmms: tuple[X86_64SysVPhysicalRegister, ...],
 ) -> dict[BackendRegId, tuple[X86_64SysVPhysicalRegister, ...]]:
-    return_register_by_name = {register.name: register for register in return_gprs}
+    return_register_by_name = {register.name: register for register in (*return_gprs, *return_xmms)}
     preferences_by_reg: dict[BackendRegId, list[X86_64SysVPhysicalRegister]] = {}
 
     for block in callable_plan.callable_decl.blocks:
@@ -798,7 +815,7 @@ def _preferred_return_register_for_interval(
     preferences: tuple[X86_64SysVPhysicalRegister, ...],
     abi_constraints: X86_64SysVAbiConstraintPlan,
 ) -> X86_64SysVPhysicalRegister | None:
-    if interval.register_class != "gpr" or interval.crosses_call or interval.is_gc_reference or interval.live_at_safepoint:
+    if interval.register_class not in {"gpr", "xmm"} or interval.crosses_call or interval.is_gc_reference or interval.live_at_safepoint:
         return None
     if interval.end_position - interval.start_position > 1:
         return None
@@ -832,6 +849,7 @@ def _return_register_is_safe_for_interval(
         if constraint.reason == "return_value":
             continue
         if constraint.position == interval.start_position and constraint.reason in {
+            "call_argument",
             "call_return",
             "call_clobber",
             "call_lowering_scratch",
@@ -848,7 +866,7 @@ def _preferred_call_argument_register_for_interval(
     active: list[_ActiveInterval],
     preferences: tuple[X86_64SysVPhysicalRegister, ...],
 ) -> X86_64SysVPhysicalRegister | None:
-    if interval.register_class != "gpr" or interval.crosses_call or interval.is_gc_reference:
+    if interval.register_class not in {"gpr", "xmm"} or interval.crosses_call or interval.is_gc_reference:
         return None
     if not preferences:
         return None
@@ -858,6 +876,7 @@ def _preferred_call_argument_register_for_interval(
             physical_register
             for physical_register in preferences
             if physical_register.name not in used_register_names
+            and physical_register.register_class == interval.register_class
         ),
         None,
     )
@@ -1031,9 +1050,11 @@ def _call_argument_reloads_by_inst(
     *,
     physical_register_by_reg: dict[BackendRegId, X86_64SysVPhysicalRegister],
     argument_gprs: tuple[X86_64SysVPhysicalRegister, ...],
+    argument_xmms: tuple[X86_64SysVPhysicalRegister, ...],
     abi: X86_64SysVAbi,
 ) -> dict[BackendInstId, tuple[X86_64SysVCallArgumentReload, ...]]:
     argument_register_names = {register.name for register in argument_gprs}
+    argument_register_names.update(register.name for register in argument_xmms)
     reloads_by_inst: dict[BackendInstId, tuple[X86_64SysVCallArgumentReload, ...]] = {}
 
     for block in callable_plan.callable_decl.blocks:
@@ -1049,7 +1070,7 @@ def _call_argument_reloads_by_inst(
             )
             reloads: list[X86_64SysVCallArgumentReload] = []
             for operand, arg_location in zip(instruction.args, arg_locations, strict=True):
-                if arg_location.kind != "int_reg" or arg_location.register_name is None:
+                if arg_location.kind not in {"int_reg", "float_reg"} or arg_location.register_name is None:
                     continue
                 if not isinstance(operand, BackendRegOperand) or operand.reg_id in live_after:
                     continue

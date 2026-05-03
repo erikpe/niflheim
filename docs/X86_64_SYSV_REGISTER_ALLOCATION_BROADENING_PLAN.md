@@ -565,13 +565,43 @@ Tests:
 
 ### Checklist
 
-- [ ] Use allocated XMM locations for double loads.
-- [ ] Use allocated XMM destinations for double arithmetic.
-- [ ] Reduce double call argument moves.
-- [ ] Reduce double return and call-result moves.
-- [ ] Preserve checked double cast behavior.
-- [ ] Add focused double assembly and execution tests.
-- [ ] Measure `std/math` and double-heavy cases.
+- [x] Use allocated XMM locations for double loads.
+- [x] Use allocated XMM destinations for double arithmetic.
+- [x] Reduce double call argument moves.
+- [x] Reduce double return and call-result moves.
+- [x] Preserve checked double cast behavior.
+- [x] Add focused double assembly and execution tests.
+- [x] Measure `std/math` and double-heavy cases.
+
+### Implementation Notes
+
+- Double loads already consult allocated XMM locations; this slice made the arithmetic and unary lowering choose an allocated XMM destination directly when available.
+- Added a conservative double argument preference pool for ABI XMM argument registers `xmm2` through `xmm7`. The current lowering still reserves `xmm0`, `xmm1`, and `xmm15` as hardwired scratch/return registers.
+- Extended call-argument reload metadata to cover XMM argument registers, using `movq` spills and forced stack reloads around trace/root hooks just like the GPR argument path.
+- Added `xmm0` as a return-only allocation preference for short double return intervals and immediate double call-result returns.
+- Kept checked double cast behavior on the existing scratch-register path; no cast lowering broadening was needed for this slice.
+
+### Measurement Notes
+
+Measured with:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/std/math/test_math.nif --omit-runtime-trace
+```
+
+```text
+metric                          without_ra  with_ra  delta
+------------------------------  ----------  -------  -----
+instruction_count                    21766    23731  +1965
+stack_memory_instruction_count       12938     9335  -3603
+stack_load_count                      5641     2686  -2955
+stack_store_count                     5098     4596   -502
+register_copy_count                    247     5829  +5582
+callee_saved_save_count                  0      233   +233
+callee_saved_restore_count               0      233   +233
+```
+
+Compared with slice 6, total instructions improved from `23801` to `23731`, and stack-memory instructions improved from `9457` to `9335`.
 
 ### How To Test
 

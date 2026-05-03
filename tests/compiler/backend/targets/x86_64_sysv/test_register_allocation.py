@@ -453,6 +453,41 @@ def test_allocate_x86_64_sysv_registers_coalesces_dead_call_arguments_into_abi_g
     ) == ((a_reg_id, "rdi"), (b_reg_id, "rsi"))
 
 
+def test_allocate_x86_64_sysv_registers_coalesces_dead_double_call_arguments_into_abi_xmms(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn callee(a: double, b: double, c: double) -> double {
+            return c;
+        }
+
+        fn sample(c: double) -> double {
+            return callee(1.0, 2.0, c);
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+    call_instruction = next(
+        instruction
+        for block in callable_plan.callable_decl.blocks
+        for instruction in block.instructions
+        if isinstance(instruction, BackendCallInst)
+    )
+    c_reg_id = _reg_id_by_debug_name(callable_plan, "c")
+
+    assert allocation.location_for_reg(c_reg_id).physical_register.name == "xmm2"
+    assert tuple(
+        (reload.reg_id, reload.physical_register.name)
+        for reload in allocation.call_argument_reloads_for_inst(call_instruction.inst_id)
+    ) == ((c_reg_id, "xmm2"),)
+
+
 def test_allocate_x86_64_sysv_registers_keeps_multi_call_crossing_values_in_callee_saved_gprs(tmp_path) -> None:
     callable_plan = _callable_plan(
         tmp_path,
@@ -627,6 +662,29 @@ def test_allocate_x86_64_sysv_registers_spills_xmm_intervals_when_pool_is_empty(
     assert value_location.stack_slot is not None
     assert value_location.stack_slot.byte_offset == callable_plan.frame_layout.for_reg(value_reg_id).byte_offset
     assert allocation.spilled_reg_ids == (value_reg_id,)
+
+
+def test_allocate_x86_64_sysv_registers_coalesces_direct_double_returns_into_xmm0(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn identity(value: double) -> double {
+            return value;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        callable_name="identity",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+    value_location = allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "value"))
+
+    assert value_location.physical_register is not None
+    assert value_location.physical_register.name == "xmm0"
+    assert value_location.stack_slot is None
 
 
 def test_allocate_x86_64_sysv_registers_spills_when_gpr_pressure_exceeds_initial_pool(tmp_path) -> None:

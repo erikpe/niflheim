@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from compiler.backend.targets import BackendTargetOptions
 from compiler.backend.program.symbols import epilogue_label, mangle_function_symbol
 from tests.compiler.backend.targets.x86_64_sysv.helpers import compile_and_run_source, emit_source_asm
 
@@ -34,10 +35,10 @@ def test_emit_source_asm_emits_double_constants_and_arithmetic_sequences(tmp_pat
     assert "    movq qword ptr [rbp - 16], xmm1" in add_body
     assert "    movq xmm2, qword ptr [rbp - 8]" in add_body
     assert "    movq xmm3, qword ptr [rbp - 16]" in add_body
-    assert "    movq xmm0, xmm2" in add_body
     assert "    movq xmm1, xmm3" in add_body
-    assert "    addsd xmm0, xmm1" in add_body
+    assert "    addsd xmm5, xmm1" in add_body
     assert "    mulsd xmm0, xmm1" in add_body
+    assert "    movq xmm0, xmm5" in add_body
 
 
 def test_emit_source_asm_emits_double_comparison_and_negation_sequences(tmp_path) -> None:
@@ -63,7 +64,7 @@ def test_emit_source_asm_emits_double_comparison_and_negation_sequences(tmp_path
 
     assert "    movabs rdx, 0x8000000000000000" in ordered_body
     assert "    movq xmm1, rdx" in ordered_body
-    assert "    xorpd xmm0, xmm1" in ordered_body
+    assert "    xorpd xmm4, xmm1" in ordered_body
     assert "    ucomisd xmm0, xmm1" in ordered_body
     assert "    setb al" in ordered_body
     assert "    setnp dl" in ordered_body
@@ -100,6 +101,38 @@ def test_emit_source_asm_emits_mixed_signature_calls_with_xmm_and_integer_regist
     assert "    mov r9, 5" in main_body
     assert "    mov qword ptr [rsp], rax" in main_body
     assert "    call __nif_fn_main__mix" in main_body
+
+
+def test_emit_source_asm_coalesces_safe_double_call_args_and_returns(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn callee(a: double, b: double, c: double) -> double {
+            return c;
+        }
+
+        fn sample(c: double) -> double {
+            return callee(1.0, 2.0, c);
+        }
+
+        fn main() -> i64 {
+            if sample(3.0) == 3.0 {
+                return 0;
+            }
+            return 1;
+        }
+        """,
+        skip_optimize=True,
+        options=BackendTargetOptions(runtime_trace_enabled=False),
+    )
+    sample_label = mangle_function_symbol(("main",), "sample")
+    sample_body = _body_for_label(asm, sample_label)
+
+    assert "    movq xmm2, qword ptr [rbp - 8]" in sample_body
+    assert "    call __nif_fn_main__callee" in sample_body
+    assert "    movq xmm2," not in sample_body[sample_body.index("    call __nif_fn_main__callee") - 80 :]
+    assert "    movq qword ptr [rbp - 16], xmm0" not in sample_body
+    assert "    movq xmm0, qword ptr [rbp - 16]" not in sample_body
 
 
 def test_emit_source_asm_is_byte_stable_for_double_programs(tmp_path) -> None:

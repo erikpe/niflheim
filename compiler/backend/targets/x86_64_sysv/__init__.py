@@ -26,12 +26,14 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
 from compiler.backend.targets.x86_64_sysv.lower_calls import emit_call_instruction, emit_direct_call_instruction
 from compiler.backend.targets.x86_64_sysv.locations import (
     X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS,
+    X86_64_SYSV_ARGUMENT_ALLOCATABLE_XMMS,
     X86_64_SYSV_CALLEE_SAVED_GPRS,
     X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS,
     X86_64_SYSV_CALL_FREE_ALLOCATABLE_XMMS,
     X86_64_SYSV_CALLER_SAVED_GPRS,
     X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
     X86_64_SYSV_RETURN_ALLOCATABLE_GPRS,
+    X86_64_SYSV_RETURN_ALLOCATABLE_XMMS,
     X86_64_SYSV_XMM_REGISTERS,
     X86_64SysVPhysicalRegister,
     X86_64SysVRegisterClass,
@@ -73,6 +75,7 @@ from compiler.backend.targets.x86_64_sysv.emit import (
 __all__ = [
     "TARGET_NAME",
     "X86_64_SYSV_ARGUMENT_ALLOCATABLE_GPRS",
+    "X86_64_SYSV_ARGUMENT_ALLOCATABLE_XMMS",
     "X86_64_SYSV_ABI",
     "X86_64_SYSV_CALLEE_SAVED_GPRS",
     "X86_64_SYSV_CALL_FREE_ALLOCATABLE_GPRS",
@@ -80,6 +83,7 @@ __all__ = [
     "X86_64_SYSV_CALLER_SAVED_GPRS",
     "X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS",
     "X86_64_SYSV_RETURN_ALLOCATABLE_GPRS",
+    "X86_64_SYSV_RETURN_ALLOCATABLE_XMMS",
     "X86_64_SYSV_TARGET",
     "X86_64_SYSV_XMM_REGISTERS",
     "X86AsmBuilder",

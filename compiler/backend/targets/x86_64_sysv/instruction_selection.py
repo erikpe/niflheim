@@ -257,15 +257,21 @@ def _emit_instruction(
     if isinstance(instruction, BackendUnaryInst):
         operand_type_name = _operand_type_name(instruction.operand, register_type_name_by_reg_id)
         if operand_type_name == TYPE_NAME_DOUBLE:
+            target_float_register = _float_destination_register_name(frame_layout, instruction.dest)
             emit_load_float_operand(
                 builder,
                 instruction.operand,
-                target_float_register=_PRIMARY_FLOAT_REGISTER,
+                target_float_register=target_float_register,
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
             )
-            _emit_float_unary_operation(builder, instruction)
-            emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
+            _emit_float_unary_operation(builder, instruction, target_float_register=target_float_register)
+            emit_store_float_result(
+                builder,
+                instruction.dest,
+                frame_layout=frame_layout,
+                source_float_register=target_float_register,
+            )
         else:
             if _try_emit_direct_integer_unary(
                 builder,
@@ -290,10 +296,15 @@ def _emit_instruction(
     if isinstance(instruction, BackendBinaryInst):
         operand_type_name = _operand_type_name(instruction.left, register_type_name_by_reg_id)
         if operand_type_name == TYPE_NAME_DOUBLE:
+            target_float_register = (
+                _PRIMARY_FLOAT_REGISTER
+                if instruction.op.flavor == BinaryOpFlavor.FLOAT_COMPARISON
+                else _float_destination_register_name(frame_layout, instruction.dest)
+            )
             emit_load_float_operand(
                 builder,
                 instruction.left,
-                target_float_register=_PRIMARY_FLOAT_REGISTER,
+                target_float_register=target_float_register,
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
             )
@@ -304,11 +315,21 @@ def _emit_instruction(
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
             )
-            _emit_float_binary_operation(builder, instruction)
+            _emit_float_binary_operation(
+                builder,
+                instruction,
+                target_float_register=target_float_register,
+                secondary_float_register=_SECONDARY_FLOAT_REGISTER,
+            )
             if instruction.op.flavor == BinaryOpFlavor.FLOAT_COMPARISON:
                 emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
             else:
-                emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
+                emit_store_float_result(
+                    builder,
+                    instruction.dest,
+                    frame_layout=frame_layout,
+                    source_float_register=target_float_register,
+                )
         else:
             if _try_emit_direct_integer_binary(
                 builder,
@@ -391,11 +412,16 @@ def _emit_unary_operation(builder: X86AsmBuilder, instruction: BackendUnaryInst,
     )
 
 
-def _emit_float_unary_operation(builder: X86AsmBuilder, instruction: BackendUnaryInst) -> None:
+def _emit_float_unary_operation(
+    builder: X86AsmBuilder,
+    instruction: BackendUnaryInst,
+    *,
+    target_float_register: str = _PRIMARY_FLOAT_REGISTER,
+) -> None:
     if instruction.op.flavor == UnaryOpFlavor.FLOAT and instruction.op.kind == UnaryOpKind.NEGATE:
         builder.instruction("movabs", _TERTIARY_REGISTER, "0x8000000000000000")
         builder.instruction("movq", _SECONDARY_FLOAT_REGISTER, _TERTIARY_REGISTER)
-        builder.instruction("xorpd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+        builder.instruction("xorpd", target_float_register, _SECONDARY_FLOAT_REGISTER)
         return
     raise BackendTargetLoweringError(
         f"x86_64_sysv floating unary operator '{instruction.op.kind.value}' is not supported in the current scalar slice"
@@ -445,19 +471,25 @@ def _emit_binary_operation(builder: X86AsmBuilder, instruction: BackendBinaryIns
     )
 
 
-def _emit_float_binary_operation(builder: X86AsmBuilder, instruction: BackendBinaryInst) -> None:
+def _emit_float_binary_operation(
+    builder: X86AsmBuilder,
+    instruction: BackendBinaryInst,
+    *,
+    target_float_register: str = _PRIMARY_FLOAT_REGISTER,
+    secondary_float_register: str = _SECONDARY_FLOAT_REGISTER,
+) -> None:
     if instruction.op.flavor == BinaryOpFlavor.FLOAT:
         if instruction.op.kind == BinaryOpKind.ADD:
-            builder.instruction("addsd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            builder.instruction("addsd", target_float_register, secondary_float_register)
             return
         if instruction.op.kind == BinaryOpKind.SUBTRACT:
-            builder.instruction("subsd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            builder.instruction("subsd", target_float_register, secondary_float_register)
             return
         if instruction.op.kind == BinaryOpKind.MULTIPLY:
-            builder.instruction("mulsd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            builder.instruction("mulsd", target_float_register, secondary_float_register)
             return
         if instruction.op.kind == BinaryOpKind.DIVIDE:
-            builder.instruction("divsd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            builder.instruction("divsd", target_float_register, secondary_float_register)
             return
         raise BackendTargetLoweringError(
             f"x86_64_sysv floating operator '{instruction.op.kind.value}' is not supported in the current scalar slice"
@@ -468,7 +500,7 @@ def _emit_float_binary_operation(builder: X86AsmBuilder, instruction: BackendBin
             f"x86_64_sysv floating binary operator flavor '{instruction.op.flavor.value}' is not supported in the current scalar slice"
         )
 
-    builder.instruction("ucomisd", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+    builder.instruction("ucomisd", target_float_register, secondary_float_register)
     if instruction.op.kind == BinaryOpKind.EQUAL:
         builder.instruction("sete", _PRIMARY_BYTE_REGISTER)
         builder.instruction("setnp", _TERTIARY_BYTE_REGISTER)
@@ -1074,6 +1106,7 @@ def emit_load_float_operand(
     target_float_register: str,
     frame_layout: X86_64SysVFrameLayout,
     register_type_name_by_reg_id: dict,
+    force_stack_reload_reg_ids=frozenset(),
 ) -> None:
     if isinstance(operand, BackendRegOperand):
         if register_type_name_by_reg_id[operand.reg_id] != TYPE_NAME_DOUBLE:
@@ -1081,7 +1114,7 @@ def emit_load_float_operand(
                 f"x86_64_sysv expected a double-typed register for floating load, got '{register_type_name_by_reg_id[operand.reg_id]}'"
             )
         physical_register = _physical_register_for_reg(frame_layout, operand.reg_id)
-        if physical_register is not None:
+        if physical_register is not None and operand.reg_id not in force_stack_reload_reg_ids:
             if physical_register.register_class != "xmm":
                 raise BackendTargetLoweringError(
                     f"x86_64_sysv expected an XMM register for double-typed register 'r{operand.reg_id.ordinal}'"
@@ -1208,6 +1241,17 @@ def _mask_u8_result_if_needed(
 def physical_register_name_for_reg(frame_layout: X86_64SysVFrameLayout, reg_id) -> str | None:
     physical_register = _physical_register_for_reg(frame_layout, reg_id)
     return None if physical_register is None else physical_register.name
+
+
+def _float_destination_register_name(frame_layout: X86_64SysVFrameLayout, dest_reg_id) -> str:
+    physical_register = _physical_register_for_reg(frame_layout, dest_reg_id)
+    if physical_register is None:
+        return _PRIMARY_FLOAT_REGISTER
+    if physical_register.register_class != "xmm":
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv expected an XMM register for double-typed destination register 'r{dest_reg_id.ordinal}'"
+        )
+    return physical_register.name
 
 
 def _operand_physical_register_name(frame_layout: X86_64SysVFrameLayout, operand: BackendOperand) -> str | None:

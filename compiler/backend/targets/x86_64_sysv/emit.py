@@ -692,7 +692,8 @@ def _emit_call_argument_spills(builder, reloads: tuple, *, frame_layout) -> None
             raise BackendTargetLoweringError(
                 f"x86_64_sysv call argument spill is missing a stack home for register 'r{reload.reg_id.ordinal}'"
             )
-        builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), reload.physical_register.name)
+        opcode = "movq" if reload.physical_register.register_class == "xmm" else "mov"
+        builder.instruction(opcode, format_stack_slot_operand("rbp", slot.byte_offset), reload.physical_register.name)
 
 
 def _emit_allocation_debug_comments(builder, frame_layout) -> None:

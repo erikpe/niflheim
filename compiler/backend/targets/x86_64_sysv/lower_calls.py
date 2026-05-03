@@ -155,6 +155,7 @@ def emit_call_instruction(
                 target_float_register=arg_location.register_name,
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
+                force_stack_reload_reg_ids=force_stack_reload_arg_reg_ids,
             )
             continue
 
@@ -168,6 +169,7 @@ def emit_call_instruction(
                     target_float_register=_CALL_TEMP_FLOAT_REGISTER,
                     frame_layout=frame_layout,
                     register_type_name_by_reg_id=register_type_name_by_reg_id,
+                    force_stack_reload_reg_ids=force_stack_reload_arg_reg_ids,
                 )
                 builder.instruction("movq", stack_operand, _CALL_TEMP_FLOAT_REGISTER)
             else:
