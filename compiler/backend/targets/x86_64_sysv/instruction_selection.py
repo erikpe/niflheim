@@ -318,6 +318,14 @@ def _emit_instruction(
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
             ):
                 return
+            if _try_emit_direct_scalar_binary(
+                builder,
+                instruction,
+                operand_type_name=operand_type_name,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            ):
+                return
             emit_load_operand(
                 builder,
                 instruction.left,
@@ -547,11 +555,11 @@ def _try_emit_direct_integer_unary(
     if instruction.op.kind not in {UnaryOpKind.NEGATE, UnaryOpKind.BITWISE_NOT}:
         return False
 
-    dest_register = _physical_register_name_for_dest(frame_layout, instruction.dest)
+    dest_register = physical_register_name_for_reg(frame_layout, instruction.dest)
     if dest_register is None:
         return False
 
-    _emit_load_scalar_operand_into_register(
+    emit_load_scalar_operand_into_register(
         builder,
         instruction.operand,
         target_register=dest_register,
@@ -581,7 +589,7 @@ def _try_emit_direct_integer_binary(
     if op_mnemonic is None:
         return False
 
-    dest_register = _physical_register_name_for_dest(frame_layout, instruction.dest)
+    dest_register = physical_register_name_for_reg(frame_layout, instruction.dest)
     if dest_register is None:
         return False
 
@@ -596,7 +604,7 @@ def _try_emit_direct_integer_binary(
     ):
         return False
 
-    _emit_load_scalar_operand_into_register(
+    emit_load_scalar_operand_into_register(
         builder,
         left_operand,
         target_register=dest_register,
@@ -643,6 +651,274 @@ def _operation_is_commutative(kind: BinaryOpKind) -> bool:
         BinaryOpKind.BITWISE_OR,
         BinaryOpKind.BITWISE_XOR,
     }
+
+
+def _try_emit_direct_scalar_binary(
+    builder: X86AsmBuilder,
+    instruction: BackendBinaryInst,
+    *,
+    operand_type_name: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    dest_register = physical_register_name_for_reg(frame_layout, instruction.dest)
+    if dest_register is None:
+        return False
+
+    if instruction.op.flavor == BinaryOpFlavor.INTEGER_COMPARISON:
+        return _try_emit_direct_integer_comparison(
+            builder,
+            instruction,
+            operand_type_name=operand_type_name,
+            dest_register=dest_register,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+    if instruction.op.flavor == BinaryOpFlavor.IDENTITY_COMPARISON:
+        return _try_emit_direct_identity_comparison(
+            builder,
+            instruction,
+            dest_register=dest_register,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+    if instruction.op.flavor == BinaryOpFlavor.BOOL_COMPARISON:
+        return _try_emit_direct_bool_comparison(
+            builder,
+            instruction,
+            dest_register=dest_register,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+    if instruction.op.flavor == BinaryOpFlavor.BOOL_LOGICAL:
+        return _try_emit_direct_bool_logical(
+            builder,
+            instruction,
+            dest_register=dest_register,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+    if instruction.op.flavor == BinaryOpFlavor.INTEGER and instruction.op.kind in {
+        BinaryOpKind.SHIFT_LEFT,
+        BinaryOpKind.SHIFT_RIGHT,
+    }:
+        return _try_emit_direct_integer_shift(
+            builder,
+            instruction,
+            operand_type_name=operand_type_name,
+            dest_register=dest_register,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+    return False
+
+
+def _try_emit_direct_integer_comparison(
+    builder: X86AsmBuilder,
+    instruction: BackendBinaryInst,
+    *,
+    operand_type_name: str,
+    dest_register: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    setcc_mnemonic = _integer_comparison_setcc_mnemonic(
+        instruction.op.kind,
+        operand_type_name=operand_type_name,
+    )
+    if setcc_mnemonic is None:
+        return False
+    _emit_direct_compare(
+        builder,
+        instruction.left,
+        instruction.right,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    builder.instruction(setcc_mnemonic, _byte_register_name_for_register(dest_register))
+    builder.instruction("movzx", dest_register, _byte_register_name_for_register(dest_register))
+    return True
+
+
+def _try_emit_direct_identity_comparison(
+    builder: X86AsmBuilder,
+    instruction: BackendBinaryInst,
+    *,
+    dest_register: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    if instruction.op.kind not in {BinaryOpKind.EQUAL, BinaryOpKind.NOT_EQUAL}:
+        return False
+    _emit_direct_compare(
+        builder,
+        instruction.left,
+        instruction.right,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    setcc_mnemonic = "sete" if instruction.op.kind == BinaryOpKind.EQUAL else "setne"
+    builder.instruction(setcc_mnemonic, _byte_register_name_for_register(dest_register))
+    builder.instruction("movzx", dest_register, _byte_register_name_for_register(dest_register))
+    return True
+
+
+def _try_emit_direct_bool_comparison(
+    builder: X86AsmBuilder,
+    instruction: BackendBinaryInst,
+    *,
+    dest_register: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    if instruction.op.kind not in {BinaryOpKind.EQUAL, BinaryOpKind.NOT_EQUAL}:
+        return False
+    if dest_register == _SECONDARY_REGISTER:
+        return False
+    emit_load_scalar_operand_into_register(
+        builder,
+        instruction.left,
+        target_register=dest_register,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    emit_load_scalar_operand_into_register(
+        builder,
+        instruction.right,
+        target_register=_SECONDARY_REGISTER,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    builder.instruction("cmp", dest_register, _SECONDARY_REGISTER)
+    setcc_mnemonic = "sete" if instruction.op.kind == BinaryOpKind.EQUAL else "setne"
+    builder.instruction(setcc_mnemonic, _byte_register_name_for_register(dest_register))
+    builder.instruction("movzx", dest_register, _byte_register_name_for_register(dest_register))
+    return True
+
+
+def _try_emit_direct_bool_logical(
+    builder: X86AsmBuilder,
+    instruction: BackendBinaryInst,
+    *,
+    dest_register: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    if instruction.op.kind not in {BinaryOpKind.LOGICAL_AND, BinaryOpKind.LOGICAL_OR}:
+        return False
+    if dest_register == _SECONDARY_REGISTER:
+        return False
+    emit_load_scalar_operand_into_register(
+        builder,
+        instruction.left,
+        target_register=dest_register,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    emit_load_scalar_operand_into_register(
+        builder,
+        instruction.right,
+        target_register=_SECONDARY_REGISTER,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    logical_mnemonic = "and" if instruction.op.kind == BinaryOpKind.LOGICAL_AND else "or"
+    builder.instruction(logical_mnemonic, dest_register, _SECONDARY_REGISTER)
+    return True
+
+
+def _try_emit_direct_integer_shift(
+    builder: X86AsmBuilder,
+    instruction: BackendBinaryInst,
+    *,
+    operand_type_name: str,
+    dest_register: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    if dest_register == _SECONDARY_REGISTER:
+        return False
+    emit_load_scalar_operand_into_register(
+        builder,
+        instruction.left,
+        target_register=dest_register,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    emit_load_operand(
+        builder,
+        instruction.right,
+        target_register=_SECONDARY_REGISTER,
+        target_byte_register=_SECONDARY_BYTE_REGISTER,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    max_shift = "8" if operand_type_name == TYPE_NAME_U8 else "64"
+    builder.instruction("cmp", _SECONDARY_REGISTER, max_shift)
+    builder.instruction("jb", "1f")
+    builder.instruction("call", "rt_panic_invalid_shift_count")
+    builder.label("1")
+    if instruction.op.kind == BinaryOpKind.SHIFT_LEFT:
+        builder.instruction("shl", dest_register, _SECONDARY_BYTE_REGISTER)
+        _mask_u8_result_if_needed(builder, operand_type_name, target_register=dest_register)
+        return True
+    if operand_type_name in _UNSIGNED_TYPE_NAMES:
+        builder.instruction("shr", dest_register, _SECONDARY_BYTE_REGISTER)
+        return True
+    builder.instruction("sar", dest_register, _SECONDARY_BYTE_REGISTER)
+    return True
+
+
+def _emit_direct_compare(
+    builder: X86AsmBuilder,
+    left: BackendOperand,
+    right: BackendOperand,
+    *,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> None:
+    left_register = _operand_physical_register_name(frame_layout, left)
+    if left_register is None:
+        emit_load_operand(
+            builder,
+            left,
+            target_register=_PRIMARY_REGISTER,
+            target_byte_register=_PRIMARY_BYTE_REGISTER,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+        left_operand = _PRIMARY_REGISTER
+    else:
+        left_operand = left_register
+
+    right_operand = _scalar_asm_operand_for_binary_rhs(
+        right,
+        frame_layout=frame_layout,
+        allow_immediate=True,
+    )
+    if right_operand is None:
+        emit_load_operand(
+            builder,
+            right,
+            target_register=_SECONDARY_REGISTER,
+            target_byte_register=_SECONDARY_BYTE_REGISTER,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+        right_operand = _SECONDARY_REGISTER
+    builder.instruction("cmp", left_operand, right_operand)
+
+
+def _integer_comparison_setcc_mnemonic(kind: BinaryOpKind, *, operand_type_name: str) -> str | None:
+    is_unsigned = operand_type_name in _UNSIGNED_TYPE_NAMES
+    return {
+        BinaryOpKind.EQUAL: "sete",
+        BinaryOpKind.NOT_EQUAL: "setne",
+        BinaryOpKind.LESS_THAN: "setb" if is_unsigned else "setl",
+        BinaryOpKind.LESS_EQUAL: "setbe" if is_unsigned else "setle",
+        BinaryOpKind.GREATER_THAN: "seta" if is_unsigned else "setg",
+        BinaryOpKind.GREATER_EQUAL: "setae" if is_unsigned else "setge",
+    }.get(kind)
 
 
 def _emit_integer_power(builder: X86AsmBuilder, *, operand_type_name: str) -> None:
@@ -910,8 +1186,8 @@ def _mask_u8_result_if_needed(
         builder.instruction("and", target_register, "255")
 
 
-def _physical_register_name_for_dest(frame_layout: X86_64SysVFrameLayout, dest_reg_id) -> str | None:
-    physical_register = _physical_register_for_reg(frame_layout, dest_reg_id)
+def physical_register_name_for_reg(frame_layout: X86_64SysVFrameLayout, reg_id) -> str | None:
+    physical_register = _physical_register_for_reg(frame_layout, reg_id)
     return None if physical_register is None else physical_register.name
 
 
@@ -931,7 +1207,7 @@ def _stack_operand_for_reg(frame_layout: X86_64SysVFrameLayout, reg_id) -> str:
     return format_stack_slot_operand("rbp", slot.byte_offset)
 
 
-def _emit_load_scalar_operand_into_register(
+def emit_load_scalar_operand_into_register(
     builder: X86AsmBuilder,
     operand: BackendOperand,
     *,
@@ -1117,9 +1393,11 @@ __all__ = [
     "emit_instruction",
     "emit_load_float_operand",
     "emit_load_operand",
+    "emit_load_scalar_operand_into_register",
     "emit_return_terminator",
     "emit_store_float_result",
     "emit_store_result",
     "emit_straight_line_callable_body",
+    "physical_register_name_for_reg",
     "register_type_name_by_reg_id",
 ]

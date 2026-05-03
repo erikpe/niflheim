@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from compiler.backend.program.symbols import mangle_function_symbol
 from compiler.backend.targets import BackendTargetOptions
 from tests.compiler.backend.targets.x86_64_sysv.helpers import compile_and_run_source, emit_source_asm
 
@@ -115,6 +116,37 @@ def test_emit_source_asm_handles_primitive_cast_families(tmp_path) -> None:
     )
 
     assert run.returncode == 11
+
+
+def test_emit_source_asm_selects_simple_casts_into_allocated_destinations(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn casts(a: u64) -> i64 {
+            var b: i64 = (i64)a;
+            var c: u8 = (u8)b;
+            var d: bool = (bool)c;
+            if d {
+                return b;
+            }
+            return 0;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        skip_optimize=True,
+    )
+    casts_body = _body_for_label(asm, mangle_function_symbol(("main",), "casts"))
+
+    assert "    mov r12, rbx" in casts_body
+    assert "    and rbx, 255" in casts_body
+    assert "    test r13, r13" in casts_body
+    assert "    setne r13b" in casts_body
+    assert "    movzx r13, r13b" in casts_body
+    assert "    and rax, 255" not in casts_body
+    assert "    test rax, rax" not in casts_body
 
 
 def test_emit_source_asm_emits_runtime_trace_hooks_by_default(tmp_path) -> None:

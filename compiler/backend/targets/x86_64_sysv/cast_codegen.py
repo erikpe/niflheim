@@ -23,10 +23,12 @@ from compiler.backend.targets.x86_64_sysv.array_runtime import (
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder
 from compiler.backend.targets.x86_64_sysv.frame import X86_64SysVFrameLayout
 from compiler.backend.targets.x86_64_sysv.instruction_selection import (
+    emit_load_scalar_operand_into_register,
     emit_load_float_operand,
     emit_load_operand,
     emit_store_float_result,
     emit_store_result,
+    physical_register_name_for_reg,
 )
 from compiler.backend.targets.x86_64_sysv.object_runtime import (
     interface_table_entry_operand,
@@ -89,6 +91,13 @@ def emit_cast_instruction(
             )
             emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
             return
+        if _try_emit_direct_identity_cast(
+            builder,
+            instruction,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        ):
+            return
         emit_load_operand(
             builder,
             instruction.operand,
@@ -112,6 +121,15 @@ def emit_cast_instruction(
         return
 
     if instruction.cast_kind is CastSemanticsKind.TO_INTEGER:
+        if _try_emit_direct_to_integer_cast(
+            builder,
+            instruction,
+            source_type_name=source_type_name,
+            target_type_name=target_type_name,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        ):
+            return
         _emit_to_integer_cast(
             builder,
             instruction,
@@ -124,6 +142,14 @@ def emit_cast_instruction(
         return
 
     if instruction.cast_kind is CastSemanticsKind.TO_BOOL:
+        if _try_emit_direct_to_bool_cast(
+            builder,
+            instruction,
+            source_type_name=source_type_name,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        ):
+            return
         _emit_to_bool_cast(
             builder,
             instruction,
@@ -171,6 +197,78 @@ def emit_cast_instruction(
     raise BackendTargetLoweringError(
         f"x86_64_sysv cast emission does not support '{instruction.cast_kind.value}'"
     )
+
+
+def _try_emit_direct_identity_cast(
+    builder: X86AsmBuilder,
+    instruction: BackendCastInst,
+    *,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    target_register = physical_register_name_for_reg(frame_layout, instruction.dest)
+    if target_register is None:
+        return False
+    emit_load_scalar_operand_into_register(
+        builder,
+        instruction.operand,
+        target_register=target_register,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    return True
+
+
+def _try_emit_direct_to_integer_cast(
+    builder: X86AsmBuilder,
+    instruction: BackendCastInst,
+    *,
+    source_type_name: str,
+    target_type_name: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    if source_type_name == TYPE_NAME_DOUBLE:
+        return False
+    target_register = physical_register_name_for_reg(frame_layout, instruction.dest)
+    if target_register is None:
+        return False
+    emit_load_scalar_operand_into_register(
+        builder,
+        instruction.operand,
+        target_register=target_register,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    if target_type_name == TYPE_NAME_U8:
+        builder.instruction("and", target_register, "255")
+    return True
+
+
+def _try_emit_direct_to_bool_cast(
+    builder: X86AsmBuilder,
+    instruction: BackendCastInst,
+    *,
+    source_type_name: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    if source_type_name == TYPE_NAME_DOUBLE:
+        return False
+    target_register = physical_register_name_for_reg(frame_layout, instruction.dest)
+    if target_register is None:
+        return False
+    emit_load_scalar_operand_into_register(
+        builder,
+        instruction.operand,
+        target_register=target_register,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    builder.instruction("test", target_register, target_register)
+    builder.instruction("setne", _byte_register_name(target_register))
+    builder.instruction("movzx", target_register, _byte_register_name(target_register))
+    return True
 
 
 def emit_type_test_instruction(
@@ -549,6 +647,31 @@ def _operand_type_name(operand, register_type_name_by_reg_id: dict) -> str:
         if isinstance(operand.constant, BackendNullConst):
             return TYPE_NAME_NULL
     raise BackendTargetLoweringError(f"x86_64_sysv cast emission does not support operand '{operand!r}'")
+
+
+def _byte_register_name(register_name: str) -> str:
+    byte_register_by_register = {
+        "rax": "al",
+        "rbx": "bl",
+        "rcx": "cl",
+        "rdx": "dl",
+        "rsi": "sil",
+        "rdi": "dil",
+        "r8": "r8b",
+        "r9": "r9b",
+        "r10": "r10b",
+        "r11": "r11b",
+        "r12": "r12b",
+        "r13": "r13b",
+        "r14": "r14b",
+        "r15": "r15b",
+    }
+    try:
+        return byte_register_by_register[register_name]
+    except KeyError as exc:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv cast emission does not know the byte register for '{register_name}'"
+        ) from exc
 
 
 def _escape_c_string(value: str) -> str:

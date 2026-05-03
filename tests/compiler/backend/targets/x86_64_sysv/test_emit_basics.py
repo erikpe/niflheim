@@ -317,10 +317,34 @@ def test_emit_source_asm_emits_integer_comparison_sequences(tmp_path) -> None:
     compare_label = mangle_function_symbol(("main",), "compare")
     compare_body = asm[asm.index(f"{compare_label}:") : asm.index(f"{epilogue_label(compare_label)}:")]
 
-    assert "    cmp rax, rcx" in compare_body
-    assert "    sete al" in compare_body
-    assert "    setl al" in compare_body
-    assert "    movzx rax, al" in compare_body
+    assert "    cmp r12, r13" in compare_body
+    assert "    sete bl" in compare_body
+    assert "    setl bl" in compare_body
+    assert "    movzx rbx, bl" in compare_body
+    assert "    cmp rax, rcx" not in compare_body
+
+
+def test_emit_source_asm_selects_bool_comparison_into_allocated_destination(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn bool_eq(a: bool, b: bool) -> bool {
+            var same: bool = a == b;
+            return same;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        skip_optimize=True,
+    )
+    bool_eq_body = _body_for_label(asm, mangle_function_symbol(("main",), "bool_eq"))
+
+    assert "    cmp r13, rcx" in bool_eq_body
+    assert "    sete r13b" in bool_eq_body
+    assert "    movzx r13, r13b" in bool_eq_body
+    assert "    sete al" not in bool_eq_body
 
 
 def test_emit_source_asm_emits_integer_divide_and_remainder_sequences(tmp_path) -> None:
@@ -400,10 +424,12 @@ def test_emit_source_asm_emits_checked_shift_sequences(tmp_path) -> None:
 
     assert "    cmp rcx, 64" in lshift_body
     assert "    call rt_panic_invalid_shift_count" in lshift_body
-    assert "    shl rax, cl" in lshift_body
+    assert "    shl r13, cl" in lshift_body
+    assert "    shl rax, cl" not in lshift_body
 
     assert "    cmp rcx, 64" in urshift_body
-    assert "    shr rax, cl" in urshift_body
+    assert "    shr r13, cl" in urshift_body
+    assert "    shr rax, cl" not in urshift_body
 
 
 def test_emit_source_asm_can_execute_shift_program(tmp_path) -> None:

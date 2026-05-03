@@ -152,7 +152,7 @@ class X86_64SysVCallablePlan:
 9. [x] Slice 9: Enable allocation behind an internal target option.
 10. [x] Slice 10: Tighten allocation cleanup and stack-home suppression.
 11. [x] Slice 11: Select simple scalar operations directly into allocated destinations.
-12. [ ] Slice 12: Extend direct scalar selection across comparisons, shifts, casts, and calls.
+12. [x] Slice 12: Extend direct scalar selection across comparisons, shifts, casts, and calls.
 13. [ ] Slice 13: Add conservative copy coalescing in allocation.
 14. [ ] Slice 14: Add a tiny x86_64 SysV post-emission cleanup pass.
 15. [ ] Slice 15: Stabilize measurements and retire the temporary fallback if it no longer catches useful regressions.
@@ -848,19 +848,43 @@ Tests:
 5. Review call return storage.
    - avoid `rax -> allocated -> rax` churn around immediate returns
    - keep ABI return register behavior correct
+   - leave deeper return coalescing for a later peephole/coalescing pass when the local call/return shape is not enough to prove a cleanup is safe
 6. Keep division and remainder conservative unless a small, obviously correct cleanup exists.
 7. Measure the same representative sample and compare against Slice 11.
 
 ### Checklist
 
-- [ ] Reduce comparison result copies.
-- [ ] Reduce boolean operation result copies.
-- [ ] Reduce shift result copies while preserving `cl` count requirements.
-- [ ] Reduce cast result copies.
-- [ ] Reduce call-return result copies where safe.
-- [ ] Preserve ABI return behavior.
-- [ ] Preserve all-stack fallback behavior.
-- [ ] Measure representative assembly statistics.
+- [x] Reduce comparison result copies.
+- [x] Reduce boolean operation result copies.
+- [x] Reduce shift result copies while preserving `cl` count requirements.
+- [x] Reduce cast result copies.
+- [x] Review call-return result copies and preserve ABI behavior.
+- [x] Preserve ABI return behavior.
+- [x] Preserve all-stack fallback behavior.
+- [x] Measure representative assembly statistics.
+
+### Observed Measurement
+
+Command:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+After this slice:
+
+```text
+metric                          without_ra  with_ra  delta
+instruction_count                    16368    17135   +767
+stack_memory_instruction_count        8417     5873  -2544
+stack_load_count                      4424     2535  -1889
+stack_store_count                     3720     3010   -710
+register_copy_count                    284     3790  +3506
+callee_saved_save_count                  0      425   +425
+callee_saved_restore_count               0      425   +425
+```
+
+Compared with Slice 11, emitted lines improved from `19816` to `19264`; register-copy count improved from `4215` to `3790`.
 
 ### How To Test
 
