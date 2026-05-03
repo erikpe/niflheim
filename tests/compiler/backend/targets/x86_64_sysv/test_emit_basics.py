@@ -184,15 +184,72 @@ def test_emit_source_asm_emits_straight_line_scalar_sequences_and_return_registe
 
     assert "    mov rax, 8" in asm
     assert "    mov rbx, rax" in asm
-    assert "    mov rax, rbx" in asm
+    assert "    mov r12, rbx" in asm
+    assert "    neg r12" in asm
     assert "    mov rax, qword ptr [rbp - 8]" not in asm
     assert "    mov qword ptr [rbp - 8], rbx" not in asm
-    assert "    neg rax" in asm
-    assert "    mov rcx, 50" in asm
-    assert "    add rax, rcx" in asm
+    assert "    mov rax, rbx" not in asm
+    assert "    mov rcx, 50" not in asm
+    assert "    add rbx, 50" in asm
     assert "    mov qword ptr [rbp - 32], r12" not in asm
+    assert "    add r12, 100" in asm
     assert "    mov rax, r12" in asm
     assert "    jmp .Lmain_epilogue" in asm
+
+
+def test_emit_source_asm_selects_simple_integer_ops_into_allocated_destinations(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn main() -> i64 {
+            var a: i64 = 6;
+            var b: i64 = a * 7;
+            var c: i64 = b - 5;
+            var d: i64 = ~c;
+            var e: i64 = d & 15;
+            var f: i64 = e | 2;
+            var g: i64 = f ^ 3;
+            return g;
+        }
+        """,
+        skip_optimize=True,
+    )
+
+    assert "    mov rcx, 7" in asm
+    assert "    imul r12, rcx" in asm
+    assert "    sub rbx, 5" in asm
+    assert "    not r12" in asm
+    assert "    and rbx, 15" in asm
+    assert "    or r12, 2" in asm
+    assert "    xor rbx, 3" in asm
+    assert "    mov rcx, 5" not in asm
+    assert "    mov rcx, 15" not in asm
+    assert "    mov rcx, 2" not in asm
+    assert "    mov rcx, 3" not in asm
+
+
+def test_emit_source_asm_uses_scratch_for_large_integer_operands(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn calc() -> u64 {
+            var a: u64 = 1u;
+            var b: u64 = a + 18446744073709551615u;
+            return b;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        skip_optimize=True,
+    )
+    calc_label = mangle_function_symbol(("main",), "calc")
+    calc_body = _body_for_label(asm, calc_label)
+
+    assert "    mov rcx, 18446744073709551615" in calc_body
+    assert "    add r12, rcx" in calc_body
+    assert "    add r12, 18446744073709551615" not in calc_body
 
 
 def test_emit_source_asm_can_disable_register_allocation_for_all_stack_fallback(tmp_path) -> None:
@@ -213,7 +270,9 @@ def test_emit_source_asm_can_disable_register_allocation_for_all_stack_fallback(
     )
 
     assert allocated_asm != stack_asm
-    assert "    mov rax, rbx" in allocated_asm
+    assert "    mov r12, rbx" in allocated_asm
+    assert "    neg r12" in allocated_asm
+    assert "    mov rax, rbx" not in allocated_asm
     assert "    mov qword ptr [rbp - 8], rbx" not in allocated_asm
     assert "    mov qword ptr [rbp - 16], r12" not in allocated_asm
 

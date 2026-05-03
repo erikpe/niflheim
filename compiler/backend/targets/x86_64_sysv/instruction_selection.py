@@ -267,6 +267,14 @@ def _emit_instruction(
             _emit_float_unary_operation(builder, instruction)
             emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
         else:
+            if _try_emit_direct_integer_unary(
+                builder,
+                instruction,
+                operand_type_name=operand_type_name,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            ):
+                return
             emit_load_operand(
                 builder,
                 instruction.operand,
@@ -302,6 +310,14 @@ def _emit_instruction(
             else:
                 emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
         else:
+            if _try_emit_direct_integer_binary(
+                builder,
+                instruction,
+                operand_type_name=operand_type_name,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            ):
+                return
             emit_load_operand(
                 builder,
                 instruction.left,
@@ -516,6 +532,117 @@ def _emit_integer_binary_operation(builder: X86AsmBuilder, kind: BinaryOpKind, *
     raise BackendTargetLoweringError(
         f"x86_64_sysv integer operator '{kind.value}' is not supported in PR3"
     )
+
+
+def _try_emit_direct_integer_unary(
+    builder: X86AsmBuilder,
+    instruction: BackendUnaryInst,
+    *,
+    operand_type_name: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    if instruction.op.flavor != UnaryOpFlavor.INTEGER:
+        return False
+    if instruction.op.kind not in {UnaryOpKind.NEGATE, UnaryOpKind.BITWISE_NOT}:
+        return False
+
+    dest_register = _physical_register_name_for_dest(frame_layout, instruction.dest)
+    if dest_register is None:
+        return False
+
+    _emit_load_scalar_operand_into_register(
+        builder,
+        instruction.operand,
+        target_register=dest_register,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    if instruction.op.kind == UnaryOpKind.NEGATE:
+        builder.instruction("neg", dest_register)
+    else:
+        builder.instruction("not", dest_register)
+    _mask_u8_result_if_needed(builder, operand_type_name, target_register=dest_register)
+    return True
+
+
+def _try_emit_direct_integer_binary(
+    builder: X86AsmBuilder,
+    instruction: BackendBinaryInst,
+    *,
+    operand_type_name: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> bool:
+    if instruction.op.flavor != BinaryOpFlavor.INTEGER:
+        return False
+
+    op_mnemonic = _direct_integer_binary_mnemonic(instruction.op.kind)
+    if op_mnemonic is None:
+        return False
+
+    dest_register = _physical_register_name_for_dest(frame_layout, instruction.dest)
+    if dest_register is None:
+        return False
+
+    left_operand = instruction.left
+    right_operand = instruction.right
+    if _operation_is_commutative(instruction.op.kind) and _operand_physical_register_name(frame_layout, right_operand) == dest_register:
+        left_operand, right_operand = right_operand, left_operand
+    elif (
+        not _operation_is_commutative(instruction.op.kind)
+        and _operand_physical_register_name(frame_layout, right_operand) == dest_register
+        and _operand_physical_register_name(frame_layout, left_operand) != dest_register
+    ):
+        return False
+
+    _emit_load_scalar_operand_into_register(
+        builder,
+        left_operand,
+        target_register=dest_register,
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    right_asm_operand = _scalar_asm_operand_for_binary_rhs(
+        right_operand,
+        frame_layout=frame_layout,
+        allow_immediate=instruction.op.kind is not BinaryOpKind.MULTIPLY,
+    )
+    if right_asm_operand is None:
+        emit_load_operand(
+            builder,
+            right_operand,
+            target_register=_SECONDARY_REGISTER,
+            target_byte_register=_SECONDARY_BYTE_REGISTER,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=register_type_name_by_reg_id,
+        )
+        right_asm_operand = _SECONDARY_REGISTER
+
+    builder.instruction(op_mnemonic, dest_register, right_asm_operand)
+    _mask_u8_result_if_needed(builder, operand_type_name, target_register=dest_register)
+    return True
+
+
+def _direct_integer_binary_mnemonic(kind: BinaryOpKind) -> str | None:
+    return {
+        BinaryOpKind.ADD: "add",
+        BinaryOpKind.SUBTRACT: "sub",
+        BinaryOpKind.MULTIPLY: "imul",
+        BinaryOpKind.BITWISE_AND: "and",
+        BinaryOpKind.BITWISE_OR: "or",
+        BinaryOpKind.BITWISE_XOR: "xor",
+    }.get(kind)
+
+
+def _operation_is_commutative(kind: BinaryOpKind) -> bool:
+    return kind in {
+        BinaryOpKind.ADD,
+        BinaryOpKind.MULTIPLY,
+        BinaryOpKind.BITWISE_AND,
+        BinaryOpKind.BITWISE_OR,
+        BinaryOpKind.BITWISE_XOR,
+    }
 
 
 def _emit_integer_power(builder: X86AsmBuilder, *, operand_type_name: str) -> None:
@@ -773,9 +900,89 @@ def _normalize_bool_register(builder: X86AsmBuilder, register_name: str, byte_re
     builder.instruction("movzx", register_name, byte_register_name)
 
 
-def _mask_u8_result_if_needed(builder: X86AsmBuilder, operand_type_name: str) -> None:
+def _mask_u8_result_if_needed(
+    builder: X86AsmBuilder,
+    operand_type_name: str,
+    *,
+    target_register: str = _PRIMARY_REGISTER,
+) -> None:
     if operand_type_name == TYPE_NAME_U8:
-        builder.instruction("and", _PRIMARY_REGISTER, "255")
+        builder.instruction("and", target_register, "255")
+
+
+def _physical_register_name_for_dest(frame_layout: X86_64SysVFrameLayout, dest_reg_id) -> str | None:
+    physical_register = _physical_register_for_reg(frame_layout, dest_reg_id)
+    return None if physical_register is None else physical_register.name
+
+
+def _operand_physical_register_name(frame_layout: X86_64SysVFrameLayout, operand: BackendOperand) -> str | None:
+    if not isinstance(operand, BackendRegOperand):
+        return None
+    physical_register = _physical_register_for_reg(frame_layout, operand.reg_id)
+    return None if physical_register is None else physical_register.name
+
+
+def _stack_operand_for_reg(frame_layout: X86_64SysVFrameLayout, reg_id) -> str:
+    slot = frame_layout.for_reg(reg_id)
+    if slot is None:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv frame layout is missing a home for register 'r{reg_id.ordinal}'"
+        )
+    return format_stack_slot_operand("rbp", slot.byte_offset)
+
+
+def _emit_load_scalar_operand_into_register(
+    builder: X86AsmBuilder,
+    operand: BackendOperand,
+    *,
+    target_register: str,
+    frame_layout: X86_64SysVFrameLayout,
+    register_type_name_by_reg_id: dict,
+) -> None:
+    source_register = _operand_physical_register_name(frame_layout, operand)
+    if source_register == target_register:
+        if isinstance(operand, BackendRegOperand) and register_type_name_by_reg_id[operand.reg_id] == TYPE_NAME_BOOL:
+            _normalize_bool_register(builder, target_register, _byte_register_name_for_register(target_register))
+        return
+
+    emit_load_operand(
+        builder,
+        operand,
+        target_register=target_register,
+        target_byte_register=_byte_register_name_for_register(target_register),
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+
+
+def _scalar_asm_operand_for_binary_rhs(
+    operand: BackendOperand,
+    *,
+    frame_layout: X86_64SysVFrameLayout,
+    allow_immediate: bool,
+) -> str | None:
+    if isinstance(operand, BackendRegOperand):
+        physical_register_name = _operand_physical_register_name(frame_layout, operand)
+        if physical_register_name is not None:
+            return physical_register_name
+        return _stack_operand_for_reg(frame_layout, operand.reg_id)
+    if allow_immediate and isinstance(operand, BackendConstOperand) and _constant_fits_signed_32_bit_immediate(operand):
+        return _constant_integer_operand(operand)
+    return None
+
+
+def _constant_fits_signed_32_bit_immediate(operand: BackendConstOperand) -> bool:
+    if not isinstance(operand.constant, BackendIntConst):
+        return False
+    return -(2**31) <= operand.constant.value <= 2**31 - 1
+
+
+def _constant_integer_operand(operand: BackendConstOperand) -> str:
+    if isinstance(operand.constant, BackendIntConst):
+        return str(operand.constant.value)
+    raise BackendTargetLoweringError(
+        f"x86_64_sysv expected an integer constant operand, got '{type(operand.constant).__name__}'"
+    )
 
 
 def _try_emit_direct_scalar_copy(

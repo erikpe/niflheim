@@ -151,7 +151,7 @@ class X86_64SysVCallablePlan:
 8. [x] Slice 8: Make call lowering allocation-aware.
 9. [x] Slice 9: Enable allocation behind an internal target option.
 10. [x] Slice 10: Tighten allocation cleanup and stack-home suppression.
-11. [ ] Slice 11: Select simple scalar operations directly into allocated destinations.
+11. [x] Slice 11: Select simple scalar operations directly into allocated destinations.
 12. [ ] Slice 12: Extend direct scalar selection across comparisons, shifts, casts, and calls.
 13. [ ] Slice 13: Add conservative copy coalescing in allocation.
 14. [ ] Slice 14: Add a tiny x86_64 SysV post-emission cleanup pass.
@@ -770,13 +770,36 @@ Tests:
 
 ### Checklist
 
-- [ ] Add reusable scalar location helpers.
-- [ ] Implement direct unary `neg` and `not` lowering.
-- [ ] Implement direct binary `add`, `sub`, `imul`, `and`, `or`, and `xor` lowering.
-- [ ] Support immediate right operands where legal.
-- [ ] Preserve existing divide, remainder, comparison, shift, float, and fallback paths.
-- [ ] Add focused assembly tests for reduced copies.
-- [ ] Measure representative assembly statistics.
+- [x] Add reusable scalar location helpers.
+- [x] Implement direct unary `neg` and `not` lowering.
+- [x] Implement direct binary `add`, `sub`, `imul`, `and`, `or`, and `xor` lowering.
+- [x] Support immediate right operands where legal.
+- [x] Preserve existing divide, remainder, comparison, shift, float, and fallback paths.
+- [x] Add focused assembly tests for reduced copies.
+- [x] Measure representative assembly statistics.
+
+### Observed Measurement
+
+Command:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+After this slice:
+
+```text
+metric                          without_ra  with_ra  delta
+instruction_count                    16368    17687  +1319
+stack_memory_instruction_count        8417     5873  -2544
+stack_load_count                      4424     2581  -1843
+stack_store_count                     3720     3010   -710
+register_copy_count                    284     4215  +3931
+callee_saved_save_count                  0      425   +425
+callee_saved_restore_count               0      425   +425
+```
+
+Compared with Slice 10, emitted lines improved from `20026` to `19816`; register-copy count improved from `4357` to `4215`.
 
 ### How To Test
 
