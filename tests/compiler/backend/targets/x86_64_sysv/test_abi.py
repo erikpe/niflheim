@@ -60,6 +60,14 @@ def test_reduced_sysv_abi_plans_integer_like_arguments_and_returns() -> None:
     assert X86_64_SYSV_ABI.return_register_for_type(None) is None
 
 
+def test_sysv_abi_exposes_caller_saved_gpr_and_xmm_clobber_sets() -> None:
+    assert X86_64_SYSV_ABI.caller_saved_registers == ("rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11")
+    assert X86_64_SYSV_ABI.caller_saved_xmm_registers[:4] == ("xmm0", "xmm1", "xmm2", "xmm3")
+    assert X86_64_SYSV_ABI.caller_saved_xmm_registers[-2:] == ("xmm14", "xmm15")
+    assert X86_64_SYSV_ABI.all_caller_saved_registers[:2] == ("rax", "rcx")
+    assert X86_64_SYSV_ABI.all_caller_saved_registers[-2:] == ("xmm14", "xmm15")
+
+
 def test_reduced_sysv_abi_treats_callable_values_as_integer_like_arguments_and_returns() -> None:
     callable_type = SemanticTypeRef(
         kind="callable",

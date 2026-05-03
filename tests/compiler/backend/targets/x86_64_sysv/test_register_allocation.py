@@ -6,6 +6,7 @@ from compiler.backend.targets import BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv import (
     X86_64SysVLiveInterval,
     allocate_x86_64_sysv_registers,
+    build_abi_constraints,
     build_instruction_positions,
     build_live_intervals,
     plan_x86_64_sysv_target,
@@ -198,6 +199,71 @@ def test_build_live_intervals_marks_gc_references_live_at_safepoints(tmp_path) -
     assert box_interval.live_at_safepoint is True
 
 
+def test_build_abi_constraints_records_arguments_calls_returns_and_fixed_operations(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn callee(a: i64, b: double) -> double {
+            return b;
+        }
+
+        fn sample(a: i64, b: double, n: u64) -> double {
+            var shifted: u64 = n << 1u;
+            var divided: u64 = n / 2u;
+            return callee(a, b);
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        callable_name="sample",
+    )
+
+    constraints = build_abi_constraints(callable_plan).constraints
+
+    assert _constraint_registers(constraints, reason="incoming_argument", kind="definition") == ("rdi", "xmm0", "rsi")
+    assert ("rcx", "temporary", "shift_count") in _constraint_shapes(constraints)
+    assert ("rax", "temporary", "integer_division") in _constraint_shapes(constraints)
+    assert ("rdx", "temporary", "integer_division") in _constraint_shapes(constraints)
+    assert _constraint_registers(constraints, reason="call_argument", kind="use") == ("rdi", "xmm0")
+    assert _constraint_registers(constraints, reason="call_return", kind="definition") == ("xmm0",)
+    assert _constraint_registers(constraints, reason="return_value", kind="use") == ("xmm0",)
+
+    call_clobbers = _constraint_registers(constraints, reason="call_clobber", kind="clobber")
+    assert call_clobbers[:3] == ("rax", "rcx", "rdx")
+    assert call_clobbers[-2:] == ("xmm14", "xmm15")
+
+
+def test_allocate_x86_64_sysv_registers_keeps_conservative_locations_while_recording_constraints(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn callee(value: i64) -> i64 {
+            return value + 1;
+        }
+
+        fn sample(a: i64, b: i64) -> i64 {
+            var keep: i64 = a;
+            var result: i64 = callee(b);
+            return keep + result;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "a")).physical_register.name == "rbx"
+    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "r12"
+    assert allocation.abi_constraints.clobbers_at_position(1)
+    assert "r10" in _constraint_registers(allocation.abi_constraints.constraints, reason="call_lowering_scratch", kind="temporary")
+
+
 def test_allocate_x86_64_sysv_registers_can_assign_gc_references_after_root_reload_is_location_aware(tmp_path) -> None:
     callable_plan = _callable_plan(
         tmp_path,
@@ -388,6 +454,18 @@ def test_allocate_x86_64_sysv_registers_spills_when_gpr_pressure_exceeds_initial
     assert allocation.location_for_reg(f_reg_id).physical_register is None
     assert allocation.location_for_reg(f_reg_id).stack_slot is not None
     assert allocation.spilled_reg_ids == (f_reg_id,)
+
+
+def _constraint_shapes(constraints):
+    return tuple((constraint.register_name, constraint.kind, constraint.reason) for constraint in constraints)
+
+
+def _constraint_registers(constraints, *, reason: str, kind: str) -> tuple[str, ...]:
+    return tuple(
+        constraint.register_name
+        for constraint in constraints
+        if constraint.reason == reason and constraint.kind == kind
+    )
 
 
 def test_allocate_x86_64_sysv_registers_spills_farthest_active_interval_when_useful(tmp_path) -> None:

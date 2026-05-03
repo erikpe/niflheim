@@ -27,6 +27,24 @@ class X86_64SysVAbi:
     int_return_register: str = "rax"
     float_return_register: str = "xmm0"
     caller_saved_registers: tuple[str, ...] = ("rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11")
+    caller_saved_xmm_registers: tuple[str, ...] = (
+        "xmm0",
+        "xmm1",
+        "xmm2",
+        "xmm3",
+        "xmm4",
+        "xmm5",
+        "xmm6",
+        "xmm7",
+        "xmm8",
+        "xmm9",
+        "xmm10",
+        "xmm11",
+        "xmm12",
+        "xmm13",
+        "xmm14",
+        "xmm15",
+    )
     callee_saved_registers: tuple[str, ...] = ("rbx", "r12", "r13", "r14", "r15")
     frame_pointer_register: str = "rbp"
     stack_pointer_register: str = "rsp"
@@ -96,6 +114,10 @@ class X86_64SysVAbi:
         if self.is_float_type(type_ref):
             return self.float_return_register
         return self.int_return_register
+
+    @property
+    def all_caller_saved_registers(self) -> tuple[str, ...]:
+        return (*self.caller_saved_registers, *self.caller_saved_xmm_registers)
 
     def stack_size_is_aligned(self, byte_count: int) -> bool:
         if byte_count < 0:

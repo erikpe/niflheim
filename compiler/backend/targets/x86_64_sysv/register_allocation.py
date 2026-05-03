@@ -5,15 +5,19 @@ from dataclasses import dataclass
 from compiler.backend.analysis.liveness import instruction_def_reg, instruction_use_regs, terminator_use_regs
 from compiler.backend.analysis.safepoints import instruction_is_safepoint, register_is_gc_reference
 from compiler.backend.ir import (
+    BackendBinaryInst,
     BackendBlockId,
     BackendCallInst,
     BackendCallableDecl,
     BackendCopyInst,
     BackendInstId,
+    BackendOperand,
     BackendRegOperand,
     BackendRegId,
+    BackendReturnTerminator,
 )
 from compiler.backend.ir._ordering import reg_id_sort_key
+from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
 from compiler.backend.targets.x86_64_sysv.locations import (
     X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
     X86_64SysVPhysicalRegister,
@@ -23,6 +27,7 @@ from compiler.backend.targets.x86_64_sysv.locations import (
     register_class_for_type,
 )
 from compiler.backend.targets.x86_64_sysv.pipeline import X86_64SysVCallablePlan
+from compiler.semantic.operations import BinaryOpKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,11 +54,39 @@ class X86_64SysVLiveInterval:
 
 
 @dataclass(frozen=True, slots=True)
+class X86_64SysVFixedRegisterConstraint:
+    position: int
+    register_name: str
+    register_class: X86_64SysVRegisterClass
+    kind: str
+    reason: str
+    reg_id: BackendRegId | None = None
+    inst_id: BackendInstId | None = None
+    block_id: BackendBlockId | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class X86_64SysVAbiConstraintPlan:
+    constraints: tuple[X86_64SysVFixedRegisterConstraint, ...]
+
+    def constraints_at_position(self, position: int) -> tuple[X86_64SysVFixedRegisterConstraint, ...]:
+        return tuple(constraint for constraint in self.constraints if constraint.position == position)
+
+    def clobbers_at_position(self, position: int) -> tuple[X86_64SysVFixedRegisterConstraint, ...]:
+        return tuple(
+            constraint
+            for constraint in self.constraints
+            if constraint.position == position and constraint.kind == "clobber"
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class X86_64SysVRegisterAllocation:
     callable_decl: BackendCallableDecl
     location_by_reg: dict[BackendRegId, X86_64SysVRegisterLocation]
     used_callee_saved_registers: tuple[X86_64SysVPhysicalRegister, ...]
     spilled_reg_ids: tuple[BackendRegId, ...]
+    abi_constraints: X86_64SysVAbiConstraintPlan
 
     def location_for_reg(self, reg_id: BackendRegId) -> X86_64SysVRegisterLocation:
         return self.location_by_reg[reg_id]
@@ -179,6 +212,79 @@ def build_live_intervals(callable_plan: X86_64SysVCallablePlan) -> tuple[X86_64S
     )
 
 
+def build_abi_constraints(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    abi: X86_64SysVAbi = X86_64_SYSV_ABI,
+) -> X86_64SysVAbiConstraintPlan:
+    callable_decl = callable_plan.callable_decl
+    if callable_decl.is_extern or not callable_decl.blocks:
+        return X86_64SysVAbiConstraintPlan(constraints=())
+
+    positions = build_instruction_positions(callable_plan)
+    constraints: list[X86_64SysVFixedRegisterConstraint] = []
+    register_by_id = {register.reg_id: register for register in callable_decl.registers}
+
+    incoming_regs = callable_decl.param_regs
+    incoming_types = callable_decl.signature.param_types
+    includes_receiver = callable_decl.receiver_reg is not None
+    if includes_receiver:
+        incoming_regs = (callable_decl.receiver_reg, *incoming_regs)
+        incoming_types = (register_by_id[callable_decl.receiver_reg].type_ref, *incoming_types)
+
+    for reg_id, arg_location in zip(
+        incoming_regs,
+        abi.plan_argument_locations(incoming_types, includes_receiver=False),
+        strict=True,
+    ):
+        if arg_location.register_name is None:
+            continue
+        constraints.append(
+            _fixed_register_constraint(
+                position=0,
+                register_name=arg_location.register_name,
+                kind="definition",
+                reason="incoming_argument",
+                reg_id=reg_id,
+            )
+        )
+
+    block_by_id = {block.block_id: block for block in callable_decl.blocks}
+    for block_id in callable_plan.ordered_block_ids:
+        block = block_by_id[block_id]
+        for instruction in block.instructions:
+            position = positions.instruction_position(instruction.inst_id)
+            if isinstance(instruction, BackendCallInst):
+                constraints.extend(
+                    _call_fixed_register_constraints(
+                        instruction,
+                        position=position,
+                        abi=abi,
+                    )
+                )
+                continue
+            if isinstance(instruction, BackendBinaryInst):
+                constraints.extend(_binary_fixed_register_constraints(instruction, position=position))
+
+        terminator_position = positions.terminator_position(block_id)
+        terminator = block.terminator
+        if isinstance(terminator, BackendReturnTerminator) and terminator.value is not None:
+            return_register = abi.return_register_for_type(callable_decl.signature.return_type)
+            if return_register is not None:
+                constraints.append(
+                    _fixed_register_constraint(
+                        position=terminator_position,
+                        register_name=return_register,
+                        kind="use",
+                        reason="return_value",
+                        reg_id=_operand_reg_id(terminator.value),
+                        block_id=block_id,
+                    )
+                )
+
+    return X86_64SysVAbiConstraintPlan(constraints=tuple(constraints))
+
+
 def allocate_x86_64_sysv_registers(
     callable_plan: X86_64SysVCallablePlan,
     *,
@@ -186,6 +292,7 @@ def allocate_x86_64_sysv_registers(
     allocatable_gprs: tuple[X86_64SysVPhysicalRegister, ...] = X86_64_SYSV_INITIAL_ALLOCATABLE_GPRS,
 ) -> X86_64SysVRegisterAllocation:
     resolved_intervals = build_live_intervals(callable_plan) if intervals is None else intervals
+    abi_constraints = build_abi_constraints(callable_plan)
     interval_by_reg = {interval.reg_id: interval for interval in resolved_intervals}
     copy_preference_by_dest = _copy_preferences_by_dest(
         callable_plan,
@@ -277,7 +384,143 @@ def allocate_x86_64_sysv_registers(
         location_by_reg=location_by_reg,
         used_callee_saved_registers=used_callee_saved_registers,
         spilled_reg_ids=tuple(sorted(spilled_reg_ids, key=reg_id_sort_key)),
+        abi_constraints=abi_constraints,
     )
+
+
+def _call_fixed_register_constraints(
+    instruction: BackendCallInst,
+    *,
+    position: int,
+    abi: X86_64SysVAbi,
+) -> tuple[X86_64SysVFixedRegisterConstraint, ...]:
+    constraints: list[X86_64SysVFixedRegisterConstraint] = []
+    arg_locations = abi.plan_argument_locations(
+        instruction.signature.param_types,
+        includes_receiver=_call_includes_receiver(instruction),
+    )
+    for operand, arg_location in zip(instruction.args, arg_locations, strict=True):
+        if arg_location.register_name is None:
+            continue
+        constraints.append(
+            _fixed_register_constraint(
+                position=position,
+                register_name=arg_location.register_name,
+                kind="use",
+                reason="call_argument",
+                reg_id=_operand_reg_id(operand),
+                inst_id=instruction.inst_id,
+            )
+        )
+
+    if instruction.dest is not None and instruction.signature.return_type is not None:
+        constraints.append(
+            _fixed_register_constraint(
+                position=position,
+                register_name=abi.return_register_for_type(instruction.signature.return_type),
+                kind="definition",
+                reason="call_return",
+                reg_id=instruction.dest,
+                inst_id=instruction.inst_id,
+            )
+        )
+
+    for register_name in abi.all_caller_saved_registers:
+        constraints.append(
+            _fixed_register_constraint(
+                position=position,
+                register_name=register_name,
+                kind="clobber",
+                reason="call_clobber",
+                inst_id=instruction.inst_id,
+            )
+        )
+
+    for register_name in ("rax", "r10", "r11", "xmm15"):
+        constraints.append(
+            _fixed_register_constraint(
+                position=position,
+                register_name=register_name,
+                kind="temporary",
+                reason="call_lowering_scratch",
+                inst_id=instruction.inst_id,
+            )
+        )
+
+    return tuple(constraints)
+
+
+def _binary_fixed_register_constraints(
+    instruction: BackendBinaryInst,
+    *,
+    position: int,
+) -> tuple[X86_64SysVFixedRegisterConstraint, ...]:
+    if instruction.op.kind in {BinaryOpKind.SHIFT_LEFT, BinaryOpKind.SHIFT_RIGHT}:
+        return (
+            _fixed_register_constraint(
+                position=position,
+                register_name="rcx",
+                kind="temporary",
+                reason="shift_count",
+                reg_id=_operand_reg_id(instruction.right),
+                inst_id=instruction.inst_id,
+            ),
+        )
+    if instruction.op.kind in {BinaryOpKind.DIVIDE, BinaryOpKind.REMAINDER}:
+        return (
+            _fixed_register_constraint(
+                position=position,
+                register_name="rax",
+                kind="temporary",
+                reason="integer_division",
+                reg_id=_operand_reg_id(instruction.left),
+                inst_id=instruction.inst_id,
+            ),
+            _fixed_register_constraint(
+                position=position,
+                register_name="rdx",
+                kind="temporary",
+                reason="integer_division",
+                inst_id=instruction.inst_id,
+            ),
+        )
+    return ()
+
+
+def _fixed_register_constraint(
+    *,
+    position: int,
+    register_name: str | None,
+    kind: str,
+    reason: str,
+    reg_id: BackendRegId | None = None,
+    inst_id: BackendInstId | None = None,
+    block_id: BackendBlockId | None = None,
+) -> X86_64SysVFixedRegisterConstraint:
+    if register_name is None:
+        raise ValueError("x86_64 SysV fixed-register constraint requires a register name")
+    return X86_64SysVFixedRegisterConstraint(
+        position=position,
+        register_name=register_name,
+        register_class=_register_class_for_physical_name(register_name),
+        kind=kind,
+        reason=reason,
+        reg_id=reg_id,
+        inst_id=inst_id,
+        block_id=block_id,
+    )
+
+
+def _register_class_for_physical_name(register_name: str) -> X86_64SysVRegisterClass:
+    return "xmm" if register_name.startswith("xmm") else "gpr"
+
+
+def _operand_reg_id(operand: BackendOperand) -> BackendRegId | None:
+    return operand.reg_id if isinstance(operand, BackendRegOperand) else None
+
+
+def _call_includes_receiver(instruction: BackendCallInst) -> bool:
+    return len(instruction.args) == len(instruction.signature.param_types) + 1
 
 
 def _copy_preferences_by_dest(
@@ -460,10 +703,13 @@ def _stack_location_for_reg(
 
 
 __all__ = [
+    "X86_64SysVAbiConstraintPlan",
+    "X86_64SysVFixedRegisterConstraint",
     "X86_64SysVInstructionPositions",
     "X86_64SysVLiveInterval",
     "X86_64SysVRegisterAllocation",
     "allocate_x86_64_sysv_registers",
+    "build_abi_constraints",
     "build_instruction_positions",
     "build_live_intervals",
 ]

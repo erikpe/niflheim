@@ -44,10 +44,13 @@ from compiler.backend.targets.x86_64_sysv.pipeline import (
     plan_x86_64_sysv_target,
 )
 from compiler.backend.targets.x86_64_sysv.register_allocation import (
+    X86_64SysVAbiConstraintPlan,
+    X86_64SysVFixedRegisterConstraint,
     X86_64SysVInstructionPositions,
     X86_64SysVLiveInterval,
     X86_64SysVRegisterAllocation,
     allocate_x86_64_sysv_registers,
+    build_abi_constraints,
     build_instruction_positions,
     build_live_intervals,
 )
@@ -70,9 +73,11 @@ __all__ = [
     "X86_64_SYSV_XMM_REGISTERS",
     "X86AsmBuilder",
     "X86_64SysVAbi",
+    "X86_64SysVAbiConstraintPlan",
     "X86_64SysVArgLocation",
     "X86_64SysVCallablePlan",
     "X86_64SysVCalleeSavedSlot",
+    "X86_64SysVFixedRegisterConstraint",
     "X86_64SysVFrameError",
     "X86_64SysVFrameLayout",
     "X86_64SysVFrameSlot",
@@ -87,6 +92,7 @@ __all__ = [
     "X86_64SysVTarget",
     "X86_64SysVTargetPlan",
     "allocate_x86_64_sysv_registers",
+    "build_abi_constraints",
     "check_x86_64_sysv_legality",
     "build_instruction_positions",
     "build_live_intervals",
