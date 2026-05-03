@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from compiler.backend.ir import BackendCallInst
 from compiler.backend.targets import BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv import (
     X86_64SysVLiveInterval,
@@ -344,7 +345,7 @@ def test_allocate_x86_64_sysv_registers_prefers_caller_saved_gprs_for_call_free_
     assert tuple(register.name for register in allocation.used_callee_saved_registers) == ("rbx",)
 
 
-def test_allocate_x86_64_sysv_registers_keeps_call_overlapping_values_in_callee_saved_gprs(tmp_path) -> None:
+def test_allocate_x86_64_sysv_registers_spills_single_call_crossing_caller_saved_gprs(tmp_path) -> None:
     callable_plan = _callable_plan(
         tmp_path,
         """
@@ -366,9 +367,55 @@ def test_allocate_x86_64_sysv_registers_keeps_call_overlapping_values_in_callee_
     )
 
     allocation = allocate_x86_64_sysv_registers(callable_plan)
+    call_instruction = next(
+        instruction
+        for block in callable_plan.callable_decl.blocks
+        for instruction in block.instructions
+        if isinstance(instruction, BackendCallInst)
+    )
+    keep_reg_id = _reg_id_by_debug_name(callable_plan, "keep")
 
-    assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "keep")).physical_register.name == "r12"
+    assert allocation.location_for_reg(keep_reg_id).physical_register.name == "r10"
     assert allocation.location_for_reg(_reg_id_by_debug_name(callable_plan, "b")).physical_register.name == "rbx"
+    assert tuple(
+        (spill.reg_id, spill.physical_register.name)
+        for spill in allocation.caller_saved_spills_for_inst(call_instruction.inst_id)
+    ) == ((keep_reg_id, "r10"),)
+
+
+def test_allocate_x86_64_sysv_registers_keeps_multi_call_crossing_values_in_callee_saved_gprs(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn callee(value: i64) -> i64 {
+            return value + 1;
+        }
+
+        fn sample(a: i64, b: i64) -> i64 {
+            var keep: i64 = a;
+            var first: i64 = callee(b);
+            var second: i64 = callee(first);
+            return keep + second;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+    keep_reg_id = _reg_id_by_debug_name(callable_plan, "keep")
+    keep_register = allocation.location_for_reg(keep_reg_id).physical_register
+
+    assert keep_register is not None
+    assert keep_register.preserved_by_callee is True
+    assert all(
+        spill.reg_id != keep_reg_id
+        for spill_point in allocation.caller_saved_spills_by_inst.values()
+        for spill in spill_point.spills
+    )
 
 
 def test_allocate_x86_64_sysv_registers_reuses_expired_registers(tmp_path) -> None:

@@ -149,6 +149,55 @@ def test_emit_source_asm_syncs_live_reference_roots_before_ordinary_calls(tmp_pa
     assert sync_match is not None, caller_body
 
 
+def test_emit_source_asm_runs_caller_saved_int_across_root_syncing_call(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        fn ping(value: Obj) -> unit {
+            return;
+        }
+
+        fn caller(value: i64, obj: Obj) -> i64 {
+            var keep: i64 = value;
+            ping(obj);
+            return keep + 1;
+        }
+
+        fn main() -> i64 {
+            return caller(41, null);
+        }
+        """,
+        skip_optimize=True,
+        disabled_passes=("copy_propagation", "dead_stmt_prune", "dead_store_elimination"),
+    )
+
+    assert run.returncode == 42
+
+
+def test_emit_source_asm_runs_integer_argument_through_root_syncing_call(tmp_path) -> None:
+    run = compile_and_run_source(
+        tmp_path,
+        """
+        fn accept(obj: Obj, value: i64) -> i64 {
+            return value;
+        }
+
+        fn caller(obj: Obj, value: i64) -> i64 {
+            var computed: i64 = value + 1;
+            return accept(obj, computed);
+        }
+
+        fn main() -> i64 {
+            return caller(null, 41);
+        }
+        """,
+        skip_optimize=True,
+        disabled_passes=("copy_propagation", "dead_stmt_prune", "dead_store_elimination"),
+    )
+
+    assert run.returncode == 42
+
+
 def test_emit_source_asm_loop_carried_roots_do_not_emit_legacy_named_root_blocks(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,

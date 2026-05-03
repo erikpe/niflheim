@@ -297,6 +297,8 @@ def _emit_callable_body(
         emit_root_slot_reload(builder, frame_layout=frame_layout, live_reg_ids=live_reg_ids)
 
     def emit_call_instruction(instruction: BackendCallInst) -> None:
+        caller_saved_spills = _caller_saved_spills_for_call(instruction, frame_layout=frame_layout)
+        _emit_caller_saved_spills(builder, caller_saved_spills, frame_layout=frame_layout)
         if runtime_trace_enabled:
             emit_location_hook(line=instruction.span.start.line, column=instruction.span.start.column)
         emit_lowered_call_instruction(
@@ -311,7 +313,17 @@ def _emit_callable_body(
             callable_label=callable_label_for_calls,
             emit_safepoint_preamble=emit_safepoint_preamble,
             emit_safepoint_postamble=emit_safepoint_postamble,
+            emit_before_call_setup=(
+                (lambda _: _emit_caller_saved_reloads(builder, caller_saved_spills, frame_layout=frame_layout))
+                if _caller_saved_pre_call_reload_required(
+                    instruction,
+                    frame_layout=frame_layout,
+                    runtime_trace_enabled=runtime_trace_enabled,
+                )
+                else None
+            ),
         )
+        _emit_caller_saved_reloads(builder, caller_saved_spills, frame_layout=frame_layout)
 
     if callable_decl.kind == "constructor":
         _emit_constructor_entry_wrapper(
@@ -616,6 +628,44 @@ def _emit_allocated_entry_register_loads(builder, callable_decl, *, frame_layout
                 f"x86_64_sysv frame layout is missing a home for allocated entry register 'r{reg_id.ordinal}'"
             )
         builder.instruction("mov", location.physical_register.name, format_stack_slot_operand("rbp", slot.byte_offset))
+
+
+def _caller_saved_spills_for_call(instruction: BackendCallInst, *, frame_layout) -> tuple:
+    allocation = frame_layout.allocation
+    if allocation is None:
+        return ()
+    return allocation.caller_saved_spills_for_inst(instruction.inst_id)
+
+
+def _caller_saved_pre_call_reload_required(
+    instruction: BackendCallInst,
+    *,
+    frame_layout,
+    runtime_trace_enabled: bool,
+) -> bool:
+    return runtime_trace_enabled or (
+        frame_layout.has_root_frame and (instruction.effects.may_gc or instruction.effects.needs_safepoint_hooks)
+    )
+
+
+def _emit_caller_saved_spills(builder, spills: tuple, *, frame_layout) -> None:
+    for spill in spills:
+        slot = frame_layout.for_reg(spill.reg_id)
+        if slot is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv caller-saved spill is missing a stack home for register 'r{spill.reg_id.ordinal}'"
+            )
+        builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), spill.physical_register.name)
+
+
+def _emit_caller_saved_reloads(builder, spills: tuple, *, frame_layout) -> None:
+    for spill in spills:
+        slot = frame_layout.for_reg(spill.reg_id)
+        if slot is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv caller-saved reload is missing a stack home for register 'r{spill.reg_id.ordinal}'"
+            )
+        builder.instruction("mov", spill.physical_register.name, format_stack_slot_operand("rbp", slot.byte_offset))
 
 
 def _emit_allocation_debug_comments(builder, frame_layout) -> None:

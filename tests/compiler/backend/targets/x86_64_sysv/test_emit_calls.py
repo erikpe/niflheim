@@ -202,9 +202,18 @@ def test_emit_source_asm_preserves_allocated_values_across_calls(tmp_path) -> No
 
     caller_body = _body_for_label(asm, mangle_function_symbol(("main",), "caller"))
 
-    assert f"    call {mangle_function_symbol(('main',), 'callee')}" in caller_body
-    assert "    mov r10, rbx" in caller_body
-    assert "    add r10, r12" in caller_body
+    call_text = f"    call {mangle_function_symbol(('main',), 'callee')}"
+    assert call_text in caller_body
+    save_text = "    mov qword ptr [rbp - 16], r10"
+    trace_text = "    call rt_trace_set_location"
+    reload_text = "    mov r10, qword ptr [rbp - 16]"
+    assert save_text in caller_body
+    assert trace_text in caller_body
+    assert reload_text in caller_body
+    assert caller_body.index(save_text) < caller_body.index(trace_text)
+    assert caller_body.index(trace_text) < caller_body.index(reload_text)
+    assert caller_body.rindex(reload_text) > caller_body.index(call_text)
+    assert "    add r11, rbx" in caller_body
     assert "    mov rax, r12" not in caller_body
     assert "    mov rcx, r12" not in caller_body
 

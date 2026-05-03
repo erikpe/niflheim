@@ -46,6 +46,8 @@ from compiler.backend.targets.x86_64_sysv.pipeline import (
 )
 from compiler.backend.targets.x86_64_sysv.register_allocation import (
     X86_64SysVAbiConstraintPlan,
+    X86_64SysVCallerSavedSpill,
+    X86_64SysVCallerSavedSpillPoint,
     X86_64SysVFixedRegisterConstraint,
     X86_64SysVInstructionPositions,
     X86_64SysVLiveInterval,
@@ -77,6 +79,8 @@ __all__ = [
     "X86_64SysVAbi",
     "X86_64SysVAbiConstraintPlan",
     "X86_64SysVArgLocation",
+    "X86_64SysVCallerSavedSpill",
+    "X86_64SysVCallerSavedSpillPoint",
     "X86_64SysVCallablePlan",
     "X86_64SysVCalleeSavedSlot",
     "X86_64SysVFixedRegisterConstraint",

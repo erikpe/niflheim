@@ -252,13 +252,44 @@ Tests:
 
 ### Checklist
 
-- [ ] Compute live caller-saved assignments per call.
-- [ ] Emit targeted save/reload around ordinary calls.
-- [ ] Emit targeted save/reload around runtime calls.
-- [ ] Preserve GC root sync and reload behavior.
-- [ ] Avoid saving registers whose value dies at the call.
-- [ ] Add execution tests for values live across calls.
-- [ ] Measure instruction and stack-memory tradeoffs.
+- [x] Compute live caller-saved assignments per call.
+- [x] Emit targeted save/reload around ordinary calls.
+- [x] Emit targeted save/reload around runtime calls.
+- [x] Preserve GC root sync and reload behavior.
+- [x] Avoid saving registers whose value dies at the call.
+- [x] Add execution tests for values live across calls.
+- [x] Measure instruction and stack-memory tradeoffs.
+
+### Implementation Notes
+
+- Added per-call caller-saved spill metadata to `X86_64SysVRegisterAllocation`.
+- Allowed non-reference GPR intervals that cross exactly one modeled call, and no extra safepointing helper instruction, to use the call-free caller-saved pool.
+- Kept multi-call-crossing values and values crossing non-call helper safepoints in callee-saved registers as a simple cost heuristic: two save/reload instructions for one call roughly matches one callee-saved save/restore pair, while more calls usually lose.
+- Saved caller-saved values to their existing stack homes before runtime trace hooks, safepoint hooks, argument setup, and the call itself.
+- Reloaded saved values before call setup when trace/root hooks may have clobbered them, then reloaded again after the call.
+- Left GC references out of caller-saved cross-call allocation so root synchronization remains responsible for reference liveness.
+
+### Measurement Notes
+
+Measured with:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+```text
+metric                          without_ra  with_ra  delta
+------------------------------  ----------  -------  -----
+instruction_count                    16368    17131   +763
+stack_memory_instruction_count        8417     5708  -2709
+stack_load_count                      4424     2443  -1981
+stack_store_count                     3720     2958   -762
+register_copy_count                    284     3931  +3647
+callee_saved_save_count                  0      376   +376
+callee_saved_restore_count               0      376   +376
+```
+
+Compared with slice 2, callee-saved save/restore counts improved from `377` each to `376` each. Stack memory instructions rose from `5692` to `5708` after tightening the eligibility guard for non-call helper safepoints. Total instructions increased from `17048` to `17131` because the one-call save/reload pairs add local traffic; later coalescing and argument-boundary cleanup slices should recover some of that.
 
 ### How To Test
 

@@ -82,15 +82,32 @@ class X86_64SysVAbiConstraintPlan:
 
 
 @dataclass(frozen=True, slots=True)
+class X86_64SysVCallerSavedSpill:
+    reg_id: BackendRegId
+    physical_register: X86_64SysVPhysicalRegister
+
+
+@dataclass(frozen=True, slots=True)
+class X86_64SysVCallerSavedSpillPoint:
+    inst_id: BackendInstId
+    spills: tuple[X86_64SysVCallerSavedSpill, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class X86_64SysVRegisterAllocation:
     callable_decl: BackendCallableDecl
     location_by_reg: dict[BackendRegId, X86_64SysVRegisterLocation]
     used_callee_saved_registers: tuple[X86_64SysVPhysicalRegister, ...]
     spilled_reg_ids: tuple[BackendRegId, ...]
     abi_constraints: X86_64SysVAbiConstraintPlan
+    caller_saved_spills_by_inst: dict[BackendInstId, X86_64SysVCallerSavedSpillPoint]
 
     def location_for_reg(self, reg_id: BackendRegId) -> X86_64SysVRegisterLocation:
         return self.location_by_reg[reg_id]
+
+    def caller_saved_spills_for_inst(self, inst_id: BackendInstId) -> tuple[X86_64SysVCallerSavedSpill, ...]:
+        spill_point = self.caller_saved_spills_by_inst.get(inst_id)
+        return () if spill_point is None else spill_point.spills
 
 
 @dataclass(frozen=True, slots=True)
@@ -296,6 +313,8 @@ def allocate_x86_64_sysv_registers(
     resolved_intervals = build_live_intervals(callable_plan) if intervals is None else intervals
     abi_constraints = build_abi_constraints(callable_plan)
     interval_by_reg = {interval.reg_id: interval for interval in resolved_intervals}
+    call_crossing_count_by_reg = _call_crossing_count_by_reg_id(callable_plan)
+    safepoint_crossing_count_by_reg = _safepoint_crossing_count_by_reg_id(callable_plan)
     copy_preference_by_dest = _copy_preferences_by_dest(
         callable_plan,
         positions=build_instruction_positions(callable_plan),
@@ -316,6 +335,8 @@ def allocate_x86_64_sysv_registers(
             abi_constraints=abi_constraints,
             callee_saved_gprs=allocatable_gprs,
             call_free_gprs=call_free_allocatable_gprs,
+            call_crossing_count=call_crossing_count_by_reg.get(interval.reg_id, 0),
+            safepoint_crossing_count=safepoint_crossing_count_by_reg.get(interval.reg_id, 0),
         )
 
         preferred_register, active_to_release = _preferred_register_for_interval(
@@ -389,12 +410,19 @@ def allocate_x86_64_sysv_registers(
         and any(assigned.name == physical_register.name for assigned in physical_register_by_reg.values())
     )
 
+    caller_saved_spills_by_inst = _caller_saved_spills_by_inst(
+        callable_plan,
+        physical_register_by_reg=physical_register_by_reg,
+        caller_saved_gprs=call_free_allocatable_gprs,
+    )
+
     return X86_64SysVRegisterAllocation(
         callable_decl=callable_plan.callable_decl,
         location_by_reg=location_by_reg,
         used_callee_saved_registers=used_callee_saved_registers,
         spilled_reg_ids=tuple(sorted(spilled_reg_ids, key=reg_id_sort_key)),
         abi_constraints=abi_constraints,
+        caller_saved_spills_by_inst=caller_saved_spills_by_inst,
     )
 
 
@@ -466,23 +494,55 @@ def _register_pool_for_interval(
     abi_constraints: X86_64SysVAbiConstraintPlan,
     callee_saved_gprs: tuple[X86_64SysVPhysicalRegister, ...],
     call_free_gprs: tuple[X86_64SysVPhysicalRegister, ...],
+    call_crossing_count: int,
+    safepoint_crossing_count: int,
 ) -> tuple[X86_64SysVPhysicalRegister, ...]:
-    if _interval_can_use_call_free_registers(interval, abi_constraints=abi_constraints):
+    if _interval_can_use_caller_saved_registers(
+        interval,
+        abi_constraints=abi_constraints,
+        call_crossing_count=call_crossing_count,
+        safepoint_crossing_count=safepoint_crossing_count,
+    ):
         return (*call_free_gprs, *callee_saved_gprs)
     return callee_saved_gprs
 
 
-def _interval_can_use_call_free_registers(
+def _interval_can_use_caller_saved_registers(
     interval: X86_64SysVLiveInterval,
     *,
     abi_constraints: X86_64SysVAbiConstraintPlan,
+    call_crossing_count: int,
+    safepoint_crossing_count: int,
 ) -> bool:
-    if interval.crosses_call or interval.live_at_safepoint or interval.is_gc_reference:
+    if interval.is_gc_reference:
+        return False
+    if interval.crosses_call:
+        return (
+            call_crossing_count == 1
+            and safepoint_crossing_count <= call_crossing_count
+            and not _has_unsaved_caller_saved_conflict(
+                interval,
+                abi_constraints=abi_constraints,
+            )
+        )
+    if interval.live_at_safepoint:
         return False
     return not any(
         _constraint_overlaps_interval(constraint, interval)
         for constraint in abi_constraints.constraints
         if constraint.kind in {"clobber", "temporary"} or constraint.reason in {"call_argument", "call_return"}
+    )
+
+
+def _has_unsaved_caller_saved_conflict(
+    interval: X86_64SysVLiveInterval,
+    *,
+    abi_constraints: X86_64SysVAbiConstraintPlan,
+) -> bool:
+    return any(
+        _constraint_overlaps_interval(constraint, interval)
+        for constraint in abi_constraints.constraints
+        if constraint.kind == "temporary" and constraint.reason != "call_lowering_scratch"
     )
 
 
@@ -675,7 +735,11 @@ def _preferred_register_for_interval(
 
 
 def _call_crossing_reg_ids(callable_plan: X86_64SysVCallablePlan) -> frozenset[BackendRegId]:
-    call_crossing: set[BackendRegId] = set()
+    return frozenset(_call_crossing_count_by_reg_id(callable_plan))
+
+
+def _call_crossing_count_by_reg_id(callable_plan: X86_64SysVCallablePlan) -> dict[BackendRegId, int]:
+    call_crossing_count_by_reg: dict[BackendRegId, int] = {}
     for block in callable_plan.callable_decl.blocks:
         for instruction in block.instructions:
             if not isinstance(instruction, BackendCallInst):
@@ -683,12 +747,54 @@ def _call_crossing_reg_ids(callable_plan: X86_64SysVCallablePlan) -> frozenset[B
             live_after = set(callable_plan.analysis.liveness.instruction_live_after(instruction.inst_id))
             if instruction.dest is not None:
                 live_after.discard(instruction.dest)
-            call_crossing.update(live_after)
-    return frozenset(call_crossing)
+            for reg_id in live_after:
+                call_crossing_count_by_reg[reg_id] = call_crossing_count_by_reg.get(reg_id, 0) + 1
+    return call_crossing_count_by_reg
+
+
+def _caller_saved_spills_by_inst(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    physical_register_by_reg: dict[BackendRegId, X86_64SysVPhysicalRegister],
+    caller_saved_gprs: tuple[X86_64SysVPhysicalRegister, ...],
+) -> dict[BackendInstId, X86_64SysVCallerSavedSpillPoint]:
+    caller_saved_register_names = {register.name for register in caller_saved_gprs}
+    caller_saved_order = {register.name: index for index, register in enumerate(caller_saved_gprs)}
+    spill_points: dict[BackendInstId, X86_64SysVCallerSavedSpillPoint] = {}
+
+    for block in callable_plan.callable_decl.blocks:
+        for instruction in block.instructions:
+            if not isinstance(instruction, BackendCallInst):
+                continue
+            live_after = set(callable_plan.analysis.liveness.instruction_live_after(instruction.inst_id))
+            if instruction.dest is not None:
+                live_after.discard(instruction.dest)
+            spills = tuple(
+                sorted(
+                    (
+                        X86_64SysVCallerSavedSpill(reg_id=reg_id, physical_register=physical_register)
+                        for reg_id in live_after
+                        if (physical_register := physical_register_by_reg.get(reg_id)) is not None
+                        and physical_register.name in caller_saved_register_names
+                    ),
+                    key=lambda spill: (caller_saved_order[spill.physical_register.name], reg_id_sort_key(spill.reg_id)),
+                )
+            )
+            if spills:
+                spill_points[instruction.inst_id] = X86_64SysVCallerSavedSpillPoint(
+                    inst_id=instruction.inst_id,
+                    spills=spills,
+                )
+
+    return spill_points
 
 
 def _safepoint_live_reg_ids(callable_plan: X86_64SysVCallablePlan) -> frozenset[BackendRegId]:
-    safepoint_live: set[BackendRegId] = set()
+    return frozenset(_safepoint_crossing_count_by_reg_id(callable_plan))
+
+
+def _safepoint_crossing_count_by_reg_id(callable_plan: X86_64SysVCallablePlan) -> dict[BackendRegId, int]:
+    safepoint_crossing_count_by_reg: dict[BackendRegId, int] = {}
     for block in callable_plan.callable_decl.blocks:
         for instruction in block.instructions:
             if not instruction_is_safepoint(instruction):
@@ -698,8 +804,9 @@ def _safepoint_live_reg_ids(callable_plan: X86_64SysVCallablePlan) -> frozenset[
             destination = instruction_def_reg(instruction)
             if destination is not None:
                 live_regs.discard(destination)
-            safepoint_live.update(live_regs)
-    return frozenset(safepoint_live)
+            for reg_id in live_regs:
+                safepoint_crossing_count_by_reg[reg_id] = safepoint_crossing_count_by_reg.get(reg_id, 0) + 1
+    return safepoint_crossing_count_by_reg
 
 
 def _expire_inactive_intervals(
@@ -761,6 +868,8 @@ def _stack_location_for_reg(
 
 __all__ = [
     "X86_64SysVAbiConstraintPlan",
+    "X86_64SysVCallerSavedSpill",
+    "X86_64SysVCallerSavedSpillPoint",
     "X86_64SysVFixedRegisterConstraint",
     "X86_64SysVInstructionPositions",
     "X86_64SysVLiveInterval",

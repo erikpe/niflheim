@@ -67,6 +67,7 @@ def emit_call_instruction(
     callable_label: str,
     emit_safepoint_preamble=None,
     emit_safepoint_postamble=None,
+    emit_before_call_setup=None,
     abi: X86_64SysVAbi = X86_64_SYSV_ABI,
 ) -> None:
     if not isinstance(
@@ -113,6 +114,9 @@ def emit_call_instruction(
 
     if emit_safepoint_preamble is not None and (instruction.effects.may_gc or instruction.effects.needs_safepoint_hooks):
         emit_safepoint_preamble(instruction)
+
+    if emit_before_call_setup is not None:
+        emit_before_call_setup(instruction)
 
     call_stack_reservation_bytes = abi.call_stack_reservation_bytes(stack_arg_slot_count)
     if call_stack_reservation_bytes > 0:
