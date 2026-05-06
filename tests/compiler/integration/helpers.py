@@ -9,6 +9,7 @@ from typing import Mapping
 import pytest
 
 from compiler.cli import main
+from tests.compiler.support.runtime_harness import require_native_runtime_backend_name
 
 
 STD_INTERNAL_MODULE_DEPENDENCIES: dict[str, tuple[str, ...]] = {
@@ -95,7 +96,8 @@ def require_cc() -> str:
     return cc
 
 
-def build_executable(asm_path: Path, *, exe_path: Path | None = None) -> Path:
+def assemble_host_executable(asm_path: Path, *, exe_path: Path | None = None) -> Path:
+    require_native_runtime_backend_name()
     cc = require_cc()
     repository_root = repo_root()
     runtime_include = repository_root / "runtime" / "include"
@@ -130,8 +132,30 @@ def build_executable(asm_path: Path, *, exe_path: Path | None = None) -> Path:
     return output_path
 
 
+def build_executable(asm_path: Path, *, exe_path: Path | None = None) -> Path:
+    # Temporary compatibility wrapper. Slice 6 removes the mixed-mode helper names.
+    return assemble_host_executable(asm_path, exe_path=exe_path)
+
+
 def run_executable(exe_path: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run([str(exe_path)], check=False, capture_output=True, text=True)
+
+
+def compile_native_and_run(
+    monkeypatch: pytest.MonkeyPatch,
+    entry_path: Path,
+    *,
+    project_root: Path | None = None,
+    out_path: Path | None = None,
+    exe_path: Path | None = None,
+    extra_args: list[str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    require_native_runtime_backend_name()
+    asm_path = compile_to_asm(
+        monkeypatch, entry_path, project_root=project_root, out_path=out_path, extra_args=extra_args
+    )
+    built_exe_path = assemble_host_executable(asm_path, exe_path=exe_path)
+    return run_executable(built_exe_path)
 
 
 def compile_and_run(
@@ -143,8 +167,12 @@ def compile_and_run(
     exe_path: Path | None = None,
     extra_args: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    asm_path = compile_to_asm(
-        monkeypatch, entry_path, project_root=project_root, out_path=out_path, extra_args=extra_args
+    # Temporary compatibility wrapper. Slice 6 removes the mixed-mode helper names.
+    return compile_native_and_run(
+        monkeypatch,
+        entry_path,
+        project_root=project_root,
+        out_path=out_path,
+        exe_path=exe_path,
+        extra_args=extra_args,
     )
-    built_exe_path = build_executable(asm_path, exe_path=exe_path)
-    return run_executable(built_exe_path)

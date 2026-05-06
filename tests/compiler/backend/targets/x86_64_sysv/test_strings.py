@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from tests.compiler.backend.targets.x86_64_sysv.helpers import compile_and_run_source, emit_program, emit_source_asm
 from tests.compiler.backend.lowering.helpers import lower_source_to_backend_program
+from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_program, emit_source_asm
+from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def test_emit_source_asm_emits_pooled_string_literal_bytes_and_runtime_helper(tmp_path) -> None:
@@ -63,9 +64,11 @@ def test_emit_source_asm_is_byte_stable_for_repeated_string_literal_lowering(tmp
 
 
 def test_emit_source_asm_can_execute_string_helper_flow(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         class Str {
             static fn from_u8_array(value: u8[]) -> Str {
                 return null;
@@ -77,7 +80,8 @@ def test_emit_source_asm_can_execute_string_helper_flow(tmp_path) -> None:
             return 0;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 0

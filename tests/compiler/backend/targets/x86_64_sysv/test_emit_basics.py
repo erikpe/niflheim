@@ -8,13 +8,13 @@ from compiler.backend.targets.x86_64_sysv import X86_64_SYSV_ABI, X86_64SysVFram
 from tests.compiler.backend.analysis.helpers import lower_source_to_backend_callable_fixture
 from tests.compiler.backend.ir.helpers import FIXTURE_ENTRY_FUNCTION_ID, callable_by_id, one_function_backend_program
 from tests.compiler.backend.targets.x86_64_sysv.helpers import (
-    compile_and_run_source,
     emit_program,
     emit_source_asm,
     make_target_input,
     unit_function_backend_program,
     with_root_slot,
 )
+from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -260,9 +260,11 @@ def test_emit_source_asm_emits_checked_shift_sequences(tmp_path) -> None:
 
 
 def test_emit_source_asm_can_execute_shift_program(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         fn main() -> i64 {
             var left: u64 = 3u << 4u;
             var right: u64 = 240u >> 4u;
@@ -276,7 +278,8 @@ def test_emit_source_asm_can_execute_shift_program(tmp_path) -> None:
             return 7;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 7
@@ -298,9 +301,11 @@ def test_emit_source_asm_is_byte_stable_across_repeated_runs(tmp_path) -> None:
 
 
 def test_emit_source_asm_can_execute_straight_line_arithmetic_program(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         fn main() -> i64 {
             var base: i64 = 8;
             var neg: i64 = -base;
@@ -310,16 +315,19 @@ def test_emit_source_asm_can_execute_straight_line_arithmetic_program(tmp_path) 
             return same;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 142
 
 
 def test_emit_source_asm_can_execute_integer_divide_and_remainder_program(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         fn sdiv(a: i64, b: i64) -> i64 {
             return a / b;
         }
@@ -352,7 +360,8 @@ def test_emit_source_asm_can_execute_integer_divide_and_remainder_program(tmp_pa
             return 9;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 9

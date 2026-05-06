@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from compiler.backend.targets import BackendTargetOptions
-from tests.compiler.backend.targets.x86_64_sysv.helpers import compile_and_run_source, emit_source_asm
+from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm
+from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -76,9 +77,11 @@ def test_emit_source_asm_inlines_interface_cast_and_type_test(tmp_path) -> None:
 
 
 def test_emit_source_asm_inlines_array_kind_cast_and_preserves_runtime_panic_shape(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         fn erase(value: Obj[]) -> Obj {
             return value;
         }
@@ -89,7 +92,8 @@ def test_emit_source_asm_inlines_array_kind_cast_and_preserves_runtime_panic_sha
             return (i64)numbers[0];
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode != 0
@@ -97,9 +101,11 @@ def test_emit_source_asm_inlines_array_kind_cast_and_preserves_runtime_panic_sha
 
 
 def test_emit_source_asm_handles_primitive_cast_families(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         fn main() -> i64 {
             var a: double = (double)7u;
             var b: i64 = (i64)a;
@@ -111,7 +117,8 @@ def test_emit_source_asm_handles_primitive_cast_families(tmp_path) -> None:
             return b + (i64)c;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 11
@@ -142,9 +149,11 @@ def test_emit_source_asm_emits_runtime_trace_hooks_by_default(tmp_path) -> None:
 
 
 def test_emit_source_asm_stacktrace_uses_caller_call_site_location(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         fn crash() -> i64 {
             var values: i64[] = null;
             return values[0];
@@ -154,7 +163,8 @@ def test_emit_source_asm_stacktrace_uses_caller_call_site_location(tmp_path) -> 
             return crash();
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode != 0
@@ -180,7 +190,7 @@ fn main() -> i64 {
     return make_box().crash();
 }
 """
-    run = compile_and_run_source(tmp_path, source, skip_optimize=True)
+    run = run_assembly_text_natively(tmp_path, emit_source_asm(tmp_path, source, skip_optimize=True))
 
     main_line = source.strip().splitlines().index("    return make_box().crash();") + 1
     expected_column = source.strip().splitlines()[main_line - 1].index("crash") + 1

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from tests.compiler.backend.lowering.helpers import lower_project_to_backend_program
-from tests.compiler.backend.targets.x86_64_sysv.helpers import compile_and_run_source, emit_program, emit_source_asm
+from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_program, emit_source_asm
+from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -170,9 +171,11 @@ def test_emit_source_asm_is_byte_stable_for_multimodule_dispatch_metadata(tmp_pa
 
 
 def test_emit_source_asm_can_execute_virtual_and_interface_dispatch(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         interface Metric {
             fn score() -> i64;
         }
@@ -207,16 +210,19 @@ def test_emit_source_asm_can_execute_virtual_and_interface_dispatch(tmp_path) ->
             return read(Derived()) + use(Box());
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 7
 
 
 def test_emit_source_asm_preserves_virtual_and_interface_reference_args_during_lookup(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         class RefBox {
             value: i64;
         }
@@ -363,7 +369,8 @@ def test_emit_source_asm_preserves_virtual_and_interface_reference_args_during_l
             return 0;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 0, run.stderr

@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 
 from compiler.backend.program.symbols import mangle_function_symbol
-from tests.compiler.backend.targets.x86_64_sysv.helpers import compile_and_run_source, emit_source_asm
+from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm
+from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -180,9 +181,11 @@ def test_emit_source_asm_loop_carried_roots_do_not_emit_legacy_named_root_blocks
 
 
 def test_emit_source_asm_runs_root_slot_reuse_across_forced_gc(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         extern fn rt_gc_collect() -> unit;
 
         class FirstMarker {}
@@ -220,16 +223,19 @@ def test_emit_source_asm_runs_root_slot_reuse_across_forced_gc(tmp_path) -> None
             return 0;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 0, run.stderr
 
 
 def test_emit_source_asm_runs_reference_array_iteration_across_gc(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         extern fn rt_gc_collect() -> unit;
 
         class LeftMarker {}
@@ -260,7 +266,8 @@ def test_emit_source_asm_runs_reference_array_iteration_across_gc(tmp_path) -> N
             return 2;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 0, run.stderr

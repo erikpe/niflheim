@@ -53,7 +53,7 @@ This policy should be encoded in one shared test-support layer as soon as the re
 ## Ordered Slice Checklist
 
 1. [x] Slice 1: Add shared host and target capability plumbing plus the temporary ARM runtime skip policy.
-2. [ ] Slice 2: Split helper APIs into explicit emit-only and native-runtime paths.
+2. [x] Slice 2: Split helper APIs into explicit emit-only and native-runtime paths.
 3. [ ] Slice 3: Convert the `x86_64_sysv` target suite to emit-only coverage.
 4. [ ] Slice 4: Consolidate runtime contract coverage under native CLI integration suites.
 5. [ ] Slice 5: Convert build and run script tests to the same native-runtime harness model.
@@ -133,6 +133,12 @@ Split the current helper API so emit-only paths and native-runtime paths are exp
 
 ### Primary Files To Change
 
+New files:
+
+- [tests/compiler/support/runtime_execution.py](../tests/compiler/support/runtime_execution.py)
+- [tests/compiler/integration/test_helpers.py](../tests/compiler/integration/test_helpers.py)
+- [tests/compiler/support/test_runtime_execution.py](../tests/compiler/support/test_runtime_execution.py)
+
 Existing files:
 
 - [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py)
@@ -178,10 +184,10 @@ Existing files:
 
 ### Checklist
 
-- [ ] Split `tests/compiler/integration/helpers.py` into explicit emit and runtime steps.
-- [ ] Rename or wrap `build_executable(...)` as a host-specific assembly step.
-- [ ] Remove `compile_and_run_source(...)` from the `x86_64_sysv` target helper surface.
-- [ ] Add focused helper coverage for emit-only and native-runtime paths.
+- [x] Split `tests/compiler/integration/helpers.py` into explicit emit and runtime steps.
+- [x] Rename or wrap `build_executable(...)` as a host-specific assembly step.
+- [x] Remove `compile_and_run_source(...)` from the `x86_64_sysv` target helper surface.
+- [x] Add focused helper coverage for emit-only and native-runtime paths.
 
 ## Slice 3: Convert The `x86_64_sysv` Target Suite To Emit-Only Coverage
 

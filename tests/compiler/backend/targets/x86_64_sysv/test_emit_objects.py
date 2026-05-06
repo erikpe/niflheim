@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from tests.compiler.backend.lowering.helpers import lower_project_to_backend_program
-from tests.compiler.backend.targets.x86_64_sysv.helpers import compile_and_run_source, emit_program, emit_source_asm
+from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_program, emit_source_asm
+from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -141,9 +142,11 @@ def test_emit_source_asm_is_byte_stable_for_multimodule_object_metadata(tmp_path
 
 
 def test_emit_source_asm_can_execute_object_construction_and_field_access(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         class Pair {
             left: i64;
             right: i64;
@@ -159,16 +162,19 @@ def test_emit_source_asm_can_execute_object_construction_and_field_access(tmp_pa
             return value.left + value.right;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 16
 
 
 def test_emit_source_asm_can_execute_constructor_wrapper_with_stack_passed_init_arg(tmp_path) -> None:
-    run = compile_and_run_source(
+    run = run_assembly_text_natively(
         tmp_path,
-        """
+        emit_source_asm(
+            tmp_path,
+            """
         class Record {
             a: i64;
             b: i64;
@@ -192,7 +198,8 @@ def test_emit_source_asm_can_execute_constructor_wrapper_with_stack_passed_init_
             return value.a + value.b + value.c + value.d + value.e + value.f;
         }
         """,
-        skip_optimize=True,
+            skip_optimize=True,
+        ),
     )
 
     assert run.returncode == 21

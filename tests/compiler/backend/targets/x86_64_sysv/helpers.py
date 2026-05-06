@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-import subprocess
 
 from compiler.backend.ir import (
     BACKEND_IR_SCHEMA_VERSION,
@@ -24,7 +23,6 @@ from compiler.semantic.symbols import FunctionId
 from compiler.semantic.types import semantic_primitive_type_ref
 from tests.compiler.backend.ir.helpers import make_source_span
 from tests.compiler.backend.lowering.helpers import lower_source_to_backend_program
-from tests.compiler.integration.helpers import build_executable, run_executable
 
 
 def make_target_input(program) -> BackendTargetInput:
@@ -55,32 +53,6 @@ def emit_source_asm(
         skip_optimize=skip_optimize,
     )
     return emit_program(program, options=options)
-
-
-def compile_and_run_source(
-    tmp_path: Path,
-    source: str,
-    *,
-    source_path: str = "main.nif",
-    project_root: Path | None = None,
-    disabled_passes: tuple[str, ...] = (),
-    skip_optimize: bool = False,
-    options: BackendTargetOptions | None = None,
-    asm_name: str = "backend_target_out.s",
-) -> subprocess.CompletedProcess[str]:
-    asm_text = emit_source_asm(
-        tmp_path,
-        source,
-        source_path=source_path,
-        project_root=project_root,
-        disabled_passes=disabled_passes,
-        skip_optimize=skip_optimize,
-        options=options,
-    )
-    asm_path = tmp_path / asm_name
-    asm_path.write_text(asm_text, encoding="utf-8")
-    exe_path = build_executable(asm_path)
-    return run_executable(exe_path)
 
 
 def unit_function_backend_program(
