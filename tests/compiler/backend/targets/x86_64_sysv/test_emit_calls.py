@@ -4,7 +4,6 @@ import re
 
 from compiler.backend.program.symbols import epilogue_label, mangle_function_symbol
 from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm
-from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -99,27 +98,6 @@ def test_emit_source_asm_omits_stack_adjustment_for_register_only_calls(tmp_path
     assert "    add rsp, 8" not in main_body
 
 
-def test_emit_source_asm_can_execute_reduced_scope_multi_function_program(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        fn sum7(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64) -> i64 {
-            return a + b + c + d + e + f + g;
-        }
-
-        fn main() -> i64 {
-            return sum7(1, 2, 3, 4, 5, 6, 7);
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 28
-
-
 def test_emit_source_asm_emits_indirect_call_for_callable_parameter(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,
@@ -163,28 +141,6 @@ def test_emit_source_asm_materializes_function_refs_as_callable_values(tmp_path)
     assert "    call r11" in main_body
 
 
-def test_emit_source_asm_can_execute_function_ref_callable_value_program(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        fn inc(value: i64) -> i64 {
-            return value + 1;
-        }
-
-        fn main() -> i64 {
-            var func: fn(i64) -> i64 = inc;
-            return func(41);
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 42
-
-
 def test_emit_source_asm_materializes_static_method_refs_as_callable_values(tmp_path) -> None:
     asm = emit_source_asm(
         tmp_path,
@@ -209,25 +165,3 @@ def test_emit_source_asm_materializes_static_method_refs_as_callable_values(tmp_
     assert "    call r11" in main_body
 
 
-def test_emit_source_asm_can_execute_static_method_ref_callable_value_program(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        class Math {
-            static fn twice(value: i64) -> i64 {
-                return value * 2;
-            }
-        }
-
-        fn main() -> i64 {
-            var func: fn(i64) -> i64 = Math.twice;
-            return func(21);
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 42

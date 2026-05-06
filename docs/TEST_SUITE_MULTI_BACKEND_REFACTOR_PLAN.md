@@ -209,6 +209,7 @@ Existing files:
 - [tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py)
 - [tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py)
 - [tests/compiler/backend/targets/x86_64_sysv/test_strings.py](../tests/compiler/backend/targets/x86_64_sysv/test_strings.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_suite_boundaries.py](../tests/compiler/backend/targets/x86_64_sysv/test_suite_boundaries.py)
 
 ### What To Change
 
@@ -248,10 +249,15 @@ Existing files:
 
 ### Checklist
 
-- [ ] Remove `compile_and_run_source(...)` imports and usages from the `x86_64_sysv` target tree.
-- [ ] Keep or add emit-only assertions where useful.
-- [ ] Move or split every runtime-returncode or runtime-stderr test.
+- [x] Remove `compile_and_run_source(...)` imports and usages from the `x86_64_sysv` target tree.
+- [x] Keep or add emit-only assertions where useful.
+- [x] Move or split every runtime-returncode or runtime-stderr test.
 - [ ] Re-run the full `x86_64_sysv` target suite on ARM and x86_64 hosts.
+
+Current validation state:
+
+- [x] Re-ran the full `x86_64_sysv` target suite on ARM hosts.
+- [ ] Re-run the full `x86_64_sysv` target suite on an `x86_64` host.
 
 ## Slice 4: Consolidate Runtime Contract Coverage Under Native CLI Integration Suites
 

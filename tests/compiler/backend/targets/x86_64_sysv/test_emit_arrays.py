@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from compiler.backend.targets import BackendTargetOptions
 from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm
-from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -137,12 +136,10 @@ def test_emit_source_asm_can_disable_array_fast_paths(tmp_path) -> None:
     assert "    call rt_array_len" in asm
 
 
-def test_emit_source_asm_can_execute_direct_for_in_over_array(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_emits_fast_path_iteration_for_direct_for_in_loop(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn main() -> i64 {
             var values: i64[] = i64[](4u);
             values[0] = 4;
@@ -158,19 +155,21 @@ def test_emit_source_asm_can_execute_direct_for_in_over_array(tmp_path) -> None:
             return total;
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode == 28
+    main_body = _body_for_label(asm, "main")
+
+    assert "    mov rax, qword ptr [rax + 24]" in main_body
+    assert "    mov rax, qword ptr [rax + rcx * 8 + 48]" in main_body
+    assert ".Lmain_b1:" in asm
+    assert "    jmp .Lmain_b1" in asm
 
 
-def test_emit_source_asm_scopes_fast_path_array_labels_per_callable(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_emits_fast_path_array_access_in_each_callable(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn first(values: i64[]) -> i64 {
             return (i64)values.len() + values[0];
         }
@@ -187,93 +186,96 @@ def test_emit_source_asm_scopes_fast_path_array_labels_per_callable(tmp_path) ->
             return first(values) + second(values);
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode == 16
+    first_body = _body_for_label(asm, "__nif_fn_main__first")
+    second_body = _body_for_label(asm, "__nif_fn_main__second")
+
+    assert "    mov rax, qword ptr [rax + 24]" in first_body
+    assert "    mov rax, qword ptr [rax + rcx * 8 + 48]" in first_body
+    assert "    mov rax, qword ptr [rax + 24]" in second_body
+    assert "    mov rax, qword ptr [rax + rcx * 8 + 48]" in second_body
 
 
-def test_emit_source_asm_preserves_array_len_null_panic_shape(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_emits_array_len_null_guard(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn main() -> i64 {
             var values: i64[] = null;
             values.len();
             return 0;
         }
         """,
-        ),
     )
 
-    assert run.returncode != 0
-    assert "panic: Array API called with null object" in run.stderr
+    main_body = _body_for_label(asm, "main")
+
+    assert "    call rt_panic_array_api_null_object" in main_body
+    assert ".Lmain_i1_array_len_nonnull:" in asm
+    assert "    mov rax, qword ptr [rax + 24]" in main_body
 
 
-def test_emit_source_asm_preserves_array_index_null_panic_shape(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_emits_array_index_null_guard(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn main() -> i64 {
             var values: i64[] = null;
             return values[0];
         }
         """,
-        ),
     )
 
-    assert run.returncode != 0
-    assert "panic: Array API called with null object" in run.stderr
+    main_body = _body_for_label(asm, "main")
+
+    assert "    call rt_panic_array_api_null_object" in main_body
+    assert "    mov rax, qword ptr [rax + rcx * 8 + 48]" in main_body
+    assert "    call rt_array_get_i64" not in main_body
 
 
-def test_emit_source_asm_preserves_array_index_out_of_bounds_panic_shape(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_emits_array_get_out_of_bounds_guard(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn main() -> i64 {
             var values: i64[] = i64[](1u);
             return values[2];
         }
         """,
-        ),
     )
 
-    assert run.returncode != 0
-    assert "panic: rt_array_get_i64: index out of bounds" in run.stderr
+    main_body = _body_for_label(asm, "main")
+
+    assert "    call rt_panic_array_get_out_of_bounds" in main_body
+    assert ".Lmain_i3_array_in_bounds_panic:" in asm
+    assert "    mov rax, qword ptr [rax + rcx * 8 + 48]" in main_body
 
 
-def test_emit_source_asm_preserves_array_index_set_out_of_bounds_panic_shape(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_emits_array_set_out_of_bounds_guard(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn main() -> i64 {
             var values: i64[] = i64[](1u);
             values[2] = 7;
             return 0;
         }
         """,
-        ),
     )
 
-    assert run.returncode != 0
-    assert "panic: rt_array_set_i64: index out of bounds" in run.stderr
+    main_body = _body_for_label(asm, "main")
+
+    assert "    call rt_panic_array_set_out_of_bounds" in main_body
+    assert "    mov qword ptr [rax + rcx * 8 + 48], rdx" in main_body
+    assert "    call rt_array_set_i64" not in main_body
 
 
-def test_emit_source_asm_can_execute_direct_double_array_get_set(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_emits_fast_path_double_array_access(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn main() -> i64 {
             var values: double[] = double[](2u);
             if values[0] != 0.0 { return 1; }
@@ -285,8 +287,13 @@ def test_emit_source_asm_can_execute_direct_double_array_get_set(tmp_path) -> No
             return 0;
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode == 0
+    main_body = _body_for_label(asm, "main")
+
+    assert "    call rt_array_new_double" in main_body
+    assert "    movq qword ptr [rax + rcx * 8 + 48], xmm0" in main_body
+    assert "    movq xmm0, qword ptr [rax + rcx * 8 + 48]" in main_body
+    assert "    call rt_array_get_double" not in main_body
+    assert "    call rt_array_set_double" not in main_body

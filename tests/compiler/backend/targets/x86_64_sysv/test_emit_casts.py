@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from compiler.backend.targets import BackendTargetOptions
 from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm
-from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -76,12 +75,10 @@ def test_emit_source_asm_inlines_interface_cast_and_type_test(tmp_path) -> None:
     assert "    setne al" in asm
 
 
-def test_emit_source_asm_inlines_array_kind_cast_and_preserves_runtime_panic_shape(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_inlines_array_kind_cast_checks(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn erase(value: Obj[]) -> Obj {
             return value;
         }
@@ -92,20 +89,22 @@ def test_emit_source_asm_inlines_array_kind_cast_and_preserves_runtime_panic_sha
             return (i64)numbers[0];
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode != 0
-    assert "panic: bad cast (Obj[] -> u64[])" in run.stderr
+    main_body = _body_for_label(asm, "main")
+
+    assert "    call rt_panic_bad_cast" in main_body
+    assert "rt_checked_cast" not in main_body
+    assert "rt_checked_cast_interface" not in main_body
+    assert "    cmp qword ptr [rax + 32], 2" in main_body
+    assert "    call rt_panic_array_get_out_of_bounds" in main_body
 
 
 def test_emit_source_asm_handles_primitive_cast_families(tmp_path) -> None:
-    run = run_assembly_text_natively(
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn main() -> i64 {
             var a: double = (double)7u;
             var b: i64 = (i64)a;
@@ -117,11 +116,16 @@ def test_emit_source_asm_handles_primitive_cast_families(tmp_path) -> None:
             return b + (i64)c;
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode == 11
+    main_body = _body_for_label(asm, "main")
+
+    assert "    call rt_cast_u64_to_double" in main_body
+    assert "    call rt_cast_double_to_i64" in main_body
+    assert "    and rax, 255" in main_body
+    assert "    ucomisd xmm0, xmm1" in main_body
+    assert "    or al, dl" in main_body
 
 
 def test_emit_source_asm_emits_runtime_trace_hooks_by_default(tmp_path) -> None:
@@ -148,12 +152,10 @@ def test_emit_source_asm_emits_runtime_trace_hooks_by_default(tmp_path) -> None:
     assert "    call rt_trace_set_location" in main_body
 
 
-def test_emit_source_asm_stacktrace_uses_caller_call_site_location(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_emits_caller_call_site_trace_location(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         fn crash() -> i64 {
             var values: i64[] = null;
             return values[0];
@@ -163,18 +165,21 @@ def test_emit_source_asm_stacktrace_uses_caller_call_site_location(tmp_path) -> 
             return crash();
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode != 0
-    assert "stacktrace:" in run.stderr
-    assert "at main::crash (" in run.stderr
-    assert "at main::main (.:7:" in run.stderr
+    main_body = _body_for_label(asm, "main")
+
+    assert "    call rt_trace_set_location" in main_body
+    assert "    call __nif_fn_main__crash" in main_body
+    assert "    mov edi," in main_body
+    assert "    mov esi," in main_body
 
 
-def test_emit_source_asm_stacktrace_uses_chained_member_call_site_location(tmp_path) -> None:
-    source = """
+def test_emit_source_asm_emits_member_call_site_trace_location(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
 fn make_box() -> Box {
     return Box();
 }
@@ -189,14 +194,19 @@ class Box {
 fn main() -> i64 {
     return make_box().crash();
 }
-"""
-    run = run_assembly_text_natively(tmp_path, emit_source_asm(tmp_path, source, skip_optimize=True))
+""",
+        skip_optimize=True,
+    )
 
-    main_line = source.strip().splitlines().index("    return make_box().crash();") + 1
-    expected_column = source.strip().splitlines()[main_line - 1].index("crash") + 1
+    main_body = _body_for_label(asm, "main")
 
-    assert run.returncode != 0
-    assert f"at main::main (.:{main_line}:{expected_column})" in run.stderr
+    assert main_body.count("    call rt_trace_set_location") == 2
+    assert "    call __nif_fn_main__make_box" in main_body
+    assert "    call rt_panic_null_deref" in main_body
+    assert "    mov r10, qword ptr [rdi]" in main_body
+    assert "    mov r10, qword ptr [r10 + 80]" in main_body
+    assert "    mov r11, qword ptr [r10]" in main_body
+    assert "    call r11" in main_body
 
 
 def test_emit_source_asm_can_omit_runtime_trace_hooks(tmp_path) -> None:

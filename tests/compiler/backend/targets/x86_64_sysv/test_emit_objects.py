@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from tests.compiler.backend.lowering.helpers import lower_project_to_backend_program
 from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_program, emit_source_asm
-from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -141,40 +140,10 @@ def test_emit_source_asm_is_byte_stable_for_multimodule_object_metadata(tmp_path
     assert first.index("__nif_type_left__Key:") < first.index("__nif_type_right__Key:")
 
 
-def test_emit_source_asm_can_execute_object_construction_and_field_access(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_spills_stack_argument_for_constructor_wrapper(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        class Pair {
-            left: i64;
-            right: i64;
-
-            constructor(left: i64, right: i64) {
-                __self.left = left;
-                __self.right = right;
-            }
-        }
-
-        fn main() -> i64 {
-            var value: Pair = Pair(7, 9);
-            return value.left + value.right;
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 16
-
-
-def test_emit_source_asm_can_execute_constructor_wrapper_with_stack_passed_init_arg(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         class Record {
             a: i64;
             b: i64;
@@ -198,8 +167,14 @@ def test_emit_source_asm_can_execute_constructor_wrapper_with_stack_passed_init_
             return value.a + value.b + value.c + value.d + value.e + value.f;
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode == 21
+    main_body = _body_for_label(asm, "main")
+
+    assert "    sub rsp, 16" in main_body
+    assert "    mov r9, 5" in main_body
+    assert "    mov qword ptr [rsp], rax" in main_body
+    assert "    call __nif_ctor_init_main__Record" in main_body
+    assert "    add rsp, 16" in main_body
+    assert "    mov rax, qword ptr [rax + 64]" in main_body

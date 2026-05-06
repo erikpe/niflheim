@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from compiler.backend.program.symbols import epilogue_label, mangle_function_symbol
 from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm
-from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -121,26 +120,3 @@ def test_emit_source_asm_is_byte_stable_for_double_programs(tmp_path) -> None:
     assert first == second
 
 
-def test_emit_source_asm_can_execute_scalar_double_program(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        fn blend(a: double, b: double, c: double) -> double {
-            return (a + b) * c;
-        }
-
-        fn main() -> i64 {
-            var value: double = blend(1.5, 0.5, 2.0);
-            if value >= 4.0 {
-                return 0;
-            }
-            return 1;
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 0

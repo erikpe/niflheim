@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from tests.compiler.backend.lowering.helpers import lower_project_to_backend_program
 from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_program, emit_source_asm
-from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -170,59 +169,10 @@ def test_emit_source_asm_is_byte_stable_for_multimodule_dispatch_metadata(tmp_pa
     assert first.index("__nif_vtable_left__Key:") < first.index("__nif_vtable_right__Token:")
 
 
-def test_emit_source_asm_can_execute_virtual_and_interface_dispatch(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        interface Metric {
-            fn score() -> i64;
-        }
-
-        class Base {
-            fn value() -> i64 {
-                return 1;
-            }
-        }
-
-        class Derived extends Base {
-            override fn value() -> i64 {
-                return 2;
-            }
-        }
-
-        class Box implements Metric {
-            fn score() -> i64 {
-                return 5;
-            }
-        }
-
-        fn read(value: Base) -> i64 {
-            return value.value();
-        }
-
-        fn use(value: Metric) -> i64 {
-            return value.score();
-        }
-
-        fn main() -> i64 {
-            return read(Derived()) + use(Box());
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 7
-
-
 def test_emit_source_asm_preserves_virtual_and_interface_reference_args_during_lookup(tmp_path) -> None:
-    run = run_assembly_text_natively(
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         class RefBox {
             value: i64;
         }
@@ -369,8 +319,28 @@ def test_emit_source_asm_preserves_virtual_and_interface_reference_args_during_l
             return 0;
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode == 0, run.stderr
+    measure_mixed_body = _body_for_label(asm, "__nif_fn_main__measure_mixed")
+    write_slice_value_body = _body_for_label(asm, "__nif_fn_main__write_slice_value")
+    write_slice_interface_body = _body_for_label(asm, "__nif_fn_main__write_slice_interface")
+
+    assert "    mov dword ptr [rdi + 8], 6" in measure_mixed_body
+    assert "    sub rsp, 32" in measure_mixed_body
+    assert "    mov qword ptr [rsp + 24], rax" in measure_mixed_body
+    assert "    mov r10, qword ptr [rdi]" in measure_mixed_body
+    assert "    mov r10, qword ptr [r10 + 64]" in measure_mixed_body
+    assert "    mov r10, qword ptr [r10]" in measure_mixed_body
+    assert "    call r11" in measure_mixed_body
+
+    assert "    mov r10, qword ptr [rdi]" in write_slice_value_body
+    assert "    mov r10, qword ptr [r10 + 80]" in write_slice_value_body
+    assert "    mov r11, qword ptr [r10 + 8]" in write_slice_value_body
+    assert "    mov r11, qword ptr [r10]" in write_slice_value_body
+
+    assert "    mov r10, qword ptr [rdi]" in write_slice_interface_body
+    assert "    mov r10, qword ptr [r10 + 64]" in write_slice_interface_body
+    assert "    mov r10, qword ptr [r10 + 8]" in write_slice_interface_body
+    assert "    mov r11, qword ptr [r10 + 8]" in write_slice_interface_body
+    assert "    mov r11, qword ptr [r10]" in write_slice_interface_body

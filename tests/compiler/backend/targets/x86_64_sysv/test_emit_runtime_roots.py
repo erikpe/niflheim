@@ -4,7 +4,6 @@ import re
 
 from compiler.backend.program.symbols import mangle_function_symbol
 from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm
-from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -180,12 +179,10 @@ def test_emit_source_asm_loop_carried_roots_do_not_emit_legacy_named_root_blocks
     assert "# clear dead named reference shadow-stack slots" not in asm
 
 
-def test_emit_source_asm_runs_root_slot_reuse_across_forced_gc(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_reuses_root_slots_across_forced_gc(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         extern fn rt_gc_collect() -> unit;
 
         class FirstMarker {}
@@ -223,19 +220,25 @@ def test_emit_source_asm_runs_root_slot_reuse_across_forced_gc(tmp_path) -> None
             return 0;
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode == 0, run.stderr
+    main_body = _body_for_label(asm, "main")
+    choose_last_body = _body_for_label(asm, mangle_function_symbol(("main",), "choose_last"))
+
+    _assert_root_frame_setup(main_body, root_count=2)
+    _assert_root_frame_setup(choose_last_body, root_count=1)
+    assert main_body.count("    call rt_gc_collect") == 3
+    assert main_body.count("    call rt_is_instance_of_type") == 2
+    assert "    call __nif_fn_main__choose_last" in main_body
+    assert "    mov qword ptr [rbp - 168], r10" in main_body
+    assert "    mov qword ptr [rbp - 160], r10" in main_body
 
 
-def test_emit_source_asm_runs_reference_array_iteration_across_gc(tmp_path) -> None:
-    run = run_assembly_text_natively(
+def test_emit_source_asm_preserves_reference_array_iteration_roots_across_gc(tmp_path) -> None:
+    asm = emit_source_asm(
         tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
+        """
         extern fn rt_gc_collect() -> unit;
 
         class LeftMarker {}
@@ -266,8 +269,14 @@ def test_emit_source_asm_runs_reference_array_iteration_across_gc(tmp_path) -> N
             return 2;
         }
         """,
-            skip_optimize=True,
-        ),
+        skip_optimize=True,
     )
 
-    assert run.returncode == 0, run.stderr
+    main_body = _body_for_label(asm, "main")
+
+    _assert_root_frame_setup(main_body, root_count=2)
+    assert "    call rt_array_new_ref" in main_body
+    assert "    mov qword ptr [rax + rcx * 8 + 48], rdx" in main_body
+    assert "    mov rax, qword ptr [rax + rcx * 8 + 48]" in main_body
+    assert "    call rt_gc_collect" in main_body
+    assert main_body.count("    call rt_is_instance_of_type") == 2

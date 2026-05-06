@@ -3,7 +3,6 @@ from __future__ import annotations
 from compiler.backend.program.symbols import epilogue_label, mangle_function_symbol
 from tests.compiler.backend.lowering.helpers import callable_by_name, lower_source_to_backend_program
 from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm, make_target_input
-from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def test_emit_source_asm_uses_phase3_ordered_block_labels_from_block_ids(tmp_path) -> None:
@@ -99,29 +98,3 @@ def test_emit_source_asm_emits_loop_backedges_and_exit_edges(tmp_path) -> None:
     assert f".L{loop_label}_b{continue_edge.block_id.ordinal}:" in asm
     assert f".L{loop_label}_b{backedge_block.block_id.ordinal}:" in asm
 
-
-def test_emit_source_asm_can_execute_branch_and_loop_program(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        fn main() -> i64 {
-            var total: i64 = 0;
-            while total < 6 {
-                total = total + 1;
-                if total == 2 {
-                    continue;
-                }
-                if total == 4 {
-                    return total;
-                }
-            }
-            return total;
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 4

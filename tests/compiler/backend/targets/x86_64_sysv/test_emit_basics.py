@@ -14,7 +14,6 @@ from tests.compiler.backend.targets.x86_64_sysv.helpers import (
     unit_function_backend_program,
     with_root_slot,
 )
-from tests.compiler.support.runtime_execution import run_assembly_text_natively
 
 
 def _body_for_label(asm: str, label: str) -> str:
@@ -259,32 +258,6 @@ def test_emit_source_asm_emits_checked_shift_sequences(tmp_path) -> None:
     assert "    shr rax, cl" in urshift_body
 
 
-def test_emit_source_asm_can_execute_shift_program(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        fn main() -> i64 {
-            var left: u64 = 3u << 4u;
-            var right: u64 = 240u >> 4u;
-
-            if (i64)left != 48 {
-                return 1;
-            }
-            if (i64)right != 15 {
-                return 2;
-            }
-            return 7;
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 7
-
-
 def test_emit_source_asm_is_byte_stable_across_repeated_runs(tmp_path) -> None:
     source = """
     fn main() -> i64 {
@@ -299,69 +272,3 @@ def test_emit_source_asm_is_byte_stable_across_repeated_runs(tmp_path) -> None:
 
     assert first_asm == second_asm
 
-
-def test_emit_source_asm_can_execute_straight_line_arithmetic_program(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        fn main() -> i64 {
-            var base: i64 = 8;
-            var neg: i64 = -base;
-            var sum: i64 = neg + 50;
-            var same: i64 = sum;
-            same = same + 100;
-            return same;
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 142
-
-
-def test_emit_source_asm_can_execute_integer_divide_and_remainder_program(tmp_path) -> None:
-    run = run_assembly_text_natively(
-        tmp_path,
-        emit_source_asm(
-            tmp_path,
-            """
-        fn sdiv(a: i64, b: i64) -> i64 {
-            return a / b;
-        }
-
-        fn smod(a: i64, b: i64) -> i64 {
-            return a % b;
-        }
-
-        fn udiv(a: u64, b: u64) -> u64 {
-            return a / b;
-        }
-
-        fn umod(a: u64, b: u64) -> u64 {
-            return a % b;
-        }
-
-        fn main() -> i64 {
-            if sdiv(-7, 3) != -3 {
-                return 1;
-            }
-            if smod(-7, 3) != 2 {
-                return 2;
-            }
-            if (i64)udiv(17u, 5u) != 3 {
-                return 3;
-            }
-            if (i64)umod(17u, 5u) != 2 {
-                return 4;
-            }
-            return 9;
-        }
-        """,
-            skip_optimize=True,
-        ),
-    )
-
-    assert run.returncode == 9
