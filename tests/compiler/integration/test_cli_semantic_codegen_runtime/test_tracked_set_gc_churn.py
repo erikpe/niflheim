@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.compiler.integration.helpers import compile_and_run, write
+from tests.compiler.integration.helpers import compile_native_and_run, write
 
 
 SOURCE = """
@@ -168,7 +168,7 @@ def test_cli_semantic_codegen_runs_tracked_set_gc_churn(
     entry = tmp_path / "main.nif"
     write(entry, SOURCE)
 
-    run = compile_and_run(
+    run = compile_native_and_run(
         monkeypatch,
         entry,
         project_root=tmp_path,

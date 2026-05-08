@@ -35,10 +35,17 @@ Text-based expected outputs:
 
 ## Level C: Integration Tests
 
-End-to-end compile + link + run tests:
-- Language source -> assembly -> executable
-- Runtime linked in
-- Assert stdout/stderr/exit code
+The integration layer is split into two contracts:
+
+- All-host emit and CLI-policy tests:
+  - Language source -> assembly text
+  - Assert CLI wiring, target selection defaults, and flag behavior
+  - No native execution requirement
+
+- Native-runtime contract tests:
+  - Language source -> assembly -> executable -> process result
+  - Runtime linked in
+  - Assert stdout/stderr/exit code on hosts with a registered native backend
 
 ## Level D: Stress/Soak Tests
 
@@ -51,8 +58,10 @@ Longer-running and allocation-heavy tests:
 
 ## 3) Test Environment
 
-- Primary OS target for execution tests: Linux x86-64.
-- Stage-0 development may run frontend tests on host OS, but runtime/integration truth must be Linux x86-64.
+- Emit-only target tests and compile-only integration tests should run on any supported host OS and CPU.
+- Native runtime-contract execution tests run only on hosts with a registered native backend.
+- Today the only registered native runtime backend is `x86_64_sysv`, so Linux `x86_64` is the primary execution host.
+- On ARM hosts, native runtime-contract suites skip centrally until an `aarch64` backend exists.
 - Build mode matrix:
   - `debug` runtime (assertions + optional GC logs)
   - `release` runtime (no heavy checks)
@@ -178,7 +187,8 @@ Recommended CI split:
 - Branch-heavy function with loops.
 
 ### Exit Criteria
-- Generated binaries produce expected outputs and exit codes.
+- Emit-only target suites stay runnable on all hosts.
+- Generated binaries produce expected outputs and exit codes on hosts with a registered native backend.
 - ABI-specific edge tests pass consistently.
 
 ---
@@ -286,7 +296,7 @@ Suggested repository structure:
 - `tests/compiler/frontend/parser/`
 - `tests/compiler/resolver/`
 - `tests/compiler/typecheck/`
-- `tests/compiler/codegen/`
+- `tests/compiler/backend/targets/`
 - `tests/runtime/`
 - `tests/compiler/integration/`
 - `tests/golden/`

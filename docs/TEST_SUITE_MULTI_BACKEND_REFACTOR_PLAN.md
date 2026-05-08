@@ -56,8 +56,8 @@ This policy should be encoded in one shared test-support layer as soon as the re
 2. [x] Slice 2: Split helper APIs into explicit emit-only and native-runtime paths.
 3. [x] Slice 3: Convert the `x86_64_sysv` target suite to emit-only coverage.
 4. [x] Slice 4: Consolidate runtime contract coverage under native CLI integration suites.
-5. [ ] Slice 5: Convert build and run script tests to the same native-runtime harness model.
-6. [ ] Slice 6: Remove compatibility wrappers and refresh test documentation.
+5. [x] Slice 5: Convert build and run script tests to the same native-runtime harness model.
+6. [x] Slice 6: Remove compatibility wrappers and refresh test documentation.
 7. [ ] Slice 7: Enable ARM runtime contracts when `aarch64` lands.
 
 ## Slice 1: Shared Host And Target Capability Layer
@@ -391,12 +391,12 @@ Existing files:
 
 - [x] Split script tests into architecture-agnostic checks and native-runtime checks.
 - [x] Gate script success-path execution tests through the shared runtime fixture.
-- [ ] Re-run the script test file on x86_64 and confirm deterministic skip behavior on ARM.
+- [x] Re-run the script test file on x86_64 and confirm deterministic skip behavior on ARM.
 
 Current validation state:
 
 - [x] The script test file skips native-runtime cases cleanly on ARM hosts through the shared runtime fixture.
-- [ ] The script test file passes on an `x86_64` host.
+- [x] The script test file passes on an `x86_64` host.
 
 ## Slice 6: Remove Compatibility Wrappers And Refresh Test Documentation
 
@@ -443,10 +443,14 @@ Existing files:
 
 ### Checklist
 
-- [ ] Remove compatibility wrappers introduced during migration.
-- [ ] Update `tests/README.md` for the new suite split.
-- [ ] Update `docs/TEST_PLAN_v0.1.md` for the new host policy.
-- [ ] Re-run a representative cross-section of target-emission and runtime suites.
+- [x] Remove compatibility wrappers introduced during migration.
+- [x] Update `tests/README.md` for the new suite split.
+- [x] Update `docs/TEST_PLAN_v0.1.md` for the new host policy.
+- [x] Re-run a representative cross-section of target-emission and runtime suites.
+
+Current validation state:
+
+- [x] Re-ran representative helper, target-emission, and runtime-suite coverage on an ARM host (`89 passed, 37 skipped`).
 
 ## Slice 7: Enable ARM Runtime Contracts When `aarch64` Lands
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.compiler.integration.helpers import compile_and_run, write
+from tests.compiler.integration.helpers import compile_native_and_run, write
 from tests.compiler.integration.stdlib_fixtures import install_std_io_fixture, make_std_io_entry
 
 
@@ -22,7 +22,7 @@ def test_cli_runtime_primitive_casts_follow_defined_matrix(tmp_path: Path, monke
             """
         ),
     )
-    run = compile_and_run(
+    run = compile_native_and_run(
         monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s", exe_path=tmp_path / "program"
     )
 

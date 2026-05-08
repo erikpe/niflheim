@@ -3,16 +3,28 @@
 Test layout (aligned with `docs/TEST_PLAN_v0.1.md`):
 
 - `compiler/`
-	- `lexer/`
-	- `parser/`
-	- `resolver/`
-	- `typecheck/`
-	- `codegen/`
-	- `integration/`
+	- `frontend/`, `resolver/`, `typecheck/`: parser and semantic unit coverage
+	- `backend/targets/x86_64_sysv/`: emit-only target and ABI-shape coverage; these tests run on all hosts
+	- `integration/`: compile-only CLI checks plus native-runtime contract suites
 - `golden/`
 - `runtime/`
 
 Each test should focus on one scenario and include clear expected behavior.
+
+## Python Compiler Suite Structure
+
+- `tests/compiler/backend/targets/x86_64_sysv/` is the canonical home for target-emission assertions.
+  These tests inspect emitted assembly shape only and stay runnable on both `x86_64` and ARM hosts.
+
+- `tests/compiler/integration/test_cli_codegen.py`, `tests/compiler/integration/test_cli_backend_ir_*.py`, and similar compile-only integration files are architecture-agnostic.
+  They assert CLI wiring, emitted assembly, and flag behavior without requiring native execution.
+
+- `tests/compiler/integration/test_cli_runtime_smoke/`, `tests/compiler/integration/test_cli_semantic_codegen_runtime/`, and `tests/compiler/integration/test_cli_interfaces_runtime/` are the canonical native-runtime contract suites.
+  They compile and execute programs through the CLI helper surface and are gated by the shared native-runtime capability fixture.
+  Today that means `x86_64` hosts run them with `x86_64_sysv`, while ARM hosts skip them centrally until an `aarch64` backend exists.
+
+- `tests/compiler/integration/test_build_script.py` follows the same split.
+  Portable script validation runs on all hosts, while `build.sh` and `run.sh` success-path execution tests require a native runtime backend.
 
 ## Runtime / GC Harnesses
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.compiler.integration.helpers import compile_and_run, write_project
+from tests.compiler.integration.helpers import compile_native_and_run, write_project
 
 
 def test_cli_interfaces_runtime_supports_imported_interfaces_across_modules(tmp_path: Path, monkeypatch) -> None:
@@ -55,7 +55,7 @@ def test_cli_interfaces_runtime_supports_imported_interfaces_across_modules(tmp_
     )
 
     entry = tmp_path / "main.nif"
-    run = compile_and_run(
+    run = compile_native_and_run(
         monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s", exe_path=tmp_path / "program"
     )
 

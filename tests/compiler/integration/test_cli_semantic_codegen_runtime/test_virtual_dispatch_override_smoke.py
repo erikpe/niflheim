@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.compiler.integration.helpers import compile_and_run, write
+from tests.compiler.integration.helpers import compile_native_and_run, write
 
 
 def test_cli_semantic_codegen_runtime_virtual_dispatch_override_smoke(tmp_path: Path, monkeypatch) -> None:
@@ -39,7 +39,7 @@ def test_cli_semantic_codegen_runtime_virtual_dispatch_override_smoke(tmp_path: 
         """,
     )
 
-    run = compile_and_run(
+    run = compile_native_and_run(
         monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s", exe_path=tmp_path / "program"
     )
 

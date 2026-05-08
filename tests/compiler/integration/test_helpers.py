@@ -36,15 +36,6 @@ def test_assemble_host_executable_invokes_cc_with_runtime_sources(tmp_path: Path
     assert seen["text"] is True
 
 
-def test_build_executable_is_a_compatibility_wrapper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    asm_path = tmp_path / "program.s"
-    exe_path = tmp_path / "program"
-
-    monkeypatch.setattr(helpers, "assemble_host_executable", lambda asm_path, *, exe_path=None: exe_path)
-
-    assert helpers.build_executable(asm_path, exe_path=exe_path) == exe_path
-
-
 def test_compile_native_and_run_chains_emit_assemble_and_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     entry = tmp_path / "main.nif"
     asm_path = tmp_path / "out.s"
@@ -71,12 +62,3 @@ def test_compile_native_and_run_chains_emit_assemble_and_run(tmp_path: Path, mon
 
     assert result is expected_result
     assert seen == [("assemble", exe_path), ("run", exe_path)]
-
-
-def test_compile_and_run_is_a_compatibility_wrapper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    entry = tmp_path / "main.nif"
-    expected_result = SimpleNamespace(returncode=0, stdout="", stderr="")
-
-    monkeypatch.setattr(helpers, "compile_native_and_run", lambda *args, **kwargs: expected_result)
-
-    assert helpers.compile_and_run(monkeypatch, entry) is expected_result
