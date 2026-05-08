@@ -55,7 +55,7 @@ This policy should be encoded in one shared test-support layer as soon as the re
 1. [x] Slice 1: Add shared host and target capability plumbing plus the temporary ARM runtime skip policy.
 2. [x] Slice 2: Split helper APIs into explicit emit-only and native-runtime paths.
 3. [x] Slice 3: Convert the `x86_64_sysv` target suite to emit-only coverage.
-4. [ ] Slice 4: Consolidate runtime contract coverage under native CLI integration suites.
+4. [x] Slice 4: Consolidate runtime contract coverage under native CLI integration suites.
 5. [ ] Slice 5: Convert build and run script tests to the same native-runtime harness model.
 6. [ ] Slice 6: Remove compatibility wrappers and refresh test documentation.
 7. [ ] Slice 7: Enable ARM runtime contracts when `aarch64` lands.
@@ -345,7 +345,7 @@ New files likely needed:
 Current validation state:
 
 - [x] Runtime integration suites skip cleanly on ARM hosts through the shared runtime fixture.
-- [ ] Runtime integration suites pass on `x86_64` hosts.
+- [x] Runtime integration suites pass on `x86_64` hosts.
 
 ## Slice 5: Convert Build And Run Script Tests To The Native-Runtime Harness Model
 
@@ -389,9 +389,14 @@ Existing files:
 
 ### Checklist
 
-- [ ] Split script tests into architecture-agnostic checks and native-runtime checks.
-- [ ] Gate script success-path execution tests through the shared runtime fixture.
+- [x] Split script tests into architecture-agnostic checks and native-runtime checks.
+- [x] Gate script success-path execution tests through the shared runtime fixture.
 - [ ] Re-run the script test file on x86_64 and confirm deterministic skip behavior on ARM.
+
+Current validation state:
+
+- [x] The script test file skips native-runtime cases cleanly on ARM hosts through the shared runtime fixture.
+- [ ] The script test file passes on an `x86_64` host.
 
 ## Slice 6: Remove Compatibility Wrappers And Refresh Test Documentation
 
