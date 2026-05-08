@@ -54,7 +54,7 @@ This policy should be encoded in one shared test-support layer as soon as the re
 
 1. [x] Slice 1: Add shared host and target capability plumbing plus the temporary ARM runtime skip policy.
 2. [x] Slice 2: Split helper APIs into explicit emit-only and native-runtime paths.
-3. [ ] Slice 3: Convert the `x86_64_sysv` target suite to emit-only coverage.
+3. [x] Slice 3: Convert the `x86_64_sysv` target suite to emit-only coverage.
 4. [ ] Slice 4: Consolidate runtime contract coverage under native CLI integration suites.
 5. [ ] Slice 5: Convert build and run script tests to the same native-runtime harness model.
 6. [ ] Slice 6: Remove compatibility wrappers and refresh test documentation.
@@ -252,12 +252,12 @@ Existing files:
 - [x] Remove `compile_and_run_source(...)` imports and usages from the `x86_64_sysv` target tree.
 - [x] Keep or add emit-only assertions where useful.
 - [x] Move or split every runtime-returncode or runtime-stderr test.
-- [ ] Re-run the full `x86_64_sysv` target suite on ARM and x86_64 hosts.
+- [x] Re-run the full `x86_64_sysv` target suite on ARM and x86_64 hosts.
 
 Current validation state:
 
 - [x] Re-ran the full `x86_64_sysv` target suite on ARM hosts.
-- [ ] Re-run the full `x86_64_sysv` target suite on an `x86_64` host.
+- [x] Re-ran the full `x86_64_sysv` target suite on an `x86_64` host.
 
 ## Slice 4: Consolidate Runtime Contract Coverage Under Native CLI Integration Suites
 
@@ -279,7 +279,12 @@ New files likely needed:
 - [tests/compiler/integration/test_cli_runtime_smoke/conftest.py](../tests/compiler/integration/test_cli_runtime_smoke/conftest.py)
 - [tests/compiler/integration/test_cli_semantic_codegen_runtime/conftest.py](../tests/compiler/integration/test_cli_semantic_codegen_runtime/conftest.py)
 - [tests/compiler/integration/test_cli_interfaces_runtime/conftest.py](../tests/compiler/integration/test_cli_interfaces_runtime/conftest.py)
-- additional behavior-grouped runtime files under the existing runtime directories
+- [tests/compiler/integration/test_cli_runtime_smoke/test_basic_control_flow_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_basic_control_flow_runtime.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_callable_values_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_callable_values_runtime.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_double_and_object_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_double_and_object_runtime.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_program_args_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_program_args_runtime.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_string_and_resolution_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_string_and_resolution_runtime.py)
+- [tests/compiler/integration/test_cli_interfaces_runtime/test_interface_typed_locals.py](../tests/compiler/integration/test_cli_interfaces_runtime/test_interface_typed_locals.py)
 
 ### What To Change
 
@@ -331,11 +336,16 @@ New files likely needed:
 
 ### Checklist
 
-- [ ] Add directory-level runtime gating for the CLI runtime suites.
-- [ ] Move general runtime behavior cases into `test_cli_runtime_smoke`.
-- [ ] Move GC and root-sensitive cases into `test_cli_semantic_codegen_runtime`.
-- [ ] Move interface and dispatch cases into `test_cli_interfaces_runtime` or existing virtual-dispatch runtime files.
-- [ ] Remove duplicated direct-backend runtime scenarios once equivalent CLI coverage exists.
+- [x] Add directory-level runtime gating for the CLI runtime suites.
+- [x] Move general runtime behavior cases into `test_cli_runtime_smoke`.
+- [x] Move GC and root-sensitive cases into `test_cli_semantic_codegen_runtime`.
+- [x] Move interface and dispatch cases into `test_cli_interfaces_runtime` or existing virtual-dispatch runtime files.
+- [x] Remove duplicated direct-backend runtime scenarios once equivalent CLI coverage exists.
+
+Current validation state:
+
+- [x] Runtime integration suites skip cleanly on ARM hosts through the shared runtime fixture.
+- [ ] Runtime integration suites pass on `x86_64` hosts.
 
 ## Slice 5: Convert Build And Run Script Tests To The Native-Runtime Harness Model
 

@@ -116,3 +116,56 @@ def test_cli_semantic_codegen_runs_root_slot_reuse_across_forced_gc(
     )
 
     assert run.returncode == 0, run.stderr
+
+
+def test_cli_semantic_codegen_runs_rooted_program_with_multiple_forced_gc_cycles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry = tmp_path / "main.nif"
+    write(
+        entry,
+        """
+        extern fn rt_gc_collect() -> unit;
+
+        class FirstMarker {}
+        class MiddleMarker {}
+
+        fn choose_last(left: Obj, right: Obj) -> Obj {
+            rt_gc_collect();
+            return right;
+        }
+
+        fn main() -> i64 {
+            var i: i64 = 0;
+            while i < 50 {
+                var first: Obj = (Obj)FirstMarker();
+                var middle: Obj = (Obj)MiddleMarker();
+                var last: Obj = first;
+
+                rt_gc_collect();
+                last = first;
+                rt_gc_collect();
+
+                var kept: Obj = choose_last(middle, last);
+                if !(kept is FirstMarker) {
+                    return 10;
+                }
+
+                rt_gc_collect();
+                if !(last is FirstMarker) {
+                    return 11;
+                }
+
+                i = i + 1;
+            }
+
+            return 0;
+        }
+        """,
+    )
+
+    run = compile_and_run(
+        monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s", exe_path=tmp_path / "program"
+    )
+
+    assert run.returncode == 0, run.stderr
