@@ -31,8 +31,9 @@ def test_backend_matrix_exports_the_compiler_owned_capability_type() -> None:
 def test_registered_backend_capabilities_expose_x86_64_sysv_as_emit_on_all_hosts() -> None:
     capabilities = registered_backend_capabilities()
 
-    assert tuple(capability.name for capability in capabilities) == ("x86_64_sysv",)
+    assert tuple(capability.name for capability in capabilities) == ("x86_64_sysv", "aarch64")
     assert capabilities[0].emits_on_all_hosts is True
+    assert capabilities[1].emits_on_all_hosts is True
     assert capabilities == compiler_backend_targets.registered_backend_targets()
 
 
@@ -43,6 +44,14 @@ def test_x86_64_sysv_capability_is_native_runnable_only_on_x86_64_hosts() -> Non
     assert capability.is_native_runnable_on("amd64") is True
     assert capability.is_native_runnable_on("aarch64") is False
     assert capability.is_native_runnable_on("arm64") is False
+
+
+def test_aarch64_capability_is_emit_only_until_native_runtime_enablement() -> None:
+    capability = backend_capability("aarch64")
+
+    assert capability.emits_on_all_hosts is True
+    assert capability.is_native_runnable_on("x86_64") is False
+    assert capability.is_native_runnable_on("aarch64") is False
 
 
 def test_native_runtime_backend_name_resolves_x86_host_to_x86_64_sysv() -> None:

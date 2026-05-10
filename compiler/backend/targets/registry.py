@@ -35,6 +35,7 @@ class BackendTargetRegistration:
 
 @lru_cache(maxsize=1)
 def _registered_backend_targets() -> tuple[BackendTargetRegistration, ...]:
+    from compiler.backend.targets.aarch64 import AARCH64_TARGET
     from compiler.backend.targets.x86_64_sysv import X86_64_SYSV_TARGET
 
     return (
@@ -43,6 +44,12 @@ def _registered_backend_targets() -> tuple[BackendTargetRegistration, ...]:
             target=X86_64_SYSV_TARGET,
             emits_on_all_hosts=True,
             native_runtime_architectures=frozenset({"x86_64"}),
+        ),
+        BackendTargetRegistration(
+            name=AARCH64_TARGET.name,
+            target=AARCH64_TARGET,
+            emits_on_all_hosts=True,
+            native_runtime_architectures=frozenset(),
         ),
     )
 

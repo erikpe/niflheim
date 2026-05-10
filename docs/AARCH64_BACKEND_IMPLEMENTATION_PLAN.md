@@ -49,7 +49,7 @@ That keeps the user-facing selector simple and matches the repository's existing
 1. [x] Slice 1: Introduce a shared target registry and explicit checked-path target selector.
 2. [x] Slice 2: Extract shared runtime-layout and target-test scaffolding out of the `x86_64_sysv` package.
 3. [x] Slice 3: Add the isolated `aarch64` package skeleton with ABI and frame-model coverage.
-4. [ ] Slice 4: Implement the `aarch64` scalar/call/control-flow/root-frame emission backbone.
+4. [x] Slice 4: Implement the `aarch64` scalar/call/control-flow/root-frame emission backbone.
 5. [ ] Slice 5: Complete `aarch64` feature parity and the full emit-only target suite.
 6. [ ] Slice 6: Switch ARM hosts to the native `aarch64` checked backend and enable full pytest plus golden execution.
 
@@ -333,6 +333,8 @@ Run the initial AArch64 emit-only suite and explicit-target CLI smoke coverage:
   tests/compiler/backend/targets/aarch64/test_emit_calls.py \
   tests/compiler/backend/targets/aarch64/test_emit_control_flow.py \
   tests/compiler/backend/targets/aarch64/test_emit_runtime_roots.py \
+  tests/compiler/backend/targets/test_api.py \
+  tests/compiler/support/test_backend_matrix.py \
   tests/compiler/integration/test_cli_aarch64_codegen.py -q
 ```
 
@@ -344,12 +346,17 @@ Run the initial AArch64 emit-only suite and explicit-target CLI smoke coverage:
 
 ### Checklist
 
-- [ ] Implement AArch64 scalar instruction selection.
-- [ ] Implement AArch64 call lowering.
-- [ ] Implement AArch64 root-frame setup, sync, reload, and pop.
-- [ ] Implement AArch64 trace-hook emission.
-- [ ] Register `aarch64` in the compiler registry once smoke coverage passes.
-- [ ] Add explicit `--target aarch64` compile-only CLI tests.
+- [x] Implement AArch64 scalar instruction selection.
+- [x] Implement AArch64 call lowering.
+- [x] Implement AArch64 root-frame setup, sync, reload, and pop.
+- [x] Implement AArch64 trace-hook emission.
+- [x] Register `aarch64` in the compiler registry once smoke coverage passes.
+- [x] Add explicit `--target aarch64` compile-only CLI tests.
+
+Validation:
+
+- [x] `/bin/python3 -m pytest -n auto --dist loadfile tests/compiler/backend/targets/aarch64/test_abi.py tests/compiler/backend/targets/aarch64/test_emit_basics.py tests/compiler/backend/targets/aarch64/test_emit_calls.py tests/compiler/backend/targets/aarch64/test_emit_control_flow.py tests/compiler/backend/targets/aarch64/test_emit_runtime_roots.py tests/compiler/backend/targets/test_api.py tests/compiler/support/test_backend_matrix.py tests/compiler/integration/test_cli_aarch64_codegen.py -q` -> `54 passed in 3.13s`
+- [x] `/bin/python3 -m pytest -n auto --dist loadfile -q` -> `1069 passed, 66 skipped in 9.94s`
 
 ---
 

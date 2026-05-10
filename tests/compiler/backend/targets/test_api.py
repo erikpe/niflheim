@@ -20,6 +20,7 @@ from compiler.backend.targets import (
     registered_backend_targets,
     resolve_backend_target,
 )
+from compiler.backend.targets.aarch64 import AARCH64_TARGET
 from compiler.backend.targets.x86_64_sysv import X86_64_SYSV_TARGET
 from tests.compiler.backend.ir.helpers import one_function_backend_program
 
@@ -113,15 +114,23 @@ def test_registered_backend_targets_expose_the_checked_registry_surface() -> Non
             emits_on_all_hosts=True,
             native_runtime_architectures=frozenset({"x86_64"}),
         ),
+        BackendTargetRegistration(
+            name="aarch64",
+            target=AARCH64_TARGET,
+            emits_on_all_hosts=True,
+            native_runtime_architectures=frozenset(),
+        ),
     )
-    assert registered_backend_target_names() == ("x86_64_sysv",)
+    assert registered_backend_target_names() == ("x86_64_sysv", "aarch64")
     assert backend_target_registration("x86_64_sysv") == registrations[0]
+    assert backend_target_registration("aarch64") == registrations[1]
 
 
 def test_resolve_backend_target_defaults_to_the_checked_backend() -> None:
     assert default_checked_backend_target_name() == "x86_64_sysv"
     assert resolve_backend_target() is X86_64_SYSV_TARGET
     assert resolve_backend_target("x86_64_sysv") is X86_64_SYSV_TARGET
+    assert resolve_backend_target("aarch64") is AARCH64_TARGET
 
 
 def test_native_runtime_backend_name_uses_registry_capabilities() -> None:
