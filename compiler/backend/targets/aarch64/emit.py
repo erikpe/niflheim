@@ -4,18 +4,36 @@ import os
 from pathlib import Path
 
 from compiler.backend.ir import (
+    BackendAllocObjectInst,
+    BackendArrayAllocInst,
+    BackendArrayLengthInst,
+    BackendArrayLoadInst,
+    BackendArraySliceInst,
+    BackendArraySliceStoreInst,
+    BackendArrayStoreInst,
     BackendBinaryInst,
     BackendBlock,
     BackendBranchTerminator,
+    BackendBoundsCheckInst,
     BackendCallInst,
+    BackendCastInst,
     BackendConstInst,
     BackendCopyInst,
     BackendDirectCallTarget,
+    BackendEffects,
+    BackendFieldLoadInst,
+    BackendFieldStoreInst,
     BackendIndirectCallTarget,
+    BackendInstId,
+    BackendInterfaceCallTarget,
     BackendJumpTerminator,
+    BackendNullCheckInst,
+    BackendRegOperand,
     BackendReturnTerminator,
     BackendRuntimeCallTarget,
+    BackendTypeTestInst,
     BackendUnaryInst,
+    BackendVirtualCallTarget,
 )
 from compiler.backend.program.symbols import epilogue_label
 from compiler.backend.targets import (
@@ -25,16 +43,38 @@ from compiler.backend.targets import (
     BackendTargetOptions,
 )
 from compiler.backend.targets.aarch64.abi import AARCH64_ABI
+from compiler.backend.targets.aarch64.array_codegen import (
+    emit_array_alloc_instruction,
+    emit_array_length_instruction,
+    emit_array_load_instruction,
+    emit_array_slice_instruction,
+    emit_array_slice_store_instruction,
+    emit_array_store_instruction,
+    emit_bounds_check_instruction,
+)
 from compiler.backend.targets.aarch64.asm import AArch64AsmBuilder, format_stack_slot_operand
+from compiler.backend.targets.aarch64.cast_codegen import (
+    emit_array_kind_name_literals,
+    emit_cast_instruction,
+    emit_type_test_instruction,
+)
 from compiler.backend.targets.aarch64.frame import plan_callable_frame_layout
 from compiler.backend.targets.aarch64.instruction_selection import (
     emit_branch_terminator,
     emit_instruction,
     emit_jump_terminator,
+    emit_load_operand,
     emit_return_terminator,
     register_type_name_by_reg_id,
 )
 from compiler.backend.targets.aarch64.lower_calls import emit_call_instruction as emit_lowered_call_instruction
+from compiler.backend.targets.aarch64.object_codegen import (
+    emit_alloc_object_instruction,
+    emit_field_load_instruction,
+    emit_field_store_instruction,
+    emit_null_check_instruction,
+    emit_program_metadata_sections,
+)
 from compiler.backend.targets.aarch64.root_codegen import (
     emit_root_frame_pop,
     emit_root_frame_setup,
@@ -49,8 +89,9 @@ from compiler.backend.targets.aarch64.trace_codegen import (
     emit_trace_pop,
     emit_trace_push,
 )
-from compiler.semantic.symbols import ConstructorId, FunctionId, MethodId
-from compiler.semantic.types import semantic_type_canonical_name
+from compiler.semantic.operations import CastSemanticsKind, TypeTestSemanticsKind
+from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, MethodId
+from compiler.semantic.types import semantic_type_canonical_name, semantic_type_is_interface, semantic_type_is_reference
 
 
 TARGET_NAME = "aarch64"
@@ -80,8 +121,6 @@ def emit_aarch64_asm(target_input: BackendTargetInput, *, options: BackendTarget
     for callable_decl in target_input.program.callables:
         if callable_decl.is_extern:
             continue
-        if callable_decl.kind == "constructor":
-            raise AArch64LegalityError("aarch64 constructor entry wrappers land in the later object slice")
         builder.blank()
         frame_layout = plan_callable_frame_layout(target_input, callable_decl)
         trace_record = (
@@ -104,6 +143,8 @@ def emit_aarch64_asm(target_input: BackendTargetInput, *, options: BackendTarget
             runtime_trace_enabled=options.runtime_trace_enabled,
         )
 
+    emit_program_metadata_sections(builder, program_context=target_input.program_context)
+    emit_array_kind_name_literals(builder)
     emit_trace_debug_literals(builder, records=tuple(trace_records))
 
     builder.blank()
@@ -117,7 +158,7 @@ def check_aarch64_legality(target_input: BackendTargetInput) -> None:
         _check_callable_shape(callable_decl)
         _check_callable_signature(callable_decl)
         _check_callable_register_types(callable_decl)
-        target_input.analysis_for_callable(callable_decl.callable_id)
+        _check_callable_analysis(target_input, callable_decl)
         for block in callable_decl.blocks:
             for instruction in block.instructions:
                 _check_instruction_legality(callable_decl, block, instruction)
@@ -126,49 +167,89 @@ def check_aarch64_legality(target_input: BackendTargetInput) -> None:
 def _check_callable_shape(callable_decl) -> None:
     if callable_decl.kind == "function":
         if callable_decl.receiver_reg is not None:
-            raise AArch64LegalityError("functions must not declare a receiver register")
+            _callable_error(callable_decl, "functions must not declare a receiver register")
         return
     if callable_decl.kind == "method":
         if callable_decl.is_static is True and callable_decl.receiver_reg is None:
             return
         if callable_decl.is_static is False and callable_decl.receiver_reg is not None:
             return
-        raise AArch64LegalityError("methods must either be static without a receiver or instance methods with one")
+        _callable_error(callable_decl, "methods must either be static without a receiver or instance methods with one")
     if callable_decl.kind == "constructor":
         if callable_decl.receiver_reg is None:
-            raise AArch64LegalityError("constructors must declare a receiver register")
+            _callable_error(callable_decl, "constructors must declare a receiver register")
         return
-    raise AArch64LegalityError(f"unsupported callable kind '{callable_decl.kind}'")
 
 
 def _check_callable_signature(callable_decl) -> None:
     for param_type in callable_decl.signature.param_types:
         if not AARCH64_ABI.supports_passed_type(param_type):
-            raise AArch64LegalityError(
-                f"unsupported aarch64 parameter type '{param_type.display_name}'"
+            _callable_error(
+                callable_decl,
+                f"unsupported aarch64 parameter type '{param_type.display_name}'",
             )
     if not AARCH64_ABI.supports_passed_type(callable_decl.signature.return_type):
         assert callable_decl.signature.return_type is not None
-        raise AArch64LegalityError(
-            f"unsupported aarch64 return type '{callable_decl.signature.return_type.display_name}'"
+        _callable_error(
+            callable_decl,
+            f"unsupported aarch64 return type '{callable_decl.signature.return_type.display_name}'",
         )
 
 
 def _check_callable_register_types(callable_decl) -> None:
     for register in callable_decl.registers:
         if not AARCH64_ABI.supports_passed_type(register.type_ref):
-            raise AArch64LegalityError(
-                f"register 'r{register.reg_id.ordinal}' uses unsupported aarch64 type '{register.type_ref.display_name}'"
+            _callable_error(
+                callable_decl,
+                f"register 'r{register.reg_id.ordinal}' uses unsupported aarch64 type '{register.type_ref.display_name}'",
             )
 
 
+def _check_callable_analysis(target_input: BackendTargetInput, callable_decl) -> None:
+    target_input.analysis_for_callable(callable_decl.callable_id)
+
+
 def _check_instruction_legality(callable_decl, block: BackendBlock, instruction: object) -> None:
-    if isinstance(instruction, (BackendConstInst, BackendCopyInst, BackendUnaryInst, BackendBinaryInst)):
+    if isinstance(instruction, BackendTypeTestInst):
+        _check_type_test_instruction_legality(callable_decl, block, instruction)
         return
+
+    if isinstance(instruction, BackendCastInst):
+        _check_cast_instruction_legality(callable_decl, block, instruction)
+        return
+
+    if isinstance(
+        instruction,
+        (
+            BackendConstInst,
+            BackendCopyInst,
+            BackendUnaryInst,
+            BackendBinaryInst,
+            BackendAllocObjectInst,
+            BackendFieldLoadInst,
+            BackendFieldStoreInst,
+            BackendArrayAllocInst,
+            BackendArrayLengthInst,
+            BackendArrayLoadInst,
+            BackendArrayStoreInst,
+            BackendArraySliceInst,
+            BackendArraySliceStoreInst,
+            BackendNullCheckInst,
+            BackendBoundsCheckInst,
+        ),
+    ):
+        return
+
     if isinstance(instruction, BackendCallInst):
         if not isinstance(
             instruction.target,
-            (BackendDirectCallTarget, BackendRuntimeCallTarget, BackendIndirectCallTarget),
+            (
+                BackendDirectCallTarget,
+                BackendRuntimeCallTarget,
+                BackendIndirectCallTarget,
+                BackendVirtualCallTarget,
+                BackendInterfaceCallTarget,
+            ),
         ):
             _instruction_error(
                 callable_decl,
@@ -193,11 +274,12 @@ def _check_instruction_legality(callable_decl, block: BackendBlock, instruction:
                 f"call return type '{instruction.signature.return_type.display_name}' is not supported in aarch64",
             )
         return
+
     _instruction_error(
         callable_decl,
         block,
         instruction,
-        f"instruction '{type(instruction).__name__}' is not supported in slice 4",
+        f"instruction '{type(instruction).__name__}' is not supported in slice 5",
     )
 
 
@@ -214,7 +296,6 @@ def _emit_callable_body(
     trace_record,
     runtime_trace_enabled: bool,
 ) -> None:
-    del options
     callable_analysis = target_input.analysis_for_callable(callable_decl.callable_id)
     callable_symbols = target_input.program_context.symbols.callable(callable_decl.callable_id)
     if callable_symbols.emitted_label is None:
@@ -223,27 +304,36 @@ def _emit_callable_body(
         )
     ordered_blocks = _ordered_blocks_for_callable(callable_decl, ordered_block_ids=ordered_block_ids)
     resolved_type_names = register_type_name_by_reg_id(callable_decl)
-    target_label = callable_symbols.emitted_label
-    callable_label_for_calls = callable_symbols.emitted_label or callable_symbols.direct_call_symbol
-    block_label_by_id = {
-        block.block_id: _block_label(target_label, block.block_id.ordinal)
-        for block in ordered_blocks
+    interface_method_slot_by_id = {
+        method_id: slot_index
+        for interface_decl in target_input.program.interfaces
+        for slot_index, method_id in enumerate(interface_decl.methods)
     }
+    callable_label_for_calls = callable_symbols.emitted_label or callable_symbols.direct_call_symbol
 
-    def emit_safepoint_preamble(instruction: BackendCallInst) -> None:
-        if frame_layout.has_root_frame and (instruction.effects.may_gc or instruction.effects.needs_safepoint_hooks):
+    def emit_location_hook(*, line: int, column: int) -> None:
+        emit_trace_location(builder, line=line, column=column)
+
+    def emit_safepoint_preamble(instruction) -> None:
+        if frame_layout.has_root_frame:
             live_reg_ids = callable_analysis.safepoints.live_regs_for_instruction(instruction.inst_id)
             emit_root_slot_sync(builder, frame_layout=frame_layout, live_reg_ids=live_reg_ids)
+        if (
+            runtime_trace_enabled
+            and not isinstance(instruction, BackendCallInst)
+            and instruction.effects.needs_safepoint_hooks
+        ):
+            emit_location_hook(line=instruction.span.start.line, column=instruction.span.start.column)
 
-    def emit_safepoint_postamble(instruction: BackendCallInst) -> None:
-        if not frame_layout.has_root_frame or not instruction.effects.may_gc:
+    def emit_safepoint_postamble(instruction) -> None:
+        if not frame_layout.has_root_frame:
             return
         live_reg_ids = callable_analysis.safepoints.live_regs_for_instruction(instruction.inst_id)
         emit_root_slot_reload(builder, frame_layout=frame_layout, live_reg_ids=live_reg_ids)
 
     def emit_call_instruction(instruction: BackendCallInst) -> None:
         if runtime_trace_enabled:
-            emit_trace_location(builder, line=instruction.span.start.line, column=instruction.span.start.column)
+            emit_location_hook(line=instruction.span.start.line, column=instruction.span.start.column)
         emit_lowered_call_instruction(
             builder,
             instruction,
@@ -251,15 +341,46 @@ def _emit_callable_body(
             register_type_name_by_reg_id=resolved_type_names,
             callable_decl_by_id=callable_by_id,
             program_symbols=target_input.program_context.symbols,
+            program_context=target_input.program_context,
+            interface_method_slot_by_id=interface_method_slot_by_id,
             callable_label=callable_label_for_calls,
             emit_safepoint_preamble=emit_safepoint_preamble,
             emit_safepoint_postamble=emit_safepoint_postamble,
         )
 
-    if callable_symbols.global_label is not None:
+    if callable_decl.kind == "constructor":
+        _emit_constructor_entry_wrapper(
+            builder,
+            callable_decl,
+            target_input=target_input,
+            frame_layout=frame_layout,
+            register_type_name_by_reg_id=resolved_type_names,
+            emit_call_instruction=emit_call_instruction,
+            emit_location_hook=emit_location_hook if runtime_trace_enabled else None,
+            trace_record=trace_record,
+            runtime_trace_enabled=runtime_trace_enabled,
+        )
+        builder.blank()
+        target_label = _constructor_init_label(target_input, callable_decl.callable_id)
+        global_symbol = False
+        alias_labels = ()
+        body_trace_record = None
+    else:
+        target_label = callable_symbols.emitted_label
+        global_symbol = callable_symbols.global_label is not None
+        alias_labels = callable_symbols.alias_labels
+        body_trace_record = trace_record
+
+    epilogue = epilogue_label(target_label)
+    block_label_by_id = {
+        block.block_id: _block_label(target_label, block.block_id.ordinal)
+        for block in ordered_blocks
+    }
+
+    if global_symbol:
         builder.global_symbol(target_label)
     builder.label(target_label)
-    for alias_label in callable_symbols.alias_labels:
+    for alias_label in alias_labels:
         builder.label(alias_label)
 
     builder.instruction("stp", "x29", "x30", "[sp, #-16]!")
@@ -271,10 +392,10 @@ def _emit_callable_body(
     if frame_layout.has_root_frame:
         emit_zero_root_slots(builder, frame_layout=frame_layout)
         emit_root_frame_setup(builder, frame_layout=frame_layout)
-    if runtime_trace_enabled and trace_record is not None:
+    if runtime_trace_enabled and body_trace_record is not None:
         emit_trace_push(
             builder,
-            trace_record,
+            body_trace_record,
             line=callable_decl.span.start.line,
             column=callable_decl.span.start.column,
         )
@@ -285,6 +406,108 @@ def _emit_callable_body(
     for block in ordered_blocks:
         builder.label(block_label_by_id[block.block_id])
         for instruction in block.instructions:
+            if isinstance(instruction, BackendAllocObjectInst):
+                emit_alloc_object_instruction(
+                    builder,
+                    instruction,
+                    frame_layout=frame_layout,
+                    program_context=target_input.program_context,
+                    emit_safepoint_preamble=emit_safepoint_preamble,
+                    emit_safepoint_postamble=emit_safepoint_postamble,
+                )
+                continue
+            if isinstance(instruction, BackendFieldLoadInst):
+                emit_field_load_instruction(
+                    builder,
+                    instruction,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    program_context=target_input.program_context,
+                )
+                continue
+            if isinstance(instruction, BackendFieldStoreInst):
+                emit_field_store_instruction(
+                    builder,
+                    instruction,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    program_context=target_input.program_context,
+                )
+                continue
+            if isinstance(instruction, BackendNullCheckInst):
+                emit_null_check_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                )
+                continue
+            if isinstance(instruction, BackendArrayAllocInst):
+                emit_array_alloc_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                continue
+            if isinstance(instruction, BackendArrayLengthInst):
+                emit_array_length_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    emit_call_instruction=emit_call_instruction,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    options=options,
+                )
+                continue
+            if isinstance(instruction, BackendArrayLoadInst):
+                emit_array_load_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    emit_call_instruction=emit_call_instruction,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    options=options,
+                )
+                continue
+            if isinstance(instruction, BackendArrayStoreInst):
+                emit_array_store_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    emit_call_instruction=emit_call_instruction,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    options=options,
+                )
+                continue
+            if isinstance(instruction, BackendArraySliceInst):
+                emit_array_slice_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                continue
+            if isinstance(instruction, BackendArraySliceStoreInst):
+                emit_array_slice_store_instruction(builder, instruction, emit_call_instruction=emit_call_instruction)
+                continue
+            if isinstance(instruction, BackendBoundsCheckInst):
+                emit_bounds_check_instruction(builder, instruction)
+                continue
+            if isinstance(instruction, BackendCastInst):
+                emit_cast_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    program_context=target_input.program_context,
+                )
+                continue
+            if isinstance(instruction, BackendTypeTestInst):
+                emit_type_test_instruction(
+                    builder,
+                    instruction,
+                    callable_label=target_label,
+                    frame_layout=frame_layout,
+                    register_type_name_by_reg_id=resolved_type_names,
+                    program_context=target_input.program_context,
+                )
+                continue
             emit_instruction(
                 builder,
                 instruction,
@@ -300,16 +523,16 @@ def _emit_callable_body(
             frame_layout=frame_layout,
             register_type_name_by_reg_id=resolved_type_names,
             block_label_by_id=block_label_by_id,
-            epilogue_label_text=epilogue_label(target_label),
+            epilogue_label_text=epilogue,
             program_symbols=target_input.program_context.symbols,
         )
 
-    builder.label(epilogue_label(target_label))
+    builder.label(epilogue)
     _emit_runtime_epilogue_cleanup_preserving_return(
         builder,
         callable_decl,
         frame_layout=frame_layout,
-        runtime_trace_enabled=runtime_trace_enabled and trace_record is not None,
+        runtime_trace_enabled=runtime_trace_enabled and body_trace_record is not None,
     )
     builder.instruction("mov", "sp", "x29")
     builder.instruction("ldp", "x29", "x30", "[sp], #16")
@@ -351,7 +574,7 @@ def _emit_terminator(
         )
         return
     raise BackendTargetLoweringError(
-        f"aarch64 terminator '{type(terminator).__name__}' is not supported in slice 4"
+        f"aarch64 terminator '{type(terminator).__name__}' is not supported in slice 5"
     )
 
 
@@ -369,14 +592,14 @@ def _block_label(target_label: str, block_ordinal: int) -> str:
     return f".L{target_label}_b{block_ordinal}"
 
 
-def _emit_param_spills(builder: AArch64AsmBuilder, callable_decl, *, frame_layout) -> None:
-    includes_receiver = callable_decl.receiver_reg is not None
+def _emit_param_spills(builder, callable_decl, *, frame_layout, includes_receiver: bool | None = None) -> None:
+    resolved_includes_receiver = callable_decl.receiver_reg is not None if includes_receiver is None else includes_receiver
     arg_locations = AARCH64_ABI.plan_argument_locations(
         callable_decl.signature.param_types,
-        includes_receiver=includes_receiver,
+        includes_receiver=resolved_includes_receiver,
     )
     ordered_arg_regs = callable_decl.param_regs
-    if includes_receiver:
+    if resolved_includes_receiver:
         if callable_decl.receiver_reg is None:
             raise BackendTargetLoweringError("aarch64 receiver spills require a receiver register")
         ordered_arg_regs = (callable_decl.receiver_reg, *ordered_arg_regs)
@@ -406,12 +629,102 @@ def _emit_param_spills(builder: AArch64AsmBuilder, callable_decl, *, frame_layou
                 builder.instruction("ldr", "x9", f"[x29, #{incoming_offset}]")
                 builder.instruction("str", "x9", stack_operand)
             continue
+        raise BackendTargetLoweringError(f"unsupported parameter location kind '{arg_location.kind}'")
+
+
+def _emit_constructor_entry_wrapper(
+    builder,
+    callable_decl,
+    *,
+    target_input,
+    frame_layout,
+    register_type_name_by_reg_id: dict,
+    emit_call_instruction,
+    emit_location_hook,
+    trace_record,
+    runtime_trace_enabled: bool,
+) -> None:
+    callable_symbols = target_input.program_context.symbols.callable(callable_decl.callable_id)
+    target_label = callable_symbols.emitted_label
+    if target_label is None:
         raise BackendTargetLoweringError(
-            f"aarch64 parameter spill does not support location kind '{arg_location.kind}'"
+            f"aarch64 backend program context is missing an emitted label for '{_format_callable_id(callable_decl.callable_id)}'"
         )
+    if callable_symbols.global_label is not None:
+        builder.global_symbol(target_label)
+    builder.label(target_label)
+    for alias_label in callable_symbols.alias_labels:
+        builder.label(alias_label)
+
+    epilogue = epilogue_label(target_label)
+    builder.instruction("stp", "x29", "x30", "[sp, #-16]!")
+    builder.instruction("mov", "x29", "sp")
+    if frame_layout.stack_size > 0:
+        builder.instruction("sub", "sp", "sp", f"#{frame_layout.stack_size}")
+
+    _emit_param_spills(builder, callable_decl, frame_layout=frame_layout, includes_receiver=False)
+    if frame_layout.has_root_frame:
+        emit_zero_root_slots(builder, frame_layout=frame_layout)
+        emit_root_frame_setup(builder, frame_layout=frame_layout)
+    if runtime_trace_enabled and trace_record is not None:
+        emit_trace_push(
+            builder,
+            trace_record,
+            line=callable_decl.span.start.line,
+            column=callable_decl.span.start.column,
+        )
+    receiver_reg = callable_decl.receiver_reg
+    if receiver_reg is None:
+        raise BackendTargetLoweringError("constructor wrapper emission requires a receiver register")
+    class_id = ClassId(module_path=callable_decl.callable_id.module_path, name=callable_decl.callable_id.class_name)
+    emit_alloc_object_instruction(
+        builder,
+        BackendAllocObjectInst(
+            inst_id=BackendInstId(owner_id=callable_decl.callable_id, ordinal=0),
+            dest=receiver_reg,
+            class_id=class_id,
+            effects=BackendEffects(reads_memory=True, writes_memory=True, may_gc=True, needs_safepoint_hooks=True),
+            span=callable_decl.span,
+        ),
+        frame_layout=frame_layout,
+        program_context=target_input.program_context,
+        emit_safepoint_preamble=(
+            (lambda instruction: emit_location_hook(line=instruction.span.start.line, column=instruction.span.start.column))
+            if emit_location_hook is not None
+            else None
+        ),
+    )
+    init_call = BackendCallInst(
+        inst_id=BackendInstId(owner_id=callable_decl.callable_id, ordinal=1),
+        dest=receiver_reg,
+        target=BackendDirectCallTarget(callable_id=callable_decl.callable_id),
+        args=(BackendRegOperand(reg_id=receiver_reg),) + tuple(BackendRegOperand(reg_id=reg_id) for reg_id in callable_decl.param_regs),
+        signature=callable_decl.signature,
+        effects=BackendEffects(reads_memory=True, writes_memory=True),
+        span=callable_decl.span,
+    )
+    emit_call_instruction(init_call)
+    emit_load_operand(
+        builder,
+        BackendRegOperand(reg_id=receiver_reg),
+        target_register="x0",
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id,
+    )
+    builder.instruction("b", epilogue)
+    builder.label(epilogue)
+    _emit_runtime_epilogue_cleanup_preserving_return(
+        builder,
+        callable_decl,
+        frame_layout=frame_layout,
+        runtime_trace_enabled=runtime_trace_enabled and trace_record is not None,
+    )
+    builder.instruction("mov", "sp", "x29")
+    builder.instruction("ldp", "x29", "x30", "[sp], #16")
+    builder.instruction("ret")
 
 
-def _trace_record_for_callable(target_input: BackendTargetInput, callable_decl, *, source_root: Path | None):
+def _trace_record_for_callable(target_input: BackendTargetInput, callable_decl, *, source_root: Path | None) -> TraceDebugRecord | None:
     callable_symbols = target_input.program_context.symbols.callable(callable_decl.callable_id)
     if callable_symbols.emitted_label is None:
         return None
@@ -478,10 +791,27 @@ def _emit_runtime_epilogue_cleanup_preserving_return(
     builder.instruction("add", "sp", "sp", "#16")
 
 
-def _instruction_error(callable_decl, block: BackendBlock, instruction: object, message: str) -> None:
+def _constructor_init_label(target_input: BackendTargetInput, callable_id: ConstructorId) -> str:
+    callable_symbols = target_input.program_context.symbols.callable(callable_id)
+    if callable_symbols.constructor_init_symbol is None:
+        raise BackendTargetLoweringError(
+            f"aarch64 constructor '{_format_callable_id(callable_id)}' is missing an init symbol"
+        )
+    return callable_symbols.constructor_init_symbol
+
+
+def _callable_error(callable_decl, message: str) -> None:
     raise AArch64LegalityError(
-        f"{_format_callable_id(callable_decl.callable_id)}:{block.block_id.ordinal}:"
-        f"i{getattr(instruction, 'inst_id', '?')} {message}"
+        f"Backend target '{TARGET_NAME}' callable '{_format_callable_id(callable_decl.callable_id)}': {message}"
+    )
+
+
+def _instruction_error(callable_decl, block: BackendBlock, instruction: object, message: str) -> None:
+    inst_id = getattr(instruction, "inst_id", None)
+    inst_name = "terminator" if inst_id is None else f"instruction 'i{inst_id.ordinal}'"
+    raise AArch64LegalityError(
+        f"Backend target '{TARGET_NAME}' callable '{_format_callable_id(callable_decl.callable_id)}' "
+        f"block 'b{block.block_id.ordinal}' {inst_name}: {message}"
     )
 
 
@@ -493,6 +823,74 @@ def _format_callable_id(callable_id) -> str:
     if isinstance(callable_id, ConstructorId):
         return f"{'.'.join(callable_id.module_path)}::{callable_id.class_name}#{callable_id.ordinal}"
     raise TypeError(f"Unsupported backend callable ID '{callable_id!r}'")
+
+
+def _check_cast_instruction_legality(callable_decl, block: BackendBlock, instruction: BackendCastInst) -> None:
+    target_type_name = semantic_type_canonical_name(instruction.target_type_ref)
+
+    if instruction.cast_kind is CastSemanticsKind.IDENTITY:
+        return
+    if instruction.cast_kind is CastSemanticsKind.TO_BOOL:
+        if target_type_name != "bool":
+            _instruction_error(callable_decl, block, instruction, "TO_BOOL casts must target 'bool'")
+        return
+    if instruction.cast_kind is CastSemanticsKind.TO_DOUBLE:
+        if target_type_name != "double":
+            _instruction_error(callable_decl, block, instruction, "TO_DOUBLE casts must target 'double'")
+        return
+    if instruction.cast_kind is CastSemanticsKind.TO_INTEGER:
+        if target_type_name not in {"i64", "u64", "u8"}:
+            _instruction_error(callable_decl, block, instruction, f"unsupported integer cast target '{target_type_name}'")
+        return
+    if instruction.cast_kind is CastSemanticsKind.REFERENCE_COMPATIBILITY:
+        if not (semantic_type_is_reference(instruction.target_type_ref) or semantic_type_is_interface(instruction.target_type_ref)):
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"reference casts require a reference or interface target, got '{instruction.target_type_ref.display_name}'",
+            )
+        return
+    _instruction_error(
+        callable_decl,
+        block,
+        instruction,
+        f"instruction '{type(instruction).__name__}' uses unsupported cast kind '{instruction.cast_kind.value}'",
+    )
+
+
+def _check_type_test_instruction_legality(callable_decl, block: BackendBlock, instruction: BackendTypeTestInst) -> None:
+    if instruction.test_kind is TypeTestSemanticsKind.INTERFACE_COMPATIBILITY:
+        if not semantic_type_is_interface(instruction.target_type_ref):
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"interface type tests require an interface target, got '{instruction.target_type_ref.display_name}'",
+            )
+        return
+    if instruction.test_kind is TypeTestSemanticsKind.CLASS_COMPATIBILITY:
+        if semantic_type_is_interface(instruction.target_type_ref):
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"class type tests cannot target interface type '{instruction.target_type_ref.display_name}'",
+            )
+        if not semantic_type_is_reference(instruction.target_type_ref):
+            _instruction_error(
+                callable_decl,
+                block,
+                instruction,
+                f"class type tests require a reference target, got '{instruction.target_type_ref.display_name}'",
+            )
+        return
+    _instruction_error(
+        callable_decl,
+        block,
+        instruction,
+        f"instruction '{type(instruction).__name__}' uses unsupported test kind '{instruction.test_kind.value}'",
+    )
 
 
 AARCH64_TARGET = AArch64Target()

@@ -112,9 +112,16 @@ def emit_instruction(
     if isinstance(instruction, BackendUnaryInst):
         operand_type_name = _operand_type_name(instruction.operand, register_type_name_by_reg_id)
         if operand_type_name == TYPE_NAME_DOUBLE:
-            raise BackendTargetLoweringError(
-                "aarch64 floating unary operators land in the later double slice"
+            emit_load_float_operand(
+                builder,
+                instruction.operand,
+                target_float_register=_PRIMARY_FLOAT_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
             )
+            _emit_float_unary_operation(builder, instruction)
+            emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
+            return
         emit_load_operand(
             builder,
             instruction.operand,
@@ -130,9 +137,26 @@ def emit_instruction(
     if isinstance(instruction, BackendBinaryInst):
         operand_type_name = _operand_type_name(instruction.left, register_type_name_by_reg_id)
         if operand_type_name == TYPE_NAME_DOUBLE:
-            raise BackendTargetLoweringError(
-                "aarch64 floating arithmetic lands in the later double slice"
+            emit_load_float_operand(
+                builder,
+                instruction.left,
+                target_float_register=_PRIMARY_FLOAT_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
             )
+            emit_load_float_operand(
+                builder,
+                instruction.right,
+                target_float_register=_SECONDARY_FLOAT_REGISTER,
+                frame_layout=frame_layout,
+                register_type_name_by_reg_id=register_type_name_by_reg_id,
+            )
+            _emit_float_binary_operation(builder, instruction)
+            if instruction.op.flavor == BinaryOpFlavor.FLOAT_COMPARISON:
+                emit_store_result(builder, instruction.dest, frame_layout=frame_layout)
+            else:
+                emit_store_float_result(builder, instruction.dest, frame_layout=frame_layout)
+            return
         emit_load_operand(
             builder,
             instruction.left,
@@ -352,6 +376,15 @@ def _emit_unary_operation(builder: AArch64AsmBuilder, instruction: BackendUnaryI
     )
 
 
+def _emit_float_unary_operation(builder: AArch64AsmBuilder, instruction: BackendUnaryInst) -> None:
+    if instruction.op.flavor == UnaryOpFlavor.FLOAT and instruction.op.kind == UnaryOpKind.NEGATE:
+        builder.instruction("fneg", _PRIMARY_FLOAT_REGISTER, _PRIMARY_FLOAT_REGISTER)
+        return
+    raise BackendTargetLoweringError(
+        f"aarch64 floating unary operator '{instruction.op.kind.value}' is not supported in the current scalar slice"
+    )
+
+
 def _emit_binary_operation(builder: AArch64AsmBuilder, instruction: BackendBinaryInst, *, operand_type_name: str) -> None:
     if instruction.op.flavor == BinaryOpFlavor.INTEGER:
         _emit_integer_binary_operation(builder, instruction.op.kind, operand_type_name=operand_type_name)
@@ -386,6 +419,65 @@ def _emit_binary_operation(builder: AArch64AsmBuilder, instruction: BackendBinar
         return
     raise BackendTargetLoweringError(
         f"aarch64 binary operator '{instruction.op.kind.value}' with flavor '{instruction.op.flavor.value}' is not supported in slice 4"
+    )
+
+
+def _emit_float_binary_operation(builder: AArch64AsmBuilder, instruction: BackendBinaryInst) -> None:
+    if instruction.op.flavor == BinaryOpFlavor.FLOAT:
+        if instruction.op.kind == BinaryOpKind.ADD:
+            builder.instruction("fadd", _PRIMARY_FLOAT_REGISTER, _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            return
+        if instruction.op.kind == BinaryOpKind.SUBTRACT:
+            builder.instruction("fsub", _PRIMARY_FLOAT_REGISTER, _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            return
+        if instruction.op.kind == BinaryOpKind.MULTIPLY:
+            builder.instruction("fmul", _PRIMARY_FLOAT_REGISTER, _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            return
+        if instruction.op.kind == BinaryOpKind.DIVIDE:
+            builder.instruction("fdiv", _PRIMARY_FLOAT_REGISTER, _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+            return
+        raise BackendTargetLoweringError(
+            f"aarch64 floating operator '{instruction.op.kind.value}' is not supported in the current scalar slice"
+        )
+
+    if instruction.op.flavor != BinaryOpFlavor.FLOAT_COMPARISON:
+        raise BackendTargetLoweringError(
+            f"aarch64 floating binary operator flavor '{instruction.op.flavor.value}' is not supported in the current scalar slice"
+        )
+
+    builder.instruction("fcmp", _PRIMARY_FLOAT_REGISTER, _SECONDARY_FLOAT_REGISTER)
+    if instruction.op.kind == BinaryOpKind.EQUAL:
+        builder.instruction("cset", _PRIMARY_WORD_REGISTER, "eq")
+        builder.instruction("cset", _SECONDARY_WORD_REGISTER, "vc")
+        builder.instruction("and", _PRIMARY_WORD_REGISTER, _PRIMARY_WORD_REGISTER, _SECONDARY_WORD_REGISTER)
+        return
+    if instruction.op.kind == BinaryOpKind.NOT_EQUAL:
+        builder.instruction("cset", _PRIMARY_WORD_REGISTER, "ne")
+        builder.instruction("cset", _SECONDARY_WORD_REGISTER, "vs")
+        builder.instruction("orr", _PRIMARY_WORD_REGISTER, _PRIMARY_WORD_REGISTER, _SECONDARY_WORD_REGISTER)
+        return
+    if instruction.op.kind == BinaryOpKind.LESS_THAN:
+        builder.instruction("cset", _PRIMARY_WORD_REGISTER, "lt")
+        builder.instruction("cset", _SECONDARY_WORD_REGISTER, "vc")
+        builder.instruction("and", _PRIMARY_WORD_REGISTER, _PRIMARY_WORD_REGISTER, _SECONDARY_WORD_REGISTER)
+        return
+    if instruction.op.kind == BinaryOpKind.LESS_EQUAL:
+        builder.instruction("cset", _PRIMARY_WORD_REGISTER, "le")
+        builder.instruction("cset", _SECONDARY_WORD_REGISTER, "vc")
+        builder.instruction("and", _PRIMARY_WORD_REGISTER, _PRIMARY_WORD_REGISTER, _SECONDARY_WORD_REGISTER)
+        return
+    if instruction.op.kind == BinaryOpKind.GREATER_THAN:
+        builder.instruction("cset", _PRIMARY_WORD_REGISTER, "gt")
+        builder.instruction("cset", _SECONDARY_WORD_REGISTER, "vc")
+        builder.instruction("and", _PRIMARY_WORD_REGISTER, _PRIMARY_WORD_REGISTER, _SECONDARY_WORD_REGISTER)
+        return
+    if instruction.op.kind == BinaryOpKind.GREATER_EQUAL:
+        builder.instruction("cset", _PRIMARY_WORD_REGISTER, "ge")
+        builder.instruction("cset", _SECONDARY_WORD_REGISTER, "vc")
+        builder.instruction("and", _PRIMARY_WORD_REGISTER, _PRIMARY_WORD_REGISTER, _SECONDARY_WORD_REGISTER)
+        return
+    raise BackendTargetLoweringError(
+        f"aarch64 floating comparison operator '{instruction.op.kind.value}' is not supported in the current scalar slice"
     )
 
 

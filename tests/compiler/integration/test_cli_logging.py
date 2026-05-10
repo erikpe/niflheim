@@ -17,7 +17,7 @@ def test_cli_log_level_info_emits_phase_logs_to_stderr(tmp_path: Path, monkeypat
         """,
     )
 
-    rc = run_cli(monkeypatch, ["nifc", str(entry), "--log-level", "info", "-o", str(out_file)])
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--target", "x86_64_sysv", "--log-level", "info", "-o", str(out_file)])
     captured = capsys.readouterr()
 
     assert rc == 0
@@ -70,7 +70,7 @@ def test_cli_debug_logs_respect_verbosity_threshold(tmp_path: Path, monkeypatch,
         """,
     )
 
-    rc = run_cli(monkeypatch, ["nifc", str(entry), "--log-level", "debug", "-vv", "-o", str(out_file)])
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--target", "x86_64_sysv", "--log-level", "debug", "-vv", "-o", str(out_file)])
     captured = capsys.readouterr()
 
     assert rc == 0
@@ -132,7 +132,7 @@ def test_cli_disable_all_optimization_suppresses_optimization_phase_logs(
         """,
     )
 
-    rc = run_cli(monkeypatch, ["nifc", str(entry), "--disable-all-optimization", "--log-level", "debug", "-vv", "-o", str(out_file)])
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--target", "x86_64_sysv", "--disable-all-optimization", "--log-level", "debug", "-vv", "-o", str(out_file)])
     captured = capsys.readouterr()
 
     assert rc == 0

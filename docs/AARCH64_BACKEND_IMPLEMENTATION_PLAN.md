@@ -50,7 +50,7 @@ That keeps the user-facing selector simple and matches the repository's existing
 2. [x] Slice 2: Extract shared runtime-layout and target-test scaffolding out of the `x86_64_sysv` package.
 3. [x] Slice 3: Add the isolated `aarch64` package skeleton with ABI and frame-model coverage.
 4. [x] Slice 4: Implement the `aarch64` scalar/call/control-flow/root-frame emission backbone.
-5. [ ] Slice 5: Complete `aarch64` feature parity and the full emit-only target suite.
+5. [x] Slice 5: Complete `aarch64` feature parity and the full emit-only target suite.
 6. [ ] Slice 6: Switch ARM hosts to the native `aarch64` checked backend and enable full pytest plus golden execution.
 
 ---
@@ -438,14 +438,21 @@ On an ARM host, also build a few explicit-target executables before the default 
 
 ### Checklist
 
-- [ ] Implement AArch64 object allocation, field access, and null-check emission.
-- [ ] Implement AArch64 casts and type tests.
-- [ ] Implement AArch64 array lowering and fast paths.
-- [ ] Implement AArch64 double support.
-- [ ] Implement AArch64 interface and virtual dispatch.
-- [ ] Implement AArch64 metadata, strings, and data-blob emission.
-- [ ] Add the full parallel AArch64 emit-only test tree.
-- [ ] Update compile-only CLI tests so target-specific assertions pin the target explicitly.
+- [x] Implement AArch64 object allocation, field access, and null-check emission.
+- [x] Implement AArch64 casts and type tests.
+- [x] Implement AArch64 array lowering and fast paths.
+- [x] Implement AArch64 double support.
+- [x] Implement AArch64 interface and virtual dispatch.
+- [x] Implement AArch64 metadata, strings, and data-blob emission.
+- [x] Add the full parallel AArch64 emit-only test tree.
+- [x] Update compile-only CLI tests so target-specific assertions pin the target explicitly.
+
+Validation:
+
+- [x] `/bin/python3 -m pytest -n auto --dist loadfile tests/compiler/backend/targets/aarch64 tests/compiler/integration/test_cli_codegen.py tests/compiler/integration/test_cli_logging.py -q` -> `85 passed in 3.57s`
+- [x] `/bin/python3 -m pytest -n auto --dist loadfile tests/compiler/backend/targets/x86_64_sysv tests/compiler/backend/targets/aarch64 tests/compiler/integration/test_cli_codegen.py tests/compiler/integration/test_cli_logging.py -q` -> `172 passed in 4.39s`
+- [x] `./scripts/build.sh samples/arithmetic_loop.nif build/arithmetic_loop_aarch64 -- --target aarch64 && ./scripts/build.sh samples/function_calls.nif build/function_calls_aarch64 -- --target aarch64` -> built `build/arithmetic_loop_aarch64` and `build/function_calls_aarch64`
+- [x] `./build/arithmetic_loop_aarch64 && ./build/function_calls_aarch64` -> succeeded with exit status 0
 
 ---
 
