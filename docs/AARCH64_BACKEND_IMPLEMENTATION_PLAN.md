@@ -48,7 +48,7 @@ That keeps the user-facing selector simple and matches the repository's existing
 
 1. [x] Slice 1: Introduce a shared target registry and explicit checked-path target selector.
 2. [x] Slice 2: Extract shared runtime-layout and target-test scaffolding out of the `x86_64_sysv` package.
-3. [ ] Slice 3: Add the isolated `aarch64` package skeleton with ABI and frame-model coverage.
+3. [x] Slice 3: Add the isolated `aarch64` package skeleton with ABI and frame-model coverage.
 4. [ ] Slice 4: Implement the `aarch64` scalar/call/control-flow/root-frame emission backbone.
 5. [ ] Slice 5: Complete `aarch64` feature parity and the full emit-only target suite.
 6. [ ] Slice 6: Switch ARM hosts to the native `aarch64` checked backend and enable full pytest plus golden execution.
@@ -245,10 +245,12 @@ Create the new target package and lock down its public surface, ABI descriptor, 
 
 ### How To Test It
 
-Run the new ABI and package-surface tests:
+Run the new AArch64 target scaffold tests:
 
 ```bash
-/bin/python3 -m pytest tests/compiler/backend/targets/aarch64/test_abi.py -q
+/bin/python3 -m pytest -n auto --dist loadfile \
+  tests/compiler/backend/targets/aarch64 \
+  tests/compiler/backend/targets/test_api.py -q
 ```
 
 ### Exit Criteria
@@ -259,12 +261,16 @@ Run the new ABI and package-surface tests:
 
 ### Checklist
 
-- [ ] Add `compiler/backend/targets/aarch64/`.
-- [ ] Define the public target name `aarch64`.
-- [ ] Implement the AArch64 ABI descriptor.
-- [ ] Implement the AArch64 frame-layout planner.
-- [ ] Add target-package surface tests.
-- [ ] Add an emit-only suite-boundary test for the new tree.
+- [x] Add `compiler/backend/targets/aarch64/`.
+- [x] Define the public target name `aarch64`.
+- [x] Implement the AArch64 ABI descriptor.
+- [x] Implement the AArch64 frame-layout planner.
+- [x] Add target-package surface tests.
+- [x] Add an emit-only suite-boundary test for the new tree.
+
+Validation:
+
+- [x] `/bin/python3 -m pytest -n auto --dist loadfile tests/compiler/backend/targets/aarch64 tests/compiler/backend/targets/test_api.py -q` -> `24 passed in 2.83s`
 
 ---
 
