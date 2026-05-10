@@ -8,6 +8,19 @@ import compiler.cli as cli
 from tests.compiler.integration.helpers import run_cli, write
 
 
+class _FakeTarget:
+    def __init__(self, emit_backend, *, name: str = "x86_64_sysv") -> None:
+        self.name = name
+        self._emit_backend = emit_backend
+
+    def emit_assembly(self, *args, **kwargs):
+        return self._emit_backend(*args, **kwargs)
+
+
+def _patch_resolve_backend_target(monkeypatch, emit_backend) -> None:
+    monkeypatch.setattr(cli, "resolve_backend_target", lambda requested_target_name=None: _FakeTarget(emit_backend))
+
+
 def test_cli_stop_after_backend_ir_prints_text_dump_by_default(tmp_path: Path, monkeypatch, capsys) -> None:
     entry = tmp_path / "main.nif"
     write(
@@ -22,7 +35,7 @@ def test_cli_stop_after_backend_ir_prints_text_dump_by_default(tmp_path: Path, m
     def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir")
 
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _unexpected_emit_backend)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "--stop-after", "backend-ir"])
     captured = capsys.readouterr()
@@ -46,7 +59,7 @@ def test_cli_stop_after_backend_ir_can_print_json_dump(tmp_path: Path, monkeypat
     def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir")
 
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _unexpected_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -109,7 +122,7 @@ def test_cli_stop_after_backend_ir_can_write_json_dump_file(tmp_path: Path, monk
     def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir")
 
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _unexpected_emit_backend)
 
     rc = run_cli(
         monkeypatch,

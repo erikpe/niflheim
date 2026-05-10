@@ -19,18 +19,26 @@ def test_cli_default_checked_path_uses_backend_ir_target_without_selector(tmp_pa
         """,
     )
 
-    seen = {"target_calls": 0}
-    real_emit_backend = cli.emit_x86_64_sysv_asm
+    seen = {"requested_target_name": None, "target_calls": 0}
+    real_target = cli.resolve_backend_target("x86_64_sysv")
 
-    def _counting_emit_backend(*args, **kwargs):
-        seen["target_calls"] += 1
-        return real_emit_backend(*args, **kwargs)
+    class _CountingTarget:
+        name = real_target.name
 
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _counting_emit_backend)
+        def emit_assembly(self, *args, **kwargs):
+            seen["target_calls"] += 1
+            return real_target.emit_assembly(*args, **kwargs)
+
+    def _counting_resolve_backend_target(requested_target_name: str | None = None):
+        seen["requested_target_name"] = requested_target_name
+        return _CountingTarget()
+
+    monkeypatch.setattr(cli, "resolve_backend_target", _counting_resolve_backend_target)
 
     asm_path = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=out_file)
 
     assert asm_path.exists()
+    assert seen["requested_target_name"] is None
     assert seen["target_calls"] == 1
 
 

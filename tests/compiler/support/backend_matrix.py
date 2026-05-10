@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-import platform
-from typing import Final
+import compiler.backend.targets as compiler_backend_targets
+import compiler.common.architectures as compiler_architectures
 
 __all__ = [
     "BackendCapability",
@@ -15,59 +14,27 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True, slots=True)
-class BackendCapability:
-    name: str
-    emits_on_all_hosts: bool
-    native_runtime_architectures: frozenset[str] = frozenset()
-
-    def is_native_runnable_on(self, host_architecture: str) -> bool:
-        return normalize_host_architecture(host_architecture) in self.native_runtime_architectures
-
-
-_ARCHITECTURE_ALIASES: Final[dict[str, str]] = {
-    "amd64": "x86_64",
-    "arm64": "aarch64",
-    "x64": "x86_64",
-}
-
-_REGISTERED_BACKEND_CAPABILITIES: Final[tuple[BackendCapability, ...]] = (
-    BackendCapability(
-        name="x86_64_sysv",
-        emits_on_all_hosts=True,
-        native_runtime_architectures=frozenset({"x86_64"}),
-    ),
-)
-
-_BACKEND_CAPABILITY_BY_NAME: Final[dict[str, BackendCapability]] = {
-    capability.name: capability for capability in _REGISTERED_BACKEND_CAPABILITIES
-}
+BackendCapability = compiler_backend_targets.BackendTargetRegistration
 
 
 def normalize_host_architecture(machine: str | None = None) -> str:
-    raw_machine = platform.machine() if machine is None else machine
-    normalized = raw_machine.strip().lower().replace("-", "_")
-    return _ARCHITECTURE_ALIASES.get(normalized, normalized)
+    return compiler_architectures.normalize_host_architecture(machine)
 
 
 def host_architecture() -> str:
-    return normalize_host_architecture()
+    return compiler_architectures.host_architecture()
 
 
 def registered_backend_capabilities() -> tuple[BackendCapability, ...]:
-    return _REGISTERED_BACKEND_CAPABILITIES
+    return compiler_backend_targets.registered_backend_targets()
 
 
 def backend_capability(name: str) -> BackendCapability:
-    return _BACKEND_CAPABILITY_BY_NAME[name]
+    return compiler_backend_targets.backend_target_registration(name)
 
 
 def native_runtime_backend_name(host_arch: str | None = None) -> str | None:
-    resolved_host_architecture = normalize_host_architecture(host_arch)
-    for capability in _REGISTERED_BACKEND_CAPABILITIES:
-        if capability.is_native_runnable_on(resolved_host_architecture):
-            return capability.name
-    return None
+    return compiler_backend_targets.native_runtime_backend_name(host_arch)
 
 
 def native_runtime_skip_reason(host_arch: str | None = None) -> str | None:
@@ -77,7 +44,7 @@ def native_runtime_skip_reason(host_arch: str | None = None) -> str | None:
 
     native_backend_names = tuple(
         capability.name
-        for capability in _REGISTERED_BACKEND_CAPABILITIES
+        for capability in registered_backend_capabilities()
         if capability.native_runtime_architectures
     )
     if len(native_backend_names) == 1:

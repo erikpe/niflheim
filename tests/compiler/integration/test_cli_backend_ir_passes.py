@@ -9,6 +9,19 @@ from compiler.backend.targets import BackendEmitResult
 from tests.compiler.integration.helpers import run_cli, write
 
 
+class _FakeTarget:
+    def __init__(self, emit_backend, *, name: str = "x86_64_sysv") -> None:
+        self.name = name
+        self._emit_backend = emit_backend
+
+    def emit_assembly(self, *args, **kwargs):
+        return self._emit_backend(*args, **kwargs)
+
+
+def _patch_resolve_backend_target(monkeypatch, emit_backend) -> None:
+    monkeypatch.setattr(cli, "resolve_backend_target", lambda requested_target_name=None: _FakeTarget(emit_backend))
+
+
 def test_cli_stop_after_backend_ir_passes_prints_text_dump_and_runs_pipeline(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
@@ -33,7 +46,7 @@ def test_cli_stop_after_backend_ir_passes_prints_text_dump_and_runs_pipeline(
         raise AssertionError("assembly emission should not run when stopping after backend-ir-passes")
 
     monkeypatch.setattr(cli, "run_backend_ir_pipeline", _counting_pipeline)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _unexpected_emit_backend)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "--stop-after", "backend-ir-passes"])
     captured = capsys.readouterr()
@@ -58,7 +71,7 @@ def test_cli_stop_after_backend_ir_passes_can_print_json_dump(tmp_path: Path, mo
     def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir-passes")
 
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _unexpected_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -88,7 +101,7 @@ def test_cli_stop_after_backend_ir_passes_can_write_dump_file(tmp_path: Path, mo
     def _unexpected_emit_backend(*args, **kwargs):
         raise AssertionError("assembly emission should not run when stopping after backend-ir-passes")
 
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _unexpected_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _unexpected_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -134,7 +147,7 @@ def test_cli_default_checked_path_invokes_backend_ir_pipeline(tmp_path: Path, mo
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
     monkeypatch.setattr(cli, "run_backend_ir_pipeline", _counting_pipeline)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "-o", str(asm_path)])
 

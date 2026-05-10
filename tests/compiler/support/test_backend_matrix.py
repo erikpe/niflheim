@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import compiler.backend.targets as compiler_backend_targets
+
+from tests.compiler.support.backend_matrix import BackendCapability
 from tests.compiler.support.backend_matrix import backend_capability
 from tests.compiler.support.backend_matrix import host_architecture
 from tests.compiler.support.backend_matrix import native_runtime_backend_name
@@ -16,9 +19,13 @@ def test_normalize_host_architecture_collapses_common_aliases() -> None:
 
 
 def test_host_architecture_uses_platform_machine(monkeypatch) -> None:
-    monkeypatch.setattr("tests.compiler.support.backend_matrix.platform.machine", lambda: "AMD64")
+    monkeypatch.setattr("compiler.common.architectures.platform.machine", lambda: "AMD64")
 
     assert host_architecture() == "x86_64"
+
+
+def test_backend_matrix_exports_the_compiler_owned_capability_type() -> None:
+    assert BackendCapability is compiler_backend_targets.BackendTargetRegistration
 
 
 def test_registered_backend_capabilities_expose_x86_64_sysv_as_emit_on_all_hosts() -> None:
@@ -26,6 +33,7 @@ def test_registered_backend_capabilities_expose_x86_64_sysv_as_emit_on_all_hosts
 
     assert tuple(capability.name for capability in capabilities) == ("x86_64_sysv",)
     assert capabilities[0].emits_on_all_hosts is True
+    assert capabilities == compiler_backend_targets.registered_backend_targets()
 
 
 def test_x86_64_sysv_capability_is_native_runnable_only_on_x86_64_hosts() -> None:

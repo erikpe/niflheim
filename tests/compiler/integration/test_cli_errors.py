@@ -154,6 +154,26 @@ def test_cli_error_rejects_removed_experimental_backend_flag(tmp_path: Path, mon
     assert "unrecognized arguments: --experimental-backend backend-ir-x86_64_sysv" in captured.err
 
 
+def test_cli_error_rejects_unknown_target_name(tmp_path: Path, monkeypatch, capsys) -> None:
+    source = tmp_path / "main.nif"
+    write(
+        source,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_cli(monkeypatch, ["nifc", str(source), "--target", "unknown_backend"])
+    captured = capsys.readouterr()
+
+    assert exc_info.value.code == 2
+    assert "invalid choice: 'unknown_backend'" in captured.err
+    assert "x86_64_sysv" in captured.err
+
+
 def test_cli_error_rejects_removed_skip_check_flag(tmp_path: Path, monkeypatch, capsys) -> None:
     source = tmp_path / "main.nif"
     write(

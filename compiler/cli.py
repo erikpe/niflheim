@@ -10,8 +10,13 @@ from compiler.backend.ir.serialize import dump_backend_program_json
 from compiler.backend.ir.text import dump_backend_program_text
 from compiler.backend.lowering import lower_to_backend_ir
 from compiler.backend.optimizations import DEFAULT_BACKEND_OPTIMIZATION_PASSES, optimize_backend_ir_program
-from compiler.backend.targets import BackendTargetInput, BackendTargetOptions
-from compiler.backend.targets.x86_64_sysv import TARGET_NAME as X86_64_SYSV_TARGET_NAME, emit_x86_64_sysv_asm
+from compiler.backend.targets import (
+    BackendTargetInput,
+    BackendTargetOptions,
+    default_checked_backend_target_name,
+    registered_backend_target_names,
+    resolve_backend_target,
+)
 from compiler.common.logging import LOG_LEVEL_NAMES, configure_logging, get_logger, resolve_log_settings
 from compiler.resolver import resolve_program
 from compiler.semantic.linker import link_semantic_program, require_main_function
@@ -132,11 +137,13 @@ def _emit_backend_target_assembly_phase(
     logger,
     pipeline_result: BackendPipelineResult,
     *,
+    target_name: str | None,
     runtime_trace_enabled: bool,
 ) -> str:
-    logger.info("Emitting assembly via %s", X86_64_SYSV_TARGET_NAME)
+    target = resolve_backend_target(target_name)
+    logger.info("Emitting assembly via %s", target.name)
     start = perf_counter()
-    emit_result = emit_x86_64_sysv_asm(
+    emit_result = target.emit_assembly(
         BackendTargetInput.from_pipeline_result(pipeline_result),
         options=BackendTargetOptions(runtime_trace_enabled=runtime_trace_enabled),
     )
@@ -264,7 +271,8 @@ def main() -> int:
         prog="nifc",
         description=(
             "Niflheim stage-0 compiler "
-            "(default: type check and emit assembly through backend IR plus x86_64_sysv)."
+            "(default: type check and emit assembly through backend IR plus "
+            f"{default_checked_backend_target_name()})."
         ),
     )
     parser.add_argument("input", help="Input .nif source file")
@@ -293,6 +301,11 @@ def main() -> int:
     compilation_group = parser.add_argument_group("Compilation")
     compilation_group.add_argument(
         "--project-root", help="Project root for multi-module resolution (default: input file directory)"
+    )
+    compilation_group.add_argument(
+        "--target",
+        choices=registered_backend_target_names(),
+        help=f"Checked backend target to emit (default: {default_checked_backend_target_name()})",
     )
     compilation_group.add_argument(
         "--stop-after",
@@ -401,6 +414,7 @@ def main() -> int:
         asm = _emit_backend_target_assembly_phase(
             logger,
             pipeline_result,
+            target_name=args.target,
             runtime_trace_enabled=not args.omit_runtime_trace,
         )
         if args.output:

@@ -8,11 +8,19 @@ import compiler.backend.targets as backend_targets
 from compiler.backend.analysis.pipeline import run_backend_ir_pipeline
 from compiler.backend.targets import (
     BackendEmitResult,
+    BackendTargetRegistration,
     BackendTarget,
     BackendTargetInput,
     BackendTargetLoweringError,
     BackendTargetOptions,
+    backend_target_registration,
+    default_checked_backend_target_name,
+    native_runtime_backend_name,
+    registered_backend_target_names,
+    registered_backend_targets,
+    resolve_backend_target,
 )
+from compiler.backend.targets.x86_64_sysv import X86_64_SYSV_TARGET
 from tests.compiler.backend.ir.helpers import one_function_backend_program
 
 
@@ -45,6 +53,13 @@ def test_backend_target_api_surface_is_explicit() -> None:
         "BackendTargetInput",
         "BackendTargetLoweringError",
         "BackendTargetOptions",
+        "BackendTargetRegistration",
+        "backend_target_registration",
+        "default_checked_backend_target_name",
+        "native_runtime_backend_name",
+        "registered_backend_target_names",
+        "registered_backend_targets",
+        "resolve_backend_target",
     ]
 
 
@@ -86,3 +101,30 @@ def test_backend_target_protocol_is_runtime_checkable() -> None:
 
 def test_backend_target_lowering_error_is_runtime_error() -> None:
     assert issubclass(BackendTargetLoweringError, RuntimeError)
+
+
+def test_registered_backend_targets_expose_the_checked_registry_surface() -> None:
+    registrations = registered_backend_targets()
+
+    assert registrations == (
+        BackendTargetRegistration(
+            name="x86_64_sysv",
+            target=X86_64_SYSV_TARGET,
+            emits_on_all_hosts=True,
+            native_runtime_architectures=frozenset({"x86_64"}),
+        ),
+    )
+    assert registered_backend_target_names() == ("x86_64_sysv",)
+    assert backend_target_registration("x86_64_sysv") == registrations[0]
+
+
+def test_resolve_backend_target_defaults_to_the_checked_backend() -> None:
+    assert default_checked_backend_target_name() == "x86_64_sysv"
+    assert resolve_backend_target() is X86_64_SYSV_TARGET
+    assert resolve_backend_target("x86_64_sysv") is X86_64_SYSV_TARGET
+
+
+def test_native_runtime_backend_name_uses_registry_capabilities() -> None:
+    assert native_runtime_backend_name("x86_64") == "x86_64_sysv"
+    assert native_runtime_backend_name("amd64") == "x86_64_sysv"
+    assert native_runtime_backend_name("aarch64") is None

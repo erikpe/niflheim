@@ -10,6 +10,30 @@ from compiler.backend.targets import BackendEmitResult, BackendTargetInput
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write, write_project
 
 
+class _RecordingTarget:
+    def __init__(self, emit_backend, *, name: str = "x86_64_sysv") -> None:
+        self.name = name
+        self._emit_backend = emit_backend
+
+    def emit_assembly(self, target_input: BackendTargetInput, *, options) -> BackendEmitResult:
+        return self._emit_backend(target_input, options=options)
+
+
+def _patch_resolve_backend_target(
+    monkeypatch: pytest.MonkeyPatch,
+    emit_backend,
+    *,
+    target_name: str = "x86_64_sysv",
+    seen: dict[str, object] | None = None,
+) -> None:
+    def _fake_resolve_backend_target(requested_target_name: str | None = None) -> _RecordingTarget:
+        if seen is not None:
+            seen["requested_target_name"] = requested_target_name
+        return _RecordingTarget(emit_backend, name=target_name)
+
+    monkeypatch.setattr(cli, "resolve_backend_target", _fake_resolve_backend_target)
+
+
 def test_cli_defaults_to_backend_ir_x86_64_sysv_path(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
@@ -29,7 +53,7 @@ def test_cli_defaults_to_backend_ir_x86_64_sysv_path(tmp_path: Path, monkeypatch
         seen["runtime_trace_enabled"] = options.runtime_trace_enabled
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend, seen=seen)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "-o", str(out_file)])
 
@@ -41,6 +65,35 @@ def test_cli_defaults_to_backend_ir_x86_64_sysv_path(tmp_path: Path, monkeypatch
     assert target_input.program.entry_callable_id.name == "main"
     assert target_input.analysis_by_callable_id
     assert seen["runtime_trace_enabled"] is True
+    assert seen["requested_target_name"] is None
+
+
+def test_cli_explicit_target_routes_through_target_resolution(tmp_path: Path, monkeypatch) -> None:
+    entry = tmp_path / "main.nif"
+    out_file = tmp_path / "out.s"
+    write(
+        entry,
+        """
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+    )
+
+    seen: dict[str, object] = {}
+
+    def _fake_emit_backend(target_input: BackendTargetInput, *, options) -> BackendEmitResult:
+        seen["target_input"] = target_input
+        return BackendEmitResult(assembly_text="; backend-ir target selected\n")
+
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend, seen=seen)
+
+    rc = run_cli(monkeypatch, ["nifc", str(entry), "--target", "x86_64_sysv", "-o", str(out_file)])
+
+    assert rc == 0
+    assert out_file.read_text(encoding="utf-8") == "; backend-ir target selected\n"
+    assert isinstance(seen["target_input"], BackendTargetInput)
+    assert seen["requested_target_name"] == "x86_64_sysv"
 
 
 def test_cli_can_omit_runtime_trace_calls(tmp_path: Path, monkeypatch) -> None:
@@ -62,7 +115,7 @@ def test_cli_can_omit_runtime_trace_calls(tmp_path: Path, monkeypatch) -> None:
         seen["runtime_trace_enabled"] = options.runtime_trace_enabled
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend, seen=seen)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "--omit-runtime-trace", "-o", str(out_file)])
 
@@ -100,7 +153,7 @@ def test_cli_can_disable_all_optimization_phases(tmp_path: Path, monkeypatch) ->
 
     monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
     monkeypatch.setattr(cli, "optimize_backend_ir_program", _fake_optimize_backend_program)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend, seen=seen)
 
     rc = run_cli(monkeypatch, ["nifc", str(entry), "--disable-all-optimization", "-o", str(out_file)])
 
@@ -138,7 +191,7 @@ def test_cli_disable_all_optimization_overrides_named_disabled_passes(tmp_path: 
 
     monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
     monkeypatch.setattr(cli, "optimize_backend_ir_program", _fake_optimize_backend_program)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -182,7 +235,7 @@ def test_cli_can_disable_named_semantic_optimization_pass(tmp_path: Path, monkey
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
     monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -218,7 +271,7 @@ def test_cli_can_disable_multiple_semantic_optimization_passes_with_one_flag(
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
     monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -261,7 +314,7 @@ def test_cli_can_disable_all_semantic_optimization_passes_by_name(tmp_path: Path
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
     monkeypatch.setattr(cli, "optimize_semantic_program", _fake_optimize_program)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -294,7 +347,7 @@ def test_cli_can_disable_named_backend_optimization_pass(tmp_path: Path, monkeyp
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
     monkeypatch.setattr(cli, "optimize_backend_ir_program", _fake_optimize_backend_program)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -330,7 +383,7 @@ def test_cli_disables_all_backend_optimization_passes_when_all_is_grouped_with_n
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
     monkeypatch.setattr(cli, "optimize_backend_ir_program", _fake_optimize_backend_program)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend)
 
     rc = run_cli(
         monkeypatch,
@@ -371,7 +424,7 @@ def test_cli_can_disable_all_backend_optimization_passes_by_name(tmp_path: Path,
         return BackendEmitResult(assembly_text="; backend-ir target selected\n")
 
     monkeypatch.setattr(cli, "optimize_backend_ir_program", _fake_optimize_backend_program)
-    monkeypatch.setattr(cli, "emit_x86_64_sysv_asm", _fake_emit_backend)
+    _patch_resolve_backend_target(monkeypatch, _fake_emit_backend)
 
     rc = run_cli(
         monkeypatch,
