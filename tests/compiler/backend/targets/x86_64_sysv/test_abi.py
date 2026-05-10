@@ -27,7 +27,7 @@ from tests.compiler.backend.ir.helpers import (
     one_function_backend_program,
     one_method_backend_program,
 )
-from tests.compiler.backend.targets.x86_64_sysv.helpers import make_target_input, with_root_slot
+from tests.compiler.backend.targets.support import make_target_input, with_root_slot
 
 
 def test_x86_64_sysv_exports_explicit_target_surface() -> None:

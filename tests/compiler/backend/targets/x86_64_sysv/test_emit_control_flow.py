@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from compiler.backend.program.symbols import epilogue_label, mangle_function_symbol
 from tests.compiler.backend.lowering.helpers import callable_by_name, lower_source_to_backend_program
-from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm, make_target_input
+from tests.compiler.backend.targets.support import make_target_input
+from tests.compiler.backend.targets.x86_64_sysv.helpers import emit_source_asm
 
 
 def test_emit_source_asm_uses_phase3_ordered_block_labels_from_block_ids(tmp_path) -> None:

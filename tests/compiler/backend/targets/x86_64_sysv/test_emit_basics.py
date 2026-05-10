@@ -7,12 +7,10 @@ from compiler.backend.targets import BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv import X86_64_SYSV_ABI, X86_64SysVFrameError, plan_callable_frame_layout
 from tests.compiler.backend.analysis.helpers import lower_source_to_backend_callable_fixture
 from tests.compiler.backend.ir.helpers import FIXTURE_ENTRY_FUNCTION_ID, callable_by_id, one_function_backend_program
+from tests.compiler.backend.targets.support import make_target_input, unit_function_backend_program, with_root_slot
 from tests.compiler.backend.targets.x86_64_sysv.helpers import (
     emit_program,
     emit_source_asm,
-    make_target_input,
-    unit_function_backend_program,
-    with_root_slot,
 )
 
 

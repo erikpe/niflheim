@@ -11,15 +11,14 @@ from compiler.backend.ir import (
     BackendTypeTestInst,
 )
 from compiler.backend.program import BackendProgramContext
-from compiler.backend.program.symbols import mangle_type_name_symbol, mangle_type_symbol
-from compiler.backend.targets import BackendTargetLoweringError
-from compiler.backend.targets.x86_64_sysv.array_runtime import (
+from compiler.backend.program.runtime_layout import (
     RT_ARRAY_PRIMITIVE_TYPE_SYMBOL,
     RT_ARRAY_REFERENCE_TYPE_SYMBOL,
-    array_element_kind_operand,
     array_runtime_kind_display_name_for_tag,
     array_runtime_kind_tag,
 )
+from compiler.backend.program.symbols import mangle_type_name_symbol, mangle_type_symbol
+from compiler.backend.targets import BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder
 from compiler.backend.targets.x86_64_sysv.frame import X86_64SysVFrameLayout
 from compiler.backend.targets.x86_64_sysv.instruction_selection import (
@@ -28,6 +27,7 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     emit_store_float_result,
     emit_store_result,
 )
+from compiler.backend.targets.x86_64_sysv.array_runtime import array_element_kind_operand
 from compiler.backend.targets.x86_64_sysv.object_runtime import (
     interface_table_entry_operand,
     interface_tables_operand,

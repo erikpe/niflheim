@@ -47,7 +47,7 @@ That keeps the user-facing selector simple and matches the repository's existing
 ## Ordered Slices
 
 1. [x] Slice 1: Introduce a shared target registry and explicit checked-path target selector.
-2. [ ] Slice 2: Extract shared runtime-layout and target-test scaffolding out of the `x86_64_sysv` package.
+2. [x] Slice 2: Extract shared runtime-layout and target-test scaffolding out of the `x86_64_sysv` package.
 3. [ ] Slice 3: Add the isolated `aarch64` package skeleton with ABI and frame-model coverage.
 4. [ ] Slice 4: Implement the `aarch64` scalar/call/control-flow/root-frame emission backbone.
 5. [ ] Slice 5: Complete `aarch64` feature parity and the full emit-only target suite.
@@ -170,6 +170,7 @@ Run the x86 target suite plus any new shared runtime-layout tests:
 
 ```bash
 /bin/python3 -m pytest -n auto --dist loadfile \
+  tests/compiler/backend/test_runtime_layout.py \
   tests/compiler/backend/targets/x86_64_sysv \
   tests/compiler/backend/targets/test_api.py \
   tests/compiler/support/test_backend_matrix.py -q
@@ -183,12 +184,16 @@ Run the x86 target suite plus any new shared runtime-layout tests:
 
 ### Checklist
 
-- [ ] Add a shared runtime-layout module.
-- [ ] Move root-frame layout constants out of `x86_64_sysv/root_runtime.py`.
-- [ ] Move shared object/type layout constants out of `x86_64_sysv/object_runtime.py`.
-- [ ] Move shared array layout constants out of `x86_64_sysv/array_runtime.py`.
-- [ ] Add shared tests for runtime layout offsets and tags.
-- [ ] Extract generic target-test helpers from the x86 helper file.
+- [x] Add a shared runtime-layout module.
+- [x] Move root-frame layout constants out of `x86_64_sysv/root_runtime.py`.
+- [x] Move shared object/type layout constants out of `x86_64_sysv/object_runtime.py`.
+- [x] Move shared array layout constants out of `x86_64_sysv/array_runtime.py`.
+- [x] Add shared tests for runtime layout offsets and tags.
+- [x] Extract generic target-test helpers from the x86 helper file.
+
+Validation:
+
+- [x] `/bin/python3 -m pytest -n auto --dist loadfile tests/compiler/backend/test_runtime_layout.py tests/compiler/backend/targets/x86_64_sysv tests/compiler/backend/targets/test_api.py tests/compiler/support/test_backend_matrix.py -q` -> `110 passed in 4.51s`
 
 ---
 

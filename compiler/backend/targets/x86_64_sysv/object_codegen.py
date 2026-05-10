@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from compiler.backend.ir import BackendAllocObjectInst, BackendFieldLoadInst, BackendFieldStoreInst, BackendNullCheckInst, BackendRegOperand
 from compiler.backend.program import BackendProgramContext
+from compiler.backend.program.runtime_layout import RT_TYPE_FLAG_HAS_REFS
 from compiler.backend.program.symbols import mangle_type_name_symbol, mangle_type_symbol
 from compiler.backend.targets import BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.asm import X86AsmBuilder, format_stack_slot_operand
@@ -12,7 +13,6 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     emit_store_float_result,
     emit_store_result,
 )
-from compiler.backend.targets.x86_64_sysv.object_runtime import RT_TYPE_FLAG_HAS_REFS
 from compiler.common.byte_strings import escape_bytes_for_c_string
 
 

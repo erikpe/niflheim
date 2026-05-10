@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compiler.backend.ir import BackendCallInst, BackendCallableDecl, BackendRegId
+from compiler.backend.program.runtime_layout import RT_ROOT_FRAME_SIZE_BYTES
 from compiler.backend.targets import BackendTargetInput, BackendTargetLoweringError
 from compiler.backend.targets.x86_64_sysv.abi import X86_64_SYSV_ABI, X86_64SysVAbi
-from compiler.backend.targets.x86_64_sysv.root_runtime import RT_ROOT_FRAME_SIZE_BYTES
 
 
 @dataclass(frozen=True, slots=True)

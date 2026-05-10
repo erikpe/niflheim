@@ -13,6 +13,18 @@ from compiler.backend.ir import (
     BackendRuntimeCallTarget,
     BackendSignature,
 )
+from compiler.backend.program.runtime import (
+    ARRAY_CONSTRUCTOR_RUNTIME_CALLS_BY_KIND,
+    ARRAY_GET_OOB_PANIC_RUNTIME_CALL,
+    ARRAY_INDEX_GET_RUNTIME_CALLS,
+    ARRAY_INDEX_SET_RUNTIME_CALLS,
+    ARRAY_LEN_RUNTIME_CALL,
+    ARRAY_NULL_PANIC_RUNTIME_CALL,
+    ARRAY_SET_OOB_PANIC_RUNTIME_CALL,
+    ARRAY_SLICE_GET_RUNTIME_CALLS,
+    ARRAY_SLICE_SET_RUNTIME_CALLS,
+)
+from compiler.backend.program.runtime_layout import array_runtime_kind_tag, is_direct_primitive_array_runtime_kind
 from compiler.backend.targets import BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv.frame import X86_64SysVFrameLayout
 from compiler.backend.targets.x86_64_sysv.instruction_selection import (
@@ -22,21 +34,10 @@ from compiler.backend.targets.x86_64_sysv.instruction_selection import (
     emit_store_result,
 )
 from compiler.backend.targets.x86_64_sysv.array_runtime import (
-    ARRAY_CONSTRUCTOR_RUNTIME_CALLS,
-    ARRAY_GET_OOB_PANIC_RUNTIME_CALL,
-    ARRAY_INDEX_GET_RUNTIME_CALLS,
-    ARRAY_INDEX_SET_RUNTIME_CALLS,
-    ARRAY_LEN_RUNTIME_CALL,
-    ARRAY_NULL_PANIC_RUNTIME_CALL,
-    ARRAY_SET_OOB_PANIC_RUNTIME_CALL,
-    ARRAY_SLICE_GET_RUNTIME_CALLS,
-    ARRAY_SLICE_SET_RUNTIME_CALLS,
     array_data_index_address,
     array_length_operand,
-    array_runtime_kind_tag,
     direct_primitive_array_store_operand,
     direct_ref_array_store_operand,
-    is_direct_primitive_array_runtime_kind,
 )
 from compiler.common.collection_protocols import ArrayRuntimeKind
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_OBJ, TYPE_NAME_U64, TYPE_NAME_U8
@@ -55,7 +56,7 @@ def emit_array_alloc_instruction(builder, instruction: BackendArrayAllocInst, *,
     emit_call_instruction(
         _runtime_call_instruction(
             instruction,
-            name=ARRAY_CONSTRUCTOR_RUNTIME_CALLS[instruction.array_runtime_kind],
+            name=ARRAY_CONSTRUCTOR_RUNTIME_CALLS_BY_KIND[instruction.array_runtime_kind],
             args=(instruction.length,),
             param_types=(_U64_TYPE_REF,),
             return_type=_array_type_for_runtime_kind(instruction.array_runtime_kind),

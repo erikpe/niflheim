@@ -9,6 +9,9 @@ from compiler.semantic.ir import RuntimeDispatch
 
 ARRAY_LEN_RUNTIME_CALL = "rt_array_len"
 ARRAY_FROM_BYTES_U8_RUNTIME_CALL = "rt_array_from_bytes_u8"
+ARRAY_NULL_PANIC_RUNTIME_CALL = "rt_panic_array_api_null_object"
+ARRAY_GET_OOB_PANIC_RUNTIME_CALL = "rt_panic_array_get_out_of_bounds"
+ARRAY_SET_OOB_PANIC_RUNTIME_CALL = "rt_panic_array_set_out_of_bounds"
 U64_TO_DOUBLE_RUNTIME_CALL = "rt_cast_u64_to_double"
 DOUBLE_TO_I64_RUNTIME_CALL = "rt_cast_double_to_i64"
 DOUBLE_TO_U64_RUNTIME_CALL = "rt_cast_double_to_u64"
@@ -44,6 +47,14 @@ ARRAY_CONSTRUCTOR_RUNTIME_CALLS = {
     TYPE_NAME_BOOL: "rt_array_new_bool",
     TYPE_NAME_DOUBLE: "rt_array_new_double",
     "ref": "rt_array_new_ref",
+}
+ARRAY_CONSTRUCTOR_RUNTIME_CALLS_BY_KIND: dict[ArrayRuntimeKind, str] = {
+    ArrayRuntimeKind.I64: ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_I64],
+    ArrayRuntimeKind.U64: ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_U64],
+    ArrayRuntimeKind.U8: ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_U8],
+    ArrayRuntimeKind.BOOL: ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_BOOL],
+    ArrayRuntimeKind.DOUBLE: ARRAY_CONSTRUCTOR_RUNTIME_CALLS[TYPE_NAME_DOUBLE],
+    ArrayRuntimeKind.REF: ARRAY_CONSTRUCTOR_RUNTIME_CALLS["ref"],
 }
 ARRAY_INDEX_GET_RUNTIME_CALLS: dict[ArrayRuntimeKind, str] = {
     ArrayRuntimeKind.I64: "rt_array_get_i64",

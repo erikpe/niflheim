@@ -21,7 +21,7 @@ from compiler.backend.targets import BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv import emit_x86_64_sysv_asm
 from compiler.semantic.symbols import ClassId, ConstructorId, FunctionId, InterfaceId, MethodId
 from tests.compiler.backend.lowering.helpers import lower_project_to_backend_program
-from tests.compiler.backend.targets.x86_64_sysv.helpers import make_target_input
+from tests.compiler.backend.targets.support import make_target_input
 
 
 def _make_target_input(tmp_path: Path, files: dict[str, str], *, entry_relative_path: str = "main.nif"):

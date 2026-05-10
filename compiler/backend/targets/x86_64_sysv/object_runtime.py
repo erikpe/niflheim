@@ -1,20 +1,17 @@
 from __future__ import annotations
 
+from compiler.backend.program.runtime_layout import (
+    RT_INTERFACE_DEBUG_NAME_OFFSET,
+    RT_INTERFACE_METHOD_ENTRY_SIZE_BYTES,
+    RT_INTERFACE_TABLE_ENTRY_SIZE_BYTES,
+    RT_OBJ_HEADER_TYPE_OFFSET,
+    RT_TYPE_CLASS_VTABLE_OFFSET,
+    RT_TYPE_DEBUG_NAME_OFFSET,
+    RT_TYPE_INTERFACE_TABLES_OFFSET,
+    RT_TYPE_POINTER_OFFSETS_OFFSET,
+    RT_VTABLE_ENTRY_SIZE_BYTES,
+)
 from compiler.backend.targets.x86_64_sysv.asm import format_stack_slot_operand
-
-
-RT_OBJ_HEADER_TYPE_OFFSET = 0
-RT_TYPE_DEBUG_NAME_OFFSET = 24
-RT_TYPE_POINTER_OFFSETS_OFFSET = 40
-RT_TYPE_SUPER_TYPE_OFFSET = 56
-RT_TYPE_INTERFACE_TABLES_OFFSET = 64
-RT_INTERFACE_TABLE_ENTRY_SIZE_BYTES = 8
-RT_INTERFACE_DEBUG_NAME_OFFSET = 0
-RT_INTERFACE_METHOD_ENTRY_SIZE_BYTES = 8
-RT_TYPE_CLASS_VTABLE_OFFSET = 80
-RT_VTABLE_ENTRY_SIZE_BYTES = 8
-
-RT_TYPE_FLAG_HAS_REFS = 1
 
 
 def object_type_operand(object_register: str) -> str:
@@ -60,17 +57,6 @@ def class_vtable_entry_operand(vtable_register: str, slot_index: int) -> str:
 
 
 __all__ = [
-    "RT_INTERFACE_DEBUG_NAME_OFFSET",
-    "RT_INTERFACE_METHOD_ENTRY_SIZE_BYTES",
-    "RT_INTERFACE_TABLE_ENTRY_SIZE_BYTES",
-    "RT_OBJ_HEADER_TYPE_OFFSET",
-    "RT_TYPE_CLASS_VTABLE_OFFSET",
-    "RT_TYPE_DEBUG_NAME_OFFSET",
-    "RT_TYPE_FLAG_HAS_REFS",
-    "RT_TYPE_INTERFACE_TABLES_OFFSET",
-    "RT_TYPE_POINTER_OFFSETS_OFFSET",
-    "RT_TYPE_SUPER_TYPE_OFFSET",
-    "RT_VTABLE_ENTRY_SIZE_BYTES",
     "class_vtable_entry_operand",
     "class_vtable_operand",
     "interface_debug_name_operand",
