@@ -1,8 +1,10 @@
 # Test Suite Multi-Backend Refactor Plan
 
-Status: planned.
+Status: completed.
 
 This document expands the test-suite refactor for multiple hardware backends into a concrete migration plan with ordered implementation slices.
+
+It has now been implemented end to end. The temporary ARM runtime-skip policy described in the early slices was retired once the checked `aarch64` backend landed, and the shared runtime-contract suites now run natively on both `x86_64` and ARM hosts.
 
 It is intentionally limited to pytest and test-harness refactor work only:
 
@@ -16,38 +18,38 @@ It does not include:
 - implementing the `aarch64` backend itself
 - adding cross-toolchain assembly, cross-linking, or qemu-based execution
 - changing golden-test semantics
-- changing the C runtime harnesses under [tests/runtime](../tests/runtime) beyond documentation updates
+- changing the C runtime harnesses under [tests/runtime](../../tests/runtime) beyond documentation updates
 
 It maps directly to:
 
-- [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md)
-- [tests/README.md](../tests/README.md)
-- [compiler/backend/targets/api.py](../compiler/backend/targets/api.py)
-- [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py)
-- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
+- [TEST_PLAN_v0.1.md](../TEST_PLAN_v0.1.md)
+- [tests/README.md](../../tests/README.md)
+- [compiler/backend/targets/api.py](../../compiler/backend/targets/api.py)
+- [tests/compiler/integration/helpers.py](../../tests/compiler/integration/helpers.py)
+- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
 
 ## Implementation Rules
 
 Use these rules for every slice:
 
 1. One test must not assert both target-specific assembly shape and runtime behavior.
-2. Tests under [tests/compiler/backend/targets/x86_64_sysv](../tests/compiler/backend/targets/x86_64_sysv) must assert `x86_64_sysv` surface only. They should run on both x86_64 and ARM hosts.
+2. Tests under [tests/compiler/backend/targets/x86_64_sysv](../../tests/compiler/backend/targets/x86_64_sysv) must assert `x86_64_sysv` surface only. They should run on both x86_64 and ARM hosts.
 3. Runtime contract tests must compile for a host-native runnable backend only.
 4. Temporary ARM skips must live in one shared runtime capability layer, not in leaf tests.
 5. Helper APIs must make the separation explicit: emit target assembly, assemble host executable, run executable, compile native and run.
 6. Prefer moving or deleting duplicated runtime scenarios rather than keeping the same behavior test in both a direct-backend suite and a CLI runtime suite.
 7. Existing runtime integration directories should remain the canonical home for runtime contracts unless a new directory clearly reduces churn.
 8. When `aarch64` lands, enabling ARM runtime tests should require only target-registry or fixture changes plus new `aarch64` emission tests, not edits across leaf runtime tests.
-9. Keep documentation aligned as slices land. The current x86-only execution wording in [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md) and [tests/README.md](../tests/README.md) should be updated during the cleanup slices.
+9. Keep documentation aligned as slices land. The current x86-only execution wording in [TEST_PLAN_v0.1.md](../TEST_PLAN_v0.1.md) and [tests/README.md](../../tests/README.md) should be updated during the cleanup slices.
 10. Update the checkboxes in this document as implementation progresses.
 
-## Temporary Host Policy
+## Shared Host Policy
 
-This policy should be encoded in one shared test-support layer as soon as the refactor starts:
+The temporary ARM-skip policy from the early migration slices has been retired. The implemented shared host policy is now:
 
 - On `x86_64` hosts, the native runtime backend is `x86_64_sysv`.
-- On `aarch64` or `arm64` hosts, there is temporarily no native runtime backend. Runtime contract tests should skip with one deterministic reason emitted by shared fixtures or helpers.
-- On all hosts, `x86_64_sysv` emission tests still run.
+- On `aarch64` or `arm64` hosts, the native runtime backend is `aarch64`.
+- On all hosts, `x86_64_sysv` and `aarch64` emission tests still run.
 - No leaf test should call `platform.machine()` or add host-architecture `skipif` conditions directly.
 
 ## Ordered Slice Checklist
@@ -58,7 +60,7 @@ This policy should be encoded in one shared test-support layer as soon as the re
 4. [x] Slice 4: Consolidate runtime contract coverage under native CLI integration suites.
 5. [x] Slice 5: Convert build and run script tests to the same native-runtime harness model.
 6. [x] Slice 6: Remove compatibility wrappers and refresh test documentation.
-7. [ ] Slice 7: Enable ARM runtime contracts when `aarch64` lands.
+7. [x] Slice 7: Enable ARM runtime contracts when `aarch64` lands.
 
 ## Slice 1: Shared Host And Target Capability Layer
 
@@ -75,14 +77,14 @@ Introduce one central place that knows:
 
 New files:
 
-- [tests/compiler/conftest.py](../tests/compiler/conftest.py)
-- [tests/compiler/support/backend_matrix.py](../tests/compiler/support/backend_matrix.py)
-- [tests/compiler/support/runtime_harness.py](../tests/compiler/support/runtime_harness.py)
+- [tests/compiler/conftest.py](../../tests/compiler/conftest.py)
+- [tests/compiler/support/backend_matrix.py](../../tests/compiler/support/backend_matrix.py)
+- [tests/compiler/support/runtime_harness.py](../../tests/compiler/support/runtime_harness.py)
 
 Existing files:
 
-- [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py)
-- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
+- [tests/compiler/integration/helpers.py](../../tests/compiler/integration/helpers.py)
+- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
 
 ### What To Change
 
@@ -135,19 +137,19 @@ Split the current helper API so emit-only paths and native-runtime paths are exp
 
 New files:
 
-- [tests/compiler/support/runtime_execution.py](../tests/compiler/support/runtime_execution.py)
-- [tests/compiler/integration/test_helpers.py](../tests/compiler/integration/test_helpers.py)
-- [tests/compiler/support/test_runtime_execution.py](../tests/compiler/support/test_runtime_execution.py)
+- [tests/compiler/support/runtime_execution.py](../../tests/compiler/support/runtime_execution.py)
+- [tests/compiler/integration/test_helpers.py](../../tests/compiler/integration/test_helpers.py)
+- [tests/compiler/support/test_runtime_execution.py](../../tests/compiler/support/test_runtime_execution.py)
 
 Existing files:
 
-- [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py)
-- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
-- [tests/compiler/integration/test_cli_codegen.py](../tests/compiler/integration/test_cli_codegen.py)
+- [tests/compiler/integration/helpers.py](../../tests/compiler/integration/helpers.py)
+- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
+- [tests/compiler/integration/test_cli_codegen.py](../../tests/compiler/integration/test_cli_codegen.py)
 
 ### What To Change
 
-1. In [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py), split the current flow into explicit operations:
+1. In [tests/compiler/integration/helpers.py](../../tests/compiler/integration/helpers.py), split the current flow into explicit operations:
    - `compile_to_asm(...)`
    - `assemble_host_executable(...)`
    - `run_executable(...)`
@@ -159,7 +161,7 @@ Existing files:
 3. Rename or replace `build_executable(...)`.
    The current name is too generic for a host-specific step. Rename it to `assemble_host_executable(...)` or keep a short-lived compatibility wrapper with a clear deprecation comment.
 
-4. Remove native-execution behavior from [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../tests/compiler/backend/targets/x86_64_sysv/helpers.py).
+4. Remove native-execution behavior from [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../../tests/compiler/backend/targets/x86_64_sysv/helpers.py).
    Keep:
    - `emit_program(...)`
    - `emit_source_asm(...)`
@@ -193,23 +195,23 @@ Existing files:
 
 ### Goal
 
-Make every test that remains under [tests/compiler/backend/targets/x86_64_sysv](../tests/compiler/backend/targets/x86_64_sysv) safe to run on any host by removing return-code and stderr assertions from that tree.
+Make every test that remains under [tests/compiler/backend/targets/x86_64_sysv](../../tests/compiler/backend/targets/x86_64_sysv) safe to run on any host by removing return-code and stderr assertions from that tree.
 
 ### Primary Files To Change
 
 Existing files:
 
-- [tests/compiler/backend/targets/x86_64_sysv/test_emit_arrays.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_arrays.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_emit_control_flow.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_control_flow.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_emit_dispatch.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_dispatch.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_emit_doubles.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_doubles.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_strings.py](../tests/compiler/backend/targets/x86_64_sysv/test_strings.py)
-- [tests/compiler/backend/targets/x86_64_sysv/test_suite_boundaries.py](../tests/compiler/backend/targets/x86_64_sysv/test_suite_boundaries.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_emit_arrays.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_arrays.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_emit_control_flow.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_control_flow.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_emit_dispatch.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_dispatch.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_emit_doubles.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_doubles.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_strings.py](../../tests/compiler/backend/targets/x86_64_sysv/test_strings.py)
+- [tests/compiler/backend/targets/x86_64_sysv/test_suite_boundaries.py](../../tests/compiler/backend/targets/x86_64_sysv/test_suite_boundaries.py)
 
 ### What To Change
 
@@ -269,22 +271,22 @@ Make the existing CLI runtime integration directories the canonical home for run
 
 Existing files and directories:
 
-- [tests/compiler/integration/test_cli_runtime_smoke](../tests/compiler/integration/test_cli_runtime_smoke)
-- [tests/compiler/integration/test_cli_semantic_codegen_runtime](../tests/compiler/integration/test_cli_semantic_codegen_runtime)
-- [tests/compiler/integration/test_cli_interfaces_runtime](../tests/compiler/integration/test_cli_interfaces_runtime)
-- [tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py](../tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py)
+- [tests/compiler/integration/test_cli_runtime_smoke](../../tests/compiler/integration/test_cli_runtime_smoke)
+- [tests/compiler/integration/test_cli_semantic_codegen_runtime](../../tests/compiler/integration/test_cli_semantic_codegen_runtime)
+- [tests/compiler/integration/test_cli_interfaces_runtime](../../tests/compiler/integration/test_cli_interfaces_runtime)
+- [tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py](../../tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py)
 
 New files likely needed:
 
-- [tests/compiler/integration/test_cli_runtime_smoke/conftest.py](../tests/compiler/integration/test_cli_runtime_smoke/conftest.py)
-- [tests/compiler/integration/test_cli_semantic_codegen_runtime/conftest.py](../tests/compiler/integration/test_cli_semantic_codegen_runtime/conftest.py)
-- [tests/compiler/integration/test_cli_interfaces_runtime/conftest.py](../tests/compiler/integration/test_cli_interfaces_runtime/conftest.py)
-- [tests/compiler/integration/test_cli_runtime_smoke/test_basic_control_flow_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_basic_control_flow_runtime.py)
-- [tests/compiler/integration/test_cli_runtime_smoke/test_callable_values_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_callable_values_runtime.py)
-- [tests/compiler/integration/test_cli_runtime_smoke/test_double_and_object_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_double_and_object_runtime.py)
-- [tests/compiler/integration/test_cli_runtime_smoke/test_program_args_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_program_args_runtime.py)
-- [tests/compiler/integration/test_cli_runtime_smoke/test_string_and_resolution_runtime.py](../tests/compiler/integration/test_cli_runtime_smoke/test_string_and_resolution_runtime.py)
-- [tests/compiler/integration/test_cli_interfaces_runtime/test_interface_typed_locals.py](../tests/compiler/integration/test_cli_interfaces_runtime/test_interface_typed_locals.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/conftest.py](../../tests/compiler/integration/test_cli_runtime_smoke/conftest.py)
+- [tests/compiler/integration/test_cli_semantic_codegen_runtime/conftest.py](../../tests/compiler/integration/test_cli_semantic_codegen_runtime/conftest.py)
+- [tests/compiler/integration/test_cli_interfaces_runtime/conftest.py](../../tests/compiler/integration/test_cli_interfaces_runtime/conftest.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_basic_control_flow_runtime.py](../../tests/compiler/integration/test_cli_runtime_smoke/test_basic_control_flow_runtime.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_callable_values_runtime.py](../../tests/compiler/integration/test_cli_runtime_smoke/test_callable_values_runtime.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_double_and_object_runtime.py](../../tests/compiler/integration/test_cli_runtime_smoke/test_double_and_object_runtime.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_program_args_runtime.py](../../tests/compiler/integration/test_cli_runtime_smoke/test_program_args_runtime.py)
+- [tests/compiler/integration/test_cli_runtime_smoke/test_string_and_resolution_runtime.py](../../tests/compiler/integration/test_cli_runtime_smoke/test_string_and_resolution_runtime.py)
+- [tests/compiler/integration/test_cli_interfaces_runtime/test_interface_typed_locals.py](../../tests/compiler/integration/test_cli_interfaces_runtime/test_interface_typed_locals.py)
 
 ### What To Change
 
@@ -292,7 +294,7 @@ New files likely needed:
    Use package-level `conftest.py` files or one higher-level integration `conftest.py` to require `require_native_runtime_backend`.
 
 2. Keep compile-only and policy tests where they are.
-   Files such as [tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py](../tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py) and [tests/compiler/integration/test_cli_codegen.py](../tests/compiler/integration/test_cli_codegen.py) should retain:
+   Files such as [tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py](../../tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py) and [tests/compiler/integration/test_cli_codegen.py](../../tests/compiler/integration/test_cli_codegen.py) should retain:
    - default-target wiring checks
    - emit-to-asm checks
    - CLI flag behavior checks
@@ -300,27 +302,27 @@ New files likely needed:
 3. Move runtime cases into the native CLI runtime suites.
    Use this migration map:
 
-   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_arrays.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_arrays.py)
-     -> new or existing files under [tests/compiler/integration/test_cli_runtime_smoke](../tests/compiler/integration/test_cli_runtime_smoke)
+   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_arrays.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_arrays.py)
+     -> new or existing files under [tests/compiler/integration/test_cli_runtime_smoke](../../tests/compiler/integration/test_cli_runtime_smoke)
 
-   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py), [tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py), [tests/compiler/backend/targets/x86_64_sysv/test_emit_control_flow.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_control_flow.py), [tests/compiler/backend/targets/x86_64_sysv/test_emit_doubles.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_doubles.py), [tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py), and [tests/compiler/backend/targets/x86_64_sysv/test_strings.py](../tests/compiler/backend/targets/x86_64_sysv/test_strings.py)
-     -> behavior-grouped files under [tests/compiler/integration/test_cli_runtime_smoke](../tests/compiler/integration/test_cli_runtime_smoke)
+   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_basics.py), [tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_calls.py), [tests/compiler/backend/targets/x86_64_sysv/test_emit_control_flow.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_control_flow.py), [tests/compiler/backend/targets/x86_64_sysv/test_emit_doubles.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_doubles.py), [tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_objects.py), and [tests/compiler/backend/targets/x86_64_sysv/test_strings.py](../../tests/compiler/backend/targets/x86_64_sysv/test_strings.py)
+     -> behavior-grouped files under [tests/compiler/integration/test_cli_runtime_smoke](../../tests/compiler/integration/test_cli_runtime_smoke)
 
-   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py)
-     -> existing GC and root-sensitive files under [tests/compiler/integration/test_cli_semantic_codegen_runtime](../tests/compiler/integration/test_cli_semantic_codegen_runtime)
+   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_runtime_roots.py)
+     -> existing GC and root-sensitive files under [tests/compiler/integration/test_cli_semantic_codegen_runtime](../../tests/compiler/integration/test_cli_semantic_codegen_runtime)
 
-   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_dispatch.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_dispatch.py)
-     -> [tests/compiler/integration/test_cli_interfaces_runtime](../tests/compiler/integration/test_cli_interfaces_runtime) and the existing virtual-dispatch files under [tests/compiler/integration/test_cli_semantic_codegen_runtime](../tests/compiler/integration/test_cli_semantic_codegen_runtime)
+   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_dispatch.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_dispatch.py)
+     -> [tests/compiler/integration/test_cli_interfaces_runtime](../../tests/compiler/integration/test_cli_interfaces_runtime) and the existing virtual-dispatch files under [tests/compiler/integration/test_cli_semantic_codegen_runtime](../../tests/compiler/integration/test_cli_semantic_codegen_runtime)
 
-   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py](../tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py)
-     -> panic and cast behavior files under [tests/compiler/integration/test_cli_runtime_smoke](../tests/compiler/integration/test_cli_runtime_smoke)
+   - runtime cases from [tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py](../../tests/compiler/backend/targets/x86_64_sysv/test_emit_casts.py)
+     -> panic and cast behavior files under [tests/compiler/integration/test_cli_runtime_smoke](../../tests/compiler/integration/test_cli_runtime_smoke)
 
 4. Prefer CLI runtime coverage as the canonical runtime surface.
    Do not keep the same return-code or panic scenario in both the direct target suite and CLI integration unless there is a clear extra contract only one surface can assert.
 
 5. Translate direct-backend `skip_optimize=True` cases carefully.
    If the runtime scenario only needs semantic correctness, migrate it to the default checked CLI path.
-   If the scenario intentionally validates unoptimized or optimization-sensitive behavior, move it into [tests/compiler/integration/test_cli_semantic_codegen_runtime](../tests/compiler/integration/test_cli_semantic_codegen_runtime) and express the configuration with CLI flags such as `--disable-all-optimization` rather than direct backend helpers.
+   If the scenario intentionally validates unoptimized or optimization-sensitive behavior, move it into [tests/compiler/integration/test_cli_semantic_codegen_runtime](../../tests/compiler/integration/test_cli_semantic_codegen_runtime) and express the configuration with CLI flags such as `--disable-all-optimization` rather than direct backend helpers.
 
 ### What To Test
 
@@ -344,7 +346,7 @@ New files likely needed:
 
 Current validation state:
 
-- [x] Runtime integration suites skip cleanly on ARM hosts through the shared runtime fixture.
+- [x] Runtime integration suites run on ARM hosts through the shared runtime fixture using the native `aarch64` backend.
 - [x] Runtime integration suites pass on `x86_64` hosts.
 
 ## Slice 5: Convert Build And Run Script Tests To The Native-Runtime Harness Model
@@ -357,9 +359,9 @@ Bring the script integration tests into the same emit-only versus native-runtime
 
 Existing files:
 
-- [tests/compiler/integration/test_build_script.py](../tests/compiler/integration/test_build_script.py)
-- [scripts/build.sh](../scripts/build.sh)
-- [scripts/run.sh](../scripts/run.sh)
+- [tests/compiler/integration/test_build_script.py](../../tests/compiler/integration/test_build_script.py)
+- [scripts/build.sh](../../scripts/build.sh)
+- [scripts/run.sh](../../scripts/run.sh)
 
 ### What To Change
 
@@ -395,7 +397,7 @@ Existing files:
 
 Current validation state:
 
-- [x] The script test file skips native-runtime cases cleanly on ARM hosts through the shared runtime fixture.
+- [x] The script test file passes on ARM hosts with native-runtime coverage enabled through the shared runtime fixture.
 - [x] The script test file passes on an `x86_64` host.
 
 ## Slice 6: Remove Compatibility Wrappers And Refresh Test Documentation
@@ -408,10 +410,10 @@ Delete temporary helper shims and update docs so the suite structure and host po
 
 Existing files:
 
-- [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py)
-- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
-- [tests/README.md](../tests/README.md)
-- [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md)
+- [tests/compiler/integration/helpers.py](../../tests/compiler/integration/helpers.py)
+- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
+- [tests/README.md](../../tests/README.md)
+- [TEST_PLAN_v0.1.md](../TEST_PLAN_v0.1.md)
 - this document
 
 ### What To Change
@@ -419,13 +421,13 @@ Existing files:
 1. Remove short-lived compatibility wrappers.
    Candidates include any temporary aliases retained during Slice 2, especially wrappers that obscure whether a helper is emit-only or native-runtime.
 
-2. Update [tests/README.md](../tests/README.md).
+2. Update [tests/README.md](../../tests/README.md).
    Document the new split between:
    - target-emission suites
    - native CLI runtime contract suites
    - C runtime harnesses under `tests/runtime`
 
-3. Update [TEST_PLAN_v0.1.md](TEST_PLAN_v0.1.md).
+3. Update [TEST_PLAN_v0.1.md](../TEST_PLAN_v0.1.md).
    Replace the current x86-only runtime wording with the refactored policy:
    - target-specific emission tests are all-host
    - runtime contract tests run on hosts that have a native backend
@@ -450,7 +452,8 @@ Existing files:
 
 Current validation state:
 
-- [x] Re-ran representative helper, target-emission, and runtime-suite coverage on an ARM host (`89 passed, 37 skipped`).
+- [x] Re-ran representative helper, target-emission, and runtime-suite coverage on an ARM host before slice 7 enablement (`89 passed, 37 skipped`).
+- [x] Full post-enablement ARM validation later passed through the shared host-native `aarch64` path.
 
 ## Slice 7: Enable ARM Runtime Contracts When `aarch64` Lands
 
@@ -462,13 +465,13 @@ Turn the temporary ARM runtime skip into runnable native coverage with minimal t
 
 New files:
 
-- [compiler/backend/targets/aarch64](../compiler/backend/targets/aarch64)
-- [tests/compiler/backend/targets/aarch64](../tests/compiler/backend/targets/aarch64)
+- [compiler/backend/targets/aarch64](../../compiler/backend/targets/aarch64)
+- [tests/compiler/backend/targets/aarch64](../../tests/compiler/backend/targets/aarch64)
 
 Existing files:
 
-- [tests/compiler/support/backend_matrix.py](../tests/compiler/support/backend_matrix.py)
-- [tests/compiler/conftest.py](../tests/compiler/conftest.py)
+- [tests/compiler/support/backend_matrix.py](../../tests/compiler/support/backend_matrix.py)
+- [tests/compiler/conftest.py](../../tests/compiler/conftest.py)
 - any CLI target-selection surface that needs explicit `aarch64` support
 
 ### What To Change
@@ -476,7 +479,7 @@ Existing files:
 1. Register `aarch64` as the native runtime backend on ARM hosts in the shared backend matrix.
 
 2. Keep the runtime contract suites unchanged.
-   The objective is that [tests/compiler/integration/test_cli_runtime_smoke](../tests/compiler/integration/test_cli_runtime_smoke), [tests/compiler/integration/test_cli_semantic_codegen_runtime](../tests/compiler/integration/test_cli_semantic_codegen_runtime), and [tests/compiler/integration/test_cli_interfaces_runtime](../tests/compiler/integration/test_cli_interfaces_runtime) start running on ARM through the fixture change alone.
+   The objective is that [tests/compiler/integration/test_cli_runtime_smoke](../../tests/compiler/integration/test_cli_runtime_smoke), [tests/compiler/integration/test_cli_semantic_codegen_runtime](../../tests/compiler/integration/test_cli_semantic_codegen_runtime), and [tests/compiler/integration/test_cli_interfaces_runtime](../../tests/compiler/integration/test_cli_interfaces_runtime) start running on ARM through the fixture change alone.
 
 3. Add an `aarch64` target-emission suite parallel to the existing `x86_64_sysv` tree.
    That suite should follow the same emit-only rule established in Slice 3.
@@ -496,19 +499,27 @@ Existing files:
 
 ### Checklist
 
-- [ ] Register `aarch64` as a native runtime backend on ARM hosts.
-- [ ] Add the `aarch64` emit-only target suite.
-- [ ] Confirm existing runtime contract suites run unchanged on ARM.
-- [ ] Remove temporary ARM skip expectation tests.
+- [x] Register `aarch64` as a native runtime backend on ARM hosts.
+- [x] Add the `aarch64` emit-only target suite.
+- [x] Confirm existing runtime contract suites run unchanged on ARM.
+- [x] Remove temporary ARM skip expectation tests.
+
+Current validation state:
+
+- [x] ARM host-native runtime backend resolution now returns `aarch64` through the shared backend matrix and runtime harness tests.
+- [x] The full ARM compiler pytest suite passed (`1171 passed in 47.52s`).
+- [x] ARM golden execution passed (`66/66 spec files passed; 875 runs total`).
+- [x] ARM runtime C harness execution passed via `make -C runtime clean test-all`.
+- [x] Real `x86_64` host no-regression validation passed via `./scripts/test.sh`.
 
 ## Enablement Checklist For `aarch64`
 
 When the `aarch64` backend lands later, enabling the temporarily skipped ARM runtime tests should require only the following changes:
 
-1. [ ] Add `compiler/backend/targets/aarch64/` and register it in the backend target registry.
-2. [ ] Add `--target aarch64` CLI coverage.
-3. [ ] Update `tests/compiler/support/backend_matrix.py` so `native_runtime_backend_name` resolves to `aarch64` on ARM hosts.
-4. [ ] Add an `aarch64` target-emission suite parallel to `tests/compiler/backend/targets/x86_64_sysv/`.
-5. [ ] Run `tests/compiler/integration/test_cli_runtime_smoke/`, `tests/compiler/integration/test_cli_semantic_codegen_runtime/`, and `tests/compiler/integration/test_cli_interfaces_runtime/` on ARM hosts without changing individual test bodies.
+1. [x] Add `compiler/backend/targets/aarch64/` and register it in the backend target registry.
+2. [x] Add `--target aarch64` CLI coverage.
+3. [x] Update `tests/compiler/support/backend_matrix.py` so `native_runtime_backend_name` resolves to `aarch64` on ARM hosts.
+4. [x] Add an `aarch64` target-emission suite parallel to `tests/compiler/backend/targets/x86_64_sysv/`.
+5. [x] Run `tests/compiler/integration/test_cli_runtime_smoke/`, `tests/compiler/integration/test_cli_semantic_codegen_runtime/`, and `tests/compiler/integration/test_cli_interfaces_runtime/` on ARM hosts without changing individual test bodies.
 
-If additional work is required beyond those steps, that is a sign the refactor did not centralize the native-runtime decision deeply enough.
+The implemented result matched that expectation: ARM runtime enablement happened through the shared capability layer plus the `aarch64` backend and target-suite work, without broad leaf-test rewrites.

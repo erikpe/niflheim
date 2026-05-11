@@ -2,7 +2,7 @@
 
 Status: proposed.
 
-This document expands phase 2 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
+This document expands phase 2 from [docs/archive/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
 It is intentionally limited to phase 2 work only:
 
@@ -58,9 +58,9 @@ New files:
 Existing files:
 
 - `compiler/backend/lowering/__init__.py`
-- [compiler/backend/ir/__init__.py](../compiler/backend/ir/__init__.py)
-- [compiler/semantic/linker.py](../compiler/semantic/linker.py) only if a tiny helper is needed for cleaner lowering entrypoint boundaries
-- [tests/compiler/codegen/helpers.py](../tests/compiler/codegen/helpers.py) only if a generic source-compilation helper is worth sharing instead of duplicating
+- [compiler/backend/ir/__init__.py](../../compiler/backend/ir/__init__.py)
+- [compiler/semantic/linker.py](../../compiler/semantic/linker.py) only if a tiny helper is needed for cleaner lowering entrypoint boundaries
+- [tests/compiler/codegen/helpers.py](../../tests/compiler/codegen/helpers.py) only if a generic source-compilation helper is worth sharing instead of duplicating
 
 ### What To Change
 
@@ -155,7 +155,7 @@ Existing files:
 - `compiler/backend/lowering/expressions.py`
 - `tests/compiler/backend/lowering/helpers.py`
 - `tests/compiler/backend/lowering/test_basics.py`
-- [compiler/semantic/ir.py](../compiler/semantic/ir.py) only if a tiny helper for dispatch-mode inspection reduces duplication cleanly
+- [compiler/semantic/ir.py](../../compiler/semantic/ir.py) only if a tiny helper for dispatch-mode inspection reduces duplication cleanly
 
 ### What To Change
 
@@ -405,8 +405,8 @@ Existing files:
 - `compiler/backend/lowering/functions.py`
 - `compiler/backend/lowering/expressions.py`
 - `compiler/backend/lowering/control_flow.py`
-- [compiler/codegen/abi/runtime.py](../compiler/codegen/abi/runtime.py)
-- [compiler/codegen/types.py](../compiler/codegen/types.py)
+- [compiler/codegen/abi/runtime.py](../../compiler/codegen/abi/runtime.py)
+- [compiler/codegen/types.py](../../compiler/codegen/types.py)
 - `tests/compiler/backend/lowering/helpers.py`
 - `tests/compiler/backend/lowering/test_objects.py`
 
@@ -493,16 +493,16 @@ New files:
 
 Existing files:
 
-- [compiler/cli.py](../compiler/cli.py)
+- [compiler/cli.py](../../compiler/cli.py)
 - `compiler/backend/lowering/__init__.py`
 - `compiler/backend/lowering/program.py`
-- [compiler/backend/ir/text.py](../compiler/backend/ir/text.py)
-- [compiler/backend/ir/serialize.py](../compiler/backend/ir/serialize.py)
-- [compiler/backend/ir/verify.py](../compiler/backend/ir/verify.py)
-- [tests/compiler/integration/test_cli_backend_ir_flags.py](../tests/compiler/integration/test_cli_backend_ir_flags.py)
-- [tests/compiler/integration/test_cli_codegen.py](../tests/compiler/integration/test_cli_codegen.py)
-- [tests/compiler/integration/test_cli_errors.py](../tests/compiler/integration/test_cli_errors.py)
-- [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py)
+- [compiler/backend/ir/text.py](../../compiler/backend/ir/text.py)
+- [compiler/backend/ir/serialize.py](../../compiler/backend/ir/serialize.py)
+- [compiler/backend/ir/verify.py](../../compiler/backend/ir/verify.py)
+- [tests/compiler/integration/test_cli_backend_ir_flags.py](../../tests/compiler/integration/test_cli_backend_ir_flags.py)
+- [tests/compiler/integration/test_cli_codegen.py](../../tests/compiler/integration/test_cli_codegen.py)
+- [tests/compiler/integration/test_cli_errors.py](../../tests/compiler/integration/test_cli_errors.py)
+- [tests/compiler/integration/helpers.py](../../tests/compiler/integration/helpers.py)
 
 ### What To Change
 

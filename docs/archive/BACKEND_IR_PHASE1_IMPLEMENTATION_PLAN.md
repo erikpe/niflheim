@@ -2,7 +2,7 @@
 
 Status: phase 1 complete.
 
-This document expands phase 1 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
+This document expands phase 1 from [docs/archive/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
 It is intentionally limited to phase 1 work only:
 
@@ -58,10 +58,10 @@ New files:
 
 Existing files:
 
-- [compiler/cli.py](../compiler/cli.py)
-- [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py)
-- [tests/compiler/integration/test_cli_codegen.py](../tests/compiler/integration/test_cli_codegen.py)
-- [tests/compiler/integration/test_cli_errors.py](../tests/compiler/integration/test_cli_errors.py)
+- [compiler/cli.py](../../compiler/cli.py)
+- [tests/compiler/integration/helpers.py](../../tests/compiler/integration/helpers.py)
+- [tests/compiler/integration/test_cli_codegen.py](../../tests/compiler/integration/test_cli_codegen.py)
+- [tests/compiler/integration/test_cli_errors.py](../../tests/compiler/integration/test_cli_errors.py)
 
 ### What To Change
 
@@ -75,7 +75,7 @@ Existing files:
    - a `BackendTarget` protocol or abstract base class that consumes verified backend IR plus target options
    Do not add x86-64 implementation logic yet.
 
-3. Reserve the CLI flag surface in [compiler/cli.py](../compiler/cli.py).
+3. Reserve the CLI flag surface in [compiler/cli.py](../../compiler/cli.py).
    Add:
    - `--dump-backend-ir` with allowed values `text` and `json`
    - `--dump-backend-ir-dir <dir>`
@@ -88,7 +88,7 @@ Existing files:
    If a user requests `--dump-backend-ir`, `--dump-backend-ir-dir`, `--stop-after backend-ir`, or `--stop-after backend-ir-passes` before lowering exists, the CLI should fail with a clear, stable message that says the backend IR surface is reserved but not implemented yet.
    Do not silently ignore the request.
 
-6. Do not add any backend lowering call from [compiler/cli.py](../compiler/cli.py) in this patch.
+6. Do not add any backend lowering call from [compiler/cli.py](../../compiler/cli.py) in this patch.
 
 ### What To Test
 
@@ -126,7 +126,7 @@ pytest -n auto --dist loadfile tests/compiler/integration/test_cli_backend_ir_fl
 
 - [x] Create the `compiler/backend/` package tree and minimal `__init__.py` files.
 - [x] Add `compiler/backend/targets/api.py` with the frozen target interface scaffold.
-- [x] Extend [compiler/cli.py](../compiler/cli.py) with reserved backend IR flags and stop phases.
+- [x] Extend [compiler/cli.py](../../compiler/cli.py) with reserved backend IR flags and stop phases.
 - [x] Add explicit not-yet-implemented behavior for backend IR flags.
 - [x] Add CLI integration tests for the reserved surface.
 - [x] Re-run existing CLI codegen and CLI error coverage to prove default behavior is unchanged.
@@ -135,7 +135,7 @@ pytest -n auto --dist loadfile tests/compiler/integration/test_cli_backend_ir_fl
 
 ### Goal
 
-Define the backend IR node model from [docs/BACKEND_IR_SPEC.md](BACKEND_IR_SPEC.md) and create shared fixture helpers so later serialization, text, and verifier tests can build representative programs without excessive duplication.
+Define the backend IR node model from [docs/BACKEND_IR_SPEC.md](../BACKEND_IR_SPEC.md) and create shared fixture helpers so later serialization, text, and verifier tests can build representative programs without excessive duplication.
 
 ### Primary Files To Change
 
@@ -148,7 +148,7 @@ New files:
 Existing files:
 
 - `compiler/backend/ir/__init__.py`
-- [docs/BACKEND_IR_SPEC.md](BACKEND_IR_SPEC.md) only if the implementation uncovers a true schema mismatch
+- [docs/BACKEND_IR_SPEC.md](../BACKEND_IR_SPEC.md) only if the implementation uncovers a true schema mismatch
 
 ### What To Change
 
@@ -225,7 +225,7 @@ Existing files:
 
 - `compiler/backend/ir/model.py`
 - `tests/compiler/backend/ir/helpers.py`
-- [compiler/common/span.py](../compiler/common/span.py)
+- [compiler/common/span.py](../../compiler/common/span.py)
 
 ### What To Change
 
@@ -383,7 +383,7 @@ Existing files:
 - `compiler/backend/ir/model.py`
 - `compiler/backend/ir/serialize.py`
 - `tests/compiler/backend/ir/helpers.py`
-- [compiler/codegen/abi/runtime.py](../compiler/codegen/abi/runtime.py)
+- [compiler/codegen/abi/runtime.py](../../compiler/codegen/abi/runtime.py)
 
 ### What To Change
 
@@ -392,7 +392,7 @@ Existing files:
 
 2. Implement the program-level, callable-level, CFG, typing, def/use, and safety checks frozen in the spec.
 
-3. Use the existing repository runtime metadata registry in [compiler/codegen/abi/runtime.py](../compiler/codegen/abi/runtime.py) as the authority for runtime-call validation.
+3. Use the existing repository runtime metadata registry in [compiler/codegen/abi/runtime.py](../../compiler/codegen/abi/runtime.py) as the authority for runtime-call validation.
    Cross-check:
    - runtime call name existence
    - reference-argument indices
@@ -439,7 +439,7 @@ pytest -n auto --dist loadfile tests/compiler/backend/ir tests/compiler/integrat
 
 - [x] Add `compiler/backend/ir/verify.py` and a dedicated verification error type.
 - [x] Validate constructor-specific and receiver-specific rules.
-- [x] Validate runtime calls against [compiler/codegen/abi/runtime.py](../compiler/codegen/abi/runtime.py).
+- [x] Validate runtime calls against [compiler/codegen/abi/runtime.py](../../compiler/codegen/abi/runtime.py).
 - [x] Add positive and negative verifier coverage.
 - [x] Run the full phase-1 backend IR test slice.
 

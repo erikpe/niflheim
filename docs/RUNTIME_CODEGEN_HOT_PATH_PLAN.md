@@ -1,8 +1,10 @@
 # Runtime And Codegen Hot Path Plan
 
-Status: proposed.
+Status: partially implemented.
 
 This document turns the recent benchmark profiling work into a concrete implementation plan for a small set of runtime and compiler changes that are likely to produce real end-to-end speedups while staying readable and maintainable.
+
+Current branch status: packages 1, 2, 3, and 5 are implemented and validated below. Package 4, small-object freelists, is still pending.
 
 The plan is grounded in the profile of [tests/golden/aoc/2025/10/part2/test_solver.nif](../tests/golden/aoc/2025/10/part2/test_solver.nif), especially the no-runtime-trace run. That workload is useful because it is allocation-heavy, loop-heavy, and call-heavy without depending on benchmark-only tricks.
 
@@ -27,11 +29,11 @@ Use these rules for every work package in this document:
 
 ## Ordered Checklist
 
-1. Inline shadow-stack push/pop in generated assembly.
-2. Reuse named root slots and shrink function root frames.
-3. Pool tracked-object metadata, and only consider intrusive metadata if pooling is not enough.
-4. Add small-object freelists for common fixed-size allocations.
-5. Split and simplify the tracked-set probe fast path.
+1. [x] Inline shadow-stack push/pop in generated assembly.
+2. [x] Reuse named root slots and shrink function root frames.
+3. [x] Pool tracked-object metadata, and only consider intrusive metadata if pooling is not enough.
+4. [ ] Add small-object freelists for common fixed-size allocations.
+5. [x] Split and simplify the tracked-set probe fast path.
 
 ## 1. Inline Shadow-Stack Push/Pop In Generated Assembly
 

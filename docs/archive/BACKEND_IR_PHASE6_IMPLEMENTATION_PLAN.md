@@ -2,7 +2,7 @@
 
 Status: completed.
 
-This document expands phase 6 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
+This document expands phase 6 from [docs/archive/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
 It is intentionally limited to phase 6 work only:
 
@@ -144,8 +144,8 @@ Existing files:
 - `tests/compiler/integration/helpers.py`
 - `tests/compiler/codegen/helpers.py` if still present and still used by active tests
 - `README.md`
-- `docs/BACKEND_IR_TRANSITION_PLAN.md`
-- `docs/BACKEND_IR_PHASE4_IMPLEMENTATION_PLAN.md` and `docs/BACKEND_IR_PHASE5_IMPLEMENTATION_PLAN.md` only if their scope notes or checklists need a post-cutover status note
+- `docs/archive/BACKEND_IR_TRANSITION_PLAN.md`
+- `docs/archive/BACKEND_IR_PHASE4_IMPLEMENTATION_PLAN.md` and `docs/archive/BACKEND_IR_PHASE5_IMPLEMENTATION_PLAN.md` only if their scope notes or checklists need a post-cutover status note
 
 ### What To Change
 
@@ -389,8 +389,8 @@ Existing files:
 - `tests/compiler/backend/` target and analysis tests that need final parity assertions
 - `tests/compiler/integration/` checked-path tests
 - `README.md`
-- `docs/BACKEND_IR_TRANSITION_PLAN.md`
-- `docs/BACKEND_IR_PHASE6_IMPLEMENTATION_PLAN.md`
+- `docs/archive/BACKEND_IR_TRANSITION_PLAN.md`
+- `docs/archive/BACKEND_IR_PHASE6_IMPLEMENTATION_PLAN.md`
 
 ### What To Change
 

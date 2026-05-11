@@ -6,7 +6,7 @@ Historical note: phase 6 completed the cutover. Backend IR plus `x86_64_sysv` is
 
 This document describes a phased plan for introducing a real backend IR and fully transitioning the compiler backend to use it.
 
-The concrete backend IR v1 schema is defined in [docs/BACKEND_IR_SPEC.md](BACKEND_IR_SPEC.md).
+The concrete backend IR v1 schema is defined in [docs/BACKEND_IR_SPEC.md](../BACKEND_IR_SPEC.md).
 
 The plan is intentionally focused on:
 
@@ -363,7 +363,7 @@ The following decisions are frozen for this plan:
 
 Create the new backend package, freeze the backend IR v1 shape, and add serialization/inspection tooling before any feature migration begins.
 
-The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE1_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE1_IMPLEMENTATION_PLAN.md).
+The concrete ordered implementation checklist for this phase lives in [docs/archive/BACKEND_IR_PHASE1_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE1_IMPLEMENTATION_PLAN.md).
 
 ### Deliverables
 
@@ -410,7 +410,7 @@ Phase gate:
 
 Build a complete lowering path from `LinkedSemanticProgram` into backend IR without changing the production assembly path yet.
 
-The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE2_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE2_IMPLEMENTATION_PLAN.md).
+The concrete ordered implementation checklist for this phase lives in [docs/archive/BACKEND_IR_PHASE2_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE2_IMPLEMENTATION_PLAN.md).
 
 ### Deliverables
 
@@ -477,7 +477,7 @@ Replace the current tree-walking backend analyses with CFG-based backend IR anal
 
 This is the phase that removes the largest architectural risk in the current backend.
 
-The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE3_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE3_IMPLEMENTATION_PLAN.md).
+The concrete ordered implementation checklist for this phase lives in [docs/archive/BACKEND_IR_PHASE3_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE3_IMPLEMENTATION_PLAN.md).
 
 ### Deliverables
 
@@ -540,7 +540,7 @@ Phase gate:
 
 Prove the end-to-end backend IR path by emitting real `x86-64 SysV` assembly for a smaller feature slice before broadening to full parity.
 
-The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE4_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE4_IMPLEMENTATION_PLAN.md).
+The concrete ordered implementation checklist for this phase lives in [docs/archive/BACKEND_IR_PHASE4_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE4_IMPLEMENTATION_PLAN.md).
 
 ### Deliverables
 
@@ -601,7 +601,7 @@ Phase gate:
 
 Complete the `x86-64 SysV` backend so the new backend IR path covers the current supported language/runtime surface.
 
-The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE5_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE5_IMPLEMENTATION_PLAN.md).
+The concrete ordered implementation checklist for this phase lives in [docs/archive/BACKEND_IR_PHASE5_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE5_IMPLEMENTATION_PLAN.md).
 
 ### Deliverables
 
@@ -666,7 +666,7 @@ Phase gate:
 
 Make backend IR the only backend input and remove the legacy tree-to-assembly backend path.
 
-The concrete ordered implementation checklist for this phase lives in [docs/BACKEND_IR_PHASE6_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE6_IMPLEMENTATION_PLAN.md).
+The concrete ordered implementation checklist for this phase lives in [docs/archive/BACKEND_IR_PHASE6_IMPLEMENTATION_PLAN.md](BACKEND_IR_PHASE6_IMPLEMENTATION_PLAN.md).
 
 ### Deliverables
 

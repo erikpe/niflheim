@@ -2,7 +2,7 @@
 
 Status: proposed.
 
-This document expands phase 3 from [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
+This document expands phase 3 from [docs/archive/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md) into a concrete implementation checklist with PR-sized slices.
 
 It is intentionally limited to phase 3 work only:
 
@@ -58,9 +58,9 @@ New files:
 Existing files:
 
 - `compiler/backend/analysis/__init__.py`
-- [compiler/backend/ir/model.py](../compiler/backend/ir/model.py) only if a small shared analysis result type or helper belongs there
-- [compiler/backend/ir/verify.py](../compiler/backend/ir/verify.py) only if a small shared CFG helper can be extracted cleanly without weakening verifier clarity
-- [tests/compiler/backend/lowering/helpers.py](../tests/compiler/backend/lowering/helpers.py) only if a generic source-to-backend-IR helper is worth sharing directly
+- [compiler/backend/ir/model.py](../../compiler/backend/ir/model.py) only if a small shared analysis result type or helper belongs there
+- [compiler/backend/ir/verify.py](../../compiler/backend/ir/verify.py) only if a small shared CFG helper can be extracted cleanly without weakening verifier clarity
+- [tests/compiler/backend/lowering/helpers.py](../../tests/compiler/backend/lowering/helpers.py) only if a generic source-to-backend-IR helper is worth sharing directly
 
 ### What To Change
 
@@ -145,8 +145,8 @@ Existing files:
 
 - `compiler/backend/analysis/cfg.py`
 - `compiler/backend/analysis/__init__.py`
-- [compiler/backend/ir/verify.py](../compiler/backend/ir/verify.py)
-- [tests/compiler/backend/analysis/helpers.py](../tests/compiler/backend/analysis/helpers.py)
+- [compiler/backend/ir/verify.py](../../compiler/backend/ir/verify.py)
+- [tests/compiler/backend/analysis/helpers.py](../../tests/compiler/backend/analysis/helpers.py)
 
 ### What To Change
 
@@ -222,8 +222,8 @@ Existing files:
 
 - `compiler/backend/analysis/cfg.py`
 - `compiler/backend/analysis/simplify_cfg.py`
-- [compiler/backend/ir/model.py](../compiler/backend/ir/model.py) only if a shared analysis snapshot helper is needed
-- [tests/compiler/backend/analysis/helpers.py](../tests/compiler/backend/analysis/helpers.py)
+- [compiler/backend/ir/model.py](../../compiler/backend/ir/model.py) only if a shared analysis snapshot helper is needed
+- [tests/compiler/backend/analysis/helpers.py](../../tests/compiler/backend/analysis/helpers.py)
 
 ### What To Change
 
@@ -299,9 +299,9 @@ Existing files:
 
 - `compiler/backend/analysis/liveness.py`
 - `compiler/backend/analysis/cfg.py`
-- [compiler/backend/ir/model.py](../compiler/backend/ir/model.py)
-- [compiler/codegen/root_liveness.py](../compiler/codegen/root_liveness.py) only as a migration reference until phase 6 removes legacy use
-- [tests/compiler/codegen/test_root_liveness.py](../tests/compiler/codegen/test_root_liveness.py) as the coverage set to port or mirror
+- [compiler/backend/ir/model.py](../../compiler/backend/ir/model.py)
+- [compiler/codegen/root_liveness.py](../../compiler/codegen/root_liveness.py) only as a migration reference until phase 6 removes legacy use
+- [tests/compiler/codegen/test_root_liveness.py](../../tests/compiler/codegen/test_root_liveness.py) as the coverage set to port or mirror
 
 ### What To Change
 
@@ -382,9 +382,9 @@ New files:
 Existing files:
 
 - `compiler/backend/analysis/safepoints.py`
-- [compiler/backend/ir/model.py](../compiler/backend/ir/model.py)
-- [compiler/codegen/root_slot_plan.py](../compiler/codegen/root_slot_plan.py) as the migration reference for the deterministic coloring policy
-- [tests/compiler/codegen/test_root_slot_plan.py](../tests/compiler/codegen/test_root_slot_plan.py) as the coverage set to port or mirror
+- [compiler/backend/ir/model.py](../../compiler/backend/ir/model.py)
+- [compiler/codegen/root_slot_plan.py](../../compiler/codegen/root_slot_plan.py) as the migration reference for the deterministic coloring policy
+- [tests/compiler/codegen/test_root_slot_plan.py](../../tests/compiler/codegen/test_root_slot_plan.py) as the coverage set to port or mirror
 
 ### What To Change
 
@@ -458,9 +458,9 @@ Existing files:
 
 - `compiler/backend/analysis/liveness.py`
 - `compiler/backend/analysis/root_slots.py`
-- [compiler/backend/ir/model.py](../compiler/backend/ir/model.py)
-- [compiler/codegen/layout.py](../compiler/codegen/layout.py) as the migration reference for the current correctness surface
-- [tests/compiler/codegen/test_layout.py](../tests/compiler/codegen/test_layout.py) as the coverage set to port or mirror
+- [compiler/backend/ir/model.py](../../compiler/backend/ir/model.py)
+- [compiler/codegen/layout.py](../../compiler/codegen/layout.py) as the migration reference for the current correctness surface
+- [tests/compiler/codegen/test_layout.py](../../tests/compiler/codegen/test_layout.py) as the coverage set to port or mirror
 
 ### What To Change
 
@@ -541,12 +541,12 @@ New files:
 Existing files:
 
 - `compiler/backend/analysis/__init__.py`
-- [compiler/cli.py](../compiler/cli.py)
-- [compiler/backend/ir/text.py](../compiler/backend/ir/text.py)
-- [compiler/backend/ir/serialize.py](../compiler/backend/ir/serialize.py)
-- [tests/compiler/integration/test_cli_backend_ir_dump.py](../tests/compiler/integration/test_cli_backend_ir_dump.py)
-- [tests/compiler/integration/test_cli_backend_ir_flags.py](../tests/compiler/integration/test_cli_backend_ir_flags.py)
-- [tests/compiler/integration/test_cli_codegen.py](../tests/compiler/integration/test_cli_codegen.py)
+- [compiler/cli.py](../../compiler/cli.py)
+- [compiler/backend/ir/text.py](../../compiler/backend/ir/text.py)
+- [compiler/backend/ir/serialize.py](../../compiler/backend/ir/serialize.py)
+- [tests/compiler/integration/test_cli_backend_ir_dump.py](../../tests/compiler/integration/test_cli_backend_ir_dump.py)
+- [tests/compiler/integration/test_cli_backend_ir_flags.py](../../tests/compiler/integration/test_cli_backend_ir_flags.py)
+- [tests/compiler/integration/test_cli_codegen.py](../../tests/compiler/integration/test_cli_codegen.py)
 
 ### What To Change
 

@@ -4,10 +4,10 @@ This document lays out a concrete, ordered plan for adding a real `aarch64` chec
 
 The plan is grounded in the current repository state:
 
-- The checked compiler path still emits through `x86_64_sysv` in [compiler/cli.py](../compiler/cli.py).
+- The checked compiler path still emits through `x86_64_sysv` in [compiler/cli.py](../../compiler/cli.py).
 - The backend IR pipeline, analysis passes, optimizations, and program metadata builders are already target-neutral.
-- The runtime ABI in [runtime/include/runtime.h](../runtime/include/runtime.h) is already C-based and host-portable.
-- The pytest suite is already split into all-host emit coverage versus native-runtime suites, and ARM host skips are centralized in [tests/compiler/support/backend_matrix.py](../tests/compiler/support/backend_matrix.py).
+- The runtime ABI in [runtime/include/runtime.h](../../runtime/include/runtime.h) is already C-based and host-portable.
+- The pytest suite is already split into all-host emit coverage versus native-runtime suites, and ARM host skips are centralized in [tests/compiler/support/backend_matrix.py](../../tests/compiler/support/backend_matrix.py).
 - Golden tests already run through a shared runner and build scripts, but they still depend on the checked compiler default path.
 
 ## Goals
@@ -64,28 +64,28 @@ Create one compiler-owned source of truth for available backend targets and host
 ### Change / Add
 
 - Add a shared target-registry module under `compiler/backend/targets/`, for example `compiler/backend/targets/registry.py`.
-- Extend [compiler/backend/targets/__init__.py](../compiler/backend/targets/__init__.py) to export the registry API, not just the protocol types.
-- Move host-architecture normalization out of [tests/compiler/support/backend_matrix.py](../tests/compiler/support/backend_matrix.py) into compiler-owned shared code, for example `compiler/common/architectures.py` or `compiler/backend/targets/host.py`.
+- Extend [compiler/backend/targets/__init__.py](../../compiler/backend/targets/__init__.py) to export the registry API, not just the protocol types.
+- Move host-architecture normalization out of [tests/compiler/support/backend_matrix.py](../../tests/compiler/support/backend_matrix.py) into compiler-owned shared code, for example `compiler/common/architectures.py` or `compiler/backend/targets/host.py`.
 - Register the existing `x86_64_sysv` backend in the new registry.
-- Update [compiler/cli.py](../compiler/cli.py) so checked-path emission resolves a target object from the registry instead of importing and calling `emit_x86_64_sysv_asm(...)` directly.
+- Update [compiler/cli.py](../../compiler/cli.py) so checked-path emission resolves a target object from the registry instead of importing and calling `emit_x86_64_sysv_asm(...)` directly.
 - Add `--target <name>` to the checked CLI.
 - Keep the default checked target unchanged in this slice: no target flag should still resolve to `x86_64_sysv`.
-- Update [tests/compiler/support/backend_matrix.py](../tests/compiler/support/backend_matrix.py) to delegate capability data to the compiler-owned registry rather than maintaining a separate hard-coded target list.
-- Update direct CLI monkeypatch tests so they patch target selection or registry resolution, not the `emit_x86_64_sysv_asm` symbol in [compiler/cli.py](../compiler/cli.py).
+- Update [tests/compiler/support/backend_matrix.py](../../tests/compiler/support/backend_matrix.py) to delegate capability data to the compiler-owned registry rather than maintaining a separate hard-coded target list.
+- Update direct CLI monkeypatch tests so they patch target selection or registry resolution, not the `emit_x86_64_sysv_asm` symbol in [compiler/cli.py](../../compiler/cli.py).
 
 ### Files To Change
 
-- [compiler/cli.py](../compiler/cli.py)
-- [compiler/backend/targets/__init__.py](../compiler/backend/targets/__init__.py)
-- [tests/compiler/support/backend_matrix.py](../tests/compiler/support/backend_matrix.py)
-- [tests/compiler/support/test_backend_matrix.py](../tests/compiler/support/test_backend_matrix.py)
-- [tests/compiler/backend/targets/test_api.py](../tests/compiler/backend/targets/test_api.py)
-- [tests/compiler/integration/test_cli_codegen.py](../tests/compiler/integration/test_cli_codegen.py)
-- [tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py](../tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py)
-- [tests/compiler/integration/test_cli_backend_ir_passes.py](../tests/compiler/integration/test_cli_backend_ir_passes.py)
-- [tests/compiler/integration/test_cli_backend_ir_dump.py](../tests/compiler/integration/test_cli_backend_ir_dump.py)
-- [tests/compiler/integration/test_cli_logging.py](../tests/compiler/integration/test_cli_logging.py)
-- [tests/compiler/integration/test_cli_errors.py](../tests/compiler/integration/test_cli_errors.py)
+- [compiler/cli.py](../../compiler/cli.py)
+- [compiler/backend/targets/__init__.py](../../compiler/backend/targets/__init__.py)
+- [tests/compiler/support/backend_matrix.py](../../tests/compiler/support/backend_matrix.py)
+- [tests/compiler/support/test_backend_matrix.py](../../tests/compiler/support/test_backend_matrix.py)
+- [tests/compiler/backend/targets/test_api.py](../../tests/compiler/backend/targets/test_api.py)
+- [tests/compiler/integration/test_cli_codegen.py](../../tests/compiler/integration/test_cli_codegen.py)
+- [tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py](../../tests/compiler/integration/test_cli_backend_ir_codegen_reduced.py)
+- [tests/compiler/integration/test_cli_backend_ir_passes.py](../../tests/compiler/integration/test_cli_backend_ir_passes.py)
+- [tests/compiler/integration/test_cli_backend_ir_dump.py](../../tests/compiler/integration/test_cli_backend_ir_dump.py)
+- [tests/compiler/integration/test_cli_logging.py](../../tests/compiler/integration/test_cli_logging.py)
+- [tests/compiler/integration/test_cli_errors.py](../../tests/compiler/integration/test_cli_errors.py)
 
 ### Notes
 
@@ -120,7 +120,7 @@ Run the shared API, backend-matrix, and checked-CLI suites:
 - [x] Add compiler-owned host architecture normalization.
 - [x] Add compiler-owned backend target registry.
 - [x] Register `x86_64_sysv` in the registry.
-- [x] Route [compiler/cli.py](../compiler/cli.py) through the registry.
+- [x] Route [compiler/cli.py](../../compiler/cli.py) through the registry.
 - [x] Add checked-path `--target` parsing and validation.
 - [x] Update backend-matrix tests to use registry-backed data.
 - [x] Update CLI monkeypatch tests to patch registry resolution instead of direct x86 symbols.
@@ -146,17 +146,17 @@ Move shared runtime ABI layout knowledge and generic target-test helpers out of 
   - array object layout and kind tags currently in `compiler/backend/targets/x86_64_sysv/array_runtime.py`
 - Keep only target-local operand-formatting helpers inside concrete target packages.
 - Add focused tests for the new shared runtime-layout module so the runtime ABI is asserted once at the shared seam.
-- Extract generic target-test helpers from [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../tests/compiler/backend/targets/x86_64_sysv/helpers.py) into a shared target-test support module, for example `tests/compiler/backend/targets/support.py`.
+- Extract generic target-test helpers from [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../../tests/compiler/backend/targets/x86_64_sysv/helpers.py) into a shared target-test support module, for example `tests/compiler/backend/targets/support.py`.
 - Keep only x86-specific emit helpers in the `x86_64_sysv` helper file.
 
 ### Files To Change
 
-- [compiler/backend/program/runtime.py](../compiler/backend/program/runtime.py) if the shared layout module should live nearby or share constants
+- [compiler/backend/program/runtime.py](../../compiler/backend/program/runtime.py) if the shared layout module should live nearby or share constants
 - `compiler/backend/program/runtime_layout.py`
-- [compiler/backend/targets/x86_64_sysv/root_runtime.py](../compiler/backend/targets/x86_64_sysv/root_runtime.py)
-- [compiler/backend/targets/x86_64_sysv/object_runtime.py](../compiler/backend/targets/x86_64_sysv/object_runtime.py)
-- [compiler/backend/targets/x86_64_sysv/array_runtime.py](../compiler/backend/targets/x86_64_sysv/array_runtime.py)
-- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
+- [compiler/backend/targets/x86_64_sysv/root_runtime.py](../../compiler/backend/targets/x86_64_sysv/root_runtime.py)
+- [compiler/backend/targets/x86_64_sysv/object_runtime.py](../../compiler/backend/targets/x86_64_sysv/object_runtime.py)
+- [compiler/backend/targets/x86_64_sysv/array_runtime.py](../../compiler/backend/targets/x86_64_sysv/array_runtime.py)
+- [tests/compiler/backend/targets/x86_64_sysv/helpers.py](../../tests/compiler/backend/targets/x86_64_sysv/helpers.py)
 - `tests/compiler/backend/targets/support.py`
 
 ### Notes
@@ -310,7 +310,7 @@ Make `aarch64` capable of emitting real checked assembly for the core control-fl
 - `compiler/backend/targets/aarch64/root_codegen.py`
 - `compiler/backend/targets/aarch64/trace_codegen.py`
 - `compiler/backend/targets/aarch64/emit.py`
-- [compiler/cli.py](../compiler/cli.py)
+- [compiler/cli.py](../../compiler/cli.py)
 - `tests/compiler/backend/targets/aarch64/test_emit_basics.py`
 - `tests/compiler/backend/targets/aarch64/test_emit_calls.py`
 - `tests/compiler/backend/targets/aarch64/test_emit_control_flow.py`
@@ -383,7 +383,7 @@ Finish the checked backend surface for AArch64 before any ARM-native pytest or g
   - array allocation, load/store, slicing, bounds checks, and fast paths
   - type metadata, pointer-offset tables, interface tables, and class vtables
   - runtime-trace-disabled emission parity
-- Audit AArch64 symbol-address materialization carefully so it works with the host C toolchain defaults used by [scripts/build.sh](../scripts/build.sh).
+- Audit AArch64 symbol-address materialization carefully so it works with the host C toolchain defaults used by [scripts/build.sh](../../scripts/build.sh).
 - Add the full parallel emit-only suite under `tests/compiler/backend/targets/aarch64/`.
 - Update compile-only CLI tests that currently assume x86-specific assembly or log text so they either:
   - assert generic CLI behavior only, or
@@ -403,8 +403,8 @@ Finish the checked backend surface for AArch64 before any ARM-native pytest or g
 - `tests/compiler/backend/targets/aarch64/test_emit_objects.py`
 - `tests/compiler/backend/targets/aarch64/test_metadata.py`
 - `tests/compiler/backend/targets/aarch64/test_strings.py`
-- [tests/compiler/integration/test_cli_codegen.py](../tests/compiler/integration/test_cli_codegen.py)
-- [tests/compiler/integration/test_cli_logging.py](../tests/compiler/integration/test_cli_logging.py)
+- [tests/compiler/integration/test_cli_codegen.py](../../tests/compiler/integration/test_cli_codegen.py)
+- [tests/compiler/integration/test_cli_logging.py](../../tests/compiler/integration/test_cli_logging.py)
 
 ### Notes
 
@@ -464,43 +464,43 @@ Once AArch64 feature parity is in place, make ARM a first-class checked compiler
 
 ### Change / Add
 
-- Update the compiler target registry and [compiler/cli.py](../compiler/cli.py) so the checked-path default target resolves from normalized host architecture when a native backend exists:
+- Update the compiler target registry and [compiler/cli.py](../../compiler/cli.py) so the checked-path default target resolves from normalized host architecture when a native backend exists:
   - `x86_64` -> `x86_64_sysv`
   - `aarch64` -> `aarch64`
-- Update [tests/compiler/support/backend_matrix.py](../tests/compiler/support/backend_matrix.py) and [tests/compiler/support/test_backend_matrix.py](../tests/compiler/support/test_backend_matrix.py) so ARM hosts resolve `aarch64` as the native runtime backend.
+- Update [tests/compiler/support/backend_matrix.py](../../tests/compiler/support/backend_matrix.py) and [tests/compiler/support/test_backend_matrix.py](../../tests/compiler/support/test_backend_matrix.py) so ARM hosts resolve `aarch64` as the native runtime backend.
 - Re-run and update the shared runtime-harness tests so skip behavior disappears on ARM once `aarch64` is registered as native-runnable.
-- Audit [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py) and [tests/compiler/support/runtime_execution.py](../tests/compiler/support/runtime_execution.py) to make sure they do not accidentally pin `x86_64_sysv` assumptions after the host-native default switch.
-- Update [tests/compiler/integration/test_build_script.py](../tests/compiler/integration/test_build_script.py) so it covers both:
+- Audit [tests/compiler/integration/helpers.py](../../tests/compiler/integration/helpers.py) and [tests/compiler/support/runtime_execution.py](../../tests/compiler/support/runtime_execution.py) to make sure they do not accidentally pin `x86_64_sysv` assumptions after the host-native default switch.
+- Update [tests/compiler/integration/test_build_script.py](../../tests/compiler/integration/test_build_script.py) so it covers both:
   - host-native default build/run behavior
   - explicit `--target` forwarding where target selection itself is under test
-- Update [tests/compiler/test_golden_runner.py](../tests/compiler/test_golden_runner.py) if the runner needs new assertions around explicit `build_args` target forwarding or host-native behavior.
+- Update [tests/compiler/test_golden_runner.py](../../tests/compiler/test_golden_runner.py) if the runner needs new assertions around explicit `build_args` target forwarding or host-native behavior.
 - Update user-facing docs and test-policy docs:
-  - [README.md](../README.md)
-  - [tests/README.md](../tests/README.md)
-  - [docs/TEST_PLAN_v0.1.md](./TEST_PLAN_v0.1.md)
-  - [docs/ABI_NOTES.md](./ABI_NOTES.md)
+  - [README.md](../../README.md)
+  - [tests/README.md](../../tests/README.md)
+  - [docs/TEST_PLAN_v0.1.md](../TEST_PLAN_v0.1.md)
+  - [docs/ABI_NOTES.md](../ABI_NOTES.md)
 
 ### Files To Change
 
-- [compiler/cli.py](../compiler/cli.py)
-- [tests/compiler/support/backend_matrix.py](../tests/compiler/support/backend_matrix.py)
-- [tests/compiler/support/test_backend_matrix.py](../tests/compiler/support/test_backend_matrix.py)
-- [tests/compiler/support/runtime_harness.py](../tests/compiler/support/runtime_harness.py)
-- [tests/compiler/support/test_runtime_harness.py](../tests/compiler/support/test_runtime_harness.py)
-- [tests/compiler/integration/helpers.py](../tests/compiler/integration/helpers.py)
-- [tests/compiler/support/runtime_execution.py](../tests/compiler/support/runtime_execution.py)
-- [tests/compiler/integration/test_build_script.py](../tests/compiler/integration/test_build_script.py)
-- [tests/compiler/test_golden_runner.py](../tests/compiler/test_golden_runner.py)
-- [README.md](../README.md)
-- [tests/README.md](../tests/README.md)
-- [docs/TEST_PLAN_v0.1.md](./TEST_PLAN_v0.1.md)
-- [docs/ABI_NOTES.md](./ABI_NOTES.md)
+- [compiler/cli.py](../../compiler/cli.py)
+- [tests/compiler/support/backend_matrix.py](../../tests/compiler/support/backend_matrix.py)
+- [tests/compiler/support/test_backend_matrix.py](../../tests/compiler/support/test_backend_matrix.py)
+- [tests/compiler/support/runtime_harness.py](../../tests/compiler/support/runtime_harness.py)
+- [tests/compiler/support/test_runtime_harness.py](../../tests/compiler/support/test_runtime_harness.py)
+- [tests/compiler/integration/helpers.py](../../tests/compiler/integration/helpers.py)
+- [tests/compiler/support/runtime_execution.py](../../tests/compiler/support/runtime_execution.py)
+- [tests/compiler/integration/test_build_script.py](../../tests/compiler/integration/test_build_script.py)
+- [tests/compiler/test_golden_runner.py](../../tests/compiler/test_golden_runner.py)
+- [README.md](../../README.md)
+- [tests/README.md](../../tests/README.md)
+- [docs/TEST_PLAN_v0.1.md](../TEST_PLAN_v0.1.md)
+- [docs/ABI_NOTES.md](../ABI_NOTES.md)
 
 ### Notes
 
 - This is the slice where the ARM-native pytest skips should disappear.
-- Compile-fail golden tests already call the compiler directly, and run-mode golden tests already go through [scripts/build.sh](../scripts/build.sh). Once the checked default target is host-native, the golden harness should work on ARM without architecture-specific special casing.
-- If [docs/ABI_NOTES.md](./ABI_NOTES.md) becomes too mixed, split the current document into one shared runtime-ABI document plus per-target calling-convention notes. The important requirement is that the shared runtime layout and both calling conventions are documented explicitly.
+- Compile-fail golden tests already call the compiler directly, and run-mode golden tests already go through [scripts/build.sh](../../scripts/build.sh). Once the checked default target is host-native, the golden harness should work on ARM without architecture-specific special casing.
+- If [docs/ABI_NOTES.md](../ABI_NOTES.md) becomes too mixed, split the current document into one shared runtime-ABI document plus per-target calling-convention notes. The important requirement is that the shared runtime layout and both calling conventions are documented explicitly.
 
 ### How To Test It
 
@@ -562,7 +562,7 @@ Slice 6 is now fully validated across both host architectures: ARM was validated
 ### AArch64 Relocation And Symbol Addressing
 
 Risk:
-The current x86 backend leans on RIP-relative addressing such as `lea ... [rip + symbol]`. AArch64 will need different symbol materialization patterns, and those patterns must work with the host toolchain defaults used by [scripts/build.sh](../scripts/build.sh).
+The current x86 backend leans on RIP-relative addressing such as `lea ... [rip + symbol]`. AArch64 will need different symbol materialization patterns, and those patterns must work with the host toolchain defaults used by [scripts/build.sh](../../scripts/build.sh).
 
 Mitigation:
 

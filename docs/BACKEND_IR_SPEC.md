@@ -4,7 +4,7 @@ Status: draft.
 
 This document defines the concrete backend IR schema for the first backend IR transition.
 
-It is the companion document to [docs/BACKEND_IR_TRANSITION_PLAN.md](BACKEND_IR_TRANSITION_PLAN.md).
+It is the companion document to [docs/archive/BACKEND_IR_TRANSITION_PLAN.md](archive/BACKEND_IR_TRANSITION_PLAN.md).
 
 The transition plan explains how the compiler moves to backend IR.
 
