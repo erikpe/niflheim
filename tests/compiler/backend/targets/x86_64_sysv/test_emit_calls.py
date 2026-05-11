@@ -213,6 +213,7 @@ def test_emit_source_asm_preserves_allocated_values_across_calls(tmp_path) -> No
     assert caller_body.index(save_text) < caller_body.index(trace_text)
     assert caller_body.index(trace_text) < caller_body.index(reload_text)
     assert caller_body.rindex(reload_text) > caller_body.index(call_text)
+    assert "    mov rax, r10" in caller_body
     assert "    add rax, rbx" in caller_body
     assert "    mov rax, r12" not in caller_body
     assert "    mov rcx, r12" not in caller_body
@@ -240,6 +241,37 @@ def test_emit_source_asm_can_execute_allocated_value_live_across_call(tmp_path) 
     )
 
     assert run.returncode == 42
+
+
+def test_emit_source_asm_keeps_multi_call_live_value_in_callee_saved_register(tmp_path) -> None:
+    asm = emit_source_asm(
+        tmp_path,
+        """
+        fn callee(value: i64) -> i64 {
+            return value + 1;
+        }
+
+        fn caller(value: i64) -> i64 {
+            var keep: i64 = value;
+            var first: i64 = callee(10);
+            var second: i64 = callee(first);
+            return keep + second;
+        }
+
+        fn main() -> i64 {
+            return caller(31);
+        }
+        """,
+        skip_optimize=True,
+    )
+    caller_body = _body_for_label(asm, mangle_function_symbol(("main",), "caller"))
+    call_text = f"    call {mangle_function_symbol(('main',), 'callee')}"
+
+    assert caller_body.count(call_text) == 2
+    assert "    mov qword ptr [rbp - 16], r10" not in caller_body
+    assert "    mov r10, qword ptr [rbp - 16]" not in caller_body
+    assert "    mov rax, rbx" in caller_body
+    assert "    add rax, r12" in caller_body
 
 
 def test_emit_source_asm_can_execute_constructor_argument_after_allocation_helper(tmp_path) -> None:

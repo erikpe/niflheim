@@ -585,6 +585,35 @@ def test_allocate_x86_64_sysv_registers_keeps_multi_call_crossing_values_in_call
     )
 
 
+def test_allocate_x86_64_sysv_registers_records_loop_boundary_fragments(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn loop(limit: i64) -> i64 {
+            var total: i64 = 0;
+            while total < limit {
+                total = total + 1;
+            }
+            return total;
+        }
+
+        fn main() -> i64 {
+            return loop(3);
+        }
+        """,
+        callable_name="loop",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(callable_plan)
+    fragments = allocation.fragments_for_reg(_reg_id_by_debug_name(callable_plan, "total"))
+
+    assert len(fragments) >= 2
+    assert tuple(fragment.kind for fragment in fragments) == tuple("register" for _ in fragments)
+    assert tuple(fragment.start_position for fragment in fragments) == tuple(
+        sorted(fragment.start_position for fragment in fragments)
+    )
+
+
 def test_allocate_x86_64_sysv_registers_reuses_expired_registers(tmp_path) -> None:
     callable_plan = _callable_plan(
         tmp_path,

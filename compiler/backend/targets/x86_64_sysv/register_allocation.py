@@ -105,6 +105,27 @@ class X86_64SysVCallArgumentReload:
 
 
 @dataclass(frozen=True, slots=True)
+class X86_64SysVAllocationFragment:
+    reg_id: BackendRegId
+    start_position: int
+    end_position: int
+    physical_register: X86_64SysVPhysicalRegister | None
+    stack_slot: X86_64SysVStackLocation | None
+    kind: str
+
+
+@dataclass(frozen=True, slots=True)
+class X86_64SysVResolutionMove:
+    reg_id: BackendRegId
+    position: int
+    kind: str
+    physical_register: X86_64SysVPhysicalRegister
+    stack_slot: X86_64SysVStackLocation
+    inst_id: BackendInstId | None = None
+    block_id: BackendBlockId | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class X86_64SysVRegisterAllocation:
     callable_decl: BackendCallableDecl
     location_by_reg: dict[BackendRegId, X86_64SysVRegisterLocation]
@@ -113,6 +134,8 @@ class X86_64SysVRegisterAllocation:
     abi_constraints: X86_64SysVAbiConstraintPlan
     caller_saved_spills_by_inst: dict[BackendInstId, X86_64SysVCallerSavedSpillPoint]
     call_argument_reloads_by_inst: dict[BackendInstId, tuple[X86_64SysVCallArgumentReload, ...]]
+    fragments_by_reg: dict[BackendRegId, tuple[X86_64SysVAllocationFragment, ...]]
+    resolution_moves_by_inst: dict[BackendInstId, tuple[X86_64SysVResolutionMove, ...]]
 
     def location_for_reg(self, reg_id: BackendRegId) -> X86_64SysVRegisterLocation:
         return self.location_by_reg[reg_id]
@@ -123,6 +146,12 @@ class X86_64SysVRegisterAllocation:
 
     def call_argument_reloads_for_inst(self, inst_id: BackendInstId) -> tuple[X86_64SysVCallArgumentReload, ...]:
         return self.call_argument_reloads_by_inst.get(inst_id, ())
+
+    def fragments_for_reg(self, reg_id: BackendRegId) -> tuple[X86_64SysVAllocationFragment, ...]:
+        return self.fragments_by_reg.get(reg_id, ())
+
+    def resolution_moves_for_inst(self, inst_id: BackendInstId) -> tuple[X86_64SysVResolutionMove, ...]:
+        return self.resolution_moves_by_inst.get(inst_id, ())
 
 
 @dataclass(frozen=True, slots=True)
@@ -528,6 +557,17 @@ def allocate_x86_64_sysv_registers(
         argument_xmms=call_argument_allocatable_xmms,
         abi=X86_64_SYSV_ABI,
     )
+    fragments_by_reg = _allocation_fragments_by_reg(
+        callable_plan,
+        intervals=resolved_intervals,
+        physical_register_by_reg=physical_register_by_reg,
+        caller_saved_spills_by_inst=caller_saved_spills_by_inst,
+        abi_constraints=abi_constraints,
+    )
+    resolution_moves_by_inst = _resolution_moves_by_inst(
+        callable_plan,
+        caller_saved_spills_by_inst=caller_saved_spills_by_inst,
+    )
 
     return X86_64SysVRegisterAllocation(
         callable_decl=callable_plan.callable_decl,
@@ -537,6 +577,8 @@ def allocate_x86_64_sysv_registers(
         abi_constraints=abi_constraints,
         caller_saved_spills_by_inst=caller_saved_spills_by_inst,
         call_argument_reloads_by_inst=call_argument_reloads_by_inst,
+        fragments_by_reg=fragments_by_reg,
+        resolution_moves_by_inst=resolution_moves_by_inst,
     )
 
 
@@ -617,6 +659,8 @@ def _register_pool_for_interval(
         call_crossing_count=call_crossing_count,
         safepoint_crossing_count=safepoint_crossing_count,
     ):
+        if interval.crosses_call:
+            return (*callee_saved_gprs, *call_free_gprs)
         return (*call_free_gprs, *callee_saved_gprs)
     return callee_saved_gprs
 
@@ -1344,6 +1388,190 @@ def _call_argument_reloads_by_inst(
     return reloads_by_inst
 
 
+def _allocation_fragments_by_reg(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    intervals: tuple[X86_64SysVLiveInterval, ...],
+    physical_register_by_reg: dict[BackendRegId, X86_64SysVPhysicalRegister],
+    caller_saved_spills_by_inst: dict[BackendInstId, X86_64SysVCallerSavedSpillPoint],
+    abi_constraints: X86_64SysVAbiConstraintPlan,
+) -> dict[BackendRegId, tuple[X86_64SysVAllocationFragment, ...]]:
+    positions = build_instruction_positions(callable_plan)
+    split_positions_by_reg = _split_positions_by_reg(
+        callable_plan,
+        intervals=intervals,
+        caller_saved_spills_by_inst=caller_saved_spills_by_inst,
+        abi_constraints=abi_constraints,
+        positions=positions,
+    )
+    split_call_positions_by_reg = _caller_saved_split_call_positions_by_reg(
+        caller_saved_spills_by_inst=caller_saved_spills_by_inst,
+        positions=positions,
+    )
+    fragments_by_reg: dict[BackendRegId, tuple[X86_64SysVAllocationFragment, ...]] = {}
+
+    for interval in intervals:
+        physical_register = physical_register_by_reg.get(interval.reg_id)
+        stack_slot = _stack_location_for_reg(callable_plan, interval.reg_id)
+        split_positions = split_positions_by_reg.get(interval.reg_id, ())
+        call_split_positions = set(split_call_positions_by_reg.get(interval.reg_id, ()))
+        boundaries = (
+            interval.start_position,
+            *(
+                position
+                for position in split_positions
+                if interval.start_position <= position <= interval.end_position
+            ),
+            interval.end_position,
+        )
+        ordered_boundaries = tuple(dict.fromkeys(sorted(boundaries)))
+        fragments: list[X86_64SysVAllocationFragment] = []
+
+        for index, start_position in enumerate(ordered_boundaries):
+            if index + 1 >= len(ordered_boundaries):
+                break
+            end_position = ordered_boundaries[index + 1]
+            if start_position == end_position:
+                continue
+            fragments.append(
+                X86_64SysVAllocationFragment(
+                    reg_id=interval.reg_id,
+                    start_position=start_position,
+                    end_position=end_position,
+                    physical_register=physical_register,
+                    stack_slot=stack_slot if physical_register is None else None,
+                    kind="register" if physical_register is not None else "stack",
+                )
+            )
+            if end_position in call_split_positions and stack_slot is not None and physical_register is not None:
+                fragments.append(
+                    X86_64SysVAllocationFragment(
+                        reg_id=interval.reg_id,
+                        start_position=end_position,
+                        end_position=end_position,
+                        physical_register=None,
+                        stack_slot=stack_slot,
+                        kind="call_boundary_stack",
+                    )
+                )
+
+        if not fragments:
+            fragments.append(
+                X86_64SysVAllocationFragment(
+                    reg_id=interval.reg_id,
+                    start_position=interval.start_position,
+                    end_position=interval.end_position,
+                    physical_register=physical_register,
+                    stack_slot=stack_slot if physical_register is None else None,
+                    kind="register" if physical_register is not None else "stack",
+                )
+            )
+        fragments_by_reg[interval.reg_id] = tuple(fragments)
+
+    return fragments_by_reg
+
+
+def _split_positions_by_reg(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    intervals: tuple[X86_64SysVLiveInterval, ...],
+    caller_saved_spills_by_inst: dict[BackendInstId, X86_64SysVCallerSavedSpillPoint],
+    abi_constraints: X86_64SysVAbiConstraintPlan,
+    positions: X86_64SysVInstructionPositions,
+) -> dict[BackendRegId, tuple[int, ...]]:
+    interval_by_reg = {interval.reg_id: interval for interval in intervals}
+    split_positions_by_reg: dict[BackendRegId, set[int]] = {}
+
+    for spill_point in caller_saved_spills_by_inst.values():
+        position = positions.instruction_position(spill_point.inst_id)
+        for spill in spill_point.spills:
+            split_positions_by_reg.setdefault(spill.reg_id, set()).add(position)
+
+    for constraint in abi_constraints.constraints:
+        if constraint.reg_id is None or constraint.reg_id not in interval_by_reg:
+            continue
+        if constraint.kind not in {"clobber", "temporary"} and constraint.reason not in {
+            "call_argument",
+            "call_return",
+            "return_value",
+        }:
+            continue
+        split_positions_by_reg.setdefault(constraint.reg_id, set()).add(constraint.position)
+
+    for block in callable_plan.callable_decl.blocks:
+        if len(block.instructions) <= 1:
+            continue
+        first_position = positions.instruction_position(block.instructions[0].inst_id)
+        for reg_id in callable_plan.analysis.liveness.block_live_in(block.block_id):
+            if reg_id in interval_by_reg:
+                split_positions_by_reg.setdefault(reg_id, set()).add(first_position)
+
+    return {
+        reg_id: tuple(sorted(position for position in positions_for_reg if _position_splits_interval(interval_by_reg[reg_id], position)))
+        for reg_id, positions_for_reg in split_positions_by_reg.items()
+        if reg_id in interval_by_reg
+    }
+
+
+def _position_splits_interval(interval: X86_64SysVLiveInterval, position: int) -> bool:
+    return interval.start_position < position < interval.end_position
+
+
+def _caller_saved_split_call_positions_by_reg(
+    *,
+    caller_saved_spills_by_inst: dict[BackendInstId, X86_64SysVCallerSavedSpillPoint],
+    positions: X86_64SysVInstructionPositions,
+) -> dict[BackendRegId, tuple[int, ...]]:
+    positions_by_reg: dict[BackendRegId, list[int]] = {}
+    for spill_point in caller_saved_spills_by_inst.values():
+        position = positions.instruction_position(spill_point.inst_id)
+        for spill in spill_point.spills:
+            positions_by_reg.setdefault(spill.reg_id, []).append(position)
+    return {
+        reg_id: tuple(sorted(positions_for_reg))
+        for reg_id, positions_for_reg in positions_by_reg.items()
+    }
+
+
+def _resolution_moves_by_inst(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    caller_saved_spills_by_inst: dict[BackendInstId, X86_64SysVCallerSavedSpillPoint],
+) -> dict[BackendInstId, tuple[X86_64SysVResolutionMove, ...]]:
+    positions = build_instruction_positions(callable_plan)
+    moves_by_inst: dict[BackendInstId, tuple[X86_64SysVResolutionMove, ...]] = {}
+    for inst_id, spill_point in caller_saved_spills_by_inst.items():
+        position = positions.instruction_position(inst_id)
+        moves: list[X86_64SysVResolutionMove] = []
+        for spill in spill_point.spills:
+            stack_slot = _stack_location_for_reg(callable_plan, spill.reg_id)
+            if stack_slot is None:
+                continue
+            moves.append(
+                X86_64SysVResolutionMove(
+                    reg_id=spill.reg_id,
+                    position=position,
+                    kind="spill_before_call",
+                    physical_register=spill.physical_register,
+                    stack_slot=stack_slot,
+                    inst_id=inst_id,
+                )
+            )
+            moves.append(
+                X86_64SysVResolutionMove(
+                    reg_id=spill.reg_id,
+                    position=position,
+                    kind="reload_after_call",
+                    physical_register=spill.physical_register,
+                    stack_slot=stack_slot,
+                    inst_id=inst_id,
+                )
+            )
+        if moves:
+            moves_by_inst[inst_id] = tuple(moves)
+    return moves_by_inst
+
+
 def _safepoint_live_reg_ids(callable_plan: X86_64SysVCallablePlan) -> frozenset[BackendRegId]:
     return frozenset(_safepoint_crossing_count_by_reg_id(callable_plan))
 
@@ -1439,6 +1667,7 @@ def _stack_location_for_reg(
 
 __all__ = [
     "X86_64SysVAbiConstraintPlan",
+    "X86_64SysVAllocationFragment",
     "X86_64SysVCallArgumentReload",
     "X86_64SysVCallerSavedSpill",
     "X86_64SysVCallerSavedSpillPoint",
@@ -1446,6 +1675,7 @@ __all__ = [
     "X86_64SysVInstructionPositions",
     "X86_64SysVLiveInterval",
     "X86_64SysVRegisterAllocation",
+    "X86_64SysVResolutionMove",
     "allocate_x86_64_sysv_registers",
     "build_abi_constraints",
     "build_instruction_positions",

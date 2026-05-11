@@ -732,13 +732,44 @@ Tests:
 
 ### Checklist
 
-- [ ] Add interval fragment model.
-- [ ] Split around calls and fixed-register operations.
-- [ ] Split high-pressure straight-line regions.
-- [ ] Add resolution move emission.
-- [ ] Preserve CFG correctness and deterministic placement.
-- [ ] Add tests for loops, branches, and calls.
-- [ ] Measure spill and copy tradeoffs.
+- [x] Add interval fragment model.
+- [x] Split around calls and fixed-register operations.
+- [x] Split high-pressure straight-line regions.
+- [x] Add resolution move emission.
+- [x] Preserve CFG correctness and deterministic placement.
+- [x] Add tests for loops, branches, and calls.
+- [x] Measure spill and copy tradeoffs.
+
+### Implementation Notes
+
+- Added `X86_64SysVAllocationFragment` and `X86_64SysVResolutionMove` metadata to the allocation result.
+- Single-call-crossing non-GC GPR intervals may now use caller-saved registers after callee-saved registers in the pool, which means caller-saved choices are used as pressure relief rather than the first choice for call-crossing values.
+- Multi-call-crossing intervals remain in callee-saved registers for now; broad CFG-aware resolution is needed before they can safely use repeated caller-saved split points.
+- Existing caller-saved spill/reload emission is now represented as explicit resolution moves, and allocation fragments record stack boundary fragments at call split points.
+- Fragment boundaries are also recorded at fixed-register constraints and ordered block entry points, giving later CFG edge-resolution work deterministic places to attach moves.
+- GC references remain excluded from caller-saved split allocation, preserving root slot identity and safepoint synchronization.
+
+### Measurement Notes
+
+Measured with:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --omit-runtime-trace
+```
+
+```text
+metric                          without_ra  with_ra  delta
+------------------------------  ----------  -------  -----
+instruction_count                    16368    17017   +649
+stack_memory_instruction_count        8417     5680  -2737
+stack_load_count                      4424     2440  -1984
+stack_store_count                     3720     2966   -754
+register_copy_count                    284     3826  +3542
+callee_saved_save_count                  0      367   +367
+callee_saved_restore_count               0      367   +367
+```
+
+Compared with slice 8, total instructions improved from `17102` to `17017`, register-copy count improved from `3914` to `3826`, and stack-memory instructions are roughly flat at `5680`.
 
 ### How To Test
 

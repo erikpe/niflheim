@@ -51,6 +51,7 @@ from compiler.backend.targets.x86_64_sysv.pipeline import (
 )
 from compiler.backend.targets.x86_64_sysv.register_allocation import (
     X86_64SysVAbiConstraintPlan,
+    X86_64SysVAllocationFragment,
     X86_64SysVCallArgumentReload,
     X86_64SysVCallerSavedSpill,
     X86_64SysVCallerSavedSpillPoint,
@@ -58,6 +59,7 @@ from compiler.backend.targets.x86_64_sysv.register_allocation import (
     X86_64SysVInstructionPositions,
     X86_64SysVLiveInterval,
     X86_64SysVRegisterAllocation,
+    X86_64SysVResolutionMove,
     allocate_x86_64_sysv_registers,
     build_abi_constraints,
     build_instruction_positions,
@@ -89,6 +91,7 @@ __all__ = [
     "X86AsmBuilder",
     "X86_64SysVAbi",
     "X86_64SysVAbiConstraintPlan",
+    "X86_64SysVAllocationFragment",
     "X86_64SysVArgLocation",
     "X86_64SysVCallArgumentReload",
     "X86_64SysVCallerSavedSpill",
@@ -106,6 +109,7 @@ __all__ = [
     "X86_64SysVRegisterAllocation",
     "X86_64SysVRegisterClass",
     "X86_64SysVRegisterLocation",
+    "X86_64SysVResolutionMove",
     "X86_64SysVStackLocation",
     "X86_64SysVTarget",
     "X86_64SysVTargetPlan",
