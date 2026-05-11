@@ -51,7 +51,7 @@ That keeps the user-facing selector simple and matches the repository's existing
 3. [x] Slice 3: Add the isolated `aarch64` package skeleton with ABI and frame-model coverage.
 4. [x] Slice 4: Implement the `aarch64` scalar/call/control-flow/root-frame emission backbone.
 5. [x] Slice 5: Complete `aarch64` feature parity and the full emit-only target suite.
-6. [ ] Slice 6: Switch ARM hosts to the native `aarch64` checked backend and enable full pytest plus golden execution.
+6. [x] Slice 6: Switch ARM hosts to the native `aarch64` checked backend and enable full pytest plus golden execution.
 
 ---
 
@@ -541,7 +541,7 @@ make -C runtime test-all
 - [x] Run the full ARM pytest suite.
 - [x] Run the full ARM golden suite.
 - [x] Re-run runtime C harnesses on ARM.
-- [ ] Re-run representative x86 runtime and golden coverage.
+- [x] Re-run representative x86 runtime and golden coverage.
 - [x] Refresh README, test docs, and ABI documentation.
 
 Validation:
@@ -551,8 +551,9 @@ Validation:
 - [x] `./scripts/golden.sh` -> `golden: 66/66 spec files passed; 875 runs total`
 - [x] `make -C runtime clean test-all` -> succeeded with exit status `0`; expected negative-runtime cases still reported `failed as expected`
 - [x] `/bin/python3 -m compiler.main samples/arithmetic_loop.nif -o /tmp/niflheim_slice6_x86.s --target x86_64_sysv && /bin/python3 -m compiler.main samples/arithmetic_loop.nif -o /tmp/niflheim_slice6_aarch64.s --target aarch64` -> emitted both target assemblies successfully
+- [x] `./scripts/test.sh` on a real `x86_64` host -> pytest `1171 passed in 4.18s`; golden `66/66 spec files passed; 875 runs total`; runtime harnesses passed; script reported `All tests passed.`
 
-The remaining unchecked item requires a real `x86_64` host rerun. This ARM host cannot validate native `x86_64` runtime or golden execution directly.
+Slice 6 is now fully validated across both host architectures: ARM was validated directly on the AArch64 host, and the final no-regression rerun was completed on a real `x86_64` host.
 
 ---
 
