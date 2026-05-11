@@ -314,7 +314,7 @@ def test_emit_source_asm_emits_indirect_call_for_callable_parameter(tmp_path) ->
 
     apply_body = _body_for_label(asm, mangle_function_symbol(("main",), "apply"))
 
-    assert "    mov rdi, qword ptr [rbp - 16]" in apply_body
+    assert re.search(r"^\s+mov rdi, qword ptr \[rbp - \d+\]$", apply_body, re.MULTILINE)
     assert "    mov r11, rbx" in apply_body
     assert "    call r11" in apply_body
 

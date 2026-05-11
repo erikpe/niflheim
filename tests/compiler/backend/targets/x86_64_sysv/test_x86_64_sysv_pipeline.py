@@ -28,7 +28,9 @@ def test_plan_x86_64_sysv_target_builds_allocation_aware_callable_plan() -> None
     assert callable_plan.ordered_block_ids == callable_plan.analysis.ordered_block_ids
     assert callable_plan.allocation is not None
     assert callable_plan.frame_layout.allocation == callable_plan.allocation
-    assert callable_plan.frame_layout.slots == plan_callable_frame_layout(target_input, callable_decl).slots
+    unallocated_slots = plan_callable_frame_layout(target_input, callable_decl).slots
+    assert set(callable_plan.frame_layout.slots).issubset(set(unallocated_slots))
+    assert len(callable_plan.frame_layout.slots) <= len(unallocated_slots)
 
 
 def test_plan_x86_64_sysv_target_can_disable_register_allocation() -> None:

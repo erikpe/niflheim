@@ -99,8 +99,7 @@ def test_emit_source_asm_syncs_live_reference_roots_before_gc_runtime_calls(tmp_
         r"    mov qword ptr \[rbp - \d+\], r10\n"
         r"    call rt_gc_collect\n"
         r"    mov r10, qword ptr \[rbp - \d+\]\n"
-        r"    mov rbx, r10\n"
-        r"    mov qword ptr \[rbp - \d+\], r10\n",
+        r"    mov rbx, r10\n",
         keep_body,
     )
 

@@ -1774,11 +1774,31 @@ def _stack_location_for_reg(
 ) -> X86_64SysVStackLocation | None:
     frame_slot = callable_plan.frame_layout.for_reg(reg_id)
     if frame_slot is None:
-        return None
+        return _preallocation_stack_location_for_reg(callable_plan, reg_id)
     return X86_64SysVStackLocation(
         byte_offset=frame_slot.byte_offset,
         debug_name=frame_slot.debug_name,
     )
+
+
+def _preallocation_stack_location_for_reg(
+    callable_plan: X86_64SysVCallablePlan,
+    reg_id: BackendRegId,
+) -> X86_64SysVStackLocation | None:
+    home_name = callable_plan.analysis.stack_homes.stack_home_by_reg.get(reg_id)
+    if home_name is None:
+        return None
+    register_by_id = {register.reg_id: register for register in callable_plan.callable_decl.registers}
+    register = register_by_id.get(reg_id)
+    if register is None:
+        return None
+    for index, candidate_reg_id in enumerate(callable_plan.analysis.stack_homes.stack_home_by_reg, start=1):
+        if candidate_reg_id == reg_id:
+            return X86_64SysVStackLocation(
+                byte_offset=-(index * X86_64_SYSV_ABI.stack_slot_size_bytes),
+                debug_name=register.debug_name,
+            )
+    return None
 
 
 __all__ = [
@@ -1791,6 +1811,7 @@ __all__ = [
     "X86_64SysVInstructionPositions",
     "X86_64SysVLiveInterval",
     "X86_64SysVRegisterAllocation",
+    "X86_64SysVRematerializedValue",
     "X86_64SysVResolutionMove",
     "allocate_x86_64_sysv_registers",
     "build_abi_constraints",

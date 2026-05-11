@@ -376,6 +376,12 @@ def _emit_callable_body(
     _emit_callee_saved_spills(builder, frame_layout)
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout)
+    _emit_allocated_entry_register_loads(
+        builder,
+        callable_decl,
+        frame_layout=frame_layout,
+        require_home=False,
+    )
     if frame_layout.has_root_frame:
         emit_zero_root_slots(builder, frame_layout=frame_layout)
         emit_root_frame_setup(builder, frame_layout=frame_layout)
@@ -386,7 +392,12 @@ def _emit_callable_body(
             line=callable_decl.span.start.line,
             column=callable_decl.span.start.column,
         )
-    _emit_allocated_entry_register_loads(builder, callable_decl, frame_layout=frame_layout)
+    _emit_allocated_entry_register_loads(
+        builder,
+        callable_decl,
+        frame_layout=frame_layout,
+        require_home=True,
+    )
     if emit_debug_comments:
         _emit_allocation_debug_comments(builder, frame_layout)
         for slot in frame_layout.slots:
@@ -596,6 +607,9 @@ def _emit_param_spills(builder, callable_decl, *, frame_layout, includes_receive
     for reg_id, arg_location in zip(ordered_arg_regs, arg_locations, strict=True):
         slot = frame_layout.for_reg(reg_id)
         if slot is None:
+            location = None if frame_layout.allocation is None else frame_layout.allocation.location_by_reg.get(reg_id)
+            if location is not None and location.physical_register is not None:
+                continue
             raise BackendTargetLoweringError(
                 f"x86_64_sysv frame layout is missing a home for parameter register 'r{reg_id.ordinal}'"
             )
@@ -617,7 +631,14 @@ def _emit_param_spills(builder, callable_decl, *, frame_layout, includes_receive
         raise BackendTargetLoweringError(f"unsupported reduced-scope parameter location kind '{arg_location.kind}'")
 
 
-def _emit_allocated_entry_register_loads(builder, callable_decl, *, frame_layout, includes_receiver: bool | None = None) -> None:
+def _emit_allocated_entry_register_loads(
+    builder,
+    callable_decl,
+    *,
+    frame_layout,
+    includes_receiver: bool | None = None,
+    require_home: bool | None = None,
+) -> None:
     allocation = frame_layout.allocation
     if allocation is None:
         return
@@ -631,13 +652,55 @@ def _emit_allocated_entry_register_loads(builder, callable_decl, *, frame_layout
         location = allocation.location_by_reg.get(reg_id)
         if location is None or location.physical_register is None:
             continue
-        slot = frame_layout.for_reg(reg_id)
-        if slot is None:
-            raise BackendTargetLoweringError(
-                f"x86_64_sysv frame layout is missing a home for allocated entry register 'r{reg_id.ordinal}'"
-            )
         opcode = "movq" if location.physical_register.register_class == "xmm" else "mov"
-        builder.instruction(opcode, location.physical_register.name, format_stack_slot_operand("rbp", slot.byte_offset))
+        slot = frame_layout.for_reg(reg_id)
+        if require_home is True and slot is None:
+            continue
+        if require_home is False and slot is not None:
+            continue
+        if slot is not None:
+            builder.instruction(
+                opcode,
+                location.physical_register.name,
+                format_stack_slot_operand("rbp", slot.byte_offset),
+            )
+            continue
+
+        arg_location = _incoming_arg_location(callable_decl, reg_id, includes_receiver=resolved_includes_receiver)
+        if arg_location.register_name is not None:
+            if arg_location.register_name != location.physical_register.name:
+                builder.instruction(opcode, location.physical_register.name, arg_location.register_name)
+            continue
+        if arg_location.kind == "stack":
+            assert arg_location.stack_slot_index is not None
+            incoming_offset = X86_64_SYSV_ABI.incoming_stack_arg_byte_offset(arg_location.stack_slot_index)
+            builder.instruction(
+                opcode,
+                location.physical_register.name,
+                f"qword ptr [rbp + {incoming_offset}]",
+            )
+            continue
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv cannot load allocated entry register 'r{reg_id.ordinal}' from argument kind '{arg_location.kind}'"
+        )
+
+
+def _incoming_arg_location(callable_decl, reg_id, *, includes_receiver: bool):
+    arg_locations = X86_64_SYSV_ABI.plan_argument_locations(
+        callable_decl.signature.param_types,
+        includes_receiver=includes_receiver,
+    )
+    ordered_arg_regs = callable_decl.param_regs
+    if includes_receiver:
+        if callable_decl.receiver_reg is None:
+            raise BackendTargetLoweringError("x86_64_sysv receiver argument lookup requires a receiver register")
+        ordered_arg_regs = (callable_decl.receiver_reg, *ordered_arg_regs)
+    for candidate_reg_id, arg_location in zip(ordered_arg_regs, arg_locations, strict=True):
+        if candidate_reg_id == reg_id:
+            return arg_location
+    raise BackendTargetLoweringError(
+        f"x86_64_sysv cannot find incoming argument location for register 'r{reg_id.ordinal}'"
+    )
 
 
 def _caller_saved_spills_for_call(instruction: BackendCallInst, *, frame_layout) -> tuple:
@@ -739,7 +802,13 @@ def _emit_constructor_entry_wrapper(
     _emit_callee_saved_spills(builder, frame_layout)
 
     _emit_param_spills(builder, callable_decl, frame_layout=frame_layout, includes_receiver=False)
-    _emit_allocated_entry_register_loads(builder, callable_decl, frame_layout=frame_layout, includes_receiver=False)
+    _emit_allocated_entry_register_loads(
+        builder,
+        callable_decl,
+        frame_layout=frame_layout,
+        includes_receiver=False,
+        require_home=False,
+    )
     if frame_layout.has_root_frame:
         emit_zero_root_slots(builder, frame_layout=frame_layout)
         emit_root_frame_setup(builder, frame_layout=frame_layout)
@@ -750,6 +819,13 @@ def _emit_constructor_entry_wrapper(
             line=callable_decl.span.start.line,
             column=callable_decl.span.start.column,
         )
+    _emit_allocated_entry_register_loads(
+        builder,
+        callable_decl,
+        frame_layout=frame_layout,
+        includes_receiver=False,
+        require_home=True,
+    )
     receiver_reg = callable_decl.receiver_reg
     if receiver_reg is None:
         raise BackendTargetLoweringError("constructor wrapper emission requires a receiver register")

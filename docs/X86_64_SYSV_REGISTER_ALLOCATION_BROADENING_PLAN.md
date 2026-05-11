@@ -888,12 +888,34 @@ Tests:
 
 ### Checklist
 
-- [ ] Narrow stack-home allocation.
-- [ ] Keep root slots correct for physical and stack values.
-- [ ] Shrink callee-saved save/restore sets after splitting.
-- [ ] Add frame-layout tests.
-- [ ] Add root-runtime execution tests.
-- [ ] Measure stack-memory and callee-saved counts.
+- [x] Narrow stack-home allocation.
+- [x] Keep root slots correct for physical and stack values.
+- [x] Audit callee-saved save/restore sets after splitting and keep only ABI-required saves.
+- [x] Add frame-layout tests.
+- [x] Add root-runtime execution tests.
+- [x] Measure stack-memory and callee-saved counts.
+
+### Measurements
+
+Measured `tests/golden/aoc/2025/10/part2/test_solver.nif` with:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --project-root . --omit-runtime-trace
+```
+
+The main improvement is from omitting stack homes for physical values that do not need fallback storage. Callee-saved save/restore counts are unchanged because each emitted callee-saved register is still physically written and must be preserved for the ABI.
+
+```text
+metric                          without_ra  with_ra  delta
+------------------------------  ----------  -------  -----
+instruction_count                    16368    16248   -120
+stack_memory_instruction_count        8417     4780  -3637
+stack_load_count                      4424     2308  -2116
+stack_store_count                     3720     2198  -1522
+register_copy_count                    284     3957  +3673
+callee_saved_save_count                  0      367   +367
+callee_saved_restore_count               0      367   +367
+```
 
 ### How To Test
 

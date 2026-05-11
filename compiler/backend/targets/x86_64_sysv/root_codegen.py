@@ -60,15 +60,15 @@ def emit_root_slot_sync(
     for reg_id in live_reg_ids:
         home_slot = frame_layout.for_reg(reg_id)
         root_slot = frame_layout.root_slot_for_reg(reg_id)
-        if home_slot is None:
-            raise BackendTargetLoweringError(
-                f"x86_64_sysv root sync is missing a stack home for register 'r{reg_id.ordinal}'"
-            )
         if root_slot is None:
             raise BackendTargetLoweringError(
                 f"x86_64_sysv root sync is missing a root slot for register 'r{reg_id.ordinal}'"
             )
         source_register = _physical_register_name_for_reg(frame_layout, reg_id)
+        if source_register is None and home_slot is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv root sync is missing a location for register 'r{reg_id.ordinal}'"
+            )
         if source_register is None:
             builder.instruction("mov", "r10", format_stack_slot_operand("rbp", home_slot.byte_offset))
         else:
@@ -85,19 +85,20 @@ def emit_root_slot_reload(
     for reg_id in live_reg_ids:
         home_slot = frame_layout.for_reg(reg_id)
         root_slot = frame_layout.root_slot_for_reg(reg_id)
-        if home_slot is None:
-            raise BackendTargetLoweringError(
-                f"x86_64_sysv root reload is missing a stack home for register 'r{reg_id.ordinal}'"
-            )
         if root_slot is None:
             raise BackendTargetLoweringError(
                 f"x86_64_sysv root reload is missing a root slot for register 'r{reg_id.ordinal}'"
             )
         builder.instruction("mov", "r10", format_stack_slot_operand("rbp", root_slot.byte_offset))
         target_register = _physical_register_name_for_reg(frame_layout, reg_id)
+        if target_register is None and home_slot is None:
+            raise BackendTargetLoweringError(
+                f"x86_64_sysv root reload is missing a location for register 'r{reg_id.ordinal}'"
+            )
         if target_register is not None:
             builder.instruction("mov", target_register, "r10")
-        builder.instruction("mov", format_stack_slot_operand("rbp", home_slot.byte_offset), "r10")
+        if home_slot is not None:
+            builder.instruction("mov", format_stack_slot_operand("rbp", home_slot.byte_offset), "r10")
 
 
 def _physical_register_name_for_reg(frame_layout: X86_64SysVFrameLayout, reg_id: BackendRegId) -> str | None:

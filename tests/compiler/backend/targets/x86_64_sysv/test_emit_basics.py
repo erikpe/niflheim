@@ -119,6 +119,67 @@ def test_plan_callable_frame_layout_reserves_callee_saved_register_slots(tmp_pat
     assert layout.allocation == allocation
 
 
+def test_plan_callable_frame_layout_prunes_physical_callee_saved_param_homes(tmp_path) -> None:
+    fixture = lower_source_to_backend_callable_fixture(
+        tmp_path,
+        """
+        class Box {}
+
+        fn keep(box: Box) -> Box {
+            return box;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        callable_name="keep",
+        skip_optimize=True,
+    )
+    target_input = make_target_input(fixture.program)
+    preliminary_plan = plan_x86_64_sysv_target(
+        target_input,
+        options=BackendTargetOptions(register_allocation_enabled=False),
+    ).plan_for_callable(fixture.callable_decl.callable_id)
+    allocation = allocate_x86_64_sysv_registers(preliminary_plan)
+    box_reg_id = _reg_id_by_debug_name(fixture.callable_decl, "box")
+
+    layout = plan_callable_frame_layout(target_input, fixture.callable_decl, allocation=allocation)
+
+    assert allocation.location_for_reg(box_reg_id).physical_register.name == "rbx"
+    assert layout.for_reg(box_reg_id) is None
+    assert tuple(slot.physical_register.name for slot in layout.callee_saved_slots) == ("rbx",)
+
+
+def test_plan_callable_frame_layout_keeps_caller_saved_param_homes(tmp_path) -> None:
+    fixture = lower_source_to_backend_callable_fixture(
+        tmp_path,
+        """
+        fn keep(value: i64) -> i64 {
+            return value;
+        }
+
+        fn main() -> i64 {
+            return keep(7);
+        }
+        """,
+        callable_name="keep",
+        skip_optimize=True,
+    )
+    target_input = make_target_input(fixture.program)
+    preliminary_plan = plan_x86_64_sysv_target(
+        target_input,
+        options=BackendTargetOptions(register_allocation_enabled=False),
+    ).plan_for_callable(fixture.callable_decl.callable_id)
+    allocation = allocate_x86_64_sysv_registers(preliminary_plan)
+    value_reg_id = _reg_id_by_debug_name(fixture.callable_decl, "value")
+
+    layout = plan_callable_frame_layout(target_input, fixture.callable_decl, allocation=allocation)
+
+    assert allocation.location_for_reg(value_reg_id).physical_register.name == "rax"
+    assert layout.for_reg(value_reg_id) is not None
+
+
 def test_plan_callable_frame_layout_allocates_inline_root_frame_for_root_slots() -> None:
     target_input = make_target_input(one_function_backend_program())
     callable_decl = callable_by_id(target_input.program, FIXTURE_ENTRY_FUNCTION_ID)

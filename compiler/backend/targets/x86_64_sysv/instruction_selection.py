@@ -1214,16 +1214,16 @@ def emit_store_result(
     frame_layout: X86_64SysVFrameLayout,
     source_register: str = _PRIMARY_REGISTER,
 ) -> None:
-    slot = frame_layout.for_reg(dest_reg_id)
-    if slot is None:
-        raise BackendTargetLoweringError(
-            f"x86_64_sysv frame layout is missing a home for destination register 'r{dest_reg_id.ordinal}'"
-        )
     physical_register = _physical_register_for_reg(frame_layout, dest_reg_id)
     if physical_register is not None:
         if physical_register.name != source_register:
             builder.instruction("mov", physical_register.name, source_register)
         return
+    slot = frame_layout.for_reg(dest_reg_id)
+    if slot is None:
+        raise BackendTargetLoweringError(
+            f"x86_64_sysv frame layout is missing a home for destination register 'r{dest_reg_id.ordinal}'"
+        )
     builder.instruction("mov", format_stack_slot_operand("rbp", slot.byte_offset), source_register)
 
 
@@ -1407,7 +1407,7 @@ def _try_emit_direct_scalar_copy(
 ) -> bool:
     dest_physical_register = _physical_register_for_reg(frame_layout, dest_reg_id)
     dest_stack_slot = frame_layout.for_reg(dest_reg_id)
-    if dest_stack_slot is None:
+    if dest_physical_register is None and dest_stack_slot is None:
         raise BackendTargetLoweringError(
             f"x86_64_sysv frame layout is missing a home for destination register 'r{dest_reg_id.ordinal}'"
         )
@@ -1458,6 +1458,7 @@ def _try_emit_direct_scalar_copy(
             )
             return True
         if source_physical_register is not None:
+            assert dest_stack_slot is not None
             builder.instruction(
                 "mov",
                 format_stack_slot_operand("rbp", dest_stack_slot.byte_offset),

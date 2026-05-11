@@ -106,7 +106,15 @@ def plan_callable_frame_layout(
     slot_by_reg: dict[BackendRegId, X86_64SysVFrameSlot] = {}
     slot_by_home_name: dict[str, X86_64SysVFrameSlot] = {}
 
-    for index, (reg_id, home_name) in enumerate(callable_analysis.stack_homes.stack_home_by_reg.items(), start=1):
+    stack_home_reg_ids = _stack_home_reg_ids(callable_decl, callable_analysis, allocation=allocation)
+    for index, (reg_id, home_name) in enumerate(
+        (
+            (reg_id, home_name)
+            for reg_id, home_name in callable_analysis.stack_homes.stack_home_by_reg.items()
+            if reg_id in stack_home_reg_ids
+        ),
+        start=1,
+    ):
         register = registers_by_reg_id[reg_id]
         slot = X86_64SysVFrameSlot(
             reg_id=reg_id,
@@ -179,6 +187,38 @@ def plan_callable_frame_layout(
         scratch_slot_offsets=scratch_slot_offsets,
         stack_size=abi.align_stack_size(frame_bytes),
     )
+
+
+def _stack_home_reg_ids(
+    callable_decl: BackendCallableDecl,
+    callable_analysis,
+    *,
+    allocation: "X86_64SysVRegisterAllocation | None",
+) -> frozenset[BackendRegId]:
+    if allocation is None:
+        return frozenset(callable_analysis.stack_homes.stack_home_by_reg)
+
+    required_reg_ids: set[BackendRegId] = set()
+    for reg_id, location in allocation.location_by_reg.items():
+        if location.physical_register is None:
+            required_reg_ids.add(reg_id)
+
+    for spill_point in allocation.caller_saved_spills_by_inst.values():
+        required_reg_ids.update(spill.reg_id for spill in spill_point.spills)
+
+    for reloads in allocation.call_argument_reloads_by_inst.values():
+        required_reg_ids.update(reload.reg_id for reload in reloads)
+
+    entry_reg_ids = set(callable_decl.param_regs)
+    if callable_decl.receiver_reg is not None:
+        entry_reg_ids.add(callable_decl.receiver_reg)
+    for reg_id in entry_reg_ids:
+        location = allocation.location_by_reg.get(reg_id)
+        if location is not None and location.physical_register is not None and not location.physical_register.preserved_by_callee:
+            required_reg_ids.add(reg_id)
+
+    stack_home_reg_ids = set(callable_analysis.stack_homes.stack_home_by_reg)
+    return frozenset(reg_id for reg_id in required_reg_ids if reg_id in stack_home_reg_ids)
 
 
 def _max_outgoing_stack_arg_slot_count(callable_decl: BackendCallableDecl, *, abi: X86_64SysVAbi) -> int:
