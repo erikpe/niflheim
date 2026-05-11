@@ -271,8 +271,8 @@ def main() -> int:
         prog="nifc",
         description=(
             "Niflheim stage-0 compiler "
-            "(default: type check and emit assembly through backend IR plus "
-            f"{default_checked_backend_target_name()})."
+            "(default: type check and emit assembly through backend IR plus the "
+            f"host-native checked backend when one exists; {default_checked_backend_target_name()} on this host)."
         ),
     )
     parser.add_argument("input", help="Input .nif source file")
@@ -305,7 +305,10 @@ def main() -> int:
     compilation_group.add_argument(
         "--target",
         choices=registered_backend_target_names(),
-        help=f"Checked backend target to emit (default: {default_checked_backend_target_name()})",
+        help=(
+            "Checked backend target to emit "
+            f"(default: host-native checked backend when available; {default_checked_backend_target_name()} on this host)"
+        ),
     )
     compilation_group.add_argument(
         "--stop-after",

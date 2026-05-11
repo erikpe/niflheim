@@ -118,7 +118,7 @@ def test_registered_backend_targets_expose_the_checked_registry_surface() -> Non
             name="aarch64",
             target=AARCH64_TARGET,
             emits_on_all_hosts=True,
-            native_runtime_architectures=frozenset(),
+            native_runtime_architectures=frozenset({"aarch64"}),
         ),
     )
     assert registered_backend_target_names() == ("x86_64_sysv", "aarch64")
@@ -126,9 +126,23 @@ def test_registered_backend_targets_expose_the_checked_registry_surface() -> Non
     assert backend_target_registration("aarch64") == registrations[1]
 
 
-def test_resolve_backend_target_defaults_to_the_checked_backend() -> None:
+def test_resolve_backend_target_defaults_to_the_host_native_checked_backend(monkeypatch) -> None:
+    monkeypatch.setattr("compiler.common.architectures.platform.machine", lambda: "AMD64")
+
     assert default_checked_backend_target_name() == "x86_64_sysv"
     assert resolve_backend_target() is X86_64_SYSV_TARGET
+
+    monkeypatch.setattr("compiler.common.architectures.platform.machine", lambda: "arm64")
+
+    assert default_checked_backend_target_name() == "aarch64"
+    assert resolve_backend_target() is AARCH64_TARGET
+
+
+def test_default_checked_backend_target_name_falls_back_to_x86_64_sysv_without_native_backend() -> None:
+    assert default_checked_backend_target_name("riscv64") == "x86_64_sysv"
+
+
+def test_resolve_backend_target_supports_explicit_target_names() -> None:
     assert resolve_backend_target("x86_64_sysv") is X86_64_SYSV_TARGET
     assert resolve_backend_target("aarch64") is AARCH64_TARGET
 
@@ -136,4 +150,4 @@ def test_resolve_backend_target_defaults_to_the_checked_backend() -> None:
 def test_native_runtime_backend_name_uses_registry_capabilities() -> None:
     assert native_runtime_backend_name("x86_64") == "x86_64_sysv"
     assert native_runtime_backend_name("amd64") == "x86_64_sysv"
-    assert native_runtime_backend_name("aarch64") is None
+    assert native_runtime_backend_name("aarch64") == "aarch64"

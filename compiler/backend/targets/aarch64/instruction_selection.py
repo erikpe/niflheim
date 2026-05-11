@@ -29,6 +29,8 @@ from compiler.backend.targets.aarch64.asm import (
     AArch64AsmBuilder,
     emit_load_immediate,
     emit_materialize_symbol_address,
+    emit_stack_slot_load,
+    emit_stack_slot_store,
     format_stack_slot_operand,
     word_register_name,
 )
@@ -262,7 +264,7 @@ def emit_load_operand(
             raise BackendTargetLoweringError(
                 f"aarch64 frame layout is missing a home for register 'r{operand.reg_id.ordinal}'"
             )
-        builder.instruction("ldr", target_register, format_stack_slot_operand("x29", slot.byte_offset))
+        emit_stack_slot_load(builder, target_register, base_register="x29", byte_offset=slot.byte_offset)
         if register_type_name_by_reg_id[operand.reg_id] == TYPE_NAME_BOOL:
             _normalize_bool_register(builder, target_register)
         return
@@ -314,7 +316,7 @@ def emit_load_float_operand(
             raise BackendTargetLoweringError(
                 f"aarch64 expected a double-typed register for floating load, got '{register_type_name_by_reg_id[operand.reg_id]}'"
             )
-        builder.instruction("ldr", target_float_register, format_stack_slot_operand("x29", slot.byte_offset))
+        emit_stack_slot_load(builder, target_float_register, base_register="x29", byte_offset=slot.byte_offset)
         return
 
     if isinstance(operand, BackendConstOperand) and isinstance(operand.constant, BackendDoubleConst):
@@ -339,7 +341,7 @@ def emit_store_result(
         raise BackendTargetLoweringError(
             f"aarch64 frame layout is missing a home for destination register 'r{dest_reg_id.ordinal}'"
         )
-    builder.instruction("str", source_register, format_stack_slot_operand("x29", slot.byte_offset))
+    emit_stack_slot_store(builder, source_register, base_register="x29", byte_offset=slot.byte_offset)
 
 
 def emit_store_float_result(
@@ -354,7 +356,7 @@ def emit_store_float_result(
         raise BackendTargetLoweringError(
             f"aarch64 frame layout is missing a home for destination register 'r{dest_reg_id.ordinal}'"
         )
-    builder.instruction("str", source_float_register, format_stack_slot_operand("x29", slot.byte_offset))
+    emit_stack_slot_store(builder, source_float_register, base_register="x29", byte_offset=slot.byte_offset)
 
 
 def _emit_unary_operation(builder: AArch64AsmBuilder, instruction: BackendUnaryInst, *, operand_type_name: str) -> None:

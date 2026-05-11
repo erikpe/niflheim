@@ -10,6 +10,7 @@ from compiler.backend.targets.aarch64 import (
     format_stack_slot_operand,
     plan_callable_frame_layout,
 )
+from compiler.backend.targets.aarch64.asm import emit_stack_slot_load, emit_stack_slot_store
 from compiler.common.type_names import TYPE_NAME_BOOL, TYPE_NAME_DOUBLE, TYPE_NAME_I64, TYPE_NAME_U64, TYPE_NAME_U8
 from compiler.semantic.types import SemanticTypeRef, semantic_primitive_type_ref
 from tests.compiler.backend.analysis.helpers import lower_source_to_backend_callable_fixture
@@ -273,3 +274,22 @@ def test_aarch64_asm_stack_operand_formatter_is_stable() -> None:
     assert format_stack_slot_operand("x29", 0) == "[x29]"
     assert format_stack_slot_operand("x29", -16) == "[x29, #-16]"
     assert format_stack_slot_operand("sp", 24) == "[sp, #24]"
+
+
+def test_aarch64_stack_slot_helpers_materialize_large_negative_offsets() -> None:
+    builder = AArch64AsmBuilder()
+
+    emit_stack_slot_load(builder, "x0", base_register="x29", byte_offset=-264)
+    emit_stack_slot_store(builder, "d0", base_register="x29", byte_offset=-272)
+
+    assert builder.build() == (
+        "\n".join(
+            [
+                "    sub x16, x29, #264",
+                "    ldr x0, [x16]",
+                "    sub x16, x29, #272",
+                "    str d0, [x16]",
+            ]
+        )
+        + "\n"
+    )

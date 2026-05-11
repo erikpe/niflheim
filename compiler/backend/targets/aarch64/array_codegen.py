@@ -196,7 +196,6 @@ def emit_array_store_instruction(
             instruction=instruction,
             panic_symbol=ARRAY_SET_OOB_PANIC_RUNTIME_CALL,
         )
-        emit_array_data_address(builder, "x9", "x0")
         if instruction.array_runtime_kind is ArrayRuntimeKind.DOUBLE:
             emit_load_float_operand(
                 builder,
@@ -205,8 +204,10 @@ def emit_array_store_instruction(
                 frame_layout=frame_layout,
                 register_type_name_by_reg_id=register_type_name_by_reg_id,
             )
+            emit_array_data_address(builder, "x9", "x0")
             builder.instruction("str", "d0", direct_primitive_array_load_operand("x9", "x1", runtime_kind=instruction.array_runtime_kind))
             return
+        emit_array_data_address(builder, "x9", "x0")
         emit_load_operand(
             builder,
             instruction.value,
@@ -214,6 +215,9 @@ def emit_array_store_instruction(
             frame_layout=frame_layout,
             register_type_name_by_reg_id=register_type_name_by_reg_id,
         )
+        if instruction.array_runtime_kind is ArrayRuntimeKind.BOOL:
+            builder.instruction("cmp", "x2", "#0")
+            builder.instruction("cset", word_register_name("x2"), "ne")
         if instruction.array_runtime_kind is ArrayRuntimeKind.REF:
             builder.instruction("str", "x2", direct_ref_array_operand("x9", "x1"))
             return

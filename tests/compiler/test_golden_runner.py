@@ -276,7 +276,7 @@ def test_compile_run_test_forwards_build_args_to_build_script(
         spec_path=spec_path,
         runs=[],
         compile_error_match=None,
-        build_args=["--disable-all-optimization", "--omit-runtime-trace"],
+        build_args=["--target", "aarch64", "--disable-all-optimization", "--omit-runtime-trace"],
     )
 
     ok, error, _output_path = runner._compile_run_test(test)
@@ -288,6 +288,8 @@ def test_compile_run_test_forwards_build_args_to_build_script(
         "tests/golden/suite/test_alpha.nif",
         "build/golden/__cases__/suite__test_alpha_spec__alpha",
         "--",
+        "--target",
+        "aarch64",
         "--disable-all-optimization",
         "--omit-runtime-trace",
     ]

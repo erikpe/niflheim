@@ -5,9 +5,9 @@ It is intentionally minimal and optimized for implementation clarity, not perfor
 
 ## 1) Scope
 
-- Target ABI: SysV x86-64 (Linux).
+- Target ABI: Linux SysV x86-64 and Linux AArch64.
 - Runtime language: C.
-- Compiler stage-0: Python codegen to Intel-syntax x86-64 assembly.
+- Compiler stage-0: Python codegen through checked backend IR to target-local assembly for `x86_64_sysv` and `aarch64`.
 - Runtime model: single-threaded, stop-the-world non-moving mark-sweep GC.
 
 These notes are the source of truth for compiler <-> runtime interop.
@@ -18,9 +18,9 @@ These notes are the source of truth for compiler <-> runtime interop.
 
 ### 2.1 Primitive values
 
-- `i64`, `u64`: 64-bit integers in standard SysV integer registers/stack slots.
+- `i64`, `u64`: 64-bit integers in the active target ABI's integer registers/stack slots.
 - `u8`, `bool`: carried in 8-bit logical domain but placed in 64-bit ABI slots (zero-extended unless operation-specific).
-- `double`: IEEE-754 64-bit, passed/returned in SysV floating-point registers.
+- `double`: IEEE-754 64-bit, passed/returned in the active target ABI's floating-point registers.
 - `unit`: no payload; conventionally ignored in codegen and represented as zero if a slot is required.
 
 ### 2.2 References
@@ -251,7 +251,10 @@ This policy is intentionally simple and predictable.
 
 ## 8) Calling Convention Notes for Codegen
 
-SysV x86-64 basics for generated assembly:
+The checked backends currently target two Linux calling conventions.
+
+### 8.1 SysV x86-64
+
 - Integer/pointer args: RDI, RSI, RDX, RCX, R8, R9.
 - Floating-point args: XMM0-XMM7.
 - Additional args beyond register capacity are passed on the caller stack in left-to-right argument order per SysV ABI classification.
@@ -260,15 +263,27 @@ SysV x86-64 basics for generated assembly:
 - Callee-saved: RBX, RBP, R12-R15.
 - Stack aligned to 16 bytes at call boundaries.
 
-Compiler requirements:
+### 8.2 AArch64
+
+- Integer/pointer args: X0-X7.
+- Floating-point args: D0-D7.
+- Additional args beyond register capacity are passed in 8-byte caller stack slots.
+- Integer/pointer return: X0.
+- Floating-point return: D0.
+- Callee-saved: X19-X28 and D8-D15.
+- Frame pointer: X29. Link register: X30.
+- Stack aligned to 16 bytes at call boundaries.
+
+Compiler requirements on both backends:
+
 - Preserve callee-saved registers when used.
-- Maintain 16-byte stack alignment before `call`.
+- Maintain 16-byte stack alignment before calls.
 - Spill live reference temps into root slots before allocation/runtime calls.
 
-### 8.1 Ref Array Fast-Store Boundary
+### 8.3 Ref Array Fast-Store Boundary
 
 - Structural `ref[]` indexed writes may bypass `rt_array_set_ref` in generated code.
-- The only legal compiler-emitted fast-path mutation site for those stores is the dedicated helper in [compiler/codegen/abi/array.py](compiler/codegen/abi/array.py).
+- The only legal compiler-emitted fast-path mutation sites for those stores are the target-local helpers in `compiler/backend/targets/<target>/array_codegen.py`.
 - Under the current single-threaded, stop-the-world, non-moving mark-sweep collector, that helper may emit a plain reference-slot store once null/bounds checks and temporary rooting are satisfied.
 - If the collector later gains remembered sets, write barriers, incremental marking, concurrent marking, or any other mutation-side invariant, that helper is the required barrier insertion point and must remain the only fast-path `ref[]` mutation site.
 

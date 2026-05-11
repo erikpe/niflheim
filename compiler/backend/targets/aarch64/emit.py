@@ -52,7 +52,7 @@ from compiler.backend.targets.aarch64.array_codegen import (
     emit_array_store_instruction,
     emit_bounds_check_instruction,
 )
-from compiler.backend.targets.aarch64.asm import AArch64AsmBuilder, format_stack_slot_operand
+from compiler.backend.targets.aarch64.asm import AArch64AsmBuilder, emit_stack_slot_store, format_stack_slot_operand
 from compiler.backend.targets.aarch64.cast_codegen import (
     emit_array_kind_name_literals,
     emit_cast_instruction,
@@ -610,24 +610,23 @@ def _emit_param_spills(builder, callable_decl, *, frame_layout, includes_receive
             raise BackendTargetLoweringError(
                 f"aarch64 frame layout is missing a home for parameter register 'r{reg_id.ordinal}'"
             )
-        stack_operand = format_stack_slot_operand("x29", slot.byte_offset)
         if arg_location.kind == "int_reg":
             assert arg_location.register_name is not None
-            builder.instruction("str", arg_location.register_name, stack_operand)
+            emit_stack_slot_store(builder, arg_location.register_name, base_register="x29", byte_offset=slot.byte_offset)
             continue
         if arg_location.kind == "float_reg":
             assert arg_location.register_name is not None
-            builder.instruction("str", arg_location.register_name, stack_operand)
+            emit_stack_slot_store(builder, arg_location.register_name, base_register="x29", byte_offset=slot.byte_offset)
             continue
         if arg_location.kind == "stack":
             assert arg_location.stack_slot_index is not None
             incoming_offset = AARCH64_ABI.incoming_stack_arg_byte_offset(arg_location.stack_slot_index)
             if resolved_type_names[reg_id] == "double":
                 builder.instruction("ldr", "d16", f"[x29, #{incoming_offset}]")
-                builder.instruction("str", "d16", stack_operand)
+                emit_stack_slot_store(builder, "d16", base_register="x29", byte_offset=slot.byte_offset)
             else:
                 builder.instruction("ldr", "x9", f"[x29, #{incoming_offset}]")
-                builder.instruction("str", "x9", stack_operand)
+                emit_stack_slot_store(builder, "x9", base_register="x29", byte_offset=slot.byte_offset)
             continue
         raise BackendTargetLoweringError(f"unsupported parameter location kind '{arg_location.kind}'")
 

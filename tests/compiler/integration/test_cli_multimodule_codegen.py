@@ -12,6 +12,16 @@ from compiler.semantic.symbols import ConstructorId, MethodId
 from tests.compiler.integration.helpers import compile_to_asm, run_cli, write_project
 
 
+def _compile_to_x86_64_asm(monkeypatch, entry: Path, *, project_root: Path, out_path: Path) -> Path:
+    return compile_to_asm(
+        monkeypatch,
+        entry,
+        project_root=project_root,
+        out_path=out_path,
+        extra_args=["--target", "x86_64_sysv"],
+    )
+
+
 def test_cli_codegen_uses_program_resolution_for_multimodule_build(tmp_path: Path, monkeypatch) -> None:
     write_project(
         tmp_path,
@@ -63,7 +73,7 @@ def test_cli_codegen_imported_constructor_call_lowers(tmp_path: Path, monkeypatc
     )
 
     entry = tmp_path / "main.nif"
-    out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
+    out_file = _compile_to_x86_64_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
     assert f"{mangle_constructor_symbol(ConstructorId(module_path=('util',), class_name='Box'))}:" in asm
     assert f"    call {mangle_constructor_init_symbol(ConstructorId(module_path=('util',), class_name='Box'))}" in asm
@@ -91,7 +101,7 @@ def test_cli_codegen_imported_static_method_call_lowers(tmp_path: Path, monkeypa
     )
 
     entry = tmp_path / "main.nif"
-    out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
+    out_file = _compile_to_x86_64_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
     assert f"    call {mangle_method_symbol(MethodId(module_path=('util',), class_name='Math', name='add'))}" in asm
@@ -131,7 +141,7 @@ def test_cli_codegen_keeps_duplicate_leaf_class_constructors_and_methods_distinc
     )
 
     entry = tmp_path / "main.nif"
-    out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
+    out_file = _compile_to_x86_64_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
     assert f"{mangle_constructor_symbol(ConstructorId(module_path=('left',), class_name='Key'))}:" in asm
@@ -162,7 +172,7 @@ def test_cli_codegen_resolves_nested_project_root_imports(tmp_path: Path, monkey
     )
 
     entry = tmp_path / "app" / "main.nif"
-    out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
+    out_file = _compile_to_x86_64_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
     assert f'    call {mangle_function_symbol(("lib", "math"), "add")}' in asm
@@ -194,7 +204,7 @@ def test_cli_codegen_keeps_distinct_imported_helper_functions_by_canonical_label
     )
 
     entry = tmp_path / "app" / "main.nif"
-    out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
+    out_file = _compile_to_x86_64_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
     assert f'    call {mangle_function_symbol(("left", "math"), "helper")}' in asm
@@ -223,7 +233,7 @@ def test_cli_codegen_entry_module_main_keeps_abi_entrypoint_while_other_main_sta
     )
 
     entry = tmp_path / "app" / "main.nif"
-    out_file = compile_to_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
+    out_file = _compile_to_x86_64_asm(monkeypatch, entry, project_root=tmp_path, out_path=tmp_path / "out.s")
     asm = out_file.read_text(encoding="utf-8")
 
     assert ".globl main" in asm

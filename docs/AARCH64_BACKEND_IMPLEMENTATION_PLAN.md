@@ -534,15 +534,25 @@ make -C runtime test-all
 
 ### Checklist
 
-- [ ] Switch the checked default target to host-native registry resolution.
-- [ ] Register `aarch64` as the ARM native runtime backend.
-- [ ] Remove the current ARM native-runtime skips by enabling real execution instead.
-- [ ] Update build/run script tests for host-native success-path behavior.
-- [ ] Run the full ARM pytest suite.
-- [ ] Run the full ARM golden suite.
-- [ ] Re-run runtime C harnesses on ARM.
+- [x] Switch the checked default target to host-native registry resolution.
+- [x] Register `aarch64` as the ARM native runtime backend.
+- [x] Remove the current ARM native-runtime skips by enabling real execution instead.
+- [x] Update build/run script tests for host-native success-path behavior.
+- [x] Run the full ARM pytest suite.
+- [x] Run the full ARM golden suite.
+- [x] Re-run runtime C harnesses on ARM.
 - [ ] Re-run representative x86 runtime and golden coverage.
-- [ ] Refresh README, test docs, and ABI documentation.
+- [x] Refresh README, test docs, and ABI documentation.
+
+Validation:
+
+- [x] `/bin/python3 -m pytest --lf -q` -> `6 passed, 5 deselected in 0.86s`
+- [x] `/bin/python3 -m pytest -n auto --dist loadfile -q` -> `1171 passed in 47.52s`
+- [x] `./scripts/golden.sh` -> `golden: 66/66 spec files passed; 875 runs total`
+- [x] `make -C runtime clean test-all` -> succeeded with exit status `0`; expected negative-runtime cases still reported `failed as expected`
+- [x] `/bin/python3 -m compiler.main samples/arithmetic_loop.nif -o /tmp/niflheim_slice6_x86.s --target x86_64_sysv && /bin/python3 -m compiler.main samples/arithmetic_loop.nif -o /tmp/niflheim_slice6_aarch64.s --target aarch64` -> emitted both target assemblies successfully
+
+The remaining unchecked item requires a real `x86_64` host rerun. This ARM host cannot validate native `x86_64` runtime or golden execution directly.
 
 ---
 

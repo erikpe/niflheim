@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-_DEFAULT_CHECKED_BACKEND_TARGET_NAME = "x86_64_sysv"
+_FALLBACK_CHECKED_BACKEND_TARGET_NAME = "x86_64_sysv"
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +49,7 @@ def _registered_backend_targets() -> tuple[BackendTargetRegistration, ...]:
             name=AARCH64_TARGET.name,
             target=AARCH64_TARGET,
             emits_on_all_hosts=True,
-            native_runtime_architectures=frozenset(),
+            native_runtime_architectures=frozenset({"aarch64"}),
         ),
     )
 
@@ -71,8 +71,11 @@ def backend_target_registration(name: str) -> BackendTargetRegistration:
     return _backend_target_registration_by_name()[name]
 
 
-def default_checked_backend_target_name() -> str:
-    return _DEFAULT_CHECKED_BACKEND_TARGET_NAME
+def default_checked_backend_target_name(host_arch: str | None = None) -> str:
+    native_backend_name = native_runtime_backend_name(host_arch)
+    if native_backend_name is not None:
+        return native_backend_name
+    return _FALLBACK_CHECKED_BACKEND_TARGET_NAME
 
 
 def resolve_backend_target(name: str | None = None) -> BackendTarget:

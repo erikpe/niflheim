@@ -82,6 +82,25 @@ class TestBuildAndRunScriptsNativeRuntime:
         assert output.with_suffix(".s").exists()
         assert "nifc: info: Resolving program graph" in proc.stderr
 
+    def test_build_script_supports_explicit_native_target(self, tmp_path: Path, native_runtime_backend_name: str) -> None:
+        require_command("cc")
+
+        source = repo_root() / "samples" / "arithmetic_loop.nif"
+        output = tmp_path / "main_program_explicit_target"
+
+        proc = run_script(
+            "build.sh",
+            str(source),
+            str(output),
+            "--",
+            "--target",
+            native_runtime_backend_name,
+        )
+
+        assert proc.returncode == 0, proc.stderr or proc.stdout
+        assert output.exists()
+        assert output.with_suffix(".s").exists()
+
     def test_run_script_supports_absolute_output_paths(self, tmp_path: Path) -> None:
         require_command("cc")
 

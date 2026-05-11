@@ -19,6 +19,10 @@ def test_cli_runtime_primitive_array_direct_writes_preserve_behavior(tmp_path: P
             bytes[0] = (u8)255;
             bytes.index_set(1, (u8)13);
 
+            var flags: bool[] = bool[](2u);
+            flags[0] = true;
+            flags[1] = 1 == 2;
+
             var values: double[] = double[](2u);
             values[0] = 1.5;
             values.index_set(1, 2.5);
@@ -35,11 +39,17 @@ def test_cli_runtime_primitive_array_direct_writes_preserve_behavior(tmp_path: P
             if bytes[1] != (u8)13 {
                 return 4;
             }
-            if (i64)values[0] != 1 {
+            if !flags[0] {
                 return 5;
             }
-            if (i64)values[1] != 2 {
+            if flags[1] {
                 return 6;
+            }
+            if (i64)values[0] != 1 {
+                return 7;
+            }
+            if (i64)values[1] != 2 {
+                return 8;
             }
             return 0;
         }

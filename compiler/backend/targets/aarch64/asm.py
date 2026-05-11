@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 
+_STACK_SLOT_DIRECT_MIN_OFFSET = -256
+_STACK_SLOT_DIRECT_MAX_OFFSET = 255
+
+
 def format_memory_operand(base_register: str, byte_offset: int = 0) -> str:
     if byte_offset == 0:
         return f"[{base_register}]"
@@ -9,6 +13,47 @@ def format_memory_operand(base_register: str, byte_offset: int = 0) -> str:
 
 def format_stack_slot_operand(base_register: str, byte_offset: int) -> str:
     return format_memory_operand(base_register, byte_offset)
+
+
+def _stack_slot_requires_scratch(byte_offset: int) -> bool:
+    return not (_STACK_SLOT_DIRECT_MIN_OFFSET <= byte_offset <= _STACK_SLOT_DIRECT_MAX_OFFSET)
+
+
+def _stack_address_scratch_register(*, excluded_registers: tuple[str, ...]) -> str:
+    for candidate in ("x16", "x17"):
+        if candidate not in excluded_registers:
+            return candidate
+    raise ValueError("No scratch register available for AArch64 stack-slot addressing")
+
+
+def emit_stack_slot_load(
+    builder: "AArch64AsmBuilder",
+    target_register: str,
+    *,
+    base_register: str,
+    byte_offset: int,
+) -> None:
+    if not _stack_slot_requires_scratch(byte_offset):
+        builder.instruction("ldr", target_register, format_stack_slot_operand(base_register, byte_offset))
+        return
+    scratch_register = _stack_address_scratch_register(excluded_registers=(target_register,))
+    emit_add_address(builder, scratch_register, base_register, byte_offset)
+    builder.instruction("ldr", target_register, format_memory_operand(scratch_register))
+
+
+def emit_stack_slot_store(
+    builder: "AArch64AsmBuilder",
+    source_register: str,
+    *,
+    base_register: str,
+    byte_offset: int,
+) -> None:
+    if not _stack_slot_requires_scratch(byte_offset):
+        builder.instruction("str", source_register, format_stack_slot_operand(base_register, byte_offset))
+        return
+    scratch_register = _stack_address_scratch_register(excluded_registers=(source_register,))
+    emit_add_address(builder, scratch_register, base_register, byte_offset)
+    builder.instruction("str", source_register, format_memory_operand(scratch_register))
 
 
 def word_register_name(register_name: str) -> str:
@@ -114,6 +159,8 @@ __all__ = [
     "emit_add_address",
     "emit_load_immediate",
     "emit_materialize_symbol_address",
+    "emit_stack_slot_load",
+    "emit_stack_slot_store",
     "format_memory_operand",
     "format_stack_slot_operand",
     "word_register_name",

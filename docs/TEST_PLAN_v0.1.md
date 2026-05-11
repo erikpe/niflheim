@@ -60,8 +60,8 @@ Longer-running and allocation-heavy tests:
 
 - Emit-only target tests and compile-only integration tests should run on any supported host OS and CPU.
 - Native runtime-contract execution tests run only on hosts with a registered native backend.
-- Today the only registered native runtime backend is `x86_64_sysv`, so Linux `x86_64` is the primary execution host.
-- On ARM hosts, native runtime-contract suites skip centrally until an `aarch64` backend exists.
+- Linux `x86_64` hosts run native runtime-contract execution through `x86_64_sysv`.
+- Linux ARM64 hosts run native runtime-contract execution through `aarch64`.
 - Build mode matrix:
   - `debug` runtime (assertions + optional GC logs)
   - `release` runtime (no heavy checks)

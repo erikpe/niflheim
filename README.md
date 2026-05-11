@@ -93,7 +93,7 @@ Runtime sources are split by responsibility:
 
 For quick local workflows, use scripts under `scripts/`:
 
-- Backend IR is the canonical checked backend seam. Default CLI compilation lowers through backend IR, runs the backend IR pass pipeline, and emits assembly through `x86_64_sysv`.
+- Backend IR is the canonical checked backend seam. Default CLI compilation lowers through backend IR, runs the backend IR pass pipeline, and emits assembly through the host-native checked backend when one is registered: `x86_64_sysv` on `x86_64` hosts and `aarch64` on ARM64 hosts.
 - `--source-ast-codegen` is no longer supported on the checked CLI path.
 - `nifc --stop-after backend-ir-passes` is now a checked debugging seam: it lowers to backend IR, runs the phase-3 cleanup and analysis pipeline, and prints or writes the post-pass backend IR without continuing to assembly emission.
 
@@ -102,6 +102,7 @@ For quick local workflows, use scripts under `scripts/`:
 	- Links the runtime and emits `<output-executable>`
 	- If `NIF_PREBUILT_RUNTIME` points at a runtime archive, it reuses that archive instead of recompiling runtime sources
 	- Example: `./scripts/build.sh samples/arithmetic_loop.nif build/loopy`
+	- Example with explicit target selection: `./scripts/build.sh samples/arithmetic_loop.nif build/loopy_aarch64 -- --target aarch64`
 	- Example with compiler logging flags: `./scripts/build.sh samples/arithmetic_loop.nif -- --log-level info -v`
 - `scripts/run.sh <input.nif> [output-executable] [build-args...] [-- <program-args...>]`
 	- Builds via `build.sh`, then executes the produced binary

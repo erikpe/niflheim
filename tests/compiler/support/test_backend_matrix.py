@@ -46,12 +46,12 @@ def test_x86_64_sysv_capability_is_native_runnable_only_on_x86_64_hosts() -> Non
     assert capability.is_native_runnable_on("arm64") is False
 
 
-def test_aarch64_capability_is_emit_only_until_native_runtime_enablement() -> None:
+def test_aarch64_capability_is_native_runnable_on_aarch64_hosts() -> None:
     capability = backend_capability("aarch64")
 
     assert capability.emits_on_all_hosts is True
     assert capability.is_native_runnable_on("x86_64") is False
-    assert capability.is_native_runnable_on("aarch64") is False
+    assert capability.is_native_runnable_on("aarch64") is True
 
 
 def test_native_runtime_backend_name_resolves_x86_host_to_x86_64_sysv() -> None:
@@ -59,16 +59,18 @@ def test_native_runtime_backend_name_resolves_x86_host_to_x86_64_sysv() -> None:
     assert native_runtime_backend_name("amd64") == "x86_64_sysv"
 
 
-def test_native_runtime_backend_name_is_missing_on_arm_hosts() -> None:
-    assert native_runtime_backend_name("aarch64") is None
-    assert native_runtime_backend_name("arm64") is None
+def test_native_runtime_backend_name_resolves_arm_host_to_aarch64() -> None:
+    assert native_runtime_backend_name("aarch64") == "aarch64"
+    assert native_runtime_backend_name("arm64") == "aarch64"
 
 
 def test_native_runtime_skip_reason_is_none_when_a_native_backend_exists() -> None:
     assert native_runtime_skip_reason("x86_64") is None
+    assert native_runtime_skip_reason("aarch64") is None
 
 
-def test_native_runtime_skip_reason_is_deterministic_on_arm_hosts() -> None:
-    assert native_runtime_skip_reason("aarch64") == (
-        "runtime contract tests require a native backend; only x86_64_sysv is registered today"
+def test_native_runtime_skip_reason_is_deterministic_on_unsupported_hosts() -> None:
+    assert native_runtime_skip_reason("riscv64") == (
+        "runtime contract tests require a native backend for host architecture "
+        "'riscv64'; registered native runtime backends: x86_64_sysv, aarch64"
     )

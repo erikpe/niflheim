@@ -34,7 +34,7 @@ def _patch_resolve_backend_target(
     monkeypatch.setattr(cli, "resolve_backend_target", _fake_resolve_backend_target)
 
 
-def test_cli_defaults_to_backend_ir_x86_64_sysv_path(tmp_path: Path, monkeypatch) -> None:
+def test_cli_defaults_to_backend_ir_host_native_path(tmp_path: Path, monkeypatch) -> None:
     entry = tmp_path / "main.nif"
     out_file = tmp_path / "out.s"
     write(
