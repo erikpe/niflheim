@@ -7,10 +7,17 @@ from compiler.backend.analysis.safepoints import instruction_is_safepoint, regis
 from compiler.backend.ir import (
     BackendBinaryInst,
     BackendBlockId,
+    BackendBoolConst,
     BackendCallInst,
     BackendCallableDecl,
+    BackendCallableId,
+    BackendCallableOperand,
+    BackendConstInst,
+    BackendConstant,
     BackendCopyInst,
+    BackendIntConst,
     BackendInstId,
+    BackendNullConst,
     BackendOperand,
     BackendRegOperand,
     BackendRegId,
@@ -126,6 +133,14 @@ class X86_64SysVResolutionMove:
 
 
 @dataclass(frozen=True, slots=True)
+class X86_64SysVRematerializedValue:
+    reg_id: BackendRegId
+    kind: str
+    constant: BackendConstant | None = None
+    callable_id: BackendCallableId | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class X86_64SysVRegisterAllocation:
     callable_decl: BackendCallableDecl
     location_by_reg: dict[BackendRegId, X86_64SysVRegisterLocation]
@@ -136,6 +151,7 @@ class X86_64SysVRegisterAllocation:
     call_argument_reloads_by_inst: dict[BackendInstId, tuple[X86_64SysVCallArgumentReload, ...]]
     fragments_by_reg: dict[BackendRegId, tuple[X86_64SysVAllocationFragment, ...]]
     resolution_moves_by_inst: dict[BackendInstId, tuple[X86_64SysVResolutionMove, ...]]
+    rematerialized_value_by_reg: dict[BackendRegId, X86_64SysVRematerializedValue]
 
     def location_for_reg(self, reg_id: BackendRegId) -> X86_64SysVRegisterLocation:
         return self.location_by_reg[reg_id]
@@ -152,6 +168,9 @@ class X86_64SysVRegisterAllocation:
 
     def resolution_moves_for_inst(self, inst_id: BackendInstId) -> tuple[X86_64SysVResolutionMove, ...]:
         return self.resolution_moves_by_inst.get(inst_id, ())
+
+    def rematerialized_value_for_reg(self, reg_id: BackendRegId) -> X86_64SysVRematerializedValue | None:
+        return self.rematerialized_value_by_reg.get(reg_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -400,6 +419,11 @@ def allocate_x86_64_sysv_registers(
         interval_by_reg=interval_by_reg,
         abi_constraints=abi_constraints,
     )
+    rematerializable_value_by_reg = _rematerializable_values_by_reg(
+        callable_plan,
+        interval_by_reg=interval_by_reg,
+    )
+    rematerializable_reg_ids = frozenset(rematerializable_value_by_reg)
     physical_register_by_reg: dict[BackendRegId, X86_64SysVPhysicalRegister] = {}
     spilled_reg_ids: set[BackendRegId] = set()
     active: list[_ActiveInterval] = []
@@ -510,7 +534,11 @@ def allocate_x86_64_sysv_registers(
             active = _sorted_active_intervals(active)
             continue
 
-        spill_candidate = _spill_candidate(active, allowed_registers=interval_register_pool)
+        spill_candidate = _spill_candidate(
+            active,
+            allowed_registers=interval_register_pool,
+            rematerializable_reg_ids=rematerializable_reg_ids,
+        )
         if spill_candidate is not None and spill_candidate.interval.end_position > interval.end_position:
             spilled_reg_ids.add(spill_candidate.interval.reg_id)
             physical_register_by_reg.pop(spill_candidate.interval.reg_id, None)
@@ -568,6 +596,11 @@ def allocate_x86_64_sysv_registers(
         callable_plan,
         caller_saved_spills_by_inst=caller_saved_spills_by_inst,
     )
+    rematerialized_value_by_reg = {
+        reg_id: value
+        for reg_id, value in rematerializable_value_by_reg.items()
+        if reg_id in spilled_reg_ids and reg_id not in physical_register_by_reg
+    }
 
     return X86_64SysVRegisterAllocation(
         callable_decl=callable_plan.callable_decl,
@@ -579,6 +612,7 @@ def allocate_x86_64_sysv_registers(
         call_argument_reloads_by_inst=call_argument_reloads_by_inst,
         fragments_by_reg=fragments_by_reg,
         resolution_moves_by_inst=resolution_moves_by_inst,
+        rematerialized_value_by_reg=rematerialized_value_by_reg,
     )
 
 
@@ -1608,6 +1642,74 @@ def _non_call_safepoint_crossing_count_by_reg_id(callable_plan: X86_64SysVCallab
     return safepoint_crossing_count_by_reg
 
 
+def _rematerializable_values_by_reg(
+    callable_plan: X86_64SysVCallablePlan,
+    *,
+    interval_by_reg: dict[BackendRegId, X86_64SysVLiveInterval],
+) -> dict[BackendRegId, X86_64SysVRematerializedValue]:
+    definition_count_by_reg = _definition_count_by_reg(callable_plan)
+    values_by_reg: dict[BackendRegId, X86_64SysVRematerializedValue] = {}
+
+    for block in callable_plan.callable_decl.blocks:
+        for instruction in block.instructions:
+            if isinstance(instruction, BackendConstInst):
+                if definition_count_by_reg.get(instruction.dest, 0) != 1:
+                    continue
+                interval = interval_by_reg.get(instruction.dest)
+                if interval is None:
+                    continue
+                if _constant_is_rematerializable(instruction.constant, interval=interval):
+                    values_by_reg[instruction.dest] = X86_64SysVRematerializedValue(
+                        reg_id=instruction.dest,
+                        kind="constant",
+                        constant=instruction.constant,
+                    )
+                continue
+
+            if isinstance(instruction, BackendCopyInst) and isinstance(instruction.source, BackendCallableOperand):
+                if definition_count_by_reg.get(instruction.dest, 0) != 1:
+                    continue
+                interval = interval_by_reg.get(instruction.dest)
+                if interval is None or interval.register_class != "gpr":
+                    continue
+                values_by_reg[instruction.dest] = X86_64SysVRematerializedValue(
+                    reg_id=instruction.dest,
+                    kind="callable",
+                    callable_id=instruction.source.callable_id,
+                )
+
+    return values_by_reg
+
+
+def _definition_count_by_reg(callable_plan: X86_64SysVCallablePlan) -> dict[BackendRegId, int]:
+    definition_count_by_reg: dict[BackendRegId, int] = {}
+    for block in callable_plan.callable_decl.blocks:
+        for instruction in block.instructions:
+            reg_id = instruction_def_reg(instruction)
+            if reg_id is None:
+                continue
+            definition_count_by_reg[reg_id] = definition_count_by_reg.get(reg_id, 0) + 1
+    return definition_count_by_reg
+
+
+def _constant_is_rematerializable(
+    constant: BackendConstant,
+    *,
+    interval: X86_64SysVLiveInterval,
+) -> bool:
+    if interval.register_class != "gpr":
+        return False
+    if interval.is_gc_reference and interval.live_at_safepoint:
+        return False
+    if isinstance(constant, BackendIntConst):
+        return -(2**31) <= constant.value <= 2**31 - 1
+    if isinstance(constant, BackendBoolConst):
+        return True
+    if isinstance(constant, BackendNullConst):
+        return True
+    return False
+
+
 def _expire_inactive_intervals(
     active: list[_ActiveInterval],
     *,
@@ -1634,6 +1736,7 @@ def _spill_candidate(
     active: list[_ActiveInterval],
     *,
     allowed_registers: tuple[X86_64SysVPhysicalRegister, ...],
+    rematerializable_reg_ids: frozenset[BackendRegId] = frozenset(),
 ) -> _ActiveInterval | None:
     allowed_register_names = {register.name for register in allowed_registers}
     candidates = [
@@ -1643,6 +1746,19 @@ def _spill_candidate(
     ]
     if not candidates:
         return None
+    rematerializable_candidates = [
+        active_interval
+        for active_interval in candidates
+        if active_interval.interval.reg_id in rematerializable_reg_ids
+    ]
+    if rematerializable_candidates:
+        return max(
+            rematerializable_candidates,
+            key=lambda active_interval: (
+                active_interval.interval.end_position,
+                reg_id_sort_key(active_interval.interval.reg_id),
+            ),
+        )
     return max(
         candidates,
         key=lambda active_interval: (

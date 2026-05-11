@@ -208,6 +208,8 @@ def _emit_instruction(
     program_symbols=None,
 ) -> None:
     if isinstance(instruction, BackendConstInst):
+        if _rematerialized_value_for_reg(frame_layout, instruction.dest) is not None:
+            return
         if isinstance(instruction.constant, BackendDoubleConst):
             emit_load_float_operand(
                 builder,
@@ -223,6 +225,11 @@ def _emit_instruction(
         return
 
     if isinstance(instruction, BackendCopyInst):
+        if (
+            isinstance(instruction.source, BackendCallableOperand)
+            and _rematerialized_value_for_reg(frame_layout, instruction.dest) is not None
+        ):
+            return
         if _operand_type_name(instruction.source, register_type_name_by_reg_id) == TYPE_NAME_DOUBLE:
             emit_load_float_operand(
                 builder,
@@ -1072,6 +1079,18 @@ def emit_load_operand(
                 _normalize_bool_register(builder, target_register, target_byte_register)
             return
 
+        rematerialized_value = _rematerialized_value_for_reg(frame_layout, operand.reg_id)
+        if rematerialized_value is not None:
+            _emit_rematerialized_value(
+                builder,
+                rematerialized_value,
+                target_register=target_register,
+                program_symbols=program_symbols,
+            )
+            if register_type_name_by_reg_id[operand.reg_id] == TYPE_NAME_BOOL:
+                _normalize_bool_register(builder, target_register, target_byte_register)
+            return
+
         slot = frame_layout.for_reg(operand.reg_id)
         if slot is None:
             raise BackendTargetLoweringError(
@@ -1097,6 +1116,39 @@ def emit_load_operand(
     raise BackendTargetLoweringError(
         f"x86_64_sysv cannot load operand '{type(operand).__name__}' in PR3"
     )
+
+
+def _rematerialized_value_for_reg(frame_layout: X86_64SysVFrameLayout, reg_id) -> object | None:
+    allocation = frame_layout.allocation
+    if allocation is None:
+        return None
+    return allocation.rematerialized_value_for_reg(reg_id)
+
+
+def _emit_rematerialized_value(
+    builder: X86AsmBuilder,
+    value: object,
+    *,
+    target_register: str,
+    program_symbols=None,
+) -> None:
+    if value.kind == "constant":
+        assert value.constant is not None
+        _emit_load_constant(builder, value.constant, target_register=target_register)
+        return
+    if value.kind == "callable":
+        if program_symbols is None:
+            raise BackendTargetLoweringError(
+                "x86_64_sysv rematerialized callable operands require backend program symbols"
+            )
+        assert value.callable_id is not None
+        builder.instruction(
+            "lea",
+            target_register,
+            f"[rip + {program_symbols.callable(value.callable_id).direct_call_symbol}]",
+        )
+        return
+    raise BackendTargetLoweringError(f"x86_64_sysv cannot rematerialize value kind '{value.kind}'")
 
 
 def emit_load_float_operand(
@@ -1304,6 +1356,16 @@ def _scalar_asm_operand_for_binary_rhs(
         physical_register_name = _operand_physical_register_name(frame_layout, operand)
         if physical_register_name is not None:
             return physical_register_name
+        rematerialized_value = _rematerialized_value_for_reg(frame_layout, operand.reg_id)
+        if (
+            allow_immediate
+            and rematerialized_value is not None
+            and rematerialized_value.kind == "constant"
+            and rematerialized_value.constant is not None
+        ):
+            return _constant_scalar_immediate_operand(rematerialized_value.constant)
+        if rematerialized_value is not None:
+            return None
         return _stack_operand_for_reg(frame_layout, operand.reg_id)
     if allow_immediate and isinstance(operand, BackendConstOperand) and _constant_fits_signed_32_bit_immediate(operand):
         return _constant_integer_operand(operand)
@@ -1322,6 +1384,16 @@ def _constant_integer_operand(operand: BackendConstOperand) -> str:
     raise BackendTargetLoweringError(
         f"x86_64_sysv expected an integer constant operand, got '{type(operand.constant).__name__}'"
     )
+
+
+def _constant_scalar_immediate_operand(constant: object) -> str | None:
+    if isinstance(constant, BackendIntConst) and -(2**31) <= constant.value <= 2**31 - 1:
+        return str(constant.value)
+    if isinstance(constant, BackendBoolConst):
+        return "1" if constant.value else "0"
+    if isinstance(constant, BackendNullConst):
+        return "0"
+    return None
 
 
 def _try_emit_direct_scalar_copy(
@@ -1353,6 +1425,21 @@ def _try_emit_direct_scalar_copy(
             )
             return True
         if dest_physical_register is not None:
+            rematerialized_value = _rematerialized_value_for_reg(frame_layout, source.reg_id)
+            if rematerialized_value is not None:
+                _emit_rematerialized_value(
+                    builder,
+                    rematerialized_value,
+                    target_register=dest_physical_register.name,
+                    program_symbols=program_symbols,
+                )
+                _normalize_direct_copy_bool_if_needed(
+                    builder,
+                    dest_reg_id,
+                    dest_physical_register.name,
+                    register_type_name_by_reg_id=register_type_name_by_reg_id,
+                )
+                return True
             source_stack_slot = frame_layout.for_reg(source.reg_id)
             if source_stack_slot is None:
                 raise BackendTargetLoweringError(

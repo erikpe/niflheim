@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from compiler.backend.ir import BackendCallInst
+from compiler.backend.ir import BackendCallInst, BackendIntConst
 from compiler.backend.targets import BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv import (
     X86_64SysVLiveInterval,
@@ -51,15 +51,18 @@ def _test_interval(
     start: int,
     end: int,
     register_class: str = "gpr",
+    crosses_call: bool = False,
+    is_gc_reference: bool = False,
+    live_at_safepoint: bool = False,
 ) -> X86_64SysVLiveInterval:
     return X86_64SysVLiveInterval(
         reg_id=_reg_id_by_debug_name(callable_plan, debug_name),
         start_position=start,
         end_position=end,
         register_class=register_class,
-        crosses_call=False,
-        is_gc_reference=False,
-        live_at_safepoint=False,
+        crosses_call=crosses_call,
+        is_gc_reference=is_gc_reference,
+        live_at_safepoint=live_at_safepoint,
     )
 
 
@@ -810,6 +813,155 @@ def test_allocate_x86_64_sysv_registers_spills_when_gpr_pressure_exceeds_initial
     assert allocation.location_for_reg(f_reg_id).physical_register is None
     assert allocation.location_for_reg(f_reg_id).stack_slot is not None
     assert allocation.spilled_reg_ids == (f_reg_id,)
+
+
+def test_allocate_x86_64_sysv_registers_rematerializes_spilled_integer_constants(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64, c: i64, d: i64, e: i64) -> i64 {
+            var cheap: i64 = 7;
+            return a + cheap;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2, 3, 4, 5);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=(
+            _test_interval(callable_plan, "cheap", start=0, end=100),
+            _test_interval(callable_plan, "a", start=0, end=100),
+            _test_interval(callable_plan, "b", start=0, end=100),
+            _test_interval(callable_plan, "c", start=0, end=100),
+            _test_interval(callable_plan, "d", start=0, end=100),
+            _test_interval(callable_plan, "e", start=1, end=90),
+        ),
+        call_free_allocatable_gprs=(),
+    )
+    cheap_reg_id = _reg_id_by_debug_name(callable_plan, "cheap")
+    e_reg_id = _reg_id_by_debug_name(callable_plan, "e")
+    rematerialized_value = allocation.rematerialized_value_for_reg(cheap_reg_id)
+
+    assert allocation.location_for_reg(cheap_reg_id).physical_register is None
+    assert allocation.location_for_reg(e_reg_id).physical_register is not None
+    assert rematerialized_value is not None
+    assert rematerialized_value.kind == "constant"
+    assert isinstance(rematerialized_value.constant, BackendIntConst)
+    assert rematerialized_value.constant.value == 7
+
+
+def test_allocate_x86_64_sysv_registers_rematerializes_spilled_callable_values(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn inc(value: i64) -> i64 {
+            return value + 1;
+        }
+
+        fn apply(f: fn(i64) -> i64, value: i64) -> i64 {
+            return f(value);
+        }
+
+        fn sample(value: i64) -> i64 {
+            var func: fn(i64) -> i64 = inc;
+            return apply(func, value);
+        }
+
+        fn main() -> i64 {
+            return sample(41);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=(_test_interval(callable_plan, "func", start=0, end=10),),
+        allocatable_gprs=(),
+        call_free_allocatable_gprs=(),
+    )
+    func_reg_id = _reg_id_by_debug_name(callable_plan, "func")
+    rematerialized_value = allocation.rematerialized_value_for_reg(func_reg_id)
+
+    assert allocation.location_for_reg(func_reg_id).physical_register is None
+    assert rematerialized_value is not None
+    assert rematerialized_value.kind == "callable"
+    assert rematerialized_value.callable_id.name == "inc"
+
+
+def test_allocate_x86_64_sysv_registers_keeps_safepoint_live_nulls_conservative(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        class Box {}
+
+        fn sample() -> Box {
+            var value: Box = null;
+            return value;
+        }
+
+        fn main() -> i64 {
+            return 0;
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=(
+            _test_interval(
+                callable_plan,
+                "value",
+                start=0,
+                end=10,
+                is_gc_reference=True,
+                live_at_safepoint=True,
+            ),
+        ),
+        allocatable_gprs=(),
+        call_free_allocatable_gprs=(),
+    )
+    value_reg_id = _reg_id_by_debug_name(callable_plan, "value")
+
+    assert allocation.location_for_reg(value_reg_id).physical_register is None
+    assert allocation.location_for_reg(value_reg_id).stack_slot is not None
+    assert allocation.rematerialized_value_for_reg(value_reg_id) is None
+
+
+def test_allocate_x86_64_sysv_registers_does_not_rematerialize_reassigned_registers(tmp_path) -> None:
+    callable_plan = _callable_plan(
+        tmp_path,
+        """
+        fn sample(a: i64) -> i64 {
+            var value: i64 = 7;
+            value = a;
+            return value;
+        }
+
+        fn main() -> i64 {
+            return sample(42);
+        }
+        """,
+        callable_name="sample",
+    )
+
+    allocation = allocate_x86_64_sysv_registers(
+        callable_plan,
+        intervals=(_test_interval(callable_plan, "value", start=0, end=10),),
+        allocatable_gprs=(),
+        call_free_allocatable_gprs=(),
+    )
+    value_reg_id = _reg_id_by_debug_name(callable_plan, "value")
+
+    assert allocation.location_for_reg(value_reg_id).physical_register is None
+    assert allocation.location_for_reg(value_reg_id).stack_slot is not None
+    assert allocation.rematerialized_value_for_reg(value_reg_id) is None
 
 
 def _constraint_shapes(constraints):

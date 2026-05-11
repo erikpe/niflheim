@@ -817,12 +817,34 @@ Tests:
 
 ### Checklist
 
-- [ ] Add rematerializable-value metadata.
-- [ ] Prefer rematerialization under pressure.
-- [ ] Emit rematerialization at use sites.
-- [ ] Preserve function-reference and null behavior.
-- [ ] Add tests for constants and callable values.
-- [ ] Measure stack-load reductions.
+- [x] Add rematerializable-value metadata.
+- [x] Prefer rematerialization under pressure.
+- [x] Emit rematerialization at use sites.
+- [x] Preserve function-reference and null behavior.
+- [x] Add tests for constants and callable values.
+- [x] Measure stack-load reductions.
+
+### Measurements
+
+Measured `tests/golden/aoc/2025/10/part2/test_solver.nif` with:
+
+```text
+/bin/python3 scripts/assembly_stats.py tests/golden/aoc/2025/10/part2/test_solver.nif --project-root . --omit-runtime-trace
+```
+
+The conservative single-definition guard keeps this slice correctness-first. It does not change the current AoC aggregate yet, because the hot spilled values in that case are not cheap single-definition constants or callable references.
+
+```text
+metric                          without_ra  with_ra  delta
+------------------------------  ----------  -------  -----
+instruction_count                    16368    17017   +649
+stack_memory_instruction_count        8417     5680  -2737
+stack_load_count                      4424     2440  -1984
+stack_store_count                     3720     2966   -754
+register_copy_count                    284     3826  +3542
+callee_saved_save_count                  0      367   +367
+callee_saved_restore_count               0      367   +367
+```
 
 ### How To Test
 

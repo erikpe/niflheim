@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from compiler.backend.program.symbols import epilogue_label, mangle_function_symbol
 from compiler.backend.targets import BackendTargetOptions
 from compiler.backend.targets.x86_64_sysv import (
     X86_64_SYSV_ABI,
+    X86AsmBuilder,
     X86_64SysVFrameError,
+    X86_64SysVLiveInterval,
     allocate_x86_64_sysv_registers,
+    emit_block_instructions,
     plan_callable_frame_layout,
     plan_x86_64_sysv_target,
+    register_type_name_by_reg_id,
 )
 from tests.compiler.backend.analysis.helpers import lower_source_to_backend_callable_fixture
 from tests.compiler.backend.ir.helpers import FIXTURE_ENTRY_FUNCTION_ID, callable_by_id, one_function_backend_program
@@ -25,6 +31,25 @@ from tests.compiler.backend.targets.x86_64_sysv.helpers import (
 
 def _body_for_label(asm: str, label: str) -> str:
     return asm[asm.index(f"{label}:") : asm.index(f"{epilogue_label(label)}:")]
+
+
+def _reg_id_by_debug_name(callable_decl, debug_name: str):
+    for register in callable_decl.registers:
+        if register.debug_name == debug_name:
+            return register.reg_id
+    raise KeyError(debug_name)
+
+
+def _test_interval(callable_decl, debug_name: str, *, start: int, end: int) -> X86_64SysVLiveInterval:
+    return X86_64SysVLiveInterval(
+        reg_id=_reg_id_by_debug_name(callable_decl, debug_name),
+        start_position=start,
+        end_position=end,
+        register_class="gpr",
+        crosses_call=False,
+        is_gc_reference=False,
+        live_at_safepoint=False,
+    )
 
 
 def test_plan_callable_frame_layout_assigns_deterministic_offsets_from_stack_homes(tmp_path) -> None:
@@ -226,6 +251,56 @@ def test_emit_source_asm_selects_simple_integer_ops_into_allocated_destinations(
     assert "    mov rcx, 15" not in asm
     assert "    mov rcx, 2" not in asm
     assert "    mov rcx, 3" not in asm
+
+
+def test_emit_block_rematerializes_spilled_integer_constants_without_stack_traffic(tmp_path) -> None:
+    fixture = lower_source_to_backend_callable_fixture(
+        tmp_path,
+        """
+        fn sample(a: i64, b: i64, c: i64, d: i64, e: i64) -> i64 {
+            var cheap: i64 = 7;
+            return a + cheap;
+        }
+
+        fn main() -> i64 {
+            return sample(1, 2, 3, 4, 5);
+        }
+        """,
+        callable_name="sample",
+        skip_optimize=True,
+    )
+    target_input = make_target_input(fixture.program)
+    preliminary_plan = plan_x86_64_sysv_target(
+        target_input,
+        options=BackendTargetOptions(register_allocation_enabled=False),
+    ).plan_for_callable(fixture.callable_decl.callable_id)
+    allocation = allocate_x86_64_sysv_registers(
+        preliminary_plan,
+        intervals=(
+            _test_interval(fixture.callable_decl, "cheap", start=0, end=100),
+            _test_interval(fixture.callable_decl, "a", start=0, end=100),
+            _test_interval(fixture.callable_decl, "b", start=0, end=100),
+            _test_interval(fixture.callable_decl, "c", start=0, end=100),
+            _test_interval(fixture.callable_decl, "d", start=0, end=100),
+            _test_interval(fixture.callable_decl, "e", start=1, end=90),
+        ),
+        call_free_allocatable_gprs=(),
+    )
+    frame_layout = plan_callable_frame_layout(target_input, fixture.callable_decl, allocation=allocation)
+    cheap_slot = frame_layout.for_reg(_reg_id_by_debug_name(fixture.callable_decl, "cheap"))
+    assert cheap_slot is not None
+
+    builder = X86AsmBuilder()
+    emit_block_instructions(
+        builder,
+        fixture.callable_decl.blocks[0],
+        frame_layout=frame_layout,
+        register_type_name_by_reg_id=register_type_name_by_reg_id(fixture.callable_decl),
+    )
+    asm = builder.build()
+
+    assert f"[rbp - {abs(cheap_slot.byte_offset)}]" not in asm
+    assert re.search(r"^\s+mov [a-z0-9]+, 7$", asm, re.MULTILINE)
 
 
 def test_emit_source_asm_omits_coalesced_non_overlapping_copy(tmp_path) -> None:
