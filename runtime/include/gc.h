@@ -23,6 +23,7 @@ typedef struct RtGcStats {
     uint64_t next_gc_threshold;
     uint64_t tracked_object_count;
     uint64_t tracked_set_validation_enabled;
+    uint64_t tracked_set_active;
 } RtGcStats;
 
 typedef struct RtGcTrackingPoolStats {

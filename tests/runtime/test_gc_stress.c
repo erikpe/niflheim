@@ -118,6 +118,11 @@ static void test_gc_stats_report_compiled_validation_mode(void) {
         NIF_GC_VALIDATE_TRACKED_SET,
         "GC stats should report the compiled tracked-set validation mode"
     );
+    assert_u64_eq(
+        stats.tracked_set_active,
+        NIF_GC_VALIDATE_TRACKED_SET,
+        "GC stats should report whether tracked-set maintenance is active"
+    );
 }
 
 

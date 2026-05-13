@@ -141,6 +141,11 @@ static int rt_gc_tracked_set_validation_compiled_in(void) {
 }
 
 
+static int rt_gc_tracked_set_active(void) {
+    return rt_gc_tracked_set_validation_compiled_in();
+}
+
+
 /* Keep GC policy decisions behind named predicates so fast-path changes do
  * not scatter preprocessor checks through marking, allocation tracking, or
  * sweep.
@@ -151,12 +156,12 @@ static int rt_gc_should_validate_mark_candidate_with_tracked_set(void) {
 
 
 static int rt_gc_should_insert_tracked_set_entry(void) {
-    return 1;
+    return rt_gc_tracked_set_active();
 }
 
 
 static int rt_gc_should_remove_tracked_set_entry(void) {
-    return 1;
+    return rt_gc_tracked_set_active();
 }
 
 
@@ -393,7 +398,9 @@ void rt_gc_reset_state(void) {
     }
     g_global_roots = NULL;
 
-    rt_gc_tracked_set_reset();
+    if (rt_gc_tracked_set_active()) {
+        rt_gc_tracked_set_reset();
+    }
 
     g_allocated_bytes = 0;
     g_live_bytes = 0;
@@ -411,6 +418,7 @@ RtGcStats rt_gc_get_stats(void) {
     stats.next_gc_threshold = g_next_gc_threshold;
     stats.tracked_object_count = g_tracked_object_count;
     stats.tracked_set_validation_enabled = (uint64_t)rt_gc_tracked_set_validation_compiled_in();
+    stats.tracked_set_active = (uint64_t)rt_gc_tracked_set_active();
     return stats;
 }
 

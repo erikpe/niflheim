@@ -192,6 +192,8 @@ uint64_t rt_cast_double_to_u8(double value);
 // GC control / stats
 // RtGcStats.tracked_set_validation_enabled reports whether the runtime was
 // compiled with NIF_GC_VALIDATE_TRACKED_SET=1.
+// RtGcStats.tracked_set_active reports whether the GC is maintaining the
+// tracked-object membership set for allocation, marking, and sweep.
 void rt_gc_collect(void);
 void rt_gc_maybe_collect(uint64_t upcoming_bytes);
 void rt_gc_track_allocation(RtObjHeader* obj);

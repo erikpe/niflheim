@@ -71,7 +71,6 @@ static PairObj* alloc_pair(uint64_t value) {
 }
 
 
-#if NIF_GC_VALIDATE_TRACKED_SET
 static void assert_u64_at_least(uint64_t actual, uint64_t minimum, const char* message) {
     if (actual < minimum) {
         fprintf(
@@ -84,14 +83,19 @@ static void assert_u64_at_least(uint64_t actual, uint64_t minimum, const char* m
         exit(1);
     }
 }
-#endif
 
 
 static void assert_compiled_gc_validation_mode_is_reported(void) {
+    RtGcStats stats = rt_gc_get_stats();
     assert_u64_eq(
-        rt_gc_get_stats().tracked_set_validation_enabled,
+        stats.tracked_set_validation_enabled,
         NIF_GC_VALIDATE_TRACKED_SET,
         "GC stats should report the compiled tracked-set validation mode"
+    );
+    assert_u64_eq(
+        stats.tracked_set_active,
+        NIF_GC_VALIDATE_TRACKED_SET,
+        "GC stats should report whether tracked-set maintenance is active"
     );
 }
 
@@ -148,7 +152,7 @@ static void assert_chain_live(PairObj* head, uint64_t start_value, uint64_t leng
         if (current == NULL) {
             fail("rooted chain ended early after GC churn");
         }
-        if (!rt_gc_tracked_set_contains(&current->header)) {
+        if (NIF_GC_VALIDATE_TRACKED_SET && !rt_gc_tracked_set_contains(&current->header)) {
             fail("live rooted object should remain present in the tracked set");
         }
         assert_u64_eq(current->value, start_value + step, "rooted chain value should survive GC churn");
@@ -217,39 +221,41 @@ static void test_rooted_graph_survives_churn_and_unrooted_graphs_are_reclaimed(v
     }
 
     RtGcTrackedSetProbeStats probe_stats = rt_gc_tracked_set_get_probe_stats();
+    uint64_t expected_tracked_set_churn = NIF_GC_VALIDATE_TRACKED_SET ? ROUNDS * garbage_objects_per_round : 0u;
+    uint64_t expected_tracked_set_maintenance = NIF_GC_VALIDATE_TRACKED_SET ? ROUNDS - 1u : 0u;
     assert_u64_eq(
         probe_stats.insert_calls,
-        ROUNDS * garbage_objects_per_round,
-        "real-object churn should count tracked-set inserts through rt_gc_track_allocation"
+        expected_tracked_set_churn,
+        "tracked-set inserts should match the active GC mode"
     );
     assert_u64_eq(
         probe_stats.remove_calls,
-        ROUNDS * garbage_objects_per_round,
-        "sweeping unrooted graphs should remove every dead object from the tracked set"
+        expected_tracked_set_churn,
+        "tracked-set removes should match the active GC mode"
     );
     assert_u64_eq(
         probe_stats.tombstone_compactions,
-        ROUNDS - 1u,
-        "subsequent churn rounds should trigger tombstone compaction before reinsertion"
+        expected_tracked_set_maintenance,
+        "tracked-set tombstone compactions should match the active GC mode"
     );
     assert_u64_eq(
         probe_stats.maintenance_calls,
-        ROUNDS - 1u,
-        "real-object churn should only use tombstone compaction maintenance in this setup"
+        expected_tracked_set_maintenance,
+        "tracked-set maintenance calls should match the active GC mode"
     );
-#if NIF_GC_VALIDATE_TRACKED_SET
-    assert_u64_at_least(
-        probe_stats.contains_calls,
-        (ROUNDS * ROOTED_CHAIN_LENGTH) + 1u,
-        "validation-mode GC mark should route real pointer-offset traversal through tracked-set contains"
-    );
-#else
-    assert_u64_eq(
-        probe_stats.contains_calls,
-        ROUNDS * ROOTED_CHAIN_LENGTH,
-        "default fast marking should not add tracked-set contains calls beyond explicit test checks"
-    );
-#endif
+    if (NIF_GC_VALIDATE_TRACKED_SET) {
+        assert_u64_at_least(
+            probe_stats.contains_calls,
+            (ROUNDS * ROOTED_CHAIN_LENGTH) + 1u,
+            "validation-mode GC mark should route real pointer-offset traversal through tracked-set contains"
+        );
+    } else {
+        assert_u64_eq(
+            probe_stats.contains_calls,
+            0u,
+            "default fast mode should not route GC work through tracked-set contains"
+        );
+    }
 
     rt_gc_tracked_set_enable_probe_stats(0);
     rt_gc_tracked_set_reset_probe_stats();

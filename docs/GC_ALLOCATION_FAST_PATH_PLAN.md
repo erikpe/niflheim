@@ -1,6 +1,6 @@
 # GC And Allocation Fast-Path Plan
 
-Status: PR 2 implemented.
+Status: PR 3 implemented.
 
 This document turns the next recommended runtime work into an ordered implementation plan. The goal is not to tune one benchmark program by hand. The goal is to make the compiler plus runtime produce and execute more efficient code for allocation-heavy, reference-heavy programs.
 
@@ -246,13 +246,28 @@ perf report --stdio --no-children --sort symbol -i /tmp/solver2_no_tracked_set_f
 
 ### Checklist
 
-- [ ] Gate tracked-set insert/remove behind validation mode.
-- [ ] Keep linked object-list tracking unchanged.
-- [ ] Keep tracked-set standalone tests intact.
-- [ ] Update stats/tests to distinguish active and inactive tracked-set mode.
-- [ ] Run default runtime and golden tests.
-- [ ] Run validation-mode runtime tests.
-- [ ] Re-profile and record tracked-set hotspot deltas.
+- [x] Gate tracked-set insert/remove behind validation mode.
+- [x] Keep linked object-list tracking unchanged.
+- [x] Keep tracked-set standalone tests intact.
+- [x] Update stats/tests to distinguish active and inactive tracked-set mode.
+- [x] Run default runtime and golden tests.
+- [x] Run validation-mode runtime tests.
+- [x] Re-profile and record tracked-set hotspot deltas.
+
+### PR 3 Benchmark Note
+
+Latest local no-runtime-trace `solver2` run after PR 3:
+
+- elapsed: `1.60s`
+- user: `1.56s`
+- IPC: `2.95`
+- branch misses: `0.68%`
+- L1D miss rate: `4.16%`
+- samples: `6,407`
+- lost samples: `0`
+- tracked-set maintenance symbols were no longer present in the flat profile
+- `rt_gc_tracked_set_insert`, `rt_gc_tracked_set_remove`, `rt_tracked_set_lookup_existing`, and `rt_tracked_set_rehash_live_entries` were absent from the top flat report
+- remaining top costs are `rt_gc_collect`, `Map__find_existing_index`, allocator internals, `find_all_paths_dag`, `Map__insert_or_assign`, and `rt_mark_ref_slot`
 
 ## PR 4: Add Small-Object Freelist Stats And Eligibility Helpers
 
