@@ -121,6 +121,25 @@ static void test_gc_stats_report_compiled_validation_mode(void) {
 }
 
 
+static void test_validation_mode_ignores_untracked_root_candidate(void) {
+#if NIF_GC_VALIDATE_TRACKED_SET
+    void* slots[1] = {(void*)(uintptr_t)1u};
+    RtRootFrame frame;
+    rt_dbg_root_frame_init(&frame, slots, 1);
+    rt_dbg_push_roots(rt_thread_state(), &frame);
+
+    alloc_leaf(123);
+    rt_gc_collect();
+
+    RtGcStats stats = rt_gc_get_stats();
+    assert_u64_eq(stats.tracked_object_count, 0, "validation mode should ignore untracked root candidates");
+
+    rt_dbg_root_slot_store(&frame, 0, NULL);
+    rt_dbg_pop_roots(rt_thread_state());
+#endif
+}
+
+
 static void test_rooted_chain_survives_then_reclaims(void) {
     void* slots[1] = {NULL};
     RtRootFrame frame;
@@ -325,6 +344,7 @@ int main(void) {
     rt_init();
 
     test_gc_stats_report_compiled_validation_mode();
+    test_validation_mode_ignores_untracked_root_candidate();
     test_no_roots_reclaim();
     test_rooted_chain_survives_then_reclaims();
     test_cycle_reachable_then_unreachable();

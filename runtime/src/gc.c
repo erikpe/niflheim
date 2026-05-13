@@ -141,12 +141,12 @@ static int rt_gc_tracked_set_validation_compiled_in(void) {
 }
 
 
-/* PR 1 keeps the existing collector behavior. Later fast-path PRs can switch
- * these predicates to the compiled policy without scattering preprocessor
- * checks through marking, allocation tracking, or sweep.
+/* Keep GC policy decisions behind named predicates so fast-path changes do
+ * not scatter preprocessor checks through marking, allocation tracking, or
+ * sweep.
  */
 static int rt_gc_should_validate_mark_candidate_with_tracked_set(void) {
-    return 1;
+    return rt_gc_tracked_set_validation_compiled_in();
 }
 
 
@@ -160,19 +160,33 @@ static int rt_gc_should_remove_tracked_set_entry(void) {
 }
 
 
-static RtObjHeader* rt_as_tracked_object(void* ref) {
+static RtObjHeader* rt_as_tracked_object_fast(void* ref) {
+    return (RtObjHeader*)ref;
+}
+
+
+static RtObjHeader* rt_as_tracked_object_validated(void* ref) {
     if (ref == NULL) {
         return NULL;
     }
 
     RtObjHeader* candidate = (RtObjHeader*)ref;
-    if (
-        rt_gc_should_validate_mark_candidate_with_tracked_set()
-        && !rt_gc_tracked_set_contains(candidate)
-    ) {
+    if (!rt_gc_tracked_set_contains(candidate)) {
         return NULL;
     }
     return candidate;
+}
+
+
+static RtObjHeader* rt_as_mark_candidate_object(void* ref) {
+    if (ref == NULL) {
+        return NULL;
+    }
+
+    if (rt_gc_should_validate_mark_candidate_with_tracked_set()) {
+        return rt_as_tracked_object_validated(ref);
+    }
+    return rt_as_tracked_object_fast(ref);
 }
 
 
@@ -184,7 +198,7 @@ static void rt_mark_ref_slot(void** slot) {
         return;
     }
 
-    RtObjHeader* child = rt_as_tracked_object(*slot);
+    RtObjHeader* child = rt_as_mark_candidate_object(*slot);
     if (child != NULL) {
         rt_mark_object(child);
     }

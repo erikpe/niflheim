@@ -1,6 +1,6 @@
 # GC And Allocation Fast-Path Plan
 
-Status: PR 1 implemented.
+Status: PR 2 implemented.
 
 This document turns the next recommended runtime work into an ordered implementation plan. The goal is not to tune one benchmark program by hand. The goal is to make the compiler plus runtime produce and execute more efficient code for allocation-heavy, reference-heavy programs.
 
@@ -167,12 +167,26 @@ perf report --stdio --no-children --sort symbol -i /tmp/solver2_fast_mark.data
 
 ### Checklist
 
-- [ ] Split mark-time object validation into fast and validation paths.
-- [ ] Keep validation path using the tracked set.
-- [ ] Remove tracked-set lookup from default `rt_mark_ref_slot`.
-- [ ] Add or update runtime tests for both modes.
-- [ ] Run golden runtime coverage.
-- [ ] Re-profile `solver2` no-trace and record deltas.
+- [x] Split mark-time object validation into fast and validation paths.
+- [x] Keep validation path using the tracked set.
+- [x] Remove tracked-set lookup from default `rt_mark_ref_slot`.
+- [x] Add or update runtime tests for both modes.
+- [x] Run golden runtime coverage.
+- [x] Re-profile `solver2` no-trace and record deltas.
+
+### PR 2 Benchmark Note
+
+Latest local no-runtime-trace `solver2` run after PR 2:
+
+- elapsed: `1.97s`
+- user: `1.95s`
+- IPC: `2.72`
+- branch misses: `1.09%`
+- L1D miss rate: `4.14%`
+- samples: `7,861`
+- lost samples: `0`
+- `rt_tracked_set_lookup_existing`: `4.95%`, down from about `8.88%` in the pre-plan reference
+- remaining top costs are still GC/allocation/map heavy: `rt_gc_collect`, `Map__find_existing_index`, `rt_gc_tracked_set_insert`, `_int_malloc`, `__libc_calloc`, and `rt_gc_track_allocation`
 
 ## PR 3: Make Tracked-Set Allocation/Sweep Maintenance Optional In Fast Mode
 

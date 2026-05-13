@@ -63,6 +63,15 @@ static void assert_u64_eq(uint64_t actual, uint64_t expected, const char* messag
 }
 
 
+static PairObj* alloc_pair(uint64_t value) {
+    uint64_t payload = sizeof(PairObj) - sizeof(RtObjHeader);
+    PairObj* obj = (PairObj*)rt_alloc_obj(rt_thread_state(), &PAIR_TYPE, payload);
+    obj->value = value;
+    return obj;
+}
+
+
+#if NIF_GC_VALIDATE_TRACKED_SET
 static void assert_u64_at_least(uint64_t actual, uint64_t minimum, const char* message) {
     if (actual < minimum) {
         fprintf(
@@ -75,14 +84,7 @@ static void assert_u64_at_least(uint64_t actual, uint64_t minimum, const char* m
         exit(1);
     }
 }
-
-
-static PairObj* alloc_pair(uint64_t value) {
-    uint64_t payload = sizeof(PairObj) - sizeof(RtObjHeader);
-    PairObj* obj = (PairObj*)rt_alloc_obj(rt_thread_state(), &PAIR_TYPE, payload);
-    obj->value = value;
-    return obj;
-}
+#endif
 
 
 static void assert_compiled_gc_validation_mode_is_reported(void) {
@@ -235,11 +237,19 @@ static void test_rooted_graph_survives_churn_and_unrooted_graphs_are_reclaimed(v
         ROUNDS - 1u,
         "real-object churn should only use tombstone compaction maintenance in this setup"
     );
+#if NIF_GC_VALIDATE_TRACKED_SET
     assert_u64_at_least(
         probe_stats.contains_calls,
         (ROUNDS * ROOTED_CHAIN_LENGTH) + 1u,
-        "GC mark should route real pointer-offset traversal through tracked-set contains"
+        "validation-mode GC mark should route real pointer-offset traversal through tracked-set contains"
     );
+#else
+    assert_u64_eq(
+        probe_stats.contains_calls,
+        ROUNDS * ROOTED_CHAIN_LENGTH,
+        "default fast marking should not add tracked-set contains calls beyond explicit test checks"
+    );
+#endif
 
     rt_gc_tracked_set_enable_probe_stats(0);
     rt_gc_tracked_set_reset_probe_stats();
