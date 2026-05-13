@@ -1,5 +1,6 @@
 CC := cc
 CFLAGS := -std=c11 -Wall -Wextra -Werror -Iinclude
+CFLAGS += $(NIF_CC_ARGS)
 
 RUNTIME_SRC := src/runtime.c src/gc.c src/gc_trace.c src/gc_tracked_set.c src/io.c src/array.c src/math.c src/panic.c
 RUNTIME_DBG_SRC := src/runtime_dbg.c

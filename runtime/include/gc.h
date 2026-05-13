@@ -9,11 +9,20 @@ extern "C" {
 
 typedef struct RtObjHeader RtObjHeader;
 
+#ifndef NIF_GC_VALIDATE_TRACKED_SET
+#define NIF_GC_VALIDATE_TRACKED_SET 0
+#endif
+
+#if NIF_GC_VALIDATE_TRACKED_SET != 0 && NIF_GC_VALIDATE_TRACKED_SET != 1
+#error "NIF_GC_VALIDATE_TRACKED_SET must be 0 or 1"
+#endif
+
 typedef struct RtGcStats {
     uint64_t allocated_bytes;
     uint64_t live_bytes;
     uint64_t next_gc_threshold;
     uint64_t tracked_object_count;
+    uint64_t tracked_set_validation_enabled;
 } RtGcStats;
 
 typedef struct RtGcTrackingPoolStats {

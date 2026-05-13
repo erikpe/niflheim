@@ -136,13 +136,40 @@ void rt_gc_reset_tracking_pool_stats(void) {
 }
 
 
+static int rt_gc_tracked_set_validation_compiled_in(void) {
+    return NIF_GC_VALIDATE_TRACKED_SET != 0;
+}
+
+
+/* PR 1 keeps the existing collector behavior. Later fast-path PRs can switch
+ * these predicates to the compiled policy without scattering preprocessor
+ * checks through marking, allocation tracking, or sweep.
+ */
+static int rt_gc_should_validate_mark_candidate_with_tracked_set(void) {
+    return 1;
+}
+
+
+static int rt_gc_should_insert_tracked_set_entry(void) {
+    return 1;
+}
+
+
+static int rt_gc_should_remove_tracked_set_entry(void) {
+    return 1;
+}
+
+
 static RtObjHeader* rt_as_tracked_object(void* ref) {
     if (ref == NULL) {
         return NULL;
     }
 
     RtObjHeader* candidate = (RtObjHeader*)ref;
-    if (!rt_gc_tracked_set_contains(candidate)) {
+    if (
+        rt_gc_should_validate_mark_candidate_with_tracked_set()
+        && !rt_gc_tracked_set_contains(candidate)
+    ) {
         return NULL;
     }
     return candidate;
@@ -249,7 +276,9 @@ static uint64_t rt_sweep_unmarked(void) {
         }
 
         *current = node->next;
-        rt_gc_tracked_set_remove(obj);
+        if (rt_gc_should_remove_tracked_set_entry()) {
+            rt_gc_tracked_set_remove(obj);
+        }
         free(obj);
         rt_gc_release_tracked_object_node(node);
         if (g_tracked_object_count > 0) {
@@ -276,7 +305,9 @@ void rt_gc_track_allocation(RtObjHeader* obj) {
     node->next = g_tracked_objects;
     g_tracked_objects = node;
 
-    rt_gc_tracked_set_insert(obj);
+    if (rt_gc_should_insert_tracked_set_entry()) {
+        rt_gc_tracked_set_insert(obj);
+    }
     g_allocated_bytes = rt_saturating_add_u64(g_allocated_bytes, obj->size_bytes);
     g_tracked_object_count = rt_saturating_add_u64(g_tracked_object_count, 1);
 }
@@ -365,6 +396,7 @@ RtGcStats rt_gc_get_stats(void) {
     stats.live_bytes = g_live_bytes;
     stats.next_gc_threshold = g_next_gc_threshold;
     stats.tracked_object_count = g_tracked_object_count;
+    stats.tracked_set_validation_enabled = (uint64_t)rt_gc_tracked_set_validation_compiled_in();
     return stats;
 }
 

@@ -111,6 +111,16 @@ static void test_no_roots_reclaim(void) {
 }
 
 
+static void test_gc_stats_report_compiled_validation_mode(void) {
+    RtGcStats stats = rt_gc_get_stats();
+    assert_u64_eq(
+        stats.tracked_set_validation_enabled,
+        NIF_GC_VALIDATE_TRACKED_SET,
+        "GC stats should report the compiled tracked-set validation mode"
+    );
+}
+
+
 static void test_rooted_chain_survives_then_reclaims(void) {
     void* slots[1] = {NULL};
     RtRootFrame frame;
@@ -314,6 +324,7 @@ static void test_repeated_collect_reuses_tracking_nodes(void) {
 int main(void) {
     rt_init();
 
+    test_gc_stats_report_compiled_validation_mode();
     test_no_roots_reclaim();
     test_rooted_chain_survives_then_reclaims();
     test_cycle_reachable_then_unreachable();

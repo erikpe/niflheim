@@ -85,6 +85,15 @@ static PairObj* alloc_pair(uint64_t value) {
 }
 
 
+static void assert_compiled_gc_validation_mode_is_reported(void) {
+    assert_u64_eq(
+        rt_gc_get_stats().tracked_set_validation_enabled,
+        NIF_GC_VALIDATE_TRACKED_SET,
+        "GC stats should report the compiled tracked-set validation mode"
+    );
+}
+
+
 static PairObj* build_rooted_chain(
     RtRootFrame* frame,
     uint32_t root_slot_index,
@@ -169,6 +178,7 @@ static void test_rooted_graph_survives_churn_and_unrooted_graphs_are_reclaimed(v
     rt_gc_reset_state();
     rt_gc_tracked_set_enable_probe_stats(0);
     rt_gc_tracked_set_reset_probe_stats();
+    assert_compiled_gc_validation_mode_is_reported();
 
     void* slots[2] = {NULL, NULL};
     RtRootFrame frame;
