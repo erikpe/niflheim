@@ -28,3 +28,4 @@ tests:
           exit_code: 0
           stdout: "In file: bad_float.traci:1:4:\nLexer error: Invalid float exponent\n"
       - {name: "airplane_scene_preprocessed_lexes", input: {args: ["airplane"]}, expect: {exit_code: 0, stdout_file: "test_lexer_airplane_expected.txt"}}
+      - {name: "airplane_scene_matches_java_lexer_reference", input: {args: ["airplane_java_reference"]}, expect: {exit_code: 0, stdout_file: "airplane_lexer_java_reference.txt"}}

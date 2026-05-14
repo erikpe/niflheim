@@ -229,8 +229,8 @@ export class TraciLexer {
         var action_text: Str = __self._input[action_start:__self._index];
 
         var text: Str = __self._input[start_index:__self._index];
-        __self._emit_token("PPLINE", text, token_kinds.hidden_channel(), start_index, __self._index - 1, start_row, start_col);
         __self._apply_pp_line(row_text.to_i64(), parser_utils.unquote_qstring(qstring_text), action_text.to_i64(), start_row);
+        __self._emit_token("PPLINE", text, token_kinds.hidden_channel(), start_index, __self._index - 1, start_row, start_col);
         return true;
     }
 
@@ -560,6 +560,5 @@ export class TraciLexer {
         }
 
         __self._current_filename = filename;
-        __self._col = 0;
     }
 }
