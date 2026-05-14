@@ -51,6 +51,73 @@ fn _first_token(text: Str) -> Str {
     return text[:i];
 }
 
+fn _inactive_line_whitespace(text: Str) -> Str {
+    var out: StrBuf = StrBuf.new(text.len());
+    var i: i64 = 0;
+    while (u64)i < text.len() && _is_inline_ws(text[i]) {
+        out.append_char(text[i]);
+        i = i + 1;
+    }
+    if (u64)i < text.len() && (text[i] == '*' || text[i] == '/') {
+        return "";
+    }
+    return out.to_str();
+}
+
+fn _is_escaped_newline_at(source: Str, slash_index: i64) -> i64 {
+    if slash_index < 0 || (u64)slash_index >= source.len() || source[slash_index] != '\\' {
+        return -1;
+    }
+
+    var i: i64 = slash_index + 1;
+    if (u64)i >= source.len() {
+        return -1;
+    }
+    if source[i] == '\n' {
+        return i + 1;
+    }
+    if source[i] == '\r' {
+        if (u64)(i + 1) < source.len() && source[i + 1] == '\n' {
+            return i + 2;
+        }
+        return i + 1;
+    }
+    return -1;
+}
+
+fn _splice_escaped_newlines(source: Str) -> Str {
+    var out: StrBuf = StrBuf.new(source.len());
+    var i: i64 = 0;
+    while (u64)i < source.len() {
+        var continuation_start: i64 = _is_escaped_newline_at(source, i);
+        if continuation_start >= 0 {
+            var next_end: i64 = continuation_start;
+            while (u64)next_end < source.len() && source[next_end] != '\n' && source[next_end] != '\r' {
+                out.append_char(source[next_end]);
+                next_end = next_end + 1;
+            }
+            out.append_char('\n');
+            out.append_char('\n');
+            if (u64)next_end < source.len() {
+                if source[next_end] == '\r' && (u64)(next_end + 1) < source.len() && source[next_end + 1] == '\n' {
+                    i = next_end + 2;
+                }
+                else {
+                    i = next_end + 1;
+                }
+            }
+            else {
+                i = next_end;
+            }
+            continue;
+        }
+
+        out.append_char(source[i]);
+        i = i + 1;
+    }
+    return out.to_str();
+}
+
 fn _parse_include_name(text: Str) -> Str {
     var value: Str = text.strip();
     if value.len() < 2u || value[0] != '"' {
@@ -135,6 +202,8 @@ export class Preprocessor {
     }
 
     private fn _process_file(filename: Str, source: Str, include_stack: Vec) -> bool {
+        source = _splice_escaped_newlines(source);
+
         var saved_block_comment: bool = __self._in_block_comment;
         __self._in_block_comment = false;
 
@@ -182,6 +251,7 @@ export class Preprocessor {
                 }
             }
             else if has_newline {
+                __self._output.append(_inactive_line_whitespace(line));
                 __self._output.append_char('\n');
             }
 
@@ -228,7 +298,7 @@ export class Preprocessor {
                 return 0;
             }
 
-            __self._append_line_marker(row, filename, 2);
+            __self._append_line_marker(row + 2, filename, 2);
             return 1;
         }
 

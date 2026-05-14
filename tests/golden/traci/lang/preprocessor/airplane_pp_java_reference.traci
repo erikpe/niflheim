@@ -1,0 +1,6262 @@
+#line 1 "lego/airplane.traci" 1
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+global ORIGO = [0, 0, 0];
+
+global X = [1, 0, 0];
+global Y = [0, 1, 0];
+global Z = [0, 0, 1];
+
+global EPSILON = 0.01;
+global PI = 3.14159265358979323846;
+
+
+#line 3 "lego/airplane.traci" 2
+#line 1 "lego/bricks/all-bricks.traci" 1
+
+
+
+#line 1 "lego/bricks/lego-technic-brick-with-holes.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/bricks/lego-technic-brick-with-holes.traci" 2
+#line 1 "lego/common/basic-shapes.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/common/basic-shapes.traci" 2
+
+/*
+ * Rounded cylinder 0 (from side):
+ *  ___
+ * /   \ 
+ * |   |
+ * |___|
+ *
+ */
+def roundedCylinder0_base (radius, height, rounding)
+{
+    return union {
+        cylinder (radius, ORIGO, Y*(height-rounding));
+        cylinder (radius-rounding, Y*(height-rounding-EPSILON), Y*height);
+        torus (rounding, radius-rounding) {
+            rotx PI/2;
+            translate Y*(height-rounding);
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius, height, radius];
+        };
+    };
+}
+
+def roundedCylinder0 (v0, v1, radius, rounding)
+{
+    return roundedCylinder0_base (radius, length(v1-v0), rounding) {
+        rotVecToVec (Y, v1-v0);
+        translate v0;
+    };
+}
+
+/*
+ * Rounded cylinder 1 (from side):
+ *  ___
+ * /   \ 
+ * |   |
+ * \___/
+ *
+ */
+def roundedCylinder1_base (radius, height, rounding)
+{
+    return union {
+        cylinder (radius-rounding, ORIGO, Y*height);
+        cylinder (radius, Y*rounding, Y*(height-rounding));
+        torus (rounding, radius-rounding) {
+            rotx PI/2;
+            translate Y*rounding;
+        };
+        torus (rounding, radius-rounding) {
+            rotx PI/2;
+            translate Y*(height-rounding);
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius, height, radius];
+        };
+    };
+}
+
+def roundedCylinder1 (v0, v1, radius, rounding)
+{
+    return roundedCylinder1_base (radius, length(v1-v0), rounding) {
+        rotVecToVec (Y, v1-v0);
+        translate v0;
+    };
+}
+
+/*
+ * Rounded cylinder 2 (from side):
+ *   ___
+ *  /   \ 
+ *  |   |
+ * /_____ *
+
+ */
+ def roundedCylinder2_base (radius, height, lowerRounding, upperRounding)
+ {
+    return union {
+        cylinder (radius, Y*(lowerRounding-EPSILON), Y*(height-upperRounding));
+        cylinder (radius-upperRounding, Y*(height-upperRounding-EPSILON), Y*height);
+        torus (upperRounding, radius-upperRounding) {
+            rotx PI/2;
+            translate Y*(height-upperRounding);
+        };
+        difference {
+            cylinder (radius+lowerRounding, -Y*EPSILON, Y*lowerRounding);
+            torus (lowerRounding, radius+lowerRounding) {
+                rotx PI/2;
+                translate Y*lowerRounding;
+            };
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius+lowerRounding, height+EPSILON, radius+lowerRounding];
+            translate -Y*EPSILON;
+        };
+    };
+}
+
+def roundedCylinder2 (v0, v1, radius, rounding)
+{
+    return roundedCylinder2_base (radius, length(v1-v0), rounding, rounding) {
+        rotVecToVec (Y, v1-v0);
+        translate v0;
+    };
+}
+
+/*
+ * Rounded cylinder 3 (from side):
+ * _______
+ * \     /
+ *  |   |
+ * /_____\ 
+ *
+ */
+def roundedCylinder3_base (radius, height, rounding)
+{
+    return union {
+        cylinder (radius, Y*(rounding-EPSILON), Y*(height-rounding+EPSILON));
+        difference {
+            cylinder (radius+rounding, -Y*EPSILON, Y*rounding);
+            torus (rounding, radius+rounding) {
+                rotx PI/2;
+                translate Y*rounding;
+            };
+        };
+        difference {
+            cylinder (radius+rounding, Y*(height-rounding), Y*(height+EPSILON));
+            torus (rounding, radius+rounding) {
+                rotx PI/2;
+                translate Y*(height-rounding);
+            };
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius+rounding, height+EPSILON+EPSILON, radius+rounding];
+            translate -Y*EPSILON;
+       };
+    };
+}
+
+def roundedCylinder3 (v0, v1, radius, rounding)
+{
+    return roundedCylinder3_base (radius, length(v1-v0), rounding) {
+        rotVecToVec (Y, v1-v0);
+        translate v0;
+    };
+}
+
+/*
+ * Rounded cylinder 4 (from side):
+ *   ___
+ *  |   |
+ *  |   |
+ * /_____\ 
+ *
+ */
+def roundedCylinder4 (radius, height, rounding)
+{
+    return union {
+        cylinder (radius, Y*(rounding-EPSILON), Y*height);
+        difference {
+            cylinder (radius+rounding, -Y*EPSILON, Y*rounding);
+            torus (rounding, radius+rounding) {
+                rotx PI/2;
+                translate Y*rounding;
+            };
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius+rounding, height+EPSILON, radius+rounding];
+            translate -Y*EPSILON;
+        };
+    };
+}
+
+def roundedBox_helper1 (x, z, r)
+{
+    v0 = [r, r, r];
+    v1 = [x - r, r, r];
+    v2 = [x - r, r, z - r];
+    v3 = [r, r, z - r];
+    return union {
+        box {
+            scale [x - 2*r, 2*r, z - 2*r];
+            translate [r, 0, r];
+        };
+        sphere { scale r; translate v0; };
+        sphere { scale r; translate v1; };
+        sphere { scale r; translate v2; };
+        sphere { scale r; translate v3; };
+        cylinder (r, v0, v1);
+        cylinder (r, v1, v2);
+        cylinder (r, v2, v3);
+        cylinder (r, v3, v0);
+        bbox { scale [x, 2*r, z]; };
+    };
+}
+
+def roundedBox_helper2 (x, z, r)
+{
+    def corner (r)
+    {
+        return intersection {
+            box {
+                scale [3*r + EPSILON/10, 2*r, 3*r + EPSILON/10];
+                translate [-EPSILON/10, -r, -EPSILON/10];
+            };
+            torus (r, r+r) {
+                rotx PI/2;
+            };
+        };
+    }
+    return union {
+        cylinder (r, [r, 0, -r], [x-r, 0, -r]);
+        cylinder (r, [r+x, 0, r], [x+r, 0, z-r]);
+        cylinder (r, [x-r, 0, z+r], [r, 0, z+r]);
+        cylinder (r, [-r, 0, z-r], [-r, 0, r]);
+        corner (r) {
+            roty PI;
+            translate [r, 0, r];
+        };
+        corner (r) {
+            roty PI/2;
+            translate [x-r, 0, r];
+        };
+        corner (r) {
+            translate [x-r, 0, z-r];
+        };
+        corner (r) {
+            roty -PI/2;
+            translate [r, 0, z-r];
+        };
+        bbox {
+            scale [x + 4*r, 2*r, z + 4*r];
+            translate [-2*r, -r, -2*r];
+        };
+    };
+}
+
+def roundedBox_helper3 (x, z, r)
+{
+    return difference {
+        union {
+            box {
+                scale [x + 2*r, r + EPSILON, z - 2*r];
+                translate [-r, -EPSILON, r];
+            };
+            box {
+                scale [x - 2*r, r + EPSILON, z + 2*r];
+                translate [r, -EPSILON, -r];
+            };
+            cylinder (2*r, [r, -EPSILON, r], [r, r, r]);
+            cylinder (2*r, [x - r, -EPSILON, r], [x - r, r, r]);
+            cylinder (2*r, [x - r, -EPSILON, z - r], [x - r, r, z - r]);
+            cylinder (2*r, [r, -EPSILON, z - r], [r, r, z - r]);
+            bbox {
+                scale [x + 2*r, r + EPSILON, z + 2*r];
+                translate [-r, -EPSILON, -r];
+            };
+        };
+        roundedBox_helper2 (x, z, r) {
+            translate Y*r;
+        };
+        bbox {
+            scale [x + 2*r, r + EPSILON, z + 2*r];
+            translate [-r, -EPSILON, -r];
+        };
+    };
+}
+
+/*
+ * Rounded box base (from side):
+ *  ___
+ * |   |
+ * |   |
+ * |___|
+ *
+ */
+def roundedBox_base (x, y, z, r)
+{
+    v0 = [r, 0, r];
+    v1 = [x - r, 0, r];
+    v2 = [x - r, 0, z - r];
+    v3 = [r, 0, z - r];
+    v4 = [r, y, r];
+    v5 = [x - r, y, r];
+    v6 = [x - r, y, z - r];
+    v7 = [r, y, z - r];
+    return union {
+        box {
+            scale [x, y, z - 2*r];
+            translate Z*r;
+        };
+        box {
+            scale [x - 2*r, y, z];
+            translate X*r;
+        };
+        cylinder (r, v0, v4);
+        cylinder (r, v1, v5);
+        cylinder (r, v2, v6);
+        cylinder (r, v3, v7);
+
+        bbox { scale [x, y, z]; };
+    };
+}
+
+/*
+ * Rounded box 0 (from side):
+ *  ___
+ * /   \ 
+ * |   |
+ * |___|
+ *
+ */
+def roundedBox0 (x, y, z, r)
+ {
+    return union {
+        roundedBox_base (x, y - r, z, r);
+        roundedBox_helper1 (x, z, r) { translate [0, y - 2*r, 0]; };
+
+        bbox { scale [x, y, z]; };
+    };
+ }
+
+/*
+ * Rounded box 1 (from side):
+ *  ___
+ * /   \ 
+ * |   |
+ * \___/
+ *
+ */
+def roundedBox1 (x, y, z, r)
+{
+    return union {
+        roundedBox_base (x, y - 2*r, z, r) { translate Y*r; };
+        roundedBox_helper1 (x, z, r);
+        roundedBox_helper1 (x, z, r) { translate [0, y - 2*r, 0]; };
+
+        bbox { scale [x, y, z]; };
+    };
+}
+
+/*
+ * Rounded box 2 (from side):
+ *   ___
+ *  /   \ 
+ *  |   |
+ * /_____ *
+
+ */
+def roundedBox2 (x, y, z, r)
+{
+    return union {
+        roundedBox_base (x, y - 2*r + EPSILON, z, r) { translate [0, r - EPSILON, 0]; };
+        roundedBox_helper1 (x, z, r) { translate [0, y - 2*r, 0]; };
+        roundedBox_helper3 (x, z, r);
+
+        bbox {
+            scale [x + 2*r, y + EPSILON, z + 2*r];
+            translate [-r, -EPSILON, -r];
+        };
+    };
+}
+
+/*
+ * Rounded box 3 (from side):
+ * _______
+ * \     /
+ *  |   |
+ * /_____\ 
+ *
+ */
+def roundedBox3 (x, y, z, r)
+{
+    return union {
+        roundedBox_base (x, y - 2*r + 2*EPSILON, z, r) { translate [0, r - EPSILON, 0]; };
+        roundedBox_helper3 (x, z, r) { scaley -1; translate [0, y, 0]; };
+        roundedBox_helper3 (x, z, r);
+
+        bbox {
+            scale [x + 2*r, y + 2*EPSILON, z + 2*r];
+            translate [-r, -EPSILON, -r];
+        };
+    };
+}
+
+/*
+ * Rounded box 4 (from side):
+ *   ___
+ *  |   |
+ *  |   |
+ * /_____\ 
+ *
+ */
+def roundedBox4 (x, y, z, r)
+{
+    return union {
+        roundedBox_base (x, y - r + EPSILON, z, r) { translate [0, r - EPSILON, 0]; };
+        roundedBox_helper3 (x, z, r);
+
+        bbox {
+            scale [x + 2*r, y + EPSILON, z + 2*r];
+            translate [-r, -EPSILON, -r];
+        };
+    };
+}
+
+
+#line 7 "lego/bricks/lego-technic-brick-with-holes.traci" 2
+#line 1 "lego/bricks/lego-units.traci" 1
+
+
+
+global LU = 1.0;      // Lego-Unit: distance between two pegs
+global BH = LU * 1.2; // Brick-Height
+global PH = LU * .4;  // Plate-Height
+global PEG_HEIGHT = LU * .2;
+global LEGO_ROUNDING = .03;
+global AXLE_RADIUS = .28;
+global AXLE_THICKNESS = .22;
+
+
+#line 8 "lego/bricks/lego-technic-brick-with-holes.traci" 2
+#line 1 "lego/bricks/lego-primitives.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/bricks/lego-primitives.traci" 2
+#line 1 "lego/common/basic-shapes.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+       
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+
+
+
+
+    
+    
+        
+            
+                
+                
+            
+            
+                
+            
+        
+    
+    
+        
+        
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+        
+        
+            
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+    
+        
+            
+                
+                
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+                
+                
+            
+        
+        
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+            
+            
+        
+        
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+ 
+    
+        
+        
+
+        
+    
+ 
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+#line 7 "lego/bricks/lego-primitives.traci" 2
+#line 1 "lego/bricks/lego-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+#line 8 "lego/bricks/lego-primitives.traci" 2
+
+def legopartPeg ()
+{
+    height = LU * .2;
+    radius = LU * .3;
+    lowerRounding = LEGO_ROUNDING;
+    upperRounding = 2 * LEGO_ROUNDING;
+
+    
+
+    return roundedCylinder2_base (radius, height, lowerRounding, upperRounding) {
+        translate [LU/2, 0, LU/2];
+    };
+
+}
+
+def legopartPegHole ()
+{
+    height = LU * .2;
+    radius = LU * .3;
+    innerRadius = LU * .2;
+    lowerRounding = LEGO_ROUNDING;
+    upperRounding = LEGO_ROUNDING;
+    return difference {
+        roundedCylinder2_base (radius, height, lowerRounding, upperRounding);
+        roundedCylinder2_base (innerRadius, height - EPSILON, upperRounding, lowerRounding) {
+            rotx PI;
+            translate Y*height;
+        };
+        translate [LU/2, 0, LU/2];
+    };
+}
+
+def fastLegopartTechnicBrickHole ()
+{
+    radius = LU * .3;
+    length = LU;
+    height = LU * .7;
+    return cylinder (radius, [LU, height, -EPSILON], [LU, height, LU+EPSILON]);
+}
+
+def legopartTechnicBrickHole ()
+{
+    radius = LU * .3;
+    length = LU;
+    rounding = .5 * LEGO_ROUNDING;
+    cw = LU * .08;
+    cd = LU * .08;
+    height = LU * .7;
+    return union {
+        roundedCylinder3_base (radius, length-2*cd, rounding) {
+            translate Y*cd;
+        };
+        roundedCylinder2_base (radius+cw, cd, rounding, rounding);
+        roundedCylinder2_base (radius+cw, cd, rounding, rounding) {
+            rotx PI;
+            translate Y*length;
+        };
+        bbox {
+            scale [2, 1, 2];
+            translate [-1, 0, -1];
+            scale [radius+cw+rounding, length+EPSILON+EPSILON, radius+cw+rounding];
+            translate -Y*EPSILON;
+        };
+        rotx PI/2;
+        translate [LU, height, 0];
+    };
+}
+
+def legopartTechnicPlateHole ()
+{
+    radius = LU * .3;
+    height = LU * .4;
+    return roundedCylinder3_base (radius, height, LEGO_ROUNDING) {
+        translate [LU, 0, LU];
+    };
+}
+
+
+#line 9 "lego/bricks/lego-technic-brick-with-holes.traci" 2
+
+def legoTechnicBrickWithHoles_fast (length)
+{
+    boxLength = LU * length;
+    boxHeight = LU * 1.2;
+    boxWidth = LU;
+    pegHeight = LU * .2;
+    shrink = LU*.01;
+    return union {
+        difference {
+            box {
+                scale [boxLength-2*shrink, boxHeight-2*shrink, boxWidth-2*shrink];
+                translate [1, 1, 1] * shrink;
+            };
+            for (i in 0 .. length-2) {
+                fastLegopartTechnicBrickHole() {
+                    translate X*i*LU;
+                };
+            }
+        };
+        for (i in 0 .. length-1) {
+            legopartPeg () {
+                translate [LU*i, boxHeight, 0];
+            };
+        }
+        bbox {
+            scale [boxLength, boxHeight+pegHeight, boxWidth];
+        };
+    };
+}
+
+def legoTechnicBrickWithHoles_accurate (length)
+{
+    boxLength = LU * length;
+    boxHeight = LU * 1.2;
+    boxWidth = LU;
+    thickness = LU * .15;
+    pegHeight = LU * .2;
+    return union {
+        difference {
+            roundedBox1 (boxLength, boxHeight, boxWidth, LEGO_ROUNDING);
+            difference {
+                roundedBox2 (boxLength-2*thickness, boxHeight-thickness, boxWidth-2*thickness, LEGO_ROUNDING) {
+                    translate [thickness, 0, thickness];
+                };
+                for (i in 0 .. length-2) {
+                    cylinder (LU*.3+thickness*.5, [LU, LU*.7, thickness-EPSILON], [LU, LU*.7, boxWidth-thickness+EPSILON]) {
+                        translate X*LU*i;
+                    };
+                }
+            };
+            for (i in 0 .. length-2) {
+                legopartTechnicBrickHole () {
+                    translate X*i*LU;
+                };
+            }
+        };
+        for (i in 0 .. length-2) {
+            roundedCylinder0_base (LU*.15, LU*.35, LEGO_ROUNDING) {
+                scale [1, -1, 1];
+                translate [LU, LU*.35, LU*.5];
+                translate X*LU*i;
+            };
+        }
+        for (i in 0 .. length-1) {
+            legopartPegHole () {
+                translate [LU*i, boxHeight, 0];
+            };
+        }
+        bbox {
+            scale [boxLength, boxHeight+pegHeight, boxWidth];
+        };
+    };
+}
+
+/*
+ * http://www.bricklink.com/catalogList.asp?catType=P&catString=135
+ */
+def legoTechnicBrickWithHoles (length)
+{
+
+    
+
+    return legoTechnicBrickWithHoles_accurate (length);
+
+}
+
+/*
+ * Technic, Brick 1 x 2 with Hole
+ * http://www.bricklink.com/catalogItem.asp?P=3700
+ */
+def legoTechnicBrickWithHoles_1x2 ()
+{
+    return legoTechnicBrickWithHoles (2);
+}
+
+/*
+ * Technic, Brick 1 x 4 with Holes
+ * http://www.bricklink.com/catalogItem.asp?P=3701
+ */
+def legoTechnicBrickWithHoles_1x4 ()
+{
+    return legoTechnicBrickWithHoles (4);
+}
+
+/*
+ * Technic, Brick 1 x 6 with Holes
+ * http://www.bricklink.com/catalogItem.asp?P=3894
+ */
+def legoTechnicBrickWithHoles_1x6 ()
+{
+    return legoTechnicBrickWithHoles (6);
+}
+
+/*
+ * Technic, Brick 1 x 8 with Holes
+ * http://www.bricklink.com/catalogItem.asp?P=3702
+ */
+def legoTechnicBrickWithHoles_1x8 ()
+{
+    return legoTechnicBrickWithHoles (8);
+}
+
+/*
+ * Technic, Brick 1 x 10 with Holes
+ * http://www.bricklink.com/catalogItem.asp?P=2730
+ */
+def legoTechnicBrickWithHoles_1x10 ()
+{
+    return legoTechnicBrickWithHoles (10);
+}
+
+/*
+ * Technic, Brick 1 x 12 with Holes
+ * http://www.bricklink.com/catalogItem.asp?P=3895
+ */
+def legoTechnicBrickWithHoles_1x12 ()
+{
+    return legoTechnicBrickWithHoles (12);
+}
+
+/*
+ * Technic, Brick 1 x 14 with Holes
+ * http://www.bricklink.com/catalogItem.asp?P=32018
+ */
+def legoTechnicBrickWithHoles_1x14 ()
+{
+    return legoTechnicBrickWithHoles (14);
+}
+
+/*
+ * Technic, Brick 1 x 16 with Holes
+ * http://www.bricklink.com/catalogItem.asp?P=3703
+ */
+def legoTechnicBrickWithHoles_1x16 ()
+{
+    return legoTechnicBrickWithHoles (16);
+}
+
+
+#line 6 "lego/bricks/all-bricks.traci" 2
+#line 1 "lego/bricks/lego-technic-plate.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/bricks/lego-technic-plate.traci" 2
+#line 1 "lego/common/basic-shapes.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+       
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+
+
+
+
+    
+    
+        
+            
+                
+                
+            
+            
+                
+            
+        
+    
+    
+        
+        
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+        
+        
+            
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+    
+        
+            
+                
+                
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+                
+                
+            
+        
+        
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+            
+            
+        
+        
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+ 
+    
+        
+        
+
+        
+    
+ 
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+#line 7 "lego/bricks/lego-technic-plate.traci" 2
+#line 1 "lego/bricks/lego-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+#line 8 "lego/bricks/lego-technic-plate.traci" 2
+#line 1 "lego/bricks/lego-primitives.traci" 1
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+
+    
+
+    
+        
+    
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+        
+        
+            
+            
+        
+        
+    
+
+
+
+
+    
+    
+    
+    
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+        
+            
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+            
+        
+        
+        
+    
+
+
+
+
+    
+    
+    
+        
+    
+
+
+
+#line 9 "lego/bricks/lego-technic-plate.traci" 2
+
+/*
+ * Technic, Plate
+ * http://www.bricklink.com/catalogList.asp?catType=P&catString=140
+ */
+def legoTechnicPlateWithHoles (length)
+{
+    boxLength = length*LU;
+    boxHeight = .4*LU;
+    boxWidth = 2*LU;
+    pegHeight = .2*LU;
+    return union {
+        difference {
+            roundedBox1 (boxLength, boxHeight, boxWidth, LEGO_ROUNDING);
+            for (x in 0 .. length-2) {
+                legopartTechnicPlateHole () {
+                    translate X*(x*LU);
+                };
+            }
+        };
+        for (x in 0 .. length-1) {
+            legopartPeg () {
+                translate [x*LU, boxHeight, 0];
+            };
+            legopartPeg() {
+                translate [x*LU, boxHeight, LU];
+            };
+        }
+        bbox {
+            scale [boxLength, boxHeight+pegHeight, boxWidth];
+        };
+    };
+}
+
+/*
+ * Technic, Plate 2 x 4 with 3 Holes
+ * http://www.bricklink.com/catalogItem.asp?P=3709b
+ */
+def legoTechnicPlateWithHoles_2x4 ()
+{
+    return legoTechnicPlateWithHoles (4);
+}
+
+/*
+ * Technic, Plate 2 x 6 with 5 Holes
+ * http://www.bricklink.com/catalogItem.asp?P=32001
+ */
+def legoTechnicPlateWithHoles_2x6 ()
+{
+    return legoTechnicPlateWithHoles (6);
+}
+
+/*
+ * Technic, Plate 2 x 8 with 7 Holes
+ * http://www.bricklink.com/catalogItem.asp?P=3738
+ */
+def legoTechnicPlateWithHoles_2x8 ()
+{
+    return legoTechnicPlateWithHoles (8);
+}
+
+/*
+ * Technic, Plate 1 x 5 with Toothed Ends, 2 Studs and Center Axle Hole
+ * http://www.bricklink.com/catalogItem.asp?P=2711
+ */
+def legoTechnicPlateWithToothedEnds_1x5 ()
+{
+    def tooths (toothHeight, toothSpacing)
+    {
+        return union {
+            for (i in 0 .. 15) {
+                box {
+                    scale [.2 + EPSILON, toothHeight + EPSILON, toothSpacing];
+                    translate [-.5 - EPSILON, -EPSILON, 0];
+                    roty i*(22.5/360)*PI*2;
+                };
+            }
+            bbox {
+                scale [1 + 2*EPSILON, toothHeight + EPSILON, 1 + 2*EPSILON];
+                translate [-.5 - EPSILON, -EPSILON, -.5 - EPSILON];
+            };
+        };
+    }
+    toothHeight = .07;
+    toothSpacing = .08;
+    return union {
+        legopartPegHole () { translate [1, .4, 0]; };
+        legopartPegHole () { translate [3, .4, 0]; };
+        difference {
+            union {
+                roundedCylinder1 ([.5, 0, .5], [.5, .4, .5], .5, LEGO_ROUNDING);
+                roundedCylinder1 ([4.5, 0, .5], [4.5, .4, .5], .5, LEGO_ROUNDING);
+                roundedBox_base (.4-toothHeight, 4, 1, LEGO_ROUNDING) {
+                    rotz -PI/2;
+                    translate [.5, .4, 0];
+                };
+                roundedBox0 (3, toothHeight + LEGO_ROUNDING, 1, LEGO_ROUNDING) {
+                    rotx PI;
+                    translate [1, toothHeight + LEGO_ROUNDING, 1];
+                };
+            };
+            legoTechnicAxle_base2 (.4, AXLE_RADIUS + EPSILON, AXLE_THICKNESS + EPSILON, LEGO_ROUNDING) {
+                translate [2.5, 0, .5];
+            };
+            roundedCylinder3 ([.5, 0, .5], [.5, .4, .5], .3, LEGO_ROUNDING);
+            roundedCylinder3 ([4.5, 0, .5], [4.5, .4, .5], .3, LEGO_ROUNDING);
+            tooths (toothHeight, toothSpacing) { translate [.5, 0, .5]; };
+            tooths (toothHeight, toothSpacing) { translate [4.5, 0, .5]; };
+        };
+    };
+}
+
+
+#line 7 "lego/bricks/all-bricks.traci" 2
+#line 1 "lego/bricks/lego-technic-pin.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/bricks/lego-technic-pin.traci" 2
+#line 1 "lego/common/basic-shapes.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+       
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+
+
+
+
+    
+    
+        
+            
+                
+                
+            
+            
+                
+            
+        
+    
+    
+        
+        
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+        
+        
+            
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+    
+        
+            
+                
+                
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+                
+                
+            
+        
+        
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+            
+            
+        
+        
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+ 
+    
+        
+        
+
+        
+    
+ 
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+#line 7 "lego/bricks/lego-technic-pin.traci" 2
+#line 1 "lego/bricks/lego-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+#line 8 "lego/bricks/lego-technic-pin.traci" 2
+#line 1 "lego/bricks/lego-primitives.traci" 1
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+
+    
+
+    
+        
+    
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+        
+        
+            
+            
+        
+        
+    
+
+
+
+
+    
+    
+    
+    
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+        
+            
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+            
+        
+        
+        
+    
+
+
+
+
+    
+    
+    
+        
+    
+
+
+
+#line 9 "lego/bricks/lego-technic-pin.traci" 2
+#line 1 "lego/bricks/lego-technic-pin.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+                
+            
+            
+                
+            
+        
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+
+
+
+    
+    
+    
+    
+        
+            
+                
+            
+            
+                
+                
+            
+            
+                
+                
+            
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+        
+        
+    
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+                
+                
+            
+            
+                
+                
+            
+            
+                
+                
+            
+            
+                
+                
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+    
+
+
+    
+
+    
+
+
+    
+        
+            
+            
+        
+        
+    
+
+
+
+
+
+
+
+    
+
+
+
+#line 10 "lego/bricks/lego-technic-pin.traci" 2
+
+def legoTechnicPinWithoutFrictionRidgesLengthwise_helper (length)
+{
+    radius = LU*.3;
+    outerStopperRadius = LU*.04;
+    openingWidth = LU*.1;
+    openingDepth = LU*.4;
+    return difference {
+        union {
+            roundedCylinder4 (radius, length, LEGO_ROUNDING) {
+                rotx PI/2;
+            };
+            torus (outerStopperRadius, radius) {
+                translate Z*(length-outerStopperRadius);
+            };
+        };
+        cylinder (.5*openingWidth, [-radius-EPSILON, 0, length-openingDepth], [radius+EPSILON, 0, length-openingDepth]);
+        box {
+            translate [-.5, -.5, 0];
+            scale [2*(radius+outerStopperRadius+EPSILON), openingWidth, openingDepth+EPSILON];
+            translate Z*(length-openingDepth);
+        };
+    };
+}
+
+/*
+ * http://www.bricklink.com/catalogItem.asp?P=3673
+ */
+def legoTechnicPinWithoutFrictionRidgesLengthwise ()
+{
+    middleStopperRadius = .38*LU;
+    middleStopperLength = .15*LU;
+    innerRadius = .22*LU;
+    return difference {
+        union {
+            legoTechnicPinWithoutFrictionRidgesLengthwise_helper (LU-.5*middleStopperLength) {
+                translate Z*.5*middleStopperLength;
+            };
+            legoTechnicPinWithoutFrictionRidgesLengthwise_helper (LU-.5*middleStopperLength) {
+                rotx PI;
+                translate -Z*.5*middleStopperLength;
+            };
+            roundedCylinder1_base (middleStopperRadius, middleStopperLength, LEGO_ROUNDING) {
+                rotx PI/2;
+                translate -Z*.5*middleStopperLength;
+            };
+        };
+        roundedCylinder3_base (innerRadius, 2*LU, LEGO_ROUNDING) {
+            translate -Y*LU;
+            rotx PI/2;
+        };
+        bbox {
+            scale 2;
+            translate [-1, -1, -1];
+            scale [middleStopperRadius, middleStopperRadius, LU];
+        };
+        rotz rand()*2*PI;
+        translate [LU, .7*LU, 0];
+    };
+}
+
+/*
+ * Short-hand for: legoTechnicPinWithoutFrictionRidgesLengthwise()
+ */
+def legoTechnicPin_1 ()
+{
+    return legoTechnicPinWithoutFrictionRidgesLengthwise();
+}
+
+/*
+ * Technic, Axle Pin without Friction Ridges Lengthwise
+ * http://www.bricklink.com/catalogItem.asp?P=3749
+ */
+def legoTechnicAxlePinWithoutFrictionRidgesLengthwise_accurate (middleStopperRadius)
+{
+    middleStopperLength = .15*LU;
+    innerRadius = .22*LU;
+    axleRadius = AXLE_RADIUS;
+    axleThickness = AXLE_THICKNESS;
+    return difference {
+        union {
+            legoTechnicPinWithoutFrictionRidgesLengthwise_helper (LU-.5*middleStopperLength) {
+                rotx PI;
+                translate -Z*.5*middleStopperLength;
+            };
+            roundedCylinder1_base (middleStopperRadius, middleStopperLength, LEGO_ROUNDING) {
+                rotx PI/2;
+                translate -Z*.5*middleStopperLength;
+            };
+            legoTechnicAxle_base3 (LU-middleStopperLength/2, axleRadius, axleThickness, LEGO_ROUNDING) {
+                rotx PI/2;
+                translate [0, 0, middleStopperLength/2];
+            };
+            bbox {
+                scale [middleStopperRadius*2, middleStopperRadius*2, LU*2];
+                translate [-middleStopperRadius, -middleStopperRadius, -LU];
+            };
+        };
+        roundedCylinder4 (innerRadius, 1, LEGO_ROUNDING) {
+            rotx PI/2;
+            translate -Z*LU;
+        };
+    };
+}
+
+/*
+ * Technic, Axle Pin without Friction Ridges Lengthwise
+ * http://www.bricklink.com/catalogItem.asp?P=3749
+ */
+def legoTechnicAxlePinWithoutFrictionRidgesLengthwise ()
+{
+    middleStopperRadius = .38*LU;
+
+
+    
+
+    pin = legoTechnicAxlePinWithoutFrictionRidgesLengthwise_accurate (middleStopperRadius);
+
+
+    return pin {
+        bbox {
+            scale [middleStopperRadius*2, middleStopperRadius*2, 2];
+            translate [-middleStopperRadius, -middleStopperRadius, -1];
+        };
+        translate [1, .7, 1];
+    };
+}
+
+/*
+ * Short hand for: legoTechnicAxlePinWithoutFrictionRidgesLengthwise()
+ */
+def legoTechnicAxlePin ()
+{
+    return legoTechnicAxlePinWithoutFrictionRidgesLengthwise ();
+}
+
+
+#line 8 "lego/bricks/all-bricks.traci" 2
+#line 1 "lego/bricks/lego-plate.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/bricks/lego-plate.traci" 2
+#line 1 "lego/common/basic-shapes.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+       
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+
+
+
+
+    
+    
+        
+            
+                
+                
+            
+            
+                
+            
+        
+    
+    
+        
+        
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+        
+        
+            
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+    
+        
+            
+                
+                
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+                
+                
+            
+        
+        
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+            
+            
+        
+        
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+ 
+    
+        
+        
+
+        
+    
+ 
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+#line 7 "lego/bricks/lego-plate.traci" 2
+#line 1 "lego/bricks/lego-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+#line 8 "lego/bricks/lego-plate.traci" 2
+#line 1 "lego/bricks/lego-primitives.traci" 1
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+
+    
+
+    
+        
+    
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+        
+        
+            
+            
+        
+        
+    
+
+
+
+
+    
+    
+    
+    
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+        
+            
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+            
+        
+        
+        
+    
+
+
+
+
+    
+    
+    
+        
+    
+
+
+
+#line 9 "lego/bricks/lego-plate.traci" 2
+
+/*
+ * http://www.bricklink.com/catalogList.asp?catType=P&catString=26
+ */
+def legoPlate (width, length)
+{
+    boxLength = length*LU;
+    boxHeight = .4*LU;
+    boxWidth = width*LU;
+    pegHeight = .2*LU;
+    return union {
+        roundedBox1 (boxLength, boxHeight, boxWidth, LEGO_ROUNDING) {
+            for (x in 0 .. length-1) {
+                for (z in 0 .. width-1) {
+                    legopartPeg () {
+                        translate [x*LU, boxHeight, z*LU];
+                    };
+                }
+            }
+            bbox {
+                scale [boxLength, boxHeight+pegHeight, boxWidth];
+            };
+        };
+    };
+}
+
+/*
+ * Plate 1 x 2
+ * http://www.bricklink.com/catalogItem.asp?P=3023
+ */
+def legoPlate_1x2 ()
+{
+    return legoPlate(1, 2);
+}
+
+/*
+ * Plate 1 x 4
+ * http://www.bricklink.com/catalogItem.asp?P=3710
+ */
+def legoPlate_1x4 ()
+{
+    return legoPlate(1, 4);
+}
+
+/*
+ * Plate 1 x 6
+ * http://www.bricklink.com/catalogItem.asp?P=3666
+ */
+def legoPlate_1x6 ()
+{
+    return legoPlate(1, 6);
+}
+
+/*
+ * Plate 2 x 2
+ * http://www.bricklink.com/catalogItem.asp?P=3022
+ */
+def legoPlate_2x2 ()
+{
+    return legoPlate(2, 2);
+}
+
+/*
+ * Plate 2 x 6
+ * http://www.bricklink.com/catalogItem.asp?P=3795
+ */
+def legoPlate_2x6 ()
+{
+    return legoPlate(2, 6);
+}
+
+/*
+ * Plate 2 x 12
+ * http://www.bricklink.com/catalogItem.asp?P=2445
+ */
+def legoPlate_2x12 ()
+{
+    return legoPlate(2, 12);
+}
+
+
+#line 9 "lego/bricks/all-bricks.traci" 2
+#line 1 "lego/bricks/lego-tile.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/bricks/lego-tile.traci" 2
+#line 1 "lego/common/basic-shapes.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+       
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+
+
+
+
+    
+    
+        
+            
+                
+                
+            
+            
+                
+            
+        
+    
+    
+        
+        
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+        
+        
+            
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+    
+        
+            
+                
+                
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+                
+                
+            
+        
+        
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+            
+            
+        
+        
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+ 
+    
+        
+        
+
+        
+    
+ 
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+#line 7 "lego/bricks/lego-tile.traci" 2
+#line 1 "lego/bricks/lego-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+#line 8 "lego/bricks/lego-tile.traci" 2
+#line 1 "lego/bricks/lego-primitives.traci" 1
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+
+    
+
+    
+        
+    
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+        
+        
+            
+            
+        
+        
+    
+
+
+
+
+    
+    
+    
+    
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+        
+            
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+            
+        
+        
+        
+    
+
+
+
+
+    
+    
+    
+        
+    
+
+
+
+#line 9 "lego/bricks/lego-tile.traci" 2
+
+/*
+ * http://www.bricklink.com/catalogList.asp?catType=P&catString=37
+ */
+def legoTile (width, length)
+{
+    boxLength = length * LU;
+    boxHeight = .4 * LU;
+    boxWidth = width * LU;
+    return roundedBox1 (boxLength, boxHeight, boxWidth, LEGO_ROUNDING);
+}
+
+/*
+ * Tile 1 x 1 with Groove
+ * http://www.bricklink.com/catalogItem.asp?P=3070b
+ */
+def legoTile_1x1 ()
+{
+    return legoTile (1, 1);
+}
+
+/*
+ * Tile 1 x 2 with Groove
+ * http://www.bricklink.com/catalogItem.asp?P=3069b
+ */
+def legoTile_1x2 ()
+{
+    return legoTile (1, 2);
+}
+
+/*
+ * Tile 1 x 3
+ * http://www.bricklink.com/catalogItem.asp?P=63864
+ */
+def legoTile_1x4 ()
+{
+    return legoTile (1, 3);
+}
+
+/*
+ * Tile 1 x 4
+ * http://www.bricklink.com/catalogItem.asp?P=2431
+ */
+def legoTile_1x4 ()
+{
+    return legoTile (1, 4);
+}
+
+
+#line 10 "lego/bricks/all-bricks.traci" 2
+#line 1 "lego/bricks/lego-technic-axle.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/bricks/lego-technic-axle.traci" 2
+#line 1 "lego/common/basic-shapes.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+       
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+
+
+
+
+    
+    
+        
+            
+                
+                
+            
+            
+                
+            
+        
+    
+    
+        
+        
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+        
+        
+            
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+    
+        
+            
+                
+                
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+                
+                
+            
+        
+        
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+            
+            
+        
+        
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+ 
+    
+        
+        
+
+        
+    
+ 
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+#line 7 "lego/bricks/lego-technic-axle.traci" 2
+#line 1 "lego/bricks/lego-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+#line 8 "lego/bricks/lego-technic-axle.traci" 2
+#line 1 "lego/bricks/lego-primitives.traci" 1
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+
+    
+
+    
+        
+    
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+        
+        
+            
+            
+        
+        
+    
+
+
+
+
+    
+    
+    
+    
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+        
+            
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+            
+        
+        
+        
+    
+
+
+
+
+    
+    
+    
+        
+    
+
+
+
+#line 9 "lego/bricks/lego-technic-axle.traci" 2
+
+def legoTechnicAxle_helper (radius, thickness, rounding)
+{
+    def corner (rounding, thickness)
+    {
+        return intersection {
+            box {
+                scale [rounding*3, rounding*2, rounding*3];
+                translate [-rounding*3, -rounding, 0];
+            };
+            torus (rounding, rounding*2) { rotx PI/2; };
+            translate [thickness/2+rounding, rounding, -thickness/2-rounding];
+        };
+    }
+    return union {
+        difference {
+            box {
+                scale [thickness + rounding*2, rounding*2, thickness + rounding*2];
+                translate [-thickness/2 - rounding, 0, -thickness/2 - rounding];
+            };
+            v0 = [-thickness/2 - rounding, -EPSILON, -thickness/2 - rounding];
+            v1 = [thickness/2 + rounding, -EPSILON, -thickness/2 - rounding];
+            v2 = [thickness/2 + rounding, -EPSILON, thickness/2 + rounding];
+            v3 = [-thickness/2 - rounding, -EPSILON, thickness/2 + rounding];
+            v4 = [-thickness/2 - rounding, rounding*2 + EPSILON, -thickness/2 - rounding];
+            v5 = [thickness/2 + rounding, rounding*2 + EPSILON, -thickness/2 - rounding];
+            v6 = [thickness/2 + rounding, rounding*2 + EPSILON, thickness/2 + rounding];
+            v7 = [-thickness/2 - rounding, rounding*2 + EPSILON, thickness/2 + rounding];
+            cylinder (rounding*2, v0, v4);
+            cylinder (rounding*2, v1, v5);
+            cylinder (rounding*2, v2, v6);
+            cylinder (rounding*2, v3, v7);
+        };
+        corner (rounding, thickness);
+        corner (rounding, thickness) { roty PI/2; };
+        corner (rounding, thickness) { roty -PI/2; };
+        corner (rounding, thickness) { roty PI; };
+        bbox {
+            scale [thickness + rounding*2, rounding*2, thickness + rounding*2];
+            translate [-thickness/2 - rounding, 0, -thickness/2 - rounding];
+        };
+    };
+}
+
+def legoTechnicAxle_base1 (length, radius, thickness, rounding)
+{
+    return union {
+        roundedBox1 (radius*2, length, thickness, rounding) {
+            translate [-radius, 0, -thickness/2];
+        };
+        roundedBox1 (thickness, length, radius*2, rounding) {
+            translate [-thickness/2, 0, -radius];
+        };
+        difference {
+            box {
+                scale [thickness + rounding*2, length - rounding*2, thickness + rounding*2];
+                translate [-thickness/2 - rounding, rounding, -thickness/2 - rounding];
+            };
+            v0 = [-thickness/2 - rounding, rounding - EPSILON, -thickness/2 - rounding];
+            v1 = [-thickness/2 - rounding, rounding - EPSILON, thickness/2 + rounding];
+            v2 = [thickness/2 + rounding, rounding - EPSILON, thickness/2 + rounding];
+            v3 = [thickness/2 + rounding, rounding - EPSILON, -thickness/2 - rounding];
+            v4 = [-thickness/2 - rounding, length - rounding + EPSILON, -thickness/2 - rounding];
+            v5 = [-thickness/2 - rounding, length - rounding + EPSILON, thickness/2 + rounding];
+            v6 = [thickness/2 + rounding, length - rounding + EPSILON, thickness/2 + rounding];
+            v7 = [thickness/2 + rounding, length - rounding + EPSILON, -thickness/2 - rounding];
+            cylinder (rounding, v0, v4);
+            cylinder (rounding, v1, v5);
+            cylinder (rounding, v2, v6);
+            cylinder (rounding, v3, v7);
+        };
+        legoTechnicAxle_helper (radius, thickness, rounding);
+        legoTechnicAxle_helper (radius, thickness, rounding) { translate Y*(length-rounding*2); };
+        bbox {
+            scale [radius*2, length, radius*2];
+            translate [-radius, 0, -radius];
+        };
+    };
+}
+
+def legoTechnicAxle_base2 (length, radius, thickness, rounding)
+{
+    return union {
+        roundedBox3 (radius*2, length, thickness, rounding) {
+            translate [-radius, 0, -thickness/2];
+        };
+        roundedBox3 (thickness, length, radius*2, rounding) {
+            translate [-thickness/2, 0, -radius];
+        };
+        difference {
+            box {
+                scale [thickness + 2*rounding, length + 2*EPSILON, thickness + 2*rounding];
+                translate [-thickness/2-rounding, -EPSILON, -thickness/2-rounding];
+            };
+            v0 = [-thickness/2 - rounding, rounding, -thickness/2 - rounding];
+            v1 = [-thickness/2 - rounding, rounding, thickness/2 + rounding];
+            v2 = [thickness/2 + rounding, rounding, thickness/2 + rounding];
+            v3 = [thickness/2 + rounding, rounding, -thickness/2 - rounding];
+            v4 = [-thickness/2 - rounding, length - rounding, -thickness/2 - rounding];
+            v5 = [-thickness/2 - rounding, length - rounding, thickness/2 + rounding];
+            v6 = [thickness/2 + rounding, length - rounding, thickness/2 + rounding];
+            v7 = [thickness/2 + rounding, length - rounding, -thickness/2 - rounding];
+            cylinder (rounding, v0, v4);
+            cylinder (rounding, v1, v5);
+            cylinder (rounding, v2, v6);
+            cylinder (rounding, v3, v7);
+            sphere (rounding) { translate v0; };
+            sphere (rounding) { translate v1; };
+            sphere (rounding) { translate v2; };
+            sphere (rounding) { translate v3; };
+            sphere (rounding) { translate v4; };
+            sphere (rounding) { translate v5; };
+            sphere (rounding) { translate v6; };
+            sphere (rounding) { translate v7; };
+        };
+        bbox {
+            scale [radius*2 + rounding*2, length + 2*EPSILON, radius*2 + rounding*2];
+            translate [-radius-rounding, -EPSILON, -radius-rounding];
+        };
+    };
+}
+
+def legoTechnicAxle_base3 (length, radius, thickness, rounding)
+{
+    return union {
+        roundedBox2 (radius*2, length, thickness, rounding) {
+            translate [-radius, 0, -thickness/2];
+        };
+        roundedBox2 (thickness, length, radius*2, rounding) {
+            translate [-thickness/2, 0, -radius];
+        };
+        difference {
+            box {
+                scale [thickness + 2*rounding, length + EPSILON - rounding, thickness + 2*rounding];
+                translate [-thickness/2-rounding, -EPSILON, -thickness/2-rounding];
+            };
+            v0 = [-thickness/2 - rounding, rounding, -thickness/2 - rounding];
+            v1 = [-thickness/2 - rounding, rounding, thickness/2 + rounding];
+            v2 = [thickness/2 + rounding, rounding, thickness/2 + rounding];
+            v3 = [thickness/2 + rounding, rounding, -thickness/2 - rounding];
+            v4 = [-thickness/2 - rounding, length - rounding + EPSILON, -thickness/2 - rounding];
+            v5 = [-thickness/2 - rounding, length - rounding + EPSILON, thickness/2 + rounding];
+            v6 = [thickness/2 + rounding, length - rounding + EPSILON, thickness/2 + rounding];
+            v7 = [thickness/2 + rounding, length - rounding + EPSILON, -thickness/2 - rounding];
+            cylinder (rounding, v0, v4);
+            cylinder (rounding, v1, v5);
+            cylinder (rounding, v2, v6);
+            cylinder (rounding, v3, v7);
+            sphere (rounding) { translate v0; };
+            sphere (rounding) { translate v1; };
+            sphere (rounding) { translate v2; };
+            sphere (rounding) { translate v3; };
+        };
+        legoTechnicAxle_helper (radius, thickness, rounding) { translate Y*(length-rounding*2); };
+        bbox {
+            scale [radius*2 + rounding*2, length + EPSILON, radius*2 + rounding*2];
+            translate [-radius-rounding, -EPSILON, -radius-rounding];
+        };
+    };
+}
+
+/*
+ * http://www.bricklink.com/catalogList.asp?catType=P&catString=134
+ */
+def legoTechnicAxle (length)
+{
+    radius = AXLE_RADIUS;
+    thickness = AXLE_THICKNESS;
+    rounding = LEGO_ROUNDING;
+    return legoTechnicAxle_base1 (length, radius, thickness, rounding) {
+        rotx PI/2;
+        translate [1, .7, 0];
+    };
+}
+
+/*
+ * Technic, Axle 2
+ * http://www.bricklink.com/catalogItem.asp?P=3704
+ */
+def legoTechnicAxle_2 ()
+{
+    return legoTechnicAxle(2);
+}
+
+/*
+ * Technic, Axle 4
+ * http://www.bricklink.com/catalogItem.asp?P=3705
+ */
+def legoTechnicAxle_4 ()
+{
+    return legoTechnicAxle(4);
+}
+
+/*
+ * Technic, Axle 6
+ * http://www.bricklink.com/catalogItem.asp?P=3706
+ */
+def legoTechnicAxle_6 ()
+{
+    return legoTechnicAxle(6);
+}
+
+/*
+ * Technic, Axle 8
+ * http://www.bricklink.com/catalogItem.asp?P=3707
+ */
+def legoTechnicAxle_8 ()
+{
+    return legoTechnicAxle(8);
+}
+
+
+#line 11 "lego/bricks/all-bricks.traci" 2
+#line 1 "lego/bricks/lego-technic-bush.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/bricks/lego-technic-bush.traci" 2
+#line 1 "lego/common/basic-shapes.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+       
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+
+
+
+
+    
+    
+        
+            
+                
+                
+            
+            
+                
+            
+        
+    
+    
+        
+        
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+        
+        
+            
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+    
+        
+            
+                
+                
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+                
+                
+            
+        
+        
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+            
+            
+        
+        
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+ 
+    
+        
+        
+
+        
+    
+ 
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+#line 7 "lego/bricks/lego-technic-bush.traci" 2
+#line 1 "lego/bricks/lego-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+#line 8 "lego/bricks/lego-technic-bush.traci" 2
+#line 1 "lego/bricks/lego-primitives.traci" 1
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+
+    
+
+    
+        
+    
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+        
+        
+            
+            
+        
+        
+    
+
+
+
+
+    
+    
+    
+    
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+        
+            
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+            
+        
+        
+        
+    
+
+
+
+
+    
+    
+    
+        
+    
+
+
+
+#line 9 "lego/bricks/lego-technic-bush.traci" 2
+
+def legoTechnicBush12ToothedTypeI_accurate (radius, height)
+{
+    innerRadius = .31;
+    toothHeight = .07;
+    toothSpacing = .08;
+    axleThickness = AXLE_THICKNESS + EPSILON;
+    axleRadius = AXLE_RADIUS + EPSILON;
+    return difference {
+        roundedCylinder1_base (radius, height, LEGO_ROUNDING);
+        torus (.07*2, .27*2) { rotx PI/2; translate Y*.26; };
+        roundedCylinder2_base (innerRadius, toothHeight, LEGO_ROUNDING, LEGO_ROUNDING) {
+            rotx PI;
+            translate Y*height;
+        };
+        legoTechnicAxle_base2 (height-toothHeight, axleRadius, axleThickness, LEGO_ROUNDING);
+        for (i in 0 .. 15) {
+            box {
+                scale [radius-innerRadius+LEGO_ROUNDING+EPSILON, toothHeight+EPSILON, toothSpacing];
+                translate [innerRadius-LEGO_ROUNDING, height-toothHeight, -toothSpacing/2];
+                roty i*(22.5/360)*PI*2;
+            };
+        }
+    };
+}
+
+def legoTechnicBush12ToothedTypeI_fast (radius, height)
+{
+    innerRadius = .3;
+    toothHeight = .07;
+    return difference {
+        cylinder (radius, ORIGO, Y*height);
+        torus (.07*2, .27*2) { rotx PI/2; translate Y*.26; };
+        cylinder (innerRadius, Y*(height-toothHeight), Y*(height+EPSILON));
+    };
+}
+
+/*
+ * Technic Bush 1/2 Toothed Type I
+ * http://www.bricklink.com/catalogItem.asp?P=4265a
+ */
+def legoTechnicBush12ToothedTypeI ()
+{
+    radius = .44;
+    height = .5;
+
+
+    
+
+    bush = legoTechnicBush12ToothedTypeI_accurate (radius, height);
+
+
+    return bush {
+        bbox { scale [radius*2, height, radius*2]; translate [-radius, 0, -radius]; };
+        rotx PI/2;
+        translate [1, .7, 0];
+    };
+}
+
+/*
+ * Short hand for legoTechnicBush12ToothedTypeI ()
+ */
+def legoTechnicBushToothed ()
+{
+    return legoTechnicBush12ToothedTypeI();
+}
+
+def legoTechnicBush_accurate (outerRadius, height)
+{
+    lowerHeight = .2;
+    upperHeight = .2;
+    innerRadius = .38;
+    axleThickness = AXLE_THICKNESS + EPSILON;
+    axleRadius = AXLE_RADIUS + EPSILON;
+    return difference {
+        union {
+            roundedCylinder1_base (outerRadius, lowerHeight, LEGO_ROUNDING);
+            roundedCylinder3_base (innerRadius, height-lowerHeight-upperHeight, LEGO_ROUNDING) {
+                translate [0, lowerHeight, 0];
+            };
+            roundedCylinder1_base (outerRadius, upperHeight, LEGO_ROUNDING) {
+                translate [0, height-upperHeight, 0];
+            };
+        };
+        legoTechnicAxle_base2 (height, axleRadius, axleThickness, LEGO_ROUNDING);
+        cylinder (.3, -EPSILON*Y, (lowerHeight+EPSILON)*Y) { translate [-.5, 0, -.5]; };
+        cylinder (.3, -EPSILON*Y, (lowerHeight+EPSILON)*Y) { translate [-.5, 0, .5]; };
+        cylinder (.3, -EPSILON*Y, (lowerHeight+EPSILON)*Y) { translate [.5, 0, -.5]; };
+        cylinder (.3, -EPSILON*Y, (lowerHeight+EPSILON)*Y) { translate [.5, 0, .5]; };
+        box {
+            scale [(innerRadius+LEGO_ROUNDING)*2, height-lowerHeight-upperHeight, .12];
+            translate [-innerRadius-LEGO_ROUNDING, lowerHeight, -.12/2];
+        };
+    };
+}
+
+/*
+ * Technic Bush
+ * http://www.bricklink.com/catalogItem.asp?P=3713
+ */
+def legoTechnicBush()
+{
+    radius = .48;
+    height = 1;
+
+
+    
+
+    bush = legoTechnicBush_accurate(radius, height);
+
+
+    return bush {
+        roty randint(0,3)*(PI/2);
+        bbox { scale [radius*2, height, radius*2]; translate [-radius, 0, -radius]; };
+        rotx PI/2;
+        translate [1, .7, 0];
+    };
+}
+
+
+#line 12 "lego/bricks/all-bricks.traci" 2
+#line 1 "lego/bricks/lego-technic-liftarm.traci" 1
+
+
+
+#line 1 "lego/common/basic-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+#line 6 "lego/bricks/lego-technic-liftarm.traci" 2
+#line 1 "lego/common/basic-shapes.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+    
+        
+        
+        
+            
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+       
+    
+
+
+
+
+    
+        
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+            
+            
+                
+                
+            
+        
+        
+            
+            
+            
+            
+        
+    
+
+
+
+
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+
+
+
+
+    
+    
+        
+            
+                
+                
+            
+            
+                
+            
+        
+    
+    
+        
+        
+        
+        
+        
+            
+            
+        
+        
+            
+            
+        
+        
+            
+        
+        
+            
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+    
+        
+            
+                
+                
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+                
+                
+            
+        
+        
+            
+        
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
+            
+            
+        
+        
+            
+            
+        
+        
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+ 
+    
+        
+        
+
+        
+    
+ 
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    
+        
+        
+
+        
+            
+            
+        
+    
+
+
+
+#line 7 "lego/bricks/lego-technic-liftarm.traci" 2
+#line 1 "lego/bricks/lego-units.traci" 1
+
+
+
+
+
+
+
+
+
+
+
+
+#line 8 "lego/bricks/lego-technic-liftarm.traci" 2
+#line 1 "lego/bricks/lego-primitives.traci" 1
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+
+    
+
+    
+        
+    
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+        
+        
+            
+            
+        
+        
+    
+
+
+
+
+    
+    
+    
+    
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+        
+            
+        
+        
+        
+            
+            
+        
+        
+            
+            
+            
+            
+        
+        
+        
+    
+
+
+
+
+    
+    
+    
+        
+    
+
+
+
+#line 9 "lego/bricks/lego-technic-liftarm.traci" 2
+
+/*
+ * Technic, Liftarm 1 x 4 Thin with Stud Connector
+ * http://www.bricklink.com/catalogItem.asp?P=2825
+ */
+def legoTechnicLiftarmWithStudConnector_1x4 ()
+{
+    return union {
+        roundedBox_base (.5, 3, .15, LEGO_ROUNDING) {
+            rotz -PI/2;
+            translate [0, .5, -.5];
+        };
+        roundedBox_base (.5, 3, .15, LEGO_ROUNDING) {
+            rotz -PI/2;
+            translate [0, .5, .35];
+        };
+        difference {
+            union {
+                box { scale [1, .18, 1]; translate [1, .16, -.5]; };
+                roundedCylinder1 (X*2, [2, .5, 0], .44, LEGO_ROUNDING);
+                roundedCylinder1 (X, [1, .5, 0], .44, LEGO_ROUNDING);
+            };
+            roundedCylinder2 ([1, .5, 0], [1, .44, 0], .36, LEGO_ROUNDING/2);
+            roundedCylinder2 ([1, 0, 0], [1, .06, 0], .36, LEGO_ROUNDING/2);
+            roundedCylinder3 ([1, .06, 0], [1, .44, 0], .3, LEGO_ROUNDING/2);
+            roundedCylinder2 ([2, .5, 0], [2, .44, 0], .36, LEGO_ROUNDING/2);
+            roundedCylinder2 ([2, 0, 0], [2, .06, 0], .36, LEGO_ROUNDING/2);
+            roundedCylinder3 ([2, .06, 0], [2, .44, 0], .3, LEGO_ROUNDING/2);
+        };
+        difference {
+            roundedCylinder1 (X*3, [3, .5, 0], .5, LEGO_ROUNDING);
+            legoTechnicAxle_base2 (.5, AXLE_RADIUS + EPSILON, AXLE_THICKNESS + EPSILON, LEGO_ROUNDING) {
+                translate X*3;
+            };
+        };
+        difference {
+            roundedCylinder1 (ORIGO, Y, .5, LEGO_ROUNDING);
+            roundedCylinder2 (Y, Y*.5, .3, LEGO_ROUNDING);
+            roundedCylinder2 (Y, Y*.5, .3, LEGO_ROUNDING/2) { translate [-.5, 0, -.5]; };
+            roundedCylinder2 (Y, Y*.5, .3, LEGO_ROUNDING/2) { translate [-.5, 0, .5]; };
+            roundedCylinder2 (Y, Y*.5, .3, LEGO_ROUNDING/2) { translate [.5, 0, -.5]; };
+            roundedCylinder2 (Y, Y*.5, .3, LEGO_ROUNDING/2) { translate [.5, 0, .5]; };
+            legoTechnicAxle_base2 (.5, AXLE_RADIUS + EPSILON, AXLE_THICKNESS + EPSILON, LEGO_ROUNDING);
+        };
+        bbox { scale [4, 1, 1]; translate [-.5, 0, -.5]; };
+    };
+}
+
+/*
+ * Short hand for: legoTechnicLiftarmWithStudConnector_1x4
+ */
+def legoTechnicLiftarm_1 ()
+{
+    return legoTechnicLiftarmWithStudConnector_1x4();
+}
+
+
+#line 13 "lego/bricks/all-bricks.traci" 2
+
+
+#line 4 "lego/airplane.traci" 2
+
+def lego_material(textureColor, interiorColor)
+{
+    return material {
+        texture {
+            textureColor;
+            finish(0.3, 0.3, 50.0, 0.1);
+        };
+        interior(1.33, interiorColor, 3);
+    };
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global TRANSMIT = 0.9;
+global BLACK = lego_material(color [.15, .15, .15, TRANSMIT], color [.15, .15, .15] / 2);
+global BLACK_LIGHT = lego_material(color [.15, .15, .15, TRANSMIT], color [.15, .15, .15] / 2);
+global GRAY = lego_material(color [.85, .85, .85, TRANSMIT], color [.85, .85, .85] / 2);
+global YELLOW = lego_material(color [1, 1, 0, TRANSMIT], color [1, 1, 0] / 2);
+global WHITE = lego_material(color [1, 1, 1, TRANSMIT], color [1, 1, 1] / 2);
+global RED = lego_material(color [1, 0, 0, TRANSMIT], color [1, 0, 0] / 2);
+
+
+
+
+
+
+
+
+
+
+
+
+
+def pieces1 ()
+{
+    return union {
+        legoTechnicBrickWithHoles_1x4 ()  { BLACK; };
+        legoTechnicBrickWithHoles_1x6 ()  { BLACK;       translate [2, 0, 1]; };
+        legoTechnicBrickWithHoles_1x10 () { BLACK;       translate [5, 0, 2]; };
+        legoTechnicBrickWithHoles_1x4 ()  { BLACK;       translate [12, 0, 1]; };
+        legoPlate_1x2 ()                  { YELLOW;      translate [0, 1.2, 0]; };
+        legoPlate_2x2 ()                  { YELLOW;      translate [2, 1.2, 0]; };
+        legoPlate_1x2 ()                  { YELLOW;      translate [2, 1.6, 0]; };
+        legoPlate_1x2 ()                  { YELLOW;      roty -PI/2; translate [4, 1.6, 0]; };
+        legoTechnicPin_1 ()               { BLACK_LIGHT; translate [2, 0, 1]; };
+        legoTechnicPin_1 ()               { BLACK_LIGHT; translate [5, 0, 2]; };
+        legoTechnicPin_1 ()               { GRAY;        translate [6, 0, 2]; };
+        legoTechnicPin_1 ()               { BLACK_LIGHT; translate [8, 0, 2]; };
+        legoTechnicPin_1 ()               { BLACK_LIGHT; translate [10, 0, 2]; };
+        legoTechnicPin_1 ()               { GRAY;        translate [12, 0, 2]; };
+        legoTechnicPin_1 ()               { BLACK_LIGHT; translate [13, 0, 2]; };
+
+        bbox { scale [16, 2.2, 3]; };
+    };
+}
+
+def pieces2 (theta)
+{
+    return union {
+        legoTechnicBrickWithHoles_1x6 () { YELLOW; };
+        legoPlate_1x2 ()                 { YELLOW;      translate [0, 1.2, 0]; };
+        legoPlate_1x2 ()                 { YELLOW;      translate [0, 1.6, 0]; };
+        legoPlate_1x2 ()                 { YELLOW;      translate [4, 1.2, 0]; };
+        legoPlate_1x2 ()                 { YELLOW;      translate [4, 1.6, 0]; };
+        legoTechnicBrickWithHoles_1x8 () { YELLOW;      translate [0, 2, 0]; };
+        legoTechnicPin_1 ()              { BLACK_LIGHT; translate [4, 2, 1]; };
+        legoTechnicPin_1 ()              { BLACK_LIGHT; translate [6, 2, 1]; };
+
+        bbox { scale [8, 3.4, 2]; };
+        translate [-1, -.7, 0];
+        rotz theta;
+        translate [1, .7, 0];
+    };
+}
+
+def pieces3 ()
+{
+    return union {
+        legoTechnicBrickWithHoles_1x2 () { BLACK; };
+        legoTechnicBrickWithHoles_1x2 () { BLACK;            translate [0, 0, 3]; };
+        legoTechnicBrickWithHoles_1x2 () { BLACK; roty PI/2; translate [0, 0, 3]; };
+        legoTechnicBrickWithHoles_1x2 () { BLACK; roty PI/2; translate [1, 0, 3]; };
+        legoTechnicPlateWithHoles_2x4 () { BLACK; roty PI/2; translate [0, -.4, 4]; };
+        legoTechnicPlateWithHoles_2x4 () { BLACK; roty PI/2; translate [0, 1.2, 4]; };
+        legoTechnicPin_1 ()              { GRAY; };
+        legoTechnicPin_1 ()              { GRAY;             translate [0, 0, 4]; };
+        legoTechnicPin_1 ()              { GRAY;  roty PI/2; translate [0, 0, 3]; };
+        legoTechnicPin_1 ()              { GRAY;  roty PI/2; translate [2, 0, 3]; };
+
+        bbox { scale [4, 2.2, 6]; translate [-1, -.4, -1]; };
+    };
+}
+
+def pieces4 ()
+{
+    return union {
+        legoTechnicBrickWithHoles_1x4 () { YELLOW; roty PI/2;  translate [0, .4, 2]; };
+        legoTechnicBrickWithHoles_1x6 () { YELLOW;             translate [0, 1.6, 1]; };
+        legoTechnicBrickWithHoles_1x6 () { YELLOW;             translate [0, 1.6, -2]; };
+        legoTechnicPlateWithHoles_2x4 () { YELLOW; roty PI/2;  translate [0, 0, 2]; };
+
+        bbox { translate [0, 0, -.5]; scale [6, 3, 4]; };
+    };
+}
+
+def pieces5 ()
+{
+    return union {
+        legoTechnicBrickWithHoles_1x2 () { YELLOW; };
+        legoPlate_1x2 ()                 { YELLOW;                  translate [0, 1.2, 0]; };
+        legoPlate_1x2 ()                 { YELLOW;                  translate [0, 1.6, 0]; };
+        legoPlate_1x2 ()                 { YELLOW;      roty -PI/2; translate [1, 1.6, 0]; };
+        legoTechnicBrickWithHoles_1x6 () { YELLOW;                  translate [-2, 2, 0]; };
+        legoTechnicPin_1 ()              { GRAY;                    translate [-2, 2, 0]; };
+        legoTechnicPin_1 ()              { BLACK_LIGHT;             translate [2, 2, 0]; };
+
+        bbox { scale [6, 3.4, 3]; translate [-2, 0, -1]; };
+    };
+}
+
+def pieces6 ()
+{
+    return union {
+        legoTechnicBrickWithHoles_1x6 () { YELLOW;            translate [0, 0, 2]; };
+        legoTechnicBrickWithHoles_1x6 () { YELLOW;            translate [0, 0, -3]; };
+        legoTechnicAxle_8 ()             { BLACK;             translate [0, 0, -4]; };
+        legoTechnicBushToothed ()        { GRAY;              translate [0, 0, 3]; };
+        legoTechnicBushToothed ()        { GRAY;   scalez -1; translate [0, 0, -3]; };
+        bbox { scale [6, 1.4, 8]; translate [0, 0, -4]; };
+    };
+}
+
+def pieces7 ()
+{
+    return union {
+        legoPlate_1x4 ()                 { YELLOW; roty -PI/2; translate [1, 0, -2]; };
+        legoTechnicPlateWithHoles_2x4 () { YELLOW; roty PI/2;  translate [5, 0, 2]; };
+        legoTechnicPlateWithHoles_2x8 () { BLACK;              translate [0, .4, -1]; };
+
+        bbox { scale [8, 1, 4]; translate [0, 0, -2]; };
+    } ;
+}
+
+def pieces8 ()
+{
+    return union {
+        legoTechnicBrickWithHoles_1x16 () { YELLOW; };
+        legoPlate_1x6 ()                  { YELLOW;             translate [-1, 1.2, 0]; };
+        legoPlate_1x4 ()                  { BLACK;  roty -PI/2; translate [6, -.4, -1]; };
+        legoTile_1x4 ()                   { BLACK;  roty -PI/2; translate [6, 1.2, -1]; };
+        legoTechnicBrickWithHoles_1x4 ()  { YELLOW; roty -PI/2; translate [6, 0, 1]; };
+        legoTechnicBrickWithHoles_1x2 ()  { YELLOW; roty -PI/2; translate [6, 0, -2]; };
+        legoPlate_1x4 ()                  { BLACK;  roty -PI/2; translate [12, -.4, -1]; };
+        legoPlate_1x4 ()                  { BLACK;  roty -PI/2; translate [12, 1.2, -1]; };
+        legoTechnicBrickWithHoles_1x4 ()  { YELLOW; roty -PI/2; translate [12, 0, 1]; };
+        legoTechnicBrickWithHoles_1x2 ()  { YELLOW; roty -PI/2; translate [12, 0, -2]; };
+        legoPlate_1x4 ()                  { BLACK;              translate [13, -.4, 0]; };
+        legoPlate_1x2 ()                  { BLACK;              translate [15, 1.2, 0]; };
+        legoPlate_1x2 ()                  { BLACK;  roty -PI/2; translate [17, 1.2, 0]; };
+        legoTechnicBrickWithHoles_1x6 ()  { YELLOW; roty -PI/2; translate [17, 0, -2]; };
+
+        bbox { scale [18, 2.2, 7]; translate [-1, -.4, -2]; };
+    };
+}
+
+def pieces9 ()
+{
+    return union {
+        union {
+            legoTechnicAxle_8 ()      { BLACK;            translate [0, 0, -4]; };
+            legoTechnicBushToothed () { GRAY;             translate [0, 0, 2]; };
+            legoTechnicBushToothed () { GRAY;  scalez -1; translate [0, 0, -2]; };
+            legoTechnicAxle_8 ()      { BLACK;            translate [0, 3, -4]; };
+            legoTechnicBush ()        { GRAY;             translate [0, 3, 1]; };
+            legoTechnicBush ()        { GRAY;  scalez -1; translate [0, 3, -1]; };
+            legoTechnicLiftarm_1 ()   { GRAY; rotx -PI/2; rotz PI/2; translate [1, .7, 3.5]; };
+            legoTechnicLiftarm_1 ()   { GRAY; rotx PI/2;  rotz PI/2; translate [1, .7, -3.5]; };
+            bbox { scale [1, 4, 8]; translate [.5, .2, -4]; };
+            translate [-1, -.7, 0];
+            rotz -PI/2 + 1.69;
+            translate [5, .7, 0];
+        };
+        union {
+            legoTechnicBrickWithHoles_1x12 () { BLACK;            translate [0, 0, 1]; };
+            legoTechnicBrickWithHoles_1x12 () { BLACK;            translate [0, 0, -2]; };
+            legoTechnicAxle_6 ()              { BLACK;            translate [10, 0, -3]; };
+            legoTechnicBushToothed ()         { GRAY;             translate [10, 0, 2]; };
+            legoTechnicBushToothed ()         { GRAY;  scalez -1; translate [10, 0, -2]; };
+            bbox { scale [12, 1.4, 6]; translate -Z*3; };
+        };
+        union {
+            legoTechnicBrickWithHoles_1x16 () { YELLOW; };
+            legoTechnicBrickWithHoles_1x16 () { YELLOW;             translate [0, 0, -1]; };
+            legoPlate_2x12 ()                 { YELLOW; roty -PI/2; translate [14, 1.2, -6]; };
+            legoPlate_2x12 ()                 { YELLOW; roty -PI/2; translate [16, 1.2, -6]; };
+            union {
+                legoTechnicBrickWithHoles_1x2 ()  { BLACK;              translate [10, 1.2, -1]; };
+                legoTechnicBrickWithHoles_1x2 ()  { BLACK;              translate [14, 1.6, -1]; };
+                legoTechnicAxlePin ()             { GRAY;               translate [10, 1.2, -1]; };
+                legoTechnicBushToothed ()         { GRAY;               translate [10, 1.2, .4]; };
+                legoTechnicPlateWithToothedEnds_1x5 () {
+                    BLACK;
+                    rotx PI/2;
+                    translate [-.5, .5, 0];
+                    rotz 1.2145277951583;
+                    translate [11, 1.9, 0];
+                };
+                union {
+                    legoTechnicAxlePin ()             { GRAY;               translate [14, 1.6, -1]; };
+                    legoTechnicLiftarm_1 ()           { GRAY;  rotx PI/2; rotz PI/2; translate [15, 2.3, 0]; };
+                    legoTechnicAxle (2)               { BLACK;              translate [14, 4.6, -1]; };
+                    legoTechnicBushToothed ()         { GRAY;               translate [14, 4.6, .5]; };
+                    legoTechnicLiftarm_1 ()           { GRAY;  rotx -PI/2;  translate [12, 5.3, 0]; };
+                    legoTechnicBushToothed ()         { GRAY;  scalez -1;   translate [14, 4.6, -.5]; };
+                    legoTechnicAxle (2)               { BLACK;              translate [11, 4.6, -1]; };
+                    legoTechnicBushToothed ()         { GRAY;               translate [11, 4.6, .4]; };
+                    translate [-15, -2.3, 0];
+                    rotz -0.12430945820273;
+                    translate [15, 2.3, 0];
+                };
+                bbox { scale [6.5, 5.1, 2]; translate [10, 1.2, -1]; };
+            };
+            bbox { scale [16.5, 6.3, 12]; translate [0, 0, -6]; };
+            translate [-8, -.7, 0];
+            rotz PI*2*(-25.2087/360);
+            translate [11, .7, 0];
+        };
+        translate [-1, -.7, 0];
+        rotz PI*2*(28.7989/360);
+        translate [1, .7, 0];
+    };
+}
+
+def pieces10 ()
+{
+    return union {
+        legoTechnicBrickWithHoles_1x8 () { YELLOW;             translate [0, 0, 2]; };
+        legoTechnicBrickWithHoles_1x8 () { YELLOW;             translate [0, 0, -3]; };
+        legoPlate_2x6 ()                 { BLACK;  roty -PI/2; translate [3, 1.2, -3]; };
+
+        bbox { scale [8, 1.8, 6]; translate [0, 0, -3]; };
+        translate [-1, -.7, 0];
+        rotz PI*2*(-15.676/360);
+        translate [1, .7, 0];
+    };
+}
+
+def pieces11 ()
+{
+    return union {
+        legoTechnicAxlePin () { GRAY; };
+        legoTechnicBushToothed () { GRAY; translate Z; };
+        legoTechnicPlateWithToothedEnds_1x5 () { BLACK; rotx PI/2; translate [-1.5, 1.2, 1.5]; };
+        bbox { scale [5, 1, 2.1]; translate [-1.5, .2, 0]; };
+        translate [-1, -.7, 0];
+        rotz 2.5;
+        translate [1, .7, 0];
+    };
+}
+
+def airplane ()
+{
+    return union {
+        pieces1 ()     { translate [0, 0, 1]; };
+        pieces2 (PI/2) { translate [10, 0, 2]; };
+        pieces1 ()     { scalez -1; translate [0, 0, -1]; };
+        pieces2 (PI/2) { scalez -1; translate [10, 0, -2]; };
+        pieces4 ()     { translate [-1, 1.6, 0]; };
+        pieces3 ()     { translate [10, 2, -2]; };
+        pieces5 ()     { translate [8, 4, 3]; };
+        pieces5 ()     { scale [1, 1, -1]; translate [8, 4, -3]; };
+        pieces6 ()     { translate [-5, -.7, 0]; rotz .7509279107; translate [7, 6.7, 0]; };
+        pieces7 ()     { translate [-1, 4.4, 0]; };
+        pieces8 ()     { roty -PI/2; translate [9, 6, 4]; };
+        pieces8 ()     { roty PI/2;  translate [8, 6, -4]; };
+        pieces9 ()     { translate [14, 0, 0]; };
+        pieces10 ()    { translate [10, 6, 0]; };
+        pieces11 ()    { roty -PI/2; translate [0, 2, -1]; };
+    };
+}
+
+def table(z, thickness) {
+    ratio = 3888/2592;
+    x = z*ratio;
+    return roundedBox_helper1 (x, z, thickness) {
+        image("images/wood.jpg", "stretch", "xz") {
+            scale [x, 1, z];
+        };
+        translate [-3, -.4, -z/2];
+    };
+}
+
+airplane() {
+    rotx PI*2*(20/360);
+};
+
+//mesh("testcode/tetrahedron.ply") { YELLOW; };
+
+skybox("images/stormydays/forward.jpg", "images/stormydays/right.jpg", "images/stormydays/back.jpg",
+       "images/stormydays/left.jpg", "images/stormydays/up.jpg", "images/stormydays/down.jpg") {
+    roty -.9;
+    rotx -.5;
+};
+
+
+
+
+
+
+
+
+
+pointlight([-30, 15, 40], color [1,1,1]*30*200*3);
+pointlight([60, 15, 30], color [1,1,1]*6000*3);
+ambientlight(color [1,1,1]*.15*3);
+
+
+
+
+
+
+
+
+
+//loc = [-5, -5, -20];
+//lookAt = ORIGO;
+
+loc = [-2.4*2, 6.7*2, 8.5*2];
+lookAt = [7*2, 1.3*3, -1*2];
+loc = lookAt + (loc - lookAt)*2;
+up = Y;
+fov = 50.0;
+camera(loc, lookAt, fov, up);

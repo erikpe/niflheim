@@ -8,13 +8,13 @@ tests:
           args: ["real_include"]
         expect:
           exit_code: 0
-          stdout: "#line 1 \"tests/golden/traci/testcode/a.traci\" 1\n17\n#line 1 \"tests/golden/traci/testcode/b.traci\" 1\n+\n 23\n#line 2 \"tests/golden/traci/testcode/a.traci\" 2\n;\n"
+          stdout: "#line 1 \"tests/golden/traci/testcode/a.traci\" 1\n17\n#line 1 \"tests/golden/traci/testcode/b.traci\" 1\n+\n 23\n#line 4 \"tests/golden/traci/testcode/a.traci\" 2\n;\n"
       - name: "include_guards_prevent_duplicate_content"
         input:
           args: ["guard"]
         expect:
           exit_code: 0
-          stdout: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 1\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n17\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n\n#line 2 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\nVALUE;"
+          stdout: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 1\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n17\n#line 3 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n\n#line 4 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\nVALUE;"
       - name: "fast_lego_macro_true_branch"
         input:
           args: ["fast_on"]
@@ -33,3 +33,9 @@ tests:
         expect:
           exit_code: 0
           stdout: "In file included from tests/golden/traci/lang/preprocessor/pp_missing_root.traci:1:\nIn file: tests/golden/traci/lang/preprocessor/pp_missing_mid.traci:1:0:\nPreprocessor error: Unable to resolve include: 'pp_missing_leaf.traci'\n"
+      - name: "airplane_scene_matches_java_preprocessor_reference"
+        input:
+          args: ["airplane_java_reference"]
+        expect:
+          exit_code: 0
+          stdout_file: "airplane_pp_java_reference.traci"
