@@ -85,6 +85,18 @@ static int rt_small_object_freelist_classify_allocation(
     return 1;
 }
 
+static int rt_small_object_freelist_object_bucket(const RtObjHeader* obj, uint32_t* out_bucket_index) {
+    if (obj == NULL || obj->type == NULL) {
+        return 0;
+    }
+
+    const RtType* type = obj->type;
+    if (!rt_small_object_freelist_type_is_fixed_size(type, obj->size_bytes)) {
+        return 0;
+    }
+    return rt_small_object_freelist_bucket_for_size(obj->size_bytes, out_bucket_index);
+}
+
 static RtObjHeader* rt_small_object_freelist_pop(uint32_t bucket_index) {
     RtSmallObjectFreelistBucketStats* bucket = &g_small_object_freelist_stats.buckets[bucket_index];
     RtSmallObjectFreelistNode* node = g_small_object_freelist_heads[bucket_index];
@@ -102,6 +114,26 @@ static RtObjHeader* rt_small_object_freelist_pop(uint32_t bucket_index) {
     uint64_t total_bytes = RT_SMALL_OBJECT_FREELIST_BUCKET_SIZES[bucket_index];
     memset(node, 0, (size_t)total_bytes);
     return (RtObjHeader*)node;
+}
+
+int rt_gc_try_return_small_object_to_freelist(RtObjHeader* obj) {
+    uint32_t bucket_index = 0u;
+    if (!rt_small_object_freelist_object_bucket(obj, &bucket_index)) {
+        return 0;
+    }
+
+    RtSmallObjectFreelistBucketStats* bucket = &g_small_object_freelist_stats.buckets[bucket_index];
+    if (bucket->retained_objects >= RT_SMALL_OBJECT_FREELIST_RETAINED_PER_BUCKET_LIMIT) {
+        return 0;
+    }
+
+    RtSmallObjectFreelistNode* node = (RtSmallObjectFreelistNode*)obj;
+    node->next = g_small_object_freelist_heads[bucket_index];
+    g_small_object_freelist_heads[bucket_index] = node;
+
+    rt_counter_inc_u64(&bucket->returned_objects);
+    rt_counter_inc_u64(&bucket->retained_objects);
+    return 1;
 }
 
 static RtObjHeader* rt_alloc_zeroed_fallback(uint64_t total_bytes) {

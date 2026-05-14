@@ -1,6 +1,6 @@
 # GC And Allocation Fast-Path Plan
 
-Status: PR 5 implemented.
+Status: PR 6 implemented.
 
 This document turns the next recommended runtime work into an ordered implementation plan. The goal is not to tune one benchmark program by hand. The goal is to make the compiler plus runtime produce and execute more efficient code for allocation-heavy, reference-heavy programs.
 
@@ -451,15 +451,30 @@ perf report --stdio --no-children --sort symbol -i /tmp/solver2_small_freelist.d
 
 ### Checklist
 
-- [ ] Implement freelist return path in sweep.
-- [ ] Add per-bucket retention caps.
-- [ ] Release retained freelist memory in reset.
-- [ ] Add tests for reuse across collections.
-- [ ] Add tests for cap behavior.
-- [ ] Add tests for unsupported-size fallback.
-- [ ] Run runtime suite.
-- [ ] Run golden runtime/AoC coverage.
-- [ ] Re-profile and record allocator hotspot deltas.
+- [x] Implement freelist return path in sweep.
+- [x] Add per-bucket retention caps.
+- [x] Release retained freelist memory in reset.
+- [x] Add tests for reuse across collections.
+- [x] Add tests for cap behavior.
+- [x] Add tests for unsupported-size fallback.
+- [x] Run runtime suite.
+- [x] Run golden runtime/AoC coverage.
+- [x] Re-profile and record allocator hotspot deltas.
+
+### PR 6 Benchmark Note
+
+Latest local no-runtime-trace `solver2` run after PR 6:
+
+- elapsed: `1.62s`
+- user: `1.59s`
+- IPC: `3.02`
+- branch misses: `0.65%`
+- L1D miss rate: `4.07%`
+- samples: `6,441`
+- lost samples: `0`
+- `rt_gc_try_return_small_object_to_freelist` appears at `1.53%`, which is the new sweep retention work
+- libc allocator costs remain visible: `_int_malloc` `6.61%`, `__libc_calloc` `3.64%`, `malloc_consolidate` `2.93%`, `_int_free` `2.49%`
+- main remaining buckets are still GC traversal, Map/Str operations, and variable/unsupported allocation paths rather than tracked-set maintenance
 
 ## Validation Matrix
 

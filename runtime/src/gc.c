@@ -298,7 +298,9 @@ static uint64_t rt_sweep_unmarked(void) {
         if (rt_gc_should_remove_tracked_set_entry()) {
             rt_gc_tracked_set_remove(obj);
         }
-        free(obj);
+        if (!rt_gc_try_return_small_object_to_freelist(obj)) {
+            free(obj);
+        }
         rt_gc_release_tracked_object_node(node);
         if (g_tracked_object_count > 0) {
             g_tracked_object_count--;

@@ -99,6 +99,18 @@ static LeafObj* alloc_leaf(uint64_t value) {
 }
 
 
+static RtSmallObjectFreelistBucketStats small_object_bucket_stats(uint64_t object_size_bytes) {
+    RtSmallObjectFreelistStats stats = rt_gc_get_small_object_freelist_stats();
+    for (uint64_t index = 0; index < stats.bucket_count; index++) {
+        if (stats.buckets[index].object_size_bytes == object_size_bytes) {
+            return stats.buckets[index];
+        }
+    }
+    fail("small-object freelist bucket should exist");
+    return (RtSmallObjectFreelistBucketStats){0};
+}
+
+
 static void test_no_roots_reclaim(void) {
     for (uint64_t i = 0; i < 200; i++) {
         alloc_leaf(i);
@@ -345,6 +357,41 @@ static void test_repeated_collect_reuses_tracking_nodes(void) {
 }
 
 
+static void test_repeated_collect_reuses_small_object_freelists(void) {
+    enum {
+        ROUND_ALLOCATIONS = 256,
+        ROUNDS = 3,
+    };
+
+    rt_gc_reset_state();
+
+    for (uint64_t round = 0; round < ROUNDS; round++) {
+        for (uint64_t index = 0; index < ROUND_ALLOCATIONS; index++) {
+            alloc_leaf((round * ROUND_ALLOCATIONS) + index);
+        }
+        rt_gc_collect();
+    }
+
+    RtSmallObjectFreelistStats stats = rt_gc_get_small_object_freelist_stats();
+    RtSmallObjectFreelistBucketStats leaf_bucket = small_object_bucket_stats(sizeof(LeafObj));
+    if (leaf_bucket.freelist_hits == 0u) {
+        fail("repeated allocate/collect cycles should reuse retained small objects");
+    }
+    if (stats.fallback_allocations >= (ROUND_ALLOCATIONS * ROUNDS)) {
+        fail("small-object freelist reuse should reduce fallback allocations after the first round");
+    }
+    assert_u64_eq(
+        leaf_bucket.retained_objects,
+        ROUND_ALLOCATIONS,
+        "final collection should retain one round of leaf objects"
+    );
+
+    RtGcStats final_stats = rt_gc_get_stats();
+    assert_u64_eq(final_stats.tracked_object_count, 0, "small-object reuse stress test should end with zero live objects");
+    rt_gc_reset_state();
+}
+
+
 int main(void) {
     rt_init();
 
@@ -359,6 +406,7 @@ int main(void) {
     test_threshold_trigger_under_pressure();
     test_high_churn_stabilizes();
     test_repeated_collect_reuses_tracking_nodes();
+    test_repeated_collect_reuses_small_object_freelists();
 
     rt_shutdown();
     puts("test_gc_stress: ok");

@@ -197,6 +197,11 @@ static void assert_bucket_empty(const RtSmallObjectFreelistBucketStats* bucket, 
 }
 
 
+static Obj32* alloc_obj32(void) {
+    return (Obj32*)alloc_test_obj(&OBJ32_TYPE, sizeof(Obj32));
+}
+
+
 static void test_bucket_table_is_reported(void) {
     RtSmallObjectFreelistStats stats = rt_gc_get_small_object_freelist_stats();
     assert_u64_eq(stats.bucket_count, RT_SMALL_OBJECT_FREELIST_BUCKET_COUNT, "bucket count should be stable");
@@ -249,7 +254,7 @@ static void test_classification_stats_without_reuse(void) {
     assert_u64_eq(stats.eligible_requests, 3u, "supported fixed-size objects should be eligible");
     assert_u64_eq(stats.variable_size_requests, 1u, "variable-size objects should not be eligible");
     assert_u64_eq(stats.unsupported_size_requests, 1u, "unsupported fixed sizes should fall back");
-    assert_u64_eq(stats.fallback_allocations, 5u, "PR 4 should route every allocation through fallback");
+    assert_u64_eq(stats.fallback_allocations, 5u, "unseeded allocations should route through fallback");
 
     const RtSmallObjectFreelistBucketStats* bucket32 = require_bucket(&stats, sizeof(Obj32));
     const RtSmallObjectFreelistBucketStats* bucket40 = require_bucket(&stats, sizeof(Obj40));
@@ -257,10 +262,10 @@ static void test_classification_stats_without_reuse(void) {
     const RtSmallObjectFreelistBucketStats* bucket48 = require_bucket(&stats, 48u);
 
     assert_u64_eq(bucket32->allocation_requests, 1u, "32-byte bucket should count one fixed-size request");
-    assert_u64_eq(bucket32->freelist_hits, 0u, "PR 4 should not have freelist hits");
-    assert_u64_eq(bucket32->freelist_misses, 1u, "eligible PR 4 requests should miss the not-yet-used freelist");
-    assert_u64_eq(bucket32->returned_objects, 0u, "PR 4 should not return objects to freelists");
-    assert_u64_eq(bucket32->retained_objects, 0u, "PR 4 should not retain objects in freelists");
+    assert_u64_eq(bucket32->freelist_hits, 0u, "unseeded first allocation should not have freelist hits");
+    assert_u64_eq(bucket32->freelist_misses, 1u, "unseeded first allocation should miss the freelist");
+    assert_u64_eq(bucket32->returned_objects, 0u, "objects should not return to freelists before collection");
+    assert_u64_eq(bucket32->retained_objects, 0u, "objects should not be retained before collection");
 
     assert_u64_eq(bucket40->allocation_requests, 1u, "40-byte bucket should count one fixed-size request");
     assert_u64_eq(bucket40->freelist_misses, 1u, "40-byte bucket should report the fallback miss");
@@ -273,6 +278,58 @@ static void test_classification_stats_without_reuse(void) {
     rt_gc_collect();
     gc_stats = rt_gc_get_stats();
     assert_u64_eq(gc_stats.tracked_object_count, 0u, "unrooted fallback allocations should still be collectable");
+
+    stats = rt_gc_get_small_object_freelist_stats();
+    bucket32 = require_bucket(&stats, sizeof(Obj32));
+    bucket40 = require_bucket(&stats, sizeof(Obj40));
+    bucket128 = require_bucket(&stats, sizeof(Obj128));
+    assert_u64_eq(bucket32->returned_objects, 1u, "collection should return eligible 32-byte object");
+    assert_u64_eq(bucket32->retained_objects, 1u, "collection should retain eligible 32-byte object");
+    assert_u64_eq(bucket40->returned_objects, 1u, "collection should return eligible 40-byte object");
+    assert_u64_eq(bucket40->retained_objects, 1u, "collection should retain eligible 40-byte object");
+    assert_u64_eq(bucket128->returned_objects, 1u, "collection should return eligible 128-byte object");
+    assert_u64_eq(bucket128->retained_objects, 1u, "collection should retain eligible 128-byte object");
+}
+
+
+static void test_collection_returns_and_reuses_eligible_objects(void) {
+    rt_gc_reset_state();
+
+    Obj32* first = alloc_obj32();
+    Obj136* unsupported = (Obj136*)alloc_test_obj(&OBJ136_TYPE, sizeof(Obj136));
+    Obj32* variable = (Obj32*)alloc_test_obj(&VARIABLE_OBJ32_TYPE, sizeof(Obj32));
+    if (first == NULL || unsupported == NULL || variable == NULL) {
+        fail("test setup allocations should succeed");
+    }
+
+    rt_gc_collect();
+    RtGcStats gc_stats = rt_gc_get_stats();
+    assert_u64_eq(gc_stats.tracked_object_count, 0u, "collection should reclaim all unrooted setup objects");
+
+    RtSmallObjectFreelistStats after_collect = rt_gc_get_small_object_freelist_stats();
+    assert_u64_eq(after_collect.unsupported_size_requests, 1u, "unsupported object should be counted during allocation");
+    assert_u64_eq(after_collect.variable_size_requests, 1u, "variable object should be counted during allocation");
+
+    const RtSmallObjectFreelistBucketStats* bucket32 = require_bucket(&after_collect, sizeof(Obj32));
+    assert_u64_eq(bucket32->returned_objects, 1u, "eligible object should be returned by sweep");
+    assert_u64_eq(bucket32->retained_objects, 1u, "eligible object should be retained after sweep");
+
+    const RtSmallObjectFreelistBucketStats* bucket128 = require_bucket(&after_collect, sizeof(Obj128));
+    assert_bucket_empty(bucket128, "unsupported and variable-size objects should not populate supported buckets");
+
+    Obj32* second = alloc_obj32();
+    if (second != first) {
+        fail("second eligible allocation should reuse the object returned by collection");
+    }
+    assert_u64_eq(second->value, 0u, "reused object should be zeroed before header initialization");
+
+    RtSmallObjectFreelistStats after_reuse = rt_gc_get_small_object_freelist_stats();
+    bucket32 = require_bucket(&after_reuse, sizeof(Obj32));
+    assert_u64_eq(bucket32->freelist_hits, 1u, "reuse allocation should count one freelist hit");
+    assert_u64_eq(bucket32->retained_objects, 0u, "reuse allocation should consume the retained object");
+    assert_u64_eq(after_reuse.fallback_allocations, 3u, "reuse allocation should not add a fallback allocation");
+
+    rt_gc_collect();
 }
 
 
@@ -329,6 +386,55 @@ static void test_seeded_freelist_hit_zeroes_block_and_initializes_header(void) {
 }
 
 
+static void test_retention_cap_is_honored(void) {
+    rt_gc_reset_state();
+
+    for (uint64_t index = 0u; index < RT_SMALL_OBJECT_FREELIST_RETAINED_PER_BUCKET_LIMIT; index++) {
+        if (rt_dbg_seed_small_object_freelist(sizeof(Obj32), 0x5Au) == NULL) {
+            fail("test seed should fill the supported bucket up to its cap");
+        }
+    }
+
+    RtSmallObjectFreelistStats full_stats = rt_gc_get_small_object_freelist_stats();
+    const RtSmallObjectFreelistBucketStats* bucket32 = require_bucket(&full_stats, sizeof(Obj32));
+    assert_u64_eq(
+        bucket32->retained_objects,
+        RT_SMALL_OBJECT_FREELIST_RETAINED_PER_BUCKET_LIMIT,
+        "test seed should fill the bucket to its retention cap"
+    );
+
+    Obj32* overflow = (Obj32*)calloc(1u, sizeof(Obj32));
+    if (overflow == NULL) {
+        fail("manual cap test allocation failed");
+    }
+    overflow->header.type = &OBJ32_TYPE;
+    overflow->header.size_bytes = sizeof(Obj32);
+
+    if (rt_gc_try_return_small_object_to_freelist(&overflow->header)) {
+        fail("full bucket should reject additional retained objects");
+    }
+    free(overflow);
+
+    RtSmallObjectFreelistStats after_overflow = rt_gc_get_small_object_freelist_stats();
+    bucket32 = require_bucket(&after_overflow, sizeof(Obj32));
+    assert_u64_eq(
+        bucket32->retained_objects,
+        RT_SMALL_OBJECT_FREELIST_RETAINED_PER_BUCKET_LIMIT,
+        "rejected object should not exceed the retention cap"
+    );
+    assert_u64_eq(
+        bucket32->returned_objects,
+        RT_SMALL_OBJECT_FREELIST_RETAINED_PER_BUCKET_LIMIT,
+        "rejected object should not count as returned"
+    );
+
+    rt_gc_reset_state();
+    RtSmallObjectFreelistStats after_reset = rt_gc_get_small_object_freelist_stats();
+    bucket32 = require_bucket(&after_reset, sizeof(Obj32));
+    assert_u64_eq(bucket32->retained_objects, 0u, "reset should release retained cap-test objects");
+}
+
+
 static void test_stats_reset_with_gc_state(void) {
     rt_gc_reset_state();
 
@@ -356,7 +462,9 @@ int main(void) {
 
     test_bucket_table_is_reported();
     test_classification_stats_without_reuse();
+    test_collection_returns_and_reuses_eligible_objects();
     test_seeded_freelist_hit_zeroes_block_and_initializes_header();
+    test_retention_cap_is_honored();
     test_stats_reset_with_gc_state();
 
     rt_shutdown();

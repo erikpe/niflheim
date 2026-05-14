@@ -11,6 +11,7 @@ typedef struct RtObjHeader RtObjHeader;
 
 enum {
     RT_SMALL_OBJECT_FREELIST_BUCKET_COUNT = 7u,
+    RT_SMALL_OBJECT_FREELIST_RETAINED_PER_BUCKET_LIMIT = 4096u,
 };
 
 #ifndef NIF_GC_VALIDATE_TRACKED_SET
@@ -67,6 +68,7 @@ void rt_gc_collect(void);
 
 void rt_gc_maybe_collect(uint64_t upcoming_bytes);
 void rt_gc_track_allocation(RtObjHeader* obj);
+int rt_gc_try_return_small_object_to_freelist(RtObjHeader* obj);
 void rt_gc_reset_tracking_pool_stats(void);
 void rt_gc_reset_small_object_freelist_stats(void);
 void rt_gc_reset_small_object_freelist_state(void);
