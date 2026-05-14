@@ -1,6 +1,6 @@
 # GC And Allocation Fast-Path Plan
 
-Status: PR 3 implemented.
+Status: PR 4 implemented.
 
 This document turns the next recommended runtime work into an ordered implementation plan. The goal is not to tune one benchmark program by hand. The goal is to make the compiler plus runtime produce and execute more efficient code for allocation-heavy, reference-heavy programs.
 
@@ -330,12 +330,12 @@ make -C runtime test-all
 
 ### Checklist
 
-- [ ] Add size-class table.
-- [ ] Add eligibility helper for fixed-size GC objects.
-- [ ] Add freelist stats structure.
-- [ ] Add stats reset path.
-- [ ] Add focused runtime test for classification and stats.
-- [ ] Keep allocation behavior unchanged.
+- [x] Add size-class table.
+- [x] Add eligibility helper for fixed-size GC objects.
+- [x] Add freelist stats structure.
+- [x] Add stats reset path.
+- [x] Add focused runtime test for classification and stats.
+- [x] Keep allocation behavior unchanged.
 
 ## PR 5: Allocate Small Objects From Freelists
 

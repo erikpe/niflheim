@@ -199,7 +199,9 @@ void rt_gc_maybe_collect(uint64_t upcoming_bytes);
 void rt_gc_track_allocation(RtObjHeader* obj);
 RtGcStats rt_gc_get_stats(void);
 RtGcTrackingPoolStats rt_gc_get_tracking_pool_stats(void);
+RtSmallObjectFreelistStats rt_gc_get_small_object_freelist_stats(void);
 void rt_gc_reset_tracking_pool_stats(void);
+void rt_gc_reset_small_object_freelist_stats(void);
 void rt_gc_reset_state(void);
 
 // Arrays (`array.h`)

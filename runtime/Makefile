@@ -41,6 +41,8 @@ TRACKED_SET_PROBE_CLUSTERS_BIN := $(TEST_DIR)/test_tracked_set_probe_clusters
 TRACKED_SET_PROBE_CLUSTERS_SRC := $(TEST_DIR)/test_tracked_set_probe_clusters.c
 GC_TRACKING_POOL_BIN := $(TEST_DIR)/test_gc_tracking_pool
 GC_TRACKING_POOL_SRC := $(TEST_DIR)/test_gc_tracking_pool.c
+SMALL_OBJECT_FREELIST_BIN := $(TEST_DIR)/test_small_object_freelist
+SMALL_OBJECT_FREELIST_SRC := $(TEST_DIR)/test_small_object_freelist.c
 MATH_RUNTIME_BIN := $(TEST_DIR)/test_math_runtime
 MATH_RUNTIME_SRC := $(TEST_DIR)/test_math_runtime.c
 NEGATIVE_DRIVER := $(TEST_DIR)/run_negative_driver.sh
@@ -100,6 +102,9 @@ $(TRACKED_SET_PROBE_CLUSTERS_BIN): $(TRACKED_SET_PROBE_CLUSTERS_SRC) $(RUNTIME_S
 
 $(GC_TRACKING_POOL_BIN): $(GC_TRACKING_POOL_SRC) $(RUNTIME_SRC) include/runtime.h include/gc.h
 	$(CC) $(CFLAGS) -o $@ $(GC_TRACKING_POOL_SRC) $(RUNTIME_SRC) $(LDLIBS)
+
+$(SMALL_OBJECT_FREELIST_BIN): $(SMALL_OBJECT_FREELIST_SRC) $(RUNTIME_SRC) include/runtime.h include/gc.h
+	$(CC) $(CFLAGS) -o $@ $(SMALL_OBJECT_FREELIST_SRC) $(RUNTIME_SRC) $(LDLIBS)
 
 $(MATH_RUNTIME_BIN): $(MATH_RUNTIME_SRC) $(RUNTIME_SRC) include/runtime.h include/math_rt.h
 	$(CC) $(CFLAGS) -o $@ $(MATH_RUNTIME_SRC) $(RUNTIME_SRC) $(LDLIBS)
@@ -167,6 +172,9 @@ test-tracked-set-probe-clusters: $(TRACKED_SET_PROBE_CLUSTERS_BIN)
 test-gc-tracking-pool: $(GC_TRACKING_POOL_BIN)
 	./$(GC_TRACKING_POOL_BIN)
 
+test-small-object-freelist: $(SMALL_OBJECT_FREELIST_BIN)
+	./$(SMALL_OBJECT_FREELIST_BIN)
+
 test-math-runtime: $(MATH_RUNTIME_BIN)
 	./$(MATH_RUNTIME_BIN)
 
@@ -177,7 +185,7 @@ check-no-debug-symbols: libruntime.a
 		exit 1; \
 	fi
 
-test-all: test test-positive test-negative test-array test-inline-parity test-array-negative test-interface-metadata test-interface-casts test-interface-casts-negative test-interface-dispatch test-interface-dispatch-negative test-tracked-set-tombstones test-tracked-set-probe-behavior test-tracked-set-gc-integration test-tracked-set-occupancy-rebuild test-tracked-set-probe-clusters test-gc-tracking-pool test-math-runtime check-no-debug-symbols
+test-all: test test-positive test-negative test-array test-inline-parity test-array-negative test-interface-metadata test-interface-casts test-interface-casts-negative test-interface-dispatch test-interface-dispatch-negative test-tracked-set-tombstones test-tracked-set-probe-behavior test-tracked-set-gc-integration test-tracked-set-occupancy-rebuild test-tracked-set-probe-clusters test-gc-tracking-pool test-small-object-freelist test-math-runtime check-no-debug-symbols
 
 clean:
-	rm -f $(RUNTIME_OBJ) src/runtime_dbg.o libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(ROOT_INLINE_PARITY_BIN) $(INTERFACE_METADATA_BIN) $(INTERFACE_CASTS_BIN) $(INTERFACE_CASTS_NEGATIVE_BIN) $(INTERFACE_DISPATCH_BIN) $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(TRACKED_SET_TOMBSTONES_BIN) $(TRACKED_SET_PROBE_BEHAVIOR_BIN) $(TRACKED_SET_GC_INTEGRATION_BIN) $(TRACKED_SET_OCCUPANCY_REBUILD_BIN) $(TRACKED_SET_PROBE_CLUSTERS_BIN) $(GC_TRACKING_POOL_BIN) $(MATH_RUNTIME_BIN)
+	rm -f $(RUNTIME_OBJ) src/runtime_dbg.o libruntime.a $(GC_STRESS_BIN) $(ROOTS_POSITIVE_BIN) $(ROOTS_NEGATIVE_BIN) $(ARRAY_RUNTIME_BIN) $(ARRAY_NEGATIVE_BIN) $(ROOT_INLINE_PARITY_BIN) $(INTERFACE_METADATA_BIN) $(INTERFACE_CASTS_BIN) $(INTERFACE_CASTS_NEGATIVE_BIN) $(INTERFACE_DISPATCH_BIN) $(INTERFACE_DISPATCH_NEGATIVE_BIN) $(TRACKED_SET_TOMBSTONES_BIN) $(TRACKED_SET_PROBE_BEHAVIOR_BIN) $(TRACKED_SET_GC_INTEGRATION_BIN) $(TRACKED_SET_OCCUPANCY_REBUILD_BIN) $(TRACKED_SET_PROBE_CLUSTERS_BIN) $(GC_TRACKING_POOL_BIN) $(SMALL_OBJECT_FREELIST_BIN) $(MATH_RUNTIME_BIN)

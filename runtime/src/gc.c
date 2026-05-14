@@ -407,6 +407,7 @@ void rt_gc_reset_state(void) {
     g_next_gc_threshold = RT_GC_MIN_THRESHOLD_BYTES;
     g_tracked_object_count = 0;
     rt_gc_reset_tracking_pool_stats();
+    rt_gc_reset_small_object_freelist_stats();
     rt_gc_trace_reset();
 }
 

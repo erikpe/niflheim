@@ -11,6 +11,70 @@ enum {
 };
 
 static RtThreadState g_thread_state = {0};
+static RtSmallObjectFreelistStats g_small_object_freelist_stats = {0};
+
+static const uint64_t RT_SMALL_OBJECT_FREELIST_BUCKET_SIZES[RT_SMALL_OBJECT_FREELIST_BUCKET_COUNT] = {
+    32u,
+    40u,
+    48u,
+    64u,
+    80u,
+    96u,
+    128u,
+};
+
+static void rt_counter_inc_u64(uint64_t* value) {
+    if (*value != UINT64_MAX) {
+        (*value)++;
+    }
+}
+
+static void rt_small_object_freelist_fill_bucket_sizes(RtSmallObjectFreelistStats* stats) {
+    stats->bucket_count = RT_SMALL_OBJECT_FREELIST_BUCKET_COUNT;
+    for (uint32_t index = 0u; index < RT_SMALL_OBJECT_FREELIST_BUCKET_COUNT; index++) {
+        stats->buckets[index].object_size_bytes = RT_SMALL_OBJECT_FREELIST_BUCKET_SIZES[index];
+    }
+}
+
+static int rt_small_object_freelist_bucket_for_size(uint64_t total_bytes, uint32_t* out_index) {
+    for (uint32_t index = 0u; index < RT_SMALL_OBJECT_FREELIST_BUCKET_COUNT; index++) {
+        if (RT_SMALL_OBJECT_FREELIST_BUCKET_SIZES[index] == total_bytes) {
+            *out_index = index;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int rt_small_object_freelist_type_is_fixed_size(const RtType* type, uint64_t total_bytes) {
+    if ((type->flags & RT_TYPE_FLAG_VARIABLE_SIZE) != 0u) {
+        return 0;
+    }
+    return type->fixed_size_bytes == total_bytes;
+}
+
+static void rt_small_object_freelist_record_fallback_allocation(const RtType* type, uint64_t total_bytes) {
+    rt_counter_inc_u64(&g_small_object_freelist_stats.fallback_allocations);
+
+    if ((type->flags & RT_TYPE_FLAG_VARIABLE_SIZE) != 0u) {
+        rt_counter_inc_u64(&g_small_object_freelist_stats.variable_size_requests);
+        return;
+    }
+
+    uint32_t bucket_index = 0u;
+    if (
+        !rt_small_object_freelist_type_is_fixed_size(type, total_bytes)
+        || !rt_small_object_freelist_bucket_for_size(total_bytes, &bucket_index)
+    ) {
+        rt_counter_inc_u64(&g_small_object_freelist_stats.unsupported_size_requests);
+        return;
+    }
+
+    RtSmallObjectFreelistBucketStats* bucket = &g_small_object_freelist_stats.buckets[bucket_index];
+    rt_counter_inc_u64(&g_small_object_freelist_stats.eligible_requests);
+    rt_counter_inc_u64(&bucket->allocation_requests);
+    rt_counter_inc_u64(&bucket->freelist_misses);
+}
 
 static const char* rt_type_name_or_unknown(const RtType* type) {
     if (type == NULL || type->debug_name == NULL) {
@@ -47,6 +111,16 @@ static RtObjHeader* rt_try_alloc_zeroed(uint64_t total_bytes) {
 
     rt_gc_collect();
     return (RtObjHeader*)calloc(1, (size_t)total_bytes);
+}
+
+RtSmallObjectFreelistStats rt_gc_get_small_object_freelist_stats(void) {
+    RtSmallObjectFreelistStats stats = g_small_object_freelist_stats;
+    rt_small_object_freelist_fill_bucket_sizes(&stats);
+    return stats;
+}
+
+void rt_gc_reset_small_object_freelist_stats(void) {
+    g_small_object_freelist_stats = (RtSmallObjectFreelistStats){0};
 }
 
 static void rt_trace_release_stack(void) {
@@ -141,6 +215,7 @@ void* rt_alloc_obj(RtThreadState* ts, const RtType* type, uint64_t payload_bytes
     }
 
     const uint64_t total = rt_checked_total_size(payload_bytes);
+    rt_small_object_freelist_record_fallback_allocation(type, total);
     rt_gc_maybe_collect(total);
 
     RtObjHeader* obj = rt_try_alloc_zeroed(total);
