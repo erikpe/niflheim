@@ -69,6 +69,7 @@ void rt_gc_maybe_collect(uint64_t upcoming_bytes);
 void rt_gc_track_allocation(RtObjHeader* obj);
 void rt_gc_reset_tracking_pool_stats(void);
 void rt_gc_reset_small_object_freelist_stats(void);
+void rt_gc_reset_small_object_freelist_state(void);
 void rt_gc_reset_state(void);
 
 #ifdef __cplusplus

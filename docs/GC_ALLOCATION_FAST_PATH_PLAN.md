@@ -1,6 +1,6 @@
 # GC And Allocation Fast-Path Plan
 
-Status: PR 4 implemented.
+Status: PR 5 implemented.
 
 This document turns the next recommended runtime work into an ordered implementation plan. The goal is not to tune one benchmark program by hand. The goal is to make the compiler plus runtime produce and execute more efficient code for allocation-heavy, reference-heavy programs.
 
@@ -382,12 +382,12 @@ make -C runtime test-all
 
 ### Checklist
 
-- [ ] Implement freelist pop path.
-- [ ] Preserve `calloc` fallback path.
-- [ ] Preserve collect-and-retry behavior.
-- [ ] Verify reused blocks are zeroed before header initialization.
-- [ ] Add tests for hit, miss, fallback, and zeroing behavior.
-- [ ] Run runtime and golden tests.
+- [x] Implement freelist pop path.
+- [x] Preserve `calloc` fallback path.
+- [x] Preserve collect-and-retry behavior.
+- [x] Verify reused blocks are zeroed before header initialization.
+- [x] Add tests for hit, miss, fallback, and zeroing behavior.
+- [x] Run runtime and golden tests.
 
 ## PR 6: Return Swept Small Objects To Bounded Freelists
 

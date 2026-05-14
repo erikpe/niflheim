@@ -17,6 +17,10 @@ void* rt_dbg_root_slot_load(const RtRootFrame* frame, uint32_t slot_index);
 void rt_dbg_push_roots(RtThreadState* ts, RtRootFrame* frame);
 void rt_dbg_pop_roots(RtThreadState* ts);
 
+#ifdef NIF_RUNTIME_TESTING
+void* rt_dbg_seed_small_object_freelist(uint64_t object_size_bytes, unsigned char fill_byte);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

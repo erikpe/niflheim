@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include "runtime_dbg.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -230,7 +231,7 @@ static void test_classification_stats_without_reuse(void) {
     Obj32* variable_obj32 = (Obj32*)alloc_test_obj(&VARIABLE_OBJ32_TYPE, sizeof(Obj32));
 
     if (obj32 == NULL || obj40 == NULL || obj128 == NULL || obj136 == NULL || variable_obj32 == NULL) {
-        fail("allocation should keep using the existing fallback allocator");
+        fail("unseeded allocation should keep using the fallback allocator");
     }
     if (
         obj32 == (Obj32*)obj40
@@ -238,7 +239,7 @@ static void test_classification_stats_without_reuse(void) {
         || obj32 == (Obj32*)obj136
         || obj32 == variable_obj32
     ) {
-        fail("PR 4 should not reuse objects yet");
+        fail("unseeded allocation should not reuse unrelated objects");
     }
 
     RtGcStats gc_stats = rt_gc_get_stats();
@@ -275,6 +276,59 @@ static void test_classification_stats_without_reuse(void) {
 }
 
 
+static void test_seeded_freelist_hit_zeroes_block_and_initializes_header(void) {
+    rt_gc_reset_state();
+
+    void* unsupported_seed = rt_dbg_seed_small_object_freelist(sizeof(Obj136), 0xCCu);
+    if (unsupported_seed != NULL) {
+        fail("unsupported object sizes should not be seedable into a freelist bucket");
+    }
+
+    Obj32* seeded = (Obj32*)rt_dbg_seed_small_object_freelist(sizeof(Obj32), 0xA5u);
+    if (seeded == NULL) {
+        fail("supported object size should be seedable into a freelist bucket");
+    }
+
+    RtSmallObjectFreelistStats before_alloc = rt_gc_get_small_object_freelist_stats();
+    const RtSmallObjectFreelistBucketStats* before_bucket32 = require_bucket(&before_alloc, sizeof(Obj32));
+    assert_u64_eq(before_bucket32->returned_objects, 1u, "test seed should count as a returned object");
+    assert_u64_eq(before_bucket32->retained_objects, 1u, "test seed should retain one object");
+
+    Obj32* obj = (Obj32*)alloc_test_obj(&OBJ32_TYPE, sizeof(Obj32));
+    if (obj != seeded) {
+        fail("eligible allocation should pop a seeded block from the freelist");
+    }
+
+    if (obj->header.type != &OBJ32_TYPE) {
+        fail("freelist hit should still receive normal header type initialization");
+    }
+    assert_u64_eq(obj->header.size_bytes, sizeof(Obj32), "freelist hit should receive normal size initialization");
+    assert_u64_eq(obj->header.gc_flags, 0u, "freelist hit should receive normal GC flag initialization");
+    assert_u64_eq(obj->header.reserved0, 0u, "freelist hit should receive normal reserved-field initialization");
+    assert_u64_eq(obj->value, 0u, "freelist hit should be zeroed before header initialization");
+
+    RtSmallObjectFreelistStats after_alloc = rt_gc_get_small_object_freelist_stats();
+    assert_u64_eq(after_alloc.eligible_requests, 1u, "freelist hit should count as an eligible request");
+    assert_u64_eq(after_alloc.fallback_allocations, 0u, "freelist hit should not call fallback allocation");
+    assert_u64_eq(after_alloc.variable_size_requests, 0u, "freelist hit test should not count variable-size requests");
+    assert_u64_eq(after_alloc.unsupported_size_requests, 0u, "unsupported test seeding should not count as allocation");
+
+    const RtSmallObjectFreelistBucketStats* bucket32 = require_bucket(&after_alloc, sizeof(Obj32));
+    assert_u64_eq(bucket32->allocation_requests, 1u, "freelist hit should count one bucket request");
+    assert_u64_eq(bucket32->freelist_hits, 1u, "freelist hit should increment bucket hits");
+    assert_u64_eq(bucket32->freelist_misses, 0u, "freelist hit should not increment bucket misses");
+    assert_u64_eq(bucket32->returned_objects, 1u, "freelist hit should preserve returned-object history");
+    assert_u64_eq(bucket32->retained_objects, 0u, "freelist hit should consume the retained object");
+
+    RtGcStats gc_stats = rt_gc_get_stats();
+    assert_u64_eq(gc_stats.tracked_object_count, 1u, "freelist-hit allocation should still be tracked by the GC");
+
+    rt_gc_collect();
+    gc_stats = rt_gc_get_stats();
+    assert_u64_eq(gc_stats.tracked_object_count, 0u, "unrooted freelist-hit allocation should still be collectable");
+}
+
+
 static void test_stats_reset_with_gc_state(void) {
     rt_gc_reset_state();
 
@@ -302,6 +356,7 @@ int main(void) {
 
     test_bucket_table_is_reported();
     test_classification_stats_without_reuse();
+    test_seeded_freelist_hit_zeroes_block_and_initializes_header();
     test_stats_reset_with_gc_state();
 
     rt_shutdown();

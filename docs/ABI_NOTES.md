@@ -202,6 +202,7 @@ RtGcTrackingPoolStats rt_gc_get_tracking_pool_stats(void);
 RtSmallObjectFreelistStats rt_gc_get_small_object_freelist_stats(void);
 void rt_gc_reset_tracking_pool_stats(void);
 void rt_gc_reset_small_object_freelist_stats(void);
+void rt_gc_reset_small_object_freelist_state(void);
 void rt_gc_reset_state(void);
 
 // Arrays (`array.h`)
