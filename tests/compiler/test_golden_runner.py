@@ -162,6 +162,39 @@ def test_discover_tests_parses_run_work_dir_relative_to_golden_root(
     assert tests[0].runs[1].work_dir is None
 
 
+def test_discover_tests_parses_expected_output_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    golden_root = tmp_path / "golden"
+    _write(golden_root / "suite" / "test_alpha.nif", "fn main() -> i64 { return 0; }\n")
+    _write(golden_root / "suite" / "expected_dump.txt", "dump contents\n")
+    _write(
+        golden_root / "suite" / "test_alpha_spec.yaml",
+        "tests:\n"
+        "  - mode: run\n"
+        "    name: alpha\n"
+        "    src_file: test_alpha.nif\n"
+        "    runs:\n"
+        "      - name: writes_files\n"
+        "        input:\n"
+        "          args: [\"--dump\", \"{tmp:dump}\", \"--log\", \"{tmp:log}\"]\n"
+        "        expect:\n"
+        "          output_files:\n"
+        "            - tmp: dump\n"
+        "              expect_file: expected_dump.txt\n"
+        "            - tmp: log\n"
+        "              expect: \"123123\"\n",
+    )
+
+    monkeypatch.setattr(runner, "GOLDEN_ROOT", golden_root)
+
+    tests = runner._discover_tests(None)
+
+    output_files = tests[0].runs[0].expect.output_files
+    assert output_files == [
+        runner.OutputFileExpect(tmp="dump", expected="dump contents\n"),
+        runner.OutputFileExpect(tmp="log", expected="123123"),
+    ]
+
+
 def test_discover_tests_rejects_run_work_dir_outside_golden_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -448,6 +481,85 @@ def test_execute_run_defaults_to_repo_root_work_dir(tmp_path: Path, monkeypatch:
 
     assert result.ok is True
     assert captured["cwd"] == repo_root
+
+
+def test_execute_run_substitutes_tmp_paths_checks_output_files_and_cleans_up(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    build_root = repo_root / "build" / "golden"
+    monkeypatch.setattr(runner, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(runner, "BUILD_ROOT", build_root)
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        dump_path = Path(cmd[2])
+        log_path = Path(cmd[4])
+        dump_path.write_text("dump contents\n", encoding="utf-8")
+        log_path.write_text("123123", encoding="utf-8")
+        captured["cmd"] = cmd
+        captured["stdin"] = kwargs["input"]
+        captured["dump_path"] = dump_path
+        captured["log_path"] = log_path
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(runner.subprocess, "run", _fake_run)
+
+    run_case = runner.RunCase(
+        name="writes_files",
+        run_input=runner.RunInput(args=["--dump", "{tmp:dump}", "--log", "{tmp:log}"], stdin="dump={tmp:dump}"),
+        expect=runner.RunExpect(
+            exit_code=0,
+            stdout="",
+            stderr=None,
+            panic=None,
+            output_files=[
+                runner.OutputFileExpect(tmp="dump", expected="dump contents\n"),
+                runner.OutputFileExpect(tmp="log", expected="123123"),
+            ],
+        ),
+    )
+
+    result = runner._execute_run(repo_root / "build" / "case", run_case)
+
+    assert result.ok is True
+    cmd = captured["cmd"]
+    assert isinstance(cmd, list)
+    assert cmd[1:] == ["--dump", str(captured["dump_path"]), "--log", str(captured["log_path"])]
+    assert captured["stdin"] == f"dump={captured['dump_path']}"
+    dump_path = captured["dump_path"]
+    assert isinstance(dump_path, Path)
+    assert not dump_path.parent.exists()
+
+
+def test_execute_run_reports_missing_expected_output_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo_root = tmp_path / "repo"
+    build_root = repo_root / "build" / "golden"
+    monkeypatch.setattr(runner, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(runner, "BUILD_ROOT", build_root)
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(runner.subprocess, "run", _fake_run)
+
+    run_case = runner.RunCase(
+        name="missing_file",
+        run_input=runner.RunInput(args=["{tmp:actual}"], stdin=None),
+        expect=runner.RunExpect(
+            exit_code=0,
+            stdout="",
+            stderr=None,
+            panic=None,
+            output_files=[runner.OutputFileExpect(tmp="actual", expected="contents")],
+        ),
+    )
+
+    result = runner._execute_run(repo_root / "build" / "case", run_case)
+
+    assert result.ok is False
+    assert "output file 'actual' was not created" in result.details
 
 
 def test_main_prints_one_row_per_spec_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:

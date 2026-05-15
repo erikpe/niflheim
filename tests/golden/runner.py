@@ -7,7 +7,8 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -19,6 +20,8 @@ BUILD_ROOT = REPO_ROOT / "build" / "golden"
 BUILD_CASES_DIRNAME = "__cases__"
 BUILD_RUNTIME_DIRNAME = "__runtime__"
 PREBUILT_RUNTIME_ENV_VAR = "NIF_PREBUILT_RUNTIME"
+TMP_PLACEHOLDER_RE = re.compile(r"\{tmp:([A-Za-z0-9_.-]+)\}")
+TMP_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 @dataclass(frozen=True)
@@ -28,11 +31,18 @@ class RunInput:
 
 
 @dataclass(frozen=True)
+class OutputFileExpect:
+    tmp: str
+    expected: str
+
+
+@dataclass(frozen=True)
 class RunExpect:
     exit_code: int | None
     stdout: str | None
     stderr: str | None
     panic: str | None
+    output_files: list[OutputFileExpect] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -108,6 +118,11 @@ def _read_text_file(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _validate_tmp_name(name: str, label: str) -> None:
+    if not TMP_NAME_RE.fullmatch(name):
+        raise ValueError(f"{label} must contain only letters, digits, '_', '.', or '-'")
+
+
 def _parse_input(raw: object, *, spec_path: Path, run_name: str) -> RunInput:
     if raw is None:
         return RunInput(args=[], stdin=None)
@@ -137,6 +152,47 @@ def _parse_input(raw: object, *, spec_path: Path, run_name: str) -> RunInput:
         return RunInput(args=args, stdin=_read_text_file(stdin_path))
 
     return RunInput(args=args, stdin=None)
+
+
+def _parse_output_files(raw: object, *, spec_path: Path, run_name: str) -> list[OutputFileExpect]:
+    if raw is None:
+        return []
+
+    _require_type(raw, list, f"{spec_path}: run '{run_name}' expect.output_files")
+    files_raw: list[object] = raw  # type: ignore[assignment]
+    output_files: list[OutputFileExpect] = []
+    names: set[str] = set()
+    for index, file_raw in enumerate(files_raw):
+        _require_type(file_raw, dict, f"{spec_path}: run '{run_name}' expect.output_files[{index}]")
+        file_obj: dict[str, object] = file_raw  # type: ignore[assignment]
+
+        tmp_raw = file_obj.get("tmp")
+        _require_type(tmp_raw, str, f"{spec_path}: run '{run_name}' expect.output_files[{index}].tmp")
+        _validate_tmp_name(tmp_raw, f"{spec_path}: run '{run_name}' expect.output_files[{index}].tmp")
+        if tmp_raw in names:
+            raise ValueError(f"{spec_path}: run '{run_name}' duplicate output file tmp '{tmp_raw}'")
+        names.add(tmp_raw)
+
+        expect_raw = file_obj.get("expect")
+        expect_file_raw = file_obj.get("expect_file")
+        if expect_raw is not None and expect_file_raw is not None:
+            raise ValueError(
+                f"{spec_path}: run '{run_name}' expect.output_files[{index}].expect "
+                "and expect_file are mutually exclusive"
+            )
+        if expect_raw is None and expect_file_raw is None:
+            raise ValueError(f"{spec_path}: run '{run_name}' expect.output_files[{index}] missing expect or expect_file")
+
+        if expect_raw is not None:
+            _require_type(expect_raw, str, f"{spec_path}: run '{run_name}' expect.output_files[{index}].expect")
+            expected = expect_raw
+        else:
+            _require_type(expect_file_raw, str, f"{spec_path}: run '{run_name}' expect.output_files[{index}].expect_file")
+            expected = _read_text_file((spec_path.parent / expect_file_raw).resolve())
+
+        output_files.append(OutputFileExpect(tmp=tmp_raw, expected=expected))
+
+    return output_files
 
 
 def _parse_expect(raw: object, *, spec_path: Path, run_name: str) -> RunExpect:
@@ -178,7 +234,9 @@ def _parse_expect(raw: object, *, spec_path: Path, run_name: str) -> RunExpect:
     if panic_raw is not None:
         _require_type(panic_raw, str, f"{spec_path}: run '{run_name}' expect.panic")
 
-    return RunExpect(exit_code=exit_code_raw, stdout=stdout, stderr=stderr, panic=panic_raw)
+    output_files = _parse_output_files(expect_obj.get("output_files"), spec_path=spec_path, run_name=run_name)
+
+    return RunExpect(exit_code=exit_code_raw, stdout=stdout, stderr=stderr, panic=panic_raw, output_files=output_files)
 
 
 def _resolve_path_relative_to_spec(spec_path: Path, raw_path: str, label: str) -> Path:
@@ -493,12 +551,64 @@ def _append_text_diff(errors: list[str], *, label: str, expected: str, actual: s
         errors.append(f"diff | ...<truncated {len(diff_lines) - max_diff_lines} lines>")
 
 
-def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
-    cmd = [str(binary_path), *run.run_input.args]
-    cwd = run.work_dir if run.work_dir is not None else REPO_ROOT
-    proc = subprocess.run(cmd, cwd=cwd, input=run.run_input.stdin, capture_output=True, text=True, check=False)
+def _collect_tmp_names(run: RunCase) -> set[str]:
+    names: set[str] = set()
+    for arg in run.run_input.args:
+        names.update(TMP_PLACEHOLDER_RE.findall(arg))
+    if run.run_input.stdin is not None:
+        names.update(TMP_PLACEHOLDER_RE.findall(run.run_input.stdin))
+    for output_file in run.expect.output_files:
+        names.add(output_file.tmp)
+    return names
 
+
+def _replace_tmp_placeholders(text: str, tmp_paths: dict[str, Path]) -> str:
+    def _replace(match: re.Match[str]) -> str:
+        name = match.group(1)
+        return str(tmp_paths[name])
+
+    return TMP_PLACEHOLDER_RE.sub(_replace, text)
+
+
+def _run_process_with_temp_files(binary_path: Path, run: RunCase, errors: list[str]) -> subprocess.CompletedProcess[str]:
+    tmp_names = _collect_tmp_names(run)
+    if not tmp_names:
+        cmd = [str(binary_path), *run.run_input.args]
+        stdin = run.run_input.stdin
+        cwd = run.work_dir if run.work_dir is not None else REPO_ROOT
+        return subprocess.run(cmd, cwd=cwd, input=stdin, capture_output=True, text=True, check=False)
+
+    tmp_root = BUILD_ROOT / BUILD_RUNTIME_DIRNAME / "tmp"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    tmp_prefix = _sanitize_output_component(run.name) or "run"
+    with tempfile.TemporaryDirectory(prefix=f"{tmp_prefix}-", dir=tmp_root) as tmp_dir:
+        tmp_dir_path = Path(tmp_dir).resolve()
+        tmp_paths = {name: tmp_dir_path / name for name in tmp_names}
+        cmd = [str(binary_path), *[_replace_tmp_placeholders(arg, tmp_paths) for arg in run.run_input.args]]
+        stdin = None
+        if run.run_input.stdin is not None:
+            stdin = _replace_tmp_placeholders(run.run_input.stdin, tmp_paths)
+        cwd = run.work_dir if run.work_dir is not None else REPO_ROOT
+        proc: subprocess.CompletedProcess[str] = subprocess.run(
+            cmd, cwd=cwd, input=stdin, capture_output=True, text=True, check=False
+        )
+
+        for output_file in run.expect.output_files:
+            actual_path = tmp_paths[output_file.tmp]
+            if not actual_path.exists():
+                errors.append(f"output file '{output_file.tmp}' was not created")
+                continue
+            actual = _read_text_file(actual_path)
+            if actual != output_file.expected:
+                errors.append(f"output file '{output_file.tmp}' mismatch")
+                _append_text_diff(errors, label=f"output file '{output_file.tmp}'", expected=output_file.expected, actual=actual)
+
+        return proc
+
+
+def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
     errors: list[str] = []
+    proc = _run_process_with_temp_files(binary_path, run, errors)
     expect = run.expect
 
     if expect.exit_code is not None and proc.returncode != expect.exit_code:
