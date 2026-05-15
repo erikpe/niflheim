@@ -603,7 +603,7 @@ def test_execute_run_writes_input_files_and_checks_output_files(tmp_path: Path, 
         captured["cmd"] = cmd
         captured["input_path"] = input_path
         captured["input_content"] = input_path.read_text(encoding="utf-8")
-        output_path.write_text("11 22 33 44 55 66 77 88 99", encoding="utf-8")
+        output_path.write_text(f"read {input_path}: 11 22 33 44 55 66 77 88 99", encoding="utf-8")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(runner.subprocess, "run", _fake_run)
@@ -621,7 +621,7 @@ def test_execute_run_writes_input_files_and_checks_output_files(tmp_path: Path, 
             stderr=None,
             panic=None,
             output_files=[
-                runner.OutputFileExpect(tmp="data_out", expected="11 22 33 44 55 66 77 88 99"),
+                runner.OutputFileExpect(tmp="data_out", expected="read {tmp:data_in}: 11 22 33 44 55 66 77 88 99"),
             ],
         ),
     )
@@ -629,6 +629,7 @@ def test_execute_run_writes_input_files_and_checks_output_files(tmp_path: Path, 
     result = runner._execute_run(repo_root / "build" / "case", run_case)
 
     assert result.ok is True
+    assert captured["input_path"] is not None
     assert captured["input_content"] == "1 2 3 4 5\n6 7 8 9"
     input_path = captured["input_path"]
     assert isinstance(input_path, Path)

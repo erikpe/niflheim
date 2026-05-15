@@ -597,6 +597,7 @@ def _collect_tmp_names(run: RunCase) -> set[str]:
         names.add(input_file.tmp)
     for output_file in run.expect.output_files:
         names.add(output_file.tmp)
+        names.update(TMP_PLACEHOLDER_RE.findall(output_file.expected))
     return names
 
 
@@ -639,9 +640,10 @@ def _run_process_with_temp_files(binary_path: Path, run: RunCase, errors: list[s
                 errors.append(f"output file '{output_file.tmp}' was not created")
                 continue
             actual = _read_text_file(actual_path)
-            if actual != output_file.expected:
+            expected = _replace_tmp_placeholders(output_file.expected, tmp_paths)
+            if actual != expected:
                 errors.append(f"output file '{output_file.tmp}' mismatch")
-                _append_text_diff(errors, label=f"output file '{output_file.tmp}'", expected=output_file.expected, actual=actual)
+                _append_text_diff(errors, label=f"output file '{output_file.tmp}'", expected=expected, actual=actual)
 
         return proc
 

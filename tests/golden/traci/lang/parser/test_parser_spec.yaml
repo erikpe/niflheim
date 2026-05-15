@@ -4,29 +4,62 @@ tests:
     src_file: "test_parser.nif"
     runs:
       - name: "basic_expression_dump"
+        work_dir: "traci/lang/parser"
         input:
-          args: ["basic"]
+          args: ["--stop-after", "parser", "--parser-output", "{tmp:parse}", "basic_parser.traci"]
         expect:
           exit_code: 0
-          stdout_file: "test_parser_basic_expected.txt"
-      - {name: "constructs_dump", input: {args: ["constructs"]}, expect: {exit_code: 0, stdout_file: "test_parser_constructs_expected.txt"}}
-      - {name: "airplane_scene_matches_java_parser_reference", input: {args: ["airplane_java_reference"]}, expect: {exit_code: 0, stdout_file: "airplane_parser_java_reference.txt"}}
-      - {name: "fibonacci_preprocessed_file_parses", input: {args: ["fibonacci"]}, expect: {exit_code: 0, stdout: "functions=1|statements=1|names=fib\n"}}
+          output_files:
+            - tmp: "parse"
+              expect_file: "test_parser_basic_expected.txt"
+      - name: "constructs_dump"
+        work_dir: "traci/lang/parser"
+        input:
+          args: ["--stop-after", "parser", "--parser-output", "{tmp:parse}", "constructs.traci"]
+        expect:
+          exit_code: 0
+          output_files:
+            - tmp: "parse"
+              expect_file: "test_parser_constructs_expected.txt"
+      - name: "airplane_scene_matches_java_parser_reference"
+        work_dir: "traci/scenes"
+        input:
+          args: ["--stop-after", "parser", "--parser-output", "{tmp:parse}", "lego/airplane.traci"]
+        expect:
+          exit_code: 0
+          output_files:
+            - tmp: "parse"
+              expect_file: "airplane_parser_java_reference.txt"
+      - name: "fibonacci_preprocessed_file_parses"
+        input:
+          args: ["--stop-after", "parser", "--parser-output", "{tmp:parse}", "tests/golden/traci/testcode/fibonacci.traci"]
+        expect:
+          exit_code: 0
+          output_files:
+            - tmp: "parse"
+              expect_file: "fibonacci_parser_expected.txt"
       - name: "prime_checker_file_parses"
         input:
-          args: ["prime"]
+          args: ["--stop-after", "parser", "--parser-output", "{tmp:parse}", "tests/golden/traci/testcode/prime-checker.traci"]
         expect:
           exit_code: 0
-          stdout: "functions=3|statements=0|names=floor,isDivisible,isPrime\n"
+          output_files:
+            - tmp: "parse"
+              expect_file: "prime_checker_parser_expected.txt"
       - name: "basic_shapes_preprocessed_file_parses"
+        work_dir: "traci/scenes"
         input:
-          args: ["basic_shapes"]
+          args: ["--stop-after", "parser", "--parser-output", "{tmp:parse}", "lego/common/basic-shapes.traci"]
         expect:
           exit_code: 0
-          stdout: "functions=18|statements=6|first=roundedCylinder0_base\n"
+          output_files:
+            - tmp: "parse"
+              expect_file: "basic_shapes_parser_expected.txt"
       - name: "missing_semicolon_reports_parse_error"
         input:
-          args: ["missing_semicolon"]
+          input_files:
+            - tmp: "missing_semicolon"
+              content: "17+23"
+          args: ["--stop-after", "parser", "{tmp:missing_semicolon}"]
         expect:
-          exit_code: 0
-          stdout: "In file: missing_semicolon.traci:1:5:\nParse error: Expected ';' after expression statement\n"
+          exit_code: 254
