@@ -50,7 +50,7 @@ export class TreeWalker {
             if function_node == null {
                 return null;
             }
-            function_nodes.push((Obj)function_node);
+            __self._put_function(function_nodes, function_node);
             i = i + 1;
         }
 
@@ -66,6 +66,18 @@ export class TreeWalker {
         }
 
         return BlockNode(function_nodes, statement_nodes);
+    }
+
+    private fn _put_function(functions: Vec, function_node: FunctionNode) -> unit {
+        var i: i64 = 0;
+        while (u64)i < functions.len() {
+            if ((FunctionNode)functions[i]).id.equals(function_node.id) {
+                functions[i] = (Obj)function_node;
+                return;
+            }
+            i = i + 1;
+        }
+        functions.push((Obj)function_node);
     }
 
     private fn _walk_function(node: FunctionSyntax) -> FunctionNode {
@@ -294,16 +306,16 @@ export class TreeWalker {
 
     private fn _walk_const(node: ConstSyntax) -> ConstNode {
         if node.kind.equals("INT") || node.kind.equals("FLOAT") {
-            return ConstNode((Obj)BoxDouble(node.text.to_double()));
+            return ConstNode((Obj)BoxDouble(node.text.to_double()), node.text);
         }
         if node.kind.equals("QSTRING") {
-            return ConstNode((Obj)unquote_qstring(node.text));
+            return ConstNode((Obj)unquote_qstring(node.text), unquote_qstring(node.text));
         }
         if node.kind.equals("TRUE") {
-            return ConstNode((Obj)BoxBool(true));
+            return ConstNode((Obj)BoxBool(true), "true");
         }
         if node.kind.equals("FALSE") {
-            return ConstNode((Obj)BoxBool(false));
+            return ConstNode((Obj)BoxBool(false), "false");
         }
 
         __self._set_error(null, "Unsupported constant syntax kind: " + node.kind);

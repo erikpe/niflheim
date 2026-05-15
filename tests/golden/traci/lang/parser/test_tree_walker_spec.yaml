@@ -8,14 +8,15 @@ tests:
           args: ["basic"]
         expect:
           exit_code: 0
-          stdout: "BlockNode\n  Functions []\n  Statements\n    BinaryOpNode BINARY_ADD\n      ConstNode NUMBER 17\n      ConstNode NUMBER 23\n"
+          stdout_file: "test_tree_walker_basic_expected.txt"
       - name: "string_constant_is_unquoted"
         input:
           args: ["string"]
         expect:
           exit_code: 0
-          stdout: "BlockNode\n  Functions []\n  Statements\n    ConstNode STRING foo/bar.hej\n"
+          stdout_file: "test_tree_walker_string_expected.txt"
       - {name: "constructs_tree_walker_dump", input: {args: ["constructs"]}, expect: {exit_code: 0, stdout_file: "test_tree_walker_constructs_expected.txt"}}
+      - {name: "airplane_scene_matches_java_node_tree_reference", input: {args: ["airplane_java_reference"]}, expect: {exit_code: 0, stdout_file: "airplane_node_tree_java_reference.txt"}}
       - name: "fibonacci_preprocessed_file_treewalks"
         input:
           args: ["fibonacci"]

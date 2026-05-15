@@ -1,12 +1,31 @@
+import std.str;
 import std.vec;
+import proj.traci_nif.lang.interpreter.node.FunctionNode;
 
 export class BlockNode {
     functions: Vec;
     statements: Vec;
 
+    private static fn _put_function(functions: Vec, function_node: Obj) -> unit {
+        var id: Str = ((FunctionNode)function_node).id;
+        var i: i64 = 0;
+        while (u64)i < functions.len() {
+            if ((FunctionNode)functions[i]).id.equals(id) {
+                functions[i] = function_node;
+                return;
+            }
+            i = i + 1;
+        }
+        functions.push(function_node);
+    }
+
     fn append(other: BlockNode) -> BlockNode {
         var combined_functions: Vec = __self.functions.clone();
-        combined_functions.append(other.functions);
+        var i: i64 = 0;
+        while (u64)i < other.functions.len() {
+            BlockNode._put_function(combined_functions, other.functions[i]);
+            i = i + 1;
+        }
 
         var combined_statements: Vec = __self.statements.clone();
         combined_statements.append(other.statements);

@@ -51,6 +51,41 @@ fn _walk_preprocessed_file(path: Str) -> parser_runner.ParserRunner {
     return runner;
 }
 
+fn _matches_at(text: Str, offset: i64, needle: Str) -> bool {
+    var needle_len: i64 = (i64)needle.len();
+    if offset < 0 || (u64)(offset + needle_len) > text.len() {
+        return false;
+    }
+
+    var i: i64 = 0;
+    while i < needle_len {
+        if text[offset + i] != needle[i] {
+            return false;
+        }
+        i = i + 1;
+    }
+    return true;
+}
+
+fn _replace_all(text: Str, needle: Str, replacement: Str) -> Str {
+    var out: StrBuf = StrBuf.new(text.len());
+    var i: i64 = 0;
+    while (u64)i < text.len() {
+        if _matches_at(text, i, needle) {
+            out.append(replacement);
+            i = i + (i64)needle.len();
+            continue;
+        }
+        out.append_char(text[i]);
+        i = i + 1;
+    }
+    return out.to_str();
+}
+
+fn _normalize_airplane_include_prefixes(text: Str) -> Str {
+    return _replace_all(text, "tests/golden/traci/scenes/lego/", "lego/");
+}
+
 fn _node_kind(node: Obj) -> Str {
     if node is AssignNode { return "AssignNode"; }
     if node is ReturnNode { return "ReturnNode"; }
@@ -94,6 +129,24 @@ fn test_tree_walker_constructs() -> unit {
     print(dump_block((Obj)runner.get_root_node()));
 }
 
+fn test_airplane_scene_matches_java_node_tree_reference() -> unit {
+    var cfg: settings.Settings = settings.Settings.mock();
+    cfg.set_input_filename("tests/golden/traci/scenes/lego/airplane.traci");
+    cfg.add_include_dir("tests/golden/traci/scenes/lego");
+
+    var pre: preprocessor_runner.PreprocessorRunner = preprocessor_runner.PreprocessorRunner(cfg);
+    assert_eq_i64(pre.run().code, result.Result.success().code);
+    assert_true(pre.get_processed_code() != null);
+
+    var code: Str = _normalize_airplane_include_prefixes(pre.get_processed_code());
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, code);
+    assert_eq_i64(runner.run().code, result.Result.success().code);
+    assert_eq_u64(runner.get_diagnostics().len(), 0u);
+    assert_true(runner.get_root_node() != null);
+
+    print(dump_block((Obj)runner.get_root_node()));
+}
+
 fn test_tree_walker_fibonacci_preprocessed() -> unit {
     var runner: parser_runner.ParserRunner = _walk_preprocessed_file("tests/golden/traci/testcode/fibonacci.traci");
     _print_root_summary(runner.get_root_node());
@@ -126,6 +179,10 @@ fn main() -> i64 {
     }
     if mode.equals("constructs") {
         test_tree_walker_constructs();
+        return 0;
+    }
+    if mode.equals("airplane_java_reference") {
+        test_airplane_scene_matches_java_node_tree_reference();
         return 0;
     }
     if mode.equals("fibonacci") {

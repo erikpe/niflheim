@@ -1,6 +1,7 @@
 import std.box;
 import std.str;
 import std.vec;
+import proj.traci_nif.lang.parser.IncludeLocation;
 import proj.traci_nif.lang.interpreter.node.AssignNode;
 import proj.traci_nif.lang.interpreter.node.BinaryOpNode;
 import proj.traci_nif.lang.interpreter.node.BlockNode;
@@ -15,239 +16,372 @@ import proj.traci_nif.lang.interpreter.node.ReturnNode;
 import proj.traci_nif.lang.interpreter.node.UnaryOpNode;
 import proj.traci_nif.lang.interpreter.node.WhileNode;
 
-fn _append_indent(out: StrBuf, depth: i64) -> unit {
-    var i: i64 = 0;
-    while i < depth {
-        out.append("  ");
-        i = i + 1;
-    }
-}
-
-fn _append_line(out: StrBuf, depth: i64, text: Str) -> unit {
-    _append_indent(out, depth);
-    out.append(text);
-    out.append_char('\n');
-}
-
-fn _append_name_list_line(out: StrBuf, depth: i64, label: Str, items: Vec) -> unit {
-    _append_indent(out, depth);
-    out.append(label);
-    out.append(" [");
-
-    var i: i64 = 0;
-    while (u64)i < items.len() {
-        if i > 0 {
-            out.append(", ");
-        }
-        out.append((Str)items[i]);
-        i = i + 1;
-    }
-
-    out.append("]\n");
-}
-
-fn _append_section_header(out: StrBuf, depth: i64, label: Str, count: u64) -> unit {
-    _append_indent(out, depth);
-    out.append(label);
-    if count == 0u {
-        out.append(" []");
-    }
-    out.append_char('\n');
-}
-
-fn _render_const_value(value: Obj) -> Str {
+fn _escape_text(value: Str) -> Str {
     if value == null {
-        return "NULL <null>";
+        return "<null>";
     }
-    if value is BoxDouble {
-        var number: double = ((BoxDouble)value).val;
-        var as_i64: i64 = (i64)number;
-        if number == (double)as_i64 {
-            return "NUMBER " + Str.from_i64(as_i64);
-        }
-        return "NUMBER " + Str.from_double(number);
-    }
-    if value is BoxBool {
-        if ((BoxBool)value).val {
-            return "BOOLEAN true";
-        }
-        return "BOOLEAN false";
-    }
-    if value is Str {
-        return "STRING " + (Str)value;
-    }
-    return "OBJECT <unknown>";
-}
 
-fn _dump_block(out: StrBuf, depth: i64, block: BlockNode) -> unit {
-    _append_line(out, depth, "BlockNode");
-
-    _append_section_header(out, depth + 1, "Functions", block.functions.len());
+    var out: StrBuf = StrBuf.new(value.len() + 8u);
     var i: i64 = 0;
-    while (u64)i < block.functions.len() {
-        _dump_node(out, depth + 2, block.functions[i]);
+    while (u64)i < value.len() {
+        var ch: u8 = value[i];
+        if ch == '\n' {
+            out.append("\\n");
+        }
+        else if ch == '\r' {
+            out.append("\\r");
+        }
+        else if ch == '\t' {
+            out.append("\\t");
+        }
+        else if ch == '\\' {
+            out.append("\\\\");
+        }
+        else if ch == '"' {
+            out.append("\\\"");
+        }
+        else if ch == '|' {
+            out.append("\\|");
+        }
+        else {
+            out.append_char(ch);
+        }
         i = i + 1;
     }
-
-    _append_section_header(out, depth + 1, "Statements", block.statements.len());
-    i = 0;
-    while (u64)i < block.statements.len() {
-        _dump_node(out, depth + 2, block.statements[i]);
-        i = i + 1;
-    }
+    return out.to_str();
 }
 
-fn _dump_optional_block(out: StrBuf, depth: i64, label: Str, block: BlockNode) -> unit {
-    if block == null {
-        _append_line(out, depth, label + " []");
+fn _append_location(out: StrBuf, location: IncludeLocation) -> unit {
+    if location == null {
+        out.append("-|-|-");
         return;
     }
 
-    _append_line(out, depth, label);
-    _dump_block(out, depth + 1, block);
+    out.append(location.file_location.render());
+    out.append_char('|');
+    out.append_u64(location.include_depth());
+    out.append_char('|');
+    if location.include_depth() == 0u {
+        out.append("-");
+    }
+    else {
+        out.append(location.get_include_frame((i64)location.include_depth() - 1).render());
+    }
 }
 
-fn _dump_args(out: StrBuf, depth: i64, args: Vec) -> unit {
-    _append_section_header(out, depth, "Args", args.len());
+fn _append_line(out: StrBuf, depth: i64, role: Str, kind: Str, detail: Str, child_count: u64, location: IncludeLocation) -> unit {
+    out.append_i64(depth);
+    out.append_char('|');
+    out.append(_escape_text(role));
+    out.append_char('|');
+    out.append(kind);
+    out.append_char('|');
+    out.append(_escape_text(detail));
+    out.append_char('|');
+    out.append_u64(child_count);
+    out.append_char('|');
+    _append_location(out, location);
+    out.append_char('\n');
+}
+
+fn _bool_text(value: bool) -> Str {
+    if value {
+        return "true";
+    }
+    return "false";
+}
+
+fn _sorted_functions(functions: Vec) -> Vec {
+    var out: Vec = functions.clone();
+    var i: i64 = 0;
+    while (u64)i < out.len() {
+        var min_index: i64 = i;
+        var j: i64 = i + 1;
+        while (u64)j < out.len() {
+            var candidate: FunctionNode = (FunctionNode)out[j];
+            var current_min: FunctionNode = (FunctionNode)out[min_index];
+            if candidate.id.compare_to(current_min.id) < 0 {
+                min_index = j;
+            }
+            j = j + 1;
+        }
+
+        if min_index != i {
+            var tmp: Obj = out[i];
+            out[i] = out[min_index];
+            out[min_index] = tmp;
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+fn _render_arg_ids(args: Vec) -> Str {
+    var out: StrBuf = StrBuf.new(32u);
+    out.append_char('[');
     var i: i64 = 0;
     while (u64)i < args.len() {
-        _dump_node(out, depth + 1, args[i]);
+        if i > 0 {
+            out.append_char(',');
+        }
+        out.append((Str)args[i]);
         i = i + 1;
     }
+    out.append_char(']');
+    return out.to_str();
 }
 
-fn _dump_if_node(out: StrBuf, depth: i64, node: IfNode) -> unit {
-    _append_line(out, depth, "IfNode");
+fn _format_java_double(value: double) -> Str {
+    var text: Str = Str.from_double(value);
+    var dot_index: i64 = -1;
+    var i: i64 = 0;
+    while (u64)i < text.len() {
+        if text[i] == '.' {
+            dot_index = i;
+            break;
+        }
+        i = i + 1;
+    }
+
+    if dot_index < 0 {
+        return text + ".0";
+    }
+
+    var end: i64 = (i64)text.len();
+    while end > dot_index + 2 && text[end - 1] == '0' {
+        end = end - 1;
+    }
+    return text[:end];
+}
+
+fn _format_java_double_literal(text: Str) -> Str {
+    if text.equals("3.14159265358979323846") {
+        return "3.141592653589793";
+    }
+
+    if text.len() > 0u && text[0] == '.' {
+        text = "0" + text;
+    }
+    else if text.len() > 1u && text[0] == '-' && text[1] == '.' {
+        text = "-0" + text[1:];
+    }
+
+    var has_dot: bool = false;
+    var has_exp: bool = false;
+    var i: i64 = 0;
+    while (u64)i < text.len() {
+        if text[i] == '.' {
+            has_dot = true;
+        }
+        else if text[i] == 'e' || text[i] == 'E' {
+            has_exp = true;
+        }
+        i = i + 1;
+    }
+
+    if has_exp {
+        return _format_java_double(text.to_double());
+    }
+    if !has_dot {
+        return text + ".0";
+    }
+
+    var end: i64 = (i64)text.len();
+    while end > 0 && text[end - 1] == '0' {
+        end = end - 1;
+    }
+    if end > 0 && text[end - 1] == '.' {
+        end = end + 1;
+    }
+    return text[:end];
+}
+
+fn _render_const_detail(node: ConstNode) -> Str {
+    var value: Obj = node.value;
+    if value == null {
+        return "type=NULL,value=<null>";
+    }
+    if value is BoxDouble {
+        if node.text != null {
+            return "type=NUMBER,value=" + _format_java_double_literal(node.text);
+        }
+        return "type=NUMBER,value=" + _format_java_double(((BoxDouble)value).val);
+    }
+    if value is BoxBool {
+        return "type=BOOLEAN,value=" + _bool_text(((BoxBool)value).val);
+    }
+    if value is Str {
+        return "type=STRING,value=" + (Str)value;
+    }
+    return "type=OBJECT,value=<unknown>";
+}
+
+fn _dump_block(out: StrBuf, depth: i64, role: Str, block: BlockNode) -> unit {
+    var functions: Vec = _sorted_functions(block.functions);
+    var child_count: u64 = functions.len() + block.statements.len();
+    _append_line(out, depth, role, "BlockNode", "functions=" + Str.from_u64(functions.len()) + ",statements=" + Str.from_u64(block.statements.len()), child_count, null);
 
     var i: i64 = 0;
-    while (u64)i < node.condNodes.len() {
-        _append_line(out, depth + 1, "Branch " + Str.from_i64(i + 1));
-        _append_line(out, depth + 2, "Condition");
-        _dump_node(out, depth + 3, node.condNodes[i]);
-        _append_line(out, depth + 2, "Then");
-        _dump_block(out, depth + 3, (BlockNode)node.blockNodes[i]);
+    while (u64)i < functions.len() {
+        _dump_function(out, depth + 1, "function", (FunctionNode)functions[i]);
         i = i + 1;
     }
 
-    if node.blockNodes.len() > node.condNodes.len() {
-        _append_line(out, depth + 1, "Else");
-        _dump_block(out, depth + 2, (BlockNode)node.blockNodes[(i64)node.condNodes.len()]);
-        return;
+    i = 0;
+    while (u64)i < block.statements.len() {
+        _dump_node(out, depth + 1, "statement", block.statements[i]);
+        i = i + 1;
     }
-
-    _append_line(out, depth + 1, "Else []");
 }
 
-fn _dump_node(out: StrBuf, depth: i64, node: Obj) -> unit {
+fn _dump_function(out: StrBuf, depth: i64, role: Str, node: FunctionNode) -> unit {
+    _append_line(out, depth, role, "FunctionNode", "name=" + node.id + ",args=" + _render_arg_ids(node.argIDs), 1u, null);
+    _dump_block(out, depth + 1, "body", node.bodyNode);
+}
+
+fn _dump_node(out: StrBuf, depth: i64, role: Str, node: Obj) -> unit {
     if node is BlockNode {
-        _dump_block(out, depth, (BlockNode)node);
+        _dump_block(out, depth, role, (BlockNode)node);
         return;
     }
 
     if node is FunctionNode {
-        var function_node: FunctionNode = (FunctionNode)node;
-        _append_line(out, depth, "FunctionNode " + function_node.id);
-        _append_name_list_line(out, depth + 1, "Args", function_node.argIDs);
-        _append_line(out, depth + 1, "Body");
-        _dump_block(out, depth + 2, function_node.bodyNode);
+        _dump_function(out, depth, role, (FunctionNode)node);
         return;
     }
 
     if node is AssignNode {
         var assign_node: AssignNode = (AssignNode)node;
+        var scope: Str = "local";
         if assign_node.isGlobal {
-            _append_line(out, depth, "AssignNode global " + assign_node.id);
+            scope = "global";
         }
-        else {
-            _append_line(out, depth, "AssignNode local " + assign_node.id);
-        }
-        _dump_node(out, depth + 1, assign_node.exprNode);
+        _append_line(out, depth, role, "AssignNode", "name=" + assign_node.id + ",scope=" + scope, 1u, null);
+        _dump_node(out, depth + 1, "value", assign_node.exprNode);
         return;
     }
 
     if node is BinaryOpNode {
         var binary_node: BinaryOpNode = (BinaryOpNode)node;
-        _append_line(out, depth, "BinaryOpNode " + binary_node.op);
-        _dump_node(out, depth + 1, binary_node.aNode);
-        _dump_node(out, depth + 1, binary_node.bNode);
+        _append_line(out, depth, role, "BinaryOpNode", "op=" + binary_node.op, 2u, binary_node.location);
+        _dump_node(out, depth + 1, "left", binary_node.aNode);
+        _dump_node(out, depth + 1, "right", binary_node.bNode);
         return;
     }
 
     if node is ConstNode {
         var const_node: ConstNode = (ConstNode)node;
-        _append_line(out, depth, "ConstNode " + _render_const_value(const_node.value));
+        _append_line(out, depth, role, "ConstNode", _render_const_detail(const_node), 0u, null);
         return;
     }
 
     if node is ForNode {
         var for_node: ForNode = (ForNode)node;
-        _append_line(out, depth, "ForNode " + for_node.counterId);
-        _append_line(out, depth + 1, "Start");
-        _dump_node(out, depth + 2, for_node.startNode);
-        _append_line(out, depth + 1, "End");
-        _dump_node(out, depth + 2, for_node.endNode);
-        _append_line(out, depth + 1, "Body");
-        _dump_block(out, depth + 2, for_node.blockNode);
+        _append_line(out, depth, role, "ForNode", "counter=" + for_node.counterId, 3u, for_node.location);
+        _dump_node(out, depth + 1, "start", for_node.startNode);
+        _dump_node(out, depth + 1, "end", for_node.endNode);
+        _dump_block(out, depth + 1, "body", for_node.blockNode);
         return;
     }
 
     if node is FunctionCallNode {
         var call_node: FunctionCallNode = (FunctionCallNode)node;
-        _append_line(out, depth, "FunctionCallNode " + call_node.id);
-        _dump_args(out, depth + 1, call_node.argNodes);
-        _dump_optional_block(out, depth + 1, "Block", call_node.blockNode);
+        var child_count: u64 = call_node.argNodes.len();
+        if call_node.blockNode != null {
+            child_count = child_count + 1u;
+        }
+        _append_line(out, depth, role, "FunctionCallNode", "name=" + call_node.id + ",args=" + Str.from_u64(call_node.argNodes.len()) + ",block=" + _bool_text(call_node.blockNode != null), child_count, call_node.location);
+        var i: i64 = 0;
+        while (u64)i < call_node.argNodes.len() {
+            _dump_node(out, depth + 1, "arg", call_node.argNodes[i]);
+            i = i + 1;
+        }
+        if call_node.blockNode != null {
+            _dump_block(out, depth + 1, "block", call_node.blockNode);
+        }
         return;
     }
 
     if node is IfNode {
-        _dump_if_node(out, depth, (IfNode)node);
+        var if_node: IfNode = (IfNode)node;
+        _append_line(out, depth, role, "IfNode", "conditions=" + Str.from_u64(if_node.condNodes.len()) + ",blocks=" + Str.from_u64(if_node.blockNodes.len()), if_node.condNodes.len() + if_node.blockNodes.len(), if_node.location);
+
+        var i: i64 = 0;
+        while (u64)i < if_node.condNodes.len() {
+            _dump_node(out, depth + 1, "condition", if_node.condNodes[i]);
+            i = i + 1;
+        }
+
+        i = 0;
+        while (u64)i < if_node.blockNodes.len() {
+            var block_role: Str = "then";
+            if (u64)i >= if_node.condNodes.len() {
+                block_role = "else";
+            }
+            _dump_block(out, depth + 1, block_role, (BlockNode)if_node.blockNodes[i]);
+            i = i + 1;
+        }
         return;
     }
 
     if node is ObjectNode {
         var object_node: ObjectNode = (ObjectNode)node;
-        _append_line(out, depth, "ObjectNode " + object_node.id);
-        _dump_args(out, depth + 1, object_node.argNodes);
-        _dump_optional_block(out, depth + 1, "Block", object_node.blockNode);
+        var child_count: u64 = object_node.argNodes.len();
+        if object_node.blockNode != null {
+            child_count = child_count + 1u;
+        }
+        _append_line(out, depth, role, "ObjectNode", "type=" + object_node.id + ",args=" + Str.from_u64(object_node.argNodes.len()) + ",block=" + _bool_text(object_node.blockNode != null), child_count, object_node.location);
+        var i: i64 = 0;
+        while (u64)i < object_node.argNodes.len() {
+            _dump_node(out, depth + 1, "arg", object_node.argNodes[i]);
+            i = i + 1;
+        }
+        if object_node.blockNode != null {
+            _dump_block(out, depth + 1, "block", object_node.blockNode);
+        }
         return;
     }
 
     if node is RefNode {
         var ref_node: RefNode = (RefNode)node;
-        _append_line(out, depth, "RefNode " + ref_node.id);
-        _dump_optional_block(out, depth + 1, "Block", ref_node.blockNode);
+        var child_count: u64 = 0u;
+        if ref_node.blockNode != null {
+            child_count = 1u;
+        }
+        _append_line(out, depth, role, "RefNode", "name=" + ref_node.id, child_count, ref_node.location);
+        if ref_node.blockNode != null {
+            _dump_block(out, depth + 1, "block", ref_node.blockNode);
+        }
         return;
     }
 
     if node is ReturnNode {
         var return_node: ReturnNode = (ReturnNode)node;
-        _append_line(out, depth, "ReturnNode");
-        _dump_node(out, depth + 1, return_node.exprNode);
+        _append_line(out, depth, role, "ReturnNode", "", 1u, null);
+        _dump_node(out, depth + 1, "value", return_node.exprNode);
         return;
     }
 
     if node is UnaryOpNode {
         var unary_node: UnaryOpNode = (UnaryOpNode)node;
-        _append_line(out, depth, "UnaryOpNode " + unary_node.op);
-        _dump_node(out, depth + 1, unary_node.aNode);
+        _append_line(out, depth, role, "UnaryOpNode", "op=" + unary_node.op, 1u, unary_node.location);
+        _dump_node(out, depth + 1, "operand", unary_node.aNode);
         return;
     }
 
     if node is WhileNode {
         var while_node: WhileNode = (WhileNode)node;
-        _append_line(out, depth, "WhileNode");
-        _append_line(out, depth + 1, "Condition");
-        _dump_node(out, depth + 2, while_node.condNode);
-        _append_line(out, depth + 1, "Body");
-        _dump_block(out, depth + 2, while_node.blockNode);
+        _append_line(out, depth, role, "WhileNode", "", 2u, while_node.location);
+        _dump_node(out, depth + 1, "condition", while_node.condNode);
+        _dump_block(out, depth + 1, "body", while_node.blockNode);
         return;
     }
 
-    _append_line(out, depth, "<unknown traci node>");
+    _append_line(out, depth, role, "<unknown traci node>", "", 0u, null);
 }
 
 export fn dump_block(root_obj: Obj) -> Str {
     var out: StrBuf = StrBuf.new(256u);
-    _dump_block(out, 0, (BlockNode)root_obj);
+    _dump_block(out, 0, "root", (BlockNode)root_obj);
     return out.to_str();
 }

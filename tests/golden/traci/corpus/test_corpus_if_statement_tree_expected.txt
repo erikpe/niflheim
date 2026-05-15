@@ -1,195 +1,112 @@
-BlockNode
-  Functions []
-  Statements
-    AssignNode local foo
-      ConstNode NUMBER 0
-    IfNode
-      Branch 1
-        Condition
-          BinaryOpNode COMPARE_LT
-            ConstNode NUMBER 1
-            ConstNode NUMBER 2
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                ConstNode NUMBER 23
-      Else []
-    IfNode
-      Branch 1
-        Condition
-          BinaryOpNode COMPARE_LT
-            ConstNode NUMBER 1
-            ConstNode NUMBER 2
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_ADD
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 1
-      Branch 2
-        Condition
-          BinaryOpNode COMPARE_GT
-            ConstNode NUMBER 22
-            ConstNode NUMBER 11
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_SUB
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 1
-      Else []
-    IfNode
-      Branch 1
-        Condition
-          BinaryOpNode COMPARE_GT
-            ConstNode NUMBER 1
-            ConstNode NUMBER 2
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_ADD
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 10
-      Else
-        BlockNode
-          Functions []
-          Statements
-            AssignNode local foo
-              BinaryOpNode BINARY_SUB
-                RefNode foo
-                  Block []
-                ConstNode NUMBER 10
-    IfNode
-      Branch 1
-        Condition
-          BinaryOpNode COMPARE_GT
-            ConstNode NUMBER 1
-            ConstNode NUMBER 2
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_ADD
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 100
-      Else []
-    IfNode
-      Branch 1
-        Condition
-          BinaryOpNode COMPARE_GT
-            ConstNode NUMBER 1
-            ConstNode NUMBER 2
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_SUB
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 33
-      Branch 2
-        Condition
-          BinaryOpNode COMPARE_LT
-            ConstNode NUMBER 323
-            ConstNode NUMBER 321
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_SUB
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 44
-      Branch 3
-        Condition
-          BinaryOpNode COMPARE_LT
-            ConstNode NUMBER 12
-            ConstNode NUMBER 32
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_ADD
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 1000
-      Else
-        BlockNode
-          Functions []
-          Statements
-            AssignNode local foo
-              BinaryOpNode BINARY_ADD
-                RefNode foo
-                  Block []
-                ConstNode NUMBER 123
-    IfNode
-      Branch 1
-        Condition
-          BinaryOpNode COMPARE_GT
-            ConstNode NUMBER 1
-            ConstNode NUMBER 2
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_SUB
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 33
-      Branch 2
-        Condition
-          BinaryOpNode COMPARE_LT
-            ConstNode NUMBER 323
-            ConstNode NUMBER 321
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_SUB
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 44
-      Branch 3
-        Condition
-          BinaryOpNode COMPARE_GT
-            ConstNode NUMBER 12
-            ConstNode NUMBER 32
-        Then
-          BlockNode
-            Functions []
-            Statements
-              AssignNode local foo
-                BinaryOpNode BINARY_ADD
-                  RefNode foo
-                    Block []
-                  ConstNode NUMBER 1000
-      Else
-        BlockNode
-          Functions []
-          Statements
-            AssignNode local foo
-              BinaryOpNode BINARY_ADD
-                RefNode foo
-                  Block []
-                ConstNode NUMBER 123
-    ReturnNode
-      RefNode foo
-        Block []
+0|root|BlockNode|functions=0,statements=8|8|-|-|-
+1|statement|AssignNode|name=foo,scope=local|1|-|-|-
+2|value|ConstNode|type=NUMBER,value=0.0|0|-|-|-
+1|statement|IfNode|conditions=1,blocks=1|2|tests/golden/traci/testcode/if-statement.traci:3:0|0|-
+2|condition|BinaryOpNode|op=COMPARE_LT|2|tests/golden/traci/testcode/if-statement.traci:3:6|0|-
+3|left|ConstNode|type=NUMBER,value=1.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=2.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|ConstNode|type=NUMBER,value=23.0|0|-|-|-
+1|statement|IfNode|conditions=2,blocks=2|4|tests/golden/traci/testcode/if-statement.traci:7:0|0|-
+2|condition|BinaryOpNode|op=COMPARE_LT|2|tests/golden/traci/testcode/if-statement.traci:7:6|0|-
+3|left|ConstNode|type=NUMBER,value=1.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=2.0|0|-|-|-
+2|condition|BinaryOpNode|op=COMPARE_GT|2|tests/golden/traci/testcode/if-statement.traci:10:9|0|-
+3|left|ConstNode|type=NUMBER,value=22.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=11.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_ADD|2|tests/golden/traci/testcode/if-statement.traci:8:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:8:10|0|-
+5|right|ConstNode|type=NUMBER,value=1.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_SUB|2|tests/golden/traci/testcode/if-statement.traci:11:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:11:10|0|-
+5|right|ConstNode|type=NUMBER,value=1.0|0|-|-|-
+1|statement|IfNode|conditions=1,blocks=2|3|tests/golden/traci/testcode/if-statement.traci:14:0|0|-
+2|condition|BinaryOpNode|op=COMPARE_GT|2|tests/golden/traci/testcode/if-statement.traci:14:6|0|-
+3|left|ConstNode|type=NUMBER,value=1.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=2.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_ADD|2|tests/golden/traci/testcode/if-statement.traci:15:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:15:10|0|-
+5|right|ConstNode|type=NUMBER,value=10.0|0|-|-|-
+2|else|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_SUB|2|tests/golden/traci/testcode/if-statement.traci:18:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:18:10|0|-
+5|right|ConstNode|type=NUMBER,value=10.0|0|-|-|-
+1|statement|IfNode|conditions=1,blocks=1|2|tests/golden/traci/testcode/if-statement.traci:21:0|0|-
+2|condition|BinaryOpNode|op=COMPARE_GT|2|tests/golden/traci/testcode/if-statement.traci:21:6|0|-
+3|left|ConstNode|type=NUMBER,value=1.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=2.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_ADD|2|tests/golden/traci/testcode/if-statement.traci:22:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:22:10|0|-
+5|right|ConstNode|type=NUMBER,value=100.0|0|-|-|-
+1|statement|IfNode|conditions=3,blocks=4|7|tests/golden/traci/testcode/if-statement.traci:25:0|0|-
+2|condition|BinaryOpNode|op=COMPARE_GT|2|tests/golden/traci/testcode/if-statement.traci:25:6|0|-
+3|left|ConstNode|type=NUMBER,value=1.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=2.0|0|-|-|-
+2|condition|BinaryOpNode|op=COMPARE_LT|2|tests/golden/traci/testcode/if-statement.traci:28:10|0|-
+3|left|ConstNode|type=NUMBER,value=323.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=321.0|0|-|-|-
+2|condition|BinaryOpNode|op=COMPARE_LT|2|tests/golden/traci/testcode/if-statement.traci:31:9|0|-
+3|left|ConstNode|type=NUMBER,value=12.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=32.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_SUB|2|tests/golden/traci/testcode/if-statement.traci:26:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:26:10|0|-
+5|right|ConstNode|type=NUMBER,value=33.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_SUB|2|tests/golden/traci/testcode/if-statement.traci:29:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:29:10|0|-
+5|right|ConstNode|type=NUMBER,value=44.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_ADD|2|tests/golden/traci/testcode/if-statement.traci:32:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:32:10|0|-
+5|right|ConstNode|type=NUMBER,value=1000.0|0|-|-|-
+2|else|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_ADD|2|tests/golden/traci/testcode/if-statement.traci:35:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:35:10|0|-
+5|right|ConstNode|type=NUMBER,value=123.0|0|-|-|-
+1|statement|IfNode|conditions=3,blocks=4|7|tests/golden/traci/testcode/if-statement.traci:38:0|0|-
+2|condition|BinaryOpNode|op=COMPARE_GT|2|tests/golden/traci/testcode/if-statement.traci:38:6|0|-
+3|left|ConstNode|type=NUMBER,value=1.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=2.0|0|-|-|-
+2|condition|BinaryOpNode|op=COMPARE_LT|2|tests/golden/traci/testcode/if-statement.traci:41:10|0|-
+3|left|ConstNode|type=NUMBER,value=323.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=321.0|0|-|-|-
+2|condition|BinaryOpNode|op=COMPARE_GT|2|tests/golden/traci/testcode/if-statement.traci:44:9|0|-
+3|left|ConstNode|type=NUMBER,value=12.0|0|-|-|-
+3|right|ConstNode|type=NUMBER,value=32.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_SUB|2|tests/golden/traci/testcode/if-statement.traci:39:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:39:10|0|-
+5|right|ConstNode|type=NUMBER,value=33.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_SUB|2|tests/golden/traci/testcode/if-statement.traci:42:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:42:10|0|-
+5|right|ConstNode|type=NUMBER,value=44.0|0|-|-|-
+2|then|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_ADD|2|tests/golden/traci/testcode/if-statement.traci:45:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:45:10|0|-
+5|right|ConstNode|type=NUMBER,value=1000.0|0|-|-|-
+2|else|BlockNode|functions=0,statements=1|1|-|-|-
+3|statement|AssignNode|name=foo,scope=local|1|-|-|-
+4|value|BinaryOpNode|op=BINARY_ADD|2|tests/golden/traci/testcode/if-statement.traci:48:14|0|-
+5|left|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:48:10|0|-
+5|right|ConstNode|type=NUMBER,value=123.0|0|-|-|-
+1|statement|ReturnNode||1|-|-|-
+2|value|RefNode|name=foo|0|tests/golden/traci/testcode/if-statement.traci:51:7|0|-
