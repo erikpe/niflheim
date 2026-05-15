@@ -195,6 +195,33 @@ def test_discover_tests_parses_expected_output_files(tmp_path: Path, monkeypatch
     ]
 
 
+def test_discover_tests_parses_input_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    golden_root = tmp_path / "golden"
+    _write(golden_root / "suite" / "test_alpha.nif", "fn main() -> i64 { return 0; }\n")
+    _write(
+        golden_root / "suite" / "test_alpha_spec.yaml",
+        "tests:\n"
+        "  - mode: run\n"
+        "    name: alpha\n"
+        "    src_file: test_alpha.nif\n"
+        "    runs:\n"
+        "      - name: reads_file\n"
+        "        input:\n"
+        "          input_files:\n"
+        "            - tmp: data_in\n"
+        "              content: \"1 2 3 4 5\\n6 7 8 9\"\n"
+        "          args: [\"--input\", \"{tmp:data_in}\"]\n",
+    )
+
+    monkeypatch.setattr(runner, "GOLDEN_ROOT", golden_root)
+
+    tests = runner._discover_tests(None)
+
+    assert tests[0].runs[0].run_input.input_files == [
+        runner.InputFile(tmp="data_in", content="1 2 3 4 5\n6 7 8 9")
+    ]
+
+
 def test_discover_tests_rejects_run_work_dir_outside_golden_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -560,6 +587,52 @@ def test_execute_run_reports_missing_expected_output_file(tmp_path: Path, monkey
 
     assert result.ok is False
     assert "output file 'actual' was not created" in result.details
+
+
+def test_execute_run_writes_input_files_and_checks_output_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo_root = tmp_path / "repo"
+    build_root = repo_root / "build" / "golden"
+    monkeypatch.setattr(runner, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(runner, "BUILD_ROOT", build_root)
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        input_path = Path(cmd[2])
+        output_path = Path(cmd[4])
+        captured["cmd"] = cmd
+        captured["input_path"] = input_path
+        captured["input_content"] = input_path.read_text(encoding="utf-8")
+        output_path.write_text("11 22 33 44 55 66 77 88 99", encoding="utf-8")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(runner.subprocess, "run", _fake_run)
+
+    run_case = runner.RunCase(
+        name="reads_file",
+        run_input=runner.RunInput(
+            args=["--input", "{tmp:data_in}", "--output", "{tmp:data_out}"],
+            stdin=None,
+            input_files=[runner.InputFile(tmp="data_in", content="1 2 3 4 5\n6 7 8 9")],
+        ),
+        expect=runner.RunExpect(
+            exit_code=0,
+            stdout="",
+            stderr=None,
+            panic=None,
+            output_files=[
+                runner.OutputFileExpect(tmp="data_out", expected="11 22 33 44 55 66 77 88 99"),
+            ],
+        ),
+    )
+
+    result = runner._execute_run(repo_root / "build" / "case", run_case)
+
+    assert result.ok is True
+    assert captured["input_content"] == "1 2 3 4 5\n6 7 8 9"
+    input_path = captured["input_path"]
+    assert isinstance(input_path, Path)
+    assert not input_path.parent.exists()
 
 
 def test_main_prints_one_row_per_spec_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:

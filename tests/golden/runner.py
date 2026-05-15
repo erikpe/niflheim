@@ -25,9 +25,16 @@ TMP_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 @dataclass(frozen=True)
+class InputFile:
+    tmp: str
+    content: str
+
+
+@dataclass(frozen=True)
 class RunInput:
     args: list[str]
     stdin: str | None
+    input_files: list[InputFile] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -123,6 +130,33 @@ def _validate_tmp_name(name: str, label: str) -> None:
         raise ValueError(f"{label} must contain only letters, digits, '_', '.', or '-'")
 
 
+def _parse_input_files(raw: object, *, spec_path: Path, run_name: str) -> list[InputFile]:
+    if raw is None:
+        return []
+
+    _require_type(raw, list, f"{spec_path}: run '{run_name}' input.input_files")
+    files_raw: list[object] = raw  # type: ignore[assignment]
+    input_files: list[InputFile] = []
+    names: set[str] = set()
+    for index, file_raw in enumerate(files_raw):
+        _require_type(file_raw, dict, f"{spec_path}: run '{run_name}' input.input_files[{index}]")
+        file_obj: dict[str, object] = file_raw  # type: ignore[assignment]
+
+        tmp_raw = file_obj.get("tmp")
+        _require_type(tmp_raw, str, f"{spec_path}: run '{run_name}' input.input_files[{index}].tmp")
+        _validate_tmp_name(tmp_raw, f"{spec_path}: run '{run_name}' input.input_files[{index}].tmp")
+        if tmp_raw in names:
+            raise ValueError(f"{spec_path}: run '{run_name}' duplicate input file tmp '{tmp_raw}'")
+        names.add(tmp_raw)
+
+        content_raw = file_obj.get("content")
+        _require_type(content_raw, str, f"{spec_path}: run '{run_name}' input.input_files[{index}].content")
+
+        input_files.append(InputFile(tmp=tmp_raw, content=content_raw))
+
+    return input_files
+
+
 def _parse_input(raw: object, *, spec_path: Path, run_name: str) -> RunInput:
     if raw is None:
         return RunInput(args=[], stdin=None)
@@ -142,16 +176,18 @@ def _parse_input(raw: object, *, spec_path: Path, run_name: str) -> RunInput:
     if stdin_raw is not None and stdin_file_raw is not None:
         raise ValueError(f"{spec_path}: run '{run_name}' input.stdin and input.stdin_file are mutually exclusive")
 
+    input_files = _parse_input_files(input_obj.get("input_files"), spec_path=spec_path, run_name=run_name)
+
     if stdin_raw is not None:
         _require_type(stdin_raw, str, f"{spec_path}: run '{run_name}' input.stdin")
-        return RunInput(args=args, stdin=stdin_raw)
+        return RunInput(args=args, stdin=stdin_raw, input_files=input_files)
 
     if stdin_file_raw is not None:
         _require_type(stdin_file_raw, str, f"{spec_path}: run '{run_name}' input.stdin_file")
         stdin_path = (spec_path.parent / stdin_file_raw).resolve()
-        return RunInput(args=args, stdin=_read_text_file(stdin_path))
+        return RunInput(args=args, stdin=_read_text_file(stdin_path), input_files=input_files)
 
-    return RunInput(args=args, stdin=None)
+    return RunInput(args=args, stdin=None, input_files=input_files)
 
 
 def _parse_output_files(raw: object, *, spec_path: Path, run_name: str) -> list[OutputFileExpect]:
@@ -557,6 +593,8 @@ def _collect_tmp_names(run: RunCase) -> set[str]:
         names.update(TMP_PLACEHOLDER_RE.findall(arg))
     if run.run_input.stdin is not None:
         names.update(TMP_PLACEHOLDER_RE.findall(run.run_input.stdin))
+    for input_file in run.run_input.input_files:
+        names.add(input_file.tmp)
     for output_file in run.expect.output_files:
         names.add(output_file.tmp)
     return names
@@ -584,6 +622,8 @@ def _run_process_with_temp_files(binary_path: Path, run: RunCase, errors: list[s
     with tempfile.TemporaryDirectory(prefix=f"{tmp_prefix}-", dir=tmp_root) as tmp_dir:
         tmp_dir_path = Path(tmp_dir).resolve()
         tmp_paths = {name: tmp_dir_path / name for name in tmp_names}
+        for input_file in run.run_input.input_files:
+            tmp_paths[input_file.tmp].write_text(input_file.content, encoding="utf-8")
         cmd = [str(binary_path), *[_replace_tmp_placeholders(arg, tmp_paths) for arg in run.run_input.args]]
         stdin = None
         if run.run_input.stdin is not None:
