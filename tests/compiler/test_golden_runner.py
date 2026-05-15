@@ -135,6 +135,55 @@ def test_discover_tests_parses_build_args(tmp_path: Path, monkeypatch: pytest.Mo
     assert tests[0].build_args == ["--disable-all-optimization", "--omit-runtime-trace"]
 
 
+def test_discover_tests_parses_run_work_dir_relative_to_golden_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    golden_root = tmp_path / "golden"
+    _write(golden_root / "suite" / "test_alpha.nif", "fn main() -> i64 { return 0; }\n")
+    (golden_root / "traci" / "scenes").mkdir(parents=True)
+    _write(
+        golden_root / "suite" / "test_alpha_spec.yaml",
+        "tests:\n"
+        "  - mode: run\n"
+        "    name: alpha\n"
+        "    src_file: test_alpha.nif\n"
+        "    runs:\n"
+        "      - name: with_work_dir\n"
+        "        work_dir: traci/scenes\n"
+        "      - name: default_work_dir\n",
+    )
+
+    monkeypatch.setattr(runner, "GOLDEN_ROOT", golden_root)
+
+    tests = runner._discover_tests(None)
+
+    assert len(tests) == 1
+    assert tests[0].runs[0].work_dir == golden_root / "traci" / "scenes"
+    assert tests[0].runs[1].work_dir is None
+
+
+def test_discover_tests_rejects_run_work_dir_outside_golden_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    golden_root = tmp_path / "golden"
+    _write(golden_root / "suite" / "test_alpha.nif", "fn main() -> i64 { return 0; }\n")
+    _write(
+        golden_root / "suite" / "test_alpha_spec.yaml",
+        "tests:\n"
+        "  - mode: run\n"
+        "    name: alpha\n"
+        "    src_file: test_alpha.nif\n"
+        "    runs:\n"
+        "      - name: bad_work_dir\n"
+        "        work_dir: ../outside\n",
+    )
+
+    monkeypatch.setattr(runner, "GOLDEN_ROOT", golden_root)
+
+    with pytest.raises(ValueError, match="work_dir must resolve under"):
+        runner._discover_tests(None)
+
+
 def test_build_output_path_flattens_spec_path_and_test_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     golden_root = tmp_path / "golden"
     build_root = tmp_path / "build"
@@ -344,6 +393,61 @@ def test_compile_fail_test_forwards_build_args_to_compiler(
         str(repo_root),
         "--disable-all-optimization",
     ]
+
+
+def test_execute_run_uses_per_run_work_dir_when_present(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo_root = tmp_path / "repo"
+    golden_root = repo_root / "tests" / "golden"
+    work_dir = golden_root / "traci" / "scenes"
+    work_dir.mkdir(parents=True)
+
+    monkeypatch.setattr(runner, "REPO_ROOT", repo_root)
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        captured["cmd"] = cmd
+        captured["cwd"] = kwargs["cwd"]
+        return SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+
+    monkeypatch.setattr(runner.subprocess, "run", _fake_run)
+
+    run_case = runner.RunCase(
+        name="with_work_dir",
+        run_input=runner.RunInput(args=["arg"], stdin=None),
+        expect=runner.RunExpect(exit_code=0, stdout="ok\n", stderr=None, panic=None),
+        work_dir=work_dir,
+    )
+
+    result = runner._execute_run(repo_root / "build" / "case", run_case)
+
+    assert result.ok is True
+    assert captured["cmd"] == [str(repo_root / "build" / "case"), "arg"]
+    assert captured["cwd"] == work_dir
+
+
+def test_execute_run_defaults_to_repo_root_work_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo_root = tmp_path / "repo"
+    monkeypatch.setattr(runner, "REPO_ROOT", repo_root)
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        captured["cwd"] = kwargs["cwd"]
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(runner.subprocess, "run", _fake_run)
+
+    run_case = runner.RunCase(
+        name="default_work_dir",
+        run_input=runner.RunInput(args=[], stdin=None),
+        expect=runner.RunExpect(exit_code=0, stdout="", stderr=None, panic=None),
+    )
+
+    result = runner._execute_run(repo_root / "build" / "case", run_case)
+
+    assert result.ok is True
+    assert captured["cwd"] == repo_root
 
 
 def test_main_prints_one_row_per_spec_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:

@@ -40,6 +40,7 @@ class RunCase:
     name: str
     run_input: RunInput
     expect: RunExpect
+    work_dir: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -189,6 +190,19 @@ def _resolve_path_relative_to_spec(spec_path: Path, raw_path: str, label: str) -
     return path
 
 
+def _resolve_path_relative_to_golden_root(spec_path: Path, raw_path: str, label: str) -> Path:
+    path_raw = Path(raw_path)
+    if path_raw.is_absolute():
+        raise ValueError(f"{spec_path}: {label} must be relative to {GOLDEN_ROOT}")
+
+    path = (GOLDEN_ROOT / path_raw).resolve()
+    try:
+        path.relative_to(GOLDEN_ROOT)
+    except ValueError as error:
+        raise ValueError(f"{spec_path}: {label} must resolve under {GOLDEN_ROOT}") from error
+    return path
+
+
 def _parse_runs(raw: object, *, spec_path: Path, test_name: str) -> list[RunCase]:
     if raw is None:
         raise ValueError(f"{spec_path}: test '{test_name}' missing required 'runs'")
@@ -213,7 +227,15 @@ def _parse_runs(raw: object, *, spec_path: Path, test_name: str) -> list[RunCase
         run_input = _parse_input(run_obj.get("input"), spec_path=spec_path, run_name=name_raw)
         expect = _parse_expect(run_obj.get("expect"), spec_path=spec_path, run_name=name_raw)
 
-        runs.append(RunCase(name=name_raw, run_input=run_input, expect=expect))
+        work_dir_raw = run_obj.get("work_dir")
+        work_dir: Path | None = None
+        if work_dir_raw is not None:
+            _require_type(work_dir_raw, str, f"{spec_path}: run '{name_raw}' work_dir")
+            work_dir = _resolve_path_relative_to_golden_root(spec_path, work_dir_raw, f"run '{name_raw}' work_dir")
+            if not work_dir.is_dir():
+                raise ValueError(f"{spec_path}: run '{name_raw}' work_dir does not exist: {work_dir_raw}")
+
+        runs.append(RunCase(name=name_raw, run_input=run_input, expect=expect, work_dir=work_dir))
 
     return runs
 
@@ -473,7 +495,8 @@ def _append_text_diff(errors: list[str], *, label: str, expected: str, actual: s
 
 def _execute_run(binary_path: Path, run: RunCase) -> RunResult:
     cmd = [str(binary_path), *run.run_input.args]
-    proc = subprocess.run(cmd, cwd=REPO_ROOT, input=run.run_input.stdin, capture_output=True, text=True, check=False)
+    cwd = run.work_dir if run.work_dir is not None else REPO_ROOT
+    proc = subprocess.run(cmd, cwd=cwd, input=run.run_input.stdin, capture_output=True, text=True, check=False)
 
     errors: list[str] = []
     expect = run.expect
