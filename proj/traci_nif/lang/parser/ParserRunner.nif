@@ -6,6 +6,7 @@ import proj.traci_nif.main.Settings;
 import proj.traci_nif.lang.interpreter.node.BlockNode;
 import proj.traci_nif.lang.parser.IncludeLocation;
 import proj.traci_nif.lang.parser.Parser;
+import proj.traci_nif.lang.parser.ParserTreeDump as parser_tree;
 import proj.traci_nif.lang.parser.SyntaxNodes;
 import proj.traci_nif.lang.parser.TreeWalker;
 import proj.traci_nif.lang.parser.TraciLexer as traci_lexer;
@@ -25,6 +26,7 @@ export class ParserRunner {
     private _diagnostics: ParseErrorBag;
     private _tokens: Vec;
     private _scene: SceneSyntax;
+    private _parse_tree: parser_tree.ParserTreeNode;
     private _root_node: BlockNode;
 
     constructor(settings: Settings, code: Str) {
@@ -33,6 +35,7 @@ export class ParserRunner {
         __self._diagnostics = ParseErrorBag();
         __self._tokens = Vec.new();
         __self._scene = null;
+        __self._parse_tree = null;
         __self._root_node = null;
     }
 
@@ -52,6 +55,10 @@ export class ParserRunner {
         return __self._scene;
     }
 
+    fn get_parse_tree() -> parser_tree.ParserTreeNode {
+        return __self._parse_tree;
+    }
+
     fn get_root_node() -> BlockNode {
         return __self._root_node;
     }
@@ -60,6 +67,7 @@ export class ParserRunner {
         __self._diagnostics = ParseErrorBag();
         __self._tokens = Vec.new();
         __self._scene = null;
+        __self._parse_tree = null;
         __self._root_node = null;
 
         var input_filename: Str = __self._settings.get_input_filename();
@@ -102,6 +110,7 @@ export class ParserRunner {
 
         var parser: Parser = Parser(parser_tokens, input_filename);
         __self._scene = parser.parse_scene();
+        __self._parse_tree = parser.get_parse_tree();
         __self._diagnostics.extend(parser.get_diagnostics());
         if !parser.get_diagnostics().is_empty() || __self._scene == null {
             if __self._diagnostics.is_empty() {

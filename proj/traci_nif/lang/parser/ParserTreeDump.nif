@@ -1,0 +1,124 @@
+import std.str;
+import std.vec;
+import proj.traci_nif.lang.parser.TraciToken;
+
+export class ParserTreeNode {
+    kind: Str;
+    text: Str;
+    token: TraciToken;
+    children: Vec;
+}
+
+export fn token_tree_node(token: TraciToken) -> ParserTreeNode {
+    return ParserTreeNode(token.kind, token.text, token, Vec.new());
+}
+
+export fn synthetic_tree_node(kind: Str, children: Vec) -> ParserTreeNode {
+    return ParserTreeNode(kind, kind, null, children);
+}
+
+fn _escape_text(value: Str) -> Str {
+    if value == null {
+        return "<null>";
+    }
+
+    var out: StrBuf = StrBuf.new(value.len() + 8u);
+    var i: i64 = 0;
+    while (u64)i < value.len() {
+        var ch: u8 = value[i];
+        if ch == '\n' {
+            out.append("\\n");
+        }
+        else if ch == '\r' {
+            out.append("\\r");
+        }
+        else if ch == '\t' {
+            out.append("\\t");
+        }
+        else if ch == '\\' {
+            out.append("\\\\");
+        }
+        else if ch == '"' {
+            out.append("\\\"");
+        }
+        else {
+            out.append_char(ch);
+        }
+        i = i + 1;
+    }
+    return out.to_str();
+}
+
+fn _node_line(node: ParserTreeNode) -> i64 {
+    if node.token != null {
+        return node.token.line;
+    }
+    if node.children.len() == 0u {
+        return 0;
+    }
+    return _node_line((ParserTreeNode)node.children[0]);
+}
+
+fn _node_col(node: ParserTreeNode) -> i64 {
+    if node.token != null {
+        return node.token.col;
+    }
+    if node.children.len() == 0u {
+        return 0;
+    }
+    return _node_col((ParserTreeNode)node.children[0]);
+}
+
+fn _append_node_line(out: StrBuf, depth: i64, node: ParserTreeNode) -> unit {
+    out.append_i64(depth);
+    out.append_char('|');
+    out.append(node.kind);
+    out.append_char('|');
+    out.append(_escape_text(node.text));
+    out.append_char('|');
+    out.append_u64(node.children.len());
+    out.append_char('|');
+    out.append_i64(_node_line(node));
+    out.append_char('|');
+    out.append_i64(_node_col(node));
+    out.append_char('|');
+
+    if node.token == null || node.token.location == null {
+        out.append("-");
+        out.append_char('|');
+        out.append("-");
+        out.append_char('|');
+        out.append("-");
+    }
+    else {
+        out.append(node.token.location.file_location.render());
+        out.append_char('|');
+        out.append_u64(node.token.location.include_depth());
+        out.append_char('|');
+        if node.token.location.include_depth() == 0u {
+            out.append("-");
+        }
+        else {
+            out.append(node.token.location.get_include_frame((i64)node.token.location.include_depth() - 1).render());
+        }
+    }
+
+    out.append_char('\n');
+}
+
+fn _dump_node(out: StrBuf, depth: i64, node: ParserTreeNode) -> unit {
+    _append_node_line(out, depth, node);
+
+    var i: i64 = 0;
+    while (u64)i < node.children.len() {
+        _dump_node(out, depth + 1, (ParserTreeNode)node.children[i]);
+        i = i + 1;
+    }
+}
+
+export fn dump_parse_tree(root_obj: Obj) -> Str {
+    var root: ParserTreeNode = (ParserTreeNode)root_obj;
+    var out: StrBuf = StrBuf.new(256u);
+    _dump_node(out, 0, root);
+    return out.to_str();
+}
