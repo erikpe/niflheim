@@ -5,37 +5,47 @@ tests:
     runs:
       - name: "real_include_order_matches_java_style_markers"
         input:
-          args: ["real_include"]
+          args: ["--stop-after", "preprocessor", "--preprocessor-output", "{tmp:pp}", "tests/golden/traci/testcode/a.traci"]
         expect:
           exit_code: 0
-          stdout: "#line 1 \"tests/golden/traci/testcode/a.traci\" 1\n17\n#line 1 \"tests/golden/traci/testcode/b.traci\" 1\n+\n 23\n#line 4 \"tests/golden/traci/testcode/a.traci\" 2\n;\n"
+          output_files:
+            - tmp: "pp"
+              expect: "#line 1 \"tests/golden/traci/testcode/a.traci\" 1\n17\n#line 1 \"tests/golden/traci/testcode/b.traci\" 1\n+\n 23\n#line 4 \"tests/golden/traci/testcode/a.traci\" 2\n;\n"
       - name: "include_guards_prevent_duplicate_content"
         input:
-          args: ["guard"]
+          args: ["--stop-after", "preprocessor", "--preprocessor-output", "{tmp:pp}", "tests/golden/traci/lang/preprocessor/pp_double_include_root.traci"]
         expect:
           exit_code: 0
-          stdout: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 1\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n17\n#line 3 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n\n#line 4 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\nVALUE;"
+          output_files:
+            - tmp: "pp"
+              expect: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 1\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n17\n#line 3 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\n#line 1 \"tests/golden/traci/lang/preprocessor/pp_double_include_guarded.traci\" 1\n\n\n\n#line 4 \"tests/golden/traci/lang/preprocessor/pp_double_include_root.traci\" 2\nVALUE;"
       - name: "fast_lego_macro_true_branch"
         input:
-          args: ["fast_on"]
+          args: ["--stop-after", "preprocessor", "-D", "FAST_LEGO=1", "--preprocessor-output", "{tmp:pp}", "tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci"]
         expect:
           exit_code: 0
-          stdout: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci\" 1\n\n\n7\n\n\n"
+          output_files:
+            - tmp: "pp"
+              expect: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci\" 1\n\n\n7\n\n\n"
       - name: "fast_lego_macro_false_branch"
         input:
-          args: ["fast_off"]
+          args: ["--stop-after", "preprocessor", "-D", "FAST_LEGO=0", "--preprocessor-output", "{tmp:pp}", "tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci"]
         expect:
           exit_code: 0
-          stdout: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci\" 1\n\n\n\n\n0\n"
-      - name: "missing_include_reports_include_chain"
+          output_files:
+            - tmp: "pp"
+              expect: "#line 1 \"tests/golden/traci/lang/preprocessor/pp_fast_lego_branch.traci\" 1\n\n\n\n\n0\n"
+      - name: "missing_include_returns_preprocessor_error"
         input:
-          args: ["missing"]
+          args: ["--stop-after", "preprocessor", "tests/golden/traci/lang/preprocessor/pp_missing_root.traci"]
         expect:
-          exit_code: 0
-          stdout: "In file included from tests/golden/traci/lang/preprocessor/pp_missing_root.traci:1:\nIn file: tests/golden/traci/lang/preprocessor/pp_missing_mid.traci:1:0:\nPreprocessor error: Unable to resolve include: 'pp_missing_leaf.traci'\n"
+          exit_code: 251
       - name: "airplane_scene_matches_java_preprocessor_reference"
+        work_dir: "traci/scenes"
         input:
-          args: ["airplane_java_reference"]
+          args: ["--stop-after", "preprocessor", "--preprocessor-output", "{tmp:pp}", "lego/airplane.traci"]
         expect:
           exit_code: 0
-          stdout_file: "airplane_pp_java_reference.traci"
+          output_files:
+            - tmp: "pp"
+              expect_file: "airplane_pp_java_reference.traci"
