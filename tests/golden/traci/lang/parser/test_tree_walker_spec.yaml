@@ -4,29 +4,63 @@ tests:
     src_file: "test_tree_walker.nif"
     runs:
       - name: "basic_tree_walker_dump"
+        work_dir: "traci/lang/parser"
         input:
-          args: ["basic"]
+          args: ["--stop-after", "treewalker", "--node-tree-output", "{tmp:node}", "basic_tree.traci"]
         expect:
           exit_code: 0
-          stdout_file: "test_tree_walker_basic_expected.txt"
+          output_files:
+            - tmp: "node"
+              expect_file: "test_tree_walker_basic_expected.txt"
       - name: "string_constant_is_unquoted"
+        work_dir: "traci/lang/parser"
         input:
-          args: ["string"]
+          args: ["--stop-after", "treewalker", "--node-tree-output", "{tmp:node}", "string_tree.traci"]
         expect:
           exit_code: 0
-          stdout_file: "test_tree_walker_string_expected.txt"
-      - {name: "constructs_tree_walker_dump", input: {args: ["constructs"]}, expect: {exit_code: 0, stdout_file: "test_tree_walker_constructs_expected.txt"}}
-      - {name: "airplane_scene_matches_java_node_tree_reference", input: {args: ["airplane_java_reference"]}, expect: {exit_code: 0, stdout_file: "airplane_node_tree_java_reference.txt"}}
+          output_files:
+            - tmp: "node"
+              expect_file: "test_tree_walker_string_expected.txt"
+      - name: "constructs_tree_walker_dump"
+        work_dir: "traci/lang/parser"
+        input:
+          args: ["--stop-after", "treewalker", "--node-tree-output", "{tmp:node}", "constructs_tree.traci"]
+        expect:
+          exit_code: 0
+          output_files:
+            - tmp: "node"
+              expect_file: "test_tree_walker_constructs_expected.txt"
+      - name: "airplane_scene_matches_java_node_tree_reference"
+        work_dir: "traci/scenes"
+        input:
+          args: ["--stop-after", "treewalker", "--node-tree-output", "{tmp:node}", "lego/airplane.traci"]
+        expect:
+          exit_code: 0
+          output_files:
+            - tmp: "node"
+              expect_file: "airplane_node_tree_java_reference.txt"
       - name: "fibonacci_preprocessed_file_treewalks"
         input:
-          args: ["fibonacci"]
+          args: ["--stop-after", "treewalker", "--node-tree-output", "{tmp:node}", "tests/golden/traci/testcode/fibonacci.traci"]
         expect:
           exit_code: 0
-          stdout: "functions=1|statements=1|first_function=fib|first_statement=ReturnNode\n"
-      - {name: "prime_checker_file_treewalks", input: {args: ["prime"]}, expect: {exit_code: 0, stdout: "functions=3|statements=0|first_function=floor\n"}}
-      - name: "basic_shapes_preprocessed_file_treewalks"
+          output_files:
+            - tmp: "node"
+              expect_file: "fibonacci_node_tree_expected.txt"
+      - name: "prime_checker_file_treewalks"
         input:
-          args: ["basic_shapes"]
+          args: ["--stop-after", "treewalker", "--node-tree-output", "{tmp:node}", "tests/golden/traci/testcode/prime-checker.traci"]
         expect:
           exit_code: 0
-          stdout: "functions=18|statements=6|first_function=roundedCylinder0_base|first_statement=AssignNode\n"
+          output_files:
+            - tmp: "node"
+              expect_file: "prime_checker_node_tree_expected.txt"
+      - name: "basic_shapes_preprocessed_file_treewalks"
+        work_dir: "traci/scenes"
+        input:
+          args: ["--stop-after", "treewalker", "--node-tree-output", "{tmp:node}", "lego/common/basic-shapes.traci"]
+        expect:
+          exit_code: 0
+          output_files:
+            - tmp: "node"
+              expect_file: "basic_shapes_node_tree_expected.txt"

@@ -1,0 +1,28 @@
+def outer(n)
+{
+    def inner(x)
+    {
+        return x + 1;
+    }
+    if (n == 0) {
+        return inner(n) {
+            translate [1, 2, 3];
+        };
+    }
+    elif (n < 10) {
+        while (n < 3) {
+            n = n + 1;
+        }
+    }
+    else {
+        for (i in 0 .. n) {
+            global total = color [1, 0.5, 0.25, 1];
+        }
+    }
+    return union {
+        box {
+            scale [1, 2, 3];
+        };
+        translate [4, 5, 6];
+    };
+}
