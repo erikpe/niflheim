@@ -11,15 +11,12 @@ import proj.traci_nif.lang.interpreter.node.ConstNode;
 import proj.traci_nif.lang.interpreter.node.FunctionNode;
 import proj.traci_nif.lang.interpreter.node.ObjectNode;
 import proj.traci_nif.lang.interpreter.node.ReturnNode;
-import proj.traci_nif.lang.interpreter.node.TraciNode;
+import proj.traci_nif.lang.parser.NodeTreeDumper as node_tree_dumper;
 import proj.traci_nif.lang.parser.ParserRunner as parser_runner;
 import proj.traci_nif.lang.preprocessor.PreprocessorRunner as preprocessor_runner;
 
 fn _walk_code(code: Str, filename: Str) -> parser_runner.ParserRunner {
-    var cfg: settings.Settings = settings.Settings.mock();
-    cfg.set_input_filename(filename);
-
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, code);
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(code, filename);
     assert_eq_i64(runner.run().code, result.Result.success().code);
     assert_eq_u64(runner.get_diagnostics().len(), 0u);
     assert_true(runner.get_root_node() != null);
@@ -27,10 +24,8 @@ fn _walk_code(code: Str, filename: Str) -> parser_runner.ParserRunner {
 }
 
 fn _walk_file(path: Str) -> parser_runner.ParserRunner {
-    var cfg: settings.Settings = settings.Settings.mock();
-    cfg.set_input_filename(path);
-
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, null);
+    var code: Str = read_file(path);
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(code, path);
     assert_eq_i64(runner.run().code, result.Result.success().code);
     assert_eq_u64(runner.get_diagnostics().len(), 0u);
     assert_true(runner.get_root_node() != null);
@@ -44,7 +39,7 @@ fn _walk_preprocessed_file(path: Str) -> parser_runner.ParserRunner {
     var pre: preprocessor_runner.PreprocessorRunner = preprocessor_runner.PreprocessorRunner(cfg);
     assert_eq_i64(pre.run().code, result.Result.success().code);
 
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, pre.get_processed_code());
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(pre.get_processed_code());
     assert_eq_i64(runner.run().code, result.Result.success().code);
     assert_eq_u64(runner.get_diagnostics().len(), 0u);
     assert_true(runner.get_root_node() != null);
@@ -114,19 +109,19 @@ fn _print_root_summary(root: BlockNode) -> unit {
 
 fn test_tree_walker_basic() -> unit {
     var runner: parser_runner.ParserRunner = _walk_code("17+23;", "basic_tree.traci");
-    print(dump_block((Obj)runner.get_root_node()));
+    print(node_tree_dumper.dump_block(runner.get_root_node()));
 }
 
 fn test_tree_walker_string() -> unit {
     var runner: parser_runner.ParserRunner = _walk_code("\"foo/bar.hej\";", "string_tree.traci");
-    print(dump_block((Obj)runner.get_root_node()));
+    print(node_tree_dumper.dump_block(runner.get_root_node()));
 }
 
 fn test_tree_walker_constructs() -> unit {
     var code: Str = "def outer(n)\n{\n    def inner(x)\n    {\n        return x + 1;\n    }\n    if (n == 0) {\n        return inner(n) {\n            translate [1, 2, 3];\n        };\n    }\n    elif (n < 10) {\n        while (n < 3) {\n            n = n + 1;\n        }\n    }\n    else {\n        for (i in 0 .. n) {\n            global total = color [1, 0.5, 0.25, 1];\n        }\n    }\n    return union {\n        box {\n            scale [1, 2, 3];\n        };\n        translate [4, 5, 6];\n    };\n}\n";
 
     var runner: parser_runner.ParserRunner = _walk_code(code, "constructs_tree.traci");
-    print(dump_block((Obj)runner.get_root_node()));
+    print(node_tree_dumper.dump_block(runner.get_root_node()));
 }
 
 fn test_airplane_scene_matches_java_node_tree_reference() -> unit {
@@ -139,12 +134,12 @@ fn test_airplane_scene_matches_java_node_tree_reference() -> unit {
     assert_true(pre.get_processed_code() != null);
 
     var code: Str = _normalize_airplane_include_prefixes(pre.get_processed_code());
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, code);
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(code);
     assert_eq_i64(runner.run().code, result.Result.success().code);
     assert_eq_u64(runner.get_diagnostics().len(), 0u);
     assert_true(runner.get_root_node() != null);
 
-    print(dump_block((Obj)runner.get_root_node()));
+    print(node_tree_dumper.dump_block(runner.get_root_node()));
 }
 
 fn test_tree_walker_fibonacci_preprocessed() -> unit {

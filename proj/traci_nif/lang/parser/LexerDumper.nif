@@ -1,0 +1,41 @@
+import std.str;
+import std.vec;
+import proj.traci_nif.main.Result;
+import proj.traci_nif.lang.parser.DumperUtilities as dumper_utils;
+import proj.traci_nif.lang.parser.TraciToken;
+
+fn _token_text(token: TraciToken) -> Str {
+    if token.kind.equals("EOF") {
+        return "<EOF>";
+    }
+    return token.text;
+}
+
+fn _append_token(out: StrBuf, token: TraciToken) -> unit {
+    out.append(token.kind);
+    out.append_char('|');
+    out.append(dumper_utils.escape_text(_token_text(token)));
+    out.append_char('|');
+    out.append_i64(token.channel);
+    out.append_char('|');
+    out.append_i64(token.line);
+    out.append_char('|');
+    out.append_i64(token.col);
+    out.append_char('|');
+    dumper_utils.append_location(out, token.location);
+    out.append_char('\n');
+}
+
+export fn dump_tokens(tokens: Vec) -> Str {
+    var out: StrBuf = StrBuf.new(256u);
+    var i: i64 = 0;
+    while (u64)i < tokens.len() {
+        _append_token(out, (TraciToken)tokens[i]);
+        i = i + 1;
+    }
+    return out.to_str();
+}
+
+export fn run(tokens: Vec, output_filename: Str) -> Result {
+    return dumper_utils.save_output(output_filename, dump_tokens(tokens), "lexer output");
+}

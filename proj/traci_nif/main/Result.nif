@@ -40,6 +40,10 @@ export class Result {
         return __self.code == 0;
     }
 
+    fn is_abort() -> bool {
+        return __self.label.equals("ABORT");
+    }
+
     fn render() -> Str {
         return __self.label + "(" + Str.from_i64(__self.code) + ")";
     }

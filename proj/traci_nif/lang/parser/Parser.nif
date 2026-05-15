@@ -2,9 +2,23 @@ import std.str;
 import std.vec;
 import proj.traci_nif.lang.parser.IncludeLocation;
 import proj.traci_nif.lang.parser.ParseError;
-import proj.traci_nif.lang.parser.ParserTreeDump as parser_tree;
 import proj.traci_nif.lang.parser.TraciToken;
 import proj.traci_nif.lang.parser.SyntaxNodes;
+
+export class ParserTreeNode {
+    kind: Str;
+    text: Str;
+    token: TraciToken;
+    children: Vec;
+}
+
+export fn token_tree_node(token: TraciToken) -> ParserTreeNode {
+    return ParserTreeNode(token.kind, token.text, token, Vec.new());
+}
+
+export fn synthetic_tree_node(kind: Str, children: Vec) -> ParserTreeNode {
+    return ParserTreeNode(kind, kind, null, children);
+}
 
 fn _fallback_location(input_filename: Str) -> IncludeLocation {
     if input_filename == null {
@@ -22,8 +36,8 @@ export class Parser {
     private _index: i64;
     private _diagnostics: ParseErrorBag;
     private _input_filename: Str;
-    private _parse_tree: parser_tree.ParserTreeNode;
-    private _last_tree: parser_tree.ParserTreeNode;
+    private _parse_tree: ParserTreeNode;
+    private _last_tree: ParserTreeNode;
 
     constructor(tokens: Vec, input_filename: Str) {
         __self._tokens = tokens;
@@ -38,7 +52,7 @@ export class Parser {
         return __self._diagnostics;
     }
 
-    fn get_parse_tree() -> parser_tree.ParserTreeNode {
+    fn get_parse_tree() -> ParserTreeNode {
         return __self._parse_tree;
     }
 
@@ -78,7 +92,7 @@ export class Parser {
             children.push(statement_trees[i]);
             i = i + 1;
         }
-        __self._parse_tree = parser_tree.ParserTreeNode("BLOCK", "BLOCK", null, children);
+        __self._parse_tree = ParserTreeNode("BLOCK", "BLOCK", null, children);
         __self._last_tree = __self._parse_tree;
         return SceneSyntax(functions, statements);
     }
@@ -98,19 +112,19 @@ export class Parser {
         if params == null {
             return null;
         }
-        var params_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var params_tree: ParserTreeNode = __self._last_tree;
 
         var body: BlockSyntax = __self._parse_block();
         if body == null {
             return null;
         }
-        var body_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var body_tree: ParserTreeNode = __self._last_tree;
 
         var children: Vec = Vec.new();
-        children.push((Obj)parser_tree.ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
+        children.push((Obj)ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
         children.push((Obj)params_tree);
         children.push((Obj)body_tree);
-        __self._last_tree = parser_tree.ParserTreeNode(def_token.kind, def_token.text, def_token, children);
+        __self._last_tree = ParserTreeNode(def_token.kind, def_token.text, def_token, children);
         return FunctionSyntax(name_token.text, params, body);
     }
 
@@ -123,7 +137,7 @@ export class Parser {
         var children: Vec = Vec.new();
         if __self._check("RPAR") {
             __self._advance();
-            __self._last_tree = parser_tree.ParserTreeNode("ARGS", "ARGS", null, children);
+            __self._last_tree = ParserTreeNode("ARGS", "ARGS", null, children);
             return params;
         }
 
@@ -133,7 +147,7 @@ export class Parser {
                 return null;
             }
             params.push((Obj)param_token.text);
-            children.push((Obj)parser_tree.ParserTreeNode(param_token.kind, param_token.text, param_token, Vec.new()));
+            children.push((Obj)ParserTreeNode(param_token.kind, param_token.text, param_token, Vec.new()));
 
             if !__self._match("COMMA_OP") {
                 break;
@@ -143,7 +157,7 @@ export class Parser {
         if __self._expect("RPAR", "Expected ')' after parameter list") == null {
             return null;
         }
-        __self._last_tree = parser_tree.ParserTreeNode("ARGS", "ARGS", null, children);
+        __self._last_tree = ParserTreeNode("ARGS", "ARGS", null, children);
         return params;
     }
 
@@ -195,7 +209,7 @@ export class Parser {
             children.push(statement_trees[i]);
             i = i + 1;
         }
-        __self._last_tree = parser_tree.ParserTreeNode("BLOCK", "BLOCK", null, children);
+        __self._last_tree = ParserTreeNode("BLOCK", "BLOCK", null, children);
         return BlockSyntax(functions, statements);
     }
 
@@ -226,7 +240,7 @@ export class Parser {
         if expr == null {
             return null;
         }
-        var expr_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var expr_tree: ParserTreeNode = __self._last_tree;
         if __self._expect("SEMICOLON", "Expected ';' after expression statement") == null {
             return null;
         }
@@ -245,7 +259,7 @@ export class Parser {
         if if_condition == null {
             return null;
         }
-        var if_condition_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var if_condition_tree: ParserTreeNode = __self._last_tree;
         if __self._expect("RPAR", "Expected ')' after if condition") == null {
             return null;
         }
@@ -253,7 +267,7 @@ export class Parser {
         if if_block == null {
             return null;
         }
-        var if_block_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var if_block_tree: ParserTreeNode = __self._last_tree;
         conditions.push(if_condition);
         blocks.push((Obj)if_block);
 
@@ -270,7 +284,7 @@ export class Parser {
             if elif_condition == null {
                 return null;
             }
-            var elif_condition_tree: parser_tree.ParserTreeNode = __self._last_tree;
+            var elif_condition_tree: ParserTreeNode = __self._last_tree;
             if __self._expect("RPAR", "Expected ')' after elif condition") == null {
                 return null;
             }
@@ -278,7 +292,7 @@ export class Parser {
             if elif_block == null {
                 return null;
             }
-            var elif_block_tree: parser_tree.ParserTreeNode = __self._last_tree;
+            var elif_block_tree: ParserTreeNode = __self._last_tree;
             conditions.push(elif_condition);
             blocks.push((Obj)elif_block);
             condition_trees.push((Obj)elif_condition_tree);
@@ -305,7 +319,7 @@ export class Parser {
             children.push(block_trees[i]);
             i = i + 1;
         }
-        __self._last_tree = parser_tree.ParserTreeNode(if_token.kind, if_token.text, if_token, children);
+        __self._last_tree = ParserTreeNode(if_token.kind, if_token.text, if_token, children);
         return IfSyntax(conditions, blocks, else_block, if_token.location);
     }
 
@@ -317,7 +331,7 @@ export class Parser {
         if condition == null {
             return null;
         }
-        var condition_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var condition_tree: ParserTreeNode = __self._last_tree;
         if __self._expect("RPAR", "Expected ')' after while condition") == null {
             return null;
         }
@@ -328,7 +342,7 @@ export class Parser {
         var children: Vec = Vec.new();
         children.push((Obj)condition_tree);
         children.push((Obj)__self._last_tree);
-        __self._last_tree = parser_tree.ParserTreeNode(while_token.kind, while_token.text, while_token, children);
+        __self._last_tree = ParserTreeNode(while_token.kind, while_token.text, while_token, children);
         return WhileSyntax(condition, body, while_token.location);
     }
 
@@ -347,7 +361,7 @@ export class Parser {
         if start_expr == null {
             return null;
         }
-        var start_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var start_tree: ParserTreeNode = __self._last_tree;
         if __self._expect("DOTS", "Expected '..' in for-range expression") == null {
             return null;
         }
@@ -355,7 +369,7 @@ export class Parser {
         if end_expr == null {
             return null;
         }
-        var end_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var end_tree: ParserTreeNode = __self._last_tree;
         if __self._expect("RPAR", "Expected ')' after for-range expression") == null {
             return null;
         }
@@ -364,11 +378,11 @@ export class Parser {
             return null;
         }
         var children: Vec = Vec.new();
-        children.push((Obj)parser_tree.ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
+        children.push((Obj)ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
         children.push((Obj)start_tree);
         children.push((Obj)end_tree);
         children.push((Obj)__self._last_tree);
-        __self._last_tree = parser_tree.ParserTreeNode(for_token.kind, for_token.text, for_token, children);
+        __self._last_tree = ParserTreeNode(for_token.kind, for_token.text, for_token, children);
         return ForSyntax(name_token.text, start_expr, end_expr, body, for_token.location);
     }
 
@@ -377,13 +391,13 @@ export class Parser {
         if value == null {
             return null;
         }
-        var value_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var value_tree: ParserTreeNode = __self._last_tree;
         if __self._expect("SEMICOLON", "Expected ';' after return statement") == null {
             return null;
         }
         var children: Vec = Vec.new();
         children.push((Obj)value_tree);
-        __self._last_tree = parser_tree.ParserTreeNode(return_token.kind, return_token.text, return_token, children);
+        __self._last_tree = ParserTreeNode(return_token.kind, return_token.text, return_token, children);
         return ReturnSyntax(value);
     }
 
@@ -399,14 +413,14 @@ export class Parser {
         if value == null {
             return null;
         }
-        var value_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var value_tree: ParserTreeNode = __self._last_tree;
         if __self._expect("SEMICOLON", "Expected ';' after global assignment") == null {
             return null;
         }
         var children: Vec = Vec.new();
-        children.push((Obj)parser_tree.ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
+        children.push((Obj)ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
         children.push((Obj)value_tree);
-        __self._last_tree = parser_tree.ParserTreeNode("GLOBAL_ASSIGN", "GLOBAL_ASSIGN", null, children);
+        __self._last_tree = ParserTreeNode("GLOBAL_ASSIGN", "GLOBAL_ASSIGN", null, children);
         return GlobalAssignSyntax(name_token.text, value);
     }
 
@@ -423,14 +437,14 @@ export class Parser {
         if value == null {
             return null;
         }
-        var value_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var value_tree: ParserTreeNode = __self._last_tree;
         if __self._expect("SEMICOLON", "Expected ';' after assignment") == null {
             return null;
         }
         var children: Vec = Vec.new();
-        children.push((Obj)parser_tree.ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
+        children.push((Obj)ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
         children.push((Obj)value_tree);
-        __self._last_tree = parser_tree.ParserTreeNode(assign_token.kind, assign_token.text, assign_token, children);
+        __self._last_tree = ParserTreeNode(assign_token.kind, assign_token.text, assign_token, children);
         return AssignSyntax(name_token.text, value);
     }
 
@@ -443,7 +457,7 @@ export class Parser {
         if arg == null {
             return null;
         }
-        var arg_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var arg_tree: ParserTreeNode = __self._last_tree;
         if __self._expect("SEMICOLON", "Expected ';' after simplified transformation statement") == null {
             return null;
         }
@@ -452,8 +466,8 @@ export class Parser {
         var arg_children: Vec = Vec.new();
         arg_children.push((Obj)arg_tree);
         var children: Vec = Vec.new();
-        children.push((Obj)parser_tree.ParserTreeNode("ARGS", "ARGS", null, arg_children));
-        __self._last_tree = parser_tree.ParserTreeNode(token.kind, token.text, token, children);
+        children.push((Obj)ParserTreeNode("ARGS", "ARGS", null, arg_children));
+        __self._last_tree = ParserTreeNode(token.kind, token.text, token, children);
         return ObjectSyntax(token.kind, token.text, args, null, token.location);
     }
 
@@ -466,7 +480,7 @@ export class Parser {
         if expr == null {
             return null;
         }
-        var expr_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var expr_tree: ParserTreeNode = __self._last_tree;
 
         if __self._match("LT_OP") || __self._match("GT_OP") || __self._match("LTE_OP") || __self._match("GTE_OP") || __self._match("EQ_OP") || __self._match("NEQ_OP") {
             var op: TraciToken = __self._previous();
@@ -477,7 +491,7 @@ export class Parser {
             var children: Vec = Vec.new();
             children.push((Obj)expr_tree);
             children.push((Obj)__self._last_tree);
-            expr_tree = parser_tree.ParserTreeNode(op.kind, op.text, op, children);
+            expr_tree = ParserTreeNode(op.kind, op.text, op, children);
             __self._last_tree = expr_tree;
             expr = (Obj)BinaryExprSyntax(op.kind, expr, right, op.location);
         }
@@ -491,7 +505,7 @@ export class Parser {
         if expr == null {
             return null;
         }
-        var expr_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var expr_tree: ParserTreeNode = __self._last_tree;
 
         while __self._match("PLUS_OP") || __self._match("MINUS_OP") {
             var op: TraciToken = __self._previous();
@@ -502,7 +516,7 @@ export class Parser {
             var children: Vec = Vec.new();
             children.push((Obj)expr_tree);
             children.push((Obj)__self._last_tree);
-            expr_tree = parser_tree.ParserTreeNode(op.kind, op.text, op, children);
+            expr_tree = ParserTreeNode(op.kind, op.text, op, children);
             __self._last_tree = expr_tree;
             expr = (Obj)BinaryExprSyntax(op.kind, expr, right, op.location);
         }
@@ -516,7 +530,7 @@ export class Parser {
         if expr == null {
             return null;
         }
-        var expr_tree: parser_tree.ParserTreeNode = __self._last_tree;
+        var expr_tree: ParserTreeNode = __self._last_tree;
 
         while __self._match("MUL_OP") || __self._match("DIV_OP") {
             var op: TraciToken = __self._previous();
@@ -527,7 +541,7 @@ export class Parser {
             var children: Vec = Vec.new();
             children.push((Obj)expr_tree);
             children.push((Obj)__self._last_tree);
-            expr_tree = parser_tree.ParserTreeNode(op.kind, op.text, op, children);
+            expr_tree = ParserTreeNode(op.kind, op.text, op, children);
             __self._last_tree = expr_tree;
             expr = (Obj)BinaryExprSyntax(op.kind, expr, right, op.location);
         }
@@ -544,9 +558,9 @@ export class Parser {
                 return null;
             }
             var children: Vec = Vec.new();
-            children.push((Obj)parser_tree.ParserTreeNode(op.kind, op.text, op, Vec.new()));
+            children.push((Obj)ParserTreeNode(op.kind, op.text, op, Vec.new()));
             children.push((Obj)__self._last_tree);
-            __self._last_tree = parser_tree.ParserTreeNode("UNARY_OP", "UNARY_OP", null, children);
+            __self._last_tree = ParserTreeNode("UNARY_OP", "UNARY_OP", null, children);
             return (Obj)UnaryExprSyntax(op.kind, operand, op.location);
         }
 
@@ -556,7 +570,7 @@ export class Parser {
     private fn _parse_primary() -> Obj {
         if __self._match("FLOAT") || __self._match("INT") || __self._match("QSTRING") || __self._match("TRUE") || __self._match("FALSE") {
             var const_token: TraciToken = __self._previous();
-            __self._last_tree = parser_tree.ParserTreeNode(const_token.kind, const_token.text, const_token, Vec.new());
+            __self._last_tree = ParserTreeNode(const_token.kind, const_token.text, const_token, Vec.new());
             return (Obj)ConstSyntax(const_token.kind, const_token.text);
         }
 
@@ -597,18 +611,18 @@ export class Parser {
             if args == null {
                 return null;
             }
-            var args_tree: parser_tree.ParserTreeNode = __self._last_tree;
+            var args_tree: ParserTreeNode = __self._last_tree;
             var trailing_block: BlockSyntax = __self._parse_optional_block();
             if __self._has_errors() {
                 return null;
             }
             var children: Vec = Vec.new();
-            children.push((Obj)parser_tree.ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
+            children.push((Obj)ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
             children.push((Obj)args_tree);
             if trailing_block != null {
                 children.push((Obj)__self._last_tree);
             }
-            __self._last_tree = parser_tree.ParserTreeNode("FUNCALL", "FUNCALL", null, children);
+            __self._last_tree = ParserTreeNode("FUNCALL", "FUNCALL", null, children);
             return (Obj)FunctionCallSyntax(name_token.text, args, trailing_block, name_token.location);
         }
 
@@ -617,11 +631,11 @@ export class Parser {
             return null;
         }
         var children: Vec = Vec.new();
-        children.push((Obj)parser_tree.ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
+        children.push((Obj)ParserTreeNode(name_token.kind, name_token.text, name_token, Vec.new()));
         if ref_block != null {
             children.push((Obj)__self._last_tree);
         }
-        __self._last_tree = parser_tree.ParserTreeNode("REF", "REF", null, children);
+        __self._last_tree = ParserTreeNode("REF", "REF", null, children);
         return (Obj)RefSyntax(name_token.text, ref_block, name_token.location);
     }
 
@@ -630,7 +644,7 @@ export class Parser {
         var trailing_block: BlockSyntax = null;
 
         if head_token.kind.equals("PRIMITIVE_SHAPE") || head_token.kind.equals("BBOX") || head_token.kind.equals("TRANSFORMATION") || head_token.kind.equals("LIGHT") || head_token.kind.equals("PIGMENT") || head_token.kind.equals("MATERIAL") {
-            var args_tree: parser_tree.ParserTreeNode = parser_tree.ParserTreeNode("ARGS", "ARGS", null, Vec.new());
+            var args_tree: ParserTreeNode = ParserTreeNode("ARGS", "ARGS", null, Vec.new());
             if __self._check("LPAR") {
                 args = __self._parse_call_args();
                 if args == null {
@@ -647,7 +661,7 @@ export class Parser {
             if trailing_block != null {
                 children.push((Obj)__self._last_tree);
             }
-            __self._last_tree = parser_tree.ParserTreeNode(head_token.kind, head_token.text, head_token, children);
+            __self._last_tree = ParserTreeNode(head_token.kind, head_token.text, head_token, children);
             return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block, head_token.location);
         }
 
@@ -660,7 +674,7 @@ export class Parser {
             if trailing_block != null {
                 children.push((Obj)__self._last_tree);
             }
-            __self._last_tree = parser_tree.ParserTreeNode(head_token.kind, head_token.text, head_token, children);
+            __self._last_tree = ParserTreeNode(head_token.kind, head_token.text, head_token, children);
             return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block, head_token.location);
         }
 
@@ -671,7 +685,7 @@ export class Parser {
             }
             var children: Vec = Vec.new();
             children.push((Obj)__self._last_tree);
-            __self._last_tree = parser_tree.ParserTreeNode(head_token.kind, head_token.text, head_token, children);
+            __self._last_tree = ParserTreeNode(head_token.kind, head_token.text, head_token, children);
             return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, null, head_token.location);
         }
 
@@ -680,7 +694,7 @@ export class Parser {
             if args == null {
                 return null;
             }
-            var args_tree: parser_tree.ParserTreeNode = __self._last_tree;
+            var args_tree: ParserTreeNode = __self._last_tree;
             trailing_block = __self._parse_optional_block();
             if __self._has_errors() {
                 return null;
@@ -690,7 +704,7 @@ export class Parser {
             if trailing_block != null {
                 children.push((Obj)__self._last_tree);
             }
-            __self._last_tree = parser_tree.ParserTreeNode(head_token.kind, head_token.text, head_token, children);
+            __self._last_tree = ParserTreeNode(head_token.kind, head_token.text, head_token, children);
             return (Obj)ObjectSyntax(head_token.kind, head_token.text, args, trailing_block, head_token.location);
         }
 
@@ -742,9 +756,9 @@ export class Parser {
             i = i + 1;
         }
         var children: Vec = Vec.new();
-        children.push((Obj)parser_tree.ParserTreeNode(lbracket_token.kind, lbracket_token.text, lbracket_token, Vec.new()));
-        children.push((Obj)parser_tree.ParserTreeNode("ARGS", "ARGS", null, args_children));
-        __self._last_tree = parser_tree.ParserTreeNode("VECTOR", "VECTOR", null, children);
+        children.push((Obj)ParserTreeNode(lbracket_token.kind, lbracket_token.text, lbracket_token, Vec.new()));
+        children.push((Obj)ParserTreeNode("ARGS", "ARGS", null, args_children));
+        __self._last_tree = ParserTreeNode("VECTOR", "VECTOR", null, children);
         return (Obj)VectorSyntax(items, lbracket_token.location);
     }
 
@@ -802,8 +816,8 @@ export class Parser {
             i = i + 1;
         }
         var children: Vec = Vec.new();
-        children.push((Obj)parser_tree.ParserTreeNode("ARGS", "ARGS", null, args_children));
-        __self._last_tree = parser_tree.ParserTreeNode(color_token.kind, color_token.text, color_token, children);
+        children.push((Obj)ParserTreeNode("ARGS", "ARGS", null, args_children));
+        __self._last_tree = ParserTreeNode(color_token.kind, color_token.text, color_token, children);
         return (Obj)ColorSyntax(items, color_token.location);
     }
 
@@ -816,7 +830,7 @@ export class Parser {
         var children: Vec = Vec.new();
         if __self._check("RPAR") {
             __self._advance();
-            __self._last_tree = parser_tree.ParserTreeNode("ARGS", "ARGS", null, children);
+            __self._last_tree = ParserTreeNode("ARGS", "ARGS", null, children);
             return args;
         }
 
@@ -836,7 +850,7 @@ export class Parser {
         if __self._expect("RPAR", "Expected ')' after argument list") == null {
             return null;
         }
-        __self._last_tree = parser_tree.ParserTreeNode("ARGS", "ARGS", null, children);
+        __self._last_tree = ParserTreeNode("ARGS", "ARGS", null, children);
         return args;
     }
 

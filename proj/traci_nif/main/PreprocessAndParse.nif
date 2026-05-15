@@ -28,7 +28,7 @@ export fn run(settings: Settings) -> FrontendRun {
         return FrontendRun(pre_result, pre, null);
     }
 
-    var parser: ParserRunner = ParserRunner(settings, pre.get_processed_code());
+    var parser: ParserRunner = ParserRunner(pre.get_processed_code());
     var parse_result: Result = parser.run();
     return FrontendRun(parse_result, pre, parser);
 }

@@ -1,7 +1,7 @@
 import std.box;
 import std.str;
 import std.vec;
-import proj.traci_nif.lang.parser.IncludeLocation;
+import proj.traci_nif.main.Result;
 import proj.traci_nif.lang.interpreter.node.AssignNode;
 import proj.traci_nif.lang.interpreter.node.BinaryOpNode;
 import proj.traci_nif.lang.interpreter.node.BlockNode;
@@ -15,72 +15,21 @@ import proj.traci_nif.lang.interpreter.node.RefNode;
 import proj.traci_nif.lang.interpreter.node.ReturnNode;
 import proj.traci_nif.lang.interpreter.node.UnaryOpNode;
 import proj.traci_nif.lang.interpreter.node.WhileNode;
-
-fn _escape_text(value: Str) -> Str {
-    if value == null {
-        return "<null>";
-    }
-
-    var out: StrBuf = StrBuf.new(value.len() + 8u);
-    var i: i64 = 0;
-    while (u64)i < value.len() {
-        var ch: u8 = value[i];
-        if ch == '\n' {
-            out.append("\\n");
-        }
-        else if ch == '\r' {
-            out.append("\\r");
-        }
-        else if ch == '\t' {
-            out.append("\\t");
-        }
-        else if ch == '\\' {
-            out.append("\\\\");
-        }
-        else if ch == '"' {
-            out.append("\\\"");
-        }
-        else if ch == '|' {
-            out.append("\\|");
-        }
-        else {
-            out.append_char(ch);
-        }
-        i = i + 1;
-    }
-    return out.to_str();
-}
-
-fn _append_location(out: StrBuf, location: IncludeLocation) -> unit {
-    if location == null {
-        out.append("-|-|-");
-        return;
-    }
-
-    out.append(location.file_location.render());
-    out.append_char('|');
-    out.append_u64(location.include_depth());
-    out.append_char('|');
-    if location.include_depth() == 0u {
-        out.append("-");
-    }
-    else {
-        out.append(location.get_include_frame((i64)location.include_depth() - 1).render());
-    }
-}
+import proj.traci_nif.lang.parser.DumperUtilities as dumper_utils;
+import proj.traci_nif.lang.parser.IncludeLocation;
 
 fn _append_line(out: StrBuf, depth: i64, role: Str, kind: Str, detail: Str, child_count: u64, location: IncludeLocation) -> unit {
     out.append_i64(depth);
     out.append_char('|');
-    out.append(_escape_text(role));
+    out.append(dumper_utils.escape_text(role));
     out.append_char('|');
     out.append(kind);
     out.append_char('|');
-    out.append(_escape_text(detail));
+    out.append(dumper_utils.escape_text(detail));
     out.append_char('|');
     out.append_u64(child_count);
     out.append_char('|');
-    _append_location(out, location);
+    dumper_utils.append_location(out, location);
     out.append_char('\n');
 }
 
@@ -380,8 +329,12 @@ fn _dump_node(out: StrBuf, depth: i64, role: Str, node: Obj) -> unit {
     _append_line(out, depth, role, "<unknown traci node>", "", 0u, null);
 }
 
-export fn dump_block(root_obj: Obj) -> Str {
+export fn dump_block(root: BlockNode) -> Str {
     var out: StrBuf = StrBuf.new(256u);
-    _dump_block(out, 0, "root", (BlockNode)root_obj);
+    _dump_block(out, 0, "root", root);
     return out.to_str();
+}
+
+export fn run(root: BlockNode, output_filename: Str) -> Result {
+    return dumper_utils.save_output(output_filename, dump_block(root), "node tree output");
 }

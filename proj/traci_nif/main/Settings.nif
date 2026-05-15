@@ -4,6 +4,11 @@ import std.vec;
 export class Settings {
     debug: bool = false;
     input_filename: Str = null;
+    preprocessor_output: Str = null;
+    lexer_output: Str = null;
+    parser_output: Str = null;
+    node_tree_output: Str = null;
+    stop_after: Str = null;
     private _include_dirs: Vec;
     private _preprocessor_macros: Vec;
 
@@ -26,6 +31,46 @@ export class Settings {
 
     fn get_input_filename() -> Str {
         return __self.input_filename;
+    }
+
+    fn set_preprocessor_output(output_filename: Str) -> unit {
+        __self.preprocessor_output = output_filename;
+    }
+
+    fn get_preprocessor_output() -> Str {
+        return __self.preprocessor_output;
+    }
+
+    fn set_lexer_output(output_filename: Str) -> unit {
+        __self.lexer_output = output_filename;
+    }
+
+    fn get_lexer_output() -> Str {
+        return __self.lexer_output;
+    }
+
+    fn set_parser_output(output_filename: Str) -> unit {
+        __self.parser_output = output_filename;
+    }
+
+    fn get_parser_output() -> Str {
+        return __self.parser_output;
+    }
+
+    fn set_node_tree_output(output_filename: Str) -> unit {
+        __self.node_tree_output = output_filename;
+    }
+
+    fn get_node_tree_output() -> Str {
+        return __self.node_tree_output;
+    }
+
+    fn set_stop_after(phase: Str) -> unit {
+        __self.stop_after = phase;
+    }
+
+    fn get_stop_after() -> Str {
+        return __self.stop_after;
     }
 
     fn add_include_dir(include_dir: Str) -> unit {

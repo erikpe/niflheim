@@ -7,6 +7,7 @@ import proj.traci_nif.main.Settings as settings;
 import proj.traci_nif.lang.interpreter.node.BlockNode;
 import proj.traci_nif.lang.interpreter.node.FunctionNode;
 import proj.traci_nif.lang.interpreter.node.ReturnNode;
+import proj.traci_nif.main.Main;
 import proj.traci_nif.lang.parser.ParserRunner as parser_runner;
 import proj.traci_nif.lang.parser.SyntaxNodes;
 import proj.traci_nif.lang.preprocessor.PreprocessorRunner as preprocessor_runner;
@@ -37,7 +38,7 @@ fn test_parser_after_preprocessor() -> unit {
     assert_true(pre.get_processed_code() != null);
     assert_true(pre.get_processed_code().len() > 0u);
 
-    var parser: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, pre.get_processed_code());
+    var parser: parser_runner.ParserRunner = parser_runner.ParserRunner(pre.get_processed_code());
     assert_eq_i64(parser.run().code, result.Result.success().code);
     assert_true(parser.get_token_count() > 1u);
     assert_eq_str(parser.get_token(0).kind, "PPLINE");
@@ -58,6 +59,140 @@ fn test_parser_after_preprocessor() -> unit {
     println("tokens=" + parser.get_token(0).kind + "," + parser.get_token(-1).kind + "|scene_functions=" + Str.from_i64((i64)scene.functions.len()) + "|scene_statements=" + Str.from_i64((i64)scene.statements.len()) + "|root_functions=" + Str.from_i64((i64)root.functions.len()) + "|root_statements=" + Str.from_i64((i64)root.statements.len()) + "|first_function=" + ((FunctionNode)root.functions[0]).id + "|first_statement=ReturnNode");
 }
 
+fn test_main_run_pipeline() -> unit {
+    var argv: Str[] = Str[](4u);
+    argv[0] = "traci";
+    argv[1] = "-I";
+    argv[2] = "tests/golden/traci/testcode";
+    argv[3] = "tests/golden/traci/testcode/fibonacci.traci";
+
+    var main_result: result.Result = run(argv);
+    assert_eq_i64(main_result.code, result.Result.success().code);
+    println("main_result=" + main_result.render());
+}
+
+fn _starts_with(text: Str, prefix: Str) -> bool {
+    if text == null || text.len() < prefix.len() {
+        return false;
+    }
+    return text[:(i64)prefix.len()].equals(prefix);
+}
+
+fn test_main_run_dump_outputs() -> unit {
+    var base: Str = "build/golden/__runtime__/traci_main_dump";
+    var argv: Str[] = Str[](12u);
+    argv[0] = "traci";
+    argv[1] = "--preprocessor-output";
+    argv[2] = base + ".pre.txt";
+    argv[3] = "--lexer-output";
+    argv[4] = base + ".lex.txt";
+    argv[5] = "--parser-output";
+    argv[6] = base + ".parse.txt";
+    argv[7] = "--node-tree-output";
+    argv[8] = base + ".node.txt";
+    argv[9] = "-I";
+    argv[10] = "tests/golden/traci/testcode";
+    argv[11] = "tests/golden/traci/testcode/fibonacci.traci";
+
+    var main_result: result.Result = run(argv);
+    assert_eq_i64(main_result.code, result.Result.success().code);
+
+    var pre: Str = try_read_file(base + ".pre.txt");
+    var lex: Str = try_read_file(base + ".lex.txt");
+    var parse: Str = try_read_file(base + ".parse.txt");
+    var node: Str = try_read_file(base + ".node.txt");
+    assert_true(_starts_with(pre, "#line"));
+    assert_true(_starts_with(lex, "PPLINE|"));
+    assert_true(_starts_with(parse, "0|BLOCK|"));
+    assert_true(_starts_with(node, "0|root|BlockNode|"));
+    println("dump_result=" + main_result.render() + "|pre=" + Str.from_u64(pre.len()) + "|lex=" + Str.from_u64(lex.len()) + "|parse=" + Str.from_u64(parse.len()) + "|node=" + Str.from_u64(node.len()));
+}
+
+fn test_main_help() -> unit {
+    var argv: Str[] = Str[](2u);
+    argv[0] = "traci";
+    argv[1] = "--help";
+
+    var main_result: result.Result = run(argv);
+    assert_eq_i64(main_result.code, result.Result.abort().code);
+}
+
+fn test_main_stop_after_phases() -> unit {
+    var sentinel: Str = "sentinel";
+    var input_file: Str = "tests/golden/traci/testcode/fibonacci.traci";
+    var include_dir: Str = "tests/golden/traci/testcode";
+    var base: Str = "build/golden/__runtime__/traci_stop_after";
+
+    var pre_lex: Str = base + ".pre.lex.txt";
+    write_file(pre_lex, sentinel);
+    var pre_argv: Str[] = Str[](10u);
+    pre_argv[0] = "traci";
+    pre_argv[1] = "--stop-after";
+    pre_argv[2] = "preprocessor";
+    pre_argv[3] = "--preprocessor-output";
+    pre_argv[4] = base + ".pre.txt";
+    pre_argv[5] = "--lexer-output";
+    pre_argv[6] = pre_lex;
+    pre_argv[7] = "-I";
+    pre_argv[8] = include_dir;
+    pre_argv[9] = input_file;
+    assert_eq_i64(run(pre_argv).code, result.Result.success().code);
+    var pre: Str = try_read_file(base + ".pre.txt");
+    assert_true(_starts_with(pre, "#line"));
+    assert_eq_str(try_read_file(pre_lex), sentinel);
+
+    var lex_parse: Str = base + ".lex.parse.txt";
+    write_file(lex_parse, sentinel);
+    var lex_argv: Str[] = Str[](10u);
+    lex_argv[0] = "traci";
+    lex_argv[1] = "--stop-after";
+    lex_argv[2] = "lexer";
+    lex_argv[3] = "--lexer-output";
+    lex_argv[4] = base + ".lex.txt";
+    lex_argv[5] = "--parser-output";
+    lex_argv[6] = lex_parse;
+    lex_argv[7] = "-I";
+    lex_argv[8] = include_dir;
+    lex_argv[9] = input_file;
+    assert_eq_i64(run(lex_argv).code, result.Result.success().code);
+    var lex: Str = try_read_file(base + ".lex.txt");
+    assert_true(_starts_with(lex, "PPLINE|"));
+    assert_eq_str(try_read_file(lex_parse), sentinel);
+
+    var parser_node: Str = base + ".parser.node.txt";
+    write_file(parser_node, sentinel);
+    var parser_argv: Str[] = Str[](10u);
+    parser_argv[0] = "traci";
+    parser_argv[1] = "--stop-after";
+    parser_argv[2] = "parser";
+    parser_argv[3] = "--parser-output";
+    parser_argv[4] = base + ".parser.txt";
+    parser_argv[5] = "--node-tree-output";
+    parser_argv[6] = parser_node;
+    parser_argv[7] = "-I";
+    parser_argv[8] = include_dir;
+    parser_argv[9] = input_file;
+    assert_eq_i64(run(parser_argv).code, result.Result.success().code);
+    var parse: Str = try_read_file(base + ".parser.txt");
+    assert_true(_starts_with(parse, "0|BLOCK|"));
+    assert_eq_str(try_read_file(parser_node), sentinel);
+
+    var tree_argv: Str[] = Str[](8u);
+    tree_argv[0] = "traci";
+    tree_argv[1] = "--stop-after";
+    tree_argv[2] = "treewalker";
+    tree_argv[3] = "--node-tree-output";
+    tree_argv[4] = base + ".tree.txt";
+    tree_argv[5] = "-I";
+    tree_argv[6] = include_dir;
+    tree_argv[7] = input_file;
+    assert_eq_i64(run(tree_argv).code, result.Result.success().code);
+    var tree: Str = try_read_file(base + ".tree.txt");
+    assert_true(_starts_with(tree, "0|root|BlockNode|"));
+
+    println("stop_after=pre:" + Str.from_u64(pre.len()) + "|lex:" + Str.from_u64(lex.len()) + "|parser:" + Str.from_u64(parse.len()) + "|tree:" + Str.from_u64(tree.len()));
+}
+
 fn main() -> i64 {
     var args: Str[] = read_program_args();
     if args.len() < 2u {
@@ -71,6 +206,22 @@ fn main() -> i64 {
     }
     if mode.equals("parse_success") {
         test_parser_after_preprocessor();
+        return 0;
+    }
+    if mode.equals("main_run") {
+        test_main_run_pipeline();
+        return 0;
+    }
+    if mode.equals("main_dumps") {
+        test_main_run_dump_outputs();
+        return 0;
+    }
+    if mode.equals("help") {
+        test_main_help();
+        return 0;
+    }
+    if mode.equals("stop_after") {
+        test_main_stop_after_phases();
         return 0;
     }
 

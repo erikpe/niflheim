@@ -5,7 +5,7 @@ import std.error;
 import proj.traci_nif.main.Result as result;
 import proj.traci_nif.main.Settings as settings;
 import proj.traci_nif.lang.interpreter.node.BlockNode;
-import proj.traci_nif.lang.interpreter.node.TraciNode;
+import proj.traci_nif.lang.parser.NodeTreeDumper as node_tree_dumper;
 import proj.traci_nif.lang.parser.ParserRunner as parser_runner;
 import proj.traci_nif.lang.parser.SyntaxNodes;
 import proj.traci_nif.lang.preprocessor.PreprocessorRunner as preprocessor_runner;
@@ -25,7 +25,7 @@ fn _run_pipeline(path: Str) -> parser_runner.ParserRunner {
     var pre: preprocessor_runner.PreprocessorRunner = preprocessor_runner.PreprocessorRunner(cfg);
     assert_eq_i64(pre.run().code, result.Result.success().code);
 
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, pre.get_processed_code());
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(pre.get_processed_code());
     assert_eq_i64(runner.run().code, result.Result.success().code);
     assert_eq_u64(runner.get_diagnostics().len(), 0u);
     assert_true(runner.get_scene() != null);
@@ -61,7 +61,7 @@ fn test_if_statement_parser_dump() -> unit {
 
 fn test_if_statement_tree_dump() -> unit {
     var runner: parser_runner.ParserRunner = _run_pipeline("tests/golden/traci/testcode/if-statement.traci");
-    print(dump_block((Obj)runner.get_root_node()));
+    print(node_tree_dumper.dump_block(runner.get_root_node()));
 }
 
 fn test_standalone_testcode_pipeline_smoke() -> unit {

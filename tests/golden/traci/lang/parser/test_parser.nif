@@ -5,15 +5,12 @@ import std.error;
 import proj.traci_nif.main.Result as result;
 import proj.traci_nif.main.Settings as settings;
 import proj.traci_nif.lang.parser.ParserRunner as parser_runner;
-import proj.traci_nif.lang.parser.ParserTreeDump as parser_tree;
+import proj.traci_nif.lang.parser.ParserDumper as parser_dumper;
 import proj.traci_nif.lang.parser.SyntaxNodes;
 import proj.traci_nif.lang.preprocessor.PreprocessorRunner as preprocessor_runner;
 
 fn _parse_code(code: Str, filename: Str) -> parser_runner.ParserRunner {
-    var cfg: settings.Settings = settings.Settings.mock();
-    cfg.set_input_filename(filename);
-
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, code);
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(code, filename);
     assert_eq_i64(runner.run().code, result.Result.success().code);
     assert_eq_u64(runner.get_diagnostics().len(), 0u);
     assert_true(runner.get_scene() != null);
@@ -21,10 +18,8 @@ fn _parse_code(code: Str, filename: Str) -> parser_runner.ParserRunner {
 }
 
 fn _parse_file(path: Str) -> parser_runner.ParserRunner {
-    var cfg: settings.Settings = settings.Settings.mock();
-    cfg.set_input_filename(path);
-
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, null);
+    var code: Str = read_file(path);
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(code, path);
     assert_eq_i64(runner.run().code, result.Result.success().code);
     assert_eq_u64(runner.get_diagnostics().len(), 0u);
     assert_true(runner.get_scene() != null);
@@ -38,7 +33,7 @@ fn _parse_preprocessed_file(path: Str) -> parser_runner.ParserRunner {
     var pre: preprocessor_runner.PreprocessorRunner = preprocessor_runner.PreprocessorRunner(cfg);
     assert_eq_i64(pre.run().code, result.Result.success().code);
 
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, pre.get_processed_code());
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(pre.get_processed_code());
     assert_eq_i64(runner.run().code, result.Result.success().code);
     assert_eq_u64(runner.get_diagnostics().len(), 0u);
     assert_true(runner.get_scene() != null);
@@ -119,14 +114,14 @@ fn _print_scene_edge_summary(scene_obj: Obj) -> unit {
 
 fn test_basic_expression_dump() -> unit {
     var runner: parser_runner.ParserRunner = _parse_code("17+23;", "basic_parser.traci");
-    print(parser_tree.dump_parse_tree((Obj)runner.get_parse_tree()));
+    print(parser_dumper.dump_parse_tree(runner.get_parse_tree()));
 }
 
 fn test_constructs_dump() -> unit {
     var code: Str = "def outer(n)\n{\n    def inner(x)\n    {\n        return x + 1;\n    }\n    if (n == 0) {\n        return inner(n) {\n            translate [1, 2, 3];\n        };\n    }\n    elif (n < 10) {\n        while (n < 3) {\n            n = n + 1;\n        }\n    }\n    else {\n        for (i in 0 .. n) {\n            global total = color [1, 0.5, 0.25, 1];\n        }\n    }\n    return union {\n        box {\n            scale [1, 2, 3];\n        };\n        translate [4, 5, 6];\n    };\n}\n";
 
     var runner: parser_runner.ParserRunner = _parse_code(code, "constructs.traci");
-    print(parser_tree.dump_parse_tree((Obj)runner.get_parse_tree()));
+    print(parser_dumper.dump_parse_tree(runner.get_parse_tree()));
 }
 
 fn test_airplane_scene_matches_java_parser_reference() -> unit {
@@ -139,12 +134,12 @@ fn test_airplane_scene_matches_java_parser_reference() -> unit {
     assert_true(pre.get_processed_code() != null);
 
     var code: Str = _normalize_airplane_include_prefixes(pre.get_processed_code());
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, code);
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(code);
     assert_eq_i64(runner.run().code, result.Result.success().code);
     assert_eq_u64(runner.get_diagnostics().len(), 0u);
     assert_true(runner.get_parse_tree() != null);
 
-    print(parser_tree.dump_parse_tree((Obj)runner.get_parse_tree()));
+    print(parser_dumper.dump_parse_tree(runner.get_parse_tree()));
 }
 
 fn test_fibonacci_preprocessed_file_parses() -> unit {
@@ -166,7 +161,7 @@ fn test_missing_semicolon_reports_parse_error() -> unit {
     var cfg: settings.Settings = settings.Settings.mock();
     cfg.set_input_filename("missing_semicolon.traci");
 
-    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner(cfg, "17+23");
+    var runner: parser_runner.ParserRunner = parser_runner.ParserRunner("17+23", cfg.get_input_filename());
     assert_eq_i64(runner.run().code, result.Result.parse_error().code);
     assert_eq_u64(runner.get_diagnostics().len(), 1u);
     println(runner.get_diagnostics().get(0).full_msg());

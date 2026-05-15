@@ -1,0 +1,8 @@
+import std.io;
+import proj.traci_nif.main.Main;
+import proj.traci_nif.main.Result;
+
+fn main() -> i64 {
+    var result: Result = run(read_program_args());
+    return result.code;
+}

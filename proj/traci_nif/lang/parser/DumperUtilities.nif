@@ -1,0 +1,59 @@
+import std.io;
+import std.str;
+import proj.traci_nif.main.Result;
+import proj.traci_nif.lang.parser.IncludeLocation;
+
+export fn escape_text(value: Str) -> Str {
+    if value == null {
+        return "<null>";
+    }
+
+    var out: StrBuf = StrBuf.new(value.len() + 8u);
+    var i: i64 = 0;
+    while (u64)i < value.len() {
+        var ch: u8 = value[i];
+        if ch == '\n' {
+            out.append("\\n");
+        }
+        else if ch == '\r' {
+            out.append("\\r");
+        }
+        else if ch == '\t' {
+            out.append("\\t");
+        }
+        else if ch == '\\' {
+            out.append("\\\\");
+        }
+        else if ch == '"' {
+            out.append("\\\"");
+        }
+        else {
+            out.append_char(ch);
+        }
+        i = i + 1;
+    }
+    return out.to_str();
+}
+
+export fn append_location(out: StrBuf, location: IncludeLocation) -> unit {
+    if location == null {
+        out.append("-|-|-");
+        return;
+    }
+
+    out.append(location.file_location.render());
+    out.append_char('|');
+    out.append_u64(location.include_depth());
+    out.append_char('|');
+    if location.include_depth() == 0u {
+        out.append("-");
+    }
+    else {
+        out.append(location.get_include_frame((i64)location.include_depth() - 1).render());
+    }
+}
+
+export fn save_output(output_filename: Str, text: Str, output_label: Str) -> Result {
+    write_file(output_filename, text);
+    return Result.success();
+}

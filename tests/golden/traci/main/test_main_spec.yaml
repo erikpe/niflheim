@@ -15,3 +15,39 @@ tests:
         expect:
           exit_code: 0
           stdout: "tokens=PPLINE,EOF|scene_functions=1|scene_statements=1|root_functions=1|root_statements=1|first_function=fib|first_statement=ReturnNode\n"
+      - name: "main_run_treewalks_supported_pipeline"
+        input:
+          args: ["main_run"]
+        expect:
+          exit_code: 0
+          stdout: "main_result=SUCCESS(0)\n"
+      - name: "main_run_writes_all_supported_dumps"
+        input:
+          args: ["main_dumps"]
+        expect:
+          exit_code: 0
+          stdout: "dump_result=SUCCESS(0)|pre=208|lex=5658|parse=2327|node=1986\n"
+      - name: "help_prints_supported_usage"
+        input:
+          args: ["help"]
+        expect:
+          exit_code: 0
+          stdout: |
+            Usage: traci [options] <input file>
+
+            Options:
+              --help                     show help
+              --debug                    enable debug messages
+              -D NAME=VALUE              define macro for preprocessor
+              -I DIR                     directory to search in for includes
+              --preprocessor-output FILE save preprocessed code to file
+              --lexer-output FILE        save lexer token dump to file
+              --parser-output FILE       save parser tree dump to file
+              --node-tree-output FILE    save interpreter node tree dump to file
+              --stop-after PHASE         stop after phase: preprocessor, lexer, parser, treewalker
+      - name: "stop_after_stops_after_selected_phase_and_keeps_phase_dump"
+        input:
+          args: ["stop_after"]
+        expect:
+          exit_code: 0
+          stdout: "stop_after=pre:208|lex:5658|parser:2327|tree:1986\n"
